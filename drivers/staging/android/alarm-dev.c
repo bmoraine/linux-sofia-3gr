@@ -134,10 +134,8 @@ static int alarm_wait(void)
 
 	spin_lock_irqsave(&alarm_slock, flags);
 	alarm_dbg(IO, "alarm wait\n");
-	if (!alarm_pending && wait_pending) {
-		__pm_relax(&alarm_wake_lock);
+	if (!alarm_pending && wait_pending)
 		wait_pending = 0;
-	}
 	spin_unlock_irqrestore(&alarm_slock, flags);
 
 	rv = wait_event_interruptible(alarm_wait_queue, alarm_pending);
