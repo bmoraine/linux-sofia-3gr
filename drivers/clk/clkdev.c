@@ -1,5 +1,6 @@
 /*
  * drivers/clk/clkdev.c
+ * Copyright (c) 2014 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2008 Russell King.
  *
@@ -197,8 +198,8 @@ void __init clkdev_add_table(struct clk_lookup *cl, size_t num)
 	mutex_unlock(&clocks_mutex);
 }
 
-#define MAX_DEV_ID	20
-#define MAX_CON_ID	16
+#define MAX_DEV_ID	32
+#define MAX_CON_ID	32
 
 struct clk_lookup_alloc {
 	struct clk_lookup cl;

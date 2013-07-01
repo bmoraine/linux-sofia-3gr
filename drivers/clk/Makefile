@@ -1,4 +1,5 @@
 # common clock types
+subdir-ccflags-$(CONFIG_COMMON_CLK_VERBOSE) := -DDEBUG
 obj-$(CONFIG_HAVE_CLK)		+= clk-devres.o
 obj-$(CONFIG_CLKDEV_LOOKUP)	+= clkdev.o
 obj-$(CONFIG_COMMON_CLK)	+= clk.o
@@ -50,3 +51,5 @@ obj-$(CONFIG_ARCH_U8500)		+= ux500/
 obj-$(CONFIG_COMMON_CLK_VERSATILE)	+= versatile/
 obj-$(CONFIG_X86)			+= x86/
 obj-$(CONFIG_ARCH_ZYNQ)			+= zynq/
+obj-$(CONFIG_X86_INTEL_XGOLD)		+= xgold/
+
