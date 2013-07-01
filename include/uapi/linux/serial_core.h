@@ -1,6 +1,7 @@
 /*
  *  linux/drivers/char/serial_core.h
  *
+ *  Copyright (C) 2014 Intel Mobile Communications GmbH
  *  Copyright (C) 2000 Deep Blue Solutions Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -237,5 +238,8 @@
 
 /* Tilera TILE-Gx UART */
 #define PORT_TILEGX	106
+
+/* Intel USIF */
+#define PORT_XGOLD_USIF 128
 
 #endif /* _UAPILINUX_SERIAL_CORE_H */

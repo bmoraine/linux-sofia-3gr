@@ -1429,6 +1429,43 @@ config SERIAL_TILEGX
 	  This device provides access to the on-chip UARTs on the TILE-Gx
 	  processor.
 
+config SERIAL_XGOLD
+	bool "XGOLD Serial"
+	depends on X86_INTEL_XGOLD
+	select SERIAL_CORE
+	help
+	 This is the XGOLD SoC serial uart.
+	 The hardware is based on a proprietary IP called USIF
+	 The USIF can be configured as UART or SPI master/slave.
+ 	 This option selects UART mode.
+
+config CONFIG_SERIAL_XGOLD_PM_RUNTIME
+	bool "Enable PM runtime operation on XGOLD serial driver"
+	default n
+	depends on SERIAL_XGOLD && PM_RUNTIME
+	help
+	  This will enable PM runtime in XGOLD serial driver.
+
+config SERIAL_XGOLD_PLATFORM
+	bool "Registration of XGOLD serial core driver through platform bus"
+	depends on SERIAL_XGOLD
+	help
+	 Say yes if you want the XGOLD serial driver
+	 to be registered through platform bus,
+	 using various device tree configuration options.
+         This will use the xgold_serial core driver.
+
+config SERIAL_XGOLD_CONSOLE
+	bool "Support for console on XGOLD serial port"
+	depends on SERIAL_XGOLD=y
+	select SERIAL_CORE_CONSOLE
+	help
+	  Enable system console on XGOLD UART
+	  The fifo operation mode will be forced to PIO mode.
+          Using the console with DMA mode is not yet possible,
+	  because of the tricky operation to halt the DMA to insert
+	  console characters during operations
+
 config SERIAL_ARC
 	tristate "ARC UART driver support"
 	select SERIAL_CORE
