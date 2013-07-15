@@ -15,3 +15,26 @@
 # IDI Controller support
 #
 
+config IDI_IMC
+       tristate "IDI IMC controller"
+       help
+        If you say yes to this option, support will be include for the IMC IDI
+        controller.
+
+if IDI_IMC
+choice
+	prompt "IDI bus parent"
+
+config IDI_IMC_PCI
+	bool "PCI bus"
+	depends on PCI
+    help
+	Select this option to be registered as a PCI driver
+
+config IDI_IMC_PLATFORM
+	bool "Platform bus"
+    help
+	Select this option to be registered as a platform driver
+
+endchoice
+endif
