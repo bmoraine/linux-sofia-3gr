@@ -15,3 +15,10 @@
 # IDI client support
 #
 
+config IDI_AG6X0
+       tristate "IDI AGold 6x0 support"
+       help
+	This option enables the support for the AGold 6x0 devices.
+	This can be AG610 with 2G/3G RF, BT, PMU and FMR devices,
+	or AG620 with 2G/3G RF, BT, PMU, WIFI, GNSS and FMR devices.
+	This will register a IDI client device within the IDI subsystem.

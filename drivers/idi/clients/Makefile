@@ -13,4 +13,8 @@
 
 #ccflags-$(CONFIG_IDI_DEBUG) := -DDEBUG
 
+#
+# AG6x0 : AG610,AG620
+#
+obj-$(CONFIG_IDI_AG6X0) += ag6x0.o
 
