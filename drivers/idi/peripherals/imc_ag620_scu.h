@@ -1,0 +1,2197 @@
+/*
+ * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#define SCU_SWID_OFFSET 	  0x1c
+#define SCU_SWID(_base) ((_base) + 0x1c)
+	#define SCU_SWID_CHKS_OFFSET 0x0
+	#define SCU_SWID_CHKS_WIDTH 0x20
+	#define SCU_SWID_CHKS_MASK 0xffffffff
+	#define SCU_SWID_CHKS(_reg) (((_reg) & 0xffffffff) >> 0x0)
+
+#define SCU_RSTMODS_OFFSET 	  0x100
+#define SCU_RSTMODS(_base) ((_base) + 0x100)
+	#define SCU_RSTMODS_IDIRST_OFFSET 0x0
+	#define SCU_RSTMODS_IDIRST_WIDTH 0x1
+	#define SCU_RSTMODS_IDIRST_MASK 0x1
+	#define SCU_RSTMODS_IDIRST(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_RSTMODS_IDIRST_NORST ( 0x0 << SCU_RSTMODS_IDIRST_OFFSET )
+		#define SCU_RSTMODS_IDIRST_RST ( 0x1 << SCU_RSTMODS_IDIRST_OFFSET )
+	#define SCU_RSTMODS_IDIRXRST_OFFSET 0x1
+	#define SCU_RSTMODS_IDIRXRST_WIDTH 0x1
+	#define SCU_RSTMODS_IDIRXRST_MASK 0x2
+	#define SCU_RSTMODS_IDIRXRST(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_RSTMODS_IDIRXRST_NORST ( 0x0 << SCU_RSTMODS_IDIRXRST_OFFSET )
+		#define SCU_RSTMODS_IDIRXRST_RST ( 0x1 << SCU_RSTMODS_IDIRXRST_OFFSET )
+	#define SCU_RSTMODS_RFRST_OFFSET 0x4
+	#define SCU_RSTMODS_RFRST_WIDTH 0x1
+	#define SCU_RSTMODS_RFRST_MASK 0x10
+	#define SCU_RSTMODS_RFRST(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_RSTMODS_RFRST_NORST ( 0x0 << SCU_RSTMODS_RFRST_OFFSET )
+		#define SCU_RSTMODS_RFRST_RST ( 0x1 << SCU_RSTMODS_RFRST_OFFSET )
+	#define SCU_RSTMODS_BTRST_OFFSET 0x5
+	#define SCU_RSTMODS_BTRST_WIDTH 0x1
+	#define SCU_RSTMODS_BTRST_MASK 0x20
+	#define SCU_RSTMODS_BTRST(_reg) (((_reg) & 0x20) >> 0x5)
+		#define SCU_RSTMODS_BTRST_NORST ( 0x0 << SCU_RSTMODS_BTRST_OFFSET )
+		#define SCU_RSTMODS_BTRST_RST ( 0x1 << SCU_RSTMODS_BTRST_OFFSET )
+	#define SCU_RSTMODS_BTIFRST_OFFSET 0x6
+	#define SCU_RSTMODS_BTIFRST_WIDTH 0x1
+	#define SCU_RSTMODS_BTIFRST_MASK 0x40
+	#define SCU_RSTMODS_BTIFRST(_reg) (((_reg) & 0x40) >> 0x6)
+		#define SCU_RSTMODS_BTIFRST_NORST ( 0x0 << SCU_RSTMODS_BTIFRST_OFFSET )
+		#define SCU_RSTMODS_BTIFRST_RST ( 0x1 << SCU_RSTMODS_BTIFRST_OFFSET )
+	#define SCU_RSTMODS_BTAUDRST_OFFSET 0x7
+	#define SCU_RSTMODS_BTAUDRST_WIDTH 0x1
+	#define SCU_RSTMODS_BTAUDRST_MASK 0x80
+	#define SCU_RSTMODS_BTAUDRST(_reg) (((_reg) & 0x80) >> 0x7)
+		#define SCU_RSTMODS_BTAUDRST_NORST ( 0x0 << SCU_RSTMODS_BTAUDRST_OFFSET )
+		#define SCU_RSTMODS_BTAUDRST_RST ( 0x1 << SCU_RSTMODS_BTAUDRST_OFFSET )
+	#define SCU_RSTMODS_WLANIPRST_OFFSET 0x8
+	#define SCU_RSTMODS_WLANIPRST_WIDTH 0x1
+	#define SCU_RSTMODS_WLANIPRST_MASK 0x100
+	#define SCU_RSTMODS_WLANIPRST(_reg) (((_reg) & 0x100) >> 0x8)
+		#define SCU_RSTMODS_WLANIPRST_NORST ( 0x0 << SCU_RSTMODS_WLANIPRST_OFFSET )
+		#define SCU_RSTMODS_WLANIPRST_RST ( 0x1 << SCU_RSTMODS_WLANIPRST_OFFSET )
+	#define SCU_RSTMODS_WLANPMURST_OFFSET 0x9
+	#define SCU_RSTMODS_WLANPMURST_WIDTH 0x1
+	#define SCU_RSTMODS_WLANPMURST_MASK 0x200
+	#define SCU_RSTMODS_WLANPMURST(_reg) (((_reg) & 0x200) >> 0x9)
+		#define SCU_RSTMODS_WLANPMURST_NORST ( 0x0 << SCU_RSTMODS_WLANPMURST_OFFSET )
+		#define SCU_RSTMODS_WLANPMURST_RST ( 0x1 << SCU_RSTMODS_WLANPMURST_OFFSET )
+	#define SCU_RSTMODS_STARBRST_OFFSET 0xa
+	#define SCU_RSTMODS_STARBRST_WIDTH 0x1
+	#define SCU_RSTMODS_STARBRST_MASK 0x400
+	#define SCU_RSTMODS_STARBRST(_reg) (((_reg) & 0x400) >> 0xa)
+		#define SCU_RSTMODS_STARBRST_NORST ( 0x0 << SCU_RSTMODS_STARBRST_OFFSET )
+		#define SCU_RSTMODS_STARBRST_RST ( 0x1 << SCU_RSTMODS_STARBRST_OFFSET )
+	#define SCU_RSTMODS_TSMURST_OFFSET 0xb
+	#define SCU_RSTMODS_TSMURST_WIDTH 0x1
+	#define SCU_RSTMODS_TSMURST_MASK 0x800
+	#define SCU_RSTMODS_TSMURST(_reg) (((_reg) & 0x800) >> 0xb)
+		#define SCU_RSTMODS_TSMURST_NORST ( 0x0 << SCU_RSTMODS_TSMURST_OFFSET )
+		#define SCU_RSTMODS_TSMURST_RST ( 0x1 << SCU_RSTMODS_TSMURST_OFFSET )
+	#define SCU_RSTMODS_FMRRST_OFFSET 0xc
+	#define SCU_RSTMODS_FMRRST_WIDTH 0x1
+	#define SCU_RSTMODS_FMRRST_MASK 0x1000
+	#define SCU_RSTMODS_FMRRST(_reg) (((_reg) & 0x1000) >> 0xc)
+		#define SCU_RSTMODS_FMRRST_NORST ( 0x0 << SCU_RSTMODS_FMRRST_OFFSET )
+		#define SCU_RSTMODS_FMRRST_RST ( 0x1 << SCU_RSTMODS_FMRRST_OFFSET )
+	#define SCU_RSTMODS_RTCRST_OFFSET 0xe
+	#define SCU_RSTMODS_RTCRST_WIDTH 0x1
+	#define SCU_RSTMODS_RTCRST_MASK 0x4000
+	#define SCU_RSTMODS_RTCRST(_reg) (((_reg) & 0x4000) >> 0xe)
+		#define SCU_RSTMODS_RTCRST_NORST ( 0x0 << SCU_RSTMODS_RTCRST_OFFSET )
+		#define SCU_RSTMODS_RTCRST_RST ( 0x1 << SCU_RSTMODS_RTCRST_OFFSET )
+	#define SCU_RSTMODS_SPCURST_OFFSET 0xf
+	#define SCU_RSTMODS_SPCURST_WIDTH 0x1
+	#define SCU_RSTMODS_SPCURST_MASK 0x8000
+	#define SCU_RSTMODS_SPCURST(_reg) (((_reg) & 0x8000) >> 0xf)
+		#define SCU_RSTMODS_SPCURST_NORST ( 0x0 << SCU_RSTMODS_SPCURST_OFFSET )
+		#define SCU_RSTMODS_SPCURST_RST ( 0x1 << SCU_RSTMODS_SPCURST_OFFSET )
+	#define SCU_RSTMODS_SCURST_OFFSET 0x11
+	#define SCU_RSTMODS_SCURST_WIDTH 0x1
+	#define SCU_RSTMODS_SCURST_MASK 0x20000
+	#define SCU_RSTMODS_SCURST(_reg) (((_reg) & 0x20000) >> 0x11)
+		#define SCU_RSTMODS_SCURST_NORST ( 0x0 << SCU_RSTMODS_SCURST_OFFSET )
+		#define SCU_RSTMODS_SCURST_RST ( 0x1 << SCU_RSTMODS_SCURST_OFFSET )
+	#define SCU_RSTMODS_I2CRST_OFFSET 0x12
+	#define SCU_RSTMODS_I2CRST_WIDTH 0x1
+	#define SCU_RSTMODS_I2CRST_MASK 0x40000
+	#define SCU_RSTMODS_I2CRST(_reg) (((_reg) & 0x40000) >> 0x12)
+		#define SCU_RSTMODS_I2CRST_NORST ( 0x0 << SCU_RSTMODS_I2CRST_OFFSET )
+		#define SCU_RSTMODS_I2CRST_RST ( 0x1 << SCU_RSTMODS_I2CRST_OFFSET )
+	#define SCU_RSTMODS_PMURST_OFFSET 0x14
+	#define SCU_RSTMODS_PMURST_WIDTH 0x1
+	#define SCU_RSTMODS_PMURST_MASK 0x100000
+	#define SCU_RSTMODS_PMURST(_reg) (((_reg) & 0x100000) >> 0x14)
+		#define SCU_RSTMODS_PMURST_NORST ( 0x0 << SCU_RSTMODS_PMURST_OFFSET )
+		#define SCU_RSTMODS_PMURST_RST ( 0x1 << SCU_RSTMODS_PMURST_OFFSET )
+	#define SCU_RSTMODS_PCLRST_OFFSET 0x15
+	#define SCU_RSTMODS_PCLRST_WIDTH 0x1
+	#define SCU_RSTMODS_PCLRST_MASK 0x200000
+	#define SCU_RSTMODS_PCLRST(_reg) (((_reg) & 0x200000) >> 0x15)
+		#define SCU_RSTMODS_PCLRST_NORST ( 0x0 << SCU_RSTMODS_PCLRST_OFFSET )
+		#define SCU_RSTMODS_PCLRST_RST ( 0x1 << SCU_RSTMODS_PCLRST_OFFSET )
+	#define SCU_RSTMODS_AFERST_OFFSET 0x16
+	#define SCU_RSTMODS_AFERST_WIDTH 0x1
+	#define SCU_RSTMODS_AFERST_MASK 0x400000
+	#define SCU_RSTMODS_AFERST(_reg) (((_reg) & 0x400000) >> 0x16)
+		#define SCU_RSTMODS_AFERST_NORST ( 0x0 << SCU_RSTMODS_AFERST_OFFSET )
+		#define SCU_RSTMODS_AFERST_RST ( 0x1 << SCU_RSTMODS_AFERST_OFFSET )
+	#define SCU_RSTMODS_ACIRST_OFFSET 0x17
+	#define SCU_RSTMODS_ACIRST_WIDTH 0x1
+	#define SCU_RSTMODS_ACIRST_MASK 0x800000
+	#define SCU_RSTMODS_ACIRST(_reg) (((_reg) & 0x800000) >> 0x17)
+		#define SCU_RSTMODS_ACIRST_NORST ( 0x0 << SCU_RSTMODS_ACIRST_OFFSET )
+		#define SCU_RSTMODS_ACIRST_RST ( 0x1 << SCU_RSTMODS_ACIRST_OFFSET )
+
+#define SCU_RTCIF_OFFSET 	  0x104
+#define SCU_RTCIF(_base) ((_base) + 0x104)
+	#define SCU_RTCIF_RTCIFEN_OFFSET 0x0
+	#define SCU_RTCIF_RTCIFEN_WIDTH 0x8
+	#define SCU_RTCIF_RTCIFEN_MASK 0xff
+	#define SCU_RTCIF_RTCIFEN(_reg) (((_reg) & 0xff) >> 0x0)
+
+#define SCU_SP_PUR_OFFSET 	  0x108
+#define SCU_SP_PUR(_base) ((_base) + 0x108)
+	#define SCU_SP_PUR_SP_PUR_OFFSET 0x0
+	#define SCU_SP_PUR_SP_PUR_WIDTH 0x20
+	#define SCU_SP_PUR_SP_PUR_MASK 0xffffffff
+	#define SCU_SP_PUR_SP_PUR(_reg) (((_reg) & 0xffffffff) >> 0x0)
+
+#define SCU_MOD_ID_OFFSET 	  0xc
+#define SCU_MOD_ID(_base) ((_base) + 0xc)
+	#define SCU_MOD_ID_REV_OFFSET 0x0
+	#define SCU_MOD_ID_REV_WIDTH 0x8
+	#define SCU_MOD_ID_REV_MASK 0xff
+	#define SCU_MOD_ID_REV(_reg) (((_reg) & 0xff) >> 0x0)
+	#define SCU_MOD_ID_MODID_OFFSET 0x8
+	#define SCU_MOD_ID_MODID_WIDTH 0x8
+	#define SCU_MOD_ID_MODID_MASK 0xff00
+	#define SCU_MOD_ID_MODID(_reg) (((_reg) & 0xff00) >> 0x8)
+	#define SCU_MOD_ID_TS_REV_NR_OFFSET 0x10
+	#define SCU_MOD_ID_TS_REV_NR_WIDTH 0x10
+	#define SCU_MOD_ID_TS_REV_NR_MASK 0xffff0000
+	#define SCU_MOD_ID_TS_REV_NR(_reg) (((_reg) & 0xffff0000) >> 0x10)
+
+#define SCU_MAN_ID_OFFSET 	  0x120
+#define SCU_MAN_ID(_base) ((_base) + 0x120)
+	#define SCU_MAN_ID_DPTID_OFFSET 0x0
+	#define SCU_MAN_ID_DPTID_WIDTH 0x4
+	#define SCU_MAN_ID_DPTID_MASK 0xf
+	#define SCU_MAN_ID_DPTID(_reg) (((_reg) & 0xf) >> 0x0)
+	#define SCU_MAN_ID_MANUFID_OFFSET 0x4
+	#define SCU_MAN_ID_MANUFID_WIDTH 0xc
+	#define SCU_MAN_ID_MANUFID_MASK 0xfff0
+	#define SCU_MAN_ID_MANUFID(_reg) (((_reg) & 0xfff0) >> 0x4)
+
+#define SCU_CHIP_ID_OFFSET 	  0x128
+#define SCU_CHIP_ID(_base) ((_base) + 0x128)
+	#define SCU_CHIP_ID_CHREV_OFFSET 0x0
+	#define SCU_CHIP_ID_CHREV_WIDTH 0x8
+	#define SCU_CHIP_ID_CHREV_MASK 0xff
+	#define SCU_CHIP_ID_CHREV(_reg) (((_reg) & 0xff) >> 0x0)
+	#define SCU_CHIP_ID_CHID_OFFSET 0x8
+	#define SCU_CHIP_ID_CHID_WIDTH 0x8
+	#define SCU_CHIP_ID_CHID_MASK 0xff00
+	#define SCU_CHIP_ID_CHID(_reg) (((_reg) & 0xff00) >> 0x8)
+
+#define SCU_WOSEC_OFFSET 	  0x110
+#define SCU_WOSEC(_base) ((_base) + 0x110)
+	#define SCU_WOSEC_RF_LOCKOFF_OFFSET 0x0
+	#define SCU_WOSEC_RF_LOCKOFF_WIDTH 0x1
+	#define SCU_WOSEC_RF_LOCKOFF_MASK 0x1
+	#define SCU_WOSEC_RF_LOCKOFF(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_WOSEC_RF_LOCKOFF_ENABLED ( 0x0 << SCU_WOSEC_RF_LOCKOFF_OFFSET )
+		#define SCU_WOSEC_RF_LOCKOFF_DISABLED ( 0x1 << SCU_WOSEC_RF_LOCKOFF_OFFSET )
+	#define SCU_WOSEC_DBG_LOCKOFF_OFFSET 0x1
+	#define SCU_WOSEC_DBG_LOCKOFF_WIDTH 0x1
+	#define SCU_WOSEC_DBG_LOCKOFF_MASK 0x2
+	#define SCU_WOSEC_DBG_LOCKOFF(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_WOSEC_DBG_LOCKOFF_ENABLED ( 0x0 << SCU_WOSEC_DBG_LOCKOFF_OFFSET )
+		#define SCU_WOSEC_DBG_LOCKOFF_DISABLED ( 0x1 << SCU_WOSEC_DBG_LOCKOFF_OFFSET )
+
+#define SCU_AUX_OFFSET 	  0x114
+#define SCU_AUX(_base) ((_base) + 0x114)
+	#define SCU_AUX_SECDBG_OFFSET 0x0
+	#define SCU_AUX_SECDBG_WIDTH 0x1
+	#define SCU_AUX_SECDBG_MASK 0x1
+	#define SCU_AUX_SECDBG(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_AUX_SECDBG_DISABLED ( 0x0 << SCU_AUX_SECDBG_OFFSET )
+		#define SCU_AUX_SECDBG_ENABLED ( 0x1 << SCU_AUX_SECDBG_OFFSET )
+	#define SCU_AUX_DBG_DIS_OFFSET 0x1
+	#define SCU_AUX_DBG_DIS_WIDTH 0x1
+	#define SCU_AUX_DBG_DIS_MASK 0x2
+	#define SCU_AUX_DBG_DIS(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_AUX_DBG_DIS_ENABLED ( 0x0 << SCU_AUX_DBG_DIS_OFFSET )
+		#define SCU_AUX_DBG_DIS_DISABLED ( 0x1 << SCU_AUX_DBG_DIS_OFFSET )
+	#define SCU_AUX_RPA2_PROT_OFFSET 0x2
+	#define SCU_AUX_RPA2_PROT_WIDTH 0x1
+	#define SCU_AUX_RPA2_PROT_MASK 0x4
+	#define SCU_AUX_RPA2_PROT(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_AUX_RPA2_PROT_NOT_LOCKED ( 0x0 << SCU_AUX_RPA2_PROT_OFFSET )
+		#define SCU_AUX_RPA2_PROT_LOCKED ( 0x1 << SCU_AUX_RPA2_PROT_OFFSET )
+
+#define SCU_CFGAUX_OFFSET 	  0x118
+#define SCU_CFGAUX(_base) ((_base) + 0x118)
+	#define SCU_CFGAUX_SECDBG_OFFSET 0x0
+	#define SCU_CFGAUX_SECDBG_WIDTH 0x1
+	#define SCU_CFGAUX_SECDBG_MASK 0x1
+	#define SCU_CFGAUX_SECDBG(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_CFGAUX_SECDBG_DISABLED ( 0x0 << SCU_CFGAUX_SECDBG_OFFSET )
+		#define SCU_CFGAUX_SECDBG_ENABLED ( 0x1 << SCU_CFGAUX_SECDBG_OFFSET )
+	#define SCU_CFGAUX_DBG_DIS_OFFSET 0x1
+	#define SCU_CFGAUX_DBG_DIS_WIDTH 0x1
+	#define SCU_CFGAUX_DBG_DIS_MASK 0x2
+	#define SCU_CFGAUX_DBG_DIS(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_CFGAUX_DBG_DIS_ENABLED ( 0x0 << SCU_CFGAUX_DBG_DIS_OFFSET )
+		#define SCU_CFGAUX_DBG_DIS_DISABLED ( 0x1 << SCU_CFGAUX_DBG_DIS_OFFSET )
+	#define SCU_CFGAUX_RPA2_PROT_OFFSET 0x2
+	#define SCU_CFGAUX_RPA2_PROT_WIDTH 0x1
+	#define SCU_CFGAUX_RPA2_PROT_MASK 0x4
+	#define SCU_CFGAUX_RPA2_PROT(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_CFGAUX_RPA2_PROT_NOT_LOCKED ( 0x0 << SCU_CFGAUX_RPA2_PROT_OFFSET )
+		#define SCU_CFGAUX_RPA2_PROT_LOCKED ( 0x1 << SCU_CFGAUX_RPA2_PROT_OFFSET )
+
+#define SCU_DEBUG_OFFSET 	  0x11c
+#define SCU_DEBUG(_base) ((_base) + 0x11c)
+	#define SCU_DEBUG_DBG_EN_OFFSET 0x0
+	#define SCU_DEBUG_DBG_EN_WIDTH 0x1
+	#define SCU_DEBUG_DBG_EN_MASK 0x1
+	#define SCU_DEBUG_DBG_EN(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_DEBUG_DBG_EN_DISABLED ( 0x0 << SCU_DEBUG_DBG_EN_OFFSET )
+		#define SCU_DEBUG_DBG_EN_ENABLED ( 0x1 << SCU_DEBUG_DBG_EN_OFFSET )
+	#define SCU_DEBUG_RXTXPATHMUX_OFFSET 0x1
+	#define SCU_DEBUG_RXTXPATHMUX_WIDTH 0x2
+	#define SCU_DEBUG_RXTXPATHMUX_MASK 0x6
+	#define SCU_DEBUG_RXTXPATHMUX(_reg) (((_reg) & 0x6) >> 0x1)
+		#define SCU_DEBUG_RXTXPATHMUX_FMR ( 0x0 << SCU_DEBUG_RXTXPATHMUX_OFFSET )
+		#define SCU_DEBUG_RXTXPATHMUX_BT ( 0x1 << SCU_DEBUG_RXTXPATHMUX_OFFSET )
+		#define SCU_DEBUG_RXTXPATHMUX_AFE1 ( 0x2 << SCU_DEBUG_RXTXPATHMUX_OFFSET )
+		#define SCU_DEBUG_RXTXPATHMUX_AFE2 ( 0x3 << SCU_DEBUG_RXTXPATHMUX_OFFSET )
+	#define SCU_DEBUG_RTCK_MUX_OFFSET 0x3
+	#define SCU_DEBUG_RTCK_MUX_WIDTH 0x1
+	#define SCU_DEBUG_RTCK_MUX_MASK 0x8
+	#define SCU_DEBUG_RTCK_MUX(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_DEBUG_RTCK_MUX_BT ( 0x0 << SCU_DEBUG_RTCK_MUX_OFFSET )
+		#define SCU_DEBUG_RTCK_MUX_DAP ( 0x1 << SCU_DEBUG_RTCK_MUX_OFFSET )
+	#define SCU_DEBUG_DAP_COUT_OFFSET 0x4
+	#define SCU_DEBUG_DAP_COUT_WIDTH 0xb
+	#define SCU_DEBUG_DAP_COUT_MASK 0x7ff0
+	#define SCU_DEBUG_DAP_COUT(_reg) (((_reg) & 0x7ff0) >> 0x4)
+	#define SCU_DEBUG_BT_RTCK_DIV_OFFSET 0x10
+	#define SCU_DEBUG_BT_RTCK_DIV_WIDTH 0x2
+	#define SCU_DEBUG_BT_RTCK_DIV_MASK 0x30000
+	#define SCU_DEBUG_BT_RTCK_DIV(_reg) (((_reg) & 0x30000) >> 0x10)
+		#define SCU_DEBUG_BT_RTCK_DIV_NO_DIVISION ( 0x0 << SCU_DEBUG_BT_RTCK_DIV_OFFSET )
+		#define SCU_DEBUG_BT_RTCK_DIV_DIV2 ( 0x1 << SCU_DEBUG_BT_RTCK_DIV_OFFSET )
+		#define SCU_DEBUG_BT_RTCK_DIV_DIV4 ( 0x2 << SCU_DEBUG_BT_RTCK_DIV_OFFSET )
+
+#define SCU_SP0_OFFSET 	  0x22c
+#define SCU_SP0(_base) ((_base) + 0x22c)
+	#define SCU_SP0_SP0_OFFSET 0x0
+	#define SCU_SP0_SP0_WIDTH 0x2
+	#define SCU_SP0_SP0_MASK 0x3
+	#define SCU_SP0_SP0(_reg) (((_reg) & 0x3) >> 0x0)
+	#define SCU_SP0_SP1_OFFSET 0x4
+	#define SCU_SP0_SP1_WIDTH 0x2
+	#define SCU_SP0_SP1_MASK 0x30
+	#define SCU_SP0_SP1(_reg) (((_reg) & 0x30) >> 0x4)
+
+#define SCU_SP2_OFFSET 	  0x230
+#define SCU_SP2(_base) ((_base) + 0x230)
+	#define SCU_SP2_SP2_OFFSET 0x0
+	#define SCU_SP2_SP2_WIDTH 0x2
+	#define SCU_SP2_SP2_MASK 0x3
+	#define SCU_SP2_SP2(_reg) (((_reg) & 0x3) >> 0x0)
+	#define SCU_SP2_SP3_OFFSET 0x4
+	#define SCU_SP2_SP3_WIDTH 0x2
+	#define SCU_SP2_SP3_MASK 0x30
+	#define SCU_SP2_SP3(_reg) (((_reg) & 0x30) >> 0x4)
+
+#define SCU_SP4_OFFSET 	  0x234
+#define SCU_SP4(_base) ((_base) + 0x234)
+	#define SCU_SP4_SP4_OFFSET 0x0
+	#define SCU_SP4_SP4_WIDTH 0x2
+	#define SCU_SP4_SP4_MASK 0x3
+	#define SCU_SP4_SP4(_reg) (((_reg) & 0x3) >> 0x0)
+	#define SCU_SP4_SP5_OFFSET 0x4
+	#define SCU_SP4_SP5_WIDTH 0x2
+	#define SCU_SP4_SP5_MASK 0x30
+	#define SCU_SP4_SP5(_reg) (((_reg) & 0x30) >> 0x4)
+
+#define SCU_SNUM1_OFFSET 	  0x300
+#define SCU_SNUM1(_base) ((_base) + 0x300)
+	#define SCU_SNUM1_CHIPID1_OFFSET 0x0
+	#define SCU_SNUM1_CHIPID1_WIDTH 0x20
+	#define SCU_SNUM1_CHIPID1_MASK 0xffffffff
+	#define SCU_SNUM1_CHIPID1(_reg) (((_reg) & 0xffffffff) >> 0x0)
+
+#define SCU_SNUM2_OFFSET 	  0x304
+#define SCU_SNUM2(_base) ((_base) + 0x304)
+	#define SCU_SNUM2_CHIPID2_OFFSET 0x0
+	#define SCU_SNUM2_CHIPID2_WIDTH 0x20
+	#define SCU_SNUM2_CHIPID2_MASK 0xffffffff
+	#define SCU_SNUM2_CHIPID2(_reg) (((_reg) & 0xffffffff) >> 0x0)
+
+#define SCU_SNUM3_OFFSET 	  0x308
+#define SCU_SNUM3(_base) ((_base) + 0x308)
+	#define SCU_SNUM3_CHIPID3_OFFSET 0x0
+	#define SCU_SNUM3_CHIPID3_WIDTH 0x20
+	#define SCU_SNUM3_CHIPID3_MASK 0xffffffff
+	#define SCU_SNUM3_CHIPID3(_reg) (((_reg) & 0xffffffff) >> 0x0)
+
+#define SCU_AUX_MISC_OFFSET 	  0x30c
+#define SCU_AUX_MISC(_base) ((_base) + 0x30c)
+	#define SCU_AUX_MISC_REV_OFFSET 0x0
+	#define SCU_AUX_MISC_REV_WIDTH 0x3
+	#define SCU_AUX_MISC_REV_MASK 0x7
+	#define SCU_AUX_MISC_REV(_reg) (((_reg) & 0x7) >> 0x0)
+	#define SCU_AUX_MISC_SPARE_OFFSET 0x10
+	#define SCU_AUX_MISC_SPARE_WIDTH 0x10
+	#define SCU_AUX_MISC_SPARE_MASK 0xffff0000
+	#define SCU_AUX_MISC_SPARE(_reg) (((_reg) & 0xffff0000) >> 0x10)
+
+#define SCU_FUSE_CFG_OFFSET 	  0x310
+#define SCU_FUSE_CFG(_base) ((_base) + 0x310)
+	#define SCU_FUSE_CFG_PROG_OFFSET 0x1
+	#define SCU_FUSE_CFG_PROG_WIDTH 0x1
+	#define SCU_FUSE_CFG_PROG_MASK 0x2
+	#define SCU_FUSE_CFG_PROG(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_FUSE_CFG_PROG_NOACTION ( 0x0 << SCU_FUSE_CFG_PROG_OFFSET )
+		#define SCU_FUSE_CFG_PROG_START ( 0x1 << SCU_FUSE_CFG_PROG_OFFSET )
+	#define SCU_FUSE_CFG_ACTS_OFFSET 0x2
+	#define SCU_FUSE_CFG_ACTS_WIDTH 0x1
+	#define SCU_FUSE_CFG_ACTS_MASK 0x4
+	#define SCU_FUSE_CFG_ACTS(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_FUSE_CFG_ACTS_NOACTION ( 0x0 << SCU_FUSE_CFG_ACTS_OFFSET )
+		#define SCU_FUSE_CFG_ACTS_ACTIVATE ( 0x1 << SCU_FUSE_CFG_ACTS_OFFSET )
+	#define SCU_FUSE_CFG_ACTF_OFFSET 0x3
+	#define SCU_FUSE_CFG_ACTF_WIDTH 0x1
+	#define SCU_FUSE_CFG_ACTF_MASK 0x8
+	#define SCU_FUSE_CFG_ACTF(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_FUSE_CFG_ACTF_NOACTION ( 0x0 << SCU_FUSE_CFG_ACTF_OFFSET )
+		#define SCU_FUSE_CFG_ACTF_ACTIVATE ( 0x1 << SCU_FUSE_CFG_ACTF_OFFSET )
+	#define SCU_FUSE_CFG_FEN_OFFSET 0x8
+	#define SCU_FUSE_CFG_FEN_WIDTH 0x1
+	#define SCU_FUSE_CFG_FEN_MASK 0x100
+	#define SCU_FUSE_CFG_FEN(_reg) (((_reg) & 0x100) >> 0x8)
+		#define SCU_FUSE_CFG_FEN_PADVALUE ( 0x0 << SCU_FUSE_CFG_FEN_OFFSET )
+		#define SCU_FUSE_CFG_FEN_REGISTERVALUE ( 0x1 << SCU_FUSE_CFG_FEN_OFFSET )
+	#define SCU_FUSE_CFG_FTM_OFFSET 0x9
+	#define SCU_FUSE_CFG_FTM_WIDTH 0x1
+	#define SCU_FUSE_CFG_FTM_MASK 0x200
+	#define SCU_FUSE_CFG_FTM(_reg) (((_reg) & 0x200) >> 0x9)
+		#define SCU_FUSE_CFG_FTM_PADVALUE ( 0x0 << SCU_FUSE_CFG_FTM_OFFSET )
+		#define SCU_FUSE_CFG_FTM_REGISTERVALUE ( 0x1 << SCU_FUSE_CFG_FTM_OFFSET )
+	#define SCU_FUSE_CFG_EN_OFFSET 0xa
+	#define SCU_FUSE_CFG_EN_WIDTH 0x1
+	#define SCU_FUSE_CFG_EN_MASK 0x400
+	#define SCU_FUSE_CFG_EN(_reg) (((_reg) & 0x400) >> 0xa)
+		#define SCU_FUSE_CFG_EN_NOACTION ( 0x0 << SCU_FUSE_CFG_EN_OFFSET )
+		#define SCU_FUSE_CFG_EN_ACTIVATE ( 0x1 << SCU_FUSE_CFG_EN_OFFSET )
+	#define SCU_FUSE_CFG_TM_OFFSET 0xb
+	#define SCU_FUSE_CFG_TM_WIDTH 0x1
+	#define SCU_FUSE_CFG_TM_MASK 0x800
+	#define SCU_FUSE_CFG_TM(_reg) (((_reg) & 0x800) >> 0xb)
+	#define SCU_FUSE_CFG_CSTA_OFFSET 0xc
+	#define SCU_FUSE_CFG_CSTA_WIDTH 0x1
+	#define SCU_FUSE_CFG_CSTA_MASK 0x1000
+	#define SCU_FUSE_CFG_CSTA(_reg) (((_reg) & 0x1000) >> 0xc)
+		#define SCU_FUSE_CFG_CSTA_NOACTION ( 0x0 << SCU_FUSE_CFG_CSTA_OFFSET )
+		#define SCU_FUSE_CFG_CSTA_CLEAR ( 0x1 << SCU_FUSE_CFG_CSTA_OFFSET )
+
+#define SCU_FUSE_STAT_OFFSET 	  0x314
+#define SCU_FUSE_STAT(_base) ((_base) + 0x314)
+	#define SCU_FUSE_STAT_ISSR_OFFSET 0x0
+	#define SCU_FUSE_STAT_ISSR_WIDTH 0x1
+	#define SCU_FUSE_STAT_ISSR_MASK 0x1
+	#define SCU_FUSE_STAT_ISSR(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_FUSE_STAT_ISSR_INPROGRESS ( 0x0 << SCU_FUSE_STAT_ISSR_OFFSET )
+		#define SCU_FUSE_STAT_ISSR_READY ( 0x1 << SCU_FUSE_STAT_ISSR_OFFSET )
+	#define SCU_FUSE_STAT_RDY_OFFSET 0x1
+	#define SCU_FUSE_STAT_RDY_WIDTH 0x1
+	#define SCU_FUSE_STAT_RDY_MASK 0x2
+	#define SCU_FUSE_STAT_RDY(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_FUSE_STAT_RDY_NOACTION ( 0x0 << SCU_FUSE_STAT_RDY_OFFSET )
+		#define SCU_FUSE_STAT_RDY_LASTACTIONRDY ( 0x1 << SCU_FUSE_STAT_RDY_OFFSET )
+
+#define SCU_BT_TRIM1_OFFSET 	  0x318
+#define SCU_BT_TRIM1(_base) ((_base) + 0x318)
+	#define SCU_BT_TRIM1_IDACBIAS_OFFSET 0x0
+	#define SCU_BT_TRIM1_IDACBIAS_WIDTH 0xa
+	#define SCU_BT_TRIM1_IDACBIAS_MASK 0x3ff
+	#define SCU_BT_TRIM1_IDACBIAS(_reg) (((_reg) & 0x3ff) >> 0x0)
+	#define SCU_BT_TRIM1_VALID_OFFSET 0x1f
+	#define SCU_BT_TRIM1_VALID_WIDTH 0x1
+	#define SCU_BT_TRIM1_VALID_MASK 0x80000000
+	#define SCU_BT_TRIM1_VALID(_reg) (((_reg) & 0x80000000) >> 0x1f)
+		#define SCU_BT_TRIM1_VALID_NOT_BLOWN ( 0x0 << SCU_BT_TRIM1_VALID_OFFSET )
+		#define SCU_BT_TRIM1_VALID_BLOWN ( 0x1 << SCU_BT_TRIM1_VALID_OFFSET )
+
+#define SCU_BT_TRIM2_OFFSET 	  0x31c
+#define SCU_BT_TRIM2(_base) ((_base) + 0x31c)
+	#define SCU_BT_TRIM2_KFREQ0_OFFSET 0x0
+	#define SCU_BT_TRIM2_KFREQ0_WIDTH 0x8
+	#define SCU_BT_TRIM2_KFREQ0_MASK 0xff
+	#define SCU_BT_TRIM2_KFREQ0(_reg) (((_reg) & 0xff) >> 0x0)
+	#define SCU_BT_TRIM2_KFREQ1_OFFSET 0x8
+	#define SCU_BT_TRIM2_KFREQ1_WIDTH 0x8
+	#define SCU_BT_TRIM2_KFREQ1_MASK 0xff00
+	#define SCU_BT_TRIM2_KFREQ1(_reg) (((_reg) & 0xff00) >> 0x8)
+	#define SCU_BT_TRIM2_KFREQ2_OFFSET 0x10
+	#define SCU_BT_TRIM2_KFREQ2_WIDTH 0x8
+	#define SCU_BT_TRIM2_KFREQ2_MASK 0xff0000
+	#define SCU_BT_TRIM2_KFREQ2(_reg) (((_reg) & 0xff0000) >> 0x10)
+	#define SCU_BT_TRIM2_KFREQ3_OFFSET 0x18
+	#define SCU_BT_TRIM2_KFREQ3_WIDTH 0x8
+	#define SCU_BT_TRIM2_KFREQ3_MASK 0xff000000
+	#define SCU_BT_TRIM2_KFREQ3(_reg) (((_reg) & 0xff000000) >> 0x18)
+
+#define SCU_HPBG_TRIM_OFFSET 	  0x320
+#define SCU_HPBG_TRIM(_base) ((_base) + 0x320)
+	#define SCU_HPBG_TRIM_VTRIM_OFFSET 0x0
+	#define SCU_HPBG_TRIM_VTRIM_WIDTH 0x8
+	#define SCU_HPBG_TRIM_VTRIM_MASK 0xff
+	#define SCU_HPBG_TRIM_VTRIM(_reg) (((_reg) & 0xff) >> 0x0)
+	#define SCU_HPBG_TRIM_ITRIM_OFFSET 0x8
+	#define SCU_HPBG_TRIM_ITRIM_WIDTH 0x6
+	#define SCU_HPBG_TRIM_ITRIM_MASK 0x3f00
+	#define SCU_HPBG_TRIM_ITRIM(_reg) (((_reg) & 0x3f00) >> 0x8)
+	#define SCU_HPBG_TRIM_LCTRIM_OFFSET 0x10
+	#define SCU_HPBG_TRIM_LCTRIM_WIDTH 0x4
+	#define SCU_HPBG_TRIM_LCTRIM_MASK 0xf0000
+	#define SCU_HPBG_TRIM_LCTRIM(_reg) (((_reg) & 0xf0000) >> 0x10)
+	#define SCU_HPBG_TRIM_LMEMTRIM_OFFSET 0x14
+	#define SCU_HPBG_TRIM_LMEMTRIM_WIDTH 0x4
+	#define SCU_HPBG_TRIM_LMEMTRIM_MASK 0xf00000
+	#define SCU_HPBG_TRIM_LMEMTRIM(_reg) (((_reg) & 0xf00000) >> 0x14)
+
+#define SCU_HPBG_SD12_TRIM_OFFSET 	  0x324
+#define SCU_HPBG_SD12_TRIM(_base) ((_base) + 0x324)
+	#define SCU_HPBG_SD12_TRIM_SD1TRIM_OFFSET 0x0
+	#define SCU_HPBG_SD12_TRIM_SD1TRIM_WIDTH 0x8
+	#define SCU_HPBG_SD12_TRIM_SD1TRIM_MASK 0xff
+	#define SCU_HPBG_SD12_TRIM_SD1TRIM(_reg) (((_reg) & 0xff) >> 0x0)
+	#define SCU_HPBG_SD12_TRIM_SD2TRIM_OFFSET 0x10
+	#define SCU_HPBG_SD12_TRIM_SD2TRIM_WIDTH 0x8
+	#define SCU_HPBG_SD12_TRIM_SD2TRIM_MASK 0xff0000
+	#define SCU_HPBG_SD12_TRIM_SD2TRIM(_reg) (((_reg) & 0xff0000) >> 0x10)
+
+#define SCU_EXT_R_TRIM_OFFSET 	  0x328
+#define SCU_EXT_R_TRIM(_base) ((_base) + 0x328)
+	#define SCU_EXT_R_TRIM_RTRIM_OFFSET 0x0
+	#define SCU_EXT_R_TRIM_RTRIM_WIDTH 0x5
+	#define SCU_EXT_R_TRIM_RTRIM_MASK 0x1f
+	#define SCU_EXT_R_TRIM_RTRIM(_reg) (((_reg) & 0x1f) >> 0x0)
+
+#define SCU_TRIM_VALID_OFFSET 	  0x32c
+#define SCU_TRIM_VALID(_base) ((_base) + 0x32c)
+	#define SCU_TRIM_VALID_HPBG_VALID_OFFSET 0x0
+	#define SCU_TRIM_VALID_HPBG_VALID_WIDTH 0x1
+	#define SCU_TRIM_VALID_HPBG_VALID_MASK 0x1
+	#define SCU_TRIM_VALID_HPBG_VALID(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_TRIM_VALID_HPBG_VALID_NOT_BLOWN ( 0x0 << SCU_TRIM_VALID_HPBG_VALID_OFFSET )
+		#define SCU_TRIM_VALID_HPBG_VALID_BLOWN ( 0x1 << SCU_TRIM_VALID_HPBG_VALID_OFFSET )
+	#define SCU_TRIM_VALID_SD12_VALID_OFFSET 0x1
+	#define SCU_TRIM_VALID_SD12_VALID_WIDTH 0x1
+	#define SCU_TRIM_VALID_SD12_VALID_MASK 0x2
+	#define SCU_TRIM_VALID_SD12_VALID(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_TRIM_VALID_SD12_VALID_NOT_BLOWN ( 0x0 << SCU_TRIM_VALID_SD12_VALID_OFFSET )
+		#define SCU_TRIM_VALID_SD12_VALID_BLOWN ( 0x1 << SCU_TRIM_VALID_SD12_VALID_OFFSET )
+	#define SCU_TRIM_VALID_REXT_VALID_OFFSET 0x2
+	#define SCU_TRIM_VALID_REXT_VALID_WIDTH 0x1
+	#define SCU_TRIM_VALID_REXT_VALID_MASK 0x4
+	#define SCU_TRIM_VALID_REXT_VALID(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_TRIM_VALID_REXT_VALID_NOT_BLOWN ( 0x0 << SCU_TRIM_VALID_REXT_VALID_OFFSET )
+		#define SCU_TRIM_VALID_REXT_VALID_BLOWN ( 0x1 << SCU_TRIM_VALID_REXT_VALID_OFFSET )
+
+#define SCU_FUSE_SWITCH_OFFSET 	  0x330
+#define SCU_FUSE_SWITCH(_base) ((_base) + 0x330)
+	#define SCU_FUSE_SWITCH_SW1_OFFSET 0x0
+	#define SCU_FUSE_SWITCH_SW1_WIDTH 0x1
+	#define SCU_FUSE_SWITCH_SW1_MASK 0x1
+	#define SCU_FUSE_SWITCH_SW1(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_FUSE_SWITCH_SW1_OPEN ( 0x0 << SCU_FUSE_SWITCH_SW1_OFFSET )
+		#define SCU_FUSE_SWITCH_SW1_CLOSED ( 0x1 << SCU_FUSE_SWITCH_SW1_OFFSET )
+	#define SCU_FUSE_SWITCH_SW2_OFFSET 0x1
+	#define SCU_FUSE_SWITCH_SW2_WIDTH 0x1
+	#define SCU_FUSE_SWITCH_SW2_MASK 0x2
+	#define SCU_FUSE_SWITCH_SW2(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_FUSE_SWITCH_SW2_OPEN ( 0x0 << SCU_FUSE_SWITCH_SW2_OFFSET )
+		#define SCU_FUSE_SWITCH_SW2_CLOSED ( 0x1 << SCU_FUSE_SWITCH_SW2_OFFSET )
+
+#define SCU_GSER_CNF1_OFFSET 	  0x400
+#define SCU_GSER_CNF1(_base) ((_base) + 0x400)
+	#define SCU_GSER_CNF1_MMS_OFFSET 0x0
+	#define SCU_GSER_CNF1_MMS_WIDTH 0x1
+	#define SCU_GSER_CNF1_MMS_MASK 0x1
+	#define SCU_GSER_CNF1_MMS(_reg) (((_reg) & 0x1) >> 0x0)
+	#define SCU_GSER_CNF1_CSD_OFFSET 0x1
+	#define SCU_GSER_CNF1_CSD_WIDTH 0x1
+	#define SCU_GSER_CNF1_CSD_MASK 0x2
+	#define SCU_GSER_CNF1_CSD(_reg) (((_reg) & 0x2) >> 0x1)
+	#define SCU_GSER_CNF1_OWST_OFFSET 0x2
+	#define SCU_GSER_CNF1_OWST_WIDTH 0x1
+	#define SCU_GSER_CNF1_OWST_MASK 0x4
+	#define SCU_GSER_CNF1_OWST(_reg) (((_reg) & 0x4) >> 0x2)
+	#define SCU_GSER_CNF1_DMWD_OFFSET 0x6
+	#define SCU_GSER_CNF1_DMWD_WIDTH 0x1
+	#define SCU_GSER_CNF1_DMWD_MASK 0x40
+	#define SCU_GSER_CNF1_DMWD(_reg) (((_reg) & 0x40) >> 0x6)
+	#define SCU_GSER_CNF1_DDWD_OFFSET 0x7
+	#define SCU_GSER_CNF1_DDWD_WIDTH 0x1
+	#define SCU_GSER_CNF1_DDWD_MASK 0x80
+	#define SCU_GSER_CNF1_DDWD(_reg) (((_reg) & 0x80) >> 0x7)
+	#define SCU_GSER_CNF1_DDSP_OFFSET 0x8
+	#define SCU_GSER_CNF1_DDSP_WIDTH 0x1
+	#define SCU_GSER_CNF1_DDSP_MASK 0x100
+	#define SCU_GSER_CNF1_DDSP(_reg) (((_reg) & 0x100) >> 0x8)
+	#define SCU_GSER_CNF1_DDSC_OFFSET 0x9
+	#define SCU_GSER_CNF1_DDSC_WIDTH 0x1
+	#define SCU_GSER_CNF1_DDSC_MASK 0x200
+	#define SCU_GSER_CNF1_DDSC(_reg) (((_reg) & 0x200) >> 0x9)
+	#define SCU_GSER_CNF1_GCLKEN_OFFSET 0xa
+	#define SCU_GSER_CNF1_GCLKEN_WIDTH 0x1
+	#define SCU_GSER_CNF1_GCLKEN_MASK 0x400
+	#define SCU_GSER_CNF1_GCLKEN(_reg) (((_reg) & 0x400) >> 0xa)
+	#define SCU_GSER_CNF1_MSEL_OFFSET 0x10
+	#define SCU_GSER_CNF1_MSEL_WIDTH 0x2
+	#define SCU_GSER_CNF1_MSEL_MASK 0x30000
+	#define SCU_GSER_CNF1_MSEL(_reg) (((_reg) & 0x30000) >> 0x10)
+		#define SCU_GSER_CNF1_MSEL_GSER ( 0x0 << SCU_GSER_CNF1_MSEL_OFFSET )
+		#define SCU_GSER_CNF1_MSEL_REQ_STAT ( 0x1 << SCU_GSER_CNF1_MSEL_OFFSET )
+		#define SCU_GSER_CNF1_MSEL_RESERVED1 ( 0x2 << SCU_GSER_CNF1_MSEL_OFFSET )
+		#define SCU_GSER_CNF1_MSEL_RESERVED2 ( 0x3 << SCU_GSER_CNF1_MSEL_OFFSET )
+	#define SCU_GSER_CNF1_IMSK_OFFSET 0x1f
+	#define SCU_GSER_CNF1_IMSK_WIDTH 0x1
+	#define SCU_GSER_CNF1_IMSK_MASK 0x80000000
+	#define SCU_GSER_CNF1_IMSK(_reg) (((_reg) & 0x80000000) >> 0x1f)
+
+#define SCU_GSER_CNF2_OFFSET 	  0x404
+#define SCU_GSER_CNF2(_base) ((_base) + 0x404)
+	#define SCU_GSER_CNF2_ASVE_OFFSET 0x0
+	#define SCU_GSER_CNF2_ASVE_WIDTH 0x13
+	#define SCU_GSER_CNF2_ASVE_MASK 0x7ffff
+	#define SCU_GSER_CNF2_ASVE(_reg) (((_reg) & 0x7ffff) >> 0x0)
+	#define SCU_GSER_CNF2_DEST_OFFSET 0x13
+	#define SCU_GSER_CNF2_DEST_WIDTH 0x2
+	#define SCU_GSER_CNF2_DEST_MASK 0x180000
+	#define SCU_GSER_CNF2_DEST(_reg) (((_reg) & 0x180000) >> 0x13)
+	#define SCU_GSER_CNF2_SOUR_OFFSET 0x15
+	#define SCU_GSER_CNF2_SOUR_WIDTH 0x2
+	#define SCU_GSER_CNF2_SOUR_MASK 0x600000
+	#define SCU_GSER_CNF2_SOUR(_reg) (((_reg) & 0x600000) >> 0x15)
+	#define SCU_GSER_CNF2_RPAC_OFFSET 0x17
+	#define SCU_GSER_CNF2_RPAC_WIDTH 0x2
+	#define SCU_GSER_CNF2_RPAC_MASK 0x1800000
+	#define SCU_GSER_CNF2_RPAC(_reg) (((_reg) & 0x1800000) >> 0x17)
+	#define SCU_GSER_CNF2_MAST_OFFSET 0x19
+	#define SCU_GSER_CNF2_MAST_WIDTH 0x7
+	#define SCU_GSER_CNF2_MAST_MASK 0xfe000000
+	#define SCU_GSER_CNF2_MAST(_reg) (((_reg) & 0xfe000000) >> 0x19)
+
+#define SCU_GSER_STAT1_OFFSET 	  0x408
+#define SCU_GSER_STAT1(_base) ((_base) + 0x408)
+	#define SCU_GSER_STAT1_SLV_OFFSET 0x0
+	#define SCU_GSER_STAT1_SLV_WIDTH 0x16
+	#define SCU_GSER_STAT1_SLV_MASK 0x3fffff
+	#define SCU_GSER_STAT1_SLV(_reg) (((_reg) & 0x3fffff) >> 0x0)
+	#define SCU_GSER_STAT1_CODE_OFFSET 0x16
+	#define SCU_GSER_STAT1_CODE_WIDTH 0x5
+	#define SCU_GSER_STAT1_CODE_MASK 0x7c00000
+	#define SCU_GSER_STAT1_CODE(_reg) (((_reg) & 0x7c00000) >> 0x16)
+	#define SCU_GSER_STAT1_RSDN_OFFSET 0x1d
+	#define SCU_GSER_STAT1_RSDN_WIDTH 0x1
+	#define SCU_GSER_STAT1_RSDN_MASK 0x20000000
+	#define SCU_GSER_STAT1_RSDN(_reg) (((_reg) & 0x20000000) >> 0x1d)
+	#define SCU_GSER_STAT1_DONE_OFFSET 0x1e
+	#define SCU_GSER_STAT1_DONE_WIDTH 0x1
+	#define SCU_GSER_STAT1_DONE_MASK 0x40000000
+	#define SCU_GSER_STAT1_DONE(_reg) (((_reg) & 0x40000000) >> 0x1e)
+	#define SCU_GSER_STAT1_STAT_OFFSET 0x1f
+	#define SCU_GSER_STAT1_STAT_WIDTH 0x1
+	#define SCU_GSER_STAT1_STAT_MASK 0x80000000
+	#define SCU_GSER_STAT1_STAT(_reg) (((_reg) & 0x80000000) >> 0x1f)
+
+#define SCU_GSER_STAT2_OFFSET 	  0x40c
+#define SCU_GSER_STAT2(_base) ((_base) + 0x40c)
+	#define SCU_GSER_STAT2_TCU_OFFSET 0x0
+	#define SCU_GSER_STAT2_TCU_WIDTH 0x5
+	#define SCU_GSER_STAT2_TCU_MASK 0x1f
+	#define SCU_GSER_STAT2_TCU(_reg) (((_reg) & 0x1f) >> 0x0)
+	#define SCU_GSER_STAT2_DONE_OFFSET 0x1e
+	#define SCU_GSER_STAT2_DONE_WIDTH 0x1
+	#define SCU_GSER_STAT2_DONE_MASK 0x40000000
+	#define SCU_GSER_STAT2_DONE(_reg) (((_reg) & 0x40000000) >> 0x1e)
+	#define SCU_GSER_STAT2_INT_OFFSET 0x1f
+	#define SCU_GSER_STAT2_INT_WIDTH 0x1
+	#define SCU_GSER_STAT2_INT_MASK 0x80000000
+	#define SCU_GSER_STAT2_INT(_reg) (((_reg) & 0x80000000) >> 0x1f)
+
+#define SCU_IMSC_OFFSET 	  0x200
+#define SCU_IMSC(_base) ((_base) + 0x200)
+	#define SCU_IMSC_C0_OFFSET 0x0
+	#define SCU_IMSC_C0_WIDTH 0x1
+	#define SCU_IMSC_C0_MASK 0x1
+	#define SCU_IMSC_C0(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_IMSC_C0_DISABLED ( 0x0 << SCU_IMSC_C0_OFFSET )
+		#define SCU_IMSC_C0_ENABLED ( 0x1 << SCU_IMSC_C0_OFFSET )
+	#define SCU_IMSC_C1_OFFSET 0x1
+	#define SCU_IMSC_C1_WIDTH 0x1
+	#define SCU_IMSC_C1_MASK 0x2
+	#define SCU_IMSC_C1(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_IMSC_C1_DISABLED ( 0x0 << SCU_IMSC_C1_OFFSET )
+		#define SCU_IMSC_C1_ENABLED ( 0x1 << SCU_IMSC_C1_OFFSET )
+	#define SCU_IMSC_C2_OFFSET 0x2
+	#define SCU_IMSC_C2_WIDTH 0x1
+	#define SCU_IMSC_C2_MASK 0x4
+	#define SCU_IMSC_C2(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_IMSC_C2_DISABLED ( 0x0 << SCU_IMSC_C2_OFFSET )
+		#define SCU_IMSC_C2_ENABLED ( 0x1 << SCU_IMSC_C2_OFFSET )
+	#define SCU_IMSC_C3_OFFSET 0x3
+	#define SCU_IMSC_C3_WIDTH 0x1
+	#define SCU_IMSC_C3_MASK 0x8
+	#define SCU_IMSC_C3(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_IMSC_C3_DISABLED ( 0x0 << SCU_IMSC_C3_OFFSET )
+		#define SCU_IMSC_C3_ENABLED ( 0x1 << SCU_IMSC_C3_OFFSET )
+	#define SCU_IMSC_C4_OFFSET 0x4
+	#define SCU_IMSC_C4_WIDTH 0x1
+	#define SCU_IMSC_C4_MASK 0x10
+	#define SCU_IMSC_C4(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_IMSC_C4_DISABLED ( 0x0 << SCU_IMSC_C4_OFFSET )
+		#define SCU_IMSC_C4_ENABLED ( 0x1 << SCU_IMSC_C4_OFFSET )
+	#define SCU_IMSC_C5_OFFSET 0x5
+	#define SCU_IMSC_C5_WIDTH 0x1
+	#define SCU_IMSC_C5_MASK 0x20
+	#define SCU_IMSC_C5(_reg) (((_reg) & 0x20) >> 0x5)
+		#define SCU_IMSC_C5_DISABLED ( 0x0 << SCU_IMSC_C5_OFFSET )
+		#define SCU_IMSC_C5_ENABLED ( 0x1 << SCU_IMSC_C5_OFFSET )
+	#define SCU_IMSC_C6_OFFSET 0x6
+	#define SCU_IMSC_C6_WIDTH 0x1
+	#define SCU_IMSC_C6_MASK 0x40
+	#define SCU_IMSC_C6(_reg) (((_reg) & 0x40) >> 0x6)
+		#define SCU_IMSC_C6_DISABLED ( 0x0 << SCU_IMSC_C6_OFFSET )
+		#define SCU_IMSC_C6_ENABLED ( 0x1 << SCU_IMSC_C6_OFFSET )
+	#define SCU_IMSC_C7_OFFSET 0x7
+	#define SCU_IMSC_C7_WIDTH 0x1
+	#define SCU_IMSC_C7_MASK 0x80
+	#define SCU_IMSC_C7(_reg) (((_reg) & 0x80) >> 0x7)
+		#define SCU_IMSC_C7_DISABLED ( 0x0 << SCU_IMSC_C7_OFFSET )
+		#define SCU_IMSC_C7_ENABLED ( 0x1 << SCU_IMSC_C7_OFFSET )
+
+#define SCU_RIS_OFFSET 	  0x204
+#define SCU_RIS(_base) ((_base) + 0x204)
+	#define SCU_RIS_C0_OFFSET 0x0
+	#define SCU_RIS_C0_WIDTH 0x1
+	#define SCU_RIS_C0_MASK 0x1
+	#define SCU_RIS_C0(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_RIS_C0_NO_INTERRUPT ( 0x0 << SCU_RIS_C0_OFFSET )
+		#define SCU_RIS_C0_PENDING_INTERRUPT ( 0x1 << SCU_RIS_C0_OFFSET )
+	#define SCU_RIS_C1_OFFSET 0x1
+	#define SCU_RIS_C1_WIDTH 0x1
+	#define SCU_RIS_C1_MASK 0x2
+	#define SCU_RIS_C1(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_RIS_C1_NO_INTERRUPT ( 0x0 << SCU_RIS_C1_OFFSET )
+		#define SCU_RIS_C1_PENDING_INTERRUPT ( 0x1 << SCU_RIS_C1_OFFSET )
+	#define SCU_RIS_C2_OFFSET 0x2
+	#define SCU_RIS_C2_WIDTH 0x1
+	#define SCU_RIS_C2_MASK 0x4
+	#define SCU_RIS_C2(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_RIS_C2_NO_INTERRUPT ( 0x0 << SCU_RIS_C2_OFFSET )
+		#define SCU_RIS_C2_PENDING_INTERRUPT ( 0x1 << SCU_RIS_C2_OFFSET )
+	#define SCU_RIS_C3_OFFSET 0x3
+	#define SCU_RIS_C3_WIDTH 0x1
+	#define SCU_RIS_C3_MASK 0x8
+	#define SCU_RIS_C3(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_RIS_C3_NO_INTERRUPT ( 0x0 << SCU_RIS_C3_OFFSET )
+		#define SCU_RIS_C3_PENDING_INTERRUPT ( 0x1 << SCU_RIS_C3_OFFSET )
+	#define SCU_RIS_C4_OFFSET 0x4
+	#define SCU_RIS_C4_WIDTH 0x1
+	#define SCU_RIS_C4_MASK 0x10
+	#define SCU_RIS_C4(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_RIS_C4_NO_INTERRUPT ( 0x0 << SCU_RIS_C4_OFFSET )
+		#define SCU_RIS_C4_PENDING_INTERRUPT ( 0x1 << SCU_RIS_C4_OFFSET )
+	#define SCU_RIS_C5_OFFSET 0x5
+	#define SCU_RIS_C5_WIDTH 0x1
+	#define SCU_RIS_C5_MASK 0x20
+	#define SCU_RIS_C5(_reg) (((_reg) & 0x20) >> 0x5)
+		#define SCU_RIS_C5_NO_INTERRUPT ( 0x0 << SCU_RIS_C5_OFFSET )
+		#define SCU_RIS_C5_PENDING_INTERRUPT ( 0x1 << SCU_RIS_C5_OFFSET )
+	#define SCU_RIS_C6_OFFSET 0x6
+	#define SCU_RIS_C6_WIDTH 0x1
+	#define SCU_RIS_C6_MASK 0x40
+	#define SCU_RIS_C6(_reg) (((_reg) & 0x40) >> 0x6)
+		#define SCU_RIS_C6_NO_INTERRUPT ( 0x0 << SCU_RIS_C6_OFFSET )
+		#define SCU_RIS_C6_PENDING_INTERRUPT ( 0x1 << SCU_RIS_C6_OFFSET )
+	#define SCU_RIS_C7_OFFSET 0x7
+	#define SCU_RIS_C7_WIDTH 0x1
+	#define SCU_RIS_C7_MASK 0x80
+	#define SCU_RIS_C7(_reg) (((_reg) & 0x80) >> 0x7)
+		#define SCU_RIS_C7_NO_INTERRUPT ( 0x0 << SCU_RIS_C7_OFFSET )
+		#define SCU_RIS_C7_PENDING_INTERRUPT ( 0x1 << SCU_RIS_C7_OFFSET )
+
+#define SCU_MIS_OFFSET 	  0x208
+#define SCU_MIS(_base) ((_base) + 0x208)
+	#define SCU_MIS_C0_OFFSET 0x0
+	#define SCU_MIS_C0_WIDTH 0x1
+	#define SCU_MIS_C0_MASK 0x1
+	#define SCU_MIS_C0(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_MIS_C0_NO_INTERRUPT ( 0x0 << SCU_MIS_C0_OFFSET )
+		#define SCU_MIS_C0_PENDING_INTERRUPT ( 0x1 << SCU_MIS_C0_OFFSET )
+	#define SCU_MIS_C1_OFFSET 0x1
+	#define SCU_MIS_C1_WIDTH 0x1
+	#define SCU_MIS_C1_MASK 0x2
+	#define SCU_MIS_C1(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_MIS_C1_NO_INTERRUPT ( 0x0 << SCU_MIS_C1_OFFSET )
+		#define SCU_MIS_C1_PENDING_INTERRUPT ( 0x1 << SCU_MIS_C1_OFFSET )
+	#define SCU_MIS_C2_OFFSET 0x2
+	#define SCU_MIS_C2_WIDTH 0x1
+	#define SCU_MIS_C2_MASK 0x4
+	#define SCU_MIS_C2(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_MIS_C2_NO_INTERRUPT ( 0x0 << SCU_MIS_C2_OFFSET )
+		#define SCU_MIS_C2_PENDING_INTERRUPT ( 0x1 << SCU_MIS_C2_OFFSET )
+	#define SCU_MIS_C3_OFFSET 0x3
+	#define SCU_MIS_C3_WIDTH 0x1
+	#define SCU_MIS_C3_MASK 0x8
+	#define SCU_MIS_C3(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_MIS_C3_NO_INTERRUPT ( 0x0 << SCU_MIS_C3_OFFSET )
+		#define SCU_MIS_C3_PENDING_INTERRUPT ( 0x1 << SCU_MIS_C3_OFFSET )
+	#define SCU_MIS_C4_OFFSET 0x4
+	#define SCU_MIS_C4_WIDTH 0x1
+	#define SCU_MIS_C4_MASK 0x10
+	#define SCU_MIS_C4(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_MIS_C4_NO_INTERRUPT ( 0x0 << SCU_MIS_C4_OFFSET )
+		#define SCU_MIS_C4_PENDING_INTERRUPT ( 0x1 << SCU_MIS_C4_OFFSET )
+	#define SCU_MIS_C5_OFFSET 0x5
+	#define SCU_MIS_C5_WIDTH 0x1
+	#define SCU_MIS_C5_MASK 0x20
+	#define SCU_MIS_C5(_reg) (((_reg) & 0x20) >> 0x5)
+		#define SCU_MIS_C5_NO_INTERRUPT ( 0x0 << SCU_MIS_C5_OFFSET )
+		#define SCU_MIS_C5_PENDING_INTERRUPT ( 0x1 << SCU_MIS_C5_OFFSET )
+	#define SCU_MIS_C6_OFFSET 0x6
+	#define SCU_MIS_C6_WIDTH 0x1
+	#define SCU_MIS_C6_MASK 0x40
+	#define SCU_MIS_C6(_reg) (((_reg) & 0x40) >> 0x6)
+		#define SCU_MIS_C6_NO_INTERRUPT ( 0x0 << SCU_MIS_C6_OFFSET )
+		#define SCU_MIS_C6_PENDING_INTERRUPT ( 0x1 << SCU_MIS_C6_OFFSET )
+	#define SCU_MIS_C7_OFFSET 0x7
+	#define SCU_MIS_C7_WIDTH 0x1
+	#define SCU_MIS_C7_MASK 0x80
+	#define SCU_MIS_C7(_reg) (((_reg) & 0x80) >> 0x7)
+		#define SCU_MIS_C7_NO_INTERRUPT ( 0x0 << SCU_MIS_C7_OFFSET )
+		#define SCU_MIS_C7_PENDING_INTERRUPT ( 0x1 << SCU_MIS_C7_OFFSET )
+
+#define SCU_ISR_OFFSET 	  0x20c
+#define SCU_ISR(_base) ((_base) + 0x20c)
+	#define SCU_ISR_C0_OFFSET 0x0
+	#define SCU_ISR_C0_WIDTH 0x1
+	#define SCU_ISR_C0_MASK 0x1
+	#define SCU_ISR_C0(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_ISR_C0_NO_CHANGE ( 0x0 << SCU_ISR_C0_OFFSET )
+		#define SCU_ISR_C0_SET ( 0x1 << SCU_ISR_C0_OFFSET )
+	#define SCU_ISR_C1_OFFSET 0x1
+	#define SCU_ISR_C1_WIDTH 0x1
+	#define SCU_ISR_C1_MASK 0x2
+	#define SCU_ISR_C1(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_ISR_C1_NO_CHANGE ( 0x0 << SCU_ISR_C1_OFFSET )
+		#define SCU_ISR_C1_SET ( 0x1 << SCU_ISR_C1_OFFSET )
+	#define SCU_ISR_C2_OFFSET 0x2
+	#define SCU_ISR_C2_WIDTH 0x1
+	#define SCU_ISR_C2_MASK 0x4
+	#define SCU_ISR_C2(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_ISR_C2_NO_CHANGE ( 0x0 << SCU_ISR_C2_OFFSET )
+		#define SCU_ISR_C2_SET ( 0x1 << SCU_ISR_C2_OFFSET )
+	#define SCU_ISR_C3_OFFSET 0x3
+	#define SCU_ISR_C3_WIDTH 0x1
+	#define SCU_ISR_C3_MASK 0x8
+	#define SCU_ISR_C3(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_ISR_C3_NO_CHANGE ( 0x0 << SCU_ISR_C3_OFFSET )
+		#define SCU_ISR_C3_SET ( 0x1 << SCU_ISR_C3_OFFSET )
+	#define SCU_ISR_C4_OFFSET 0x4
+	#define SCU_ISR_C4_WIDTH 0x1
+	#define SCU_ISR_C4_MASK 0x10
+	#define SCU_ISR_C4(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_ISR_C4_NO_CHANGE ( 0x0 << SCU_ISR_C4_OFFSET )
+		#define SCU_ISR_C4_SET ( 0x1 << SCU_ISR_C4_OFFSET )
+	#define SCU_ISR_C5_OFFSET 0x5
+	#define SCU_ISR_C5_WIDTH 0x1
+	#define SCU_ISR_C5_MASK 0x20
+	#define SCU_ISR_C5(_reg) (((_reg) & 0x20) >> 0x5)
+		#define SCU_ISR_C5_NO_CHANGE ( 0x0 << SCU_ISR_C5_OFFSET )
+		#define SCU_ISR_C5_SET ( 0x1 << SCU_ISR_C5_OFFSET )
+	#define SCU_ISR_C6_OFFSET 0x6
+	#define SCU_ISR_C6_WIDTH 0x1
+	#define SCU_ISR_C6_MASK 0x40
+	#define SCU_ISR_C6(_reg) (((_reg) & 0x40) >> 0x6)
+		#define SCU_ISR_C6_NO_CHANGE ( 0x0 << SCU_ISR_C6_OFFSET )
+		#define SCU_ISR_C6_SET ( 0x1 << SCU_ISR_C6_OFFSET )
+	#define SCU_ISR_C7_OFFSET 0x7
+	#define SCU_ISR_C7_WIDTH 0x1
+	#define SCU_ISR_C7_MASK 0x80
+	#define SCU_ISR_C7(_reg) (((_reg) & 0x80) >> 0x7)
+		#define SCU_ISR_C7_NO_CHANGE ( 0x0 << SCU_ISR_C7_OFFSET )
+		#define SCU_ISR_C7_SET ( 0x1 << SCU_ISR_C7_OFFSET )
+
+#define SCU_C0_IRQSM_OFFSET 	  0x214
+#define SCU_C0_IRQSM(_base) ((_base) + 0x214)
+	#define SCU_C0_IRQSM_PLCK_OFFSET 0x0
+	#define SCU_C0_IRQSM_PLCK_WIDTH 0x1
+	#define SCU_C0_IRQSM_PLCK_MASK 0x1
+	#define SCU_C0_IRQSM_PLCK(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C0_IRQSM_PLCK_DISABLED ( 0x0 << SCU_C0_IRQSM_PLCK_OFFSET )
+		#define SCU_C0_IRQSM_PLCK_ENABLED ( 0x1 << SCU_C0_IRQSM_PLCK_OFFSET )
+	#define SCU_C0_IRQSM_AM0WER_OFFSET 0x1
+	#define SCU_C0_IRQSM_AM0WER_WIDTH 0x1
+	#define SCU_C0_IRQSM_AM0WER_MASK 0x2
+	#define SCU_C0_IRQSM_AM0WER(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C0_IRQSM_AM0WER_DISABLED ( 0x0 << SCU_C0_IRQSM_AM0WER_OFFSET )
+		#define SCU_C0_IRQSM_AM0WER_ENABLED ( 0x1 << SCU_C0_IRQSM_AM0WER_OFFSET )
+	#define SCU_C0_IRQSM_AM1WER_OFFSET 0x2
+	#define SCU_C0_IRQSM_AM1WER_WIDTH 0x1
+	#define SCU_C0_IRQSM_AM1WER_MASK 0x4
+	#define SCU_C0_IRQSM_AM1WER(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C0_IRQSM_AM1WER_DISABLED ( 0x0 << SCU_C0_IRQSM_AM1WER_OFFSET )
+		#define SCU_C0_IRQSM_AM1WER_ENABLED ( 0x1 << SCU_C0_IRQSM_AM1WER_OFFSET )
+	#define SCU_C0_IRQSM_ASDWER_OFFSET 0x3
+	#define SCU_C0_IRQSM_ASDWER_WIDTH 0x1
+	#define SCU_C0_IRQSM_ASDWER_MASK 0x8
+	#define SCU_C0_IRQSM_ASDWER(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_C0_IRQSM_ASDWER_DISABLED ( 0x0 << SCU_C0_IRQSM_ASDWER_OFFSET )
+		#define SCU_C0_IRQSM_ASDWER_ENABLED ( 0x1 << SCU_C0_IRQSM_ASDWER_OFFSET )
+	#define SCU_C0_IRQSM_ASIWER_OFFSET 0x4
+	#define SCU_C0_IRQSM_ASIWER_WIDTH 0x1
+	#define SCU_C0_IRQSM_ASIWER_MASK 0x10
+	#define SCU_C0_IRQSM_ASIWER(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_C0_IRQSM_ASIWER_DISABLED ( 0x0 << SCU_C0_IRQSM_ASIWER_OFFSET )
+		#define SCU_C0_IRQSM_ASIWER_ENABLED ( 0x1 << SCU_C0_IRQSM_ASIWER_OFFSET )
+
+#define SCU_C0_IRQSS_OFFSET 	  0x218
+#define SCU_C0_IRQSS(_base) ((_base) + 0x218)
+	#define SCU_C0_IRQSS_PLCK_OFFSET 0x0
+	#define SCU_C0_IRQSS_PLCK_WIDTH 0x1
+	#define SCU_C0_IRQSS_PLCK_MASK 0x1
+	#define SCU_C0_IRQSS_PLCK(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C0_IRQSS_PLCK_NO_INTERRUPT ( 0x0 << SCU_C0_IRQSS_PLCK_OFFSET )
+		#define SCU_C0_IRQSS_PLCK_PENDING_INTERRUPT ( 0x1 << SCU_C0_IRQSS_PLCK_OFFSET )
+	#define SCU_C0_IRQSS_AM0WER_OFFSET 0x1
+	#define SCU_C0_IRQSS_AM0WER_WIDTH 0x1
+	#define SCU_C0_IRQSS_AM0WER_MASK 0x2
+	#define SCU_C0_IRQSS_AM0WER(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C0_IRQSS_AM0WER_NO_INTERRUPT ( 0x0 << SCU_C0_IRQSS_AM0WER_OFFSET )
+		#define SCU_C0_IRQSS_AM0WER_PENDING_INTERRUPT ( 0x1 << SCU_C0_IRQSS_AM0WER_OFFSET )
+	#define SCU_C0_IRQSS_AM1WER_OFFSET 0x2
+	#define SCU_C0_IRQSS_AM1WER_WIDTH 0x1
+	#define SCU_C0_IRQSS_AM1WER_MASK 0x4
+	#define SCU_C0_IRQSS_AM1WER(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C0_IRQSS_AM1WER_NO_INTERRUPT ( 0x0 << SCU_C0_IRQSS_AM1WER_OFFSET )
+		#define SCU_C0_IRQSS_AM1WER_PENDING_INTERRUPT ( 0x1 << SCU_C0_IRQSS_AM1WER_OFFSET )
+	#define SCU_C0_IRQSS_ASDWER_OFFSET 0x3
+	#define SCU_C0_IRQSS_ASDWER_WIDTH 0x1
+	#define SCU_C0_IRQSS_ASDWER_MASK 0x8
+	#define SCU_C0_IRQSS_ASDWER(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_C0_IRQSS_ASDWER_NO_INTERRUPT ( 0x0 << SCU_C0_IRQSS_ASDWER_OFFSET )
+		#define SCU_C0_IRQSS_ASDWER_PENDING_INTERRUPT ( 0x1 << SCU_C0_IRQSS_ASDWER_OFFSET )
+	#define SCU_C0_IRQSS_ASIWER_OFFSET 0x4
+	#define SCU_C0_IRQSS_ASIWER_WIDTH 0x1
+	#define SCU_C0_IRQSS_ASIWER_MASK 0x10
+	#define SCU_C0_IRQSS_ASIWER(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_C0_IRQSS_ASIWER_NO_INTERRUPT ( 0x0 << SCU_C0_IRQSS_ASIWER_OFFSET )
+		#define SCU_C0_IRQSS_ASIWER_PENDING_INTERRUPT ( 0x1 << SCU_C0_IRQSS_ASIWER_OFFSET )
+
+#define SCU_C0_IRQSC_OFFSET 	  0x21c
+#define SCU_C0_IRQSC(_base) ((_base) + 0x21c)
+	#define SCU_C0_IRQSC_PLCK_OFFSET 0x0
+	#define SCU_C0_IRQSC_PLCK_WIDTH 0x1
+	#define SCU_C0_IRQSC_PLCK_MASK 0x1
+	#define SCU_C0_IRQSC_PLCK(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C0_IRQSC_PLCK_NO_CHANGE ( 0x0 << SCU_C0_IRQSC_PLCK_OFFSET )
+		#define SCU_C0_IRQSC_PLCK_CLEAR_INTERRUPT ( 0x1 << SCU_C0_IRQSC_PLCK_OFFSET )
+	#define SCU_C0_IRQSC_AM0WER_OFFSET 0x1
+	#define SCU_C0_IRQSC_AM0WER_WIDTH 0x1
+	#define SCU_C0_IRQSC_AM0WER_MASK 0x2
+	#define SCU_C0_IRQSC_AM0WER(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C0_IRQSC_AM0WER_NO_CHANGE ( 0x0 << SCU_C0_IRQSC_AM0WER_OFFSET )
+		#define SCU_C0_IRQSC_AM0WER_CLEAR_INTERRUPT ( 0x1 << SCU_C0_IRQSC_AM0WER_OFFSET )
+	#define SCU_C0_IRQSC_AM1WER_OFFSET 0x2
+	#define SCU_C0_IRQSC_AM1WER_WIDTH 0x1
+	#define SCU_C0_IRQSC_AM1WER_MASK 0x4
+	#define SCU_C0_IRQSC_AM1WER(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C0_IRQSC_AM1WER_NO_CHANGE ( 0x0 << SCU_C0_IRQSC_AM1WER_OFFSET )
+		#define SCU_C0_IRQSC_AM1WER_CLEAR_INTERRUPT ( 0x1 << SCU_C0_IRQSC_AM1WER_OFFSET )
+	#define SCU_C0_IRQSC_ASDWER_OFFSET 0x3
+	#define SCU_C0_IRQSC_ASDWER_WIDTH 0x1
+	#define SCU_C0_IRQSC_ASDWER_MASK 0x8
+	#define SCU_C0_IRQSC_ASDWER(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_C0_IRQSC_ASDWER_NO_CHANGE ( 0x0 << SCU_C0_IRQSC_ASDWER_OFFSET )
+		#define SCU_C0_IRQSC_ASDWER_CLEAR_INTERRUPT ( 0x1 << SCU_C0_IRQSC_ASDWER_OFFSET )
+	#define SCU_C0_IRQSC_ASIWER_OFFSET 0x4
+	#define SCU_C0_IRQSC_ASIWER_WIDTH 0x1
+	#define SCU_C0_IRQSC_ASIWER_MASK 0x10
+	#define SCU_C0_IRQSC_ASIWER(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_C0_IRQSC_ASIWER_NO_CHANGE ( 0x0 << SCU_C0_IRQSC_ASIWER_OFFSET )
+		#define SCU_C0_IRQSC_ASIWER_CLEAR_INTERRUPT ( 0x1 << SCU_C0_IRQSC_ASIWER_OFFSET )
+
+#define SCU_C1_IRQSM_OFFSET 	  0x220
+#define SCU_C1_IRQSM(_base) ((_base) + 0x220)
+	#define SCU_C1_IRQSM_PLCK_OFFSET 0x0
+	#define SCU_C1_IRQSM_PLCK_WIDTH 0x1
+	#define SCU_C1_IRQSM_PLCK_MASK 0x1
+	#define SCU_C1_IRQSM_PLCK(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C1_IRQSM_PLCK_DISABLED ( 0x0 << SCU_C1_IRQSM_PLCK_OFFSET )
+		#define SCU_C1_IRQSM_PLCK_ENABLED ( 0x1 << SCU_C1_IRQSM_PLCK_OFFSET )
+	#define SCU_C1_IRQSM_AM0WER_OFFSET 0x1
+	#define SCU_C1_IRQSM_AM0WER_WIDTH 0x1
+	#define SCU_C1_IRQSM_AM0WER_MASK 0x2
+	#define SCU_C1_IRQSM_AM0WER(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C1_IRQSM_AM0WER_DISABLED ( 0x0 << SCU_C1_IRQSM_AM0WER_OFFSET )
+		#define SCU_C1_IRQSM_AM0WER_ENABLED ( 0x1 << SCU_C1_IRQSM_AM0WER_OFFSET )
+	#define SCU_C1_IRQSM_AM1WER_OFFSET 0x2
+	#define SCU_C1_IRQSM_AM1WER_WIDTH 0x1
+	#define SCU_C1_IRQSM_AM1WER_MASK 0x4
+	#define SCU_C1_IRQSM_AM1WER(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C1_IRQSM_AM1WER_DISABLED ( 0x0 << SCU_C1_IRQSM_AM1WER_OFFSET )
+		#define SCU_C1_IRQSM_AM1WER_ENABLED ( 0x1 << SCU_C1_IRQSM_AM1WER_OFFSET )
+	#define SCU_C1_IRQSM_ASDWER_OFFSET 0x3
+	#define SCU_C1_IRQSM_ASDWER_WIDTH 0x1
+	#define SCU_C1_IRQSM_ASDWER_MASK 0x8
+	#define SCU_C1_IRQSM_ASDWER(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_C1_IRQSM_ASDWER_DISABLED ( 0x0 << SCU_C1_IRQSM_ASDWER_OFFSET )
+		#define SCU_C1_IRQSM_ASDWER_ENABLED ( 0x1 << SCU_C1_IRQSM_ASDWER_OFFSET )
+	#define SCU_C1_IRQSM_ASIWER_OFFSET 0x4
+	#define SCU_C1_IRQSM_ASIWER_WIDTH 0x1
+	#define SCU_C1_IRQSM_ASIWER_MASK 0x10
+	#define SCU_C1_IRQSM_ASIWER(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_C1_IRQSM_ASIWER_DISABLED ( 0x0 << SCU_C1_IRQSM_ASIWER_OFFSET )
+		#define SCU_C1_IRQSM_ASIWER_ENABLED ( 0x1 << SCU_C1_IRQSM_ASIWER_OFFSET )
+
+#define SCU_C1_IRQSS_OFFSET 	  0x224
+#define SCU_C1_IRQSS(_base) ((_base) + 0x224)
+	#define SCU_C1_IRQSS_PLCK_OFFSET 0x0
+	#define SCU_C1_IRQSS_PLCK_WIDTH 0x1
+	#define SCU_C1_IRQSS_PLCK_MASK 0x1
+	#define SCU_C1_IRQSS_PLCK(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C1_IRQSS_PLCK_NO_INTERRUPT ( 0x0 << SCU_C1_IRQSS_PLCK_OFFSET )
+		#define SCU_C1_IRQSS_PLCK_PENDING_INTERRUPT ( 0x1 << SCU_C1_IRQSS_PLCK_OFFSET )
+	#define SCU_C1_IRQSS_AM0WER_OFFSET 0x1
+	#define SCU_C1_IRQSS_AM0WER_WIDTH 0x1
+	#define SCU_C1_IRQSS_AM0WER_MASK 0x2
+	#define SCU_C1_IRQSS_AM0WER(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C1_IRQSS_AM0WER_NO_INTERRUPT ( 0x0 << SCU_C1_IRQSS_AM0WER_OFFSET )
+		#define SCU_C1_IRQSS_AM0WER_PENDING_INTERRUPT ( 0x1 << SCU_C1_IRQSS_AM0WER_OFFSET )
+	#define SCU_C1_IRQSS_AM1WER_OFFSET 0x2
+	#define SCU_C1_IRQSS_AM1WER_WIDTH 0x1
+	#define SCU_C1_IRQSS_AM1WER_MASK 0x4
+	#define SCU_C1_IRQSS_AM1WER(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C1_IRQSS_AM1WER_NO_INTERRUPT ( 0x0 << SCU_C1_IRQSS_AM1WER_OFFSET )
+		#define SCU_C1_IRQSS_AM1WER_PENDING_INTERRUPT ( 0x1 << SCU_C1_IRQSS_AM1WER_OFFSET )
+	#define SCU_C1_IRQSS_ASDWER_OFFSET 0x3
+	#define SCU_C1_IRQSS_ASDWER_WIDTH 0x1
+	#define SCU_C1_IRQSS_ASDWER_MASK 0x8
+	#define SCU_C1_IRQSS_ASDWER(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_C1_IRQSS_ASDWER_NO_INTERRUPT ( 0x0 << SCU_C1_IRQSS_ASDWER_OFFSET )
+		#define SCU_C1_IRQSS_ASDWER_PENDING_INTERRUPT ( 0x1 << SCU_C1_IRQSS_ASDWER_OFFSET )
+	#define SCU_C1_IRQSS_ASIWER_OFFSET 0x4
+	#define SCU_C1_IRQSS_ASIWER_WIDTH 0x1
+	#define SCU_C1_IRQSS_ASIWER_MASK 0x10
+	#define SCU_C1_IRQSS_ASIWER(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_C1_IRQSS_ASIWER_NO_INTERRUPT ( 0x0 << SCU_C1_IRQSS_ASIWER_OFFSET )
+		#define SCU_C1_IRQSS_ASIWER_PENDING_INTERRUPT ( 0x1 << SCU_C1_IRQSS_ASIWER_OFFSET )
+
+#define SCU_C1_IRQSC_OFFSET 	  0x228
+#define SCU_C1_IRQSC(_base) ((_base) + 0x228)
+	#define SCU_C1_IRQSC_PLCK_OFFSET 0x0
+	#define SCU_C1_IRQSC_PLCK_WIDTH 0x1
+	#define SCU_C1_IRQSC_PLCK_MASK 0x1
+	#define SCU_C1_IRQSC_PLCK(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C1_IRQSC_PLCK_NO_CHANGE ( 0x0 << SCU_C1_IRQSC_PLCK_OFFSET )
+		#define SCU_C1_IRQSC_PLCK_CLEAR_INTERRUPT ( 0x1 << SCU_C1_IRQSC_PLCK_OFFSET )
+	#define SCU_C1_IRQSC_AM0WER_OFFSET 0x1
+	#define SCU_C1_IRQSC_AM0WER_WIDTH 0x1
+	#define SCU_C1_IRQSC_AM0WER_MASK 0x2
+	#define SCU_C1_IRQSC_AM0WER(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C1_IRQSC_AM0WER_NO_CHANGE ( 0x0 << SCU_C1_IRQSC_AM0WER_OFFSET )
+		#define SCU_C1_IRQSC_AM0WER_CLEAR_INTERRUPT ( 0x1 << SCU_C1_IRQSC_AM0WER_OFFSET )
+	#define SCU_C1_IRQSC_AM1WER_OFFSET 0x2
+	#define SCU_C1_IRQSC_AM1WER_WIDTH 0x1
+	#define SCU_C1_IRQSC_AM1WER_MASK 0x4
+	#define SCU_C1_IRQSC_AM1WER(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C1_IRQSC_AM1WER_NO_CHANGE ( 0x0 << SCU_C1_IRQSC_AM1WER_OFFSET )
+		#define SCU_C1_IRQSC_AM1WER_CLEAR_INTERRUPT ( 0x1 << SCU_C1_IRQSC_AM1WER_OFFSET )
+	#define SCU_C1_IRQSC_ASDWER_OFFSET 0x3
+	#define SCU_C1_IRQSC_ASDWER_WIDTH 0x1
+	#define SCU_C1_IRQSC_ASDWER_MASK 0x8
+	#define SCU_C1_IRQSC_ASDWER(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_C1_IRQSC_ASDWER_NO_CHANGE ( 0x0 << SCU_C1_IRQSC_ASDWER_OFFSET )
+		#define SCU_C1_IRQSC_ASDWER_CLEAR_INTERRUPT ( 0x1 << SCU_C1_IRQSC_ASDWER_OFFSET )
+	#define SCU_C1_IRQSC_ASIWER_OFFSET 0x4
+	#define SCU_C1_IRQSC_ASIWER_WIDTH 0x1
+	#define SCU_C1_IRQSC_ASIWER_MASK 0x10
+	#define SCU_C1_IRQSC_ASIWER(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_C1_IRQSC_ASIWER_NO_CHANGE ( 0x0 << SCU_C1_IRQSC_ASIWER_OFFSET )
+		#define SCU_C1_IRQSC_ASIWER_CLEAR_INTERRUPT ( 0x1 << SCU_C1_IRQSC_ASIWER_OFFSET )
+
+#define SCU_WLAN1_OFFSET 	  0x334
+#define SCU_WLAN1(_base) ((_base) + 0x334)
+	#define SCU_WLAN1_WLAN1_OFFSET 0x0
+	#define SCU_WLAN1_WLAN1_WIDTH 0x20
+	#define SCU_WLAN1_WLAN1_MASK 0xffffffff
+	#define SCU_WLAN1_WLAN1(_reg) (((_reg) & 0xffffffff) >> 0x0)
+
+#define SCU_WLAN2_OFFSET 	  0x338
+#define SCU_WLAN2(_base) ((_base) + 0x338)
+	#define SCU_WLAN2_WLAN2_OFFSET 0x0
+	#define SCU_WLAN2_WLAN2_WIDTH 0x20
+	#define SCU_WLAN2_WLAN2_MASK 0xffffffff
+	#define SCU_WLAN2_WLAN2(_reg) (((_reg) & 0xffffffff) >> 0x0)
+
+#define SCU_WLAN3_OFFSET 	  0x33c
+#define SCU_WLAN3(_base) ((_base) + 0x33c)
+	#define SCU_WLAN3_WLAN3_OFFSET 0x0
+	#define SCU_WLAN3_WLAN3_WIDTH 0x20
+	#define SCU_WLAN3_WLAN3_MASK 0xffffffff
+	#define SCU_WLAN3_WLAN3(_reg) (((_reg) & 0xffffffff) >> 0x0)
+
+#define SCU_WLAN4_OFFSET 	  0x340
+#define SCU_WLAN4(_base) ((_base) + 0x340)
+	#define SCU_WLAN4_WLAN4_OFFSET 0x0
+	#define SCU_WLAN4_WLAN4_WIDTH 0x4
+	#define SCU_WLAN4_WLAN4_MASK 0xf
+	#define SCU_WLAN4_WLAN4(_reg) (((_reg) & 0xf) >> 0x0)
+
+#define SCU_WLAN_CUS_OFFSET 	  0x344
+#define SCU_WLAN_CUS(_base) ((_base) + 0x344)
+	#define SCU_WLAN_CUS_CUST_OFFSET 0x0
+	#define SCU_WLAN_CUS_CUST_WIDTH 0xa
+	#define SCU_WLAN_CUS_CUST_MASK 0x3ff
+	#define SCU_WLAN_CUS_CUST(_reg) (((_reg) & 0x3ff) >> 0x0)
+	#define SCU_WLAN_CUS_LOCK_OFFSET 0x1f
+	#define SCU_WLAN_CUS_LOCK_WIDTH 0x1
+	#define SCU_WLAN_CUS_LOCK_MASK 0x80000000
+	#define SCU_WLAN_CUS_LOCK(_reg) (((_reg) & 0x80000000) >> 0x1f)
+		#define SCU_WLAN_CUS_LOCK_NOT_LOCKED ( 0x0 << SCU_WLAN_CUS_LOCK_OFFSET )
+		#define SCU_WLAN_CUS_LOCK_LOCKED ( 0x1 << SCU_WLAN_CUS_LOCK_OFFSET )
+
+#define SCU_WLAN_CFGCUS_OFFSET 	  0x348
+#define SCU_WLAN_CFGCUS(_base) ((_base) + 0x348)
+	#define SCU_WLAN_CFGCUS_CUST_OFFSET 0x0
+	#define SCU_WLAN_CFGCUS_CUST_WIDTH 0xa
+	#define SCU_WLAN_CFGCUS_CUST_MASK 0x3ff
+	#define SCU_WLAN_CFGCUS_CUST(_reg) (((_reg) & 0x3ff) >> 0x0)
+	#define SCU_WLAN_CFGCUS_LOCK_OFFSET 0x1f
+	#define SCU_WLAN_CFGCUS_LOCK_WIDTH 0x1
+	#define SCU_WLAN_CFGCUS_LOCK_MASK 0x80000000
+	#define SCU_WLAN_CFGCUS_LOCK(_reg) (((_reg) & 0x80000000) >> 0x1f)
+		#define SCU_WLAN_CFGCUS_LOCK_NOT_LOCKED ( 0x0 << SCU_WLAN_CFGCUS_LOCK_OFFSET )
+		#define SCU_WLAN_CFGCUS_LOCK_LOCKED ( 0x1 << SCU_WLAN_CFGCUS_LOCK_OFFSET )
+
+#define SCU_C2_IRQSM_OFFSET 	  0x4000
+#define SCU_C2_IRQSM(_base) ((_base) + 0x4000)
+	#define SCU_C2_IRQSM_FSYS_WUP_OFFSET 0x0
+	#define SCU_C2_IRQSM_FSYS_WUP_WIDTH 0x1
+	#define SCU_C2_IRQSM_FSYS_WUP_MASK 0x1
+	#define SCU_C2_IRQSM_FSYS_WUP(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C2_IRQSM_FSYS_WUP_DISABLED ( 0x0 << SCU_C2_IRQSM_FSYS_WUP_OFFSET )
+		#define SCU_C2_IRQSM_FSYS_WUP_ENABLED ( 0x1 << SCU_C2_IRQSM_FSYS_WUP_OFFSET )
+
+#define SCU_C2_IRQSS_OFFSET 	  0x4004
+#define SCU_C2_IRQSS(_base) ((_base) + 0x4004)
+	#define SCU_C2_IRQSS_FSYS_WUP_OFFSET 0x0
+	#define SCU_C2_IRQSS_FSYS_WUP_WIDTH 0x1
+	#define SCU_C2_IRQSS_FSYS_WUP_MASK 0x1
+	#define SCU_C2_IRQSS_FSYS_WUP(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C2_IRQSS_FSYS_WUP_NO_INTERRUPT ( 0x0 << SCU_C2_IRQSS_FSYS_WUP_OFFSET )
+		#define SCU_C2_IRQSS_FSYS_WUP_PENDING_INTERRUPT ( 0x1 << SCU_C2_IRQSS_FSYS_WUP_OFFSET )
+
+#define SCU_C2_IRQSC_OFFSET 	  0x4008
+#define SCU_C2_IRQSC(_base) ((_base) + 0x4008)
+	#define SCU_C2_IRQSC_FSYS_WUP_OFFSET 0x0
+	#define SCU_C2_IRQSC_FSYS_WUP_WIDTH 0x1
+	#define SCU_C2_IRQSC_FSYS_WUP_MASK 0x1
+	#define SCU_C2_IRQSC_FSYS_WUP(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C2_IRQSC_FSYS_WUP_NO_CHANGE ( 0x0 << SCU_C2_IRQSC_FSYS_WUP_OFFSET )
+		#define SCU_C2_IRQSC_FSYS_WUP_CLEAR_INTERRUPT ( 0x1 << SCU_C2_IRQSC_FSYS_WUP_OFFSET )
+
+#define SCU_BT_TEMPMEAS_OFFSET 	  0x8000
+#define SCU_BT_TEMPMEAS(_base) ((_base) + 0x8000)
+	#define SCU_BT_TEMPMEAS_TEMP_OFFSET 0x0
+	#define SCU_BT_TEMPMEAS_TEMP_WIDTH 0xa
+	#define SCU_BT_TEMPMEAS_TEMP_MASK 0x3ff
+	#define SCU_BT_TEMPMEAS_TEMP(_reg) (((_reg) & 0x3ff) >> 0x0)
+
+#define SCU_BT_CTL_OFFSET 	  0x8004
+#define SCU_BT_CTL(_base) ((_base) + 0x8004)
+	#define SCU_BT_CTL_BT_EXT_RST_OFFSET 0x4
+	#define SCU_BT_CTL_BT_EXT_RST_WIDTH 0x1
+	#define SCU_BT_CTL_BT_EXT_RST_MASK 0x10
+	#define SCU_BT_CTL_BT_EXT_RST(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_BT_CTL_BT_EXT_RST_INTERNAL ( 0x0 << SCU_BT_CTL_BT_EXT_RST_OFFSET )
+		#define SCU_BT_CTL_BT_EXT_RST_EXTERNAL ( 0x1 << SCU_BT_CTL_BT_EXT_RST_OFFSET )
+	#define SCU_BT_CTL_WAKEUP_BT_OFFSET 0x8
+	#define SCU_BT_CTL_WAKEUP_BT_WIDTH 0x1
+	#define SCU_BT_CTL_WAKEUP_BT_MASK 0x100
+	#define SCU_BT_CTL_WAKEUP_BT(_reg) (((_reg) & 0x100) >> 0x8)
+		#define SCU_BT_CTL_WAKEUP_BT_NO_WUP_REQ ( 0x0 << SCU_BT_CTL_WAKEUP_BT_OFFSET )
+		#define SCU_BT_CTL_WAKEUP_BT_WUP_REQ ( 0x1 << SCU_BT_CTL_WAKEUP_BT_OFFSET )
+	#define SCU_BT_CTL_BT_EXT_WAKEUP_OFFSET 0xc
+	#define SCU_BT_CTL_BT_EXT_WAKEUP_WIDTH 0x1
+	#define SCU_BT_CTL_BT_EXT_WAKEUP_MASK 0x1000
+	#define SCU_BT_CTL_BT_EXT_WAKEUP(_reg) (((_reg) & 0x1000) >> 0xc)
+		#define SCU_BT_CTL_BT_EXT_WAKEUP_INTERNAL ( 0x0 << SCU_BT_CTL_BT_EXT_WAKEUP_OFFSET )
+		#define SCU_BT_CTL_BT_EXT_WAKEUP_EXTERNAL ( 0x1 << SCU_BT_CTL_BT_EXT_WAKEUP_OFFSET )
+	#define SCU_BT_CTL_BT_EXT_PCM_OFFSET 0x10
+	#define SCU_BT_CTL_BT_EXT_PCM_WIDTH 0x1
+	#define SCU_BT_CTL_BT_EXT_PCM_MASK 0x10000
+	#define SCU_BT_CTL_BT_EXT_PCM(_reg) (((_reg) & 0x10000) >> 0x10)
+		#define SCU_BT_CTL_BT_EXT_PCM_INTERNAL ( 0x0 << SCU_BT_CTL_BT_EXT_PCM_OFFSET )
+		#define SCU_BT_CTL_BT_EXT_PCM_EXTERNAL ( 0x1 << SCU_BT_CTL_BT_EXT_PCM_OFFSET )
+	#define SCU_BT_CTL_BT_EXT_UART_OFFSET 0x14
+	#define SCU_BT_CTL_BT_EXT_UART_WIDTH 0x1
+	#define SCU_BT_CTL_BT_EXT_UART_MASK 0x100000
+	#define SCU_BT_CTL_BT_EXT_UART(_reg) (((_reg) & 0x100000) >> 0x14)
+		#define SCU_BT_CTL_BT_EXT_UART_INTERNAL ( 0x0 << SCU_BT_CTL_BT_EXT_UART_OFFSET )
+		#define SCU_BT_CTL_BT_EXT_UART_EXTERNAL ( 0x1 << SCU_BT_CTL_BT_EXT_UART_OFFSET )
+	#define SCU_BT_CTL_ARC_START_OFFSET 0x18
+	#define SCU_BT_CTL_ARC_START_WIDTH 0x1
+	#define SCU_BT_CTL_ARC_START_MASK 0x1000000
+	#define SCU_BT_CTL_ARC_START(_reg) (((_reg) & 0x1000000) >> 0x18)
+		#define SCU_BT_CTL_ARC_START_NO_START ( 0x0 << SCU_BT_CTL_ARC_START_OFFSET )
+		#define SCU_BT_CTL_ARC_START_START ( 0x1 << SCU_BT_CTL_ARC_START_OFFSET )
+
+#define SCU_BT_FWCTL_OFFSET 	  0x8008
+#define SCU_BT_FWCTL(_base) ((_base) + 0x8008)
+	#define SCU_BT_FWCTL_HOST2BT_OFFSET 0x0
+	#define SCU_BT_FWCTL_HOST2BT_WIDTH 0x10
+	#define SCU_BT_FWCTL_HOST2BT_MASK 0xffff
+	#define SCU_BT_FWCTL_HOST2BT(_reg) (((_reg) & 0xffff) >> 0x0)
+
+#define SCU_BT_STAT_OFFSET 	  0x800c
+#define SCU_BT_STAT(_base) ((_base) + 0x800c)
+	#define SCU_BT_STAT_CLK104REQ_OFFSET 0x10
+	#define SCU_BT_STAT_CLK104REQ_WIDTH 0x1
+	#define SCU_BT_STAT_CLK104REQ_MASK 0x10000
+	#define SCU_BT_STAT_CLK104REQ(_reg) (((_reg) & 0x10000) >> 0x10)
+	#define SCU_BT_STAT_CLK78REQ_OFFSET 0x11
+	#define SCU_BT_STAT_CLK78REQ_WIDTH 0x1
+	#define SCU_BT_STAT_CLK78REQ_MASK 0x20000
+	#define SCU_BT_STAT_CLK78REQ(_reg) (((_reg) & 0x20000) >> 0x11)
+	#define SCU_BT_STAT_BT_WAKEUP_HOST_OFFSET 0x12
+	#define SCU_BT_STAT_BT_WAKEUP_HOST_WIDTH 0x1
+	#define SCU_BT_STAT_BT_WAKEUP_HOST_MASK 0x40000
+	#define SCU_BT_STAT_BT_WAKEUP_HOST(_reg) (((_reg) & 0x40000) >> 0x12)
+
+#define SCU_BT_FWSTAT_OFFSET 	  0x8010
+#define SCU_BT_FWSTAT(_base) ((_base) + 0x8010)
+	#define SCU_BT_FWSTAT_BT2HOST_OFFSET 0x0
+	#define SCU_BT_FWSTAT_BT2HOST_WIDTH 0x10
+	#define SCU_BT_FWSTAT_BT2HOST_MASK 0xffff
+	#define SCU_BT_FWSTAT_BT2HOST(_reg) (((_reg) & 0xffff) >> 0x0)
+
+#define SCU_C3_IRQSM_OFFSET 	  0x8014
+#define SCU_C3_IRQSM(_base) ((_base) + 0x8014)
+	#define SCU_C3_IRQSM_BT_WUP_OFFSET 0x0
+	#define SCU_C3_IRQSM_BT_WUP_WIDTH 0x1
+	#define SCU_C3_IRQSM_BT_WUP_MASK 0x1
+	#define SCU_C3_IRQSM_BT_WUP(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C3_IRQSM_BT_WUP_DISABLED ( 0x0 << SCU_C3_IRQSM_BT_WUP_OFFSET )
+		#define SCU_C3_IRQSM_BT_WUP_ENABLED ( 0x1 << SCU_C3_IRQSM_BT_WUP_OFFSET )
+
+#define SCU_C3_IRQSS_OFFSET 	  0x8018
+#define SCU_C3_IRQSS(_base) ((_base) + 0x8018)
+	#define SCU_C3_IRQSS_BT_WUP_OFFSET 0x0
+	#define SCU_C3_IRQSS_BT_WUP_WIDTH 0x1
+	#define SCU_C3_IRQSS_BT_WUP_MASK 0x1
+	#define SCU_C3_IRQSS_BT_WUP(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C3_IRQSS_BT_WUP_NO_INTERRUPT ( 0x0 << SCU_C3_IRQSS_BT_WUP_OFFSET )
+		#define SCU_C3_IRQSS_BT_WUP_PENDING_INTERRUPT ( 0x1 << SCU_C3_IRQSS_BT_WUP_OFFSET )
+
+#define SCU_C3_IRQSC_OFFSET 	  0x801c
+#define SCU_C3_IRQSC(_base) ((_base) + 0x801c)
+	#define SCU_C3_IRQSC_BT_WUP_OFFSET 0x0
+	#define SCU_C3_IRQSC_BT_WUP_WIDTH 0x1
+	#define SCU_C3_IRQSC_BT_WUP_MASK 0x1
+	#define SCU_C3_IRQSC_BT_WUP(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C3_IRQSC_BT_WUP_NO_CHANGE ( 0x0 << SCU_C3_IRQSC_BT_WUP_OFFSET )
+		#define SCU_C3_IRQSC_BT_WUP_CLEAR_INTERRUPT ( 0x1 << SCU_C3_IRQSC_BT_WUP_OFFSET )
+
+#define SCU_C4_IRQSM_OFFSET 	  0xc000
+#define SCU_C4_IRQSM(_base) ((_base) + 0xc000)
+	#define SCU_C4_IRQSM_WLAN_WUP_OFFSET 0x0
+	#define SCU_C4_IRQSM_WLAN_WUP_WIDTH 0x1
+	#define SCU_C4_IRQSM_WLAN_WUP_MASK 0x1
+	#define SCU_C4_IRQSM_WLAN_WUP(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C4_IRQSM_WLAN_WUP_DISABLED ( 0x0 << SCU_C4_IRQSM_WLAN_WUP_OFFSET )
+		#define SCU_C4_IRQSM_WLAN_WUP_ENABLED ( 0x1 << SCU_C4_IRQSM_WLAN_WUP_OFFSET )
+
+#define SCU_C4_IRQSS_OFFSET 	  0xc004
+#define SCU_C4_IRQSS(_base) ((_base) + 0xc004)
+	#define SCU_C4_IRQSS_WLAN_WUP_OFFSET 0x0
+	#define SCU_C4_IRQSS_WLAN_WUP_WIDTH 0x1
+	#define SCU_C4_IRQSS_WLAN_WUP_MASK 0x1
+	#define SCU_C4_IRQSS_WLAN_WUP(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C4_IRQSS_WLAN_WUP_NO_INTERRUPT ( 0x0 << SCU_C4_IRQSS_WLAN_WUP_OFFSET )
+		#define SCU_C4_IRQSS_WLAN_WUP_PENDING_INTERRUPT ( 0x1 << SCU_C4_IRQSS_WLAN_WUP_OFFSET )
+
+#define SCU_C4_IRQSC_OFFSET 	  0xc008
+#define SCU_C4_IRQSC(_base) ((_base) + 0xc008)
+	#define SCU_C4_IRQSC_WLAN_WUP_OFFSET 0x0
+	#define SCU_C4_IRQSC_WLAN_WUP_WIDTH 0x1
+	#define SCU_C4_IRQSC_WLAN_WUP_MASK 0x1
+	#define SCU_C4_IRQSC_WLAN_WUP(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C4_IRQSC_WLAN_WUP_NO_CHANGE ( 0x0 << SCU_C4_IRQSC_WLAN_WUP_OFFSET )
+		#define SCU_C4_IRQSC_WLAN_WUP_CLEAR_INTERRUPT ( 0x1 << SCU_C4_IRQSC_WLAN_WUP_OFFSET )
+
+#define SCU_GNSS_CTL1_OFFSET 	  0x10000
+#define SCU_GNSS_CTL1(_base) ((_base) + 0x10000)
+	#define SCU_GNSS_CTL1_NPORST_OFFSET 0x0
+	#define SCU_GNSS_CTL1_NPORST_WIDTH 0x1
+	#define SCU_GNSS_CTL1_NPORST_MASK 0x1
+	#define SCU_GNSS_CTL1_NPORST(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_GNSS_CTL1_NPORST_RST ( 0x0 << SCU_GNSS_CTL1_NPORST_OFFSET )
+		#define SCU_GNSS_CTL1_NPORST_NORST ( 0x1 << SCU_GNSS_CTL1_NPORST_OFFSET )
+	#define SCU_GNSS_CTL1_PMU_RSTN_OFFSET 0x1
+	#define SCU_GNSS_CTL1_PMU_RSTN_WIDTH 0x1
+	#define SCU_GNSS_CTL1_PMU_RSTN_MASK 0x2
+	#define SCU_GNSS_CTL1_PMU_RSTN(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_GNSS_CTL1_PMU_RSTN_RST ( 0x0 << SCU_GNSS_CTL1_PMU_RSTN_OFFSET )
+		#define SCU_GNSS_CTL1_PMU_RSTN_NORST ( 0x1 << SCU_GNSS_CTL1_PMU_RSTN_OFFSET )
+	#define SCU_GNSS_CTL1_BB_RSTN_OFFSET 0x2
+	#define SCU_GNSS_CTL1_BB_RSTN_WIDTH 0x1
+	#define SCU_GNSS_CTL1_BB_RSTN_MASK 0x4
+	#define SCU_GNSS_CTL1_BB_RSTN(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_GNSS_CTL1_BB_RSTN_RST ( 0x0 << SCU_GNSS_CTL1_BB_RSTN_OFFSET )
+		#define SCU_GNSS_CTL1_BB_RSTN_NORST ( 0x1 << SCU_GNSS_CTL1_BB_RSTN_OFFSET )
+	#define SCU_GNSS_CTL1_WDG_RSTN_OFFSET 0x3
+	#define SCU_GNSS_CTL1_WDG_RSTN_WIDTH 0x1
+	#define SCU_GNSS_CTL1_WDG_RSTN_MASK 0x8
+	#define SCU_GNSS_CTL1_WDG_RSTN(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_GNSS_CTL1_WDG_RSTN_RST ( 0x0 << SCU_GNSS_CTL1_WDG_RSTN_OFFSET )
+		#define SCU_GNSS_CTL1_WDG_RSTN_NORST ( 0x1 << SCU_GNSS_CTL1_WDG_RSTN_OFFSET )
+	#define SCU_GNSS_CTL1_DSP_START_OFFSET 0x4
+	#define SCU_GNSS_CTL1_DSP_START_WIDTH 0x1
+	#define SCU_GNSS_CTL1_DSP_START_MASK 0x10
+	#define SCU_GNSS_CTL1_DSP_START(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_GNSS_CTL1_DSP_START_NOSTART ( 0x0 << SCU_GNSS_CTL1_DSP_START_OFFSET )
+		#define SCU_GNSS_CTL1_DSP_START_START ( 0x1 << SCU_GNSS_CTL1_DSP_START_OFFSET )
+	#define SCU_GNSS_CTL1_SLEEP_INT_OFFSET 0x5
+	#define SCU_GNSS_CTL1_SLEEP_INT_WIDTH 0x1
+	#define SCU_GNSS_CTL1_SLEEP_INT_MASK 0x20
+	#define SCU_GNSS_CTL1_SLEEP_INT(_reg) (((_reg) & 0x20) >> 0x5)
+		#define SCU_GNSS_CTL1_SLEEP_INT_NOCHANGE ( 0x0 << SCU_GNSS_CTL1_SLEEP_INT_OFFSET )
+		#define SCU_GNSS_CTL1_SLEEP_INT_WAKEUP ( 0x1 << SCU_GNSS_CTL1_SLEEP_INT_OFFSET )
+	#define SCU_GNSS_CTL1_NO_EXT_PROC_OFFSET 0x6
+	#define SCU_GNSS_CTL1_NO_EXT_PROC_WIDTH 0x1
+	#define SCU_GNSS_CTL1_NO_EXT_PROC_MASK 0x40
+	#define SCU_GNSS_CTL1_NO_EXT_PROC(_reg) (((_reg) & 0x40) >> 0x6)
+		#define SCU_GNSS_CTL1_NO_EXT_PROC_EXTPROC ( 0x0 << SCU_GNSS_CTL1_NO_EXT_PROC_OFFSET )
+		#define SCU_GNSS_CTL1_NO_EXT_PROC_NOEXTPROC ( 0x1 << SCU_GNSS_CTL1_NO_EXT_PROC_OFFSET )
+	#define SCU_GNSS_CTL1_RES1_OFFSET 0x7
+	#define SCU_GNSS_CTL1_RES1_WIDTH 0x1
+	#define SCU_GNSS_CTL1_RES1_MASK 0x80
+	#define SCU_GNSS_CTL1_RES1(_reg) (((_reg) & 0x80) >> 0x7)
+	#define SCU_GNSS_CTL1_SLEEPB_OFFSET 0x8
+	#define SCU_GNSS_CTL1_SLEEPB_WIDTH 0x1
+	#define SCU_GNSS_CTL1_SLEEPB_MASK 0x100
+	#define SCU_GNSS_CTL1_SLEEPB(_reg) (((_reg) & 0x100) >> 0x8)
+		#define SCU_GNSS_CTL1_SLEEPB_RET ( 0x0 << SCU_GNSS_CTL1_SLEEPB_OFFSET )
+		#define SCU_GNSS_CTL1_SLEEPB_NORET ( 0x1 << SCU_GNSS_CTL1_SLEEPB_OFFSET )
+	#define SCU_GNSS_CTL1_POWERONB_OFFSET 0x9
+	#define SCU_GNSS_CTL1_POWERONB_WIDTH 0x1
+	#define SCU_GNSS_CTL1_POWERONB_MASK 0x200
+	#define SCU_GNSS_CTL1_POWERONB(_reg) (((_reg) & 0x200) >> 0x9)
+		#define SCU_GNSS_CTL1_POWERONB_ON ( 0x0 << SCU_GNSS_CTL1_POWERONB_OFFSET )
+		#define SCU_GNSS_CTL1_POWERONB_OFF ( 0x1 << SCU_GNSS_CTL1_POWERONB_OFFSET )
+	#define SCU_GNSS_CTL1_GNSS_HP_SW_REQ_OFFSET 0xa
+	#define SCU_GNSS_CTL1_GNSS_HP_SW_REQ_WIDTH 0x1
+	#define SCU_GNSS_CTL1_GNSS_HP_SW_REQ_MASK 0x400
+	#define SCU_GNSS_CTL1_GNSS_HP_SW_REQ(_reg) (((_reg) & 0x400) >> 0xa)
+		#define SCU_GNSS_CTL1_GNSS_HP_SW_REQ_V_RET ( 0x0 << SCU_GNSS_CTL1_GNSS_HP_SW_REQ_OFFSET )
+		#define SCU_GNSS_CTL1_GNSS_HP_SW_REQ_V_HIGH ( 0x1 << SCU_GNSS_CTL1_GNSS_HP_SW_REQ_OFFSET )
+	#define SCU_GNSS_CTL1_VDD_HP_SW_REQ_SEL_OFFSET 0xb
+	#define SCU_GNSS_CTL1_VDD_HP_SW_REQ_SEL_WIDTH 0x1
+	#define SCU_GNSS_CTL1_VDD_HP_SW_REQ_SEL_MASK 0x800
+	#define SCU_GNSS_CTL1_VDD_HP_SW_REQ_SEL(_reg) (((_reg) & 0x800) >> 0xb)
+		#define SCU_GNSS_CTL1_VDD_HP_SW_REQ_SEL_PMU ( 0x0 << SCU_GNSS_CTL1_VDD_HP_SW_REQ_SEL_OFFSET )
+		#define SCU_GNSS_CTL1_VDD_HP_SW_REQ_SEL_SW ( 0x1 << SCU_GNSS_CTL1_VDD_HP_SW_REQ_SEL_OFFSET )
+	#define SCU_GNSS_CTL1_EXT_REF_CLK_EN_OFFSET 0xc
+	#define SCU_GNSS_CTL1_EXT_REF_CLK_EN_WIDTH 0x1
+	#define SCU_GNSS_CTL1_EXT_REF_CLK_EN_MASK 0x1000
+	#define SCU_GNSS_CTL1_EXT_REF_CLK_EN(_reg) (((_reg) & 0x1000) >> 0xc)
+		#define SCU_GNSS_CTL1_EXT_REF_CLK_EN_RF ( 0x0 << SCU_GNSS_CTL1_EXT_REF_CLK_EN_OFFSET )
+		#define SCU_GNSS_CTL1_EXT_REF_CLK_EN_EXT ( 0x1 << SCU_GNSS_CTL1_EXT_REF_CLK_EN_OFFSET )
+	#define SCU_GNSS_CTL1_BOOT_OFFSET 0xd
+	#define SCU_GNSS_CTL1_BOOT_WIDTH 0x1
+	#define SCU_GNSS_CTL1_BOOT_MASK 0x2000
+	#define SCU_GNSS_CTL1_BOOT(_reg) (((_reg) & 0x2000) >> 0xd)
+		#define SCU_GNSS_CTL1_BOOT_NOJUMP ( 0x0 << SCU_GNSS_CTL1_BOOT_OFFSET )
+		#define SCU_GNSS_CTL1_BOOT_JUMP ( 0x1 << SCU_GNSS_CTL1_BOOT_OFFSET )
+	#define SCU_GNSS_CTL1_DEBUG_OFFSET 0xe
+	#define SCU_GNSS_CTL1_DEBUG_WIDTH 0x1
+	#define SCU_GNSS_CTL1_DEBUG_MASK 0x4000
+	#define SCU_GNSS_CTL1_DEBUG(_reg) (((_reg) & 0x4000) >> 0xe)
+		#define SCU_GNSS_CTL1_DEBUG_NODEBUG ( 0x0 << SCU_GNSS_CTL1_DEBUG_OFFSET )
+		#define SCU_GNSS_CTL1_DEBUG_DEBUG ( 0x1 << SCU_GNSS_CTL1_DEBUG_OFFSET )
+	#define SCU_GNSS_CTL1_PMU_EXTP_OFFSET 0xf
+	#define SCU_GNSS_CTL1_PMU_EXTP_WIDTH 0x1
+	#define SCU_GNSS_CTL1_PMU_EXTP_MASK 0x8000
+	#define SCU_GNSS_CTL1_PMU_EXTP(_reg) (((_reg) & 0x8000) >> 0xf)
+		#define SCU_GNSS_CTL1_PMU_EXTP_BOOTMODE1 ( 0x0 << SCU_GNSS_CTL1_PMU_EXTP_OFFSET )
+		#define SCU_GNSS_CTL1_PMU_EXTP_BOOTMODE2 ( 0x1 << SCU_GNSS_CTL1_PMU_EXTP_OFFSET )
+	#define SCU_GNSS_CTL1_BCFG_SEL_OFFSET 0x10
+	#define SCU_GNSS_CTL1_BCFG_SEL_WIDTH 0x4
+	#define SCU_GNSS_CTL1_BCFG_SEL_MASK 0xf0000
+	#define SCU_GNSS_CTL1_BCFG_SEL(_reg) (((_reg) & 0xf0000) >> 0x10)
+	#define SCU_GNSS_CTL1_ARM_TO_GPS_0_OFFSET 0x14
+	#define SCU_GNSS_CTL1_ARM_TO_GPS_0_WIDTH 0x1
+	#define SCU_GNSS_CTL1_ARM_TO_GPS_0_MASK 0x100000
+	#define SCU_GNSS_CTL1_ARM_TO_GPS_0(_reg) (((_reg) & 0x100000) >> 0x14)
+	#define SCU_GNSS_CTL1_ARM_TO_GPS_1_OFFSET 0x15
+	#define SCU_GNSS_CTL1_ARM_TO_GPS_1_WIDTH 0x1
+	#define SCU_GNSS_CTL1_ARM_TO_GPS_1_MASK 0x200000
+	#define SCU_GNSS_CTL1_ARM_TO_GPS_1(_reg) (((_reg) & 0x200000) >> 0x15)
+	#define SCU_GNSS_CTL1_RES2_OFFSET 0x16
+	#define SCU_GNSS_CTL1_RES2_WIDTH 0xa
+	#define SCU_GNSS_CTL1_RES2_MASK 0xffc00000
+	#define SCU_GNSS_CTL1_RES2(_reg) (((_reg) & 0xffc00000) >> 0x16)
+
+#define SCU_GNSS_STAT1_OFFSET 	  0x10008
+#define SCU_GNSS_STAT1(_base) ((_base) + 0x10008)
+	#define SCU_GNSS_STAT1_WDG_EVENT_RST_OFFSET 0x0
+	#define SCU_GNSS_STAT1_WDG_EVENT_RST_WIDTH 0x1
+	#define SCU_GNSS_STAT1_WDG_EVENT_RST_MASK 0x1
+	#define SCU_GNSS_STAT1_WDG_EVENT_RST(_reg) (((_reg) & 0x1) >> 0x0)
+	#define SCU_GNSS_STAT1_GPS_DBG_OFFSET 0x1
+	#define SCU_GNSS_STAT1_GPS_DBG_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GPS_DBG_MASK 0x2
+	#define SCU_GNSS_STAT1_GPS_DBG(_reg) (((_reg) & 0x2) >> 0x1)
+	#define SCU_GNSS_STAT1_GPS_BT_DIS_OFFSET 0x2
+	#define SCU_GNSS_STAT1_GPS_BT_DIS_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GPS_BT_DIS_MASK 0x4
+	#define SCU_GNSS_STAT1_GPS_BT_DIS(_reg) (((_reg) & 0x4) >> 0x2)
+	#define SCU_GNSS_STAT1_GNSS_PMU_SYS_CLK_REQ_OFFSET 0x3
+	#define SCU_GNSS_STAT1_GNSS_PMU_SYS_CLK_REQ_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_PMU_SYS_CLK_REQ_MASK 0x8
+	#define SCU_GNSS_STAT1_GNSS_PMU_SYS_CLK_REQ(_reg) (((_reg) & 0x8) >> 0x3)
+	#define SCU_GNSS_STAT1_GPS_TCXO_CLK_REQ_OFFSET 0x4
+	#define SCU_GNSS_STAT1_GPS_TCXO_CLK_REQ_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GPS_TCXO_CLK_REQ_MASK 0x10
+	#define SCU_GNSS_STAT1_GPS_TCXO_CLK_REQ(_reg) (((_reg) & 0x10) >> 0x4)
+	#define SCU_GNSS_STAT1_GPS_RF_CLK_REQ_OFFSET 0x5
+	#define SCU_GNSS_STAT1_GPS_RF_CLK_REQ_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GPS_RF_CLK_REQ_MASK 0x20
+	#define SCU_GNSS_STAT1_GPS_RF_CLK_REQ(_reg) (((_reg) & 0x20) >> 0x5)
+	#define SCU_GNSS_STAT1_GPS_BB_CLK_REQ_OFFSET 0x6
+	#define SCU_GNSS_STAT1_GPS_BB_CLK_REQ_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GPS_BB_CLK_REQ_MASK 0x40
+	#define SCU_GNSS_STAT1_GPS_BB_CLK_REQ(_reg) (((_reg) & 0x40) >> 0x6)
+	#define SCU_GNSS_STAT1_GPS_REF_CLK_REQ_OFFSET 0x7
+	#define SCU_GNSS_STAT1_GPS_REF_CLK_REQ_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GPS_REF_CLK_REQ_MASK 0x80
+	#define SCU_GNSS_STAT1_GPS_REF_CLK_REQ(_reg) (((_reg) & 0x80) >> 0x7)
+	#define SCU_GNSS_STAT1_GPS_TO_ARM_0_OFFSET 0x8
+	#define SCU_GNSS_STAT1_GPS_TO_ARM_0_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GPS_TO_ARM_0_MASK 0x100
+	#define SCU_GNSS_STAT1_GPS_TO_ARM_0(_reg) (((_reg) & 0x100) >> 0x8)
+	#define SCU_GNSS_STAT1_GPS_TO_ARM_1_OFFSET 0x9
+	#define SCU_GNSS_STAT1_GPS_TO_ARM_1_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GPS_TO_ARM_1_MASK 0x200
+	#define SCU_GNSS_STAT1_GPS_TO_ARM_1(_reg) (((_reg) & 0x200) >> 0x9)
+	#define SCU_GNSS_STAT1_GPS_EN_LDO_BB_OFFSET 0xa
+	#define SCU_GNSS_STAT1_GPS_EN_LDO_BB_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GPS_EN_LDO_BB_MASK 0x400
+	#define SCU_GNSS_STAT1_GPS_EN_LDO_BB(_reg) (((_reg) & 0x400) >> 0xa)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_0_OFFSET 0xb
+	#define SCU_GNSS_STAT1_GNSS_GPIO_0_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_0_MASK 0x800
+	#define SCU_GNSS_STAT1_GNSS_GPIO_0(_reg) (((_reg) & 0x800) >> 0xb)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_1_OFFSET 0xc
+	#define SCU_GNSS_STAT1_GNSS_GPIO_1_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_1_MASK 0x1000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_1(_reg) (((_reg) & 0x1000) >> 0xc)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_2_OFFSET 0xd
+	#define SCU_GNSS_STAT1_GNSS_GPIO_2_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_2_MASK 0x2000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_2(_reg) (((_reg) & 0x2000) >> 0xd)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_3_OFFSET 0xe
+	#define SCU_GNSS_STAT1_GNSS_GPIO_3_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_3_MASK 0x4000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_3(_reg) (((_reg) & 0x4000) >> 0xe)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_4_OFFSET 0xf
+	#define SCU_GNSS_STAT1_GNSS_GPIO_4_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_4_MASK 0x8000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_4(_reg) (((_reg) & 0x8000) >> 0xf)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_5_OFFSET 0x10
+	#define SCU_GNSS_STAT1_GNSS_GPIO_5_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_5_MASK 0x10000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_5(_reg) (((_reg) & 0x10000) >> 0x10)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_6_OFFSET 0x11
+	#define SCU_GNSS_STAT1_GNSS_GPIO_6_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_6_MASK 0x20000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_6(_reg) (((_reg) & 0x20000) >> 0x11)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_7_OFFSET 0x12
+	#define SCU_GNSS_STAT1_GNSS_GPIO_7_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_7_MASK 0x40000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_7(_reg) (((_reg) & 0x40000) >> 0x12)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_8_OFFSET 0x13
+	#define SCU_GNSS_STAT1_GNSS_GPIO_8_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_8_MASK 0x80000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_8(_reg) (((_reg) & 0x80000) >> 0x13)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_9_OFFSET 0x14
+	#define SCU_GNSS_STAT1_GNSS_GPIO_9_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_9_MASK 0x100000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_9(_reg) (((_reg) & 0x100000) >> 0x14)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_10_OFFSET 0x15
+	#define SCU_GNSS_STAT1_GNSS_GPIO_10_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_10_MASK 0x200000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_10(_reg) (((_reg) & 0x200000) >> 0x15)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_11_OFFSET 0x16
+	#define SCU_GNSS_STAT1_GNSS_GPIO_11_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_11_MASK 0x400000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_11(_reg) (((_reg) & 0x400000) >> 0x16)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_12_OFFSET 0x17
+	#define SCU_GNSS_STAT1_GNSS_GPIO_12_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_12_MASK 0x800000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_12(_reg) (((_reg) & 0x800000) >> 0x17)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_13_OFFSET 0x18
+	#define SCU_GNSS_STAT1_GNSS_GPIO_13_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_13_MASK 0x1000000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_13(_reg) (((_reg) & 0x1000000) >> 0x18)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_14_OFFSET 0x19
+	#define SCU_GNSS_STAT1_GNSS_GPIO_14_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_14_MASK 0x2000000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_14(_reg) (((_reg) & 0x2000000) >> 0x19)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_15_OFFSET 0x1a
+	#define SCU_GNSS_STAT1_GNSS_GPIO_15_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_15_MASK 0x4000000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_15(_reg) (((_reg) & 0x4000000) >> 0x1a)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_16_OFFSET 0x1b
+	#define SCU_GNSS_STAT1_GNSS_GPIO_16_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_16_MASK 0x8000000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_16(_reg) (((_reg) & 0x8000000) >> 0x1b)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_17_OFFSET 0x1c
+	#define SCU_GNSS_STAT1_GNSS_GPIO_17_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_17_MASK 0x10000000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_17(_reg) (((_reg) & 0x10000000) >> 0x1c)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_18_OFFSET 0x1d
+	#define SCU_GNSS_STAT1_GNSS_GPIO_18_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_18_MASK 0x20000000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_18(_reg) (((_reg) & 0x20000000) >> 0x1d)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_19_OFFSET 0x1e
+	#define SCU_GNSS_STAT1_GNSS_GPIO_19_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_19_MASK 0x40000000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_19(_reg) (((_reg) & 0x40000000) >> 0x1e)
+	#define SCU_GNSS_STAT1_GNSS_GPIO_20_OFFSET 0x1f
+	#define SCU_GNSS_STAT1_GNSS_GPIO_20_WIDTH 0x1
+	#define SCU_GNSS_STAT1_GNSS_GPIO_20_MASK 0x80000000
+	#define SCU_GNSS_STAT1_GNSS_GPIO_20(_reg) (((_reg) & 0x80000000) >> 0x1f)
+
+#define SCU_TES0_OFFSET 	  0x1000c
+#define SCU_TES0(_base) ((_base) + 0x1000c)
+	#define SCU_TES0_GNSS_GPIO_9_OFFSET 0x0
+	#define SCU_TES0_GNSS_GPIO_9_WIDTH 0x2
+	#define SCU_TES0_GNSS_GPIO_9_MASK 0x3
+	#define SCU_TES0_GNSS_GPIO_9(_reg) (((_reg) & 0x3) >> 0x0)
+	#define SCU_TES0_GNSS_GPIO_10_OFFSET 0x2
+	#define SCU_TES0_GNSS_GPIO_10_WIDTH 0x2
+	#define SCU_TES0_GNSS_GPIO_10_MASK 0xc
+	#define SCU_TES0_GNSS_GPIO_10(_reg) (((_reg) & 0xc) >> 0x2)
+	#define SCU_TES0_GNSS_GPIO_17_OFFSET 0x4
+	#define SCU_TES0_GNSS_GPIO_17_WIDTH 0x2
+	#define SCU_TES0_GNSS_GPIO_17_MASK 0x30
+	#define SCU_TES0_GNSS_GPIO_17(_reg) (((_reg) & 0x30) >> 0x4)
+	#define SCU_TES0_GPS_TCXO_CLK_REQ_OFFSET 0x6
+	#define SCU_TES0_GPS_TCXO_CLK_REQ_WIDTH 0x2
+	#define SCU_TES0_GPS_TCXO_CLK_REQ_MASK 0xc0
+	#define SCU_TES0_GPS_TCXO_CLK_REQ(_reg) (((_reg) & 0xc0) >> 0x6)
+	#define SCU_TES0_GPS_RF_CLK_REQ_OFFSET 0x8
+	#define SCU_TES0_GPS_RF_CLK_REQ_WIDTH 0x2
+	#define SCU_TES0_GPS_RF_CLK_REQ_MASK 0x300
+	#define SCU_TES0_GPS_RF_CLK_REQ(_reg) (((_reg) & 0x300) >> 0x8)
+	#define SCU_TES0_GPS_BB_CLK_REQ_OFFSET 0xa
+	#define SCU_TES0_GPS_BB_CLK_REQ_WIDTH 0x2
+	#define SCU_TES0_GPS_BB_CLK_REQ_MASK 0xc00
+	#define SCU_TES0_GPS_BB_CLK_REQ(_reg) (((_reg) & 0xc00) >> 0xa)
+	#define SCU_TES0_GPS_TO_ARM_1_OFFSET 0xc
+	#define SCU_TES0_GPS_TO_ARM_1_WIDTH 0x2
+	#define SCU_TES0_GPS_TO_ARM_1_MASK 0x3000
+	#define SCU_TES0_GPS_TO_ARM_1(_reg) (((_reg) & 0x3000) >> 0xc)
+	#define SCU_TES0_GPS_TO_ARM_0_OFFSET 0xe
+	#define SCU_TES0_GPS_TO_ARM_0_WIDTH 0x2
+	#define SCU_TES0_GPS_TO_ARM_0_MASK 0xc000
+	#define SCU_TES0_GPS_TO_ARM_0(_reg) (((_reg) & 0xc000) >> 0xe)
+	#define SCU_TES0_GPS_EN_LDO_BB_OFFSET 0x10
+	#define SCU_TES0_GPS_EN_LDO_BB_WIDTH 0x2
+	#define SCU_TES0_GPS_EN_LDO_BB_MASK 0x30000
+	#define SCU_TES0_GPS_EN_LDO_BB(_reg) (((_reg) & 0x30000) >> 0x10)
+	#define SCU_TES0_GNSS_GPIO_WAKE_OFFSET 0x12
+	#define SCU_TES0_GNSS_GPIO_WAKE_WIDTH 0x2
+	#define SCU_TES0_GNSS_GPIO_WAKE_MASK 0xc0000
+	#define SCU_TES0_GNSS_GPIO_WAKE(_reg) (((_reg) & 0xc0000) >> 0x12)
+	#define SCU_TES0_GNSS_GPIO_11_OFFSET 0x14
+	#define SCU_TES0_GNSS_GPIO_11_WIDTH 0x2
+	#define SCU_TES0_GNSS_GPIO_11_MASK 0x300000
+	#define SCU_TES0_GNSS_GPIO_11(_reg) (((_reg) & 0x300000) >> 0x14)
+	#define SCU_TES0_GNSS_GPIO_12_OFFSET 0x16
+	#define SCU_TES0_GNSS_GPIO_12_WIDTH 0x2
+	#define SCU_TES0_GNSS_GPIO_12_MASK 0xc00000
+	#define SCU_TES0_GNSS_GPIO_12(_reg) (((_reg) & 0xc00000) >> 0x16)
+
+#define SCU_FEN0_OFFSET 	  0x10010
+#define SCU_FEN0(_base) ((_base) + 0x10010)
+	#define SCU_FEN0_GNSS_GPIO_9_OFFSET 0x0
+	#define SCU_FEN0_GNSS_GPIO_9_WIDTH 0x2
+	#define SCU_FEN0_GNSS_GPIO_9_MASK 0x3
+	#define SCU_FEN0_GNSS_GPIO_9(_reg) (((_reg) & 0x3) >> 0x0)
+	#define SCU_FEN0_GNSS_GPIO_10_OFFSET 0x2
+	#define SCU_FEN0_GNSS_GPIO_10_WIDTH 0x2
+	#define SCU_FEN0_GNSS_GPIO_10_MASK 0xc
+	#define SCU_FEN0_GNSS_GPIO_10(_reg) (((_reg) & 0xc) >> 0x2)
+	#define SCU_FEN0_GNSS_GPIO_17_OFFSET 0x4
+	#define SCU_FEN0_GNSS_GPIO_17_WIDTH 0x2
+	#define SCU_FEN0_GNSS_GPIO_17_MASK 0x30
+	#define SCU_FEN0_GNSS_GPIO_17(_reg) (((_reg) & 0x30) >> 0x4)
+	#define SCU_FEN0_GPS_TCXO_CLK_REQ_OFFSET 0x6
+	#define SCU_FEN0_GPS_TCXO_CLK_REQ_WIDTH 0x2
+	#define SCU_FEN0_GPS_TCXO_CLK_REQ_MASK 0xc0
+	#define SCU_FEN0_GPS_TCXO_CLK_REQ(_reg) (((_reg) & 0xc0) >> 0x6)
+	#define SCU_FEN0_GPS_RF_CLK_REQ_OFFSET 0x8
+	#define SCU_FEN0_GPS_RF_CLK_REQ_WIDTH 0x2
+	#define SCU_FEN0_GPS_RF_CLK_REQ_MASK 0x300
+	#define SCU_FEN0_GPS_RF_CLK_REQ(_reg) (((_reg) & 0x300) >> 0x8)
+	#define SCU_FEN0_GPS_BB_CLK_REQ_OFFSET 0xa
+	#define SCU_FEN0_GPS_BB_CLK_REQ_WIDTH 0x2
+	#define SCU_FEN0_GPS_BB_CLK_REQ_MASK 0xc00
+	#define SCU_FEN0_GPS_BB_CLK_REQ(_reg) (((_reg) & 0xc00) >> 0xa)
+	#define SCU_FEN0_GPS_TO_ARM_1_OFFSET 0xc
+	#define SCU_FEN0_GPS_TO_ARM_1_WIDTH 0x2
+	#define SCU_FEN0_GPS_TO_ARM_1_MASK 0x3000
+	#define SCU_FEN0_GPS_TO_ARM_1(_reg) (((_reg) & 0x3000) >> 0xc)
+	#define SCU_FEN0_GPS_TO_ARM_0_OFFSET 0xe
+	#define SCU_FEN0_GPS_TO_ARM_0_WIDTH 0x2
+	#define SCU_FEN0_GPS_TO_ARM_0_MASK 0xc000
+	#define SCU_FEN0_GPS_TO_ARM_0(_reg) (((_reg) & 0xc000) >> 0xe)
+	#define SCU_FEN0_GPS_EN_LDO_BB_OFFSET 0x10
+	#define SCU_FEN0_GPS_EN_LDO_BB_WIDTH 0x2
+	#define SCU_FEN0_GPS_EN_LDO_BB_MASK 0x30000
+	#define SCU_FEN0_GPS_EN_LDO_BB(_reg) (((_reg) & 0x30000) >> 0x10)
+	#define SCU_FEN0_GNSS_GPIO_WAKE_OFFSET 0x12
+	#define SCU_FEN0_GNSS_GPIO_WAKE_WIDTH 0x2
+	#define SCU_FEN0_GNSS_GPIO_WAKE_MASK 0xc0000
+	#define SCU_FEN0_GNSS_GPIO_WAKE(_reg) (((_reg) & 0xc0000) >> 0x12)
+	#define SCU_FEN0_GNSS_GPIO_11_OFFSET 0x14
+	#define SCU_FEN0_GNSS_GPIO_11_WIDTH 0x2
+	#define SCU_FEN0_GNSS_GPIO_11_MASK 0x300000
+	#define SCU_FEN0_GNSS_GPIO_11(_reg) (((_reg) & 0x300000) >> 0x14)
+	#define SCU_FEN0_GNSS_GPIO_12_OFFSET 0x16
+	#define SCU_FEN0_GNSS_GPIO_12_WIDTH 0x2
+	#define SCU_FEN0_GNSS_GPIO_12_MASK 0xc00000
+	#define SCU_FEN0_GNSS_GPIO_12(_reg) (((_reg) & 0xc00000) >> 0x16)
+
+#define SCU_LEN0_OFFSET 	  0x10014
+#define SCU_LEN0(_base) ((_base) + 0x10014)
+	#define SCU_LEN0_GNSS_GPIO_9_OFFSET 0x0
+	#define SCU_LEN0_GNSS_GPIO_9_WIDTH 0x2
+	#define SCU_LEN0_GNSS_GPIO_9_MASK 0x3
+	#define SCU_LEN0_GNSS_GPIO_9(_reg) (((_reg) & 0x3) >> 0x0)
+	#define SCU_LEN0_GNSS_GPIO_10_OFFSET 0x2
+	#define SCU_LEN0_GNSS_GPIO_10_WIDTH 0x2
+	#define SCU_LEN0_GNSS_GPIO_10_MASK 0xc
+	#define SCU_LEN0_GNSS_GPIO_10(_reg) (((_reg) & 0xc) >> 0x2)
+	#define SCU_LEN0_GNSS_GPIO_17_OFFSET 0x4
+	#define SCU_LEN0_GNSS_GPIO_17_WIDTH 0x2
+	#define SCU_LEN0_GNSS_GPIO_17_MASK 0x30
+	#define SCU_LEN0_GNSS_GPIO_17(_reg) (((_reg) & 0x30) >> 0x4)
+	#define SCU_LEN0_GPS_TCXO_CLK_REQ_OFFSET 0x6
+	#define SCU_LEN0_GPS_TCXO_CLK_REQ_WIDTH 0x2
+	#define SCU_LEN0_GPS_TCXO_CLK_REQ_MASK 0xc0
+	#define SCU_LEN0_GPS_TCXO_CLK_REQ(_reg) (((_reg) & 0xc0) >> 0x6)
+	#define SCU_LEN0_GPS_RF_CLK_REQ_OFFSET 0x8
+	#define SCU_LEN0_GPS_RF_CLK_REQ_WIDTH 0x2
+	#define SCU_LEN0_GPS_RF_CLK_REQ_MASK 0x300
+	#define SCU_LEN0_GPS_RF_CLK_REQ(_reg) (((_reg) & 0x300) >> 0x8)
+	#define SCU_LEN0_GPS_BB_CLK_REQ_OFFSET 0xa
+	#define SCU_LEN0_GPS_BB_CLK_REQ_WIDTH 0x2
+	#define SCU_LEN0_GPS_BB_CLK_REQ_MASK 0xc00
+	#define SCU_LEN0_GPS_BB_CLK_REQ(_reg) (((_reg) & 0xc00) >> 0xa)
+	#define SCU_LEN0_GPS_TO_ARM_1_OFFSET 0xc
+	#define SCU_LEN0_GPS_TO_ARM_1_WIDTH 0x2
+	#define SCU_LEN0_GPS_TO_ARM_1_MASK 0x3000
+	#define SCU_LEN0_GPS_TO_ARM_1(_reg) (((_reg) & 0x3000) >> 0xc)
+	#define SCU_LEN0_GPS_TO_ARM_0_OFFSET 0xe
+	#define SCU_LEN0_GPS_TO_ARM_0_WIDTH 0x2
+	#define SCU_LEN0_GPS_TO_ARM_0_MASK 0xc000
+	#define SCU_LEN0_GPS_TO_ARM_0(_reg) (((_reg) & 0xc000) >> 0xe)
+	#define SCU_LEN0_GPS_EN_LDO_BB_OFFSET 0x10
+	#define SCU_LEN0_GPS_EN_LDO_BB_WIDTH 0x2
+	#define SCU_LEN0_GPS_EN_LDO_BB_MASK 0x30000
+	#define SCU_LEN0_GPS_EN_LDO_BB(_reg) (((_reg) & 0x30000) >> 0x10)
+	#define SCU_LEN0_GNSS_GPIO_WAKE_OFFSET 0x12
+	#define SCU_LEN0_GNSS_GPIO_WAKE_WIDTH 0x2
+	#define SCU_LEN0_GNSS_GPIO_WAKE_MASK 0xc0000
+	#define SCU_LEN0_GNSS_GPIO_WAKE(_reg) (((_reg) & 0xc0000) >> 0x12)
+	#define SCU_LEN0_GNSS_GPIO_11_OFFSET 0x14
+	#define SCU_LEN0_GNSS_GPIO_11_WIDTH 0x2
+	#define SCU_LEN0_GNSS_GPIO_11_MASK 0x300000
+	#define SCU_LEN0_GNSS_GPIO_11(_reg) (((_reg) & 0x300000) >> 0x14)
+	#define SCU_LEN0_GNSS_GPIO_12_OFFSET 0x16
+	#define SCU_LEN0_GNSS_GPIO_12_WIDTH 0x2
+	#define SCU_LEN0_GNSS_GPIO_12_MASK 0xc00000
+	#define SCU_LEN0_GNSS_GPIO_12(_reg) (((_reg) & 0xc00000) >> 0x16)
+
+#define SCU_C5_IRQSM_OFFSET 	  0x10018
+#define SCU_C5_IRQSM(_base) ((_base) + 0x10018)
+	#define SCU_C5_IRQSM_GPS_EN_LDO_BB_OFFSET 0x0
+	#define SCU_C5_IRQSM_GPS_EN_LDO_BB_WIDTH 0x1
+	#define SCU_C5_IRQSM_GPS_EN_LDO_BB_MASK 0x1
+	#define SCU_C5_IRQSM_GPS_EN_LDO_BB(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C5_IRQSM_GPS_EN_LDO_BB_DISABLED ( 0x0 << SCU_C5_IRQSM_GPS_EN_LDO_BB_OFFSET )
+		#define SCU_C5_IRQSM_GPS_EN_LDO_BB_ENABLED ( 0x1 << SCU_C5_IRQSM_GPS_EN_LDO_BB_OFFSET )
+	#define SCU_C5_IRQSM_GNSS_GPIO_WAKE_OFFSET 0x1
+	#define SCU_C5_IRQSM_GNSS_GPIO_WAKE_WIDTH 0x1
+	#define SCU_C5_IRQSM_GNSS_GPIO_WAKE_MASK 0x2
+	#define SCU_C5_IRQSM_GNSS_GPIO_WAKE(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C5_IRQSM_GNSS_GPIO_WAKE_DISABLED ( 0x0 << SCU_C5_IRQSM_GNSS_GPIO_WAKE_OFFSET )
+		#define SCU_C5_IRQSM_GNSS_GPIO_WAKE_ENABLED ( 0x1 << SCU_C5_IRQSM_GNSS_GPIO_WAKE_OFFSET )
+	#define SCU_C5_IRQSM_GPS_TO_ARM_0_OFFSET 0x2
+	#define SCU_C5_IRQSM_GPS_TO_ARM_0_WIDTH 0x1
+	#define SCU_C5_IRQSM_GPS_TO_ARM_0_MASK 0x4
+	#define SCU_C5_IRQSM_GPS_TO_ARM_0(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C5_IRQSM_GPS_TO_ARM_0_DISABLED ( 0x0 << SCU_C5_IRQSM_GPS_TO_ARM_0_OFFSET )
+		#define SCU_C5_IRQSM_GPS_TO_ARM_0_ENABLED ( 0x1 << SCU_C5_IRQSM_GPS_TO_ARM_0_OFFSET )
+
+#define SCU_C5_IRQSS_OFFSET 	  0x1001c
+#define SCU_C5_IRQSS(_base) ((_base) + 0x1001c)
+	#define SCU_C5_IRQSS_GPS_EN_LDO_BB_OFFSET 0x0
+	#define SCU_C5_IRQSS_GPS_EN_LDO_BB_WIDTH 0x1
+	#define SCU_C5_IRQSS_GPS_EN_LDO_BB_MASK 0x1
+	#define SCU_C5_IRQSS_GPS_EN_LDO_BB(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C5_IRQSS_GPS_EN_LDO_BB_NO_INTERRUPT ( 0x0 << SCU_C5_IRQSS_GPS_EN_LDO_BB_OFFSET )
+		#define SCU_C5_IRQSS_GPS_EN_LDO_BB_PENDING_INTERRUPT ( 0x1 << SCU_C5_IRQSS_GPS_EN_LDO_BB_OFFSET )
+	#define SCU_C5_IRQSS_GNSS_GPIO_WAKE_OFFSET 0x1
+	#define SCU_C5_IRQSS_GNSS_GPIO_WAKE_WIDTH 0x1
+	#define SCU_C5_IRQSS_GNSS_GPIO_WAKE_MASK 0x2
+	#define SCU_C5_IRQSS_GNSS_GPIO_WAKE(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C5_IRQSS_GNSS_GPIO_WAKE_NO_INTERRUPT ( 0x0 << SCU_C5_IRQSS_GNSS_GPIO_WAKE_OFFSET )
+		#define SCU_C5_IRQSS_GNSS_GPIO_WAKE_PENDING_INTERRUPT ( 0x1 << SCU_C5_IRQSS_GNSS_GPIO_WAKE_OFFSET )
+	#define SCU_C5_IRQSS_GPS_TO_ARM_0_OFFSET 0x2
+	#define SCU_C5_IRQSS_GPS_TO_ARM_0_WIDTH 0x1
+	#define SCU_C5_IRQSS_GPS_TO_ARM_0_MASK 0x4
+	#define SCU_C5_IRQSS_GPS_TO_ARM_0(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C5_IRQSS_GPS_TO_ARM_0_NO_INTERRUPT ( 0x0 << SCU_C5_IRQSS_GPS_TO_ARM_0_OFFSET )
+		#define SCU_C5_IRQSS_GPS_TO_ARM_0_PENDING_INTERRUPT ( 0x1 << SCU_C5_IRQSS_GPS_TO_ARM_0_OFFSET )
+
+#define SCU_C5_IRQSC_OFFSET 	  0x10020
+#define SCU_C5_IRQSC(_base) ((_base) + 0x10020)
+	#define SCU_C5_IRQSC_GPS_EN_LDO_BB_OFFSET 0x0
+	#define SCU_C5_IRQSC_GPS_EN_LDO_BB_WIDTH 0x1
+	#define SCU_C5_IRQSC_GPS_EN_LDO_BB_MASK 0x1
+	#define SCU_C5_IRQSC_GPS_EN_LDO_BB(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C5_IRQSC_GPS_EN_LDO_BB_NO_CHANGE ( 0x0 << SCU_C5_IRQSC_GPS_EN_LDO_BB_OFFSET )
+		#define SCU_C5_IRQSC_GPS_EN_LDO_BB_CLEAR_INTERRUPT ( 0x1 << SCU_C5_IRQSC_GPS_EN_LDO_BB_OFFSET )
+	#define SCU_C5_IRQSC_GNSS_GPIO_WAKE_OFFSET 0x1
+	#define SCU_C5_IRQSC_GNSS_GPIO_WAKE_WIDTH 0x1
+	#define SCU_C5_IRQSC_GNSS_GPIO_WAKE_MASK 0x2
+	#define SCU_C5_IRQSC_GNSS_GPIO_WAKE(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C5_IRQSC_GNSS_GPIO_WAKE_NO_CHANGE ( 0x0 << SCU_C5_IRQSC_GNSS_GPIO_WAKE_OFFSET )
+		#define SCU_C5_IRQSC_GNSS_GPIO_WAKE_CLEAR_INTERRUPT ( 0x1 << SCU_C5_IRQSC_GNSS_GPIO_WAKE_OFFSET )
+	#define SCU_C5_IRQSC_GPS_TO_ARM_0_OFFSET 0x2
+	#define SCU_C5_IRQSC_GPS_TO_ARM_0_WIDTH 0x1
+	#define SCU_C5_IRQSC_GPS_TO_ARM_0_MASK 0x4
+	#define SCU_C5_IRQSC_GPS_TO_ARM_0(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C5_IRQSC_GPS_TO_ARM_0_NO_CHANGE ( 0x0 << SCU_C5_IRQSC_GPS_TO_ARM_0_OFFSET )
+		#define SCU_C5_IRQSC_GPS_TO_ARM_0_CLEAR_INTERRUPT ( 0x1 << SCU_C5_IRQSC_GPS_TO_ARM_0_OFFSET )
+
+#define SCU_C6_IRQSM_OFFSET 	  0x10024
+#define SCU_C6_IRQSM(_base) ((_base) + 0x10024)
+	#define SCU_C6_IRQSM_WDG_EVENT_RST_OFFSET 0x0
+	#define SCU_C6_IRQSM_WDG_EVENT_RST_WIDTH 0x1
+	#define SCU_C6_IRQSM_WDG_EVENT_RST_MASK 0x1
+	#define SCU_C6_IRQSM_WDG_EVENT_RST(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C6_IRQSM_WDG_EVENT_RST_DISABLED ( 0x0 << SCU_C6_IRQSM_WDG_EVENT_RST_OFFSET )
+		#define SCU_C6_IRQSM_WDG_EVENT_RST_ENABLED ( 0x1 << SCU_C6_IRQSM_WDG_EVENT_RST_OFFSET )
+
+#define SCU_C6_IRQSS_OFFSET 	  0x10028
+#define SCU_C6_IRQSS(_base) ((_base) + 0x10028)
+	#define SCU_C6_IRQSS_WDG_EVENT_RST_OFFSET 0x0
+	#define SCU_C6_IRQSS_WDG_EVENT_RST_WIDTH 0x1
+	#define SCU_C6_IRQSS_WDG_EVENT_RST_MASK 0x1
+	#define SCU_C6_IRQSS_WDG_EVENT_RST(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C6_IRQSS_WDG_EVENT_RST_NO_INTERRUPT ( 0x0 << SCU_C6_IRQSS_WDG_EVENT_RST_OFFSET )
+		#define SCU_C6_IRQSS_WDG_EVENT_RST_PENDING_INTERRUPT ( 0x1 << SCU_C6_IRQSS_WDG_EVENT_RST_OFFSET )
+
+#define SCU_C6_IRQSC_OFFSET 	  0x1002c
+#define SCU_C6_IRQSC(_base) ((_base) + 0x1002c)
+	#define SCU_C6_IRQSC_WDG_EVENT_RST_OFFSET 0x0
+	#define SCU_C6_IRQSC_WDG_EVENT_RST_WIDTH 0x1
+	#define SCU_C6_IRQSC_WDG_EVENT_RST_MASK 0x1
+	#define SCU_C6_IRQSC_WDG_EVENT_RST(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C6_IRQSC_WDG_EVENT_RST_NO_CHANGE ( 0x0 << SCU_C6_IRQSC_WDG_EVENT_RST_OFFSET )
+		#define SCU_C6_IRQSC_WDG_EVENT_RST_CLEAR_INTERRUPT ( 0x1 << SCU_C6_IRQSC_WDG_EVENT_RST_OFFSET )
+
+#define SCU_C7_IRQSM_OFFSET 	  0x10030
+#define SCU_C7_IRQSM(_base) ((_base) + 0x10030)
+	#define SCU_C7_IRQSM_GPS_DBG_OFFSET 0x0
+	#define SCU_C7_IRQSM_GPS_DBG_WIDTH 0x1
+	#define SCU_C7_IRQSM_GPS_DBG_MASK 0x1
+	#define SCU_C7_IRQSM_GPS_DBG(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C7_IRQSM_GPS_DBG_DISABLED ( 0x0 << SCU_C7_IRQSM_GPS_DBG_OFFSET )
+		#define SCU_C7_IRQSM_GPS_DBG_ENABLED ( 0x1 << SCU_C7_IRQSM_GPS_DBG_OFFSET )
+	#define SCU_C7_IRQSM_GPS_TCXO_CLK_REQ_OFFSET 0x1
+	#define SCU_C7_IRQSM_GPS_TCXO_CLK_REQ_WIDTH 0x1
+	#define SCU_C7_IRQSM_GPS_TCXO_CLK_REQ_MASK 0x2
+	#define SCU_C7_IRQSM_GPS_TCXO_CLK_REQ(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C7_IRQSM_GPS_TCXO_CLK_REQ_DISABLED ( 0x0 << SCU_C7_IRQSM_GPS_TCXO_CLK_REQ_OFFSET )
+		#define SCU_C7_IRQSM_GPS_TCXO_CLK_REQ_ENABLED ( 0x1 << SCU_C7_IRQSM_GPS_TCXO_CLK_REQ_OFFSET )
+	#define SCU_C7_IRQSM_GPS_RF_CLK_REQ_OFFSET 0x2
+	#define SCU_C7_IRQSM_GPS_RF_CLK_REQ_WIDTH 0x1
+	#define SCU_C7_IRQSM_GPS_RF_CLK_REQ_MASK 0x4
+	#define SCU_C7_IRQSM_GPS_RF_CLK_REQ(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C7_IRQSM_GPS_RF_CLK_REQ_DISABLED ( 0x0 << SCU_C7_IRQSM_GPS_RF_CLK_REQ_OFFSET )
+		#define SCU_C7_IRQSM_GPS_RF_CLK_REQ_ENABLED ( 0x1 << SCU_C7_IRQSM_GPS_RF_CLK_REQ_OFFSET )
+	#define SCU_C7_IRQSM_GPS_BB_CLK_REQ_OFFSET 0x3
+	#define SCU_C7_IRQSM_GPS_BB_CLK_REQ_WIDTH 0x1
+	#define SCU_C7_IRQSM_GPS_BB_CLK_REQ_MASK 0x8
+	#define SCU_C7_IRQSM_GPS_BB_CLK_REQ(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_C7_IRQSM_GPS_BB_CLK_REQ_DISABLED ( 0x0 << SCU_C7_IRQSM_GPS_BB_CLK_REQ_OFFSET )
+		#define SCU_C7_IRQSM_GPS_BB_CLK_REQ_ENABLED ( 0x1 << SCU_C7_IRQSM_GPS_BB_CLK_REQ_OFFSET )
+	#define SCU_C7_IRQSM_GPS_TO_ARM_1_OFFSET 0x4
+	#define SCU_C7_IRQSM_GPS_TO_ARM_1_WIDTH 0x1
+	#define SCU_C7_IRQSM_GPS_TO_ARM_1_MASK 0x10
+	#define SCU_C7_IRQSM_GPS_TO_ARM_1(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_C7_IRQSM_GPS_TO_ARM_1_DISABLED ( 0x0 << SCU_C7_IRQSM_GPS_TO_ARM_1_OFFSET )
+		#define SCU_C7_IRQSM_GPS_TO_ARM_1_ENABLED ( 0x1 << SCU_C7_IRQSM_GPS_TO_ARM_1_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_0_OFFSET 0x5
+	#define SCU_C7_IRQSM_GNSS_GPIO_0_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_0_MASK 0x20
+	#define SCU_C7_IRQSM_GNSS_GPIO_0(_reg) (((_reg) & 0x20) >> 0x5)
+		#define SCU_C7_IRQSM_GNSS_GPIO_0_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_0_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_0_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_0_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_1_OFFSET 0x6
+	#define SCU_C7_IRQSM_GNSS_GPIO_1_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_1_MASK 0x40
+	#define SCU_C7_IRQSM_GNSS_GPIO_1(_reg) (((_reg) & 0x40) >> 0x6)
+		#define SCU_C7_IRQSM_GNSS_GPIO_1_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_1_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_1_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_1_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_2_OFFSET 0x7
+	#define SCU_C7_IRQSM_GNSS_GPIO_2_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_2_MASK 0x80
+	#define SCU_C7_IRQSM_GNSS_GPIO_2(_reg) (((_reg) & 0x80) >> 0x7)
+		#define SCU_C7_IRQSM_GNSS_GPIO_2_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_2_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_2_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_2_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_3_OFFSET 0x8
+	#define SCU_C7_IRQSM_GNSS_GPIO_3_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_3_MASK 0x100
+	#define SCU_C7_IRQSM_GNSS_GPIO_3(_reg) (((_reg) & 0x100) >> 0x8)
+		#define SCU_C7_IRQSM_GNSS_GPIO_3_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_3_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_3_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_3_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_4_OFFSET 0x9
+	#define SCU_C7_IRQSM_GNSS_GPIO_4_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_4_MASK 0x200
+	#define SCU_C7_IRQSM_GNSS_GPIO_4(_reg) (((_reg) & 0x200) >> 0x9)
+		#define SCU_C7_IRQSM_GNSS_GPIO_4_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_4_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_4_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_4_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_5_OFFSET 0xa
+	#define SCU_C7_IRQSM_GNSS_GPIO_5_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_5_MASK 0x400
+	#define SCU_C7_IRQSM_GNSS_GPIO_5(_reg) (((_reg) & 0x400) >> 0xa)
+		#define SCU_C7_IRQSM_GNSS_GPIO_5_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_5_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_5_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_5_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_6_OFFSET 0xb
+	#define SCU_C7_IRQSM_GNSS_GPIO_6_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_6_MASK 0x800
+	#define SCU_C7_IRQSM_GNSS_GPIO_6(_reg) (((_reg) & 0x800) >> 0xb)
+		#define SCU_C7_IRQSM_GNSS_GPIO_6_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_6_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_6_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_6_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_7_OFFSET 0xc
+	#define SCU_C7_IRQSM_GNSS_GPIO_7_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_7_MASK 0x1000
+	#define SCU_C7_IRQSM_GNSS_GPIO_7(_reg) (((_reg) & 0x1000) >> 0xc)
+		#define SCU_C7_IRQSM_GNSS_GPIO_7_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_7_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_7_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_7_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_8_OFFSET 0xd
+	#define SCU_C7_IRQSM_GNSS_GPIO_8_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_8_MASK 0x2000
+	#define SCU_C7_IRQSM_GNSS_GPIO_8(_reg) (((_reg) & 0x2000) >> 0xd)
+		#define SCU_C7_IRQSM_GNSS_GPIO_8_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_8_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_8_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_8_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_9_OFFSET 0xe
+	#define SCU_C7_IRQSM_GNSS_GPIO_9_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_9_MASK 0x4000
+	#define SCU_C7_IRQSM_GNSS_GPIO_9(_reg) (((_reg) & 0x4000) >> 0xe)
+		#define SCU_C7_IRQSM_GNSS_GPIO_9_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_9_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_9_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_9_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_10_OFFSET 0xf
+	#define SCU_C7_IRQSM_GNSS_GPIO_10_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_10_MASK 0x8000
+	#define SCU_C7_IRQSM_GNSS_GPIO_10(_reg) (((_reg) & 0x8000) >> 0xf)
+		#define SCU_C7_IRQSM_GNSS_GPIO_10_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_10_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_10_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_10_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_11_OFFSET 0x10
+	#define SCU_C7_IRQSM_GNSS_GPIO_11_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_11_MASK 0x10000
+	#define SCU_C7_IRQSM_GNSS_GPIO_11(_reg) (((_reg) & 0x10000) >> 0x10)
+		#define SCU_C7_IRQSM_GNSS_GPIO_11_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_11_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_11_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_11_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_12_OFFSET 0x11
+	#define SCU_C7_IRQSM_GNSS_GPIO_12_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_12_MASK 0x20000
+	#define SCU_C7_IRQSM_GNSS_GPIO_12(_reg) (((_reg) & 0x20000) >> 0x11)
+		#define SCU_C7_IRQSM_GNSS_GPIO_12_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_12_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_12_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_12_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_13_OFFSET 0x12
+	#define SCU_C7_IRQSM_GNSS_GPIO_13_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_13_MASK 0x40000
+	#define SCU_C7_IRQSM_GNSS_GPIO_13(_reg) (((_reg) & 0x40000) >> 0x12)
+		#define SCU_C7_IRQSM_GNSS_GPIO_13_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_13_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_13_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_13_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_14_OFFSET 0x13
+	#define SCU_C7_IRQSM_GNSS_GPIO_14_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_14_MASK 0x80000
+	#define SCU_C7_IRQSM_GNSS_GPIO_14(_reg) (((_reg) & 0x80000) >> 0x13)
+		#define SCU_C7_IRQSM_GNSS_GPIO_14_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_14_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_14_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_14_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_15_OFFSET 0x14
+	#define SCU_C7_IRQSM_GNSS_GPIO_15_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_15_MASK 0x100000
+	#define SCU_C7_IRQSM_GNSS_GPIO_15(_reg) (((_reg) & 0x100000) >> 0x14)
+		#define SCU_C7_IRQSM_GNSS_GPIO_15_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_15_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_15_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_15_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_16_OFFSET 0x15
+	#define SCU_C7_IRQSM_GNSS_GPIO_16_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_16_MASK 0x200000
+	#define SCU_C7_IRQSM_GNSS_GPIO_16(_reg) (((_reg) & 0x200000) >> 0x15)
+		#define SCU_C7_IRQSM_GNSS_GPIO_16_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_16_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_16_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_16_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_17_OFFSET 0x16
+	#define SCU_C7_IRQSM_GNSS_GPIO_17_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_17_MASK 0x400000
+	#define SCU_C7_IRQSM_GNSS_GPIO_17(_reg) (((_reg) & 0x400000) >> 0x16)
+		#define SCU_C7_IRQSM_GNSS_GPIO_17_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_17_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_17_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_17_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_18_OFFSET 0x17
+	#define SCU_C7_IRQSM_GNSS_GPIO_18_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_18_MASK 0x800000
+	#define SCU_C7_IRQSM_GNSS_GPIO_18(_reg) (((_reg) & 0x800000) >> 0x17)
+		#define SCU_C7_IRQSM_GNSS_GPIO_18_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_18_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_18_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_18_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_19_OFFSET 0x18
+	#define SCU_C7_IRQSM_GNSS_GPIO_19_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_19_MASK 0x1000000
+	#define SCU_C7_IRQSM_GNSS_GPIO_19(_reg) (((_reg) & 0x1000000) >> 0x18)
+		#define SCU_C7_IRQSM_GNSS_GPIO_19_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_19_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_19_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_19_OFFSET )
+	#define SCU_C7_IRQSM_GNSS_GPIO_20_OFFSET 0x19
+	#define SCU_C7_IRQSM_GNSS_GPIO_20_WIDTH 0x1
+	#define SCU_C7_IRQSM_GNSS_GPIO_20_MASK 0x2000000
+	#define SCU_C7_IRQSM_GNSS_GPIO_20(_reg) (((_reg) & 0x2000000) >> 0x19)
+		#define SCU_C7_IRQSM_GNSS_GPIO_20_DISABLED ( 0x0 << SCU_C7_IRQSM_GNSS_GPIO_20_OFFSET )
+		#define SCU_C7_IRQSM_GNSS_GPIO_20_ENABLED ( 0x1 << SCU_C7_IRQSM_GNSS_GPIO_20_OFFSET )
+
+#define SCU_C7_IRQSS_OFFSET 	  0x10034
+#define SCU_C7_IRQSS(_base) ((_base) + 0x10034)
+	#define SCU_C7_IRQSS_GPS_DBG_OFFSET 0x0
+	#define SCU_C7_IRQSS_GPS_DBG_WIDTH 0x1
+	#define SCU_C7_IRQSS_GPS_DBG_MASK 0x1
+	#define SCU_C7_IRQSS_GPS_DBG(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C7_IRQSS_GPS_DBG_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GPS_DBG_OFFSET )
+		#define SCU_C7_IRQSS_GPS_DBG_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GPS_DBG_OFFSET )
+	#define SCU_C7_IRQSS_GPS_TCXO_CLK_REQ_OFFSET 0x1
+	#define SCU_C7_IRQSS_GPS_TCXO_CLK_REQ_WIDTH 0x1
+	#define SCU_C7_IRQSS_GPS_TCXO_CLK_REQ_MASK 0x2
+	#define SCU_C7_IRQSS_GPS_TCXO_CLK_REQ(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C7_IRQSS_GPS_TCXO_CLK_REQ_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GPS_TCXO_CLK_REQ_OFFSET )
+		#define SCU_C7_IRQSS_GPS_TCXO_CLK_REQ_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GPS_TCXO_CLK_REQ_OFFSET )
+	#define SCU_C7_IRQSS_GPS_RF_CLK_REQ_OFFSET 0x2
+	#define SCU_C7_IRQSS_GPS_RF_CLK_REQ_WIDTH 0x1
+	#define SCU_C7_IRQSS_GPS_RF_CLK_REQ_MASK 0x4
+	#define SCU_C7_IRQSS_GPS_RF_CLK_REQ(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C7_IRQSS_GPS_RF_CLK_REQ_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GPS_RF_CLK_REQ_OFFSET )
+		#define SCU_C7_IRQSS_GPS_RF_CLK_REQ_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GPS_RF_CLK_REQ_OFFSET )
+	#define SCU_C7_IRQSS_GPS_BB_CLK_REQ_OFFSET 0x3
+	#define SCU_C7_IRQSS_GPS_BB_CLK_REQ_WIDTH 0x1
+	#define SCU_C7_IRQSS_GPS_BB_CLK_REQ_MASK 0x8
+	#define SCU_C7_IRQSS_GPS_BB_CLK_REQ(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_C7_IRQSS_GPS_BB_CLK_REQ_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GPS_BB_CLK_REQ_OFFSET )
+		#define SCU_C7_IRQSS_GPS_BB_CLK_REQ_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GPS_BB_CLK_REQ_OFFSET )
+	#define SCU_C7_IRQSS_GPS_TO_ARM_1_OFFSET 0x4
+	#define SCU_C7_IRQSS_GPS_TO_ARM_1_WIDTH 0x1
+	#define SCU_C7_IRQSS_GPS_TO_ARM_1_MASK 0x10
+	#define SCU_C7_IRQSS_GPS_TO_ARM_1(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_C7_IRQSS_GPS_TO_ARM_1_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GPS_TO_ARM_1_OFFSET )
+		#define SCU_C7_IRQSS_GPS_TO_ARM_1_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GPS_TO_ARM_1_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_0_OFFSET 0x5
+	#define SCU_C7_IRQSS_GNSS_GPIO_0_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_0_MASK 0x20
+	#define SCU_C7_IRQSS_GNSS_GPIO_0(_reg) (((_reg) & 0x20) >> 0x5)
+		#define SCU_C7_IRQSS_GNSS_GPIO_0_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_0_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_0_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_0_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_1_OFFSET 0x6
+	#define SCU_C7_IRQSS_GNSS_GPIO_1_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_1_MASK 0x40
+	#define SCU_C7_IRQSS_GNSS_GPIO_1(_reg) (((_reg) & 0x40) >> 0x6)
+		#define SCU_C7_IRQSS_GNSS_GPIO_1_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_1_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_1_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_1_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_2_OFFSET 0x7
+	#define SCU_C7_IRQSS_GNSS_GPIO_2_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_2_MASK 0x80
+	#define SCU_C7_IRQSS_GNSS_GPIO_2(_reg) (((_reg) & 0x80) >> 0x7)
+		#define SCU_C7_IRQSS_GNSS_GPIO_2_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_2_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_2_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_2_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_3_OFFSET 0x8
+	#define SCU_C7_IRQSS_GNSS_GPIO_3_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_3_MASK 0x100
+	#define SCU_C7_IRQSS_GNSS_GPIO_3(_reg) (((_reg) & 0x100) >> 0x8)
+		#define SCU_C7_IRQSS_GNSS_GPIO_3_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_3_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_3_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_3_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_4_OFFSET 0x9
+	#define SCU_C7_IRQSS_GNSS_GPIO_4_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_4_MASK 0x200
+	#define SCU_C7_IRQSS_GNSS_GPIO_4(_reg) (((_reg) & 0x200) >> 0x9)
+		#define SCU_C7_IRQSS_GNSS_GPIO_4_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_4_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_4_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_4_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_5_OFFSET 0xa
+	#define SCU_C7_IRQSS_GNSS_GPIO_5_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_5_MASK 0x400
+	#define SCU_C7_IRQSS_GNSS_GPIO_5(_reg) (((_reg) & 0x400) >> 0xa)
+		#define SCU_C7_IRQSS_GNSS_GPIO_5_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_5_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_5_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_5_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_6_OFFSET 0xb
+	#define SCU_C7_IRQSS_GNSS_GPIO_6_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_6_MASK 0x800
+	#define SCU_C7_IRQSS_GNSS_GPIO_6(_reg) (((_reg) & 0x800) >> 0xb)
+		#define SCU_C7_IRQSS_GNSS_GPIO_6_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_6_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_6_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_6_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_7_OFFSET 0xc
+	#define SCU_C7_IRQSS_GNSS_GPIO_7_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_7_MASK 0x1000
+	#define SCU_C7_IRQSS_GNSS_GPIO_7(_reg) (((_reg) & 0x1000) >> 0xc)
+		#define SCU_C7_IRQSS_GNSS_GPIO_7_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_7_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_7_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_7_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_8_OFFSET 0xd
+	#define SCU_C7_IRQSS_GNSS_GPIO_8_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_8_MASK 0x2000
+	#define SCU_C7_IRQSS_GNSS_GPIO_8(_reg) (((_reg) & 0x2000) >> 0xd)
+		#define SCU_C7_IRQSS_GNSS_GPIO_8_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_8_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_8_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_8_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_9_OFFSET 0xe
+	#define SCU_C7_IRQSS_GNSS_GPIO_9_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_9_MASK 0x4000
+	#define SCU_C7_IRQSS_GNSS_GPIO_9(_reg) (((_reg) & 0x4000) >> 0xe)
+		#define SCU_C7_IRQSS_GNSS_GPIO_9_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_9_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_9_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_9_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_10_OFFSET 0xf
+	#define SCU_C7_IRQSS_GNSS_GPIO_10_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_10_MASK 0x8000
+	#define SCU_C7_IRQSS_GNSS_GPIO_10(_reg) (((_reg) & 0x8000) >> 0xf)
+		#define SCU_C7_IRQSS_GNSS_GPIO_10_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_10_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_10_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_10_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_11_OFFSET 0x10
+	#define SCU_C7_IRQSS_GNSS_GPIO_11_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_11_MASK 0x10000
+	#define SCU_C7_IRQSS_GNSS_GPIO_11(_reg) (((_reg) & 0x10000) >> 0x10)
+		#define SCU_C7_IRQSS_GNSS_GPIO_11_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_11_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_11_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_11_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_12_OFFSET 0x11
+	#define SCU_C7_IRQSS_GNSS_GPIO_12_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_12_MASK 0x20000
+	#define SCU_C7_IRQSS_GNSS_GPIO_12(_reg) (((_reg) & 0x20000) >> 0x11)
+		#define SCU_C7_IRQSS_GNSS_GPIO_12_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_12_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_12_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_12_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_13_OFFSET 0x12
+	#define SCU_C7_IRQSS_GNSS_GPIO_13_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_13_MASK 0x40000
+	#define SCU_C7_IRQSS_GNSS_GPIO_13(_reg) (((_reg) & 0x40000) >> 0x12)
+		#define SCU_C7_IRQSS_GNSS_GPIO_13_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_13_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_13_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_13_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_14_OFFSET 0x13
+	#define SCU_C7_IRQSS_GNSS_GPIO_14_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_14_MASK 0x80000
+	#define SCU_C7_IRQSS_GNSS_GPIO_14(_reg) (((_reg) & 0x80000) >> 0x13)
+		#define SCU_C7_IRQSS_GNSS_GPIO_14_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_14_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_14_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_14_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_15_OFFSET 0x14
+	#define SCU_C7_IRQSS_GNSS_GPIO_15_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_15_MASK 0x100000
+	#define SCU_C7_IRQSS_GNSS_GPIO_15(_reg) (((_reg) & 0x100000) >> 0x14)
+		#define SCU_C7_IRQSS_GNSS_GPIO_15_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_15_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_15_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_15_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_16_OFFSET 0x15
+	#define SCU_C7_IRQSS_GNSS_GPIO_16_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_16_MASK 0x200000
+	#define SCU_C7_IRQSS_GNSS_GPIO_16(_reg) (((_reg) & 0x200000) >> 0x15)
+		#define SCU_C7_IRQSS_GNSS_GPIO_16_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_16_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_16_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_16_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_17_OFFSET 0x16
+	#define SCU_C7_IRQSS_GNSS_GPIO_17_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_17_MASK 0x400000
+	#define SCU_C7_IRQSS_GNSS_GPIO_17(_reg) (((_reg) & 0x400000) >> 0x16)
+		#define SCU_C7_IRQSS_GNSS_GPIO_17_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_17_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_17_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_17_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_18_OFFSET 0x17
+	#define SCU_C7_IRQSS_GNSS_GPIO_18_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_18_MASK 0x800000
+	#define SCU_C7_IRQSS_GNSS_GPIO_18(_reg) (((_reg) & 0x800000) >> 0x17)
+		#define SCU_C7_IRQSS_GNSS_GPIO_18_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_18_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_18_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_18_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_19_OFFSET 0x18
+	#define SCU_C7_IRQSS_GNSS_GPIO_19_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_19_MASK 0x1000000
+	#define SCU_C7_IRQSS_GNSS_GPIO_19(_reg) (((_reg) & 0x1000000) >> 0x18)
+		#define SCU_C7_IRQSS_GNSS_GPIO_19_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_19_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_19_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_19_OFFSET )
+	#define SCU_C7_IRQSS_GNSS_GPIO_20_OFFSET 0x19
+	#define SCU_C7_IRQSS_GNSS_GPIO_20_WIDTH 0x1
+	#define SCU_C7_IRQSS_GNSS_GPIO_20_MASK 0x2000000
+	#define SCU_C7_IRQSS_GNSS_GPIO_20(_reg) (((_reg) & 0x2000000) >> 0x19)
+		#define SCU_C7_IRQSS_GNSS_GPIO_20_NO_INTERRUPT ( 0x0 << SCU_C7_IRQSS_GNSS_GPIO_20_OFFSET )
+		#define SCU_C7_IRQSS_GNSS_GPIO_20_PENDING_INTERRUPT ( 0x1 << SCU_C7_IRQSS_GNSS_GPIO_20_OFFSET )
+
+#define SCU_C7_IRQSC_OFFSET 	  0x10038
+#define SCU_C7_IRQSC(_base) ((_base) + 0x10038)
+	#define SCU_C7_IRQSC_GPS_DBG_OFFSET 0x0
+	#define SCU_C7_IRQSC_GPS_DBG_WIDTH 0x1
+	#define SCU_C7_IRQSC_GPS_DBG_MASK 0x1
+	#define SCU_C7_IRQSC_GPS_DBG(_reg) (((_reg) & 0x1) >> 0x0)
+		#define SCU_C7_IRQSC_GPS_DBG_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GPS_DBG_OFFSET )
+		#define SCU_C7_IRQSC_GPS_DBG_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GPS_DBG_OFFSET )
+	#define SCU_C7_IRQSC_GPS_TCXO_CLK_REQ_OFFSET 0x1
+	#define SCU_C7_IRQSC_GPS_TCXO_CLK_REQ_WIDTH 0x1
+	#define SCU_C7_IRQSC_GPS_TCXO_CLK_REQ_MASK 0x2
+	#define SCU_C7_IRQSC_GPS_TCXO_CLK_REQ(_reg) (((_reg) & 0x2) >> 0x1)
+		#define SCU_C7_IRQSC_GPS_TCXO_CLK_REQ_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GPS_TCXO_CLK_REQ_OFFSET )
+		#define SCU_C7_IRQSC_GPS_TCXO_CLK_REQ_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GPS_TCXO_CLK_REQ_OFFSET )
+	#define SCU_C7_IRQSC_GPS_RF_CLK_REQ_OFFSET 0x2
+	#define SCU_C7_IRQSC_GPS_RF_CLK_REQ_WIDTH 0x1
+	#define SCU_C7_IRQSC_GPS_RF_CLK_REQ_MASK 0x4
+	#define SCU_C7_IRQSC_GPS_RF_CLK_REQ(_reg) (((_reg) & 0x4) >> 0x2)
+		#define SCU_C7_IRQSC_GPS_RF_CLK_REQ_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GPS_RF_CLK_REQ_OFFSET )
+		#define SCU_C7_IRQSC_GPS_RF_CLK_REQ_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GPS_RF_CLK_REQ_OFFSET )
+	#define SCU_C7_IRQSC_GPS_BB_CLK_REQ_OFFSET 0x3
+	#define SCU_C7_IRQSC_GPS_BB_CLK_REQ_WIDTH 0x1
+	#define SCU_C7_IRQSC_GPS_BB_CLK_REQ_MASK 0x8
+	#define SCU_C7_IRQSC_GPS_BB_CLK_REQ(_reg) (((_reg) & 0x8) >> 0x3)
+		#define SCU_C7_IRQSC_GPS_BB_CLK_REQ_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GPS_BB_CLK_REQ_OFFSET )
+		#define SCU_C7_IRQSC_GPS_BB_CLK_REQ_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GPS_BB_CLK_REQ_OFFSET )
+	#define SCU_C7_IRQSC_GPS_TO_ARM_1_OFFSET 0x4
+	#define SCU_C7_IRQSC_GPS_TO_ARM_1_WIDTH 0x1
+	#define SCU_C7_IRQSC_GPS_TO_ARM_1_MASK 0x10
+	#define SCU_C7_IRQSC_GPS_TO_ARM_1(_reg) (((_reg) & 0x10) >> 0x4)
+		#define SCU_C7_IRQSC_GPS_TO_ARM_1_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GPS_TO_ARM_1_OFFSET )
+		#define SCU_C7_IRQSC_GPS_TO_ARM_1_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GPS_TO_ARM_1_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_0_OFFSET 0x5
+	#define SCU_C7_IRQSC_GNSS_GPIO_0_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_0_MASK 0x20
+	#define SCU_C7_IRQSC_GNSS_GPIO_0(_reg) (((_reg) & 0x20) >> 0x5)
+		#define SCU_C7_IRQSC_GNSS_GPIO_0_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_0_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_0_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_0_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_1_OFFSET 0x6
+	#define SCU_C7_IRQSC_GNSS_GPIO_1_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_1_MASK 0x40
+	#define SCU_C7_IRQSC_GNSS_GPIO_1(_reg) (((_reg) & 0x40) >> 0x6)
+		#define SCU_C7_IRQSC_GNSS_GPIO_1_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_1_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_1_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_1_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_2_OFFSET 0x7
+	#define SCU_C7_IRQSC_GNSS_GPIO_2_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_2_MASK 0x80
+	#define SCU_C7_IRQSC_GNSS_GPIO_2(_reg) (((_reg) & 0x80) >> 0x7)
+		#define SCU_C7_IRQSC_GNSS_GPIO_2_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_2_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_2_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_2_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_3_OFFSET 0x8
+	#define SCU_C7_IRQSC_GNSS_GPIO_3_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_3_MASK 0x100
+	#define SCU_C7_IRQSC_GNSS_GPIO_3(_reg) (((_reg) & 0x100) >> 0x8)
+		#define SCU_C7_IRQSC_GNSS_GPIO_3_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_3_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_3_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_3_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_4_OFFSET 0x9
+	#define SCU_C7_IRQSC_GNSS_GPIO_4_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_4_MASK 0x200
+	#define SCU_C7_IRQSC_GNSS_GPIO_4(_reg) (((_reg) & 0x200) >> 0x9)
+		#define SCU_C7_IRQSC_GNSS_GPIO_4_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_4_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_4_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_4_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_5_OFFSET 0xa
+	#define SCU_C7_IRQSC_GNSS_GPIO_5_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_5_MASK 0x400
+	#define SCU_C7_IRQSC_GNSS_GPIO_5(_reg) (((_reg) & 0x400) >> 0xa)
+		#define SCU_C7_IRQSC_GNSS_GPIO_5_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_5_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_5_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_5_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_6_OFFSET 0xb
+	#define SCU_C7_IRQSC_GNSS_GPIO_6_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_6_MASK 0x800
+	#define SCU_C7_IRQSC_GNSS_GPIO_6(_reg) (((_reg) & 0x800) >> 0xb)
+		#define SCU_C7_IRQSC_GNSS_GPIO_6_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_6_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_6_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_6_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_7_OFFSET 0xc
+	#define SCU_C7_IRQSC_GNSS_GPIO_7_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_7_MASK 0x1000
+	#define SCU_C7_IRQSC_GNSS_GPIO_7(_reg) (((_reg) & 0x1000) >> 0xc)
+		#define SCU_C7_IRQSC_GNSS_GPIO_7_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_7_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_7_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_7_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_8_OFFSET 0xd
+	#define SCU_C7_IRQSC_GNSS_GPIO_8_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_8_MASK 0x2000
+	#define SCU_C7_IRQSC_GNSS_GPIO_8(_reg) (((_reg) & 0x2000) >> 0xd)
+		#define SCU_C7_IRQSC_GNSS_GPIO_8_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_8_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_8_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_8_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_9_OFFSET 0xe
+	#define SCU_C7_IRQSC_GNSS_GPIO_9_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_9_MASK 0x4000
+	#define SCU_C7_IRQSC_GNSS_GPIO_9(_reg) (((_reg) & 0x4000) >> 0xe)
+		#define SCU_C7_IRQSC_GNSS_GPIO_9_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_9_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_9_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_9_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_10_OFFSET 0xf
+	#define SCU_C7_IRQSC_GNSS_GPIO_10_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_10_MASK 0x8000
+	#define SCU_C7_IRQSC_GNSS_GPIO_10(_reg) (((_reg) & 0x8000) >> 0xf)
+		#define SCU_C7_IRQSC_GNSS_GPIO_10_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_10_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_10_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_10_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_11_OFFSET 0x10
+	#define SCU_C7_IRQSC_GNSS_GPIO_11_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_11_MASK 0x10000
+	#define SCU_C7_IRQSC_GNSS_GPIO_11(_reg) (((_reg) & 0x10000) >> 0x10)
+		#define SCU_C7_IRQSC_GNSS_GPIO_11_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_11_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_11_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_11_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_12_OFFSET 0x11
+	#define SCU_C7_IRQSC_GNSS_GPIO_12_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_12_MASK 0x20000
+	#define SCU_C7_IRQSC_GNSS_GPIO_12(_reg) (((_reg) & 0x20000) >> 0x11)
+		#define SCU_C7_IRQSC_GNSS_GPIO_12_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_12_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_12_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_12_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_13_OFFSET 0x12
+	#define SCU_C7_IRQSC_GNSS_GPIO_13_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_13_MASK 0x40000
+	#define SCU_C7_IRQSC_GNSS_GPIO_13(_reg) (((_reg) & 0x40000) >> 0x12)
+		#define SCU_C7_IRQSC_GNSS_GPIO_13_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_13_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_13_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_13_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_14_OFFSET 0x13
+	#define SCU_C7_IRQSC_GNSS_GPIO_14_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_14_MASK 0x80000
+	#define SCU_C7_IRQSC_GNSS_GPIO_14(_reg) (((_reg) & 0x80000) >> 0x13)
+		#define SCU_C7_IRQSC_GNSS_GPIO_14_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_14_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_14_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_14_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_15_OFFSET 0x14
+	#define SCU_C7_IRQSC_GNSS_GPIO_15_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_15_MASK 0x100000
+	#define SCU_C7_IRQSC_GNSS_GPIO_15(_reg) (((_reg) & 0x100000) >> 0x14)
+		#define SCU_C7_IRQSC_GNSS_GPIO_15_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_15_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_15_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_15_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_16_OFFSET 0x15
+	#define SCU_C7_IRQSC_GNSS_GPIO_16_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_16_MASK 0x200000
+	#define SCU_C7_IRQSC_GNSS_GPIO_16(_reg) (((_reg) & 0x200000) >> 0x15)
+		#define SCU_C7_IRQSC_GNSS_GPIO_16_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_16_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_16_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_16_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_17_OFFSET 0x16
+	#define SCU_C7_IRQSC_GNSS_GPIO_17_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_17_MASK 0x400000
+	#define SCU_C7_IRQSC_GNSS_GPIO_17(_reg) (((_reg) & 0x400000) >> 0x16)
+		#define SCU_C7_IRQSC_GNSS_GPIO_17_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_17_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_17_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_17_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_18_OFFSET 0x17
+	#define SCU_C7_IRQSC_GNSS_GPIO_18_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_18_MASK 0x800000
+	#define SCU_C7_IRQSC_GNSS_GPIO_18(_reg) (((_reg) & 0x800000) >> 0x17)
+		#define SCU_C7_IRQSC_GNSS_GPIO_18_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_18_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_18_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_18_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_19_OFFSET 0x18
+	#define SCU_C7_IRQSC_GNSS_GPIO_19_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_19_MASK 0x1000000
+	#define SCU_C7_IRQSC_GNSS_GPIO_19(_reg) (((_reg) & 0x1000000) >> 0x18)
+		#define SCU_C7_IRQSC_GNSS_GPIO_19_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_19_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_19_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_19_OFFSET )
+	#define SCU_C7_IRQSC_GNSS_GPIO_20_OFFSET 0x19
+	#define SCU_C7_IRQSC_GNSS_GPIO_20_WIDTH 0x1
+	#define SCU_C7_IRQSC_GNSS_GPIO_20_MASK 0x2000000
+	#define SCU_C7_IRQSC_GNSS_GPIO_20(_reg) (((_reg) & 0x2000000) >> 0x19)
+		#define SCU_C7_IRQSC_GNSS_GPIO_20_NO_CHANGE ( 0x0 << SCU_C7_IRQSC_GNSS_GPIO_20_OFFSET )
+		#define SCU_C7_IRQSC_GNSS_GPIO_20_CLEAR_INTERRUPT ( 0x1 << SCU_C7_IRQSC_GNSS_GPIO_20_OFFSET )
+

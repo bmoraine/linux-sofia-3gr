@@ -11,4 +11,11 @@
 # GNU General Public License for more details.
 #
 
+ifneq ("$(BUILD_KERNEL_WITH_BULLSEYE)","1")
+CFLAGS_imc_idi_btif.o := -DIMC_IDI_BTIF_PARANOID
+endif
+
+btif_drv-objs := imc_idi_btif.o
+obj-$(CONFIG_IDI_IMC_BTIF) += btif_drv.o
+obj-y += imc_idi_error.o
 

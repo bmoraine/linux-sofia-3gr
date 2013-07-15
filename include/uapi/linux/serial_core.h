@@ -242,4 +242,9 @@
 /* Intel USIF */
 #define PORT_XGOLD_USIF 128
 
+/* Intel BlueTooth interface
+   emulation port
+*/
+#define PORT_BTIF  256
+
 #endif /* _UAPILINUX_SERIAL_CORE_H */

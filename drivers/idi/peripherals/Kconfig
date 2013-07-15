@@ -1,4 +1,14 @@
 #
 # IDI Peripheral support
 #
+if IDI_AG6X0
+config IDI_IMC_BTIF
+	tristate "IDI IMC BlueTooth InterFace peripheral driver support"
+	select SERIAL_CORE
+	help
+	 Say yes if you want the support of the bluetooth macro through a BTIF.
+	 This driver is valid for BT IP macro found in
+	 AG610 or AG620 devices.
+
+endif
 
