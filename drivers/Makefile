@@ -37,6 +37,10 @@ obj-$(CONFIG_VIRTIO)		+= virtio/
 obj-$(CONFIG_NKERNEL_DDI)       += vlx/
 obj-$(CONFIG_XEN)		+= xen/
 
+# idi early, since some subsystems needs to access register though it
+obj-$(CONFIG_IDI)		+= idi/
+
+
 # regulators early, since some subsystems rely on them to initialize
 obj-$(CONFIG_REGULATOR)		+= regulator/
 

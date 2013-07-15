@@ -1,0 +1,52 @@
+#
+# Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+#
+# This software is licensed under the terms of the GNU General Public
+# License version 2, as published by the Free Software Foundation, and
+# may be copied, distributed, and modified under those terms.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+
+#
+# IDI subsystem configuration
+#
+menuconfig IDI
+	tristate "IDI support"
+	depends on HAS_IOMEM
+	select RT_MUTEXES
+	---help---
+	 IDI (Inter-die Interface) is a MIPI HSI module with 16 channels
+	 that has several functions layered on top of it.
+	 Special flow control mechanisms are implemented on some channels
+	 requiring DMA interation.
+	 Some specific features are added as well for streaming channels
+	 to ensure throughput with predictable latencies.
+
+if IDI
+
+config IDI_DEBUG
+	bool "IDI event debugging"
+	help
+	 This option is compiling the IDI subsystem with DEBUG activated.
+	 A lot of prints will come from the drivers,
+	 tracking the routines sequences calls, etc...
+	 If not sure of what you are doing, say n.
+
+config IDI_OF
+	bool "IDI OF support"
+	select OF_ADDRESS if OF
+	help
+	 Say yes if you need helpers
+	 for IDI devices registration from device tree.
+	 This provides automatic IDI peripheral driver registration
+	 among others things.
+
+source drivers/idi/controllers/Kconfig
+source drivers/idi/clients/Kconfig
+source drivers/idi/peripherals/Kconfig
+
+endif # IDI

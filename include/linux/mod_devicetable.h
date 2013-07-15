@@ -608,4 +608,18 @@ struct rio_device_id {
 	__u16 asm_did, asm_vid;
 };
 
+/**
+ * struct idi_device_id - identifies an idi peripheral device on a IDI bus
+ * @vendor: hardware vendor ID for the IDI controller
+ * @device: hardware device ID for the IDI client
+ * @subdevice: hardware subdevice ID for the IDI client subdevice
+ */
+#define IDI_ANY_ID (~0)
+struct idi_device_id {
+	__u32 vendor;		/* Vendor ID or IDI_ANY_ID */
+	__u32 device;		/* Device ID or IDI_ANY_ID */
+	__u32 subdevice;	/* SubDevice ID or IDI_ANY_ID */
+	kernel_ulong_t  driver_data;
+};
+
 #endif /* LINUX_MOD_DEVICETABLE_H */

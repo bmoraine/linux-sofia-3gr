@@ -1177,6 +1177,26 @@ static int do_rio_entry(const char *filename,
 }
 ADD_TO_DEVTABLE("rapidio", rio_device_id, do_rio_entry);
 
+/* Looks like: idi:vNdNsdN */
+static int do_idi_entry(const char *filename, void *symval,
+			char *alias)
+{
+
+	DEF_FIELD(symval, idi_device_id, vendor);
+	DEF_FIELD(symval, idi_device_id, device);
+	DEF_FIELD(symval, idi_device_id, subdevice);
+
+	strcpy(alias, "idi:");
+
+	ADD(alias, "v", vendor != IDI_ANY_ID, vendor);
+	ADD(alias, "d", device != IDI_ANY_ID, device);
+	ADD(alias, "sd", subdevice != IDI_ANY_ID, subdevice);
+
+	add_wildcard(alias);
+	return 1;
+}
+ADD_TO_DEVTABLE("idi", idi_device_id, do_idi_entry);
+
 /* Does namelen bytes of name exactly match the symbol? */
 static bool sym_is(const char *name, unsigned namelen, const char *symbol)
 {
