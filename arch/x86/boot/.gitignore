@@ -1,4 +1,5 @@
 bootsect
+Image
 bzImage
 cpustr.h
 mkcpustr

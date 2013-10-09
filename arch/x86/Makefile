@@ -215,13 +215,16 @@ boot := arch/x86/boot
 
 BOOT_TARGETS = bzlilo bzdisk fdimage fdimage144 fdimage288 isoimage
 
-PHONY += bzImage $(BOOT_TARGETS)
+PHONY += bzImage Image $(BOOT_TARGETS)
 
 # Default kernel to build
 all: bzImage
 
 # KBUILD_IMAGE specify target image being built
 KBUILD_IMAGE := $(boot)/bzImage
+
+Image: vmlinux
+	$(Q)$(MAKE) $(build)=$(boot) $(boot)/Image
 
 bzImage: vmlinux
 ifeq ($(CONFIG_X86_DECODER_SELFTEST),y)

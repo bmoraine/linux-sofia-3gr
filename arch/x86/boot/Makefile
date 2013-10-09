@@ -16,7 +16,7 @@
 
 SVGA_MODE	:= -DSVGA_MODE=NORMAL_VGA
 
-targets		:= vmlinux.bin setup.bin setup.elf bzImage
+targets		:= vmlinux.bin setup.bin setup.elf bzImage Image
 targets		+= fdimage fdimage144 fdimage288 image.iso mtools.conf
 subdir-		:= compressed
 
@@ -54,6 +54,11 @@ $(obj)/cpustr.h: $(obj)/mkcpustr FORCE
 KBUILD_CFLAGS	:= $(USERINCLUDE) $(REALMODE_CFLAGS) -D_SETUP
 KBUILD_AFLAGS	:= $(KBUILD_CFLAGS) -D__ASSEMBLY__
 GCOV_PROFILE := n
+
+OBJCOPYFLAGS_Image := -O binary -R .note -R .comment -S
+$(obj)/Image: vmlinux FORCE
+	$(call if_changed,objcopy)
+	@$(kecho) '  Kernel: $@ is ready'
 
 $(obj)/bzImage: asflags-y  := $(SVGA_MODE)
 
