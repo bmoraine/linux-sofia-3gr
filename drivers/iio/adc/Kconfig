@@ -113,6 +113,19 @@ config EXYNOS_ADC
 	  of SoCs for drivers such as the touchscreen and hwmon to use to share
 	  this resource.
 
+config INTEL_GENERIC_ADC
+	bool "Intel ADC generic driver"
+	depends on IDI
+	help
+	  Say yes here to build support for the generic ADC layer for Intel
+	  mobile platforms ADCs.
+
+config INTEL_ADC_SENSORS
+	bool "Intel ADC Sensors"
+	depends on INTEL_GENERIC_ADC && IIO
+	help
+	  Say Y here to enable the Intel ADC Sensors.
+
 config LP8788_ADC
 	bool "LP8788 ADC driver"
 	depends on MFD_LP8788

@@ -1,6 +1,7 @@
 /*
  * Industrial I/O in kernel consumer interface
  *
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  * Copyright (c) 2011 Jonathan Cameron
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -136,6 +137,17 @@ int iio_read_channel_raw(struct iio_channel *chan,
  * do the appropriate transformation.
  */
 int iio_read_channel_processed(struct iio_channel *chan, int *val);
+
+/**
+ * iio_read_channel_raw_with_precision() - read composite values
+ * from a give channel.
+ * @channel:           The channel being queried.
+ * @val:               Value read back.
+ * @val2:              Precision
+ */
+int iio_read_channel_composite_raw(struct iio_channel *chan,
+				   int *val,
+				   int *val2);
 
 /**
  * iio_get_channel_type() - get the type of a channel

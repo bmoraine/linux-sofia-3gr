@@ -1,5 +1,6 @@
 /* The industrial I/O core
  *
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  * Copyright (c) 2008 Jonathan Cameron
  *
  * This program is free software; you can redistribute it and/or modify it
