@@ -217,6 +217,11 @@ BOOT_TARGETS = bzlilo bzdisk fdimage fdimage144 fdimage288 isoimage
 
 PHONY += bzImage Image $(BOOT_TARGETS)
 
+# Build the DT binary blobs if we have OF configured
+ifeq ($(CONFIG_USE_OF),y)
+KBUILD_DTBS := dtbs
+endif
+
 # Default kernel to build
 all: bzImage
 
@@ -244,6 +249,12 @@ install:
 PHONY += vdso_install
 vdso_install:
 	$(Q)$(MAKE) $(build)=arch/x86/vdso $@
+
+%.dtb: scripts
+	$(Q)$(MAKE) $(build)=$(boot)/dts $(boot)/dts/$@
+
+dtbs: scripts
+	$(Q)$(MAKE) $(build)=$(boot)/dts dtbs
 
 archclean:
 	$(Q)rm -rf $(objtree)/arch/i386
