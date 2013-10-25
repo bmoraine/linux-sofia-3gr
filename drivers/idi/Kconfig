@@ -48,5 +48,6 @@ config IDI_OF
 source drivers/idi/controllers/Kconfig
 source drivers/idi/clients/Kconfig
 source drivers/idi/peripherals/Kconfig
+source drivers/idi/test/Kconfig
 
 endif # IDI

@@ -12,14 +12,15 @@
 #
 
 #
-# Makefile for the IDI bus driver.
+# IDI Test suite support
 #
+if IDI
 
-subdir-ccflags-$(CONFIG_IDI_DEBUG) := -DDEBUG
+config IDI_TEST_SUITE
+        bool "IDI Test suite"
+        depends on !IDI_IMC_FMR
+        help
+         Say yes if you want to build the IDI Test Suite
 
-obj-$(CONFIG_IDI)  += idi_driver.o
-idi_driver-objs    += idi_bus.o idi_interface.o idi_tty.o idi_debug.o idi_device_pm.o
+endif
 
-obj-y  += clients/ controllers/ peripherals/
-obj-$(CONFIG_OF)  += idi_of.o
-obj-$(CONFIG_IDI_TEST_SUITE) += test/

@@ -12,14 +12,7 @@
 #
 
 #
-# Makefile for the IDI bus driver.
+# Make file for the IDI test suite.
 #
+obj-$(CONFIG_IDI_TEST_SUITE) += idi_test_suite.o
 
-subdir-ccflags-$(CONFIG_IDI_DEBUG) := -DDEBUG
-
-obj-$(CONFIG_IDI)  += idi_driver.o
-idi_driver-objs    += idi_bus.o idi_interface.o idi_tty.o idi_debug.o idi_device_pm.o
-
-obj-y  += clients/ controllers/ peripherals/
-obj-$(CONFIG_OF)  += idi_of.o
-obj-$(CONFIG_IDI_TEST_SUITE) += test/
