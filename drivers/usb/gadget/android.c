@@ -1174,7 +1174,7 @@ static ssize_t dvcdfx_reset_store(struct device *pdev,
 	return size;
 }
 
-static DEVICE_ATTR(reset_dfx, S_IRUGO | S_IWUSR, NULL, dvcdfx_reset_store);
+static DEVICE_ATTR(reset_dfx, S_IWUSR, NULL, dvcdfx_reset_store);
 
 static ssize_t dvcdfx_enable_store(struct device *pdev,
 		  struct device_attribute *attr, const char *buf, size_t size)
@@ -1209,7 +1209,7 @@ static ssize_t dvcdfx_enable_store(struct device *pdev,
 	return -EINVAL;
 }
 
-static DEVICE_ATTR(enable_dfx, S_IRUGO | S_IWUSR, NULL, dvcdfx_enable_store);
+static DEVICE_ATTR(enable_dfx, S_IWUSR, NULL, dvcdfx_enable_store);
 
 static ssize_t dvcdfx_bFunctionProtocol_show(struct device *dev,
 					     struct device_attribute *attr,
@@ -1327,7 +1327,7 @@ static ssize_t dvctrace_reset_store(struct device *pdev,
 	return size;
 }
 
-static DEVICE_ATTR(reset_trace, S_IRUGO | S_IWUSR, NULL, dvctrace_reset_store);
+static DEVICE_ATTR(reset_trace, S_IWUSR, NULL, dvctrace_reset_store);
 
 static ssize_t dvctrace_enable_store(struct device *pdev,
 		  struct device_attribute *attr, const char *buf, size_t size)
@@ -1362,8 +1362,7 @@ static ssize_t dvctrace_enable_store(struct device *pdev,
 	return -EINVAL;
 }
 
-static DEVICE_ATTR(enable_trace, S_IRUGO | S_IWUSR, NULL,
-		   dvctrace_enable_store);
+static DEVICE_ATTR(enable_trace, S_IWUSR, NULL, dvctrace_enable_store);
 
 static ssize_t dvctrace_bFunctionProtocol_show(struct device *dev,
 					       struct device_attribute *attr,
