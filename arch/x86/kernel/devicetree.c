@@ -16,6 +16,7 @@
 #include <linux/pci.h>
 #include <linux/of_pci.h>
 #include <linux/initrd.h>
+#include <linux/irqchip.h>
 
 #include <asm/hpet.h>
 #include <asm/apic.h>
@@ -381,7 +382,14 @@ void __init x86_add_irq_domains(void)
 		if (of_device_is_compatible(dp, "intel,ce4100-ioapic"))
 			ioapic_add_ofnode(dp);
 	}
+
+	if (IS_ENABLED(CONFIG_OF))
+		irqchip_init();
 }
 #else
-void __init x86_add_irq_domains(void) { }
+void __init x86_add_irq_domains(void)
+{
+	if (IS_ENABLED(CONFIG_OF))
+		irqchip_init();
+}
 #endif
