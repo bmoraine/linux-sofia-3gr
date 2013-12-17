@@ -1,0 +1,189 @@
+/* ----------------------------------------------------------------------------
+ *  Copyright (C) 2014 Intel Mobile Communications GmbH
+
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+  ---------------------------------------------------------------------------*/
+#include <linux/kernel.h>
+#include <linux/sched.h>
+#include <linux/mutex.h>
+#include <linux/wait.h>
+#include <linux/interrupt.h>
+#include <linux/irqchip.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+#include <linux/platform_device.h>
+#include <sofia/vmm_platform_service.h>
+#include <sofia/vmm_al.h>
+#include <sofia/pal_shared_data.h>
+#include <sofia/vmm_pmic.h>
+
+static struct mutex pmic_access_mutex;
+static DECLARE_WAIT_QUEUE_HEAD(pmic_wait_queue);
+static int32_t vmm_pmic_reg_access_initialised;
+static int32_t vmm_pmic_reg_access_done;
+static struct pmic_access_shared_data *pmic_access_shared_data;
+
+int32_t vmm_pmic_reg_write_by_range(uint32_t reg_address,
+				uint8_t *data, uint32_t size_in_byte)
+{
+	int32_t result = 0;
+
+	mutex_lock(&pmic_access_mutex);
+
+	if (size_in_byte + 1 > PMIC_ACCESS_MAX_SIZE) {
+		result = -1;
+		goto pmic_write_end;
+	}
+
+	pmic_access_shared_data->data[0] = (uint8_t)(reg_address & 0xFF);
+	memcpy(&(pmic_access_shared_data->data[1]), data, size_in_byte);
+	vmm_pmic_reg_access_done = 0;
+	if (0 != vmm_pmic_reg_access(PMIC_REG_WRITE, reg_address,
+						size_in_byte + 1)) {
+		result = -1;
+		goto pmic_write_end;
+	}
+	wait_event_interruptible(pmic_wait_queue, vmm_pmic_reg_access_done);
+
+	if (pmic_access_shared_data->status != 0) {
+		result = -1;
+		goto pmic_write_end;
+	}
+
+pmic_write_end:
+	mutex_unlock(&pmic_access_mutex);
+	return result;
+}
+EXPORT_SYMBOL(vmm_pmic_reg_write_by_range);
+
+int32_t vmm_pmic_reg_write(uint32_t reg_address, uint32_t reg_val)
+{
+	return vmm_pmic_reg_write_by_range(reg_address, (uint8_t *)&reg_val, 1);
+}
+EXPORT_SYMBOL(vmm_pmic_reg_write);
+
+int32_t vmm_pmic_reg_read_by_range(uint32_t reg_address,
+					uint8_t *data, uint32_t size_in_byte)
+{
+	int32_t result = 0;
+
+	mutex_lock(&pmic_access_mutex);
+	if (size_in_byte > PMIC_ACCESS_MAX_SIZE) {
+		result = -1;
+		goto pmic_read_end;
+	}
+	pmic_access_shared_data->data[0] = (uint8_t)(reg_address & 0xFF);
+	vmm_pmic_reg_access_done = 0;
+	if (0 != vmm_pmic_reg_access(PMIC_REG_READ, reg_address,
+				size_in_byte)) {
+		result = -1;
+		goto pmic_read_end;
+	}
+	wait_event_interruptible(pmic_wait_queue, vmm_pmic_reg_access_done);
+	if (pmic_access_shared_data->status != 0) {
+		result = -1;
+		goto pmic_read_end;
+	}
+	memcpy(data, pmic_access_shared_data->data, size_in_byte);
+
+pmic_read_end:
+	mutex_unlock(&pmic_access_mutex);
+	return result;
+}
+EXPORT_SYMBOL(vmm_pmic_reg_read_by_range);
+
+int32_t vmm_pmic_reg_read(uint32_t reg_address, uint32_t *p_reg_val)
+{
+	return vmm_pmic_reg_read_by_range(reg_address, (uint8_t *)p_reg_val, 1);
+}
+EXPORT_SYMBOL(vmm_pmic_reg_read);
+
+static irqreturn_t vmm_pmic_reg_access_irq_hdl(int irq, void *dev)
+{
+
+	if (vmm_pmic_reg_access_done != 1) {
+		vmm_pmic_reg_access_done = 1;
+		wake_up(&pmic_wait_queue);
+	}
+	return IRQ_HANDLED;
+}
+
+static int32_t vmm_pmic_probe(struct platform_device *pdev)
+{
+	uint32_t irq_number;
+	struct vmm_shared_data *vmm_shared_data;
+	struct pal_shared_data *pal_shared_data;
+	int ret = 0;
+
+	/* mutex/wait queue init */
+	mutex_init(&pmic_access_mutex);
+
+	/* pmic share data init */
+	vmm_shared_data = get_vmm_shared_data();
+	pal_shared_data = (struct pal_shared_data *)
+			(&vmm_shared_data->pal_shared_mem_data);
+	pmic_access_shared_data = &(pal_shared_data->pmic_access_shared_data);
+
+	/* irq init */
+	irq_number = platform_get_irq_byname(pdev, "PMIC_ACCESS_HIRQ");
+	if (!IS_ERR_VALUE(irq_number)) {
+		ret = devm_request_irq(&pdev->dev, irq_number,
+				vmm_pmic_reg_access_irq_hdl,
+				0, "pmic hirq", NULL);
+		if (ret != 0) {
+			dev_err(&pdev->dev, "setup irq %d failed: %d\n",
+					irq_number, ret);
+			return -EINVAL;
+		}
+	}
+
+	/* init done */
+	vmm_pmic_reg_access_initialised = 1;
+	return 0;
+}
+
+static const struct of_device_id xgold_vmm_pmic_of_match[] = {
+	{
+		.compatible = "intel,xgold_vmm_pmic",
+	},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, xgold_vmm_pmic_of_match);
+
+static struct platform_driver xgold_vmm_pmic_driver = {
+	.probe = vmm_pmic_probe,
+	.driver = {
+		.name = "xgold_vmm_pmic",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(xgold_vmm_pmic_of_match),
+	}
+};
+
+static int32_t __init vmm_pmic_reg_access_init(void)
+{
+	return platform_driver_register(&xgold_vmm_pmic_driver);
+}
+
+static void __exit vmm_pmic_reg_access_exit(void)
+{
+	platform_driver_unregister(&xgold_vmm_pmic_driver);
+}
+
+subsys_initcall(vmm_pmic_reg_access_init);
+module_exit(vmm_pmic_reg_access_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("vmm pmic access driver");

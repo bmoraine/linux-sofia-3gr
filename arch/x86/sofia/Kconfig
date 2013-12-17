@@ -1,0 +1,11 @@
+
+menuconfig X86_INTEL_SOFIA
+	bool "Intel SoFIA virtualization"
+	select X86_INTEL_XGOLD_VPIC
+	select NKERNEL_DDI
+	    help
+	Select this options if the kernel is running on top of
+	a proprietary VMM as a VM.
+
+config NKERNEL_DDI
+	bool
