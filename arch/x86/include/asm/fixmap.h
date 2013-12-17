@@ -124,7 +124,9 @@ enum fixed_addresses {
 	FIX_IO_APIC_REG_0,
 	FIX_IO_APIC_REG_END = FIX_IO_APIC_REG_0 + MAX_IO_APICS - 1,
 #endif
-
+#ifdef CONFIG_X86_INTEL_XGOLD_EARLY_PRINTK
+	FIX_EARLYCON_TX_BASE,
+#endif
 	__end_of_permanent_fixed_addresses,
 
 	/*

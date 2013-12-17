@@ -14,10 +14,16 @@
 #ifndef _DEVICE_STATE_PM_H_
 #define _DEVICE_STATE_PM_H_
 
+/* mode info data size is about 28-Bytes */
+#define PRH_SYNC_NR 3
+#define PRH_CONFIG_NR 4
+#define PRH_MODE_INFO_NR (PRH_SYNC_NR + PRH_CONFIG_NR)
+#define PRH_MODE_INFO_SZ (PRH_MODE_INFO_NR * sizeof(uint32_t))
+
 struct device_state_pm_state {
 	const char *name;
-	void *config;
-	unsigned int config_size; /* in Bytes */
+	void *mode_info;
+	uint32_t mode_info_size; /* in Bytes */
 };
 
 /* Used by device driver to set the power state of the given device */

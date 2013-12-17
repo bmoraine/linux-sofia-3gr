@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/console.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -15,6 +28,7 @@
 #include <asm/pci-direct.h>
 #include <asm/fixmap.h>
 #include <asm/intel-mid.h>
+#include <asm/xgold.h>
 #include <asm/pgtable.h>
 #include <linux/usb/ehci_def.h>
 #include <linux/efi.h>
@@ -240,7 +254,12 @@ static int __init setup_early_printk(char *buf)
 		if (!strncmp(buf, "efi", 3))
 			early_console_register(&early_efi_console, keep);
 #endif
-
+#ifdef CONFIG_X86_INTEL_XGOLD_EARLY_PRINTK
+		if (!strncmp(buf, "xgold", 5)) {
+			xgold_early_console_init();
+			early_console_register(&early_xgold_console, keep);
+		}
+#endif
 		buf++;
 	}
 	return 0;

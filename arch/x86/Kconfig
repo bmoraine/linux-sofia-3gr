@@ -195,6 +195,7 @@ config GENERIC_CALIBRATE_DELAY
 
 config ARCH_HAS_CPU_RELAX
 	def_bool y
+	depends on !X86_INTEL_XGOLD
 
 config ARCH_HAS_CACHE_LINE_SIZE
 	def_bool y
@@ -469,6 +470,100 @@ config X86_INTEL_MID
 
 	  Intel MID platforms are based on an Intel processor and chipset which
 	  consume less power than most of the x86 derivatives.
+
+config X86_INTEL_XGOLD
+        bool "XGOLD MID platform"
+	select SOC_BUS
+	select ARCH_IS_NOT_COHERENT
+	select OF
+	select OF_EARLY_FLATTREE
+	select IRQ_DOMAIN
+	select COMMON_CLK if !PLATFORM_DEVICE_PM_VIRT
+	select SERIAL_CORE
+	select SERIAL_CORE_CONSOLE
+	select PLATFORM_DEVICE_PM
+	select XGOLD_STM_TIMER
+	select XGOLD_RESET
+	select PINCTRL
+	select NO_IOPORT
+        ---help---
+          XGOLD is a SoC, using a latest Atom Core integrated
+	  in a ARM SoC interconnect system.
+ 	  There are no legacy x86 devices in this SoC
+
+if X86_INTEL_XGOLD
+comment "XGOLD Machine options"
+
+config BUS_AMBA
+	bool
+
+config X86_INTEL_XGOLD_IO_MAP_PERMANENT
+	bool "Map IO region in page directory"
+	---help---
+	  select this if you want to check the XGOLD registers
+	  in T32 per file.
+
+config X86_INTEL_XGOLD_IO_BASE_ADDRESS
+	hex "IO physical start address"
+	default 0xE0000000
+	depends on X86_INTEL_XGOLD_IO_MAP_PERMANENT
+	help
+	  Specify the physical start address of the IO region
+	  It's required to have a 1:1 mapping when debugging
+	  with T32 to have the peripheral files (aka per)
+	  working so you can have the registers value of all
+	  hardware blocks
+
+config X86_INTEL_XGOLD_IO_END_ADDRESS
+	hex "IO physical end address"
+	default 0xF0000000
+	depends on X86_INTEL_XGOLD_IO_MAP_PERMANENT
+	help
+	  Specify the physical end address of the IO region
+	  It's required to have a 1:1 mapping when debugging
+	  with T32 to have the peripheral files (aka per)
+	  working so you can have the registers value of all
+	  hardware blocks
+
+
+config X86_INTEL_XGOLD_EARLY_PRINTK
+	bool "Early printk support though USIF"
+	---help---
+	  Select this options if you want to enable early printk
+	  messages through the USIF during early stages of kernel
+	  boot up.
+	  The bootloader has to configure clocks, pcl, backbone,
+	  so the kernel has only to configure USIF
+
+config DEBUG_XGOLD_USIFX_ADDR
+	hex "USIF physical address (0xE1200000, 0xE1100000 or 0xE2100000)"
+	default 0xE1200000
+	depends on X86_INTEL_XGOLD_EARLY_PRINTK
+	help
+	  Specify the physical address of the usif used to output
+	  early messages. Value could be:
+	  0xE1200000 for USIF2 (default)
+	  0xE1100000 for USIF1
+	  0xE2100000 for USIF3
+
+config X86_DIRECT_BOOT
+	bool "Direct booting without bootloader"
+	---help---
+	  Select this options if you want to enable direct
+	  booting.
+	  This is used when booting kernel without bootloader (uboot)
+	  Then enter a boot secor address
+
+config X86_BOOT_SECTOR_ADDR
+	hex "physical address of setup sector"
+	default 0x7FF800
+	depends on X86_DIRECT_BOOT
+	help
+	  Specify the physical address of setup_sector
+	  Should be bImage adress - setup_sector size if both are
+	  concatenated
+
+endif
 
 config X86_INTEL_LPSS
 	bool "Intel Low Power Subsystem Support"

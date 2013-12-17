@@ -100,6 +100,9 @@ ENTRY(startup_32)
 	
 	/* test KEEP_SEGMENTS flag to see if the bootloader is asking
 		us to not reload segments */
+#ifdef CONFIG_X86_BOOT_SECTOR_ADDR
+	movl $(CONFIG_X86_BOOT_SECTOR_ADDR),%esi
+#endif
 	testb $(1<<6), BP_loadflags(%esi)
 	jnz 2f
 
@@ -236,10 +239,40 @@ page_pde_offset = (__PAGE_OFFSET >> 20);
 	movl $pa(_end) + MAPPING_BEYOND_END + PTE_IDENT_ATTR, %ebp
 	cmpl %ebp,%eax
 	jb 10b
+#ifndef CONFIG_X86_INTEL_XGOLD_IO_MAP_PERMANENT
 	addl $__PAGE_OFFSET, %edi
 	movl %edi, pa(_brk_end)
+#endif
 	shrl $12, %eax
 	movl %eax, pa(max_pfn_mapped)
+
+#ifdef CONFIG_X86_INTEL_XGOLD_IO_MAP_PERMANENT
+ /* Physical address for peripherals */
+
+page_per_offset = (CONFIG_X86_INTEL_XGOLD_IO_BASE_ADDRESS >> 20);
+         movl $pa(initial_page_table), %edx
+         movl $PTE_IDENT_ATTR + CONFIG_X86_INTEL_XGOLD_IO_BASE_ADDRESS, %eax
+ 12:
+         leal PDE_IDENT_ATTR(%edi),%ecx          /* Create PDE entry */
+         movl %ecx,page_per_offset(%edx)         /* Store kernel PDE entry */
+
+         addl $4,%edx
+         movl $1024, %ecx
+
+ 13:
+         stosl
+         addl $0x1000,%eax
+         loop 13b
+         /*
+          * End condition
+          */
+         movl $CONFIG_X86_INTEL_XGOLD_IO_END_ADDRESS, %ebp
+         cmpl %ebp,%eax
+         jb 12b
+
+         addl $__PAGE_OFFSET, %edi
+         movl %edi, pa(_brk_end)
+#endif
 
 	/* Do early initialization of the fixmap area */
 	movl $pa(initial_pg_fixmap)+PDE_IDENT_ATTR,%eax
