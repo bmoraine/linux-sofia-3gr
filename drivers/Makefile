@@ -1,8 +1,25 @@
 #
 # Makefile for the Linux kernel device drivers.
 #
+# Copyright (C) 2012-2013, Intel Mobile Communications GmbH.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License Version 2
+# as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# You should have received a copy of the GNU General Public License Version 2
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+# Notes:
+# Apr 17 2013: IMC: += drivers for versisilicon HW de-/encoder
+#
 # 15 Sep 2000, Christoph Hellwig <hch@infradead.org>
 # Rewritten to use lists instead of if-statements.
+# Copyright (C) 2011, Red Bend Ltd.
 #
 
 obj-y				+= irqchip/
@@ -13,6 +30,7 @@ obj-$(CONFIG_GENERIC_PHY)	+= phy/
 # GPIO must come after pinctrl as gpios may need to mux pins etc
 obj-y				+= pinctrl/
 obj-y				+= gpio/
+obj-y               += nvm/
 obj-y				+= pwm/
 obj-$(CONFIG_PCI)		+= pci/
 obj-$(CONFIG_PARISC)		+= parisc/
