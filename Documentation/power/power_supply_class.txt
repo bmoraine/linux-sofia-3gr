@@ -118,6 +118,10 @@ relative, time-based measurements.
 CONSTANT_CHARGE_CURRENT - constant charge current programmed by charger.
 CONSTANT_CHARGE_CURRENT_MAX - maximum charge current supported by the
 power supply object.
+INPUT_CURRENT_LIMIT - input current limit programmed by charger. Indicates
+the current drawn from a charging source.
+CHARGE_TERM_CUR - Charge termination current used to detect the end of charge
+condition
 
 CONSTANT_CHARGE_VOLTAGE - constant charge voltage programmed by charger.
 CONSTANT_CHARGE_VOLTAGE_MAX - maximum charge voltage supported by the
@@ -140,11 +144,23 @@ TEMP_ALERT_MAX - maximum battery temperature alert.
 TEMP_AMBIENT - ambient temperature.
 TEMP_AMBIENT_ALERT_MIN - minimum ambient temperature alert.
 TEMP_AMBIENT_ALERT_MAX - maximum ambient temperature alert.
+MIN_TEMP - minimum operatable temperature
+MAX_TEMP - maximum operatable temperature
 
 TIME_TO_EMPTY - seconds left for battery to be considered empty (i.e.
 while battery powers a load)
 TIME_TO_FULL - seconds left for battery to be considered full (i.e.
 while battery is charging)
+
+ENABLE_CHARGING - Enable/disable charging. Write is used to enable/disable charging.
+Reading the interface indicates whether the charging is enabled/disabled by the charger h/w.
+ENABLE_CHARGER - Enable/disable charger. Write is used to enable/disable charger.
+Reading the interface indicates whether the charger is enabled/disabled. When charger
+is disabled platform is not expected to draw current from charging source.
+
+CABLE_TYPE - Used to indicate the type of cable used for charging.
+PRIORITY - Indicates the priority of a power supply charger object. Useful
+to setup charging on platforms with multiple charger chips.(Wireless/USB/AC etc.)
 
 
 Battery <-> external power supply interaction
@@ -161,6 +177,192 @@ External power supply (AC) lists supplicants (batteries) names in
 issued by external power supply will notify supplicants via
 external_power_changed callback.
 
+Reading Battery charging profile
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Power Supply class battery identification framework (battery_id.c)
+exposes APIs to retrieve battery profile of a battery. The battery
+profile can be read by battery identification driver which may be
+1wire/I2C/SFI driver. Battery identification driver can register
+the battery profile with the power supply class using the API
+psy_battery_prop_changed(). The framework also exposes API
+psy_get_batt_prop() to retrieve the battery profile which can be
+used by power supply drivers to setup the charging. Also drivers
+can register for battery removal/insertion notifications using
+power_supply_reg_notifier()
+
+Use Charging Framework to setup charging
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Register the driver with the power_supply class and pass the
+  charging framework related parameters
+* Expose set_property and get_property functions so that charging
+  framework can control the charging
+
+Registering charger driver with power supply class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+struct power_supply_class psy_usb;
+psy_usb.name = DEV_NAME;
+psy_usb.type = POWER_SUPPLY_TYPE_USB;
+
+/* pointer to power supply property structure */
+psy_usb.properties =  &psy_usb_props;
+psy_usb.num_properties = ARRAY_SIZE(psy_usb_props);
+
+/* pointer to power supply get property function */
+psy_usb.get_property = psy_usb_get_property;
+
+/* pointer to power supply set property function */
+psy_usb.set_property = psy_usb_set_property;
+
+/* pointer to the supplied_to argument to indicate the batteries
+   to which this charger is supplying power  */
+psy_usb.supplied_to = supplied_to;
+psy_usb.num_supplicants = num_supplicants;
+
+/* Additional Interfaces to support charging framework */
+
+/* pointer to throttle states */
+psy_usb.throttle_states = throttle_states;
+
+/* Number of throttle states */
+psy_usb.num_throttle_states = num_throttle_states;
+
+/* define supported cable types for this driver */
+psy_usb.supported_cables = POWER_SUPPLY_CHARGER_TYPE_USB;
+
+/* register with power_supply subsystem */
+power_supply_registe(device, &psy_usb);
+
+Properties exposed by charger driver
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* POWER_SUPPLY_PROP_ONLINE
+	* Read access using get_property_function
+		* Returns the online property set using the set_property function
+	* Write access using set_property function
+		* Expose the value through get_property_fucntion.
+* POWER_SUPPLY_PROP_PRESENT
+	* Read access using get_property_function
+		* Returns the present property set using the set_property function
+	* Write access using set_property function
+		* Expose the value through get_property_fucntion.
+* POWER_SUPPLY_PROP_HEALTH
+	* Read access using get_property_function
+		* Returns charger health
+* POWER_SUPPLY_PROP_TYPE
+	* Read access using power_supply structure
+		* Returns charger type
+* POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT
+	* Read access using get property
+		* Returns the present charge control limit
+	* Write access using set property
+		* Set charge control limit.
+		* Action: Driver is not expected to take any actions on this.
+			  Instead need to expose this on the read interface.
+			  Charging framework process this and notifies the
+		  	  charging parameters accordingly.
+* POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX
+	* Read access using get property
+		* Returns the maximum charge control limit
+* POWER_SUPPLY_PROP_ENABLE_CHARGING
+	* Read access using get property
+		* Return 1 if charging is enabled  else return 0
+	* Write access using set property
+		* Enable/disable charging
+		* Action : Write h/w register to enable/disable charging
+* POWER_SUPPLY_PROP_ENABLE_CHARGER
+	* Read access using get property
+		* Return 1 if charger is enabled  else return 0
+	* Write access using set property
+		* Enable/disable charger
+		* Action : Write h/w register to enable/disable charger
+* POWER_SUPPLY_PROP_INLMT
+	* Read access using get property
+		* Returns the input current limit passed by set_property function
+		* Default value : 0
+	* Write access using set property
+		* Set input current limit
+		* Action : Write h/w register to set the input current limit
+			   based on the value
+* POWER_SUPPLY_PROP_CHARGE_CURRENT
+	* Read access using get property
+		* Returns charge current passed by set_property function
+		* Default value : 0
+	* Write access using set property
+		* Set charge current
+		* Action : Write h/w register to set the charge current based
+			   on the value
+* POWER_SUPPLY_PROP_CHARGE_VOLTAGE
+	* Read access using get property
+		* Returns charge voltage passed by set_property function
+		* Default value: 0
+	* Write access using set property
+		* Set charge voltage
+		* Action : Write h/w register to set the charge voltage based
+			   on the value
+* POWER_SUPPLY_PROP_CHARGE_TERM_CUR
+	* Read access using get property
+		* Returns charge termination current passed by set_property function
+		* Default value : 0
+	* Write access using set property
+		* Set charge termination current
+		* Action : Write h/w register to set the charge termination current
+			   based on the value
+* POWER_SUPPLY_PROP_CABLE_TYPE
+	* Read access using get property
+		* Returns cable type passed by set_property function
+		* Default value : POWER_SUPPLY_CABLE_TYPE_UNKNOWN
+	* Write access using set property
+		* Set cable type
+		* Action : Used by the driver to report POWER_SUPPLY_PROP_TYPE.
+		* Report POWER_SUPPLY_PROP_TYPE
+			* Set type field of struct power_supply based on the cable type
+* POWER_SUPPLY_PROP_MIN_TEMP
+	* Read access using get property
+		* Returns minimum charging  temperature passed by set_property
+		* Default value : Platform dependant
+	* Write access using set_property
+		* Set Minimum charging temperature
+		* Action : Write h/w register to set the minimum charging temperature
+			   based on the value
+* POWER_SUPPLY_PROP_MAX_TEMP
+	* Write access using set_property
+		* Set Maximum charging temperature
+		* Action : Write h/w register to set the maximum charging temperature
+			   based on the value
+	* Read access using get property
+		* Returns maximum charging  temperature passed by set_property
+		* Default value : Platform dependent
+* POWER_SUPPLY_PROP_MAX_CHARGE_CURRENT
+	* Read access using get property
+		* Returns maximum charging  current passed by set_property
+		* Default value : Platform dependent
+	* Write access using set_property
+		* Set Maximum charging current
+		* Action: Configure safety charging registers if any. If not no actions
+		  	  expected for this.
+* POWER_SUPPLY_PROP_MAX_CHARGE_VOLTAGE
+	* Read access using get property
+		* Returns maximum charging  current passed by set_property
+		* Default value : Platform dependent
+	* Write access using set_property
+		* Set Maximum charging voltage
+		* Action: Configure safety charging registers if any. If not,
+			  no actions expected for this.
+Registering new charging alogorithm
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Populate algorithm structure
+	struct psy_charging_algo new_algo;
+	/* populate the type charging profile the algorithm handles */
+	pse_algo.chrg_prof_type = PSY_CHRG_PROF_PSE;
+	pse_algo.name = "my_algo";
+	/* callback function to retrieve CC and CV */
+	pse_algo.get_next_cc_cv = my_algo_get_next_cc_cv;
+	/* callback function to retreive battery thresholds */
+	pse_algo.get_batt_thresholds = my_algo__get_bat_thresholds;
+	/* register charging algorithm */
+	power_supply_register_charging_algo(&pse_algo);
+
+When the type of charging profile reported by battery and algorithm matches,
+the algorithm will be invoked to get the charging parameters.
 
 QA
 ~~

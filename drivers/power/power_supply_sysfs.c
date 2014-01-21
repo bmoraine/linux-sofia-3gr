@@ -1,6 +1,7 @@
 /*
  *  Sysfs interface for the universal power supply monitor class
  *
+ *  Copyright (C) 2013 Intel Mobile Communications GmbH
  *  Copyright © 2007  David Woodhouse <dwmw2@infradead.org>
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
@@ -152,6 +153,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(voltage_now),
 	POWER_SUPPLY_ATTR(voltage_avg),
 	POWER_SUPPLY_ATTR(voltage_ocv),
+	POWER_SUPPLY_ATTR(voltage_full),
 	POWER_SUPPLY_ATTR(current_max),
 	POWER_SUPPLY_ATTR(current_now),
 	POWER_SUPPLY_ATTR(current_avg),
@@ -170,6 +172,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(constant_charge_voltage_max),
 	POWER_SUPPLY_ATTR(charge_control_limit),
 	POWER_SUPPLY_ATTR(charge_control_limit_max),
+	POWER_SUPPLY_ATTR(input_cur_limit),
 	POWER_SUPPLY_ATTR(energy_full_design),
 	POWER_SUPPLY_ATTR(energy_empty_design),
 	POWER_SUPPLY_ATTR(energy_full),
@@ -192,6 +195,12 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(time_to_full_avg),
 	POWER_SUPPLY_ATTR(type),
 	POWER_SUPPLY_ATTR(scope),
+	POWER_SUPPLY_ATTR(charge_term_cur),
+	POWER_SUPPLY_ATTR(enable_charging),
+	POWER_SUPPLY_ATTR(continue_charging),
+	POWER_SUPPLY_ATTR(enable_charger),
+	POWER_SUPPLY_ATTR(cable_type),
+	POWER_SUPPLY_ATTR(priority),
 	/* Local extensions */
 	POWER_SUPPLY_ATTR(usb_hc),
 	POWER_SUPPLY_ATTR(usb_otg),
