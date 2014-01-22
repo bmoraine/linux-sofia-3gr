@@ -8,6 +8,42 @@ menuconfig POWER_SUPPLY
 
 if POWER_SUPPLY
 
+config POWER_SUPPLY_CHARGER
+	bool "Power Supply Charger"
+	select POWER_SUPPLY_BATTID
+	help
+	  Say Y here to enable the power supply charger framework. Charger
+	  framework supports charging in a generic way. This allows the charger
+	  drivers to keep the charging logic outside and the charger driver
+	  just need to abstract the charger hardware
+
+config POWER_SUPPLY_CHARGING_ALGO_PSE
+	bool "PSE compliant charging algorithm"
+	help
+	  Say Y here to select PSE compliant charging algorithm. As per PSE
+	  standard the battery characteristics and thereby the charging rates
+	  can vary on different temperature zones. This config will enable PSE
+	  compliant charging algorithm with maintenance charging support. The
+	  algorithm can be selected by the charging framework based on the type
+	  of the battery charging profile.
+
+	depends on POWER_SUPPLY_CHARGER
+
+config POWER_SUPPLY_BATTID
+	bool "Power Supply Battery Identification Framework"
+	help
+	 Say Y here to enable the power supply battery idnetification
+	 framework. The framework would allow different battery identification
+	 drivers to interface with power supply subsystem. Also it allows consumer
+	 drivers to register for notification from the power_supply subsystem.
+
+config SW_FUEL_GAUGE
+	bool "SW Fuel Gauge"
+	depends on POWER_SUPPLY_BATTID
+	depends on INTEL_ADC_SENSORS
+	help
+	 Say Y here to enable the software fuel gauge.
+
 config POWER_SUPPLY_DEBUG
 	bool "Power supply debug"
 	help
@@ -309,7 +345,6 @@ config CHARGER_GPIO
 config CHARGER_MANAGER
 	bool "Battery charger manager for multiple chargers"
 	depends on REGULATOR && RTC_CLASS
-	select EXTCON
 	help
           Say Y to enable charger-manager support, which allows multiple
           chargers attached to a battery and multiple batteries attached to a
@@ -367,6 +402,13 @@ config CHARGER_SMB347
 	help
 	  Say Y to include support for Summit Microelectronics SMB347
 	  Battery Charger.
+
+config CHARGER_FAN54020
+	tristate "FAN54020 battery charger driver"
+	depends on I2C
+	depends on IDI
+	help
+	  Say Y here to enable support for fan54020 Charger.
 
 config CHARGER_TPS65090
 	tristate "TPS65090 battery charger driver"
