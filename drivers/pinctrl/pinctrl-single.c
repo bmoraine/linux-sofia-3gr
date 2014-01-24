@@ -206,6 +206,7 @@ struct pcs_soc_data {
 struct pcs_device {
 	struct resource *res;
 	void __iomem *base;
+	unsigned first_pin_offset;
 	unsigned size;
 	struct device *dev;
 	struct pinctrl_dev *pctl;
@@ -562,9 +563,11 @@ static int pcs_request_gpio(struct pinctrl_dev *pctldev,
 			|| pin < frange->offset)
 			continue;
 		mux_bytes = pcs->width / BITS_PER_BYTE;
-		data = pcs->read(pcs->base + pin * mux_bytes) & ~pcs->fmask;
+		data = pcs->read(pcs->base + pcs->first_pin_offset
+			+ pin * mux_bytes) & ~pcs->fmask;
 		data |= frange->gpiofunc;
-		pcs->write(data, pcs->base + pin * mux_bytes);
+		pcs->write(data, pcs->base + pcs->first_pin_offset
+			+ pin * mux_bytes);
 		break;
 	}
 	return 0;
@@ -1550,7 +1553,6 @@ static int pcs_add_gpio_func(struct device_node *node, struct pcs_device *pcs)
 	struct of_phandle_args gpiospec;
 	struct pcs_gpiofunc_range *range;
 	int ret, i;
-
 	for (i = 0; ; i++) {
 		ret = of_parse_phandle_with_args(node, propname, cellname,
 						 i, &gpiospec);
@@ -1906,6 +1908,11 @@ static int pcs_probe(struct platform_device *pdev)
 	if (ret)
 		pcs->foff = PCS_OFF_DISABLED;
 
+	ret = of_property_read_u32(np, "pinctrl-single,first-pin-offset",
+					&pcs->first_pin_offset);
+	if (ret)
+		pcs->first_pin_offset = 0;
+
 	pcs->bits_per_mux = of_property_read_bool(np,
 						  "pinctrl-single,bit-per-mux");
 
@@ -2053,7 +2060,17 @@ static struct platform_driver pcs_driver = {
 #endif
 };
 
-module_platform_driver(pcs_driver);
+static int __init pcs_init(void)
+{
+	return platform_driver_register(&pcs_driver);
+}
+arch_initcall(pcs_init);
+
+static void __exit pcs_exit(void)
+{
+	platform_driver_unregister(&pcs_driver);
+}
+module_exit(pcs_exit);
 
 MODULE_AUTHOR("Tony Lindgren <tony@atomide.com>");
 MODULE_DESCRIPTION("One-register-per-pin type device tree based pinctrl driver");
