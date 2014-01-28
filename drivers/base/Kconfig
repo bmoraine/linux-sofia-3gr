@@ -285,5 +285,33 @@ config CMA_AREAS
 	  If unsure, leave the default value "7".
 
 endif
+config PLATFORM_DEVICE_PM
+	bool "Enable usage of platform device/device state based power management"
+	default n
+	---help---
+	  Platform device/device state power management support.
+	  PM support for IMC platform.
+	  TBC.
+	  Say n if unsure.
 
+if PLATFORM_DEVICE_PM
+
+config PLATFORM_DEVICE_PM_VIRT
+	bool "Use PRH virtual driver"
+	default n
+	---help
+	  This option allow to use the virtualized PRH (Power Resource Handler) driver.
+	  If power resources are handled in the drivers themselves, this option
+	  should be disabled.
+	  TBC.
+
+config PLATFORM_DEVICE_PM_DEBUG
+	bool "Activate platform device PM debug"
+	default y
+	---help---
+	  This option enables various debugging support in the Platform Device
+	  PM driver.
+	  TBC.
+	  Say n if unsure.
+endif
 endmenu

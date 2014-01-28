@@ -28,6 +28,9 @@
 #include <linux/uidgid.h>
 #include <linux/gfp.h>
 #include <asm/device.h>
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+#include <linux/device_pm_data.h>
+#endif
 
 struct device;
 struct device_private;
@@ -788,6 +791,9 @@ struct device {
 
 	bool			offline_disabled:1;
 	bool			offline:1;
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+	struct device_state_pm_data pm_data;
+#endif
 };
 
 static inline struct device *kobj_to_dev(struct kobject *kobj)
