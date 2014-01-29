@@ -1,0 +1,28 @@
+#ifdef CONFIG_X86_INTEL_SOFIA
+main_hirq:main-hirq-interrupt-controller {
+	compatible = "intel,sofia-main-hirq";
+	#interrupt-cells = <2>;
+	interrupt-controller;
+	interrupt-parent = <&pic>;
+	interrupts =
+		< VMM_VIRQ_VECT IRQ_TYPE_DEFAULT >;
+};
+hirq:hirq-interrupt-controller {
+	compatible = "intel,sofia-hirq";
+	#interrupt-cells = <2>;
+	interrupt-controller;
+	interrupt-parent = <&main_hirq>;
+	interrupts =
+		< 0 IRQ_TYPE_DEFAULT >, /* VMM_BROADCAST */
+		< 0 IRQ_TYPE_DEFAULT >, /* LNX_PERF_CNT_INT */
+		< 0 IRQ_TYPE_DEFAULT >, /* LNX_SOC_WATCH_INT */
+		< 0 IRQ_TYPE_DEFAULT >, /* PRH_SIGNALING_INT */
+		< 0 IRQ_TYPE_DEFAULT >, /* CPU_CLK_CHANGE_INT = 516 */
+                < 0 IRQ_TYPE_DEFAULT >, /* SPCU_T0LOW_INT */
+                < 0 IRQ_TYPE_DEFAULT >, /* SPCU_T0HIGH_INT */
+                < 0 IRQ_TYPE_DEFAULT >, /* SPCU_T1LOW_INT */
+                < 0 IRQ_TYPE_DEFAULT >, /* SPCU_T1HIGH_INT = 520 */
+		< 0 IRQ_TYPE_DEFAULT >; /* RTC_ALARM = 521 */
+	intel,hirq_offset = <512>;
+};
+#endif

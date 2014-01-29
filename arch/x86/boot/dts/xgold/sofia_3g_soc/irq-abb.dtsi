@@ -1,0 +1,147 @@
+abb:abb-interrupt-controller {
+	compatible = "intel,xgold_abb";
+	interrupt-controller;
+	interrupt-parent = <&pic>;
+	#interrupt-cells = <2>;
+	interrupts =
+		< RTC_INT IRQ_TYPE_DEFAULT >, /* RTC_INT */
+		< PMU_INT0 IRQ_TYPE_DEFAULT >, /* PM_INT0 */
+		< PMU_INT1 IRQ_TYPE_DEFAULT >, /* PM_INT1 */
+		< SCU_INT0 IRQ_TYPE_DEFAULT >, /* SCU_INT0 */
+		< SCU_INT1 IRQ_TYPE_DEFAULT >, /* SCU_INT1 */
+		< BTIF_REQ_IRQ IRQ_TYPE_DEFAULT >, /* btif_req_irq_o */
+		< BTIF_MULT_SRC_SRQ IRQ_TYPE_DEFAULT >, /* btif_mult_src_srq_o */
+		< BTIF_ERR_SRQ IRQ_TYPE_DEFAULT >, /* btif_err_srq_o */
+		< WLAN_INT IRQ_TYPE_DEFAULT >, /* WLAN.WLAN_INT */
+		< MRDY_INT IRQ_TYPE_DEFAULT >, /* MRDY */
+		< GNSS_WUP IRQ_TYPE_DEFAULT >, /* GNSS.gnss_int0_wakeup */
+		< GNSS_NOTIFICATION IRQ_TYPE_DEFAULT >, /* GNSS.gnss_int1_notification */
+		< GNSS_ERR IRQ_TYPE_DEFAULT >, /* GNSS_gnss_int2_error */
+		< SCU_INT2 IRQ_TYPE_DEFAULT >, /* SCU_INT2 */
+		< SCU_INT3 IRQ_TYPE_DEFAULT >, /* SCU_INT3 */
+		< SCU_INT4 IRQ_TYPE_DEFAULT >, /* SCU_INT4 */
+		< AFE_LS_ALERT IRQ_TYPE_DEFAULT >, /* LS_ALERT */
+		< ACI_INT IRQ_TYPE_DEFAULT >, /* ACI_INT */
+		< USIF_ALL_INT IRQ_TYPE_DEFAULT >, /* USIF_usif_all_int_o */
+		< I2C_RAWIRQ IRQ_TYPE_DEFAULT >, /* I2C_RAWIRQ */
+		< IDIABB_ERR_SRQ0 IRQ_TYPE_DEFAULT >, /* err_srq0 */
+		< IDIABB_TX_REQ_IRQ0 IRQ_TYPE_DEFAULT >, /* tx_req_irq0 */
+		< IDIABB_RX_REQ_IRQ0 IRQ_TYPE_DEFAULT >, /* rx_req_irq0 */
+		< IDIABB_ERR_SRQ1 IRQ_TYPE_DEFAULT >, /* err_srq1 */
+		< IDIABB_TX_REQ_IRQ1 IRQ_TYPE_DEFAULT >, /* tx_req_irq1 */
+		< IDIABB_RX_REQ_IRQ1 IRQ_TYPE_DEFAULT >, /* rx_req_irq1 */
+		< IDIABB_MULT_SRC_SRQ IRQ_TYPE_DEFAULT >, /* mult_src_srq */
+		< FMR_INT IRQ_TYPE_DEFAULT >, /* FMR_INT */
+		< FMRX_EV_ONESHOT IRQ_TYPE_DEFAULT >, /* FMRX_EV_ONESHOT */
+		< FMRX_EV_TUNE IRQ_TYPE_DEFAULT >, /* FMRX_EV_TUNE */
+		< FMTX_EV_CALIB IRQ_TYPE_DEFAULT >, /* FMTX_EV_CALIB */
+		< FMTX_EV_TUNE IRQ_TYPE_DEFAULT >; /* FMTX_EV_TUNE */
+	reg = <0xe6100000 0x3000>;
+	reg-names = "abb-regs";
+	intel,io-access-guest;
+	intel,virq,0 = <1>; /* RTC_INT */
+	intel,virq,1 = <1>; /* PM_INT0 */
+	intel,virq,3 = <1>; /* SCU_INT0 */
+	intel,virq,4 = <1>; /* SCU_INT1 */
+	intel,virq,13 = <1>; /* SCU_INT2 */
+	intel,virq,15 = <1>; /* SCU_INT4 */
+	intel,virq,16 = <1>; /* LS_ALERT */
+	intel,virq,17 = <1>; /* ACI_INT */
+	intel,slmask,0 = < 0x168 0 1 >; /* RTC_INT */
+	intel,slmask,1 = < 0x168 1 1 >; /* PM_INT0 */
+	intel,slmask,2 = < 0x168 2 1 >; /* PM_INT1 */
+	intel,slmask,3 = < 0x168 3 1 >; /* SCU_INT0 */
+	intel,slmask,4 = < 0x168 4 1 >; /* SCU_INT1 */
+	intel,slmask,5 = < 0x168 5 1 >; /* btif_req_irq_o */
+	intel,slmask,6 = < 0x168 6 1 >; /* btif_mult_src_srq_o */
+	intel,slmask,7 = < 0x168 7 1 >; /* btif_err_srq_o */
+	intel,slmask,8 = < 0x168 8 1 >; /* WLAN.WLAN_INT */
+	intel,slmask,9 = < 0x168 9 1 >; /* MRDY */
+	intel,slmask,10 = < 0x168 10 1 >; /* GNSS.gnss_int0_wakeup */
+	intel,slmask,11 = < 0x168 11 1 >; /* GNSS.gnss_int1_notification */
+	intel,slmask,12 = < 0x168 12 1 >; /* GNSS_gnss_int2_error */
+	intel,slmask,13 = < 0x168 13 1 >; /* SCU_INT2 */
+	intel,slmask,14 = < 0x168 14 1 >; /* SCU_INT3 */
+	intel,slmask,15 = < 0x168 15 1 >; /* SCU_INT4 */
+	intel,slmask,16 = < 0x168 16 1 >; /* LS_ALERT */
+	intel,slmask,17 = < 0x168 17 1 >; /* ACI_INT */
+	intel,slmask,18 = < 0x168 18 1 >; /* USIF_usif_all_int_o */
+	intel,slmask,19 = < 0x168 19 1 >; /* I2C_RAWIRQ */
+	intel,slmask,20 = < 0x168 20 1 >; /* err_srq0 */
+	intel,slmask,21 = < 0x168 21 1 >; /* tx_req_irq0 */
+	intel,slmask,22 = < 0x168 22 1 >; /* rx_req_irq0 */
+	intel,slmask,23 = < 0x168 23 1 >; /* err_srq1 */
+	intel,slmask,24 = < 0x168 24 1 >; /* tx_req_irq1 */
+	intel,slmask,25 = < 0x168 25 1 >; /* rx_req_irq1 */
+	intel,slmask,26 = < 0x168 26 1 >; /* mult_src_srq */
+	intel,slmask,27 = < 0x168 27 1 >; /* FMR_INT */
+	intel,slmask,28 = < 0x168 28 1 >; /* FMRX_EV_ONESHOT */
+	intel,slmask,29 = < 0x168 29 1 >; /* FMRX_EV_TUNE */
+	intel,slmask,30 = < 0x168 30 1 >; /* FMTX_EV_CALIB */
+	intel,slmask,31 = < 0x168 31 1 >; /* FMTX_EV_TUNE */
+	intel,ack,0 = < 0x98 15 1 >; /* RTC_INT */
+	intel,ack,1 = < 0x98 16 1 >; /* PM_INT0 */
+	intel,ack,2 = < 0x98 17 1 >; /* PM_INT1 */
+	intel,ack,3 = < 0x98 18 1 >; /* SCU_INT0 */
+	intel,ack,4 = < 0x98 19 1 >; /* SCU_INT1 */
+	intel,ack,5 = < 0x98 20 1 >; /* btif_req_irq_o */
+	intel,ack,6 = < 0x98 21 1 >; /* btif_mult_src_srq_o */
+	intel,ack,7 = < 0x98 22 1 >; /* btif_err_srq_o */
+	intel,ack,8 = < 0x98 23 1 >; /* WLAN.WLAN_INT */
+	intel,ack,9 = < 0x98 24 1 >; /* MRDY */
+	intel,ack,10 = < 0x98 25 1 >; /* GNSS.gnss_int0_wakeup */
+	intel,ack,11 = < 0x98 26 1 >; /* GNSS.gnss_int1_notification */
+	intel,ack,12 = < 0x98 27 1 >; /* GNSS_gnss_int2_error */
+	intel,ack,13 = < 0x98 28 1 >; /* SCU_INT2 */
+	intel,ack,14 = < 0x98 29 1 >; /* SCU_INT3 */
+	intel,ack,15 = < 0x98 30 1 >; /* SCU_INT4 */
+	intel,ack,16 = < 0x98 31 1 >; /* LS_ALERT */
+	intel,ack,17 = < 0xB8 0 1 >; /* ACI_INT */
+	intel,ack,18 = < 0xB8 1 1 >; /* USIF_usif_all_int_o */
+	intel,ack,19 = < 0xB8 2 1 >; /* I2C_RAWIRQ */
+	intel,ack,20 = < 0xB8 3 1 >; /* err_srq0 */
+	intel,ack,21 = < 0xB8 4 1 >; /* tx_req_irq0 */
+	intel,ack,22 = < 0xB8 5 1 >; /* rx_req_irq0 */
+	intel,ack,23 = < 0xB8 6 1 >; /* err_srq1 */
+	intel,ack,24 = < 0xB8 7 1 >; /* tx_req_irq1 */
+	intel,ack,25 = < 0xB8 8 1 >; /* rx_req_irq1 */
+	intel,ack,26 = < 0xB8 9 1 >; /* mult_src_srq */
+	intel,ack,27 = < 0xB8 10 1 >; /* FMR_INT */
+	intel,ack,28 = < 0xB8 11 1 >; /* FMRX_EV_ONESHOT */
+	intel,ack,29 = < 0xB8 12 1 >; /* FMRX_EV_TUNE */
+	intel,ack,30 = < 0xB8 13 1 >; /* FMTX_EV_CALIB */
+	intel,ack,31 = < 0xB8 14 1 >; /* FMTX_EV_TUNE */
+	intel,wake,0 = < 0x630 1 1 >; /* RTC_INT */
+	intel,mask,0 = < 0x84 15 1 >; /* RTC_INT */
+	intel,mask,1 = < 0x84 16 1 >; /* PM_INT0 */
+	intel,mask,2 = < 0x84 17 1 >; /* PM_INT1 */
+	intel,mask,3 = < 0x84 18 1 >; /* SCU_INT0 */
+	intel,mask,4 = < 0x84 19 1 >; /* SCU_INT1 */
+	intel,mask,5 = < 0x84 20 1 >; /* btif_req_irq_o */
+	intel,mask,6 = < 0x84 21 1 >; /* btif_mult_src_srq_o */
+	intel,mask,7 = < 0x84 22 1 >; /* btif_err_srq_o */
+	intel,mask,8 = < 0x84 23 1 >; /* WLAN.WLAN_INT */
+	intel,mask,9 = < 0x84 24 1 >; /* MRDY */
+	intel,mask,10 = < 0x84 25 1 >; /* GNSS.gnss_int0_wakeup */
+	intel,mask,11 = < 0x84 26 1 >; /* GNSS.gnss_int1_notification */
+	intel,mask,12 = < 0x84 27 1 >; /* GNSS_gnss_int2_error */
+	intel,mask,13 = < 0x84 28 1 >; /* SCU_INT2 */
+	intel,mask,14 = < 0x84 29 1 >; /* SCU_INT3 */
+	intel,mask,15 = < 0x84 30 1 >; /* SCU_INT4 */
+	intel,mask,16 = < 0x84 31 1 >; /* LS_ALERT */
+	intel,mask,17 = < 0xA4 0 1 >; /* ACI_INT */
+	intel,mask,18 = < 0xA4 1 1 >; /* USIF_usif_all_int_o */
+	intel,mask,19 = < 0xA4 2 1 >; /* I2C_RAWIRQ */
+	intel,mask,20 = < 0xA4 3 1 >; /* err_srq0 */
+	intel,mask,21 = < 0xA4 4 1 >; /* tx_req_irq0 */
+	intel,mask,22 = < 0xA4 5 1 >; /* rx_req_irq0 */
+	intel,mask,23 = < 0xA4 6 1 >; /* err_srq1 */
+	intel,mask,24 = < 0xA4 7 1 >; /* tx_req_irq1 */
+	intel,mask,25 = < 0xA4 8 1 >; /* rx_req_irq1 */
+	intel,mask,26 = < 0xA4 9 1 >; /* mult_src_srq */
+	intel,mask,27 = < 0xA4 10 1 >; /* FMR_INT */
+	intel,mask,28 = < 0xA4 11 1 >; /* FMRX_EV_ONESHOT */
+	intel,mask,29 = < 0xA4 12 1 >; /* FMRX_EV_TUNE */
+	intel,mask,30 = < 0xA4 13 1 >; /* FMTX_EV_CALIB */
+	intel,mask,31 = < 0xA4 14 1 >; /* FMTX_EV_TUNE */
+};

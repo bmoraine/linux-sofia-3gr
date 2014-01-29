@@ -1,0 +1,292 @@
+eint:eint-interrupt-controller {
+	compatible = "intel,xgold_eint";
+	interrupt-controller;
+	interrupt-parent = <&pic>;
+	#interrupt-cells = <2>;
+	interrupts =
+		< EXI0 IRQ_TYPE_DEFAULT >, /* EINT0 */
+		< EXI1 IRQ_TYPE_DEFAULT >, /* EINT1 */
+		< EXI2 IRQ_TYPE_DEFAULT >, /* EINT2 */
+		< EXI3 IRQ_TYPE_DEFAULT >, /* EINT3 */
+		< EXI4 IRQ_TYPE_DEFAULT >, /* EINT4 */
+		< EXI5 IRQ_TYPE_DEFAULT >, /* EINT5 */
+		< EXI6 IRQ_TYPE_DEFAULT >, /* EINT6 */
+		< EXI7 IRQ_TYPE_DEFAULT >, /* EINT7 */
+		< USIF2_WK IRQ_TYPE_DEFAULT >, /* USIF2 */
+		< USIF3_WK IRQ_TYPE_DEFAULT >, /* USIF3 */
+		< WDT0 IRQ_TYPE_DEFAULT >, /* WDT */
+		< USIF4_WK	IRQ_TYPE_DEFAULT >, /* USIF4 */
+		< U2H IRQ_TYPE_DEFAULT >, /* U2H */
+		< G3FP IRQ_TYPE_DEFAULT >, /* U2FP */
+		< USB_HS_RESUME IRQ_TYPE_DEFAULT >, /* USB_RESUME */
+		< USIF7_INT IRQ_TYPE_DEFAULT >, /* USIF7 */
+		< I2C5_WK IRQ_TYPE_DEFAULT >, /* I2C5 */
+		< I2C4_WK IRQ_TYPE_DEFAULT >, /* I2C4 */
+		< I2C3_WK IRQ_TYPE_DEFAULT >, /* I2C3 */
+		< I2C2_WK IRQ_TYPE_DEFAULT >, /* I2C2 */
+		< I2C1_WK IRQ_TYPE_DEFAULT >, /* I2C1 */
+		< USB_VBUSDETECT IRQ_TYPE_DEFAULT >, /* USB_VBUS */
+		< USIF1_WK IRQ_TYPE_DEFAULT >, /* USIF1 */
+		< DAP_WK IRQ_TYPE_DEFAULT >, /* DAP */
+		< EXI12 IRQ_TYPE_DEFAULT >, /* EINT12 */
+		< EXI13 IRQ_TYPE_DEFAULT >, /* EINT13 */
+		< EXI14 IRQ_TYPE_DEFAULT >, /* EINT14 */
+		< EXI15 IRQ_TYPE_DEFAULT >, /* EINT15 */
+		< EXI8 IRQ_TYPE_DEFAULT >, /* EINT8 */
+		< EXI9 IRQ_TYPE_DEFAULT >, /* EINT9 */
+		< EXI10 IRQ_TYPE_DEFAULT >, /* EINT10 */
+		< EXI11 IRQ_TYPE_DEFAULT >, /* EINT11 */
+		< OCP_DATA_ABORT IRQ_TYPE_DEFAULT >, /* OCP_DATA_ABORT */
+		< CORE0_C6_ENTRY_INT IRQ_TYPE_DEFAULT >, /* C0_C6_ENTRY */
+		< CORE0_C6_EXIT_INT IRQ_TYPE_DEFAULT >, /* C0_C6_EXIT */
+		< CORE1_C6_ENTRY_INT IRQ_TYPE_DEFAULT >, /* C1_C6_ENTRY */
+		< CORE1_C6_EXIT_INT IRQ_TYPE_DEFAULT >, /* C1_C6_EXIT */
+		< CORE2_C6_ENTRY IRQ_TYPE_DEFAULT >, /* C2_C6_ENTRY */
+		< CORE2_C6_EXIT IRQ_TYPE_DEFAULT >, /* C2_C6_EXIT */
+		< CORE3_C6_ENTRY IRQ_TYPE_DEFAULT >, /* C3_C6_ENTRY */
+		< CORE3_C6_EXIT IRQ_TYPE_DEFAULT >, /* C3_C6_EXIT */
+		< VM_ID_VIOLATION IRQ_TYPE_DEFAULT >, /* VMID_VIORQ */
+		< SDMMC_DETECT IRQ_TYPE_DEFAULT >, /* SDMMC */
+		< SDIO_DAT1 IRQ_TYPE_DEFAULT >, /* SDIO1 */
+		< SDIO_DAT3 IRQ_TYPE_DEFAULT >; /* SDIO3 */
+
+	reg = <0xe4900000 0x10000>;
+	reg-names = "eint-regs";
+	intel,io-access-guest;
+	/* Comment the EINT used by Linux guest */
+	intel,virq,0	= <1>; /* EINT0 */
+	intel,virq,2	= <1>; /* EINT2 */
+	intel,virq,3	= <1>; /* EINT3 */
+	intel,virq,4	= <1>; /* EINT4 */
+	intel,virq,5	= <1>; /* EINT5 */
+	intel,virq,6	= <1>; /* EINT6 */
+	intel,virq,7	= <1>; /* EINT7 */
+	intel,virq,8	= <1>; /* USIF2 */
+	intel,virq,9	= <1>; /* USIF3 */
+	intel,virq,10	= <1>; /* WDT */
+	intel,virq,11	= <1>; /* USIF4 */
+	intel,virq,12	= <1>; /* U2H */
+	intel,virq,13	= <1>; /* U2FP */
+	intel,virq,14	= <1>; /* USB_RESUME */
+	intel,virq,15	= <1>; /* USIF7 */
+	intel,virq,16	= <1>; /* I2C5 */
+	intel,virq,17	= <1>; /* I2C4 */
+	intel,virq,18	= <1>; /* I2C3 */
+	intel,virq,19	= <1>; /* I2C2 */
+	intel,virq,20	= <1>; /* I2C1 */
+	intel,virq,21	= <1>; /* USB_VBUS */
+	intel,virq,22	= <1>; /* USIF1 */
+	intel,virq,23	= <1>; /* DAP */
+	intel,virq,24	= <1>; /* EINT12 */
+	intel,virq,25	= <1>; /* EINT13 */
+	intel,virq,26	= <1>; /* EINT14 */
+	intel,virq,27	= <1>; /* EINT15 */
+	intel,virq,28	= <1>; /* EINT8 */
+	intel,virq,29	= <1>; /* EINT9 */
+	intel,virq,30	= <1>; /* EINT10 */
+	intel,virq,31	= <1>; /* EINT11 */
+	intel,virq,32	= <1>; /* OCP_DATA_ABORT */
+	intel,virq,33	= <1>; /* C0_C6_ENTRY */
+	intel,virq,34	= <1>; /* C0_C6_EXIT */
+	intel,virq,35	= <1>; /* C1_C6_ENTRY */
+	intel,virq,36	= <1>; /* C1_C6_EXIT */
+	intel,virq,37	= <1>; /* C2_C6_ENTRY */
+	intel,virq,38	= <1>; /* C2_C6_EXIT */
+	intel,virq,39	= <1>; /* C3_C6_ENTRY */
+	intel,virq,40	= <1>; /* C3_C6_EXIT */
+	intel,virq,41	= <1>; /* VMID_VIORQ */
+	intel,virq,42	= <1>; /* SDMMC */
+	intel,virq,43	= <1>; /* SDIO1 */
+	intel,virq,44	= <1>; /* SDIO3 */
+
+	intel,mask,0	= <0x84  0 1>; /* EINT0 */
+	intel,mask,1	= <0x84  1 1>; /* EINT1 */
+	intel,mask,2	= <0x84  2 1>; /* EINT2 */
+	intel,mask,3	= <0x84  3 1>; /* EINT3 */
+	intel,mask,4	= <0x84  4 1>; /* EINT4 */
+	intel,mask,5	= <0x84  5 1>; /* EINT5 */
+	intel,mask,6	= <0x84  6 1>; /* EINT6 */
+	intel,mask,7	= <0x84  7 1>; /* EINT7 */
+	intel,mask,8	= <0x84  8 1>; /* USIF2 */
+	intel,mask,9	= <0x84  9 1>; /* USIF3 */
+	intel,mask,10	= <0x84 10 1>; /* WDT */
+	intel,mask,11	= <0x84 11 1>; /* USIF4 */
+	intel,mask,12	= <0x84 12 1>; /* U2H */
+	intel,mask,13	= <0x84 13 1>; /* U2FP */
+	intel,mask,14	= <0x84 14 1>; /* USB_RESUME */
+	intel,mask,15	= <0x84 15 1>; /* USIF7 */
+	intel,mask,16	= <0x84 16 1>; /* I2C5 */
+	intel,mask,17	= <0x84 17 1>; /* I2C4 */
+	intel,mask,18	= <0x84 18 1>; /* I2C3 */
+	intel,mask,19	= <0x84 19 1>; /* I2C2 */
+	intel,mask,20	= <0x84 20 1>; /* I2C1 */
+	intel,mask,21	= <0x84 21 1>; /* USB_VBUS */
+	intel,mask,22	= <0x84 22 1>; /* USIF1 */
+	intel,mask,23	= <0x84 23 1>; /* DAP */
+	intel,mask,24	= <0x84 24 1>; /* EINT12 */
+	intel,mask,25	= <0x84 25 1>; /* EINT13 */
+	intel,mask,26	= <0x84 26 1>; /* EINT14 */
+	intel,mask,27	= <0x84 27 1>; /* EINT15 */
+	intel,mask,28	= <0x84 28 1>; /* EINT8 */
+	intel,mask,29	= <0x84 29 1>; /* EINT9 */
+	intel,mask,30	= <0x84 30 1>; /* EINT10 */
+	intel,mask,31	= <0x84 31 1>; /* EINT11 */
+	intel,mask,32	= <0xA4  0 1>; /* OCP_DATA_ABORT */
+	intel,mask,33	= <0xA4  1 1>; /* C0_C6_ENTRY */
+	intel,mask,34	= <0xA4  2 1>; /* C0_C6_EXIT */
+	intel,mask,35	= <0xA4  3 1>; /* C1_C6_ENTRY */
+	intel,mask,36	= <0xA4  4 1>; /* C1_C6_EXIT */
+	intel,mask,37	= <0xA4  5 1>; /* C2_C6_ENTRY */
+	intel,mask,38	= <0xA4  6 1>; /* C2_C6_EXIT */
+	intel,mask,39	= <0xA4  7 1>; /* C3_C6_ENTRY */
+	intel,mask,40	= <0xA4  8 1>; /* C3_C6_EXIT */
+	intel,mask,41	= <0xA4  9 1>; /* VMID_VIORQ */
+	intel,mask,42	= <0xA4 10 1>; /* SDMMC */
+	intel,mask,43	= <0xA4 11 1>; /* SDIO1 */
+	intel,mask,44	= <0xA4 12 1>; /* SDIO3 */
+
+	intel,ack,0		= <0x98  0 1>; /* EINT0 */
+	intel,ack,1		= <0x98  1 1>; /* EINT1 */
+	intel,ack,2		= <0x98  2 1>; /* EINT2 */
+	intel,ack,3		= <0x98  3 1>; /* EINT3 */
+	intel,ack,4		= <0x98  4 1>; /* EINT4 */
+	intel,ack,5		= <0x98  5 1>; /* EINT5 */
+	intel,ack,6		= <0x98  6 1>; /* EINT6 */
+	intel,ack,7		= <0x98  7 1>; /* EINT7 */
+	intel,ack,8		= <0x98  8 1>; /* USIF2 */
+	intel,ack,9		= <0x98  9 1>; /* USIF3 */
+	intel,ack,10	= <0x98 10 1>; /* WDT */
+	intel,ack,11	= <0x98 11 1>; /* USIF4 */
+	intel,ack,12	= <0x98 12 1>; /* U2H */
+	intel,ack,13	= <0x98 13 1>; /* U2FP */
+	intel,ack,14	= <0x98 14 1>; /* USB_RESUME */
+	intel,ack,15	= <0x98 15 1>; /* USIF7 */
+	intel,ack,16	= <0x98 16 1>; /* I2C5 */
+	intel,ack,17	= <0x98 17 1>; /* I2C4 */
+	intel,ack,18	= <0x98 18 1>; /* I2C3 */
+	intel,ack,19	= <0x98 19 1>; /* I2C2 */
+	intel,ack,20	= <0x98 20 1>; /* I2C1 */
+	intel,ack,21	= <0x98 21 1>; /* USB_VBUS */
+	intel,ack,22	= <0x98 22 1>; /* USIF1 */
+	intel,ack,23	= <0x98 23 1>; /* DAP */
+	intel,ack,24	= <0x98 24 1>; /* EINT12 */
+	intel,ack,25	= <0x98 25 1>; /* EINT13 */
+	intel,ack,26	= <0x98 26 1>; /* EINT14 */
+	intel,ack,27	= <0x98 27 1>; /* EINT15 */
+	intel,ack,28	= <0x98 28 1>; /* EINT8 */
+	intel,ack,29	= <0x98 29 1>; /* EINT9 */
+	intel,ack,30	= <0x98 30 1>; /* EINT10 */
+	intel,ack,31	= <0x98 31 1>; /* EINT11 */
+	intel,ack,32	= <0xB8  0 1>; /* OCP_DATA_ABORT */
+	intel,ack,33	= <0xB8  1 1>; /* C0_C6_ENTRY */
+	intel,ack,34	= <0xB8  2 1>; /* C0_C6_EXIT */
+	intel,ack,35	= <0xB8  3 1>; /* C1_C6_ENTRY */
+	intel,ack,36	= <0xB8  4 1>; /* C1_C6_EXIT */
+	intel,ack,37	= <0xB8  5 1>; /* C2_C6_ENTRY */
+	intel,ack,38	= <0xB8  6 1>; /* C2_C6_EXIT */
+	intel,ack,39	= <0xB8  7 1>; /* C3_C6_ENTRY */
+	intel,ack,40	= <0xB8  8 1>; /* C3_C6_EXIT */
+	intel,ack,41	= <0xB8  9 1>; /* VMID_VIORQ */
+	intel,ack,42	= <0xB8 10 1>; /* SDMMC */
+	intel,ack,43	= <0xB8 11 1>; /* SDIO1 */
+	intel,ack,44	= <0xB8 12 1>; /* SDIO3 */
+
+	intel,filter,0	= <0x508 0 2>; /* EINT0 */
+	intel,filter,1	= <0x50C 0 2>; /* EINT1 */
+	intel,filter,2	= <0x510 0 2>; /* EINT2 */
+	intel,filter,3	= <0x514 0 2>; /* EINT3 */
+	intel,filter,4	= <0x518 0 2>; /* EINT4 */
+	intel,filter,5	= <0x51C 0 2>; /* EINT5 */
+	intel,filter,6	= <0x520 0 2>; /* EINT6 */
+	intel,filter,7	= <0x524 0 2>; /* EINT7 */
+	intel,filter,8	= <0x584 0 2>; /* USIF2 */
+	intel,filter,9	= <0x588 0 2>; /* USIF3 */
+	intel,filter,11	= <0x54C 0 2>; /* USIF4 */
+	intel,filter,14	= <0x528 0 2>; /* USB_RESUME */
+	intel,filter,15	= <0x538 0 2>; /* USIF7 */
+	intel,filter,16	= <0x59C 0 2>; /* I2C5 */
+	intel,filter,17	= <0x598 0 2>; /* I2C4 */
+	intel,filter,18	= <0x594 0 2>; /* I2C3 */
+	intel,filter,19	= <0x590 0 2>; /* I2C2 */
+	intel,filter,20	= <0x544 0 2>; /* I2C1 */
+	intel,filter,21	= <0x52C 0 2>; /* USB_VBUS */
+	intel,filter,22	= <0x580 0 2>; /* USIF1 */
+	intel,filter,23	= <0x5B0 0 2>; /* DAP */
+	intel,filter,24	= <0x560 0 2>; /* EINT12 */
+	intel,filter,25	= <0x564 0 2>; /* EINT13 */
+	intel,filter,26	= <0x568 0 2>; /* EINT14 */
+	intel,filter,27	= <0x56C 0 2>; /* EINT15 */
+	intel,filter,28	= <0x550 0 2>; /* EINT8 */
+	intel,filter,29	= <0x554 0 2>; /* EINT9 */
+	intel,filter,30	= <0x558 0 2>; /* EINT10 */
+	intel,filter,31	= <0x55C 0 2>; /* EINT11 */
+	intel,filter,42	= <0x5C0 0 2>; /* SDMMC */
+	intel,filter,43	= <0x5C4 0 2>; /* SDIO1 */
+	intel,filter,44	= <0x5C8 0 2>; /* SDIO3 */
+
+	intel,edge,0	= <0x508 2 2>; /* EINT0 */
+	intel,edge,1	= <0x50C 2 2>; /* EINT1 */
+	intel,edge,2	= <0x510 2 2>; /* EINT2 */
+	intel,edge,3	= <0x514 2 2>; /* EINT3 */
+	intel,edge,4	= <0x518 2 2>; /* EINT4 */
+	intel,edge,5	= <0x51C 2 2>; /* EINT5 */
+	intel,edge,6	= <0x520 2 2>; /* EINT6 */
+	intel,edge,7	= <0x524 2 2>; /* EINT7 */
+	intel,edge,8	= <0x584 2 2>; /* USIF2 */
+	intel,edge,9	= <0x588 2 2>; /* USIF3 */
+	intel,edge,11	= <0x54C 2 2>; /* USIF4 */
+	intel,edge,14	= <0x528 2 2>; /* USB_RESUME */
+	intel,edge,15	= <0x538 2 2>; /* USIF7 */
+	intel,edge,16	= <0x59C 2 2>; /* I2C5 */
+	intel,edge,17	= <0x598 2 2>; /* I2C4 */
+	intel,edge,18	= <0x594 2 2>; /* I2C3 */
+	intel,edge,19	= <0x590 2 2>; /* I2C2 */
+	intel,edge,20	= <0x544 2 2>; /* I2C1 */
+	intel,edge,21	= <0x52C 2 2>; /* USB_VBUS */
+	intel,edge,22	= <0x580 2 2>; /* USIF1 */
+	intel,edge,23	= <0x5B0 2 2>; /* DAP */
+	intel,edge,24	= <0x560 2 2>; /* EINT12 */
+	intel,edge,25	= <0x564 2 2>; /* EINT13 */
+	intel,edge,26	= <0x568 2 2>; /* EINT14 */
+	intel,edge,27	= <0x56C 2 2>; /* EINT15 */
+	intel,edge,28	= <0x550 2 2>; /* EINT8 */
+	intel,edge,29	= <0x554 2 2>; /* EINT9 */
+	intel,edge,30	= <0x558 2 2>; /* EINT10 */
+	intel,edge,31	= <0x55C 2 2>; /* EINT11 */
+	intel,edge,42	= <0x5C0 2 2>; /* SDMMC */
+	intel,edge,43	= <0x5C4 2 2>; /* SDIO1 */
+	intel,edge,44	= <0x5C8 2 2>; /* SDIO3 */
+
+	intel,level,0	= <0x508 4 2>; /* EINT0 */
+	intel,level,1	= <0x50C 4 2>; /* EINT1 */
+	intel,level,2	= <0x510 4 2>; /* EINT2 */
+	intel,level,3	= <0x514 4 2>; /* EINT3 */
+	intel,level,4	= <0x518 4 2>; /* EINT4 */
+	intel,level,5	= <0x51C 4 2>; /* EINT5 */
+	intel,level,6	= <0x520 4 2>; /* EINT6 */
+	intel,level,7	= <0x524 4 2>; /* EINT7 */
+	intel,level,8	= <0x584 4 2>; /* USIF2 */
+	intel,level,9	= <0x588 4 2>; /* USIF3 */
+	intel,level,11	= <0x54C 4 2>; /* USIF4 */
+	intel,level,14	= <0x528 4 2>; /* USB_RESUME */
+	intel,level,15	= <0x538 4 2>; /* USIF7 */
+	intel,level,16	= <0x59C 4 2>; /* I2C5 */
+	intel,level,17	= <0x598 4 2>; /* I2C4 */
+	intel,level,18	= <0x594 4 2>; /* I2C3 */
+	intel,level,19	= <0x590 4 2>; /* I2C2 */
+	intel,level,20	= <0x544 4 2>; /* I2C1 */
+	intel,level,21	= <0x52C 4 2>; /* USB_VBUS */
+	intel,level,22	= <0x580 4 2>; /* USIF1 */
+	intel,level,23	= <0x5B0 4 2>; /* DAP */
+	intel,level,24	= <0x560 4 2>; /* EINT12 */
+	intel,level,25	= <0x564 4 2>; /* EINT13 */
+	intel,level,26	= <0x568 4 2>; /* EINT14 */
+	intel,level,27	= <0x56C 4 2>; /* EINT15 */
+	intel,level,28	= <0x550 4 2>; /* EINT8 */
+	intel,level,29	= <0x554 4 2>; /* EINT9 */
+	intel,level,30	= <0x558 4 2>; /* EINT10 */
+	intel,level,31	= <0x55C 4 2>; /* EINT11 */
+	intel,level,42	= <0x5C0 4 2>; /* SDMMC */
+	intel,level,43	= <0x5C4 4 2>; /* SDIO1 */
+	intel,level,44	= <0x5C8 4 2>; /* SDIO3 */
+};

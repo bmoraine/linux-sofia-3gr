@@ -1,0 +1,116 @@
+/* AG620ES2 */
+#define ACK_OFFSET 0x102C
+#define MASK_OFFSET 0x1024
+#define STATUS_OFFSET 0x1028
+#define GLOBAL_MASK_OFFSET 0x1000
+
+ag620_pmu:pmu-interrupt-controller {
+	compatible = "intel,xgold_pmu";
+	interrupt-controller;
+	interrupt-parent = <&abb>;
+	#interrupt-cells = <2>;
+	interrupts =
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* FOV */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* ONRE */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* ONFE */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* BUV */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* BRD */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* ACD1 */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* ACD2 */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* CI */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* CSTAT */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* DBM */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* TWARN */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* TSTOP*/
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* VICM */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* LPCL */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* LAXCL */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* LAX2CL */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* LAICL */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* LSCL */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* LSCL2 */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* LMMCL */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* LUCL */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* LMICL */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >, /* LMECL */
+		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >; /* CCCL */
+	reg = <0xe6500000 0x3000>;
+	reg-names = "pmu-regs";
+	intel,io-access-guest;
+	intel,globalmask = < GLOBAL_MASK_OFFSET 1 1 >; /* PMU_C1 */
+	/* C1_IRQSC_Register */
+	intel,ack,0 = < ACK_OFFSET 0 1 >; /* FOV */
+	intel,ack,1 = < ACK_OFFSET 1 1 >; /* ONRE */
+	intel,ack,2 = < ACK_OFFSET 2 1 >; /* ONFE */
+	intel,ack,3 = < ACK_OFFSET 3 1 >; /* BUV */
+	intel,ack,4 = < ACK_OFFSET 4 1 >; /* BRD */
+	intel,ack,5 = < ACK_OFFSET 5 1 >; /* ACD1 */
+	intel,ack,6 = < ACK_OFFSET 6 1 >; /* ACD2 */
+	intel,ack,7 = < ACK_OFFSET 7 1 >; /* CI */
+	intel,ack,8 = < ACK_OFFSET 8 1 >; /* CSTAT */
+	intel,ack,9 = < ACK_OFFSET 9 1 >; /* DBM */
+	intel,ack,10 = < ACK_OFFSET 10 1 >; /* TWARN */
+	intel,ack,11 = < ACK_OFFSET 11 1 >; /* TSTOP*/
+	intel,ack,12 = < ACK_OFFSET 12 1 >; /* VICM */
+	intel,ack,13 = < ACK_OFFSET 13 1 >; /* LPCL */
+	intel,ack,14 = < ACK_OFFSET 14 1 >; /* LAXCL */
+	intel,ack,15 = < ACK_OFFSET 15 1 >; /* LAX2CL */
+	intel,ack,16 = < ACK_OFFSET 16 1 >; /* LAICL */
+	intel,ack,17 = < ACK_OFFSET 17 1 >; /* LSCL */
+	intel,ack,18 = < ACK_OFFSET 18 1 >; /* LSCL2 */
+	intel,ack,19 = < ACK_OFFSET 19 1 >; /* LMMCL */
+	intel,ack,20 = < ACK_OFFSET 20 1 >; /* LUCL */
+	intel,ack,21 = < ACK_OFFSET 21 1 >; /* LMICL */
+	intel,ack,22 = < ACK_OFFSET 22 1 >; /* LMECL */
+	intel,ack,23 = < ACK_OFFSET 23 1 >; /* CCCL */
+	/* C1_IRQSM_Register */
+	intel,mask,0 = < MASK_OFFSET 0 1 >; /* FOV */
+	intel,mask,1 = < MASK_OFFSET 1 1 >; /* ONRE */
+	intel,mask,2 = < MASK_OFFSET 2 1 >; /* ONFE */
+	intel,mask,3 = < MASK_OFFSET 3 1 >; /* BUV */
+	intel,mask,4 = < MASK_OFFSET 4 1 >; /* BRD */
+	intel,mask,5 = < MASK_OFFSET 5 1 >; /* ACD1 */
+	intel,mask,6 = < MASK_OFFSET 6 1 >; /* ACD2 */
+	intel,mask,7 = < MASK_OFFSET 7 1 >; /* CI */
+	intel,mask,8 = < MASK_OFFSET 8 1 >; /* CSTAT */
+	intel,mask,9 = < MASK_OFFSET 9 1 >; /* DBM */
+	intel,mask,10 = < MASK_OFFSET 10 1 >; /* TWARN */
+	intel,mask,11 = < MASK_OFFSET 11 1 >; /* TSTOP*/
+	intel,mask,12 = < MASK_OFFSET 12 1 >; /* VICM */
+	intel,mask,13 = < MASK_OFFSET 13 1 >; /* LPCL */
+	intel,mask,14 = < MASK_OFFSET 14 1 >; /* LAXCL */
+	intel,mask,15 = < MASK_OFFSET 15 1 >; /* LAX2CL */
+	intel,mask,16 = < MASK_OFFSET 16 1 >; /* LAICL */
+	intel,mask,17 = < MASK_OFFSET 17 1 >; /* LSCL */
+	intel,mask,18 = < MASK_OFFSET 18 1 >; /* LSCL2 */
+	intel,mask,19 = < MASK_OFFSET 19 1 >; /* LMMCL */
+	intel,mask,20 = < MASK_OFFSET 20 1 >; /* LUCL */
+	intel,mask,21 = < MASK_OFFSET 21 1 >; /* LMICL */
+	intel,mask,22 = < MASK_OFFSET 22 1 >; /* LMECL */
+	intel,mask,23 = < MASK_OFFSET 23 1 >; /* CCCL */
+	/* C1_IRQSS_Register */
+	intel,status,0 = < STATUS_OFFSET 0 1 >; /* FOV */
+	intel,status,1 = < STATUS_OFFSET 1 1 >; /* ONRE */
+	intel,status,2 = < STATUS_OFFSET 2 1 >; /* ONFE */
+	intel,status,3 = < STATUS_OFFSET 3 1 >; /* BUV */
+	intel,status,4 = < STATUS_OFFSET 4 1 >; /* BRD */
+	intel,status,5 = < STATUS_OFFSET 5 1 >; /* ACD1 */
+	intel,status,6 = < STATUS_OFFSET 6 1 >; /* ACD2 */
+	intel,status,7 = < STATUS_OFFSET 7 1 >; /* CI */
+	intel,status,8 = < STATUS_OFFSET 8 1 >; /* CSTAT */
+	intel,status,9 = < STATUS_OFFSET 9 1 >; /* DBM */
+	intel,status,10 = < STATUS_OFFSET 10 1 >; /* TWARN */
+	intel,status,11 = < STATUS_OFFSET 11 1 >; /* TSTOP*/
+	intel,status,12 = < STATUS_OFFSET 12 1 >; /* VICM */
+	intel,status,13 = < STATUS_OFFSET 13 1 >; /* LPCL */
+	intel,status,14 = < STATUS_OFFSET 14 1 >; /* LAXCL */
+	intel,status,15 = < STATUS_OFFSET 15 1 >; /* LAX2CL */
+	intel,status,16 = < STATUS_OFFSET 16 1 >; /* LAICL */
+	intel,status,17 = < STATUS_OFFSET 17 1 >; /* LSCL */
+	intel,status,18 = < STATUS_OFFSET 18 1 >; /* LSCL2 */
+	intel,status,19 = < STATUS_OFFSET 19 1 >; /* LMMCL */
+	intel,status,20 = < STATUS_OFFSET 20 1 >; /* LUCL */
+	intel,status,21 = < STATUS_OFFSET 21 1 >; /* LMICL */
+	intel,status,22 = < STATUS_OFFSET 22 1 >; /* LMECL */
+	intel,status,23 = < STATUS_OFFSET 23 1 >; /* CCCL */
+};

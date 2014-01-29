@@ -1,0 +1,165 @@
+	LS043K1SX02G {
+		compatible = "intel,display";
+		intel,display-resolution= <720 1280>;
+		intel,display-dpi= <341 341>;
+
+		/* MIPI-DSI video mode settings */
+		intel,display-vid-hfp-hs-bytes = <36>;
+		intel,display-vid-hbp-hs-bytes = <6>;
+		intel,display-vid-hsa-hs-bytes = <6>;
+		intel,display-vid-vfp-lines = <7>;
+		intel,display-vid-vbp-lines = <3>;
+		intel,display-vid-vsa-lines = <2>;
+
+		intel,display-vid-mode = "burst";
+		intel,display-vid-id = <0>;
+		intel,display-vid-pixel = "24packed";
+
+		intel,display-reset = <1 1 0 2 1 10>;
+
+		cmd-init {
+			column-address{
+				intel,cmd-delay = <100>;
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0x2A 0x00 0x00 0x02 0xCF>;
+			};
+			page-address{
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0x2B 0x00 0x00 0x04 0xFF>;
+			};
+			tear-on{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x35 0x00>;
+			};
+			address-mode{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x36 0x00>;
+			};
+			pixel-format{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x3A 0x77>;
+			};
+			sleep-out{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x11>;
+				intel,cmd-delay = <300>;
+			};
+			display-on{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x29>;
+				intel,cmd-delay = <100>;
+			};
+			max-brightness{
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0x51 0x0F 0xFF>;
+			};
+			cabc-st-mode{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x55 0x00>;
+			};
+			cabc-enable1{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x53 0x2C>;
+				intel,cmd-delay = <500>;
+			};
+		};
+
+		cmd-power-on {
+			display-on{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x29>;
+				intel,cmd-delay = <20>;
+			};
+		};
+
+		cmd-power-off {
+			display-off{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x28>;
+				intel,cmd-delay = <120>;
+			};
+		};
+
+		cmd-sleep-in {
+			backlight-off{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x53 0x00>;
+			};
+			display-off{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x28>;
+				intel,cmd-delay = <20>;
+			};
+			sleep-in{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x10>;
+				intel,cmd-delay = <100>;
+			};
+			manuf-no-lock{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB0 0x02>;
+			};
+			deep-standby{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB1 0x01>;
+			};
+			manuf-lock{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB0 0x03>;
+			};
+		};
+
+		cmd-sleep-out {
+			column-address{
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0x2A 0x00 0x00 0x02 0xCF>;
+			};
+			page-address{
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0x2B 0x00 0x00 0x04 0xFF>;
+			};
+			tear-on{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x35 0x00>;
+			};
+			address-mode{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x36 0x00>;
+			};
+			pixel-format{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x3A 0x77>;
+			};
+			sleep-out{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x11>;
+				intel,cmd-delay = <120>;
+			};
+			display-on{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x29>;
+				intel,cmd-delay = <20>;
+			};
+			max-brightness{
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0x51 0x0F 0xFF>;
+			};
+			cabc-st-mode{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x55 0x02>;
+			};
+			cabc-enable{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x53 0x2C>;
+			};
+		};
+
+		cmd-update {
+			send-data {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0x2C>;
+			};
+		};
+
+
+	};

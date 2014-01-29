@@ -1,0 +1,1438 @@
+#include "prh_cfg.h"
+
+generic_pm_class:generic_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "generic_class";
+	intel,states-names =
+		"disable",
+		"enable";
+	intel,states = <
+		PRH_PER_TYPE_GENERIC PRH_PER_GENERIC_DISABLE
+		PRH_PER_TYPE_GENERIC PRH_PER_GENERIC_ENABLE >;
+};
+
+arm11_clk_pm_class:arm11_clk_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "arm11_clk_class";
+	intel,states-names =
+		"low_perf",
+		"med_perf",
+		"high_perf",
+		"ultra_high_perf";
+	intel,states = <
+		PRH_PER_TYPE_ARM11_CLK PRH_PER_ARM11_CLK_ENABLE_LOW_PERF
+		PRH_PER_TYPE_ARM11_CLK PRH_PER_ARM11_CLK_ENABLE_MED_PERF
+		PRH_PER_TYPE_ARM11_CLK PRH_PER_ARM11_CLK_ENABLE_HIGH_PERF
+		PRH_PER_TYPE_ARM11_CLK PRH_PER_ARM11_CLK_ENABLE_ULTRA_HIGH_PERF >;
+};
+
+macphy_pm_class:macphy_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "macphy_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"high_perf";
+	intel,states = <
+		PRH_PER_TYPE_MACPHY PRH_PER_MACPHY_DISABLE
+		PRH_PER_TYPE_MACPHY PRH_PER_MACPHY_ENABLE_LOW_PERF
+		PRH_PER_TYPE_MACPHY PRH_PER_MACPHY_ENABLE_HIGH_PERF >;
+};
+
+dma_pm_class:dma_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "dma_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"med_perf",
+		"high_perf";
+	intel,states = <
+		PRH_PER_TYPE_DMA PRH_PER_DMA_DISABLE
+		PRH_PER_TYPE_DMA PRH_PER_DMA_ENABLE_LOW_PERF
+		PRH_PER_TYPE_DMA PRH_PER_DMA_ENABLE_MED_PERF
+		PRH_PER_TYPE_DMA PRH_PER_DMA_ENABLE_HIGH_PERF >;
+};
+
+dsp_pm_class:dsp_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "dsp_class";
+	intel,states-names =
+		"disable",
+		"enable",
+		"suspend";
+	intel,states = <
+		PRH_PER_TYPE_DSP PRH_PER_DSP_DISABLE
+		PRH_PER_TYPE_DSP PRH_PER_DSP_ENABLE
+		PRH_PER_TYPE_DSP PRH_PER_DSP_SUSPEND >;
+};
+
+i2c_pm_class:i2c_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "i2c_class";
+	intel,states-names =
+		"disable",
+		"enable",
+		"enable_psv";
+	intel,states = <
+		PRH_PER_TYPE_I2C PRH_PER_I2C_DISABLE
+		PRH_PER_TYPE_I2C PRH_PER_I2C_ENABLE
+		PRH_PER_TYPE_I2C PRH_PER_I2C_ENABLE_PSV >;
+};
+
+mmcsd_volt_pm_class:mmcsd_volt_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "mmcsd_volt_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"mid_perf",
+		"high_perf";
+	intel,states = <
+		PRH_PER_TYPE_MMCSD_VOLT PRH_PER_MMCSD_VOLT_DISABLE
+		PRH_PER_TYPE_MMCSD_VOLT PRH_PER_MMCSD_VOLT_ENABLE_LOW
+		PRH_PER_TYPE_MMCSD_VOLT PRH_PER_MMCSD_VOLT_ENABLE_MID
+		PRH_PER_TYPE_MMCSD_VOLT PRH_PER_MMCSD_VOLT_ENABLE_HIGH >;
+};
+
+mmcsd_clk_pm_class:mmcsd_clk_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "mmcsd_clk_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"mid_perf",
+		"high_perf";
+	intel,states = <
+		PRH_PER_TYPE_MMCSD_CLK PRH_PER_MMCSD_CLK_DISABLE
+		PRH_PER_TYPE_MMCSD_CLK PRH_PER_MMCSD_CLK_ENABLE_LOW
+		PRH_PER_TYPE_MMCSD_CLK PRH_PER_MMCSD_CLK_ENABLE_MID
+		PRH_PER_TYPE_MMCSD_CLK PRH_PER_MMCSD_CLK_ENABLE_HIGH >;
+};
+
+nand_pm_class:nand_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "nand_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"mid_perf",
+		"high_perf";
+	intel,states = <
+		PRH_PER_TYPE_NAND PRH_PER_NAND_DISABLE
+		PRH_PER_TYPE_NAND PRH_PER_NAND_ENABLE_LOW_PERF
+		PRH_PER_TYPE_NAND PRH_PER_NAND_ENABLE_MID_PERF
+		PRH_PER_TYPE_NAND PRH_PER_NAND_ENABLE_HIGH_PERF >;
+};
+
+usb_pm_class:usb_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "usb_class";
+	intel,states-names =
+		"disable",
+		"suspend",
+		"suspend_no_psv",
+		"enable",
+		"enable_iso";
+	intel,states = <
+		PRH_PER_TYPE_USB PRH_PER_USB_DISABLE
+		PRH_PER_TYPE_USB PRH_PER_USB_SUSPEND
+		PRH_PER_TYPE_USB PRH_PER_USB_SUSPEND_NO_PSV
+		PRH_PER_TYPE_USB PRH_PER_USB_ENABLE
+		PRH_PER_TYPE_USB PRH_PER_USB_ENABLE_ISO >;
+};
+
+usif_pm_class:usif_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "usif_class";
+	intel,states-names =
+		"disable",
+		"enable_26M",
+		"enable_26M_hperf",
+		"enable_96M",
+		"enable_96M_hperf",
+		"enable_104M",
+		"enable_104M_hperf";
+	intel,states  = <
+		PRH_PER_TYPE_USIF PRH_PER_USIF_DISABLE PRH_PER_USIF_CLK_DONT_CARE 0
+		PRH_PER_TYPE_USIF PRH_PER_USIF_ENABLE PRH_PER_USIF_CLK_26MHZ 0
+		PRH_PER_TYPE_USIF PRH_PER_USIF_ENABLE PRH_PER_USIF_CLK_26MHZ 3173
+		PRH_PER_TYPE_USIF PRH_PER_USIF_ENABLE PRH_PER_USIF_CLK_96MHZ 0
+		PRH_PER_TYPE_USIF PRH_PER_USIF_ENABLE PRH_PER_USIF_CLK_96MHZ 3173
+		PRH_PER_TYPE_USIF PRH_PER_USIF_ENABLE PRH_PER_USIF_CLK_104MHZ 0
+		PRH_PER_TYPE_USIF PRH_PER_USIF_ENABLE PRH_PER_USIF_CLK_104MHZ 3173 >;
+};
+
+capcom_pm_class:capcom_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "capcom_class";
+	intel,states-names =
+		"disable",
+		"enable",
+		"enable_psv",
+		"disable_psv";
+	intel,states = <
+		PRH_PER_TYPE_CAPCOM PRH_PER_CAPCOM_DISABLE
+		PRH_PER_TYPE_CAPCOM PRH_PER_CAPCOM_ENABLE
+		PRH_PER_TYPE_CAPCOM PRH_PER_CAPCOM_ENABLE_PSV
+		PRH_PER_TYPE_CAPCOM PRH_PER_CAPCOM_DISABLE_PSV >;
+};
+
+uicc_vcc_pm_class:uicc_vcc_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "uicc_vcc_class";
+	intel,states-names =
+		"off",
+		"class_c",
+		"class_b";
+	intel,states = <
+		PRH_PER_TYPE_UICC_VCC PRH_PER_UICC_VCC_OFF
+		PRH_PER_TYPE_UICC_VCC PRH_PER_UICC_VCC_CLASS_C
+		PRH_PER_TYPE_UICC_VCC PRH_PER_UICC_VCC_CLASS_B >;
+};
+
+uicc_clk_pm_class:uicc_clk_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "uicc_clk_class";
+	intel,states-names =
+		"disable",
+		"suspend",
+		"low_perf",
+		"med_perf",
+		"high_perf";
+	intel,states = <
+		PRH_PER_TYPE_UICC_CLK PRH_PER_UICC_CLK_DISABLE
+		PRH_PER_TYPE_UICC_CLK PRH_PER_UICC_CLK_SUSPEND
+		PRH_PER_TYPE_UICC_CLK PRH_PER_UICC_CLK_ENABLE_LOW_PERF
+		PRH_PER_TYPE_UICC_CLK PRH_PER_UICC_CLK_ENABLE_MED_PERF
+		PRH_PER_TYPE_UICC_CLK PRH_PER_UICC_CLK_ENABLE_HIGH_PERF >;
+};
+
+gps_pm_class:gps_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "gps_class";
+	intel,states-names =
+		"disable",
+		"standby",
+		"enable";
+	intel,states = <
+		PRH_PER_TYPE_GPS PRH_PER_GPS_DISABLE
+		PRH_PER_TYPE_GPS PRH_PER_GPS_STANDBY
+		PRH_PER_TYPE_GPS PRH_PER_GPS_ENABLE >;
+};
+
+trace_pm_class:trace_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "trace_class";
+	intel,states-names =
+		"disable",
+		"enable",
+		"low_perf",
+		"med_perf",
+		"high_perf",
+		"lpt";
+	intel,states = <
+		PRH_PER_TYPE_TRACE PRH_PER_TRACE_DISABLE
+		PRH_PER_TYPE_TRACE PRH_PER_TRACE_ENABLE
+		PRH_PER_TYPE_TRACE PRH_PER_TRACE_ENABLE_LOW_PERF
+		PRH_PER_TYPE_TRACE PRH_PER_TRACE_ENABLE_MED_PERF
+		PRH_PER_TYPE_TRACE PRH_PER_TRACE_ENABLE_HIGH_PERF
+		PRH_PER_TYPE_TRACE PRH_PER_TRACE_ENABLE_LPT >;
+};
+
+abb_afe_pm_class:abb_afe_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "abb_afe_class";
+	intel,states-names =
+		"disable",
+		"headset",
+		"no_headset",
+		"slpret_headset",
+		"slpret_no_headset",
+		"headset_10m",
+		"slpret_headset_10m",
+		"headset_12m",
+		"slpret_headset_12m",
+		"headset_9_6m",
+		"slpret_headset_9_6m";
+	intel,states = <
+		PRH_PER_TYPE_ABB_AFE PRH_PER_ABB_AFE_DISABLE
+		PRH_PER_TYPE_ABB_AFE PRH_PER_ABB_AFE_ENABLE_HEADSET
+		PRH_PER_TYPE_ABB_AFE PRH_PER_ABB_AFE_ENABLE_NO_HEADSET
+		PRH_PER_TYPE_ABB_AFE PRH_PER_ABB_AFE_ENABLE_SLEEP_RETENTION_HEADSET
+		PRH_PER_TYPE_ABB_AFE PRH_PER_ABB_AFE_ENABLE_SLEEP_RETENTION_NO_HEADSET
+		PRH_PER_TYPE_ABB_AFE PRH_PER_ABB_AFE_ENABLE_HEADSET_10M
+		PRH_PER_TYPE_ABB_AFE PRH_PER_ABB_AFE_ENABLE_SLEEP_RETENTION_HEADSET_10M
+		PRH_PER_TYPE_ABB_AFE PRH_PER_ABB_AFE_ENABLE_HEADSET_12M
+		PRH_PER_TYPE_ABB_AFE PRH_PER_ABB_AFE_ENABLE_SLEEP_RETENTION_HEADSET_12M
+		PRH_PER_TYPE_ABB_AFE PRH_PER_ABB_AFE_ENABLE_HEADSET_9_6M
+		PRH_PER_TYPE_ABB_AFE PRH_PER_ABB_AFE_ENABLE_SLEEP_RETENTION_HEADSET_9_6M >;
+};
+
+abb_fmr_pm_class:abb_fmr_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "abb_fmr_class";
+	intel,states-names =
+		"disable",
+		"enable",
+		"enable_intclk";
+	intel,states = <
+		PRH_PER_TYPE_ABB_FMR PRH_PER_ABB_FMR_DISABLE
+		PRH_PER_TYPE_ABB_FMR PRH_PER_ABB_FMR_ENABLE
+		PRH_PER_TYPE_ABB_FMR PRH_PER_ABB_FMR_ENABLE_INT_CLK >;
+};
+
+idi_pm_class:idi_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "idi_class";
+	intel,states-names =
+		"disable",
+		"enable_no_wlan",
+		"enable_no_wlan_alt1",
+		"enable_wlan",
+		"enable_wlan_alt1",
+		"enable_audio_only",
+		"enable_audio_only_alt1",
+		"D0i2",
+		"enable";
+	intel,states = <
+		PRH_PER_TYPE_IDI PRH_PER_IDI_DISABLE
+		PRH_PER_TYPE_IDI PRH_PER_IDI_ENABLE_LOW
+		PRH_PER_TYPE_IDI PRH_PER_IDI_ENABLE_FREQ_1
+		PRH_PER_TYPE_IDI PRH_PER_IDI_ENABLE_HIGH
+		PRH_PER_TYPE_IDI PRH_PER_IDI_ENABLE_FREQ_2
+		PRH_PER_TYPE_IDI PRH_PER_IDI_ENABLE_LOW
+		PRH_PER_TYPE_IDI PRH_PER_IDI_ENABLE_FREQ_1
+		PRH_PER_TYPE_IDI PRH_PER_IDI_ENABLE_FREQ_1
+		PRH_PER_TYPE_IDI PRH_PER_IDI_ENABLE_FREQ_2 >;
+};
+
+abb_idi_fm_pm_class:abb_idi_fm_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "abb_idi_fm_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"freq_1",
+		"freq_2",
+		"high_perf";
+	intel,states = <
+		PRH_PER_TYPE_ABB_IDI_FM PRH_PER_ABB_IDI_FM_DISABLE
+		PRH_PER_TYPE_ABB_IDI_FM PRH_PER_ABB_IDI_FM_ENABLE_LOW_PERF
+		PRH_PER_TYPE_ABB_IDI_FM PRH_PER_ABB_IDI_FM_ENABLE_FREQ_1
+		PRH_PER_TYPE_ABB_IDI_FM PRH_PER_ABB_IDI_FM_ENABLE_FREQ_2
+		PRH_PER_TYPE_ABB_IDI_FM PRH_PER_ABB_IDI_FM_ENABLE_HIGH_PERF >;
+};
+
+dcc_pm_class:dcc_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "dcc_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"mid_perf",
+		"high_perf",
+		"ultra_high_perf";
+	intel,states = <
+		PRH_PER_TYPE_DCC PRH_PER_DCC_DISABLE
+		PRH_PER_TYPE_DCC PRH_PER_DCC_ENABLE_LOW_PERF
+		PRH_PER_TYPE_DCC PRH_PER_DCC_ENABLE_MID_PERF
+		PRH_PER_TYPE_DCC PRH_PER_DCC_ENABLE_HIGH_PERF
+		PRH_PER_TYPE_DCC PRH_PER_DCC_ENABLE_ULTRA_HIGH_PERF >;
+};
+
+cif_pm_class:cif_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "cif_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"mid_perf",
+		"high_perf",
+		"ultra_high_perf";
+	intel,states = <
+		PRH_PER_TYPE_CIF PRH_PER_CIF_DISABLE
+		PRH_PER_TYPE_CIF PRH_PER_CIF_ENABLE_LOW_PERF
+		PRH_PER_TYPE_CIF PRH_PER_CIF_ENABLE_MID_PERF
+		PRH_PER_TYPE_CIF PRH_PER_CIF_ENABLE_HIGH_PERF
+		PRH_PER_TYPE_CIF PRH_PER_CIF_ENABLE_ULTRA_HIGH_PERF >;
+};
+
+gpu_pm_class:gpu_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "gpu_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"mid_perf",
+		"high_perf",
+		"ultra_high_perf";
+	intel,states = <
+		PRH_PER_TYPE_GPU PRH_PER_GPU_DISABLE
+		PRH_PER_TYPE_GPU PRH_PER_GPU_ENABLE_LOW_PERF
+		PRH_PER_TYPE_GPU PRH_PER_GPU_ENABLE_MID_PERF
+		PRH_PER_TYPE_GPU PRH_PER_GPU_ENABLE_HIGH_PERF
+		PRH_PER_TYPE_GPU PRH_PER_GPU_ENABLE_ULTRA_HIGH_PERF >;
+};
+
+video_dec_pm_class:video_dec_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "video_dec_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"mid_perf",
+		"high_perf",
+		"ultra_high_perf";
+	intel,states = <
+		PRH_PER_TYPE_VIDEO_DEC PRH_PER_VIDEO_DEC_DISABLE
+		PRH_PER_TYPE_VIDEO_DEC PRH_PER_VIDEO_DEC_ENABLE_LOW_PERF
+		PRH_PER_TYPE_VIDEO_DEC PRH_PER_VIDEO_DEC_ENABLE_MID_PERF
+		PRH_PER_TYPE_VIDEO_DEC PRH_PER_VIDEO_DEC_ENABLE_HIGH_PERF
+		PRH_PER_TYPE_VIDEO_DEC PRH_PER_VIDEO_DEC_ENABLE_ULTRA_HIGH_PERF >;
+};
+
+video_enc_pm_class:video_enc_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "video_enc_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"mid_perf",
+		"high_perf",
+		"ultra_high_perf";
+	intel,states = <
+		PRH_PER_TYPE_VIDEO_ENC PRH_PER_VIDEO_ENC_DISABLE
+		PRH_PER_TYPE_VIDEO_ENC PRH_PER_VIDEO_ENC_ENABLE_LOW_PERF
+		PRH_PER_TYPE_VIDEO_ENC PRH_PER_VIDEO_ENC_ENABLE_MID_PERF
+		PRH_PER_TYPE_VIDEO_ENC PRH_PER_VIDEO_ENC_ENABLE_HIGH_PERF
+		PRH_PER_TYPE_VIDEO_ENC PRH_PER_VIDEO_ENC_ENABLE_ULTRA_HIGH_PERF >;
+};
+
+kpd_pm_class:kpd_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "kpd_class";
+	intel,states-names =
+		"disable",
+		"enable",
+		"enable_psv";
+	intel,states = <
+		PRH_PER_TYPE_KPD PRH_PER_KPD_DISABLE
+		PRH_PER_TYPE_KPD PRH_PER_KPD_ENABLE
+		PRH_PER_TYPE_KPD PRH_PER_KPD_ENABLE_PSV >;
+};
+
+dcdc_pm_class:dcdc_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "dcdc_class";
+	intel,states-names =
+		"disable",
+		"freq_1",
+		"freq_2",
+		"freq_3",
+		"freq_4";
+	intel,states = <
+		PRH_PER_TYPE_DCDC PRH_PER_DCDC_DISABLE
+		PRH_PER_TYPE_DCDC PRH_PER_DCDC_ENABLE_FREQ_1
+		PRH_PER_TYPE_DCDC PRH_PER_DCDC_ENABLE_FREQ_2
+		PRH_PER_TYPE_DCDC PRH_PER_DCDC_ENABLE_FREQ_3
+		PRH_PER_TYPE_DCDC PRH_PER_DCDC_ENABLE_FREQ_4 >;
+};
+
+cp_pm_class:cp_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "cp_class";
+	intel,states-names =
+		"disable",
+		"freq_1",
+		"freq_2",
+		"freq_3",
+		"freq_4",
+		"enable",
+		"freq_5",
+		"freq_6";
+	intel,states = <
+		PRH_PER_TYPE_CP PRH_PER_CP_DISABLE
+		PRH_PER_TYPE_CP PRH_PER_CP_ENABLE_FREQ_1
+		PRH_PER_TYPE_CP PRH_PER_CP_ENABLE_FREQ_2
+		PRH_PER_TYPE_CP PRH_PER_CP_ENABLE_FREQ_3
+		PRH_PER_TYPE_CP PRH_PER_CP_ENABLE_FREQ_4
+		PRH_PER_TYPE_CP PRH_PER_CP_ENABLE
+		PRH_PER_TYPE_CP PRH_PER_CP_ENABLE_FREQ_5
+		PRH_PER_TYPE_CP PRH_PER_CP_ENABLE_FREQ_6 >;
+};
+
+aud_sync_pm_class:aud_sync_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "aud_sync_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"med_perf",
+		"high_perf";
+	intel,states = <
+		PRH_PER_TYPE_AUD_SYNC PRH_PER_AUD_SYNC_DISABLE
+		PRH_PER_TYPE_AUD_SYNC PRH_PER_AUD_SYNC_ENABLE_LOW_PERF
+		PRH_PER_TYPE_AUD_SYNC PRH_PER_AUD_SYNC_ENABLE_MED_PERF
+		PRH_PER_TYPE_AUD_SYNC PRH_PER_AUD_SYNC_ENABLE_HIGH_PERF >;
+};
+
+abb_bt_pm_class:abb_bt_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "abb_bt_class";
+	intel,states-names =
+		"disable",
+		"idle",
+		"enable_psv",
+		"enable";
+	intel,states = <
+		PRH_PER_TYPE_ABB_BT PRH_PER_ABB_BT_DISABLE
+		PRH_PER_TYPE_ABB_BT PRH_PER_ABB_BT_IDLE
+		PRH_PER_TYPE_ABB_BT PRH_PER_ABB_BT_ENABLE_PSV
+		PRH_PER_TYPE_ABB_BT PRH_PER_ABB_BT_ENABLE >;
+};
+
+gnss_pm_class:gnss_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "gnss_class";
+	intel,states-names =
+		"disable",
+		"enable_def_dclk_832_pclk_1248",
+		"enable_dclk_96_pclk_1248",
+		"idle",
+		"enable_dclk_832_pclk_104",
+		"enable_dclk_96_pclk_96";
+	intel,states = <
+		PRH_PER_TYPE_GNSS PRH_PER_GNSS_DISABLE
+		PRH_PER_TYPE_GNSS PRH_PER_GNSS_ENABLE
+		PRH_PER_TYPE_GNSS PRH_PER_GNSS_ENABLE_FREQ_1
+		PRH_PER_TYPE_GNSS PRH_PER_GNSS_IDLE
+		PRH_PER_TYPE_GNSS PRH_PER_GNSS_ENABLE_FREQ_2
+		PRH_PER_TYPE_GNSS PRH_PER_GNSS_ENABLE_FREQ_3 >;
+};
+
+wlan_pm_class:wlan_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "wlan_class";
+	intel,states-names =
+		"disable",
+		"enable",
+		"idle";
+	intel,states = <
+		PRH_PER_TYPE_WLAN PRH_PER_WLAN_DISABLE
+		PRH_PER_TYPE_WLAN PRH_PER_WLAN_ENABLE
+		PRH_PER_TYPE_WLAN PRH_PER_WLAN_IDLE >;
+};
+
+arm11_clk_pm_user:arm11_clk_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "arm11_clk";
+	intel,user-id = <PRH_USER_CPU>;
+	intel,per-id = <PRH_PER_ARM11_CLK>;
+	intel,class = <&arm11_clk_pm_class>;
+};
+
+dmac_2ch_pm_user:dmac_2ch_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "dmac_2ch";
+	intel,user-id = <PRH_USER_SEC_FRAME>;
+	intel,per-id = <PRH_PER_DMAC_2CH>;
+	intel,class = <&dma_pm_class>;
+};
+
+ceu_pm_user:ceu_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "ceu";
+	intel,user-id = <PRH_USER_SEC_FRAME>;
+	intel,per-id = <PRH_PER_CEU>;
+	intel,class = <&generic_pm_class>;
+};
+
+ceu2_pm_user:ceu2_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "ceu2";
+	intel,user-id = <PRH_USER_SEC_FRAME>;
+	intel,per-id = <PRH_PER_CEU2>;
+	intel,class = <&generic_pm_class>;
+};
+
+gser_pm_user:gser_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "gser";
+	intel,user-id = <PRH_USER_SEC_FRAME>;
+	intel,per-id = <PRH_PER_GSER>;
+	intel,class = <&generic_pm_class>;
+};
+
+macphy_pm_user:macphy_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "macphy";
+	intel,user-id = <PRH_USER_MACPHY>;
+	intel,per-id = <PRH_PER_MACPHY>;
+	intel,class = <&macphy_pm_class>;
+};
+
+dig_rf_pm_user:dig_rf_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "dig_rf";
+	intel,user-id = <PRH_USER_RF>;
+	intel,per-id = <PRH_PER_DIG_RF>;
+	intel,class = <&generic_pm_class>;
+};
+
+gsi_pm_user:gsi_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "gsi";
+	intel,user-id = <PRH_USER_RF>;
+	intel,per-id = <PRH_PER_GSI>;
+	intel,class = <&generic_pm_class>;
+};
+
+ahb_per2_rf_bfr_pm_user:ahb_per2_rf_bfr_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "ahb_per2_rf_bfr";
+	intel,user-id = <PRH_USER_RF>;
+	intel,per-id = <PRH_PER_AHB_PER2_RF_BFR>;
+	intel,class = <&generic_pm_class>;
+};
+
+ahb_per3_rf_bfr_pm_user:ahb_per3_rf_bfr_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "ahb_per3_rf_bfr";
+	intel,user-id = <PRH_USER_RF>;
+	intel,per-id = <PRH_PER_AHB_PER3_RF_BFR>;
+	intel,class = <&generic_pm_class>;
+};
+
+dsp_2g_pm_user:dsp_2g_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "dsp_2g";
+	intel,user-id = <PRH_USER_DSP>;
+	intel,per-id = <PRH_PER_DSP_2G>;
+	intel,class = <&dsp_pm_class>;
+};
+
+dsp_aud_pm_user:dsp_aud_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "dsp_audio";
+	intel,user-id = <PRH_USER_DSP>;
+	intel,per-id = <PRH_PER_DSP_AUD>;
+	intel,class = <&dsp_pm_class>;
+};
+
+gps_pm_user:gps_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "gps";
+	intel,user-id = <PRH_USER_GPS>;
+	intel,per-id = <PRH_PER_GPS>;
+	intel,class = <&gps_pm_class>;
+};
+
+aud_psv_pm_user:aud_psv_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "aud_psv";
+	intel,user-id = <PRH_USER_AUD_MODEM>;
+	intel,per-id = <PRH_PER_AUD_PSV>;
+	intel,class = <&generic_pm_class>;
+};
+
+i2s1_pm_user:i2s1_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "i2s1";
+	intel,user-id = <PRH_USER_AUD_MODEM>;
+	intel,per-id = <PRH_PER_I2S1>;
+	intel,class = <&generic_pm_class>;
+};
+
+dig_mic_pm_user:dig_mic_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "dig_mic";
+	intel,user-id = <PRH_USER_AUD_MODEM>;
+	intel,per-id = <PRH_PER_DIG_MIC>;
+	intel,class = <&generic_pm_class>;
+};
+
+abb_dig_mic_pm_user:abb_dig_mic_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "dig_mic";
+	intel,user-id = <PRH_USER_AUD_MODEM>;
+	intel,per-id = <PRH_PER_ABB_DIG_MIC>;
+	intel,class = <&generic_pm_class>;
+};
+
+abb_afe_pm_user:abb_afe_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "afe";
+	intel,user-id = <PRH_USER_AUD_MODEM>;
+	intel,per-id = <PRH_PER_ABB_AFE>;
+	intel,class = <&abb_afe_pm_class>;
+};
+
+aud_sync_pm_user:aud_sync_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "aud_sync";
+	intel,user-id = <PRH_USER_AUD_MODEM>;
+	intel,per-id = <PRH_PER_AUD_SYNC>;
+	intel,class = <&aud_sync_pm_class>;
+};
+
+usb_pm_user:usb_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "usb";
+	intel,user-id = <PRH_USER_USB>;
+	intel,per-id = <PRH_PER_USB>;
+	intel,class = <&usb_pm_class>;
+};
+
+usif1_pm_user:usif1_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "usif1";
+	intel,user-id = <PRH_USER_USIF>;
+	intel,per-id = <PRH_PER_USIF1>;
+	intel,class = <&usif_pm_class>;
+};
+
+usif2_pm_user:usif2_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "usif2";
+	intel,user-id = <PRH_USER_USIF>;
+	intel,per-id = <PRH_PER_USIF2>;
+	intel,class = <&usif_pm_class>;
+};
+
+usif3_pm_user:usif3_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "usif3";
+	intel,user-id = <PRH_USER_USIF>;
+	intel,per-id = <PRH_PER_USIF3>;
+	intel,class = <&usif_pm_class>;
+};
+
+_3g_usif_pm_user:_3g_usif_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "_3g_usif";
+	intel,user-id = <PRH_USER_USIF>;
+	intel,per-id = <PRH_PER_3G_USIF>;
+	intel,class = <&usif_pm_class>;
+};
+
+capcom0_pm_user:capcom0_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "capcom0";
+	intel,user-id = <PRH_USER_CAPCOM>;
+	intel,per-id = <PRH_PER_CAPCOM0>;
+	intel,class = <&capcom_pm_class>;
+};
+
+capcom1_pm_user:capcom1_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "capcom1";
+	intel,user-id = <PRH_USER_CAPCOM>;
+	intel,per-id = <PRH_PER_CAPCOM1>;
+	intel,class = <&capcom_pm_class>;
+};
+
+dmac_8ch_pm_user:dmac_8ch_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "dma8ch";
+	intel,user-id = <PRH_USER_DMA>;
+	intel,per-id = <PRH_PER_DMAC_8CH>;
+	intel,class = <&dma_pm_class>;
+};
+
+dmac_8ch_2_pm_user:dmac_8ch_2_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "dmac_8ch_2";
+	intel,user-id = <PRH_USER_DMA>;
+	intel,per-id = <PRH_PER_DMAC_8CH_2>;
+	intel,class = <&dma_pm_class>;
+};
+
+i2c1_pm_user:i2c1_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "i2c1";
+	intel,user-id = <PRH_USER_I2C>;
+	intel,per-id = <PRH_PER_I2C1>;
+	intel,class = <&i2c_pm_class>;
+};
+
+i2c2_pm_user:i2c2_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "i2c2";
+	intel,user-id = <PRH_USER_I2C>;
+	intel,per-id = <PRH_PER_I2C2>;
+	intel,class = <&i2c_pm_class>;
+};
+
+i2c3_pm_user:i2c3_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "i2c3";
+	intel,user-id = <PRH_USER_I2C>;
+	intel,per-id = <PRH_PER_I2C3>;
+	intel,class = <&i2c_pm_class>;
+};
+
+abb_i2c_pm_user:abb_i2c_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "i2cabb";
+	intel,user-id = <PRH_USER_I2C>;
+	intel,per-id = <PRH_PER_ABB_I2C>;
+	intel,class = <&i2c_pm_class>;
+};
+
+pcl_pm_user:pcl_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "pcl";
+	intel,user-id = <PRH_USER_PCL>;
+	intel,per-id = <PRH_PER_PCL>;
+	intel,class = <&generic_pm_class>;
+};
+
+abb_pcl_pm_user:abb_pcl_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "pclabb";
+	intel,user-id = <PRH_USER_PCL>;
+	intel,per-id = <PRH_PER_ABB_PCL>;
+	intel,class = <&generic_pm_class>;
+};
+
+gptu0_pm_user:gptu0_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "gptu0";
+	intel,user-id = <PRH_USER_TS>;
+	intel,per-id = <PRH_PER_GPTU0>;
+	intel,class = <&generic_pm_class>;
+};
+
+gptu1_pm_user:gptu1_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "gptu1";
+	intel,user-id = <PRH_USER_TS>;
+	intel,per-id = <PRH_PER_GPTU1>;
+	intel,class = <&generic_pm_class>;
+};
+
+stm_pm_user:stm_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "stm";
+	intel,user-id = <PRH_USER_TS>;
+	intel,per-id = <PRH_PER_STM>;
+	intel,class = <&generic_pm_class>;
+};
+
+nand_pm_user:nand_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "nand";
+	intel,user-id = <PRH_USER_NAND>;
+	intel,per-id = <PRH_PER_NAND>;
+	intel,class = <&nand_pm_class>;
+};
+
+rtc_pm_user:rtc_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "rtc";
+	intel,user-id = <PRH_USER_RTC>;
+	intel,per-id = <PRH_PER_RTC>;
+	intel,class = <&generic_pm_class>;
+};
+
+abb_rtc_pm_user:abb_rtc_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "abb_rtc";
+	intel,user-id = <PRH_USER_RTC>;
+	intel,per-id = <PRH_PER_ABB_RTC>;
+	intel,class = <&generic_pm_class>;
+};
+
+tsmu_pm_user:tsmu_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "meas";
+	intel,user-id = <PRH_USER_MEAS>;
+	intel,per-id = <PRH_PER_TSMU>;
+	intel,class = <&generic_pm_class>;
+};
+
+uicc_vcc_pm_user:uicc_vcc_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "uicc_vcc";
+	intel,user-id = <PRH_USER_UICC>;
+	intel,per-id = <PRH_PER_UICC_VCC>;
+	intel,class = <&uicc_vcc_pm_class>;
+};
+
+uicc_clk_pm_user:uicc_clk_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "uicc_clk";
+	intel,user-id = <PRH_USER_UICC>;
+	intel,per-id = <PRH_PER_UICC_CLK>;
+	intel,class = <&uicc_clk_pm_class>;
+};
+
+uicc2_vcc_pm_user:uicc2_vcc_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "uicc2_vcc";
+	intel,user-id = <PRH_USER_UICC>;
+	intel,per-id = <PRH_PER_UICC2_VCC>;
+	intel,class = <&uicc_vcc_pm_class>;
+};
+
+uicc2_clk_pm_user:uicc2_clk_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "uicc2_clk";
+	intel,user-id = <PRH_USER_UICC>;
+	intel,per-id = <PRH_PER_UICC2_CLK>;
+	intel,class = <&uicc_clk_pm_class>;
+};
+
+sdmmc1_pow_pm_user:sdmmc1_pow_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "sdmmc1_pow";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_SDMMC1_POW>;
+	intel,class = <&generic_pm_class>;
+};
+
+sdmmc1_volt_pm_user:sdmmc1_volt_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "usd_card";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_SDMMC1_VOLT>;
+	intel,class = <&mmcsd_volt_pm_class>;
+};
+
+sdmmc1_clk_pm_user:sdmmc1_clk_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "usd";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_SDMMC1_CLK>;
+	intel,class = <&mmcsd_clk_pm_class>;
+};
+
+sdmmc1_psv_pm_user:sdmmc1_psv_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "sdmmc1_psv";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_SDMMC1_PSV>;
+	intel,class = <&generic_pm_class>;
+};
+
+sdio_pow_pm_user:sdio_pow_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "sdio_pow";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_SDIO_POW>;
+	intel,class = <&generic_pm_class>;
+};
+
+sdio_volt_pm_user:sdio_volt_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "sdio_card";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_SDIO_VOLT>;
+	intel,class = <&mmcsd_volt_pm_class>;
+};
+
+sdio_clk_pm_user:sdio_clk_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "sdio";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_SDIO_CLK>;
+	intel,class = <&mmcsd_clk_pm_class>;
+};
+
+sdio_psv_pm_user:sdio_psv_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "sdio_psv";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_SDIO_PSV>;
+	intel,class = <&generic_pm_class>;
+};
+
+emmc_pow_pm_user:emmc_pow_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "emmc_pow";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_EMMC_POW>;
+	intel,class = <&generic_pm_class>;
+};
+
+vemmc_volt_pm_user:vemmc_volt_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "vemmc_volt";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_VEMMC_VOLT>;
+	intel,class = <&mmcsd_volt_pm_class>;
+};
+
+vmmc_volt_pm_user:vmmc_volt_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "emmc_card";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_VMMC_VOLT>;
+	intel,class = <&mmcsd_volt_pm_class>;
+};
+
+emmc_clk_pm_user:emmc_clk_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "emmc";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_EMMC_CLK>;
+	intel,class = <&mmcsd_clk_pm_class>;
+};
+
+emmc_psv_pm_user:emmc_psv_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "emmc_psv";
+	intel,user-id = <PRH_USER_MMCSD>;
+	intel,per-id = <PRH_PER_EMMC_PSV>;
+	intel,class = <&generic_pm_class>;
+};
+
+st_arb_pm_user:st_arb_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_arb";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_ARB>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_oct_pm_user:st_oct_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_oct";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_OCT>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mtm1_pm_user:st_mtm1_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mtm1";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MTM1>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mtm2_pm_user:st_mtm2_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mtm2";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MTM2>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mtm2_pad_pm_user:st_mtm2_pad_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mtm2_pad";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MTM2_PAD>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_pm_user:st_mon_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_1_pm_user:st_mon_sb_1_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_1";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_1>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_2_pm_user:st_mon_sb_2_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_2";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_2>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_3_pm_user:st_mon_sb_3_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_3";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_3>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_4_pm_user:st_mon_sb_4_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_4";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_4>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_5_pm_user:st_mon_sb_5_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_5";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_5>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_6_pm_user:st_mon_sb_6_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_6";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_6>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_7_pm_user:st_mon_sb_7_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_7";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_7>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_8_pm_user:st_mon_sb_8_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_8";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_8>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_9_pm_user:st_mon_sb_9_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_9";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_9>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_10_pm_user:st_mon_sb_10_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_10";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_10>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_11_pm_user:st_mon_sb_11_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_11";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_11>;
+	intel,class = <&trace_pm_class>;
+};
+
+st_mon_sb_12_pm_user:st_mon_sb_12_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "st_mon_sb_12";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ST_MON_SB_12>;
+	intel,class = <&trace_pm_class>;
+};
+
+arm11_etm_trace_pm_user:arm11_etm_trace_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "arm11_etm_trace";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ARM11_ETM_TRACE>;
+	intel,class = <&trace_pm_class>;
+};
+
+cst_pm_user:cst_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "cst";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_CST>;
+	intel,class = <&trace_pm_class>;
+};
+
+abb_st_arb_pm_user:abb_st_arb_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "abb_st_arb";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ABB_ST_ARB>;
+	intel,class = <&trace_pm_class>;
+};
+
+abb_st_mtm_pm_user:abb_st_mtm_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "abb_st_mtm";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ABB_ST_MTM>;
+	intel,class = <&trace_pm_class>;
+};
+
+abb_st_mon_sb_1_pm_user:abb_st_mon_sb_1_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "abb_st_mon_sb_1";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ABB_ST_MON_SB_1>;
+	intel,class = <&trace_pm_class>;
+};
+
+abb_st_mon_sb_2_pm_user:abb_st_mon_sb_2_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "abb_st_mon_sb_2";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ABB_ST_MON_SB_2>;
+	intel,class = <&trace_pm_class>;
+};
+
+abb_st_mon_sb_3_pm_user:abb_st_mon_sb_3_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "abb_st_mon_sb_3";
+	intel,user-id = <PRH_USER_TRACE>;
+	intel,per-id = <PRH_PER_ABB_ST_MON_SB_3>;
+	intel,class = <&trace_pm_class>;
+};
+
+fspeed_psv_pm_user:fspeed_psv_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "fspeed_psv";
+	intel,user-id = <PRH_USER_FSPEED>;
+	intel,per-id = <PRH_PER_FSPEED_PSV>;
+	intel,class = <&generic_pm_class>;
+};
+
+fspeed_low_volt_pm_user:fspeed_low_volt_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "fspeed_low_volt";
+	intel,user-id = <PRH_USER_FSPEED>;
+	intel,per-id = <PRH_PER_FSPEED_LOW_VOLT>;
+	intel,class = <&generic_pm_class>;
+};
+
+cif_pm_user:cif_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "cif";
+	intel,user-id = <PRH_USER_CAMERA>;
+	intel,per-id = <PRH_PER_CIF>;
+	intel,class = <&cif_pm_class>;
+};
+
+ext_prim_cam_pm_user:ext_prim_cam_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "primcam";
+	intel,user-id = <PRH_USER_CAMERA>;
+	intel,per-id = <PRH_PER_EXT_PRIM_CAM>;
+	intel,class = <&generic_pm_class>;
+};
+
+ext_sec_cam_pm_user:ext_sec_cam_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "seccam";
+	intel,user-id = <PRH_USER_CAMERA>;
+	intel,per-id = <PRH_PER_EXT_SEC_CAM>;
+	intel,class = <&generic_pm_class>;
+};
+
+dcc_pm_user:dcc_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "dcc";
+	intel,user-id = <PRH_USER_DISPLAY>;
+	intel,per-id = <PRH_PER_DCC>;
+	intel,class = <&dcc_pm_class>;
+};
+
+ext_display_pm_user:ext_display_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "lcd";
+	intel,user-id = <PRH_USER_DISPLAY>;
+	intel,per-id = <PRH_PER_EXT_DISPLAY>;
+	intel,class = <&generic_pm_class>;
+};
+
+gpu_pm_user:gpu_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "gpu";
+	intel,user-id = <PRH_USER_GPU>;
+	intel,per-id = <PRH_PER_GPU>;
+	intel,class = <&gpu_pm_class>;
+};
+
+video_dec_pm_user:video_dec_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "vpu_dec";
+	intel,user-id = <PRH_USER_VPU_DEC>;
+	intel,per-id = <PRH_PER_VIDEO_DEC>;
+	intel,class = <&video_dec_pm_class>;
+};
+
+video_enc_pm_user:video_enc_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "vpu_enc";
+	intel,user-id = <PRH_USER_VPU_ENC>;
+	intel,per-id = <PRH_PER_VIDEO_ENC>;
+	intel,class = <&video_enc_pm_class>;
+};
+
+kpd_pm_user:kpd_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "kpd";
+	intel,user-id = <PRH_USER_KPD>;
+	intel,per-id = <PRH_PER_KPD>;
+	intel,class = <&kpd_pm_class>;
+};
+
+idi_pm_user:idi_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "idi";
+	intel,user-id = <PRH_USER_IDI>;
+	intel,per-id = <PRH_PER_IDI>;
+	intel,class = <&idi_pm_class>;
+};
+
+abb_idi_fm_pm_user:abb_idi_fm_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "fm";
+	intel,user-id = <PRH_USER_IDI>;
+	intel,per-id = <PRH_PER_ABB_IDI_FM>;
+	intel,class = <&abb_idi_fm_pm_class>;
+};
+
+abb_bt_pm_user:abb_bt_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "btif";
+	intel,user-id = <PRH_USER_BT>;
+	intel,per-id = <PRH_PER_ABB_BT>;
+	intel,class = <&abb_bt_pm_class>;
+};
+
+abb_bt_aud_pm_user:abb_bt_aud_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "btaud";
+	intel,user-id = <PRH_USER_BT>;
+	intel,per-id = <PRH_PER_ABB_BT_AUD>;
+	intel,class = <&generic_pm_class>;
+};
+
+abb_fmr_pm_user:abb_fmr_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "fmr";
+	intel,user-id = <PRH_USER_FMR>;
+	intel,per-id = <PRH_PER_ABB_FMR>;
+	intel,class = <&abb_fmr_pm_class>;
+};
+
+abb_bl_pm_user:abb_bl_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "bl";
+	intel,user-id = <PRH_USER_BL>;
+	intel,per-id = <PRH_PER_ABB_BL>;
+	intel,class = <&generic_pm_class>;
+};
+
+abb_vib_pm_user:abb_vib_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "vib";
+	intel,user-id = <PRH_USER_VIB>;
+	intel,per-id = <PRH_PER_ABB_VIB>;
+	intel,class = <&generic_pm_class>;
+};
+
+abb_wlan_pm_user:abb_wlan_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "wlan";
+	intel,user-id = <PRH_USER_WLAN>;
+	intel,per-id = <PRH_PER_ABB_WLAN>;
+	intel,class = <&wlan_pm_class>;
+};
+
+abb_gnss_pm_user:abb_gnss_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "gnss";
+	intel,user-id = <PRH_USER_GNSS>;
+	intel,per-id = <PRH_PER_ABB_GNSS>;
+	intel,class = <&gnss_pm_class>;
+};
+
+ext_tp_pm_user:ext_tp_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "tp";
+	intel,user-id = <PRH_USER_TP>;
+	intel,per-id = <PRH_PER_EXT_TP>;
+	intel,class = <&generic_pm_class>;
+};
+
+ext_accelerometer_pm_user:ext_accelerometer_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "accelerometer";
+	intel,user-id = <PRH_USER_ACCELEROMETER>;
+	intel,per-id = <PRH_PER_EXT_ACCELEROMETER>;
+	intel,class = <&generic_pm_class>;
+};
+
+ext_magnetometer_pm_user:ext_magnetometer_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "compass";
+	intel,user-id = <PRH_USER_MAGNETOMETER>;
+	intel,per-id = <PRH_PER_EXT_MAGNETOMETER>;
+	intel,class = <&generic_pm_class>;
+};
+
+ext_proximity_sensor_pm_user:ext_proximity_sensor_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "proximity";
+	intel,user-id = <PRH_USER_PROXIMITY_SENSOR>;
+	intel,per-id = <PRH_PER_EXT_PROXIMITY_SENSOR>;
+	intel,class = <&generic_pm_class>;
+};
+
+ext_gyroscope_pm_user:ext_gyroscope_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "gyroscope";
+	intel,user-id = <PRH_USER_GYROSCOPE>;
+	intel,per-id = <PRH_PER_EXT_GYROSCOPE>;
+	intel,class = <&generic_pm_class>;
+};
+
+dcdc_pm_user:dcdc_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "dcdc";
+	intel,user-id = <PRH_USER_FM_SUBSYS_PM>;
+	intel,per-id = <PRH_PER_DCDC>;
+	intel,class = <&dcdc_pm_class>;
+};
+
+cp_pm_user:cp_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "cp";
+	intel,user-id = <PRH_USER_FM_SUBSYS_PM>;
+	intel,per-id = <PRH_PER_CP>;
+	intel,class = <&cp_pm_class>;
+};
+
+chg_pm_user:chg_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "chg";
+	intel,user-id = <0>;
+	intel,per-id = <0>;
+	intel,class = <&generic_pm_class>;
+};
+
+bat_pm_user:bat_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "bat";
+	intel,user-id = <0>;
+	intel,per-id = <0>;
+	intel,class = <&generic_pm_class>;
+};
+
+ccd_pm_user:ccd_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "ccd";
+	intel,user-id = <0>;
+	intel,per-id = <0>;
+	intel,class = <&generic_pm_class>;
+};
+
+bnt_pm_user:bnt_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "bnt";
+	intel,user-id = <0>;
+	intel,per-id = <0>;
+	intel,class = <&generic_pm_class>;
+};
+

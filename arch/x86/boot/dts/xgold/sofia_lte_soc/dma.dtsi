@@ -1,0 +1,133 @@
+#define dma_rq_desc \
+	compatible = "intel,dma-pl08x,slave-chan"; \
+	intel,dma-signals = < 0 15 >; /* min, max */ \
+	intel,dma-bus = < 2 >; /* AHB2 */
+
+usif1_rx	{ dma_rq_desc };
+usif1_tx	{ dma_rq_desc };
+usif3_rx	{ dma_rq_desc };
+usif3_tx	{ dma_rq_desc };
+usif_gnss_rx	{ dma_rq_desc };
+usif_gnss_tx	{ dma_rq_desc };
+i2c1_txrx	{ dma_rq_desc };
+i2c2_txrx	{ dma_rq_desc };
+usim1		{ dma_rq_desc };
+guc_rx		{ dma_rq_desc };
+guc_tx		{ dma_rq_desc };
+dsp_req1	{ dma_rq_desc };
+dsp_req2	{ dma_rq_desc };
+dsp_req3	{ dma_rq_desc };
+usim2		{ dma_rq_desc };
+usif2_rx	{ dma_rq_desc };
+usif2_tx	{ dma_rq_desc };
+usif7_rx	{ dma_rq_desc };
+usif7_tx	{ dma_rq_desc };
+i2c3_rxtx	{ dma_rq_desc };
+i2c4_rxtx	{ dma_rq_desc };
+i2c5_rxtx	{ dma_rq_desc };
+
+#define dma_rq_names \
+	intel,dma-names = \
+		"usif1_rx",\
+		"usif1_tx",\
+		"usif3_rx",\
+		"usif3_tx",\
+		"usif_gnss_rx",\
+		"usif_gnss_tx",\
+		"i2c1_txrx",\
+		"i2c2_txrx",\
+		"usim1",\
+		"guc_rx",\
+		"guc_tx",\
+		"dsp_req1",\
+		"dsp_req2",\
+		"dsp_req3",\
+		"usim2",\
+		"usif2_rx",\
+		"usif2_tx",\
+		"usif7_rx",\
+		"usif7_tx",\
+		"i2c3_rxtx",\
+		"i2c4_rxtx",\
+		"i2c5_rxtx";
+
+req0 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B0 0 5 >;
+};
+req1 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B0 8 5 >;
+};
+req2 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B0 16 5 >;
+};
+req3 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B0 24 5 >;
+};
+req4 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B4 0 5 >;
+};
+req5 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B4 8 5 >;
+};
+req6 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B4 16 5 >;
+};
+req7 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B4 24 5 >;
+};
+req8 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B8 0 5 >;
+};
+req9 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B8 8 5 >;
+};
+req10 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B8 16 5 >;
+};
+req11 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1B8 24 5 >;
+};
+req12 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1BC 0 5 >;
+};
+req13 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1BC 8 5 >;
+};
+req14 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1BC 16 5 >;
+};
+req15 {
+	compatible = "intel,dma-pl08x,dma-req";
+	dma_rq_names
+	intel,dma-mux = < 0x1BC 24 5 >;
+};

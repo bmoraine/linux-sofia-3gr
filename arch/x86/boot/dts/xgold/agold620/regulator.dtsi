@@ -1,0 +1,18 @@
+regulator_abb {
+	compatible = "xgold-reg";
+	intel,pmu-phys = < &pmu >;
+	intel,csc-phys = < &ABB_cgu >;
+	intel,regulators = <&abb_regulators>;
+};
+
+abb_regulators: abb_regulators {
+	compatible = "intel,xgold-regulators";
+	vdd_wlan:pd@14 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_wlan";
+		regulator-always-on;
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x2024 0 1 >;
+		intel,noinv = < 1 >;
+	};
+};

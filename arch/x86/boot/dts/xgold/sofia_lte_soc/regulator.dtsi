@@ -1,0 +1,637 @@
+regulator {
+	compatible = "xgold-reg";
+	intel,csc-phys = < &cgu>;
+	reg = < 0x4e >;
+	vdd1:ldo@0 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd1";
+		intel,table-len = < 9 >;
+		intel,table = < 250000 540000 550000 560000 1800000 2089999 2100000 2100000 2100000 >;
+		regulator-min-microvolt = < 250000 >;
+		regulator-max-microvolt = < 2100000 >;
+		intel,enable = < 0x63 0 1 >;
+		intel,voltage = < 0x64 0 8 >;
+		intel,has-switch = < 0 >;
+	};
+	vdd2:ldo@1 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd2";
+		intel,table-len = < 9 >;
+		intel,table = < 250000 540000 550000 560000 1240000 1430000 1440000 1440000 1440000 >;
+		regulator-min-microvolt = < 250000 >;
+		regulator-max-microvolt = < 1440000 >;
+		intel,enable = < 0x65 0 1 >;
+		intel,voltage = < 0x66 0 8 >;
+		intel,has-switch = < 0 >;
+	};
+	vprog1:ldo@2 {
+		compatible = "intel,ldo";
+		regulator-name = "vprog1";
+		intel,table-len = < 63 >;
+		intel,table = < 600000 600000 600000 600000 600000 600000 600000 650000 700000 750000 800000 850000 900000 950000 1000000 1050000 1100000 1150000 1200000 1250000 1300000 1350000 1400000 1450000 1500000 1550000 1600000 1650000 1700000 1750000 1800000 1850000 1900000 1950000 2000000 2049999 2100000 2150000 2200000 2250000 2300000 2350000 2400000 2450000 2500000 2550000 2600000 2650000 2700000 2750000 2800000 2850000 2900000 2950000 3000000 3050000 3100000 3150000 3200000 3250000 3300000 3350000 3400000 >;
+		regulator-min-microvolt = < 600000 >;
+		regulator-max-microvolt = < 3400000 >;
+		intel,enable = < 0xa2 0 1 >;
+		intel,voltage = < 0xb0 0 6 >;
+		intel,has-switch = < 0 >;
+		regulator-always-on;
+	};
+	vprog2:ldo@3 {
+		compatible = "intel,ldo";
+		regulator-name = "vprog2";
+		intel,table-len = < 57 >;
+		intel,table = < 600000 650000 700000 750000 800000 850000 900000 950000 1000000 1050000 1100000 1150000 1200000 1250000 1300000 1350000 1400000 1450000 1500000 1550000 1600000 1650000 1700000 1750000 1800000 1850000 1900000 1950000 2000000 2049999 2100000 2150000 2200000 2250000 2300000 2350000 2400000 2450000 2500000 2550000 2600000 2650000 2700000 2750000 2800000 2850000 2900000 2950000 3000000 3050000 3100000 3150000 3200000 3250000 3300000 3350000 3400000 >;
+		regulator-min-microvolt = < 600000 >;
+		regulator-max-microvolt = < 3400000 >;
+		intel,enable = < 0xa3 0 1 >;
+		intel,voltage = < 0xb1 0 6 >;
+		intel,has-switch = < 0 >;
+		regulator-always-on;
+	};
+	vprog3:ldo@4 {
+		compatible = "intel,ldo";
+		regulator-name = "vprog3";
+		intel,table-len = < 57 >;
+		intel,table = < 600000 650000 700000 750000 800000 850000 900000 950000 1000000 1050000 1100000 1150000 1200000 1250000 1300000 1350000 1400000 1450000 1500000 1550000 1600000 1650000 1700000 1750000 1800000 1850000 1900000 1950000 2000000 2049999 2100000 2150000 2200000 2250000 2300000 2350000 2400000 2450000 2500000 2550000 2600000 2650000 2700000 2750000 2800000 2850000 2900000 2950000 3000000 3050000 3100000 3150000 3200000 3250000 3300000 3350000 3400000 >;
+		regulator-min-microvolt = < 600000 >;
+		regulator-max-microvolt = < 3400000 >;
+		intel,enable = < 0xa4 0 1 >;
+		intel,voltage = < 0xb2 0 6 >;
+		intel,has-switch = < 0 >;
+		regulator-always-on;
+	};
+	vusb:ldo@5 {
+		compatible = "intel,ldo";
+		regulator-name = "vusb";
+		intel,table-len = < 63 >;
+		intel,table = < 600000 600000 600000 600000 600000 600000 600000 650000 700000 750000 800000 850000 900000 950000 1000000 1050000 1100000 1150000 1200000 1250000 1300000 1350000 1400000 1450000 1500000 1550000 1600000 1650000 1700000 1750000 1800000 1850000 1900000 1950000 2000000 2049999 2100000 2150000 2200000 2250000 2300000 2350000 2400000 2450000 2500000 2550000 2600000 2650000 2700000 2750000 2800000 2850000 2900000 2950000 3000000 3050000 3100000 3150000 3200000 3250000 3300000 3350000 3400000 >;
+		regulator-min-microvolt = < 600000 >;
+		regulator-max-microvolt = < 3400000 >;
+		intel,enable = < 0xa5 0 1 >;
+		intel,voltage = < 0xb3 0 6 >;
+		intel,has-switch = < 0 >;
+	};
+	vsim1:ldo@6 {
+		compatible = "intel,ldo";
+		regulator-name = "vsim1";
+		intel,table-len = < 57 >;
+		intel,table = < 600000 650000 700000 750000 800000 850000 900000 950000 1000000 1050000 1100000 1150000 1200000 1250000 1300000 1350000 1400000 1450000 1500000 1550000 1600000 1650000 1700000 1750000 1800000 1850000 1900000 1950000 2000000 2049999 2100000 2150000 2200000 2250000 2300000 2350000 2400000 2450000 2500000 2550000 2600000 2650000 2700000 2750000 2800000 2850000 2900000 2950000 3000000 3050000 3100000 3150000 3200000 3250000 3300000 3350000 3400000 >;
+		regulator-min-microvolt = < 600000 >;
+		regulator-max-microvolt = < 3400000 >;
+		intel,enable = < 0xa6 0 1 >;
+		intel,voltage = < 0xb4 0 6 >;
+		intel,has-switch = < 0 >;
+	};
+	vsim2:ldo@7 {
+		compatible = "intel,ldo";
+		regulator-name = "vsim2";
+		intel,table-len = < 57 >;
+		intel,table = < 600000 650000 700000 750000 800000 850000 900000 950000 1000000 1050000 1100000 1150000 1200000 1250000 1300000 1350000 1400000 1450000 1500000 1550000 1600000 1650000 1700000 1750000 1800000 1850000 1900000 1950000 2000000 2049999 2100000 2150000 2200000 2250000 2300000 2350000 2400000 2450000 2500000 2550000 2600000 2650000 2700000 2750000 2800000 2850000 2900000 2950000 3000000 3050000 3100000 3150000 3200000 3250000 3300000 3350000 3400000 >;
+		regulator-min-microvolt = < 600000 >;
+		regulator-max-microvolt = < 3400000 >;
+		intel,enable = < 0xa7 0 1 >;
+		intel,voltage = < 0xb5 0 6 >;
+		intel,has-switch = < 0 >;
+	};
+	vmipi:ldo@8 {
+		compatible = "intel,ldo";
+		regulator-name = "vmipi";
+		intel,table-len = < 57 >;
+		intel,table = < 600000 600000 600000 600000 600000 600000 600000 650000 700000 750000 800000 850000 900000 950000 1000000 1050000 1100000 1150000 1200000 1250000 1300000 1350000 1400000 1450000 1500000 1550000 1600000 1650000 1700000 1750000 1800000 1850000 1900000 1950000 2000000 2049999 2100000 2150000 2200000 2250000 2300000 2350000 2400000 2450000 2500000 2550000 2600000 2650000 2700000 2750000 2800000 2850000 2900000 2950000 3000000 3050000 3100000 3150000 3200000 3250000 3300000 3350000 3400000 >;
+		regulator-min-microvolt = < 600000 >;
+		regulator-max-microvolt = < 3400000 >;
+		intel,enable = < 0xa8 0 1 >;
+		intel,voltage = < 0xb6 0 6 >;
+		intel,has-switch = < 0 >;
+		regulator-always-on;
+	};
+	vemmc:ldo@9 {
+		compatible = "intel,ldo";
+		regulator-name = "vemmc";
+		intel,table-len = < 63 >;
+		intel,table = < 600000 600000 600000 600000 600000 600000 600000 650000  700000 750000 800000 850000 900000 950000 1000000 1050000 1100000 1150000 1200000 1250000 1300000 1350000 1400000 1450000 1500000 1550000 1600000 1650000 1700000 1750000 1800000 1850000 1900000 1950000 2000000 2049999 2100000 2150000 2200000 2250000 2300000 2350000 2400000 2450000 2500000 2550000 2600000 2650000 2700000 2750000 2800000 2850000 2900000 2950000 3000000 3050000 3100000 3150000 3200000 3250000 3300000 3350000 3400000 >;
+		regulator-min-microvolt = < 600000>;
+		regulator-max-microvolt = < 3400000 >;
+		intel,enable = < 0xa9 0 1 >;
+		intel,voltage = < 0xb7 0 6 >;
+		intel,has-switch = < 0 >;
+	};
+	vsd:ldo@10 {
+		compatible = "intel,ldo";
+		regulator-name = "vsd";
+		intel,table-len = < 57 >;
+		intel,table = < 600000 650000 700000 750000 800000 850000 900000 950000 1000000 1050000 1100000 1150000 1200000 1250000 1300000 1350000 1400000 1450000 1500000 1550000 1600000 1650000 1700000 1750000 1800000 1850000 1900000 1950000 2000000 2049999 2100000 2150000 2200000 2250000 2300000 2350000 2400000 2450000 2500000 2550000 2600000 2650000 2700000 2750000 2800000 2850000 2900000 2950000 3000000 3050000 3100000 3150000 3200000 3250000 3300000 3350000 3400000 >;
+		regulator-min-microvolt = < 600000 >;
+		regulator-max-microvolt = < 3400000 >;
+		intel,enable = < 0xaa 0 1 >;
+		intel,voltage = < 0xb8 0 6 >;
+		intel,has-switch = < 0 >;
+	};
+/*	vsdmmc:ldo@11 {
+		compatible = "intel,ldo";
+		regulator-name = "vsdmmc";
+		intel,table-len = < 57 >;
+		intel,table = < 600000 650000 700000 750000 800000 850000 900000 950000 1000000 1050000 1100000 1150000 1200000 1250000 1300000 1350000 1400000 1450000 1500000 1550000 1600000 1650000 1700000 1750000 1800000 1850000 1900000 1950000 2000000 2049999 2100000 2150000 2200000 2250000 2300000 2350000 2400000 2450000 2500000 2550000 2600000 2650000 2700000 2750000 2800000 2850000 2900000 2950000 3000000 3050000 3100000 3150000 3200000 3250000 3300000 3350000 3400000 >;
+		regulator-min-microvolt = < 600000 >;
+		regulator-max-microvolt = < 3400000 >;
+		intel,enable = < 0xab 0 1 >;
+		intel,voltage = < 0xb9 0 6 >;
+		intel,has-switch = < 0 >;
+	};*/
+	vdd_dap_pon:pd@0 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_dap_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 0 1 >;
+	};
+	vdd_emacphy_pon:pd@1 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_emacphy_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 1 1 >;
+	};
+	vdd_oct_pon:pd@2 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_oct_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 2 1 >;
+	};
+	vdd_cs_pon:pd@3 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_cs_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 3 1 >;
+	};
+	vdd_oct_dvc_pon:pd@4 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_oct_dvc_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 4 1 >;
+	};
+	vdd_mon_sbc_per0_pon:pd@5 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_mon_sbc_per0_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 6 1 >;
+	};
+	vdd_mon_sbc_per2_pon:pd@6 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_mon_sbc_per2_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 7 1 >;
+	};
+	vdd_mon_sbc_per3_pon:pd@7 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_mon_sbc_per3_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 8 1 >;
+	};
+	vdd_mon_sbc_per5_pon:pd@8 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_mon_sbc_per5_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 9 1 >;
+	};
+	vdd_st_mon_pon:pd@9 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_st_mon_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 10 1 >;
+	};
+	vdd_usif1_pon:pd@10 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_usif1_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 11 1 >;
+	};
+	vdd_usif3_pon:pd@11 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_usif3_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 12 1 >;
+	};
+	vdd_usif4_pon:pd@12 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_usif4_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 13 1 >;
+	};
+	vdd_etm3g_pwrup:pd@13 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_etm3g_pwrup";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 16 1 >;
+	};
+	vdd_g3_sys_trace:pd@14 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_g3_sys_trace";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 17 1 >;
+	};
+	vdd_lte_shutdn_req:pd@15 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_lte_shutdn_req";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 18 1 >;
+	};
+	vdd_psc_3g_boot_req:pd@16 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_psc_3g_boot_req";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 19 1 >;
+	};
+	vdd_psc_3g_shut_down:pd@17 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_psc_3g_shut_down";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 20 1 >;
+	};
+	vdd_usb_hsic_dig_iso:pd@18 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_usb_hsic_dig_iso";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 21 1 >;
+	};
+	vdd_emacphy_t23_pon:pd@19 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_emacphy_t23_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 24 1 >;
+	};
+	vdd_emacphy_t016_pon:pd@20 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_emacphy_t016_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 25 1 >;
+	};
+	vdd_emacphy_t45_pon:pd@21 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_emacphy_t45_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x278 26 1 >;
+	};
+	vdd_vdds_emic_pon:pd@22 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_vdds_emic_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x27c 0 1 >;
+	};
+	vdd_vdds_emic_en:pd@23 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_vdds_emic_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x27c 1 1 >;
+	};
+	vdd_emic_core_reg_ret_en:pd@24 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_emic_core_reg_ret_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x27c 2 1 >;
+	};
+	vdd_emic_req_en:pd@25 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_emic_req_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x27c 3 1 >;
+	};
+	vdd_emic_idle_en:pd@26 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_emic_idle_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x27c 4 1 >;
+	};
+	vdd_emic_idle_ldo_stdby_en:pd@27 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_emic_idle_ldo_stdby_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x27c 5 1 >;
+	};
+	vdd_lli_req_en:pd@28 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_lli_req_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x27c 16 1 >;
+	};
+	vdd_vdds_dma2_2_pon:pd@29 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_vdds_dma2_2_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x27c 17 1 >;
+	};
+	vdd_l1_noc_pon:pd@30 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_l1_noc_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 1 1 >;
+	};
+	vdd_l2_noc_pon:pd@31 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_l2_noc_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 2 1 >;
+	};
+	vdd_uspc_noc_pon:pd@32 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_uspc_noc_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 3 1 >;
+	};
+	vdd_mod_noc_pon:pd@33 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_mod_noc_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 4 1 >;
+	};
+	vdd_pdb_noc_pon:pd@34 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_pdb_noc_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 5 1 >;
+	};
+	vdd_pdb_pon:pd@35 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_pdb_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 5 1 >;
+	};
+	vdd_baseia_uspc_noc_pen:pd@36 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_baseia_uspc_noc_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 8 1 >;
+	};
+	vdd_baseia_l2_noc_pen:pd@37 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_baseia_l2_noc_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 11 1 >;
+	};
+	vdd_baseia_mod_noc_pen:pd@38 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_baseia_mod_noc_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 14 1 >;
+	};
+	vdd_lte_l1_noc_pen:pd@39 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_lte_l1_noc_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 17 1 >;
+	};
+	vdd_lmu_pen:pd@40 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_lmu_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 21 1 >;
+	};
+	vdd_systrace_pon:pd@41 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_systrace_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 22 1 >;
+	};
+	vdd_tdip_pen:pd@42 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_tdip_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 23 1 >;
+	};
+	vdd_g3_en:pd@43 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_g3_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 24 1 >;
+	};
+	vdd_lte_en:pd@44 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_lte_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 25 1 >;
+	};
+	vdd_oct_req_en:pd@45 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_oct_req_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 26 1 >;
+	};
+	vdd_tdip_rst_en:pd@46 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_tdip_rst_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 28 1 >;
+	};
+	vdd_tdip_modnoc_en:pd@47 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_tdip_modnoc_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x280 31 1 >;
+	};
+	vdd_ahb_per1_pen:pd@48 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_ahb_per1_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 0 1 >;
+	};
+	vdd_sdmmc_pen:pd@49 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_sdmmc_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 1 1 >;
+	};
+	vdd_sdio30_pen:pd@50 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_sdio30_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 2 1 >;
+	};
+	vdd_dma8c_pon:pd@51 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_dma8c_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 4 1 >;
+	};
+	vdd_ahb_per2_pen:pd@52 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_ahb_per2_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 8 1 >;
+	};
+	vdd_usb_30_pen:pd@53 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_usb_30_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 9 1 >;
+		intel,noinv = < 1 >;
+	};
+	vdd_ahb_per5_pen:pd@54 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_ahb_per5_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 16 1 >;
+	};
+	vdd_guciph_pen:pd@55 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_guciph_pen";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 18 1 >;
+	};
+	vdd_g2_pon:pd@56 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_g2_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 20 1 >;
+	};
+	vdd_aud_pon:pd@57 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_aud_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 21 1 >;
+	};
+	vdd_gpu_pon:pd@58 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_gpu_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 24 1 >;
+		intel,noinv = < 1 >;
+	};
+	vdd_vpu_pon:pd@59 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_vpu_pon";
+		intel,has-switch = < 1 >;
+		intel,noinv = < 1 >;
+		intel,enable = < 0x284 25 1 >;
+	};
+	vdd_cif_pon:pd@60 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_cif_pon";
+		intel,has-switch = < 1 >;
+		intel,noinv = < 1 >;
+		intel,enable = < 0x284 26 1 >;
+	};
+	vdd_emmc_pon:pd@61 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_emmc_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 27 1 >;
+	};
+	vdd_dcc_pon:pd@62 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_dcc_pon";
+		intel,has-switch = < 1 >;
+		intel,noinv = < 1 >;
+		intel,enable = < 0x284 28 1 >;
+	};
+	vdd_spare1_pon:pd@63 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_spare1_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 29 1 >;
+	};
+	vdd_spare2_pon:pd@64 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_spare2_pon";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x284 30 1 >;
+	};
+	vdd_lli_mphy:pd@65 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_lli_mphy";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x2a0 1 1 >;
+	};
+	vdd_usb_ss_phy:pd@66 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_usb_ss_phy";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x2a0 3 1 >;
+		intel,noinv = < 1 >;
+	};
+	vdd_csi_phy_primary:pd@67 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_csi_phy_primary";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x2a0 12 1 >;
+	};
+	vdd_csi_phy_aux:pd@68 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_csi_phy_aux";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x2a0 13 1 >;
+	};
+	vdd_dsi_phy:pd@69 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_dsi_phy";
+		intel,has-switch = < 1 >;
+		intel,noinv = < 1 >;
+		intel,enable = < 0x2a0 14 1 >;
+	};
+	vdd_dif:pd@70 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_dif";
+		intel,has-switch = < 1 >;
+		intel,noinv = < 1 >;
+		intel,enable = < 0x2a0 15 1 >;
+	};
+	vdd_spare:pd@71 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_spare";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x2a0 16 1 >;
+	};
+	ldo_pll:pd@72 {
+		compatible = "intel,ldo";
+		regulator-name = "ldo_pll";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x1000 0 1 >;
+	};
+	ldo_emic_dll:pd@73 {
+		compatible = "intel,ldo";
+		regulator-name = "ldo_emic_dll";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x1004 0 1 >;
+	};
+	ldo_usb_30:pd@74 {
+		compatible = "intel,ldo";
+		regulator-name = "ldo_usb_30";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x100c 0 1 >;
+		intel,noinv = < 1 >;
+	};
+	ldo_digrf4_0_mphy_rx:pd@75 {
+		compatible = "intel,ldo";
+		regulator-name = "ldo_digrf4_0_mphy_rx";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x1010 0 1 >;
+	};
+	ldo_emic_core:pd@76 {
+		compatible = "intel,ldo";
+		regulator-name = "ldo_emic_core";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x1018 0 1 >;
+	};
+	ldo_digrf4_1_mphy_rx:pd@77 {
+		compatible = "intel,ldo";
+		regulator-name = "ldo_digrf4_1_mphy_rx";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x101c 0 1 >;
+	};
+	ldo_pllf:pd@78 {
+		compatible = "intel,ldo";
+		regulator-name = "ldo_pllf";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x102c 0 1 >;
+	};
+	ldo_pllbm:pd@79 {
+		compatible = "intel,ldo";
+		regulator-name = "ldo_pllbm";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x1030 0 1 >;
+	};
+	ldo_pll_mipi:pd@80 {
+		compatible = "intel,ldo";
+		regulator-name = "ldo_pll_mipi";
+		intel,has-switch = < 1 >;
+		intel,noinv = < 1 >;
+		intel,enable = < 0x1034 0 1 >;
+	};
+};

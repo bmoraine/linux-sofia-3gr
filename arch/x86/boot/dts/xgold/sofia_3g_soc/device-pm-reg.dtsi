@@ -1,0 +1,27 @@
+lmmc1:pm@0 {
+	compatible = "regulator-device-pm";
+	regulator-name = "lmmc1";
+	intel,table-len = < 4 >;
+	intel,table = < 1200000 1800000 2850000 2900000 >;
+	regulator-min-microvolt = < 1200000 >;
+	regulator-max-microvolt = < 2900000 >;
+	intel,enable = < 0x514 2 2 >;
+	intel,voltage = < 0x514 0 2 >;
+	intel,has-switch = < 0 >;
+	intel,class_name = "usd_class";
+	intel,user_name = "usd_card";
+	intel,states = "disable", "mid_perf", "high_perf";
+	intel,voltages = <0 1800000 2900000>;
+
+};
+lemmc:pm@1 {
+	compatible = "regulator-device-pm";
+	regulator-name = "lemmc";
+	regulator-min-microvolt = < 1200000 >;
+	regulator-max-microvolt = < 2900000 >;
+	intel,class_name = "emmc_class";
+	intel,user_name = "emmc_card";
+	intel,states = "disable", "mid_perf", "high_perf";
+	intel,voltages = <0 1800000 2900000>;
+
+};

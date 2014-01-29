@@ -1,0 +1,32 @@
+#ifdef CONFIG_X86_INTEL_SOFIA
+#define VMM_HIRQ_VECT 32
+main_hirq:main-hirq-interrupt-controller {
+	compatible = "intel,sofia-main-hirq";
+	#interrupt-cells = <2>;
+	interrupt-controller;
+	interrupt-parent = <&pic>;
+	interrupts =
+		< VMM_HIRQ_VECT IRQ_TYPE_DEFAULT >;
+};
+hirq:hirq-interrupt-controller {
+	compatible = "intel,sofia-hirq";
+	#interrupt-cells = <2>;
+	interrupt-controller;
+	interrupt-parent = <&main_hirq>;
+	interrupts =
+		< 0 IRQ_TYPE_DEFAULT >, /* 512: [all] vmm broadcast */
+		< 0 IRQ_TYPE_DEFAULT >, /* 513: pmic test */
+		< 0 IRQ_TYPE_DEFAULT >, /* 514: hirq test */
+		< 0 IRQ_TYPE_DEFAULT >, /* 515: PRH SIGNALING */
+		< 0 IRQ_TYPE_DEFAULT >, /* 516: time unit (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 517: thermal unit (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 518: BCU (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 519: ADC (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 520: Charger (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 521: GPIO (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 522: CRITICAL EVENT (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 523: power button (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >; /* 524: VTIMER */
+	intel,hirq_offset = <512>;
+};
+#endif

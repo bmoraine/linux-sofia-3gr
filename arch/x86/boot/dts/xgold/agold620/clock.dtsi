@@ -1,0 +1,494 @@
+ABB_clocks {
+	compatible = "intel,xgold-clock";
+	intel,reg-phys = <&ABB_cgu>;
+	intel,reg-defaults = <8208 0x0 4444 0x0 4448 0x0 4452 0x0 4432 0x0 4436 0x0 4456 0x0 4440 0x0 4460 0x0 4468 0x0 4376 0x4>;
+	ABB_OFF:ABB_OFF {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency= <0>;
+		clock-output-names = "ABB_OFF";
+	};
+	ABB_RTC_0_1:ABB_RTC_0_1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency= <32000>;
+		clock-output-names = "ABB_RTC_0_1";
+	};
+	ABB_IN_0_1:ABB_IN_0_1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency= <26000000>;
+		clock-output-names = "ABB_IN_0_1";
+	};
+	ABB_A_0_1:ABB_A_0_1 {
+		compatible = "intel,xgold-pll";
+		#clock-cells = <0>;
+		clock-frequency= <208000000>;
+		clock-output-names = "ABB_A_0_1";
+		clocks = <&ABB_IN_0_1>;
+		clock-names = "ref";
+		intel,pll-type = "digital";
+		intel,pll-parameters = < 458752 1 >;
+		intel,pll-mux = <4384 4 1>;
+		intel,pll-mult = <4352 0 22>;
+		intel,pll-up = <4384 0 1>;
+		intel,pll-status-lock = <4380 1 1>;
+		intel,pll-status-mux = <4380 8 1>;
+		intel,pll-status-up = <4380 4 1>;
+		intel,pll-update = <4392 0 1>;
+	};
+	ABB_A_1_1:ABB_A_1_1 {
+		compatible = "intel,xgold-phs";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_A_1_1";
+		clocks = <&ABB_A_0_1>;
+		clock-names = "ref";
+		intel,phs-parameters = < 2 1 >;
+		intel,phs-mux = <4384 5 1>;
+		intel,phs-Y = <4356 3 4>;
+		intel,phs-up = <4384 1 1>;
+		intel,phs-X = <4356 0 3>;
+		intel,phs-status-up = <4380 5 1>;
+		intel,phs-status-mux = <4380 9 1>;
+	};
+	ABB_A_2_1:ABB_A_2_1 {
+		compatible = "intel,xgold-phs";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_A_2_1";
+		clocks = <&ABB_A_0_1>;
+		clock-names = "ref";
+		intel,phs-parameters = < 1 2 >;
+		intel,phs-mux = <4384 6 1>;
+		intel,phs-Y = <4356 11 4>;
+		intel,phs-up = <4384 2 1>;
+		intel,phs-X = <4356 8 3>;
+		intel,phs-status-up = <4380 6 1>;
+		intel,phs-status-mux = <4380 10 1>;
+	};
+	ABB_A_3_1:ABB_A_3_1 {
+		compatible = "intel,xgold-phs";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_A_3_1";
+		clocks = <&ABB_A_0_1>;
+		clock-names = "ref";
+		intel,phs-parameters = < 3 1 >;
+		intel,phs-mux = <4384 7 1>;
+		intel,phs-Y = <4356 20 4>;
+		intel,phs-up = <4384 3 1>;
+		intel,phs-X = <4356 16 3>;
+		intel,phs-status-up = <4380 7 1>;
+		intel,phs-status-mux = <4380 11 1>;
+	};
+	ABB_A_4_1:ABB_A_4_1 {
+		compatible = "intel,xgold-phs";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_A_4_1";
+		clocks = <&ABB_A_0_1>;
+		clock-names = "ref";
+		intel,phs-parameters = < 2 2 >;
+		intel,phs-mux = <4484 5 1>;
+		intel,phs-Y = <4488 3 4>;
+		intel,phs-up = <4484 1 1>;
+		intel,phs-X = <4488 0 3>;
+	};
+	ABB_A_5_1:ABB_A_5_1 {
+		compatible = "intel,xgold-phs";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_A_5_1";
+		clocks = <&ABB_A_0_1>;
+		clock-names = "ref";
+		intel,phs-parameters = < 4 1 >;
+		intel,phs-mux = <4484 6 1>;
+		intel,phs-Y = <4488 11 4>;
+		intel,phs-up = <4484 2 1>;
+		intel,phs-X = <4488 8 3>;
+	};
+	ABB_IN_0_2:ABB_IN_0_2 {
+		compatible = "intel,xgold-fixed-divider";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_IN_0_2";
+		clocks = <&ABB_IN_0_1>;
+		clock-names = "ref";
+		intel,divider = < 2 >;
+		intel,mult = < 1 >;
+	};
+	ABB_A_0_2:ABB_A_0_2 {
+		compatible = "intel,xgold-fixed-divider";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_A_0_2";
+		clocks = <&ABB_A_0_1>;
+		clock-names = "ref";
+		intel,divider = < 2 >;
+		intel,mult = < 1 >;
+	};
+	ABB_A_0_4:ABB_A_0_4 {
+		compatible = "intel,xgold-fixed-divider";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_A_0_4";
+		clocks = <&ABB_A_0_1>;
+		clock-names = "ref";
+		intel,divider = < 4 >;
+		intel,mult = < 1 >;
+	};
+	ABB_A_1_2:ABB_A_1_2 {
+		compatible = "intel,xgold-fixed-divider";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_A_1_2";
+		clocks = <&ABB_A_1_1>;
+		clock-names = "ref";
+		intel,divider = < 2 >;
+		intel,mult = < 1 >;
+	};
+	ABB_A_2_2:ABB_A_2_2 {
+		compatible = "intel,xgold-fixed-divider";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_A_2_2";
+		clocks = <&ABB_A_2_1>;
+		clock-names = "ref";
+		intel,divider = < 2 >;
+		intel,mult = < 1 >;
+	};
+	ABB_A_3_2:ABB_A_3_2 {
+		compatible = "intel,xgold-fixed-divider";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_A_3_2";
+		clocks = <&ABB_A_3_1>;
+		clock-names = "ref";
+		intel,divider = < 2 >;
+		intel,mult = < 1 >;
+	};
+	ABB_MUX_IDI:ABB_MUX_IDI {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_idi";
+		clocks = < &ABB_IN_0_1 >, < &ABB_RTC_0_1 >, < &ABB_A_0_1 >, < &ABB_A_1_1 >, < &ABB_A_2_1 >, < &ABB_A_0_2 >, < &ABB_A_3_1 >, < &ABB_IN_0_1 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 5 >;
+		intel,mux-select = <4360 0 3>;
+	};
+	ABB_MUX_FIX1:ABB_MUX_FIX1 {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_fix1";
+		clocks = < &ABB_OFF >, < &ABB_RTC_0_1 >, < &ABB_IN_0_1 >, < &ABB_A_0_4 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 3 >;
+		intel,mux-select = <4368 0 2>;
+	};
+	ABB_MUX_FMR:ABB_MUX_FMR {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_fmr";
+		clocks = < &ABB_OFF >, < &ABB_A_0_1 >, < &ABB_OFF >, < &ABB_IN_0_1 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 1 >;
+		intel,mux-select = <4400 0 2>;
+	};
+	ABB_MUX_FMR_ADC:ABB_MUX_FMR_ADC {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_fmr_adc";
+		clocks = < &ABB_OFF >, < &ABB_A_0_1 >, < &ABB_A_0_1 >, < &ABB_A_0_1 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 1 >;
+		intel,mux-select = <4400 0 2>;
+	};
+	ABB_MUX_PMU:ABB_MUX_PMU {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_pmu";
+		clocks = < &ABB_OFF >, < &ABB_A_0_1 >, < &ABB_OFF >, < &ABB_A_0_2 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 3 >;
+		intel,mux-select = <4404 0 2>;
+	};
+	ABB_MUX_PMUDCDC:ABB_MUX_PMUDCDC {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_pmudcdc";
+		clocks = < &ABB_OFF >, < &ABB_A_0_1 >, < &ABB_A_1_1 >, < &ABB_A_0_2 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 1 >;
+		intel,mux-select = <4408 0 2>;
+	};
+	ABB_MUX_MS:ABB_MUX_MS {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_ms";
+		clocks = < &ABB_OFF >, < &ABB_IN_0_1 >, < &ABB_A_0_2 >, < &ABB_A_0_1 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 1 >;
+		intel,mux-select = <4412 0 2>;
+	};
+	ABB_MUX_CHP:ABB_MUX_CHP {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_chp";
+		clocks = < &ABB_OFF >, < &ABB_A_0_2 >, < &ABB_A_2_1 > ;
+		clock-names = "ref";
+		intel,mux-type = "power";
+		intel,mux-default = < 1 >;
+		intel,mux-default-div-fix = < 8 >;
+		intel,mux-select = <4416 0 2>;
+		intel,mux-divfix = <4480 1 5>;
+	};
+	ABB_MUX_AFE:ABB_MUX_AFE {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_afe";
+		clocks = < &ABB_OFF >, < &ABB_A_2_1 >, < &ABB_OFF >, < &ABB_A_2_2 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 3 >;
+		intel,mux-select = <4420 0 2>;
+	};
+	ABB_MUX_BT78:ABB_MUX_BT78 {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_bt78";
+		clocks = < &ABB_OFF >, < &ABB_A_1_1 >, < &ABB_A_1_2 >, < &ABB_OFF > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 2 >;
+		intel,mux-select = <4424 0 2>;
+	};
+	ABB_MUX_BT104:ABB_MUX_BT104 {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_bt104";
+		clocks = < &ABB_OFF >, < &ABB_A_0_1 >, < &ABB_OFF >, < &ABB_A_0_2 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 3 >;
+		intel,mux-select = <4428 0 2>;
+	};
+	ABB_MUX_MTM:ABB_MUX_MTM {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_mtm";
+		clocks = < &ABB_OFF >, < &ABB_RTC_0_1 >, < &ABB_IN_0_1 >, < &ABB_A_0_1 >, < &ABB_A_1_1 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 2 >;
+		intel,mux-select = <4364 0 3>;
+	};
+	ABB_MUX_ST:ABB_MUX_ST {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_st";
+		clocks = < &ABB_OFF >, < &ABB_RTC_0_1 >, < &ABB_IN_0_1 >, < &ABB_A_0_1 >, < &ABB_A_1_1 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 2 >;
+		intel,mux-select = <4364 8 3>;
+	};
+	ABB_MUX_FIX2:ABB_MUX_FIX2 {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_fix2";
+		clocks = < &ABB_OFF >, < &ABB_RTC_0_1 >, < &ABB_IN_0_1 >, < &ABB_A_0_2 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 3 >;
+		intel,mux-select = <4504 0 2>;
+	};
+	ABB_MUX_GPS_BB_PLL:ABB_MUX_GPS_BB_PLL {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_gps_bb_pll";
+		clocks = < &ABB_A_4_1 >, < &ABB_A_0_2 >, < &ABB_OFF >, < &ABB_A_5_1 >, < &ABB_IN_0_1 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 3 >;
+		intel,mux-select = <4496 0 3>;
+	};
+	ABB_MUX_GPS_BB_DATA:ABB_MUX_GPS_BB_DATA {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_mclk_gps_bb_data";
+		clocks = < &ABB_A_4_1 >, < &ABB_A_1_2 >, < &ABB_OFF >, < &ABB_A_1_1 >, < &ABB_IN_0_1 > ;
+		clock-names = "ref";
+		intel,mux-type = "natural";
+		intel,mux-default = < 0 >;
+		intel,mux-select = <4500 0 3>;
+	};
+	ABB_clk_pmuchp:ABB_clk_pmuchp {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_clk_pmuchp";
+		clocks = <&ABB_MUX_CHP>;
+		clock-names = "mux";
+		intel,block-enable = <4476 0 1>;
+	};
+	ABB_clk_chp:ABB_clk_chp {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_clk_chp";
+		clocks = <&ABB_MUX_CHP>;
+		clock-names = "mux";
+		intel,block-enable = <4472 0 1>;
+	};
+	ABB_clk_aud_48k:ABB_clk_aud_48k {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_clk_aud_48k";
+		clocks = <&ABB_MUX_AFE>;
+		clock-names = "mux";
+		intel,flags-divider_mult_of_two ;
+		intel,flags-divider_add_one ;
+		intel,block-divider-default = < 2 >;
+		intel,block-enable = <4372 31 1>;
+		intel,block-divider = <4372 0 10>;
+	};
+	ABB_clk_mtm:ABB_clk_mtm {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_clk_mtm";
+		clocks = <&ABB_MUX_MTM>;
+		clock-names = "mux";
+		intel,flags-divider_power_of_two ;
+		intel,block-divider-default = < 1 >;
+		intel,block-divider = <4364 4 3>;
+	};
+	ABB_clk_st:ABB_clk_st {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_clk_st";
+		clocks = <&ABB_MUX_ST>;
+		clock-names = "mux";
+		intel,flags-divider_power_of_two ;
+		intel,block-divider-default = < 1 >;
+		intel,block-divider = <4364 12 3>;
+	};
+	ABB_clk_rtc:ABB_clk_rtc {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_clk_rtc";
+		clocks = <&ABB_RTC_0_1>;
+		clock-names = "mux";
+		intel,block-enable = <4376 0 1>;
+	};
+	ABB_clk_gps_phs1:ABB_clk_gps_phs1 {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_clk_gps_phs1";
+		clocks = <&ABB_A_1_1>;
+		clock-names = "mux";
+		intel,block-enable = <4492 0 1>;
+	};
+	ABB_clk_gps_phs4:ABB_clk_gps_phs4 {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_clk_gps_phs4";
+		clocks = <&ABB_A_4_1>;
+		clock-names = "mux";
+		intel,block-enable = <4492 1 1>;
+	};
+	ABB_clk_gps_phs5:ABB_clk_gps_phs5 {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_clk_gps_phs5";
+		clocks = <&ABB_A_5_1>;
+		clock-names = "mux";
+		intel,block-enable = <4492 2 1>;
+	};
+	ABB_gps_sys_clk_req:ABB_gps_sys_clk_req {
+		compatible = "intel,xgold-req";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_gps_sys_clk_req";
+		clocks = < &ABB_IN_0_1 >;
+		clock-names = "ref";
+		intel,req,en = <8264 8 1 8284 8 1 8256 8 1 8260 8 1 8248 8 1>;
+		intel,req,inv = <8264 9 1 8256 9 1 8260 9 1>;
+		intel,req,inv-def = < 1 1 1 >;
+	};
+	ABB_req_fsysen2:ABB_req_fsysen2 {
+		compatible = "intel,xgold-req";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_req_fsysen2";
+		clocks = < &ABB_IN_0_1 >;
+		clock-names = "ref";
+		intel,req,en = <8264 10 1 8284 10 1 8256 10 1 8260 10 1 8248 10 1>;
+		intel,req,inv = <8264 11 1 8256 11 1 8260 11 1>;
+		intel,req,inv-def = < 1 1 1 >;
+	};
+	ABB_req_bt_vcxo:ABB_req_bt_vcxo {
+		compatible = "intel,xgold-req";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_req_bt_vcxo";
+		clocks = < &ABB_IN_0_1 >;
+		clock-names = "ref";
+		intel,req,en = <8284 14 1 8248 14 1>;
+	};
+	ABB_req_bt104:ABB_req_bt104 {
+		compatible = "intel,xgold-req";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_req_bt104";
+		clocks = < &ABB_MUX_BT104 >;
+		clock-names = "ref";
+		intel,req,en = <8252 8 1>;
+	};
+	ABB_req_bt78:ABB_req_bt78 {
+		compatible = "intel,xgold-req";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_req_bt78";
+		clocks = < &ABB_MUX_BT78 >;
+		clock-names = "ref";
+		intel,req,en = <8252 10 1>;
+	};
+	ABB_req_bt_pwm_on:ABB_req_bt_pwm_on {
+		compatible = "intel,xgold-req";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_req_bt_pwm_on";
+		clocks = < &ABB_OFF >;
+		clock-names = "ref";
+		intel,req,en = <8256 16 1>;
+	};
+	ABB_req_bt_rf_on:ABB_req_bt_rf_on {
+		compatible = "intel,xgold-req";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_req_bt_rf_on";
+		clocks = < &ABB_OFF >;
+		clock-names = "ref";
+		intel,req,en = <8256 18 1>;
+	};
+	ABB_req_fmr_sysclk_en:ABB_req_fmr_sysclk_en {
+		compatible = "intel,xgold-req";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_req_fmr_sysclk_en";
+		clocks = < &ABB_MUX_FMR >;
+		clock-names = "ref";
+		intel,req,en = <8284 16 1 8256 20 1 8248 16 1>;
+	};
+	ABB_req_dbb_pwm_req:ABB_req_dbb_pwm_req {
+		compatible = "intel,xgold-req";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_req_dbb_pwm_req";
+		clocks = < &ABB_OFF >;
+		clock-names = "ref";
+		intel,req,en = <8256 22 1 8252 12 1>;
+	};
+	ABB_gps_bb_clk_req:ABB_gps_bb_clk_req {
+		compatible = "intel,xgold-req";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_gps_bb_clk_req";
+		clocks = < &ABB_OFF >;
+		clock-names = "ref";
+		intel,req,en = <8256 23 1 8252 13 1>;
+	};
+	ABB_wlan_clk_req:ABB_wlan_clk_req {
+		compatible = "intel,xgold-req";
+		#clock-cells = <0>;
+		clock-output-names = "ABB_wlan_clk_req";
+		clocks = < &ABB_OFF >;
+		clock-names = "ref";
+		intel,req,en = <8264 14 1 8284 18 1 8256 24 1 8260 14 1 8248 18 1>;
+	};
+};

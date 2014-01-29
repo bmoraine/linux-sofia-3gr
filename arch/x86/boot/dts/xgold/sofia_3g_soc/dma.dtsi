@@ -1,0 +1,138 @@
+/* DMA slave requests info */
+usif1_rx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 0 0 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+usif1_tx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 1 1 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+usif2_rx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 2 2 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+usif2_tx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 3 3 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+dsp_dma_req1 {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 4 4 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+dsp_dma_req2 {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 5 5 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+dsp_dma_req3 {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 6 6 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+i2c1_txrx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 7 7 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+i2c2_txrx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 8 8 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+i2c3_txrx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 9 9 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+dif_rx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 10 10 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+ceu1_rx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 11 11 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+ceu1_tx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 12 12 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+ceu2_rx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 13 13 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+ceu2_tx {
+	compatible = "intel,dma-pl08x,slave-chan";
+	intel,dma-signals = < 14 14 >; /* min, max */
+	intel,dma-bus = < 2 >; /* AHB2 */
+};
+
+/* DMA request lines MUX info */
+req0 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "usif1_rx";
+};
+req1 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "usif1_tx";
+};
+req2 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "usif2_rx";
+};
+req3 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "usif2_tx";
+};
+req4 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "dsp_dma_req1";
+};
+req5 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "dsp_dma_req2";
+};
+req6 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "dsp_dma_req3";
+};
+req7 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "i2c1_txrx";
+};
+req8 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "i2c2_txrx";
+};
+req9 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "i2c3_txrx";
+};
+req10 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "dif_rx";
+};
+req11 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "ceu1_rx";
+};
+req12 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "ceu1_tx";
+};
+req13 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "ceu2_rx";
+};
+req14 {
+	compatible = "intel,dma-pl08x,dma-req";
+	intel,dma-names = "ceu2_tx";
+};

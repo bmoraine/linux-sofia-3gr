@@ -1,0 +1,34 @@
+#ifndef CONFIG_X86_INTEL_SOFIA
+/* ioapic */
+pic: interrupt-controller@fec00000 {
+	#interrupt-cells = <2>;
+	compatible = "intel,ce4100-ioapic";
+	interrupt-controller;
+	reg = <0xfec00000 0x1000>, <0xfec01000 0x1000>;
+	nr_entries = <256>;
+};
+
+lapic0: interrupt-controller@fee00000 {
+	compatible = "intel,ce4100-lapic";
+	reg = <0xfee00000 0x1000>;
+	no_pic_mode;
+};
+#else /* CONFIG_X86_INTEL_SOFIA */
+
+lapic0: interrupt-controller@fee00000 {
+	compatible = "intel,ce4100-lapic";
+	reg = <0xfee00000 0x1000>;
+	no_pic_mode;
+	no_apic_setup;
+};
+
+/* vpic */
+pic: interrupt-controller {
+	compatible = "intel,sofia-vpic";
+	#interrupt-cells = <2>;
+	interrupt-controller;
+	reg = <0xfec00000 0x2000>,
+		<0xfec01000 0x1000>;
+	intel,vpic-irqs = < 256 >;
+};
+#endif /* !CONFIG_X86_INTEL_SOFIA */

@@ -1,0 +1,19 @@
+#ifndef _HIRQ_IRQ_H
+#define _HIRQ_IRQ_H
+
+/* HIRQ nodes from HIRQ domain point of view */
+#define HIRQ_VMM_BROADCAST 0
+#define HIRQ_PMIC_TEST 1
+#define HIRQ_HIRQ_TEST 2
+#define HIRQ_PMIC_PRH_SIGNALING 3
+#define HIRQ_PMIC_TIME_UNIT 4
+#define HIRQ_PMIC_THERMAL_UNIT 5
+#define HIRQ_PMIC_BCU 6
+#define HIRQ_PMIC_ADC 7
+#define HIRQ_PMIC_CHARGER 8
+#define HIRQ_PMIC_GPIO 9
+#define HIRQ_PMIC_CRITICAL_EVENT 10
+#define HIRQ_PMIC_POWER_BUTTON 11
+#define HIRQ_PMIC_VTIMER 12
+
+#endif /* _HIRQ_IRQ_H */

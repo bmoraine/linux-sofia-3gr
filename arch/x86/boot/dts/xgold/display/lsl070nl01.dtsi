@@ -1,0 +1,18 @@
+lsl070nl01 {
+	compatible = "intel,display";
+	intel,display-resolution= <1024 600>;
+	intel,display-dpi= <170 170>;
+
+	/* MIPI-DSI video mode settings */
+	intel,display-vid-hfp-hs-bytes = <0x40>;
+	intel,display-vid-hbp-hs-bytes = <0x40>;
+	intel,display-vid-hsa-hs-bytes = <0x40>;
+	intel,display-vid-vfp-lines = <10>;
+	intel,display-vid-vbp-lines = <11>;
+	intel,display-vid-vsa-lines = <10>;
+
+	intel,display-vid-mode = "burst";
+	intel,display-vid-id = <0>;
+	intel,display-vid-pixel = "24packed";
+	intel,display-vid-fill_buf_to = <0x1F>;
+};

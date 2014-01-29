@@ -1,0 +1,614 @@
+agold {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
+	compatible = "intel,abb";
+
+	reg = <0xE6200000 0x02000000>,
+		<0xE6600000 0x100000>,
+		<0xE6A00000 0x100000>;
+
+	reg-names = "abb", "idi", "scu";
+
+	interrupt-parent = <&abb>;
+	interrupts =	<ABB_IDIABB_ERR_SRQ0	XGOLD_IRQ_TYPE_NONE>,
+			<ABB_IDIABB_TX_REQ_IRQ0 XGOLD_IRQ_TYPE_NONE>,
+			<ABB_IDIABB_RX_REQ_IRQ0 XGOLD_IRQ_TYPE_NONE>;
+	interrupt-names = "err","tx","rx";
+
+	resets = <&abb_rst 0>, <&abb_rst 1>;
+	reset-names = "idi","idirx";
+
+	idi-channels = "reserved", "register", "dma", "flow",
+			"outstanding", "stream", "stream", "stream",
+			"dma", "dma", "dma", "signal", "software",
+			"errors", "software", "software";
+
+	#include "clock.dtsi"
+
+	abb_rst:reset-controller {
+		compatible = "intel,xgold-reset";
+		reg = <0xE6A00100 0x4>;
+		#reset-cells = <1>;
+		intel,reset-set = <0>;
+		intel,reset-status = <0>;
+	};
+
+	abb_pmx_core:pinmux@E6300000 {
+		compatible = "pinctrl-single";
+		reg = <0xE6300000 0x600>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		#gpio-range-cells = <3>;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,first-pin-offset = <0x20C>;
+		pinctrl-single,function-mask = <0xfffff>;
+		range_abb: gpio-range {
+			#pinctrl-single,gpio-range-cells = <3>;
+		};
+	};
+
+	abb_pmx_gpio:gpio@E6300000 {
+		compatible = "intel,gpio";
+		#gpio-cells = <1>;
+		reg = <0xE6300000 0x600>;
+		gpio-controller;
+		gpio-ranges = <&abb_pmx_core 0 0 45>;
+		intel,gpio-direction = < 0x20C 10 1>;
+		intel,gpio-direction-out = < 1>;
+		intel,gpio-output = < 0x20C 9 1>;
+		intel,gpio-input = < 0x40C 9 1>;
+		intel,gpiochip-base = <94>;
+		intel,gpiochip-id = <1>;
+		intel,gpiochip-num = <45>;
+	};
+
+	ahb_per@0 {
+		compatible = "intel,ahbper";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		reg = <0xE6200000 0x01000000>;
+
+		ABB_cgu:ABB_cgu{
+			compatible = "intel,cgu";
+			reg = <0xE6400000 0x2060>;
+			interrupts = < 0 0 0>;
+		};
+
+		pmu:pmu{
+			compatible = "intel,pmu";
+			reg = <0xE6500000 0x100000>;
+		};
+
+		idiabb:idiabb{
+			compatible = "intel,idiabb";
+			reg = <0xE6600000 0x100000>;
+		};
+
+		ABB_scu:ABB_scu{
+			compatible = "intel,scuabb";
+			reg = <0xE6A00000 0x100000>;
+		};
+
+	};
+
+	ahb_per@1 {
+		compatible = "intel,ahbper";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		reg = <0xE7000000 0x01000000>;
+#ifndef RECOVERY_KERNEL
+		fmr:fmr {
+			compatible = "intel,idifmr", "intel,idi,peripheral";
+			idi-peripheral-type = "intel,idi,fmr";
+			reg = <0xE7000000 0x8000>,
+			      <0xE7008000 0x8000>,
+			      <0x01000000 0x8000>;
+			reg-names = "ram","register","hwram";
+			interrupt-parent = <&fmr>;
+			interrupts = <0 1 2 3 4>;
+			#interrupt-cells = <1>;
+			#address-cells = <0>;
+			interrupt-map = <
+					 0 &abb ABB_FMR_INT XGOLD_IRQ_TYPE_NONE
+					 1 &abb ABB_FMRX_EV_ONESHOT XGOLD_IRQ_TYPE_NONE
+					 2 &abb ABB_FMRX_EV_TUNE XGOLD_IRQ_TYPE_NONE
+					 3 &abb ABB_FMTX_EV_CALIB XGOLD_IRQ_TYPE_NONE
+					 4 &abb ABB_FMTX_EV_TUNE XGOLD_IRQ_TYPE_NONE>;
+
+			interrupt-names = "fmr_int",
+					"fmrx_ev_oneshot",
+					"fmrx_ev_tune",
+					"fmtx_ev_calib",
+					"fmtx_ev_tune";
+
+			pm,class-name = "fmr_class";
+			pm,user-name = "fmr";
+			pm,state-D0 = "enable";
+			pm,state-D0i0 = "enable_intclk";
+			pm,state-D3 = "disable";
+
+			clocks = <&ABB_MUX_FMR>, <&ABB_MUX_FMR_ADC>;
+			clock-names = "kernel","analog";
+			idi-channels = < 7 >;
+		};
+#endif
+#ifndef RECOVERY_KERNEL
+		afe:afe {
+			compatible = "intel,idiafe", "intel,idi,peripheral";
+			idi-peripheral-type = "intel,idi,afe";
+			idi-id-vendor = <0x8086>;
+			idi-id-device = <0xA6200>;
+			idi-id-subdevice = <0x2>;
+			reg = <0xE7100000 0x10000>,
+			      <0x01110000 0x4>,
+			      <0x01110100 0x4>,
+			      <0xE3606800 0x80>,
+			      <0xE3606900 0x80>,
+			      <0xE7110100 32>;
+			reg-names = "register","afe-in","afe-out", "dsp-in", "dsp-out", "afe-in-fifo";
+			clocks = <&ABB_MUX_AFE>;
+			clock-names = "clk_afe";
+			resets = <&abb_rst 0x16>;
+			reset-names = "aferst";
+			intel,scu-phys = <&ABB_scu>;
+			intel,cgu-phys = <&ABB_cgu>;
+			intel,afe,id = "AG620";
+			idi-channels = < 5 >;
+
+			pm,class-name = "afe_class";
+			pm,state-D0 = "headset";
+			pm,state-D0i0 = "no_headset";
+			pm,state-D0i1 = "slpret_headset";
+			pm,state-D0i2 = "slpret_no_headset";
+			pm,state-D3 = "disable";
+		};
+#endif
+		idierror:idierror {
+			compatible = "intel,idierror", "intel,idi,peripheral";
+			idi-peripheral-type = "intel,idi,error";
+			idi-id-vendor = <0x8086>;
+			idi-id-device = <0xA6200>;
+			idi-id-subdevice = <0xE>;
+
+			idi-channels = < 13 >;
+		};
+
+#ifndef RECOVERY_KERNEL
+		btif:btif {
+			compatible = "intel,idibtif", "intel,idi,peripheral";
+			idi-peripheral-type = "intel,idi,bt";
+			idi-id-vendor = <0x8086>;
+			idi-id-device = <0xA6200>;
+			idi-id-subdevice = <0x3>;
+			pm,class-name = "btif_class";
+			pm,state-D0 = "enable";
+			pm,state-D0i2 = "enable_psv";
+			pm,state-D0i3 = "idle";
+			pm,state-D3 = "disable";
+
+			reg = <0xE7200000 0x10000>,
+			      <0x01240000 0x800>,
+			      <0x01280000 0x800>,
+			      <0xE6A00000 0x10000>;
+			reg-names = "register","tx fifo","rx fifo","scu";
+
+			resets = <&abb_rst 6>, <&abb_rst 5>;
+			reset-names = "btif","btip";
+
+			interrupt-parent = <&btif>;
+			interrupts = <0 1 2 3>;
+			#interrupt-cells = <1>;
+			#address-cells = <0>;
+			interrupt-map = <
+					 0 &abb ABB_BTIF_REQ_IRQ XGOLD_IRQ_TYPE_NONE
+					 1 &abb ABB_BTIF_MULT_SRC_SRQ XGOLD_IRQ_TYPE_NONE
+					 2 &abb ABB_BTIF_ERR_SRQ XGOLD_IRQ_TYPE_NONE
+					 3 &abb ABB_SCU_INT3 XGOLD_IRQ_TYPE_NONE>;
+
+			interrupt-names = "btif_req_irq","btif_mult_src","btif_err","btip_wakeup";
+			clocks = <&ABB_MUX_IDI>, <&ABB_req_bt78>, <&ABB_req_bt104>,
+				<&ABB_clk_rtc>, <&ABB_req_bt_vcxo>, <&ABB_req_bt_pwm_on>,
+				<&ABB_req_bt_rf_on>;
+			clock-names = "kernel", "btip_78M", "btip_104M",
+					"btip_rtc", "btip_vcxo", "btip_pwm_on", "btip_rf_on";
+			idi-channels = < 8 >;
+		};
+#endif
+#ifndef RECOVERY_KERNEL
+		btauif:btauif {
+			compatible = "intel,idibtauif", "intel,idi,peripheral";
+			idi-peripheral-type = "intel,idi,bt-stream";
+			idi-id-vendor = <0x8086>;
+			idi-id-device = <0xA6200>;
+			idi-id-subdevice = <0x8>;
+			pm,class-name = "btauif_class";
+			pm,user-name = "btaud";
+			pm,state-D0 = "enable";
+			pm,state-D3 = "disable";
+
+			reg = <0xE7300000 0x10000>,
+			      <0x01340000 0x4>,
+			      <0x01380000 0x4>,
+			      <0xE3606A00 0x100>,
+			      <0xE3606B00 0x100>;
+			reg-names = "register","btauif_in","btauif_out","dsp_bt_in","dsp_bt_out";
+
+			resets = <&abb_rst 7>;
+			reset-names = "btauif";
+
+			clocks = <&ABB_clk_aud_48k>;
+			clock-names = "btauif_48K";
+			idi-channels = < 6 >;
+
+		};
+#endif
+		gnss:gnss {
+			compatible = "intel,idignss","intel,idi,peripheral";
+			idi-peripheral-type = "intel,idi,gnss";
+
+			idi-id-vendor = <0x8086>;
+			idi-id-device = <0xA6200>;
+			idi-id-subdevice = <0x6>;
+
+			reg = <0xE7700000 0x10000>,
+				<0xE6A10000 0x04000>,
+				<0x01740000 0x10>,
+				<0x01780000 0x10>,
+			        <0xE6A00000 0x210>;
+			reg-names = "register","gnss","tx fifo","rx fifo","scu";
+			interrupt-parent = <&gnss>;
+			interrupts = <0 1 2 3>;
+			#interrupt-cells = <1>;
+			#address-cells = <0>;
+			interrupt-map = <
+					 0 &abb ABB_GNSS_WUP XGOLD_IRQ_TYPE_NONE
+					 1 &abb ABB_GNSS_NOTIFICATION XGOLD_IRQ_TYPE_NONE
+					 2 &abb ABB_GNSS_ERR XGOLD_IRQ_TYPE_NONE
+					 3 &abb ABB_USIF_ALL_INT XGOLD_IRQ_TYPE_NONE>;
+
+			interrupt-names = "gnss_wakeup","gnss_notification","gnss_error","usif";
+			clocks = <&ABB_MUX_FIX2>, <&ABB_MUX_GPS_BB_PLL>, <&ABB_MUX_GPS_BB_DATA>,
+				<&ABB_clk_rtc>, <&ABB_gps_sys_clk_req>, <&ABB_gps_bb_clk_req>,
+				<&ABB_MUX_FIX2>, <&ABB_clk_gps_phs1>, <&ABB_clk_gps_phs4>,
+				<&ABB_clk_gps_phs5>;
+
+			clock-names = "gps_ext_uart", "gps_bb", "gps_bb_data",
+					"gps_rtc","gps_sys_req","gps_bb_req",
+					"kernel", "gps_auto_pu_phs1", "gps_auto_pu_phs4",
+					"gps_auto_pu_phs5";
+			intel,usif-serial,datapath = "idi";
+			intel,usif-serial,rx,buffer-size = < 32768 >;
+			intel,usif-serial,rx,mrps = < 16384>;
+			intel,usif-serial,ormc = < 1 >;
+			intel,usif-serial,rmc = < 1 >;
+			intel,serial-port = <0>;
+			intel,usif-debug;
+			idi-channels = < 10 >;
+
+			pm,user-name = "gnss";
+			pm,class-name = "gnss_class";
+			pm,state-D0 = "enable_def_dclk_832_pclk_1248";
+			pm,state-D0i0 = "enable_dclk_96_pclk_1248";
+			pm,state-D0i1 = "enable_dclk_832_pclk_104";
+			pm,state-D0i2 = "enable_dclk_96_pclk_104";
+			pm,state-D0i3 = "idle";
+			pm,state-D3 = "disable";
+		};
+#ifndef RECOVERY_KERNEL
+		wifi:wifi {
+			compatible = "intel,idiwlan","intel,idi,peripheral";
+			idi-peripheral-type = "intel,idi,wlan";
+			idi-id-vendor = <0x8086>;
+			idi-id-device = <0xA6200>;
+			idi-id-subdevice = <0x5>;
+
+			reg = <0xE7600000 0x100000>,
+				<0xE6A0C000 0x10>,
+			        <0x01620000 0x8000>,
+			        <0x01628000 0x8000>,
+			        <0x01630000 0x8000>,
+				<0xE6600000 0x740>,
+				<0xE6100000 0x740>;
+			reg-names = "wlan", "scu-wifi", "txl fifo", "txh fifo",
+					"rx fifo", "sg-conf-1", "sg-conf-2";
+			interrupt-parent = <&wifi>;
+			interrupts = < 0 >;
+			#interrupt-cells = <1>;
+			#address-cells = <0>;
+			interrupt-map = <0 &abb ABB_WLAN_INT XGOLD_IRQ_TYPE_NONE>;
+
+			interrupt-names = "wlan_irq";
+			resets = <&abb_rst 9>, <&abb_rst 8>;
+			reset-names = "pmu","core";
+
+			clocks = <&ABB_wlan_clk_req>, <&ABB_clk_rtc> ;
+			clock-names = "wlan_clk_req", "rtc_clk_req", "kernel";
+			idi-channels = < 9 2 >;
+
+			pm,class-name = "wlan_class";
+			pm,user-name = "wlan";
+			pm,state-D0 = "enable";
+			pm,state-D0i3 = "idle";
+			pm,state-D3 = "disable";
+		};
+#endif
+		i2c_5:i2c_5 {
+			compatible = "intel,idii2c", "intel,idi,peripheral";
+			idi-peripheral-type = "intel,idi,i2c";
+			reg = <0xE7400000 0x100000>;
+			reg-names = "register";
+			interrupt-parent = <&i2c_5>;
+			interrupts = <0>;
+			#interrupt-cells = <1>;
+			#address-cells = <0>;
+			#size-cells = <1>;
+			interrupt-map = <0 &abb ABB_I2C_RAWIRQ XGOLD_IRQ_TYPE_NONE>;
+			interrupt-names = "I2C_RAWIRQ";
+			clocks = <&ABB_MUX_FIX1>, <&ABB_MUX_IDI>;
+			clock-names = "clk_kernel", "clk_ahb";
+			intel,i2c,b400 = < 1 54 26 3 >;
+			intel,i2c,b100 = < 1 256 0 0 >;
+			idi-channels = < 15 >;
+			pm,class-name = "i2c_class";
+			pm,user-name = "i2cabb";
+			pm,state-D0 = "enable";
+			pm,state-D3 = "disable";
+		};
+#ifdef SF_3G_TAB
+		bq2429x_idi:bq2429x_idi{
+			compatible = "intel,bq2429x_idi", "intel,idi,peripheral";
+#else
+		fan54x_idi:fan54x_idi{
+			compatible = "intel,fan54x_idi", "intel,idi,peripheral";
+#endif
+			#address-cells = < 0 >;
+			reg = < 0xE6500A00 0x10 >;
+			reg-names = "registers";
+#ifdef SF_3G_TAB
+			idi-peripheral-type = "intel,idi,bq2429x";
+#else
+			idi-peripheral-type = "intel,idi,fan54x";
+#endif
+			idi-id-vendor = <0x8086>;
+			idi-id-device = <0xA6200>;
+			idi-id-subdevice = <0xB>;
+			idi-channels = < 15 >;
+			pm,class-name = "generic_class";
+			pm,user-name = "chg";
+			pm,state-D0 = "enable";
+			pm,state-D3 = "disable";
+		};
+
+		intel_adc {
+			compatible = "intel,adc";
+
+		};
+
+		meas:meas {
+			compatible = "intel,idimeas", "intel,idi,peripheral";
+			idi-peripheral-type = "intel,idi,meas";
+			reg = <0xE6B00000 0x663>;
+			reg-names = "meas_reg";
+			idi-id-vendor = <0x8086>;
+			idi-id-device = <0xA6200>;
+			idi-id-subdevice = <0x9>;
+			interrupt-parent = <&meas>;
+			interrupts = <0>;
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+			#interrupt-cells = <1>;
+			#address-cells = <0>;
+			#size-cells = <1>;
+			interrupt-map = <0 &abb ABB_MRDY_INT XGOLD_IRQ_TYPE_NONE>;
+			interrupt-names = "meas_irq";
+			idi-channels = < 15 >;
+			pm,class-name = "generic_class";
+			pm,user-name = "meas";
+			pm,state-D0 = "enable";
+			pm,state-D3 = "disable";
+			intel,calibration_period_s = < 30 >;
+			intel,settling_accuracy_uv = < 2000 >;
+			intel,settling_interval_ms = < 4 >;
+
+			#include "meas-adc.h"
+
+			hal-channel0 {
+			        adc,consumer-channel = "BATID_ADC";
+				adc,datasheet-name = "AG620_M0";
+				adc,log-channel-id = <ADC_ID_BAT>;
+				adc,phy-channel-num = <ADC_PHY_M0>;
+				adc,autoscaling-on;
+				adc,adc-bias-na = <4500>;
+				adc,max-signal-settling-time-ms = <500>;
+				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+			};
+			hal-channel1 {
+			        adc,consumer-channel = "BATTEMP0_ADC";
+				adc,datasheet-name = "AG620_M1";
+				adc,log-channel-id = <ADC_T_BAT_0>;
+				adc,phy-channel-num = <ADC_PHY_M1>;
+				adc,autoscaling-on;
+				adc,adc-bias-na = <4500>;
+				adc,max-signal-settling-time-ms = <0>;
+				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+			};
+			hal-channel2 {
+			        adc,consumer-channel = "SYSTEMP0_ADC";
+				adc,datasheet-name = "AG620_M2";
+				adc,log-channel-id = <ADC_T_SYS_0>;
+				adc,phy-channel-num = <ADC_PHY_M2>;
+				adc,autoscaling-on;
+				adc,adc-bias-na = <4500>;
+				adc,max-signal-settling-time-ms = <0>;
+				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+			};
+			hal-channel3 {
+			        adc,consumer-channel = "HWID_ADC";
+				adc,datasheet-name = "AG620_M3";
+				adc,log-channel-id = <ADC_ID_PCB>;
+				adc,phy-channel-num = <ADC_PHY_M3>;
+				adc,autoscaling-on;
+				adc,adc-bias-na = <0>;
+				adc,max-signal-settling-time-ms = <0>;
+				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+			};
+			hal-channel4 {
+			        adc,consumer-channel = "ACCID_ADC";
+				adc,datasheet-name = "AG620_M4";
+				adc,log-channel-id = <ADC_ID_ACC>;
+				adc,phy-channel-num = <ADC_PHY_M11>;
+				adc,adc-bias-na = <0>;
+				adc,max-signal-settling-time-ms = <0>;
+				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+			};
+			hal-channel5 {
+			        adc,consumer-channel = "ANAMON_ADC";
+				adc,datasheet-name = "AG620_M6";
+				adc,log-channel-id = <ADC_ANAMON>;
+				adc,phy-channel-num = <ADC_PHY_M6>;
+				adc,adc-bias-na = <0>;
+				adc,max-signal-settling-time-ms = <0>;
+				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+			};
+			hal-channel6 {
+			        adc,consumer-channel = "VBAT_ADC";
+				adc,datasheet-name = "AG620_M11_TYP";
+				adc,log-channel-id = <ADC_V_BAT_TYP>;
+				adc,phy-channel-num = <ADC_PHY_M11>;
+				adc,adc-bias-na = <0>;
+				adc,max-signal-settling-time-ms = <0>;
+				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+			};
+			hal-channel7 {
+			        adc,consumer-channel = "VBAT_MIN_ADC";
+				adc,datasheet-name = "AG620_M11_MIN";
+				adc,log-channel-id = <ADC_V_BAT_MIN>;
+				adc,phy-channel-num = <ADC_PHY_M11>;
+				adc,adc-bias-na = <0>;
+				adc,max-signal-settling-time-ms = <0>;
+				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+			};
+			hal-channel8 {
+			        adc,consumer-channel = "VBAT_OCV_ADC";
+				adc,datasheet-name = "AG620_M11_OCV";
+				adc,log-channel-id = <ADC_V_BAT_OCV>;
+				adc,phy-channel-num = <ADC_PHY_M11>;
+				adc,autoscaling-on;
+				adc,adc-bias-na = <0>;
+				adc,max-signal-settling-time-ms = <0>;
+				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_HIGH>;
+			};
+			hal-channel9 {
+			        adc,consumer-channel = "PMICTEMP_ADC";
+				adc,datasheet-name = "AG620_M13";
+				adc,log-channel-id = <ADC_T_PMIC_IC_0>;
+				adc,phy-channel-num = <ADC_PHY_M13>;
+				adc,autoscaling-on;
+				adc,adc-bias-na = <0>;
+				adc,max-signal-settling-time-ms = <0>;
+				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+			};
+		};
+
+		adc_sensors {
+			compatible = "intel,adc_sensors";
+			reg = <0xE6B00000 0x663>;
+			reg-names = "register";
+			#interrupt-cells = <1>;
+			#address-cells = <0>;
+			#size-cells = <1>;
+			io-channel-names = "BATID_ADC", "BATTEMP0_ADC",
+					"SYSTEMP0_ADC", "HWID_ADC",
+					"ACCID_ADC", "ANAMON_ADC",
+					"VBAT_ADC", "VBAT_MIN_ADC",
+					"VBAT_OCV_ADC", "PMICTEMP_ADC";
+			io-channels = < &meas 0 &meas 1 &meas 2
+				        &meas 3 &meas 4 &meas 5
+					&meas 6	&meas 7 &meas 8 &meas 9>;
+		};
+
+		meas_thermal {
+			compatible = "intel,meas_thermal";
+			intel,thermal-names = "pmictemp";
+			intel,sensor-names = "PMICTEMP_SENSOR";
+		};
+
+		fuel_gauge:fuel_gauge {
+			compatible = "intel,fuel_gauge";
+		};
+
+		bat_hal:bat_hal {
+			compatible = "intel,ag6x0_bat_hal", "intel,idi,peripheral";
+			idi-peripheral-type = "intel,idi,bat_hal";
+			idi-id-vendor = <0x8086>;
+			idi-id-device = <0xA6200>;
+			idi-id-subdevice = <0xA>;
+			idi-channels = < 15 >;
+			#address-cells = < 0 >;
+			reg = < 0xE6500C00 0x4
+				0xE6501038 0x4 >;
+			reg-names = "pmu_bat_det", "pmu_c0_fs";
+			interrupts = < 0 >;
+			interrupt-parent = <&bat_hal>;
+			#interrupt-cells = < 1 >;
+			interrupt-map = < /* BRD */ 0 &ag620_pmu ABB_PMU_BRD IRQ_TYPE_EDGE_RISING >;
+			interrupt-names = "brd";
+			pm,class-name = "generic_class";
+			pm,user-name = "bat";
+			pm,state-D0 = "enable";
+			pm,state-D3 = "disable";
+		};
+
+		brown_out:brown_out {
+			compatible = "intel,brownout", "intel,idi,peripheral";
+			idi-peripheral-type = "intel,idi,brownout";
+			idi-id-vendor = <0x8086>;
+			idi-id-device = <0xA6200>;
+			idi-id-subdevice = <0xD>;
+			idi-channels = < 15 >;
+			#address-cells = < 0 >;
+			reg = < 0xE6500C20 0x4
+				0xE6500C04 0x4
+				0xE6500C10 0x4 >;
+			reg-names = "pmu_bat_uv_det", "pmu_bat_superv", "pmu_bat_superv_wr";
+			pm,class-name = "generic_class";
+			pm,user-name = "bnt";
+			pm,state-D0 = "enable";
+			pm,state-D3 = "disable";
+		};
+
+		fuel_gauge_hal:fuel_gauge_hal {
+			compatible = "intel,ag620_swfgh", "intel,idi,peripheral";
+			#address-cells = < 0 >;
+			reg = < 0xE6500C2C 0x1C >;
+			reg-names = "pmu_cc";
+			idi-peripheral-type = "intel,idi,fg_hal";
+			idi-id-vendor = <0x8086>;
+			idi-id-device = <0xA6200>;
+			idi-id-subdevice = <0xC>;
+			idi-channels = < 15 >;
+			#interrupt-cells = <1>;
+			interrupt-map = <0 &ag620_pmu ABB_PMU_CCCL IRQ_TYPE_EDGE_RISING>;
+			interrupt-parent = <&fuel_gauge_hal>;
+			interrupts = <0>;
+			interrupt-names = "cccl";
+			intel,ag620es2;
+			pm,class-name = "generic_class";
+			pm,user-name = "ccd";
+			pm,state-D0 = "enable";
+			pm,state-D3 = "disable";
+		};
+		vibrator:vibrator {
+			compatible = "intel,vibra";
+			#address-cells = < 0 >;
+			reg = <0xE6501400 0x8>;
+			reg-names = "vibra-registers";
+		};
+	};
+};

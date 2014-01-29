@@ -1,0 +1,3 @@
+/* XGOLD IRQ DTSI */
+#include "xgold/sofia_lte_soc/irq-eint.dtsi"
+#include "xgold/sofia_lte_soc/irq-hirq.dtsi"

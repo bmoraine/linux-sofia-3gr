@@ -1,0 +1,868 @@
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "intel,sofia";
+			reg = <0>;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "intel,sofia";
+#ifdef CONFIG_X86_INTEL_SOFIA
+			reg = <1>;
+#else
+			reg = <2>;
+#endif
+		};
+	};
+
+	xgold {
+		compatible = "intel,xgold-ia", "intel,soc";
+		intel,platform-dev = "uspcnoc", "noc", "l1noc", "l2noc", "modemnoc", "ahbper";
+		device_type = "soc";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		interrupt-parent = <&pic>;
+		intel,scu-phys = < &scu >;
+		intel,chipid = <0x60 0x8 0x8>;
+		intel,rev = <0x60 0x0 0x8>;
+		intel,machine = "sofia_lte_soc-es1-svb";
+
+		#include "xgold/sofia_lte_soc/irq-apic.dtsi"
+		#include "xgold/sofia_lte_soc/pm.dtsi"
+
+		trace_port:sw-stace {
+			compatible = "intel,tadi";
+			#address-cells = < 0 >;
+			reg = <0x80000000 0x100000
+					0x81000000 0x100000>;
+			reg-names = "trace-port", "trace-port-1";
+		};
+
+		noc {
+			compatible = "intel,noc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			reg = <0xE0000000 0x10000000>;
+
+			l1_noc {
+				compatible = "intel,l1noc";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+				reg = <0xE9010000 0x4000>;
+
+				clocks = < &clk_L1_NoC >;
+				clock,rate = <400000000>;
+				interrupts = < NOC_ERR_APS_L1 IRQ_TYPE_DEFAULT >, < NOC_STATALARM IRQ_TYPE_DEFAULT >;
+				interrupt-names = "error", "stat_alarm";
+				probe,nr = < 5 >;
+				filter,nr = < 4 >;
+				counter,nr = < 2 >;
+
+				probe,offset = < 0x2000 >;
+
+				probe,portsel,0 = "CPU_PMI", "CPU_MMIO";
+				probe,portsel,1 = "EMIC";
+				probe,portsel,2 = "CIF", "GPU";
+				probe,portsel,3 = "DCC1", "DCC2", "VPU";
+				probe,portsel,4 = "LMU";
+
+				stat,0 = "CPU_PMI";
+				stat,1 = "CPU_MMIO";
+				stat,2 = "GPU";
+				stat,3 = "DCC2";
+				stat,4 = "EMIC";
+				#include "xgold/sofia_lte_soc/NoC.dtsi"
+			};
+
+			l2_noc {
+				compatible = "intel,l2noc";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+				reg = <0xE9014000 0x4000>;
+
+				clocks = < &clk_L2_NoC >;
+				interrupts = < NOC_ERR_APS_L2 IRQ_TYPE_DEFAULT >, < NOC_STATALARM IRQ_TYPE_DEFAULT >;
+				interrupt-names = "error", "stat_alarm";
+				clock,rate = <200000000>;
+				probe,nr = < 5 >;
+				filter,nr = < 4 >;
+				counter,nr = < 2 >;
+
+				probe,offset = < 0x2000 >;
+
+				probe,portsel,0 = "DMA8C_1";
+				probe,portsel,1 = "USB30";
+				probe,portsel,2 = "SDIO", "SDMMC", "eMMC";
+				probe,portsel,3 = "DMA2C_L2_1", "DMA2C_L2_2";
+				probe,portsel,4 = "DMA8C_2";
+
+				stat,0 = "eMMC";
+				stat,1 = "SDIO";
+				stat,2 = "SDMMC";
+				stat,3 = "USB30";
+
+				#include "xgold/sofia_lte_soc/NoC.dtsi"
+
+				ahb_per@0 {
+					compatible = "intel,ahbper";
+					#address-cells = <1>;
+					#size-cells = <1>;
+					ranges;
+					reg = <0xE0000000 0x1000000>;
+
+					dma8ch:dma-controller-dma8ch {
+						compatible = "intel,pl08x";
+						reg = <0xE0100000 0x100000>;
+						reg-names = "register";
+						intel,dma-pl08x,buses =  < 1 1 >;
+						intel,dma-pl08x,memcpy = < 3 3 2 2 1 1 1 >;
+						intel,dma-pl08x,periphid = < 0x00041080 >;
+						intel,mux-base = < &scu >;
+						interrupts = < DMA1_ERR_INT IRQ_TYPE_DEFAULT >, < DMA1_CH0_7_INT IRQ_TYPE_DEFAULT >;
+						interrupt-names = "err","chx";
+						clocks = <&clk_L1_NoC>, <&clk_ahb_per0_dmac8>;
+						clock-names = "clk_master1", "apb_pclk";
+
+						#dma-cells = <1>;
+						dma-channels = <15>;
+						dma-requests = <21>;
+
+						pm,class-name = "dma8ch_class";
+						pm,user-name = "dmac_8ch";
+						pm,state-D0 = "high_perf";
+						pm,state-D3 = "disable";
+
+						resets = < &dbb_rst2 0 >;
+						reset-names = "dma";
+
+						#include "xgold/sofia_lte_soc/dma.dtsi"
+					};
+
+					dma2ch_2:dma-controller-dma2ch_2 {
+						reg = <0xE0400000 0x100000>;
+						resets = < &dbb_rst2 12 >;
+						reset-names = "dma2ch";
+					};
+				};
+
+				ahb_per@1 {
+					compatible = "intel,ahbper";
+					#address-cells = <1>;
+					#size-cells = <1>;
+					ranges;
+					reg = <0xE1000000 0x1000000>;
+
+					usif7:usif7-dsda {
+						compatible = "not enabled";
+						reg = <0xE1000000 0x100000>;
+						#address-cells = < 0 >;
+						interrupts = < 0 >;
+						interrupt-parent = <&usif7>;
+						#interrupt-cells = < 1 >;
+						interrupt-map = <
+							0 &pic USIF7_INT IRQ_TYPE_DEFAULT
+						>;
+						interrupt-names = "usif-int";
+						clocks = <&clk_usif7>, <&clk_ahb_per1>;
+						clock-names = "kernel", "register";
+						resets = < &dbb_rst2 29 >;
+						reset-names = "usif";
+					};
+
+					usif1:usif1 {
+						compatible = "intel,usif-serial";
+						reg = <0xE1100000 0x100000>;
+						#address-cells = < 0 >;
+						intel,serial-port = < 0 >;
+						wakeup-source;
+						interrupts = < 0 1 >;
+						interrupt-parent = <&usif1>;
+						#interrupt-cells = < 1 >;
+						interrupt-map = <
+							0 &pic USIF1_INT IRQ_TYPE_DEFAULT
+							1 &eint EINT_USIF1_WK XGOLD_IRQ_TYPE_EDGE_RISING
+						>;
+						interrupt-names = "usif-int", "wk_int";
+						clocks = <&clk_usif1>, <&clk_ahb_per1>;
+						clock-names = "kernel", "register";
+
+						pm,class-name = "usif_class";
+						pm,user-name = "usif1";
+						pm,state-D0 = "enable_104M_hperf";
+						pm,state-D3 = "disable";
+					};
+
+					gnss:usif4-gnss {
+						compatible = "intel,usif-serial";
+						reg = <0xE1200000 0x100000>;
+						#address-cells = < 0 >;
+						intel,serial-port = < 1 >;
+						interrupts = < 0 1 >;
+						interrupt-parent = <&gnss>;
+						#interrupt-cells = < 1 >;
+						interrupt-map = <
+							0 &pic USIF4 IRQ_TYPE_DEFAULT
+							1 &eint EINT_USIF4_WK XGOLD_IRQ_TYPE_EDGE_RISING
+						>;
+						interrupt-names = "usif-int", "wk_int";
+						clocks = <&clk_usif_gnss>, <&clk_ahb_per1>;
+						clock-names = "kernel", "register";
+
+						pm,class-name = "usif_class";
+						pm,user-name = "usif4";
+						pm,state-D0 = "enable_104M_hperf";
+						pm,state-D3 = "disable";
+					};
+
+					i2c_1:i2c_1 {
+						/* compatible = "intel,i2c"; */
+						#size-cells = <1>;
+						#address-cells = <0>;
+						reg = <0xE1300000 0x100000>;
+						clocks = <&clk_i2c1>, <&clk_ahb_per1>;
+						clock-names = "clk_kernel", "clk_ahb";
+						interrupts = < I2C1_INT IRQ_TYPE_DEFAULT >;
+						resets = < &dbb_rst2 7 >;
+						reset-names = "i2c";
+
+						intel,i2c,b400 = < 1 54 13 0 >;
+						intel,i2c,b100 = < 1 256 0 0 >;
+
+						pm,class-name = "i2c_class";
+						pm,user-name = "i2c1";
+						pm,state-D0 = "enable";
+						pm,state-D3 = "disable";
+					};
+
+					stsbc1:stsbc1 {
+						reg = <0xE1A00000 0x100000 >;
+					};
+
+					emmc:emmc {
+						compatible = "intel,sdhci";
+						reg = <0xE1D00000 0x100000>;
+						clocks = <&clk_emmc_kernel>, <&clk_ahb_per1>;
+						clock-names = "clk_core", "clk_ahb";
+						interrupts = < EMMC_INT IRQ_TYPE_DEFAULT >;
+						/*setted by bootcode, capabilities register not correct*/
+						/*vmmc-supply = <&vemmc>;*/
+						/*vqmmc-supply = <&vdd1>;*/
+						intel,max_clock = <52000000>;
+						intel,min_clock = <203125>;
+						intel,tap-hwbase = < &stsbc1 >;
+						intel,tap_reg = < 0x40000 >;
+						/* QUIRK_CAP_CLOCK_BASE_BROKEN: bit 25 + QUIRKS2_HOST_PRESET_VALUE_BROKEN: bit 3 + LED_BROKEN: bit 14*/
+						intel,quirks = < 0x2000000 0x4008 >;
+						intel,is_8_bits = < 1 >;
+						intel,is_non_removable = < 1 >;
+						intel,io-access-guest;
+						pm_ctrl{
+							pm,class-name = "mmcsd_volt_class";
+							pm,user-name = "vemmc_volt";
+							pm,state-D0 = "high_perf";
+							pm,state-D0i2 = "mid_perf";
+							pm,state-D3 = "disable";
+						};
+						clock_ctrl{
+							pm,class-name = "mmcsd_clk_class";
+							pm,user-name = "emmc_clk";
+							pm,state-D0 = "mid_perf";
+							pm,state-D0i2 = "mid_perf";
+							pm,state-D3 = "disable";
+						};
+
+
+					};
+
+					sdmmc:sdmmc {
+						compatible = "intel,sdhci";
+						#address-cells = < 0 >;
+						reg = <0xE1400000 0x100000>;
+					        clocks = <&clk_sdmmc_kernel>, <&clk_ahb_per1_sdmmc>;
+						clock-names = "clk_core", "clk_ahb";
+						interrupts = <0 1>;
+						interrupt-parent = <&sdmmc>;
+						#interrupt-cells = < 1 >;
+						interrupt-map = <
+							0 &pic SDMMC_INT IRQ_TYPE_DEFAULT
+							1 &eint EINT_SDMMC_DETECT XGOLD_IRQ_TYPE_EDGE_BOTH >;
+						interrupt-names = "host";
+						resets = < &dbb_rst2 2 >;
+						reset-names = "sdmmc";
+						vqmmc-supply = <&vsdmmc>;
+						intel,max_clock = <96000000>;
+						intel,min_clock = <203125>;
+						intel,tap-hwbase = < &stsbc1 >;
+						intel,tap_reg = < 0x80000 >;
+						intel,corecfg_reg = < 0x80008 >;
+						intel,corecfg_val = < 0x0074072>;
+						intel,is_non_removable = < 0 >;
+						/* BROKEN_CARD_DETECTION: bit15/
+						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
+						/* QUIRK2_POWER_CONTROL_BUG: bit15 */
+						intel,quirks = < 0x8000 0xc008 >;
+						intel,io-access-guest;
+						pm_ctrl{
+							pm,class-name = "mmcsd_volt_class";
+							pm,user-name = "sdmmc1_volt";
+							pm,state-D0 = "high_perf";
+							pm,state-D0i2 = "mid_perf";
+							pm,state-D3 = "disable";
+						};
+						clock_ctrl{
+							pm,class-name = "mmcsd_clk_class";
+							pm,user-name = "sdmmc1_clk";
+							pm,state-D0 = "mid_perf";
+							pm,state-D0i2 = "mid_perf";
+							pm,state-D3 = "disable";
+						};
+
+					};
+
+					sdio:sdio {
+						compatible = "intel,sdhci";
+						#address-cells = < 0 >;
+						reg = <0xE1700000 0x100000>;
+					        clocks = <&clk_sdio_kernel>, <&clk_ahb_per1_sdio>;
+						clock-names = "clk_core", "clk_ahb";
+						interrupts = < SDIO_INT IRQ_TYPE_DEFAULT >;
+						resets = < &dbb_rst2 3 >;
+						reset-names = "sdio";
+						/*vmmc-supply = <&vdd_sdio30_pen>;*/
+						intel,max_clock = <200000000>;
+						intel,min_clock = <203125>;
+						intel,tap-hwbase = < &stsbc1 >;
+						intel,tap_reg = < 0xc0000 >;
+						intel,corecfg_reg = < 0xc0004 0xc0008 0xc0020>;
+						intel,corecfg_val = < 0xfe1ada20 0x0074176 0x0000FF>;
+						intel,is_non_removable = < 1 >;
+						/* QUIRK1_HOST_CLOCK_BASE_BROKEN: bit25 */
+						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
+						/* QUIRK2_WA_LNP: bit22 */
+						intel,quirks = < 0x2000000 0x404008 >;
+						intel,io-access-guest;
+						pm_ctrl{
+							pm,class-name = "mmcsd_volt_class";
+							pm,user-name = "sdio_volt";
+							pm,state-D0 = "high_perf";
+							pm,state-D0i2 = "mid_perf";
+							pm,state-D3 = "disable";
+						};
+						clock_ctrl{
+							pm,class-name = "mmcsd_clk_class";
+							pm,user-name = "sdio_clk";
+							pm,state-D0 = "high_perf";
+							pm,state-D0i2 = "high_perf";
+							pm,state-D3 = "disable";
+						};
+
+					};
+
+
+					i2c_3:i2c_3 {
+						compatible = "intel,i2c";
+						#size-cells = <1>;
+						#address-cells = <0>;
+						reg = <0xE1500000 0x100000>;
+						clocks = <&clk_i2c3>, <&clk_ahb_per1>;
+						clock-names = "clk_kernel", "clk_ahb";
+						interrupts = < I2C3_INT IRQ_TYPE_DEFAULT >;
+						resets = < &dbb_rst2 30 >;
+						reset-names = "i2c";
+
+						intel,i2c,b400 = < 1 54 13 0 >;
+						intel,i2c,b100 = < 1 256 0 0 >;
+
+						pm,class-name = "i2c_class";
+						pm,user-name = "i2c3";
+						pm,state-D0 = "enable";
+						pm,state-D3 = "disable";
+					};
+
+					i2c_4:i2c_4 {
+						compatible = "intel,i2c";
+						#size-cells = <1>;
+						#address-cells = <0>;
+						reg = <0xE1600000 0x100000>;
+						clocks = <&clk_i2c4>, <&clk_ahb_per1>;
+						clock-names = "clk_kernel", "clk_ahb";
+						interrupts = < I2C4 IRQ_TYPE_DEFAULT >;
+						resets = < &dbb_rst2 13 >;
+						reset-names = "i2c";
+
+						intel,i2c,b400 = < 1 54 13 0 >;
+						intel,i2c,b100 = < 1 256 0 0 >;
+
+						pm,class-name = "i2c_class";
+						pm,user-name = "i2c4";
+						pm,state-D0 = "enable";
+						pm,state-D3 = "disable";
+					};
+
+					i2c_2:i2c_2 {
+						compatible = "intel,i2c";
+						#size-cells = <1>;
+						#address-cells = <0>;
+						reg = <0xE1800000 0x100000>;
+						clocks = <&clk_i2c2>, <&clk_ahb_per1>;
+						clock-names = "clk_kernel", "clk_ahb";
+						interrupts = < I2C2_INT IRQ_TYPE_DEFAULT >;
+						resets = < &dbb_rst2 8 >;
+						reset-names = "i2c";
+
+						intel,i2c,b400 = < 1 54 13 0 >;
+						intel,i2c,b100 = < 1 256 0 0 >;
+
+						pm,class-name = "i2c_class";
+						pm,user-name = "i2c2";
+						pm,state-D0 = "enable";
+						pm,state-D3 = "disable";
+					};
+
+					usif3:usif3-bt-fmr {
+						compatible = "intel,usif-serial";
+						reg = <0xE1900000 0x100000>;
+						#address-cells = < 0 >;
+						intel,serial-port = < 2 >;
+						interrupts = < 0 1 >;
+						interrupt-parent = <&usif3>;
+						#interrupt-cells = < 1 >;
+						interrupt-map = <
+							0 &pic USIF3_INT IRQ_TYPE_DEFAULT
+							1 &eint EINT_USIF3_WK XGOLD_IRQ_TYPE_EDGE_RISING
+						>;
+						interrupt-names = "usif-int", "wk_int";
+						clocks = <&clk_usif3>, <&clk_ahb_per1>;
+						clock-names = "kernel", "register";
+
+						pm,class-name = "usif_class";
+						pm,user-name = "usif3";
+						pm,state-D0 = "enable_104M_hperf";
+						pm,state-D3 = "disable";
+					};
+
+					capcom1:capcom1 {
+						reg = <0xE1B00000 0x100000>;
+						resets = < &dbb_rst2 9 >;
+						reset-names = "capcom";
+					};
+
+					capcom2:capcom2 {
+						reg = <0xE1C00000 0x100000>;
+						resets = < &dbb_rst2 10 >;
+						reset-names = "capcom";
+					};
+
+					i2c_5:i2c_5 {
+						compatible = "intel,i2c";
+						#size-cells = <1>;
+						#address-cells = <0>;
+						reg = <0xE1E00000 0x100000>;
+						clocks = <&clk_i2c5>, <&clk_ahb_per1>;
+						clock-names = "clk_kernel", "clk_ahb";
+						interrupts = < I2C5 IRQ_TYPE_DEFAULT >;
+						resets = < &dbb_rst2 15 >;
+						reset-names = "i2c";
+
+						intel,i2c,b400 = < 1 54 13 0 >;
+						intel,i2c,b100 = < 1 256 0 0 >;
+
+						pm,class-name = "i2c_class";
+						pm,user-name = "i2c5";
+						pm,state-D0 = "enable";
+						pm,state-D3 = "disable";
+					};
+				};
+
+				ahb_per@2 {
+					compatible = "intel,ahbper";
+					#address-cells = <1>;
+					#size-cells = <1>;
+					ranges;
+					reg = <0xE2000000 0x1000000>;
+
+					usb_phy:usb_phy {
+						compatible = "intel,phy-usb3";
+						#size-cells = < 1 >;
+						#address-cells = < 0 >;
+						/* TODO: add comment */
+						reg = < 0xE4900000 0x100000 >;
+						reg-names = "scu_usb";
+
+						interrupts = < 0 >;
+						interrupt-parent = < &usb_phy >;
+						#interrupt-cells = < 1 >;
+						/* USB_RESUME IRQ with interrupt number=0, interrupt parent = eint, EDGE RISING */
+						interrupt-map = < 0 &eint EINT_USB_HS_RESUME XGOLD_IRQ_TYPE_EDGE_RISING >;
+						interrupt-names = "usb_resume";
+
+						resets = < &dbb_rst2 23 >, < &dbb_rst2 25 >;
+						reset-names = "usb_susp", "usb_core";
+
+						pm,class-name = "usb";
+						pm,user-name = "usb";
+
+						scu_usb_ss_trim = < 0x242486ed 0x2d070621 0x2104>;
+
+						iso-supply = <&vdd_usb_ss_phy>;
+						phy-supply = <&vusb>;
+						core-supply = <&vdd_usb_30_pen>;
+						digital-supply = <&ldo_usb_30>;
+
+						clocks = <&clk_usb_ss>, <&clk_ahb_per2>;
+						clock-names = "clk_kernel", "clk_bus";
+
+					};
+
+					usb_core:usb_core {
+						compatible = "synopsys,dwc3";
+						#size-cells = < 1 >;
+						#address-cells = < 0 >;
+						reg= < 0xE2D00000 0x80000 >;
+						interrupts = < USB_INT IRQ_TYPE_DEFAULT >;
+						/* use same PHY for USB 2.0 and 3.0 */
+						usb-phy = < &usb_phy >, < &usb_phy >;
+						tx-fifo-resize;
+					};
+				};
+				ahb_per@m {
+					compatible = "intel,ahbper";
+					#address-cells = <1>;
+					#size-cells = <1>;
+					ranges;
+					reg = <0xEB000000 0x1000000>;
+
+#ifndef RECOVERY_KERNEL
+					cif:cif{
+						compatible = "intel,cif_isp20";
+						reg = <0xEB000000 0x100000>;
+						reg-names = "register";
+						interrupts = <
+							CIF_ISP_INT IRQ_TYPE_DEFAULT
+							CIF_MI_INT IRQ_TYPE_DEFAULT
+							CIF_MIPI_INT IRQ_TYPE_DEFAULT
+							CIF_JPEG_STAT_INT IRQ_TYPE_DEFAULT
+							CIF_JPEG_ERR_INT IRQ_TYPE_DEFAULT>;
+						interrupt-names = "CIF_ISP20_ISP_IRQ", "CIF_ISP20_MI_IRQ", "CIF_ISP20_MIPI_IRQ", "CIF_ISP20_JPE_STATUS_IRQ", "CIF_ISP20_JPE_ERROR_IRQ";
+						pm,class-name = "cif_class";
+						pm,user-name = "cif";
+						pm,state-D0 = "high_perf";
+						pm,state-D3 = "disable";
+
+						vdd_csi_phy_primary-supply = <&vdd_csi_phy_primary>;
+						vdd_csi_phy_aux-supply  = <&vdd_csi_phy_aux>;
+						vmipi-supply = <&vmipi>;
+						vdd_cif_pon-supply = <&vdd_cif_pon>;
+						ldo_pll_mipi-supply = <&ldo_pll_mipi>;
+						intel,supply = "vdd_csi_phy_primary", "vdd_csi_phy_aux", "vmipi", "vdd_cif_pon", "ldo_pll_mipi";
+						clocks = <&clk_mm_cifkernel>, <&clk_mm_cifkernel>, <&clk_ahb_perm>, <&MUX_OUT_1>;
+						clock-names = "clk_kernel", "clk_master", "clk_slave", "clk_sensor";
+					};
+#endif
+
+					dcc:dcc {
+						compatible = "intel,dcc";
+						#address-cells = < 0 >;
+						reg = <0xEB100000 0x10000
+								0xEB110000 0xF0000>;
+						reg-names = "registers"; /*"non-sec", "sec";*/
+						clocks = <&clk_mm_dcc>, <&clk_ahb_perm>, <&clk_L1_NoC>;
+						clock-names = "clk_kernel", "clk_ahb", "clk_master";
+						interrupts = < 0 1 2 3 4 5 >;
+						interrupt-parent = <&dcc>;
+						#interrupt-cells = < 1 >;
+						interrupt-map = <
+							0 &pic DIF_RX_XREQ_INT IRQ_TYPE_DEFAULT
+							1 &pic DIF_TX_XREQ_INT IRQ_TYPE_DEFAULT
+							2 &pic DIF_ERR_INT IRQ_TYPE_DEFAULT
+							3 &pic DCC_CMD_INT IRQ_TYPE_DEFAULT
+							4 &pic DCC_FRAME_INT IRQ_TYPE_DEFAULT
+							5 &eint EINT_EXI2 XGOLD_IRQ_TYPE_EDGE_FALLING>;
+						interrupt-names = "rx", "tx", "err", "cmd", "frame", "vsync";
+
+						pm,class-name = "dcc_class";
+						pm,user-name = "dcc";
+						pm,state-D0 = "high_perf";
+						pm,state-D1 = "mid_perf";
+						pm,state-D2 = "low_perf";
+						pm,state-D3 = "disable";
+						vmipi-supply = <&vmipi>;
+						intel,vmipi-voltage = <2850000>;
+						pll_mipi-supply = <&ldo_pll_mipi>;
+						vdd_dsi_phy-supply = < &vdd_dsi_phy >;
+						vdd_dif-supply = < &vdd_dif >;
+						vdd_dcc_pon-supply = < &vdd_dcc_pon >;
+						intel,supply = "vmipi", "pll_mipi","vdd_dsi_phy","vdd_dif","vdd_dcc_pon";
+
+						intel,dcc-clkrate = <416000000>;
+						intel,dcc-gpio-reset = <&xgold_pmx_gpio 15 >;
+						resets = < &dbb_rst0 1 >;
+						reset-names = "dcc";
+					};
+
+					vpu_dec {
+						/*compatible = "intel,vpu_decoder";*/
+						reg = < 0xEB200200 0x200 >;
+						interrupt-names = "vpu_dec";
+						interrupts = < VID_HINT_DEC IRQ_TYPE_DEFAULT  >;
+
+						pm,class-name = "vpu_dec_class";
+						pm,user-name = "vpu_dec";
+						pm,state-D3 = "disable";
+						pm,state-D0 = "high_perf"; /*"ultra_high_perf"*/
+
+						video-supply = <&vdd_vpu_pon>;
+						clocks = <&clk_mm_video>, <&clk_mm_video>, <&clk_ahb_perm>;
+						clock-names = "clk_kernel", "clk_master", "clk_slave";
+
+						resets = < &dbb_rst1 24 >;
+						reset-names = "vpu_dec";
+
+						/*vvpu-secvm;*/
+					};
+					vpu_enc {
+						/*compatible = "intel,vpu_encoder";*/
+						reg = < 0xEB200000 0x200 >;
+						interrupt-names = "vpu_enc";
+						interrupts = < VID_HINT_ENC IRQ_TYPE_DEFAULT >;
+
+						pm,class-name = "vpu_enc_class";
+						pm,user-name = "vpu_enc";
+						pm,state-D3 = "disable";
+						pm,state-D0 = "high_perf"; /*"ultra_high_perf"*/
+
+						video-supply = <&vdd_vpu_pon>;
+						clocks = <&clk_mm_video>, <&clk_mm_video>, <&clk_ahb_perm>;
+						clock-names = "clk_kernel", "clk_master", "clk_slave";
+
+						resets = < &dbb_rst1 24 >;
+						reset-names = "vpu_enc";
+					};
+
+					gpu {
+						reg = <0xEB300000 0x100000>;
+						compatible = "intel,mali";
+						intel,mali,cores = < 2 >;
+						clocks = <&clk_mm_gpu>, <&clk_ahb_perm>;
+						clock-names = "clk_kernel", "clk_ahb";
+						interrupts = < GPU_INT IRQ_TYPE_DEFAULT >;
+						gpu-supply = <&vdd_gpu_pon>;
+						pm,class-name = "gpu_class";
+						pm,user-name = "gpu";
+						pm,state-D0 = "high_perf";
+						pm,state-D0i2 = "mid_perf";
+						pm,state-D0i3 = "low_perf";
+						pm,state-D3 = "disable";
+
+						resets = < &dbb_rst2 16 >;
+						reset-names = "gpu";
+
+					};
+				};
+			};
+			modem_noc {
+				compatible = "intel,modemnoc";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+				/* FIXME: Add HW resources */
+
+				ahb_per@3 {
+					compatible = "intel,ahbper";
+					#address-cells = <1>;
+					#size-cells = <1>;
+					ranges;
+					reg = <0xE3000000 0x1000000>;
+
+					sbadsp:sample-based-audio-dsp {
+						reg = <0xE3300000 0x2000
+								0xE3302000 0x2000>;
+						reg-names = "registers", "RAM";
+						resets = < &dbb_rst3 8 >;
+						reset-names = "dsp";
+					};
+
+					fbadsp:frame-based-audio-dsp {
+						reg = <0xE3304000 0x2000
+								0xE3306000 0x2000>;
+						reg-names = "registers", "RAM";
+					};
+				};
+			};
+			uspc_noc {
+				compatible = "intel,uspcnoc";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+				/* FIXME: Add HW resources */
+
+				ahb_per@4 {
+					compatible = "intel,ahbper";
+					#address-cells = <1>;
+					#size-cells = <1>;
+					ranges;
+					reg = <0xE4000000 0x1000000>;
+
+					capcom0:capcom0 {
+						reg = <0xE4000000 0x100000>;
+						resets = < &dbb_rst1 5 >;
+						reset-names = "capcom";
+					};
+
+					keypad:keypad {
+						compatible = "intel,keypad";
+						#address-cells = < 0 >;
+						reg = <0xE4200000 0x100000>;
+						interrupts = < 0 1 >;
+						interrupt-parent = < &keypad>;
+						#interrupt-cells = < 1 >;
+						interrupt-map = <
+							/* KPINT */ 0 &pic KPD_INT IRQ_TYPE_DEFAULT
+							/* ONFE */ 1 &hirq HIRQ_PMIC_POWER_BUTTON IRQ_TYPE_DEFAULT
+						>;
+						interrupt-names = "kpint", "onfe";
+						clocks = <&clk_ahb_per4>;
+						clock-names = "clk_ahb";
+						pm,class-name = "xgold_kpd_class";
+						pm,user-name = "kpd";
+						pm,state-D0 = "enable";
+						pm,state-D3 = "disable";
+					};
+
+					stm:stm {
+						compatible = "intel,stm";
+						reg = <0xE4500000 0x100000>;
+						clocks = <&clk_26m_stm>;
+						clock-names = "kernel";
+						interrupts = < STM_INT0 IRQ_TYPE_DEFAULT >;
+					};
+
+					xgold_pmx_core:pinmux {
+						compatible = "pinctrl-single";
+						reg = <0xE4800000 0x80a40>;
+						#address-cells = <1>;
+						#size-cells = <1>;
+						ranges;
+						#gpio-range-cells = <3>;
+						pinctrl-single,register-width = <32>;
+						pinctrl-single,first-pin-offset = <0x80200>;
+						pinctrl-single,function-mask = <0xfffff>;
+
+						range: gpio-range {
+							#pinctrl-single,gpio-range-cells = <3>;
+						};
+					};
+
+					xgold_pmx_gpio:gpio {
+						compatible = "intel,gpio";
+						#gpio-cells = <1>;
+						reg = <0xE4800000 0x100000>;
+						gpio-controller;
+						gpio-ranges = <&xgold_pmx_core 0 0 145>;
+						intel,gpio-direction = < 0x80200 10 1>;
+						intel,gpio-direction-out = < 1 >;
+						intel,gpio-output = < 0x80200 9 1 >;
+						intel,gpio-input = < 0x80800 9 1 >;
+						intel,gpiochip-base = <0>;
+						intel,gpiochip-id = <0>;
+						intel,gpiochip-num = <145>;
+					};
+
+					scu:scu{
+						reg = <0xE4900000 0x10000
+								0xE4910000 0x10000
+								0xE4920000 0x10000>;
+						reg-names = "scu", "scu_hw", "scu_idc";
+					};
+
+					dbb_rst0:reset-controller0 {
+						compatible = "intel,xgold-reset";
+						reg = <0xE4900218 0x4>;
+						#reset-cells = <1>;
+						intel,reset-set = <0>;
+						intel,reset-status = <0>;
+						intel,io-access-guest;
+					};
+
+					dbb_rst1:reset-controller1 {
+						compatible = "intel,xgold-reset";
+						reg = <0xE490021C 0x4>;
+						#reset-cells = <1>;
+						intel,reset-set = <0>;
+						intel,reset-status = <0>;
+						intel,io-access-guest;
+					};
+
+					dbb_rst2:reset-controller2 {
+						compatible = "intel,xgold-reset";
+						reg = <0xE4900220 0x4>;
+						#reset-cells = <1>;
+						intel,reset-set = <0>;
+						intel,reset-status = <0>;
+						intel,io-access-guest;
+					};
+
+					dbb_rst3:reset-controller3 {
+						compatible = "intel,xgold-reset";
+						reg = <0xE4900224 0x4>;
+						#reset-cells = <1>;
+						intel,reset-set = <0>;
+						intel,reset-status = <0>;
+						intel,io-access-guest;
+					};
+
+					usif2:usif2 {
+						reg = <0xE4A00000 0x100000>;
+						resets = < &dbb_rst1 10 >;
+						reset-names = "usif";
+						clocks = <&clk_usif2>, <&clk_ahb_per4>;
+						clock-names = "kernel", "register";
+					};
+
+					oct:oct {
+						compatible = "intel,oct";
+						reg = <0xE4B40000 0x20000>;
+						reg-names = "oct-registers";
+						interrupts = <OCT_INT IRQ_TYPE_DEFAULT>;
+						interrupt-names = "OCT_INT";
+						pm,user-name = "st_oct";
+						pm,class-name = "trace_pm_class";
+						pm,state-D0 = "enable";
+						pm,state-D3 = "disable";
+					};
+					oct_dvc:oct_dvc {
+						reg = <0xE4B60000 0x20000>;
+						reg-names = "oct-dvc-registers";
+						pm,user-name = "st_oct_dvc";
+						pm,class-name = "trace_pm_class";
+						pm,state-D0 = "enable";
+						pm,state-D3 = "disable";
+					};
+					cgu:cgu {
+						compatible = "intel,cgu";
+						reg = <0xE4D00000 0x100000>;
+					};
+				};
+				ahb_per@5 {
+					compatible = "intel,ahbper";
+					#address-cells = <1>;
+					#size-cells = <1>;
+					ranges;
+					reg = <0xE6000000 0x1000000>;
+
+					dma2ch:dma-controller-dma2ch {
+						reg = <0xE6100000 0x100000>;
+						resets = < &dbb_rst1 16 >;
+						reset-names = "dma2ch";
+					};
+				};
+			};
+		};
+	};
