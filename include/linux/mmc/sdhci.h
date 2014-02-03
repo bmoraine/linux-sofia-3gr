@@ -1,6 +1,7 @@
 /*
  *  linux/include/linux/mmc/sdhci.h - Secure Digital Host Controller Interface
  *
+ *  Copyright (C) 2014 Intel Mobile Communications GmbH
  *  Copyright (C) 2005-2008 Pierre Ossman, All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -101,6 +102,17 @@ struct sdhci_host {
 /* Controller does not support HS200 */
 #define SDHCI_QUIRK2_BROKEN_HS200			(1<<6)
 #define SDHCI_QUIRK2_TUNING_POLL			(1<<7)
+
+#define SDHCI_QUIRK2_NEED_LED_CONTROL			(1<<14)
+#define SDHCI_QUIRK2_POWER_CONTROL_BUG			(1<<15)
+/* Controller capabilities vdd supported broken  */
+#define SDHCI_QUIRK2_HOST_BROKEN_CAP_VDD		(1<<16)
+#define SDHCI_QUIRK2_BROKEN_UHS				(1<<17)
+#define SDHCI_QUIRK2_FORCE_HOST_1V8			(1<<18)
+#define SDHCI_QUIRK2_RESTORE_CD_AFTER_RESET		(1<<19)
+#define SDHCI_QUIRK2_FORCE_SDR_MODE			(1<<20)
+#define SDHCI_QUIRK2_HOST_TUNING_WORKAROUND		(1<<21)
+
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */

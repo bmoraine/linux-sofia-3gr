@@ -184,6 +184,7 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 {
 	unsigned long timeout;
 	u32 uninitialized_var(ier);
+	u8 ctrl;
 
 	if (host->quirks & SDHCI_QUIRK_NO_CARD_NO_RESET) {
 		if (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
@@ -227,6 +228,12 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 	if (host->quirks & SDHCI_QUIRK_RESTORE_IRQS_AFTER_RESET)
 		sdhci_clear_set_irqs(host, SDHCI_INT_ALL_MASK, ier);
 
+	if (host->quirks2 & SDHCI_QUIRK2_RESTORE_CD_AFTER_RESET) {
+
+		ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+		ctrl |= SDHCI_CTRL_CDTSTLVL | SDHCI_CTRL_CDSGSLCT;
+		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
+	}
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
 		if ((host->ops->enable_dma) && (mask & SDHCI_RESET_ALL))
 			host->ops->enable_dma(host);
@@ -1316,6 +1323,10 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
 		sdhci_runtime_pm_bus_on(host);
 
+	if (host->quirks2 & SDHCI_QUIRK2_POWER_CONTROL_BUG) {
+		while ((sdhci_readb(host, SDHCI_POWER_CONTROL)) != pwr)
+			sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
+	}
 	/*
 	 * Some controllers need an extra 10ms delay of 10ms before they
 	 * can apply clock after applying power
@@ -1349,8 +1360,10 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 #ifndef SDHCI_USE_LEDS_CLASS
 	sdhci_activate_led(host);
+#else
+	if (host->quirks2 & SDHCI_QUIRK2_NEED_LED_CONTROL)
+		sdhci_activate_led(host);
 #endif
-
 	/*
 	 * Ensure we don't send the STOP for non-SET_BLOCK_COUNTED
 	 * requests if Auto-CMD12 is enabled.
@@ -1562,7 +1575,8 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 
 		if (host->ops->set_uhs_signaling)
 			host->ops->set_uhs_signaling(host, ios->timing);
-		else {
+/*		else  */
+		{
 			ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 			/* Select Bus Speed Mode for host */
 			ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
@@ -1577,6 +1591,9 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 				ctrl_2 |= SDHCI_CTRL_UHS_SDR50;
 			else if (ios->timing == MMC_TIMING_UHS_DDR50)
 				ctrl_2 |= SDHCI_CTRL_UHS_DDR50;
+			/* if LDO forced on 1.8V */
+			if (host->quirks2 & SDHCI_QUIRK2_FORCE_HOST_1V8)
+				ctrl_2 |= SDHCI_CTRL_VDD_180;
 			sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
 		}
 
@@ -2207,6 +2224,9 @@ static void sdhci_tasklet_finish(unsigned long param)
 
 #ifndef SDHCI_USE_LEDS_CLASS
 	sdhci_deactivate_led(host);
+#else
+	if (host->quirks2 & SDHCI_QUIRK2_NEED_LED_CONTROL)
+		sdhci_deactivate_led(host);
 #endif
 
 	mmiowb();
@@ -2348,6 +2368,7 @@ static void sdhci_show_adma_error(struct sdhci_host *host) { }
 static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 {
 	u32 command;
+	u32 scratch;
 	BUG_ON(intmask == 0);
 
 	/* CMD19 generates _only_ Buffer Read Ready interrupt */
@@ -2357,6 +2378,13 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		    command == MMC_SEND_TUNING_BLOCK_HS200) {
 			host->tuning_done = 1;
 			wake_up(&host->buf_ready_int);
+			if (host->quirks2
+					& SDHCI_QUIRK2_HOST_TUNING_WORKAROUND) {
+				while (sdhci_readl(host, SDHCI_PRESENT_STATE)
+						& SDHCI_DATA_AVAILABLE)
+					scratch = sdhci_readl(host,
+								SDHCI_BUFFER);
+			}
 			return;
 		}
 	}
@@ -3027,6 +3055,9 @@ int sdhci_add_host(struct sdhci_host *host)
 		caps[1] &= ~(SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_SDR50 |
 		       SDHCI_SUPPORT_DDR50);
 
+	if (host->quirks2 & SDHCI_QUIRK2_BROKEN_UHS)
+		goto no_uhs;
+
 	/* Any UHS-I mode in caps implies SDR12 and SDR25 support. */
 	if (caps[1] & (SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_SDR50 |
 		       SDHCI_SUPPORT_DDR50))
@@ -3054,6 +3085,7 @@ int sdhci_add_host(struct sdhci_host *host)
 	if (mmc->caps2 & MMC_CAP2_HS200)
 		host->flags |= SDHCI_SDR104_NEEDS_TUNING;
 
+no_uhs:
 	/* Driver Type(s) (A, C, D) supported by the host */
 	if (caps[1] & SDHCI_DRIVER_TYPE_A)
 		mmc->caps |= MMC_CAP_DRIVER_TYPE_A;
@@ -3139,7 +3171,8 @@ int sdhci_add_host(struct sdhci_host *host)
 				   SDHCI_MAX_CURRENT_330_SHIFT) *
 				   SDHCI_MAX_CURRENT_MULTIPLIER;
 	}
-	if (caps[0] & SDHCI_CAN_VDD_300) {
+	if ((caps[0] & SDHCI_CAN_VDD_300)
+			|| (host->quirks2 & SDHCI_QUIRK2_HOST_BROKEN_CAP_VDD)) {
 		ocr_avail |= MMC_VDD_29_30 | MMC_VDD_30_31;
 
 		mmc->max_current_300 = ((max_current_caps &
@@ -3359,7 +3392,6 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 		regulator_disable(host->vqmmc);
 		regulator_put(host->vqmmc);
 	}
-
 	kfree(host->adma_desc);
 	kfree(host->align_buffer);
 

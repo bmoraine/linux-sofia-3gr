@@ -68,6 +68,26 @@ config MMC_SDHCI_PCI
 
 	  If unsure, say N.
 
+config	MMC_SDHCI_XGOLD
+	bool
+
+
+config MMC_XGOLD
+	tristate "XGOLD Multimedia Card Interface support"
+	depends on X86_INTEL_XGOLD
+	select MMC_SDHCI_XGOLD
+	select MMC_SDHCI
+	select MMC_SDHCI_PLTFM
+
+	help
+	  This selects the Intel XGOLD Multimedia Card Interface support.
+
+	  If you have an XGOLD platform with a Multimedia Card slot,
+	  say Y or M here.
+
+	  If unsure, say N.
+
+
 config MMC_RICOH_MMC
 	bool "Ricoh MMC Controller Disabler"
 	depends on MMC_SDHCI_PCI

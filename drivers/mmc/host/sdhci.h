@@ -3,6 +3,7 @@
  *
  * Header file for Host Controller registers and I/O accessors.
  *
+ *  Copyright (C) 2014 Intel Mobile Communications GmbH
  *  Copyright (C) 2005-2008 Pierre Ossman, All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -84,6 +85,8 @@
 #define   SDHCI_CTRL_ADMA32	0x10
 #define   SDHCI_CTRL_ADMA64	0x18
 #define   SDHCI_CTRL_8BITBUS	0x20
+#define   SDHCI_CTRL_CDTSTLVL	0x40
+#define   SDHCI_CTRL_CDSGSLCT	0x80
 
 #define SDHCI_POWER_CONTROL	0x29
 #define  SDHCI_POWER_ON		0x01

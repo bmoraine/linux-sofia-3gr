@@ -1,5 +1,6 @@
 /*
  * sdhci-pltfm.c Support for SDHCI platform devices
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  * Copyright (c) 2009 Intel Corporation
  *
  * Copyright (c) 2007, 2011 Freescale Semiconductor, Inc.
