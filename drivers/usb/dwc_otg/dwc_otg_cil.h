@@ -34,7 +34,7 @@
 #if !defined(__DWC_CIL_H__)
 #define __DWC_CIL_H__
 
-#include "dwc_list.h"
+#include "dwc_common_port/dwc_list.h"
 #include "dwc_otg_dbg.h"
 #include "dwc_otg_regs.h"
 
@@ -228,8 +228,6 @@ typedef struct dwc_ep {
 	/** Frame number of pattern data */
 	uint32_t sync_frame;
 
-	/** bInterval */
-	uint32_t bInterval;
 	/** ISO Packet number per frame */
 	uint32_t pkt_per_frm;
 	/** Next frame num for which will be setup DMA Desc */
@@ -660,7 +658,7 @@ typedef struct dwc_otg_core_params {
 	 * Specifies whether LPM (Link Power Management) support is enabled
 	 */
 	int32_t lpm_enable;
-		
+
 	/**
 	* Specifies whether LPM Errata (Link Power Management) support is enabled
 	*/
@@ -842,6 +840,11 @@ struct dwc_otg_core_if {
 	 * initialized.
 	 */
 	uint8_t phy_init_done;
+
+	/*
+	 * Set to 1 if the PHY is powered
+	 */
+	uint32_t phy_power;
 
 	/*
 	 * SRP Success flag, set by srp success interrupt in FS I2C mode
@@ -1028,6 +1031,9 @@ struct dwc_otg_core_if {
 
 	/** Flag to not perform ADP probing if IDSTS event happened */
 	uint8_t stop_adpprb;
+
+	int enumdone;
+	struct usb_phy *uphy;
 
 };
 
@@ -1374,6 +1380,8 @@ extern void dwc_otg_cil_register_pcd_callbacks(dwc_otg_core_if_t * _core_if,
 extern void dwc_otg_cil_register_hcd_callbacks(dwc_otg_core_if_t * _core_if,
 					       dwc_otg_cil_callbacks_t * _cb,
 					       void *_p);
+extern void cil_pcd_restore(dwc_otg_core_if_t *core_if);
+extern void cil_pcd_backup(dwc_otg_core_if_t *core_if);
 
 void dwc_otg_initiate_srp(void * core_if);
 

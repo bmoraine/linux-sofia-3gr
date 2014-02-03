@@ -30,7 +30,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  * ========================================================================== */
-#ifndef DWC_DEVICE_ONLY
+#ifdef CONFIG_USB_DWC_HOST
 #ifndef __DWC_HCD_IF_H__
 #define __DWC_HCD_IF_H__
 
@@ -409,4 +409,4 @@ extern uint8_t dwc_otg_hcd_get_ep_bandwidth(dwc_otg_hcd_t * hcd,
 /** @} */
 
 #endif /* __DWC_HCD_IF_H__ */
-#endif /* DWC_DEVICE_ONLY */
+#endif

@@ -30,7 +30,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  * ========================================================================== */
-#ifndef DWC_HOST_ONLY
+#ifdef CONFIG_USB_DWC_UDC
 
 #include "dwc_otg_pcd.h"
 
@@ -366,6 +366,10 @@ int32_t dwc_otg_pcd_handle_rx_status_q_level_intr(dwc_otg_pcd_t * pcd)
 		    status.b.pktsts, status.b.fn, status.b.fn);
 	/* Get pointer to EP structure */
 	ep = get_out_ep(pcd, status.b.epnum);
+	if (!ep) {
+		DWC_ERROR("Get EP failed\n");
+		return -EINVAL;
+	}
 
 	switch (status.b.pktsts) {
 	case DWC_DSTS_GOUT_NAK:
@@ -521,8 +525,12 @@ int32_t dwc_otg_pcd_handle_np_tx_fifo_empty_intr(dwc_otg_pcd_t * pcd)
 	/* Get the epnum from the IN Token Learning Queue. */
 	epnum = get_ep_of_last_in_token(core_if);
 	ep = get_in_ep(pcd, epnum);
+	if (!ep) {
+		DWC_ERROR("Get EP failed\n");
+		return -EINVAL;
+	}
 
-	DWC_DEBUGPL(DBG_PCD, "NP TxFifo Empty: %d \n", epnum);
+	DWC_DEBUGPL(DBG_PCD, "NP TxFifo Empty: %d\n", epnum);
 
 	ep_regs = core_if->dev_if->in_ep_regs[epnum];
 
@@ -580,8 +588,12 @@ static int32_t write_empty_tx_fifo(dwc_otg_pcd_t * pcd, uint32_t epnum)
 	int dwords;
 
 	ep = get_in_ep(pcd, epnum);
+	if (!ep) {
+		DWC_ERROR("Get EP failed\n");
+		return -EINVAL;
+	}
 
-	DWC_DEBUGPL(DBG_PCD, "Dedicated TxFifo Empty: %d \n", epnum);
+	DWC_DEBUGPL(DBG_PCD, "Dedicated TxFifo Empty: %d\n", epnum);
 
 	ep_regs = core_if->dev_if->in_ep_regs[epnum];
 
@@ -772,6 +784,8 @@ static inline void ep0_out_start(dwc_otg_core_if_t * core_if,
 			/** @todo dma needs to handle multiple setup packets (up to 3) */
 			DWC_WRITE_REG32(&dev_if->out_ep_regs[0]->doepdma,
 					pcd->setup_pkt_dma_handle);
+			core_if->dev_if->out_ep_regs_shadow[0].doepdma =
+						pcd->setup_pkt_dma_handle;
 		} else {
 			dev_if->setup_desc_index =
 			    (dev_if->setup_desc_index + 1) & 1;
@@ -795,6 +809,9 @@ static inline void ep0_out_start(dwc_otg_core_if_t * core_if,
 			DWC_WRITE_REG32(&dev_if->out_ep_regs[0]->doepdma,
 					dev_if->dma_setup_desc_addr
 					[dev_if->setup_desc_index]);
+			core_if->dev_if->out_ep_regs_shadow[0].
+				doepdma = dev_if->dma_setup_desc_addr
+				[dev_if->setup_desc_index];
 		}
 
 	} else {
@@ -819,6 +836,53 @@ static inline void ep0_out_start(dwc_otg_core_if_t * core_if,
 	DWC_DEBUGPL(DBG_PCDV, "diepctl0=%0x\n",
 		    DWC_READ_REG32(&dev_if->in_ep_regs[0]->diepctl));
 #endif
+}
+
+/**
+ * Implement resetdet handler to avoid Reset after Suspend bad behavior
+ * This irq will allow us to know if the USB reset happened
+ * during a suspend state.
+ * If we are in suspend state, we have to restore registers.
+ */
+int32_t dwc_otg_pcd_handle_usb_resetdet_intr(dwc_otg_pcd_t *pcd)
+{
+	dwc_otg_core_if_t *core_if = GET_CORE_IF(pcd);
+	gintsts_data_t gintsts;
+
+#ifdef PARTIAL_POWER_DOWN
+
+	/*
+	 * If previous state was suspend state,
+	 * we need to restore backuped registers.
+	 */
+	if (core_if->lx_state == DWC_OTG_L2) {
+		pcgcctl_data_t power = {.d32 = 0 };
+
+		power.d32 = DWC_READ_REG32(core_if->pcgcctl);
+		DWC_DEBUGPL(DBG_CIL, "PCGCCTL=%0x\n",
+			    power.d32);
+
+		power.b.stoppclk = 0;
+		DWC_WRITE_REG32(core_if->pcgcctl, power.d32);
+
+		power.b.pwrclmp = 0;
+		DWC_WRITE_REG32(core_if->pcgcctl, power.d32);
+
+		power.b.rstpdwnmodule = 0;
+		DWC_WRITE_REG32(core_if->pcgcctl, power.d32);
+
+		udelay(100);
+		cil_pcd_restore(core_if);
+	}
+#endif
+	DWC_DEBUGPL(DBG_ANY, "USB RESET afer suspend detected\n");
+
+	/* Clear interrupt */
+	gintsts.d32 = 0;
+	gintsts.b.resetdet = 1;
+	DWC_WRITE_REG32(&core_if->core_global_regs->gintsts, gintsts.d32);
+
+	return 1;
 }
 
 /**
@@ -1316,7 +1380,7 @@ static inline void ep0_do_stall(dwc_otg_pcd_t * pcd, const int err_val)
 	ep0->dwc_ep.is_in = 1;
 	dwc_otg_ep_set_stall(GET_CORE_IF(pcd), &ep0->dwc_ep);
 	ep0->dwc_ep.is_in = 0;
-    dwc_otg_ep_set_stall(GET_CORE_IF(pcd), &ep0->dwc_ep);
+	dwc_otg_ep_set_stall(GET_CORE_IF(pcd), &ep0->dwc_ep);
 	pcd->ep0.stopped = 1;
 	pcd->ep0state = EP0_IDLE;
 	ep0_out_start(GET_CORE_IF(pcd), pcd);
@@ -1971,6 +2035,12 @@ static inline void pcd_setup(dwc_otg_pcd_t * pcd)
 	case UR_SET_CONFIG:
 //              _pcd->request_config = 1;       /* Configuration changed */
 		do_gadget_setup(pcd, &ctrl);
+
+		/*
+		 * Consider enumeration is done after first reset to avoid
+		 * suspend state before enumeration
+		 */
+		GET_CORE_IF(pcd)->enumdone = 1;
 		break;
 
 	case UR_SYNCH_FRAME:
@@ -2706,6 +2776,8 @@ void set_current_pkt_info(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 	ep->cur_pkt++;
 }
 
+/* FIXME */
+#if 0
 /**
  * This function sets latest iso packet information(DDMA mode)
  *
@@ -3149,7 +3221,6 @@ static uint32_t set_iso_pkts_info(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 		}
 	}
 }
-
 /**
  * This function is to handle Iso EP transfer complete interrupt
  *
@@ -3226,6 +3297,7 @@ static void complete_iso_ep(dwc_otg_pcd_t * pcd, dwc_otg_pcd_ep_t * ep)
 	if (is_last)
 		dwc_otg_iso_buffer_done(pcd, ep, ep->iso_req_handle);
 }
+#endif
 #endif /* DWC_EN_ISOC */
 
 /**
@@ -3428,6 +3500,10 @@ static void restart_transfer(dwc_otg_pcd_t * pcd, const uint32_t epnum)
 	dwc_otg_pcd_ep_t *ep;
 
 	ep = get_in_ep(pcd, epnum);
+	if (!ep) {
+		DWC_ERROR("Get EP failed\n");
+		return;
+	}
 
 #ifdef DWC_EN_ISOC
 	if (ep->dwc_ep.type == DWC_OTG_EP_TYPE_ISOC) {
@@ -3662,11 +3738,19 @@ static inline void handle_in_ep_disable_intr(dwc_otg_pcd_t * pcd,
 	uint32_t xfer_size;
 
 	ep = get_in_ep(pcd, epnum);
+	if (!ep) {
+		DWC_ERROR("Get EP failed\n");
+		return;
+	}
 	dwc_ep = &ep->dwc_ep;
-
+	/*
+	 * Flush Isochronous endpoints only if they are active.
+	 * This fix a bug when there is a IN while ep is not active
+	 */
 	if (dwc_ep->type == DWC_OTG_EP_TYPE_ISOC) {
 		dwc_otg_flush_tx_fifo(core_if, dwc_ep->tx_fifo_num);
-		complete_ep(ep);
+		if (dwc_ep->active == 1)
+			complete_ep(ep);
 		return;
 	}
 
@@ -3728,6 +3812,10 @@ static inline void handle_in_ep_disable_intr(dwc_otg_pcd_t * pcd,
 			i = core_if->first_in_nextep_seq;
 			do {
 				ep = get_in_ep(pcd, i);
+				if (!ep) {
+					DWC_ERROR("Get EP failed\n");
+					return;
+				}
 				dieptsiz.d32 = DWC_READ_REG32(&dev_if->in_ep_regs[i]->dieptsiz);
 				xfer_size = ep->dwc_ep.total_len - ep->dwc_ep.xfer_count;
 				if (xfer_size > ep->dwc_ep.maxxfer) 
@@ -3805,6 +3893,10 @@ static inline void handle_in_ep_timeout_intr(dwc_otg_pcd_t * pcd,
 	gintmsk_data_t intr_mask = {.d32 = 0 };
 
 	ep = get_in_ep(pcd, epnum);
+	if (!ep) {
+		DWC_ERROR("Get EP failed\n");
+		return;
+	}
 
 	/* Disable the NP Tx Fifo Empty Interrrupt */
 	if (!core_if->dma_enable) {
@@ -4095,6 +4187,10 @@ do { \
 			uint32_t empty_msk;
 			/* Get EP pointer */
 			ep = get_in_ep(pcd, epnum);
+			if (!ep) {
+				DWC_ERROR("Get EP failed\n");
+				return -EINVAL;
+			}
 			dwc_ep = &ep->dwc_ep;
 
 			depctl.d32 =
@@ -4138,16 +4234,35 @@ do { \
 				/* Clear the bit in DIEPINTn for this interrupt */
 				CLEAR_IN_EP_INTR(core_if, epnum, xfercompl);
 
+				/*
+				 * EP is stall so it can't received any
+				 * transfer complete interrupt.
+				 * This fix the bug when opening a terminal
+				 * on ACM with a linux host Setting baudrate
+				 * different from 9600 generates a
+				 * SET_LINE_CODING request.
+				 * This request was seen two times by the
+				 * Synopsys core where the host generates
+				 * only one request.
+				 * This is due to the generation of
+				 * two interrupt for one request complete
+				 */
+
+				if (epnum == 0 && depctl.b.stall)
+					return 1;
+
 				/* Complete the transfer */
-				if (epnum == 0) {
+				if (epnum == 0)
 					handle_ep0(pcd);
-				}
+/* FIXME */
+#if 0
 #ifdef DWC_EN_ISOC
 				else if (dwc_ep->type == DWC_OTG_EP_TYPE_ISOC) {
 					if (!ep->stopped)
 						complete_iso_ep(pcd, ep);
 				}
-#endif /* DWC_EN_ISOC */
+#endif
+#endif
 #ifdef DWC_UTE_PER_IO
 				else if (dwc_ep->type == DWC_OTG_EP_TYPE_ISOC) {
 					if (!ep->stopped)
@@ -4686,6 +4801,8 @@ exit_xfercompl:
 							|| pcd->ep0state != EP0_IDLE)
 							handle_ep0(pcd);
 					}
+/* FIXME */
+#if 0
 #ifdef DWC_EN_ISOC
 				} else if (dwc_ep->type == DWC_OTG_EP_TYPE_ISOC) {
 					if (doepint.b.pktdrpsts == 0) {
@@ -4709,7 +4826,8 @@ exit_xfercompl:
 									ep);
 						}
 					}
-#endif /* DWC_EN_ISOC */
+#endif
+#endif
 #ifdef DWC_UTE_PER_IO
 				} else if (dwc_ep->type == DWC_OTG_EP_TYPE_ISOC) {
 					CLEAR_OUT_EP_INTR(core_if, epnum, xfercompl);
@@ -4908,6 +5026,7 @@ exit_xfercompl:
 
 #undef CLEAR_OUT_EP_INTR
 }
+#ifndef DWC_EN_ISOC
 static int drop_transfer(uint32_t trgt_fr, uint32_t curr_fr, uint8_t frm_overrun)
 {
 	int retval = 0;
@@ -4918,6 +5037,7 @@ static int drop_transfer(uint32_t trgt_fr, uint32_t curr_fr, uint8_t frm_overrun
 		retval = 1;
 	return retval;
 }
+#endif
 
 /**
  * Incomplete ISO IN Transfer Interrupt.
@@ -5347,6 +5467,10 @@ int32_t dwc_otg_pcd_handle_intr(dwc_otg_pcd_t * pcd)
 		if (gintr_status.b.usbreset) {
 			retval |= dwc_otg_pcd_handle_usb_reset_intr(pcd);
 		}
+		if (gintr_status.b.resetdet) {
+			retval |= dwc_otg_pcd_handle_usb_resetdet_intr(pcd);
+			retval |= dwc_otg_pcd_handle_usb_reset_intr(pcd);
+		}
 		if (gintr_status.b.enumdone) {
 			retval |= dwc_otg_pcd_handle_enum_done_intr(pcd);
 		}
@@ -5404,4 +5528,4 @@ int32_t dwc_otg_pcd_handle_intr(dwc_otg_pcd_t * pcd)
 	return retval;
 }
 
-#endif /* DWC_HOST_ONLY */
+#endif

@@ -30,7 +30,7 @@
   * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
   * DAMAGE.
   * ========================================================================== */
-#ifndef DWC_HOST_ONLY
+#ifdef CONFIG_USB_DWC_UDC
 
 /** @file
  * This file implements the Peripheral Controller Driver.
@@ -58,6 +58,11 @@
 #include "dwc_otg_pcd.h"
 #include "dwc_otg_driver.h"
 #include "dwc_otg_dbg.h"
+#include <linux/of_irq.h>
+#include <linux/platform_device.h>
+#include <linux/usb.h>
+#include <linux/usb/phy.h>
+#include <linux/usb/otg.h>
 
 static struct gadget_wrapper {
 	dwc_otg_pcd_t *pcd;
@@ -186,9 +191,8 @@ static int ep_disable(struct usb_ep *usb_ep)
 	}
 
 	retval = dwc_otg_pcd_ep_disable(gadget_wrapper->pcd, usb_ep);
-	if (retval) {
+	if (retval)
 		retval = -EINVAL;
-	}
 
 	return retval;
 }
@@ -240,66 +244,6 @@ static void dwc_otg_pcd_free_request(struct usb_ep *ep, struct usb_request *req)
 	kfree(req);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-/**
- * This function allocates an I/O buffer to be used for a transfer
- * to/from the specified endpoint.
- *
- * @param usb_ep The endpoint to be used with with the request
- * @param bytes The desired number of bytes for the buffer
- * @param dma Pointer to the buffer's DMA address; must be valid
- * @param gfp_flags the GFP_* flags to use.
- * @return address of a new buffer or null is buffer could not be allocated.
- */
-static void *dwc_otg_pcd_alloc_buffer(struct usb_ep *usb_ep, unsigned bytes,
-				      dma_addr_t * dma, gfp_t gfp_flags)
-{
-	void *buf;
-	dwc_otg_pcd_t *pcd = 0;
-
-	pcd = gadget_wrapper->pcd;
-
-	DWC_DEBUGPL(DBG_PCDV, "%s(%p,%d,%p,%0x)\n", __func__, usb_ep, bytes,
-		    dma, gfp_flags);
-
-	/* Check dword alignment */
-	if ((bytes & 0x3UL) != 0) {
-		DWC_WARN("%s() Buffer size is not a multiple of"
-			 "DWORD size (%d)", __func__, bytes);
-	}
-
-	buf = dma_alloc_coherent(NULL, bytes, dma, gfp_flags);
-
-	/* Check dword alignment */
-	if (((int)buf & 0x3UL) != 0) {
-		DWC_WARN("%s() Buffer is not DWORD aligned (%p)",
-			 __func__, buf);
-	}
-
-	return buf;
-}
-
-/**
- * This function frees an I/O buffer that was allocated by alloc_buffer.
- *
- * @param usb_ep the endpoint associated with the buffer
- * @param buf address of the buffer
- * @param dma The buffer's DMA address
- * @param bytes The number of bytes of the buffer
- */
-static void dwc_otg_pcd_free_buffer(struct usb_ep *usb_ep, void *buf,
-				    dma_addr_t dma, unsigned bytes)
-{
-	dwc_otg_pcd_t *pcd = 0;
-
-	pcd = gadget_wrapper->pcd;
-
-	DWC_DEBUGPL(DBG_PCDV, "%s(%p,%0x,%d)\n", __func__, buf, dma, bytes);
-
-	dma_free_coherent(NULL, bytes, buf, dma);
-}
-#endif
-
 /**
  * This function is used to submit an I/O Request to an EP.
  *
@@ -320,7 +264,6 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 	dwc_otg_pcd_t *pcd;
 	struct dwc_otg_pcd_ep *ep;
 	int retval, is_isoc_ep, is_in_ep;
-	dma_addr_t dma_addr;
 
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p,%p,%d)\n",
 		    __func__, usb_ep, usb_req, gfp_flags);
@@ -359,25 +302,14 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 		is_in_ep = ep->dwc_ep.is_in;
 	}
 
-	dma_addr = usb_req->dma;
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,27)
 	if (GET_CORE_IF(pcd)->dma_enable) {
-#ifdef PCI_INTERFACE
-		struct pci_dev *dev =
-		    gadget_wrapper->pcd->otg_dev->os_dep.pcidev;
-		if (dma_addr == DWC_DMA_ADDR_INVALID) {
-			if (usb_req->length != 0) {
-				dma_addr = pci_map_single(dev, usb_req->buf,
-					usb_req->length, is_in_ep ?
-					PCI_DMA_TODEVICE : PCI_DMA_FROMDEVICE);
-				usb_req->dma = dma_addr;
-			} else {
-				dma_addr = 0;
-			}
+		if (usb_req->length != 0 &&
+				usb_req->dma == DWC_DMA_ADDR_INVALID
+				&& ep != NULL) {
+			usb_gadget_map_request(&gadget_wrapper->gadget,
+					usb_req, is_in_ep);
 		}
-#endif
 	}
-#endif
 
 #ifdef DWC_UTE_PER_IO
 	if (is_isoc_ep == 1) {
@@ -393,12 +325,11 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 		return 0;
 	}
 #endif
-	retval = dwc_otg_pcd_ep_queue(pcd, usb_ep, usb_req->buf, dma_addr,
+	retval = dwc_otg_pcd_ep_queue(pcd, usb_ep, usb_req->buf, usb_req->dma,
 				      usb_req->length, usb_req->zero, usb_req,
 				      gfp_flags == GFP_ATOMIC ? 1 : 0);
-	if (retval) {
+	if (retval)
 		return -EINVAL;
-	}
 
 	return 0;
 }
@@ -416,7 +347,6 @@ static int ep_dequeue(struct usb_ep *usb_ep, struct usb_request *usb_req)
 	}
 	if (!gadget_wrapper->driver ||
 	    gadget_wrapper->gadget.speed == USB_SPEED_UNKNOWN) {
-		DWC_WARN("bogus device state\n");
 		return -ESHUTDOWN;
 	}
 	if (dwc_otg_pcd_ep_dequeue(gadget_wrapper->pcd, usb_ep, usb_req)) {
@@ -463,171 +393,27 @@ static int ep_halt(struct usb_ep *usb_ep, int value)
 	return retval;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 static int ep_wedge(struct usb_ep *usb_ep)
 {
 	DWC_DEBUGPL(DBG_PCD, "WEDGE %s\n", usb_ep->name);
 
 	return ep_halt(usb_ep, 3);
 }
-#endif
-
-#ifdef DWC_EN_ISOC
-/**
- * This function is used to submit an ISOC Transfer Request to an EP.
- *
- *	- Every time a sync period completes the request's completion callback
- *	  is called to provide data to the gadget driver.
- *	- Once submitted the request cannot be modified.
- *	- Each request is turned into periodic data packets untill ISO
- *	  Transfer is stopped..
- */
-static int iso_ep_start(struct usb_ep *usb_ep, struct usb_iso_request *req,
-			gfp_t gfp_flags)
-{
-	int retval = 0;
-
-	if (!req || !req->process_buffer || !req->buf0 || !req->buf1) {
-		DWC_WARN("bad params\n");
-		return -EINVAL;
-	}
-
-	if (!usb_ep) {
-		DWC_PRINTF("bad params\n");
-		return -EINVAL;
-	}
-
-	req->status = -EINPROGRESS;
-
-	retval =
-	    dwc_otg_pcd_iso_ep_start(gadget_wrapper->pcd, usb_ep, req->buf0,
-				     req->buf1, req->dma0, req->dma1,
-				     req->sync_frame, req->data_pattern_frame,
-				     req->data_per_frame,
-				     req->
-				     flags & USB_REQ_ISO_ASAP ? -1 :
-				     req->start_frame, req->buf_proc_intrvl,
-				     req, gfp_flags == GFP_ATOMIC ? 1 : 0);
-
-	if (retval) {
-		return -EINVAL;
-	}
-
-	return retval;
-}
-
-/**
- * This function stops ISO EP Periodic Data Transfer.
- */
-static int iso_ep_stop(struct usb_ep *usb_ep, struct usb_iso_request *req)
-{
-	int retval = 0;
-	if (!usb_ep) {
-		DWC_WARN("bad ep\n");
-	}
-
-	if (!gadget_wrapper->driver ||
-	    gadget_wrapper->gadget.speed == USB_SPEED_UNKNOWN) {
-		DWC_DEBUGPL(DBG_PCDV, "gadget.speed=%d\n",
-			    gadget_wrapper->gadget.speed);
-		DWC_WARN("bogus device state\n");
-	}
-
-	dwc_otg_pcd_iso_ep_stop(gadget_wrapper->pcd, usb_ep, req);
-	if (retval) {
-		retval = -EINVAL;
-	}
-
-	return retval;
-}
-
-static struct usb_iso_request *alloc_iso_request(struct usb_ep *ep,
-						 int packets, gfp_t gfp_flags)
-{
-	struct usb_iso_request *pReq = NULL;
-	uint32_t req_size;
-
-	req_size = sizeof(struct usb_iso_request);
-	req_size +=
-	    (2 * packets * (sizeof(struct usb_gadget_iso_packet_descriptor)));
-
-	pReq = kmalloc(req_size, gfp_flags);
-	if (!pReq) {
-		DWC_WARN("Can't allocate Iso Request\n");
-		return 0;
-	}
-	pReq->iso_packet_desc0 = (void *)(pReq + 1);
-
-	pReq->iso_packet_desc1 = pReq->iso_packet_desc0 + packets;
-
-	return pReq;
-}
-
-static void free_iso_request(struct usb_ep *ep, struct usb_iso_request *req)
-{
-	kfree(req);
-}
-
-static struct usb_isoc_ep_ops dwc_otg_pcd_ep_ops = {
-	.ep_ops = {
-			.enable = ep_enable,
-			.disable = ep_disable,
-
-		  	.alloc_request = dwc_otg_pcd_alloc_request,
-			.free_request = dwc_otg_pcd_free_request,
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-		 .alloc_buffer = dwc_otg_pcd_alloc_buffer,
-         .free_buffer = dwc_otg_pcd_free_buffer,
-#endif
-
-    	   .queue = ep_queue,
-	       .dequeue = ep_dequeue,
-
-		   .set_halt = ep_halt,
-		 
-		    #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
-					.set_wedge = ep_wedge,
-			#endif
-					.fifo_status = 0,
-					.fifo_flush = 0,
-			},
-
-	.iso_ep_start = iso_ep_start,
-	.iso_ep_stop = iso_ep_stop,
-	.alloc_iso_request = alloc_iso_request,
-	.free_iso_request = free_iso_request,
-};
-
-#else
 
 static struct usb_ep_ops dwc_otg_pcd_ep_ops = {
 	.enable = ep_enable,
 	.disable = ep_disable,
-
 	.alloc_request = dwc_otg_pcd_alloc_request,
 	.free_request = dwc_otg_pcd_free_request,
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-	.alloc_buffer = dwc_otg_pcd_alloc_buffer,
-	.free_buffer = dwc_otg_pcd_free_buffer,
-#endif
-
 	.queue = ep_queue,
 	.dequeue = ep_dequeue,
-
 	.set_halt = ep_halt,
-	
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
-		.set_wedge = ep_wedge,
-    #endif
-
+	.set_wedge = ep_wedge,
 	.fifo_status = 0,
 	.fifo_flush = 0,
 
 };
 
-#endif /* _EN_ISOC_ */
 /*	Gadget Operations */
 /**
  * The following gadget operations will be implemented in the DWC_otg
@@ -719,19 +505,6 @@ static int wakeup(struct usb_gadget *gadget)
 	return 0;
 }
 
-static const struct usb_gadget_ops dwc_otg_pcd_ops = {
-	.get_frame = get_frame_number,
-	.wakeup = wakeup,
-#ifdef CONFIG_USB_DWC_OTG_LPM
-	.lpm_support = test_lpm_enabled,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)	
-	.besl_support = test_besl_enabled,
-	.get_baseline_besl = get_param_baseline_besl,
-	.get_deep_besl = get_param_deep_besl,
-#endif	
-#endif
-	// current versions must always be self-powered
-};
 
 static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 {
@@ -756,7 +529,7 @@ static int _isoc_complete(dwc_otg_pcd_t * pcd, void *ep_handle,
 			  void *req_handle, int proc_buf_num)
 {
 	int i, packet_count;
-	struct usb_gadget_iso_packet_descriptor *iso_packet = 0;
+	struct usb_iso_packet_descriptor *iso_packet = 0;
 	struct usb_iso_request *iso_req = req_handle;
 
 	if (proc_buf_num) {
@@ -856,30 +629,25 @@ static int _xisoc_complete(dwc_otg_pcd_t * pcd, void *ep_handle,
 	return 0;
 }
 #endif /* DWC_UTE_PER_IO */
-
 static int _complete(dwc_otg_pcd_t *pcd, void *ep_handle,
 		     void *req_handle, int32_t status, uint32_t actual)
 {
 	struct usb_request *req = (struct usb_request *)req_handle;
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,27)
-	if (GET_CORE_IF(pcd)->dma_enable && req->length != 0) {
-#ifdef PCI_INTERFACE
-		struct pci_dev *dev =
-			gadget_wrapper->pcd->otg_dev->os_dep.pcidev;
-		struct dwc_otg_pcd_ep *ep = ep_from_handle(pcd, ep_handle);
-		int is_in_ep = 0;
-
-		if (ep)
-			is_in_ep = ep->dwc_ep.is_in;
-
-		pci_unmap_single(dev, req->dma, req->length, is_in_ep ?
-				 PCI_DMA_TODEVICE : PCI_DMA_FROMDEVICE);
-		req->dma = DWC_DMA_ADDR_INVALID;
-#endif
-	};
-#endif
+	struct dwc_otg_pcd_ep *ep = NULL;
+	struct platform_device *dev = NULL;
 
 	if (req && req->complete) {
+		dev = gadget_wrapper->pcd->otg_dev->os_dep.dev;
+		ep = ep_from_handle(pcd, ep_handle);
+		if (GET_CORE_IF(pcd)->dma_enable) {
+			if (req->length != 0 && req->dma != DWC_DMA_ADDR_INVALID
+					&& ep != NULL)
+				usb_gadget_unmap_request(
+						&gadget_wrapper->gadget,
+						req, ep->dwc_ep.is_in);
+			req->dma = DWC_DMA_ADDR_INVALID;
+		}
+
 		switch (status) {
 		case -DWC_E_SHUTDOWN:
 			req->status = -ESHUTDOWN;
@@ -903,7 +671,6 @@ static int _complete(dwc_otg_pcd_t *pcd, void *ep_handle,
 		req->complete(ep_handle, req);
 		DWC_SPINLOCK(pcd->lock);
 	}
-
 	return 0;
 }
 
@@ -1002,9 +769,8 @@ static irqreturn_t dwc_otg_pcd_irq(int irq, void *dev)
 	int32_t retval = IRQ_NONE;
 
 	retval = dwc_otg_pcd_handle_intr(pcd);
-	if (retval != 0) {
+	if (retval != 0)
 		S3C2410X_CLEAR_EINTPEND();
-	}
 	return IRQ_RETVAL(retval);
 }
 
@@ -1060,9 +826,7 @@ void gadget_add_eps(struct gadget_wrapper *d)
 	INIT_LIST_HEAD(&d->gadget.ep_list);
 	d->gadget.ep0 = &d->ep0;
 	d->gadget.speed = USB_SPEED_UNKNOWN;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
 	d->gadget.max_speed = USB_SPEED_HIGH;
-#endif
 
 	INIT_LIST_HEAD(&d->gadget.ep0->ep_list);
 
@@ -1079,7 +843,6 @@ void gadget_add_eps(struct gadget_wrapper *d)
 	 * @todo NGS: What should the max packet size be set to
 	 * here?  Before EP type is set?
 	 */
-	ep->maxpacket = MAX_PACKET_SIZE;
 	dwc_otg_pcd_ep_enable(d->pcd, NULL, ep);
 
 	list_add_tail(&ep->ep_list, &d->gadget.ep_list);
@@ -1100,7 +863,7 @@ void gadget_add_eps(struct gadget_wrapper *d)
 		 * @todo NGS: What should the max packet size be set to
 		 * here?  Before EP type is set?
 		 */
-		ep->maxpacket = MAX_PACKET_SIZE;
+		usb_ep_set_maxpacket_limit(ep, 1024);
 		list_add_tail(&ep->ep_list, &d->gadget.ep_list);
 	}
 
@@ -1117,7 +880,7 @@ void gadget_add_eps(struct gadget_wrapper *d)
 		 * @todo NGS: What should the max packet size be set to
 		 * here?  Before EP type is set?
 		 */
-		ep->maxpacket = MAX_PACKET_SIZE;
+		usb_ep_set_maxpacket_limit(ep, 1024);
 
 		list_add_tail(&ep->ep_list, &d->gadget.ep_list);
 	}
@@ -1125,7 +888,7 @@ void gadget_add_eps(struct gadget_wrapper *d)
 	/* remove ep0 from the list.  There is a ep0 pointer. */
 	list_del_init(&d->ep0.ep_list);
 
-	d->ep0.maxpacket = MAX_EP0_SIZE;
+	usb_ep_set_maxpacket_limit(&d->ep0, 64);
 }
 
 /**
@@ -1139,156 +902,6 @@ static void dwc_otg_pcd_gadget_release(struct device *dev)
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, dev);
 }
 
-static struct gadget_wrapper *alloc_wrapper(
-#ifdef LM_INTERFACE
-	struct lm_device *_dev
-#elif  defined(PCI_INTERFACE)
-	struct pci_dev *_dev
-#endif
-    )
-{
-	static char pcd_name[] = "dwc_otg_pcd";
-#ifdef LM_INTERFACE
-	dwc_otg_device_t *otg_dev = lm_get_drvdata(_dev);
-#elif defined(PCI_INTERFACE)
-	dwc_otg_device_t *otg_dev = pci_get_drvdata(_dev);
-#endif
-
-	struct gadget_wrapper *d;
-	int retval;
-
-	d = DWC_ALLOC(sizeof(*d));
-	if (d == NULL) {
-		return NULL;
-	}
-
-	memset(d, 0, sizeof(*d));
-
-	d->gadget.name = pcd_name;
-	d->pcd = otg_dev->pcd;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
-	strcpy(d->gadget.dev.bus_id, "gadget");
-#else
-	dev_set_name(&d->gadget.dev, "%s", "gadget");
-#endif
-
-	d->gadget.dev.parent = &_dev->dev;
-	d->gadget.dev.release = dwc_otg_pcd_gadget_release;
-	d->gadget.ops = &dwc_otg_pcd_ops;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-	d->gadget.is_dualspeed = dwc_otg_pcd_is_dualspeed(otg_dev->pcd);
-#endif
-	d->gadget.is_otg = dwc_otg_pcd_is_otg(otg_dev->pcd);
-
-	d->driver = 0;
-	/* Register the gadget device */
-	retval = device_register(&d->gadget.dev);
-	if (retval != 0) {
-		DWC_ERROR("device_register failed\n");
-		DWC_FREE(d);
-		return NULL;
-	}
-
-	return d;
-}
-
-static void free_wrapper(struct gadget_wrapper *d)
-{
-	if (d->driver) {
-		/* should have been done already by driver model core */
-		DWC_WARN("driver '%s' is still registered\n",
-			 d->driver->driver.name);
-		usb_gadget_unregister_driver(d->driver);
-	}
-
-	device_unregister(&d->gadget.dev);
-	DWC_FREE(d);
-}
-
-/**
- * This function initialized the PCD portion of the driver.
- *
- */
-int pcd_init(
-#ifdef LM_INTERFACE
-	struct lm_device *_dev
-#elif  defined(PCI_INTERFACE)
-	struct pci_dev *_dev
-#endif
-    )
-{
-#ifdef LM_INTERFACE
-	dwc_otg_device_t *otg_dev = lm_get_drvdata(_dev);
-#elif  defined(PCI_INTERFACE)
-	dwc_otg_device_t *otg_dev = pci_get_drvdata(_dev);
-#endif
-
-	int retval = 0;
-
-	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
-
-	otg_dev->pcd = dwc_otg_pcd_init(otg_dev->core_if);
-
-	if (!otg_dev->pcd) {
-		DWC_ERROR("dwc_otg_pcd_init failed\n");
-		return -ENOMEM;
-	}
-
-	otg_dev->pcd->otg_dev = otg_dev;
-	gadget_wrapper = alloc_wrapper(_dev);
-
-	/*
-	 * Initialize EP structures
-	 */
-	gadget_add_eps(gadget_wrapper);
-	/*
-	 * Setup interupt handler
-	 */
-	DWC_DEBUGPL(DBG_ANY, "registering handler for irq%d\n", _dev->irq);
-	retval = request_irq(_dev->irq, dwc_otg_pcd_irq,
-			     IRQF_SHARED | IRQF_DISABLED,
-			     gadget_wrapper->gadget.name, otg_dev->pcd);
-	if (retval != 0) {
-		DWC_ERROR("request of irq%d failed\n", _dev->irq);
-		free_wrapper(gadget_wrapper);
-		return -EBUSY;
-	}
-
-	dwc_otg_pcd_start(gadget_wrapper->pcd, &fops);
-
-	return retval;
-}
-
-/**
- * Cleanup the PCD.
- */
-void pcd_remove(
-#ifdef LM_INTERFACE
-	struct lm_device *_dev
-#elif  defined(PCI_INTERFACE)
-	struct pci_dev *_dev
-#endif
-    )
-{
-#ifdef LM_INTERFACE
-	dwc_otg_device_t *otg_dev = lm_get_drvdata(_dev);
-#elif  defined(PCI_INTERFACE)
-	dwc_otg_device_t *otg_dev = pci_get_drvdata(_dev);
-#endif
-	dwc_otg_pcd_t *pcd = otg_dev->pcd;
-
-	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
-
-	/*
-	 * Free the IRQ
-	 */
-	free_irq(_dev->irq, pcd);
-	free_wrapper(gadget_wrapper);
-	dwc_otg_pcd_remove(otg_dev->pcd);	
-	otg_dev->pcd = 0;
-}
-
 /**
  * This function registers a gadget driver with the PCD.
  *
@@ -1298,34 +911,15 @@ void pcd_remove(
  * then a host may connect again, or the driver might get unbound.
  *
  * @param driver The driver being registered
- * @param bind The bind function of gadget driver
  */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
-int usb_gadget_register_driver(struct usb_gadget_driver *driver)
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
-	int usb_gadget_probe_driver(struct usb_gadget_driver *driver)
-#else
-int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
-		int (*bind)(struct usb_gadget *))
-#endif
+static int dwc_hsotg_start(struct usb_gadget *gadget,
+			struct usb_gadget_driver *driver)
 {
-	int retval;
-
 	DWC_DEBUGPL(DBG_PCD, "registering gadget driver '%s'\n",
 		    driver->driver.name);
 
-	if (!driver || 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-		driver->speed == USB_SPEED_UNKNOWN ||
-#else
-		driver->max_speed == USB_SPEED_UNKNOWN ||
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37) || LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
-	    !driver->bind ||
-#else
-		!bind ||
-#endif
-	    !driver->unbind || !driver->disconnect || !driver->setup) {
+	if (!driver || !driver->unbind ||
+			!driver->disconnect || !driver->setup) {
 		DWC_DEBUGPL(DBG_PCDV, "EINVAL\n");
 		return -EINVAL;
 	}
@@ -1342,58 +936,282 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 	gadget_wrapper->driver = driver;
 	gadget_wrapper->gadget.dev.driver = &driver->driver;
 
-	DWC_DEBUGPL(DBG_PCD, "bind to driver %s\n", driver->driver.name);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
-	retval = driver->bind(&gadget_wrapper->gadget);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
-	retval = driver->bind(&gadget_wrapper->gadget,gadget_wrapper->driver);		
-#else
-	retval = bind(&gadget_wrapper->gadget);
-#endif
-	if (retval) {
-		DWC_ERROR("bind to driver %s --> error %d\n",
-			  driver->driver.name, retval);
-		gadget_wrapper->driver = 0;
-		gadget_wrapper->gadget.dev.driver = 0;
-		return retval;
-	}
 	DWC_DEBUGPL(DBG_ANY, "registered gadget driver '%s'\n",
 		    driver->driver.name);
 	return 0;
 }
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
-EXPORT_SYMBOL(usb_gadget_register_driver);
-#else
-EXPORT_SYMBOL(usb_gadget_probe_driver);
-#endif
+
 
 /**
  * This function unregisters a gadget driver
  *
  * @param driver The driver being unregistered
  */
-int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
+static int dwc_hsotg_stop(struct usb_gadget *gadget,
+			struct usb_gadget_driver *driver)
 {
-	//DWC_DEBUGPL(DBG_PCDV,"%s(%p)\n", __func__, _driver);
 
 	if (gadget_wrapper == 0) {
 		DWC_DEBUGPL(DBG_ANY, "%s Return(%d): s_pcd==0\n", __func__,
 			    -ENODEV);
 		return -ENODEV;
 	}
-	if (driver == 0 || driver != gadget_wrapper->driver) {
-		DWC_DEBUGPL(DBG_ANY, "%s Return(%d): driver?\n", __func__,
-			    -EINVAL);
-		return -EINVAL;
-	}
 
-	driver->unbind(&gadget_wrapper->gadget);
-	gadget_wrapper->driver = 0;
-
-	DWC_DEBUGPL(DBG_ANY, "unregistered driver '%s'\n", driver->driver.name);
+	gadget_wrapper->driver = NULL;
+	gadget_wrapper->gadget.dev.driver = NULL;
 	return 0;
 }
 
-EXPORT_SYMBOL(usb_gadget_unregister_driver);
+static int dwc_pullup(struct usb_gadget *gadget, int is_on)
+{
+	struct gadget_wrapper *d;
+	dctl_data_t dctl = { 0 };
+	unsigned long flags;
+	dwc_otg_pcd_t *pcd;
+	dwc_otg_core_if_t *core_if;
+	d = container_of(gadget, struct gadget_wrapper, gadget);
+	pcd = d->pcd;
+	core_if = pcd->core_if;
+	pr_debug("pullup %s\n", is_on ? "enable" : "disable");
 
-#endif /* DWC_HOST_ONLY */
+	DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
+	/*
+	 * Don't try to enable/disable pullup while core is off
+	 */
+	if (core_if->lx_state == DWC_OTG_L3) {
+		if (!is_on)
+			pcd->soft_disconnected = 0;
+		else
+			pcd->soft_disconnected = 1;
+		DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
+		return 0;
+	}
+
+	if (!is_on) {
+		/* Enable Soft Disconnect */
+		dctl.b.sftdiscon = 1;
+		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl,
+								0, dctl.d32);
+		pcd->soft_disconnected = 0;
+		core_if->enumdone = 0;
+	} else {
+		/* Disable Soft Disconnect */
+		dctl.d32 =
+			DWC_READ_REG32(&core_if->dev_if->dev_global_regs->dctl);
+		dctl.b.sftdiscon = 0;
+		DWC_WRITE_REG32(&core_if->dev_if->dev_global_regs->dctl,
+								dctl.d32);
+		pcd->soft_disconnected = 1;
+	}
+	DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
+	return 0;
+}
+
+static int dwc_vbus_session(struct usb_gadget *gadget, int is_active)
+{
+	struct gadget_wrapper *d;
+	unsigned long flags;
+	dwc_otg_core_if_t *core_if;
+	dwc_otg_pcd_t *pcd;
+	pcgcctl_data_t power = {.d32 = 0 };
+	d = container_of(gadget, struct gadget_wrapper, gadget);
+	pcd = d->pcd;
+	core_if = d->pcd->core_if;
+	pr_debug("vbus session %s\n", is_active ?
+			"is active" : "is not active");
+	DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
+	if (is_active && core_if->lx_state != DWC_OTG_L0) {
+		/*
+		 * Wakeup the core
+		 */
+		power.b.stoppclk = 0;
+		DWC_MODIFY_REG32(core_if->pcgcctl, 0, power.d32);
+
+		power.b.pwrclmp = 0;
+		DWC_WRITE_REG32(core_if->pcgcctl, power.d32);
+
+		power.b.rstpdwnmodule = 0;
+		DWC_MODIFY_REG32(core_if->pcgcctl, 0, power.d32);
+
+		/*
+		 * Prepare core to transactions
+		 */
+		dwc_otg_core_init(d->pcd->core_if);
+		dwc_otg_enable_global_interrupts(d->pcd->core_if);
+		cil_pcd_start(d->pcd->core_if);
+		core_if->lx_state = DWC_OTG_L0;
+		if (pcd->soft_disconnected) {
+			DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
+			dwc_pullup(gadget, 1);
+			return 0;
+		}
+
+	} else if (!is_active) {
+		DWC_SPINUNLOCK(pcd->lock);
+		/* Stop USB transfers */
+		cil_pcd_stop(d->pcd->core_if);
+		DWC_SPINLOCK(pcd->lock);
+		core_if->lx_state = DWC_OTG_L3;
+		d->gadget.speed = USB_SPEED_UNKNOWN;
+		core_if->enumdone = 0;
+	}
+	DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
+
+	return 0;
+}
+
+static int dwc_vbus_draw(struct usb_gadget *gadget, unsigned mA)
+{
+	struct gadget_wrapper *d;
+	d = container_of(gadget, struct gadget_wrapper, gadget);
+	return usb_phy_set_power(d->pcd->core_if->uphy, mA);
+}
+
+static const struct usb_gadget_ops dwc_otg_pcd_ops = {
+	.get_frame	= get_frame_number,
+	.wakeup		= wakeup,
+#ifdef CONFIG_USB_DWC_OTG_LPM
+	.lpm_support	= test_lpm_enabled,
+	.besl_support	= test_besl_enabled,
+	.get_baseline_besl = get_param_baseline_besl,
+	.get_deep_besl	= get_param_deep_besl,
+#endif
+	.pullup		= dwc_pullup,
+	.vbus_session	= dwc_vbus_session,
+	.vbus_draw      = dwc_vbus_draw,
+	.udc_start	= dwc_hsotg_start,
+	.udc_stop	= dwc_hsotg_stop,
+};
+
+static struct gadget_wrapper *alloc_wrapper(struct platform_device *_dev)
+{
+	static const char pcd_name[] = "dwc_otg_pcd";
+	dwc_otg_device_t *otg_dev =
+		(dwc_otg_device_t *) dev_get_platdata(&_dev->dev);
+	struct gadget_wrapper *d;
+
+	d = DWC_ALLOC(sizeof(*d));
+	if (d == NULL)
+		return NULL;
+
+	memset(d, 0, sizeof(*d));
+
+	d->gadget.name = pcd_name;
+	d->pcd = otg_dev->pcd;
+
+	dev_set_name(&d->gadget.dev, "%s", "gadget");
+
+	d->gadget.dev.parent = &_dev->dev;
+	d->gadget.dev.release = dwc_otg_pcd_gadget_release;
+	d->gadget.ops = &dwc_otg_pcd_ops;
+	d->gadget.max_speed = USB_SPEED_HIGH;
+	d->gadget.is_otg = dwc_otg_pcd_is_otg(otg_dev->pcd);
+
+	d->driver = 0;
+	return d;
+}
+
+static void free_wrapper(struct gadget_wrapper *d)
+{
+	usb_del_gadget_udc(&d->gadget);
+	if (d->driver) {
+		/* should have been done already by driver model core */
+		DWC_WARN("driver '%s' is still registered\n",
+			 d->driver->driver.name);
+		usb_gadget_unregister_driver(d->driver);
+	}
+
+	DWC_FREE(d);
+}
+
+struct irqaction xgold_usb_pcd_irq = {
+	.handler = dwc_otg_pcd_irq,
+	.flags = IRQF_SHARED,
+};
+
+/**
+ * This function initialized the PCD portion of the driver.
+ *
+ */
+int pcd_init(struct platform_device *_dev)
+{
+	dwc_otg_device_t *otg_dev = (dwc_otg_device_t *)
+				dev_get_platdata(&_dev->dev);
+	int retval = 0;
+	dwc_otg_core_if_t *core_if = otg_dev->core_if;
+
+	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
+
+	otg_dev->pcd = dwc_otg_pcd_init(otg_dev->core_if);
+
+	if (!otg_dev->pcd) {
+		DWC_ERROR("dwc_otg_pcd_init failed\n");
+		return -ENOMEM;
+	}
+
+	otg_dev->pcd->otg_dev = otg_dev;
+	gadget_wrapper = alloc_wrapper(_dev);
+	if (!gadget_wrapper) {
+		DWC_ERROR("gadget wrapper allocation failed\n");
+		return -ENOMEM;
+	}
+
+	/*
+	 * Initialize EP structures
+	 */
+	gadget_add_eps(gadget_wrapper);
+
+	retval = usb_add_gadget_udc(&_dev->dev, &gadget_wrapper->gadget);
+	if (retval != 0) {
+		DWC_ERROR("usb_add_gadget_udc failed\n");
+		return -1;
+	}
+
+	/*
+	 * Setup interupt handler
+	 */
+	DWC_DEBUGPL(DBG_ANY, "registering handler for irq%d\n", otg_dev->irq);
+	xgold_usb_pcd_irq.name = gadget_wrapper->gadget.name;
+	xgold_usb_pcd_irq.dev_id = otg_dev->pcd;
+	retval = setup_irq(otg_dev->irq, &xgold_usb_pcd_irq);
+	if (retval != 0) {
+		DWC_ERROR("setup of irq%d failed\n", otg_dev->irq);
+		free_wrapper(gadget_wrapper);
+		return -EBUSY;
+	}
+
+	dwc_otg_pcd_start(gadget_wrapper->pcd, &fops);
+	gadget_wrapper->pcd->nr_ep_enable = 0;
+	init_completion(&gadget_wrapper->pcd->ep_disabled);
+
+	core_if->uphy = devm_usb_get_phy(&_dev->dev,
+			USB_PHY_TYPE_USB2);
+	if (!IS_ERR_OR_NULL(core_if->uphy))
+			otg_set_peripheral(core_if->uphy->otg,
+				&gadget_wrapper->gadget);
+	core_if->enumdone = 0;
+
+
+	return retval;
+}
+
+/**
+ * Cleanup the PCD.
+ */
+void pcd_remove(struct platform_device *_dev)
+{
+	dwc_otg_device_t *otg_dev =
+	    (dwc_otg_device_t *) dev_get_platdata(&_dev->dev);
+
+	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
+
+	/*
+	 * Free the IRQ
+	 */
+	remove_irq(otg_dev->irq, &xgold_usb_pcd_irq);
+	free_wrapper(gadget_wrapper);
+	dwc_otg_pcd_remove(otg_dev->pcd);
+	otg_dev->pcd = 0;
+}
+
+#endif

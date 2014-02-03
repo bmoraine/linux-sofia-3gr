@@ -39,12 +39,13 @@
  *
  * This file contains the Common Interrupt handlers.
  */
-#include "dwc_os.h"
+#include "dwc_common_port/dwc_os.h"
 #include "dwc_otg_regs.h"
 #include "dwc_otg_cil.h"
 #include "dwc_otg_driver.h"
 #include "dwc_otg_pcd.h"
 #include "dwc_otg_hcd.h"
+#include <linux/usb/phy.h>
 
 #ifdef DEBUG
 inline const char *op_state_str(dwc_otg_core_if_t * core_if)
@@ -353,6 +354,7 @@ host:
 		/*
 		 * Initialize the Core for Host mode.
 		 */
+#if 0
 		if (core_if->otg_ver)
 			/* To power off the bus in 10s from the beginning
 			 * of test while denounce has not come yet */
@@ -360,6 +362,7 @@ host:
 		else
 			dwc_otg_core_init(core_if);
 		dwc_otg_enable_global_interrupts(core_if);
+#endif
 		cil_hcd_start(core_if);
 	}
 }
@@ -429,7 +432,7 @@ int32_t dwc_otg_handle_session_req_intr(dwc_otg_core_if_t * core_if)
 {
 	gintsts_data_t gintsts;
 
-#ifndef DWC_HOST_ONLY
+#ifdef CONFIG_USB_DWC_UDC
 	DWC_DEBUGPL(DBG_ANY, "++Session Request Interrupt++\n");
 
 	if (dwc_otg_is_device_mode(core_if)) {
@@ -512,8 +515,6 @@ int32_t dwc_otg_handle_wakeup_detected_intr(dwc_otg_core_if_t * core_if)
 	DWC_DEBUGPL(DBG_ANY,
 		    "++Resume and Remote Wakeup Detected Interrupt++\n");
 
-	DWC_PRINTF("%s lxstate = %d\n", __func__, core_if->lx_state);
-
 	if (dwc_otg_is_device_mode(core_if)) {
 		dctl_data_t dctl = {.d32 = 0 };
 		DWC_DEBUGPL(DBG_PCD, "DSTS=0x%0x\n",
@@ -536,6 +537,10 @@ int32_t dwc_otg_handle_wakeup_detected_intr(dwc_otg_core_if_t * core_if)
 
 				power.b.rstpdwnmodule = 0;
 				DWC_WRITE_REG32(core_if->pcgcctl, power.d32);
+				dwc_udelay(100);
+				/* Restore previously backuped registers */
+				cil_pcd_restore(core_if);
+
 			}
 #endif
 			/* Clear the Remote Wakeup Signaling */
@@ -544,9 +549,9 @@ int32_t dwc_otg_handle_wakeup_detected_intr(dwc_otg_core_if_t * core_if)
 					 dctl, dctl.d32, 0);
 
 			DWC_SPINUNLOCK(core_if->lock);
-			if (core_if->pcd_cb && core_if->pcd_cb->resume_wakeup) {
+			if (core_if->pcd_cb && core_if->pcd_cb->resume_wakeup)
 				core_if->pcd_cb->resume_wakeup(core_if->pcd_cb->p);
-			}
+
 			DWC_SPINLOCK(core_if->lock);
 		} else {
 			glpmcfg_data_t lpmcfg;
@@ -554,8 +559,8 @@ int32_t dwc_otg_handle_wakeup_detected_intr(dwc_otg_core_if_t * core_if)
 
 			lpmcfg.d32 =
 			    DWC_READ_REG32(&core_if->core_global_regs->glpmcfg);
-			lpmcfg.b.hird_thres &= (~(1 << 4));	
-	       	lpmcfg.b.en_utmi_sleep = 0; 
+			lpmcfg.b.hird_thres &= (~(1 << 4));
+			lpmcfg.b.en_utmi_sleep = 0;
 
 			/* Clear Enbl_L1Gating bit. */
 			pcgcctl.b.enbl_sleep_gating = 1;
@@ -759,11 +764,11 @@ static int32_t dwc_otg_handle_pwrdn_idsts_change(dwc_otg_device_t * otg_dev)
 		uint8_t is_host = 0;
 		DWC_SPINUNLOCK(core_if->lock);
 		/* Change the core_if's lock to hcd/pcd lock depend on mode? */
-#ifndef DWC_HOST_ONLY
+#ifdef CONFIG_USB_DWC_UDC
 		if (gpwrdn_temp.b.idsts)
 			core_if->lock = otg_dev->pcd->lock;
 #endif
-#ifndef DWC_DEVICE_ONLY
+#ifdef CONFIG_USB_DWC_HOST
 		if (!gpwrdn_temp.b.idsts) {
 			core_if->lock = otg_dev->hcd->lock;
 			is_host = 1;
@@ -906,7 +911,7 @@ static int32_t dwc_otg_handle_pwrdn_session_change(dwc_otg_core_if_t * core_if)
  */
 static uint32_t dwc_otg_handle_pwrdn_stschng_intr(dwc_otg_device_t * otg_dev)
 {
-	int retval;
+	int retval = 0;
 	gpwrdn_data_t gpwrdn = {.d32 = 0 };
 	gpwrdn_data_t gpwrdn_temp = {.d32 = 0 };
 	dwc_otg_core_if_t *core_if = otg_dev->core_if;
@@ -1071,7 +1076,7 @@ int32_t dwc_otg_handle_disconnect_intr(dwc_otg_core_if_t * core_if)
 		    op_state_str(core_if));
 
 /** @todo Consolidate this if statement. */
-#ifndef DWC_HOST_ONLY
+#ifdef CONFIG_USB_DWC_UDC
 	if (core_if->op_state == B_HOST) {
 		/* If in device mode Disconnect and stop the HCD, then
 		 * start the PCD. */
@@ -1150,6 +1155,9 @@ int32_t dwc_otg_handle_usb_suspend_intr(dwc_otg_core_if_t * core_if)
 	dsts_data_t dsts;
 	gintsts_data_t gintsts;
 	dcfg_data_t dcfg;
+#ifdef PARTIAL_POWER_DOWN
+	gintmsk_data_t gintmsk = {.d32 = 0 };
+#endif
 
 	DWC_DEBUGPL(DBG_ANY, "USB SUSPEND\n");
 
@@ -1179,7 +1187,32 @@ int32_t dwc_otg_handle_usb_suspend_intr(dwc_otg_core_if_t * core_if)
 
 		if (dsts.b.suspsts && core_if->hwcfg4.b.power_optimiz) {
 			pcgcctl_data_t power = {.d32 = 0 };
+			/* Don't suspend before enumeration */
+			if (!core_if->enumdone) {
+				/* Clear interrupt */
+				gintsts.d32 = 0;
+				gintsts.b.usbsuspend = 1;
+				DWC_WRITE_REG32(&core_if->core_global_regs->gintsts, gintsts.d32);
+				return 1;
+			}
 			DWC_DEBUGPL(DBG_CIL, "suspend\n");
+
+			/*
+			 * Backup every needed registers before backup
+			 */
+			cil_pcd_backup(core_if);
+
+			/*
+			 * Enable the resetdet interrupt to be able
+			 * to detect a reset after suspend
+			 */
+			gintmsk.b.resetdet = 1;
+			gintsts.d32 = 0;
+			gintsts.b.resetdet = 1;
+			DWC_WRITE_REG32(&core_if->core_global_regs->gintsts,
+					gintsts.d32);
+			DWC_MODIFY_REG32(&core_if->core_global_regs->gintmsk, 0,
+					 gintmsk.d32);
 
 			power.b.pwrclmp = 1;
 			DWC_WRITE_REG32(core_if->pcgcctl, power.d32);
@@ -1189,6 +1222,8 @@ int32_t dwc_otg_handle_usb_suspend_intr(dwc_otg_core_if_t * core_if)
 
 			power.b.stoppclk = 1;
 			DWC_MODIFY_REG32(core_if->pcgcctl, 0, power.d32);
+			udelay(100);
+			usb_phy_set_suspend(core_if->uphy, true);
 
 		} else {
 			DWC_DEBUGPL(DBG_ANY, "disconnect?\n");

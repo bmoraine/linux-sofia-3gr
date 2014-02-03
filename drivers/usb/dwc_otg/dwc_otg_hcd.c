@@ -30,7 +30,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  * ========================================================================== */
-#ifndef DWC_DEVICE_ONLY
+#ifdef CONFIG_USB_DWC_HOST
 
 /** @file
  * This file implements HCD Core. All code in this file is portable and doesn't
@@ -39,6 +39,8 @@
  * header file.
  */
 
+#include <linux/usb.h>
+#include <linux/usb/hcd.h>
 #include "dwc_otg_hcd.h"
 #include "dwc_otg_regs.h"
 
@@ -624,7 +626,6 @@ done:
 	return retval;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
 int dwc_otg_hcd_endpoint_reset(dwc_otg_hcd_t * hcd, void *ep_handle)
 {
 	int retval = 0;
@@ -635,7 +636,6 @@ int dwc_otg_hcd_endpoint_reset(dwc_otg_hcd_t * hcd, void *ep_handle)
 	qh->data_toggle = DWC_OTG_HC_PID_DATA0;
 	return retval;
 }
-#endif
 
 /**
  * HCD Callback structure for handling mode switching.
@@ -871,7 +871,7 @@ int dwc_otg_hcd_init(dwc_otg_hcd_t * hcd, dwc_otg_core_if_t * core_if)
 		hcd->hc_ptr_array[i] = channel;
 #ifdef DEBUG
 		hcd->core_if->hc_xfer_timer[i] =
-		    DWC_TIMER_ALLOC("hc timer", hc_xfer_timeout,
+		DWC_TIMER_ALLOC("hc timer", hc_xfer_timeout,
 				    &hcd->core_if->hc_xfer_info[i]);
 #endif
 		DWC_DEBUGPL(DBG_HCDV, "HCD Added channel #%d, hc=%p\n", i,
@@ -3078,6 +3078,10 @@ dwc_otg_hcd_urb_t *dwc_otg_hcd_urb_alloc(dwc_otg_hcd_t * hcd,
 		dwc_otg_urb = DWC_ALLOC_ATOMIC(size);
 	else
 		dwc_otg_urb = DWC_ALLOC(size);
+	if (!dwc_otg_urb) {
+		DWC_ERROR("Can't alloc dwc_otg_urb\n");
+		return NULL;
+	}
 
 	dwc_otg_urb->packet_count = iso_desc_count;
 
@@ -3428,4 +3432,4 @@ void dwc_otg_hcd_dump_frrem(dwc_otg_hcd_t * hcd)
 #endif
 }
 
-#endif /* DWC_DEVICE_ONLY */
+#endif

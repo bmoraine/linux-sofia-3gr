@@ -53,7 +53,8 @@ extern "C" {
  *
  * Any custom or alternate header file must be added and enabled here.
  */
-
+#define DWC_LINUX
+#define DWC_LIBMODULE
 #ifdef DWC_LINUX
 # include <linux/types.h>
 # ifdef CONFIG_DEBUG_MUTEXES

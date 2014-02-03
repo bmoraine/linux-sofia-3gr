@@ -55,7 +55,7 @@ extern "C" {
  * the user can be notified whenever the context list has changed.
  */
 
-#include "dwc_os.h"
+#include "dwc_common_port/dwc_os.h"
 #include "dwc_list.h"
 #include "dwc_notifier.h"
 

@@ -39,15 +39,8 @@
 #include <linux/string.h>
 #include <linux/timer.h>
 #include <linux/usb.h>
-
 #include <linux/version.h>
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-# include <linux/usb/gadget.h>
-#else
-# include <linux/usb_gadget.h>
-#endif
-
+#include <linux/usb/gadget.h>
 #include <asm/io.h>
 #include <asm/page.h>
 #include <asm/uaccess.h>

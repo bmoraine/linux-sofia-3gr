@@ -31,7 +31,7 @@
  * DAMAGE.
  * ========================================================================== */
 
-#include "dwc_os.h"
+#include "dwc_common_port/dwc_os.h"
 #include "dwc_otg_regs.h"
 #include "dwc_otg_cil.h"
 #include "dwc_otg_adp.h"
@@ -846,7 +846,7 @@ int32_t dwc_otg_adp_handle_intr(dwc_otg_core_if_t * core_if)
 int32_t dwc_otg_adp_handle_srp_intr(dwc_otg_core_if_t * core_if)
 {
 
-#ifndef DWC_HOST_ONLY
+#ifdef CONFIG_USB_DWC_UDC
 	hprt0_data_t hprt0;
 	gpwrdn_data_t gpwrdn;
 	DWC_DEBUGPL(DBG_ANY, "++ Power Down Logic Session Request Interrupt++\n");

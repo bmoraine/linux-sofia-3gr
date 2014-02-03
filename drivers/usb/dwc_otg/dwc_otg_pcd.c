@@ -30,7 +30,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  * ========================================================================== */
-#ifndef DWC_HOST_ONLY
+#ifdef CONFIG_USB_DWC_UDC
 
 /** @file
  * This file implements PCD Core. All code in this file is portable and doesn't
@@ -284,7 +284,7 @@ void dwc_otg_iso_ep_start_ddma_transfer(dwc_otg_core_if_t * core_if,
 	dwc_ep->iso_desc_addr =
 	    dwc_otg_ep_alloc_desc_chain(&dwc_ep->iso_dma_desc_addr,
 					dwc_ep->desc_cnt * 2);
-	if (dwc_ep->desc_addr) {
+	if (!dwc_ep->iso_desc_addr) {
 		DWC_WARN("%s, can't allocate DMA descriptor chain\n", __func__);
 		return;
 	}
@@ -441,6 +441,8 @@ void dwc_otg_iso_ep_start_ddma_transfer(dwc_otg_core_if_t * core_if,
 		DWC_WRITE_REG32(&(out_regs->doepdma),
 				(uint32_t) dwc_ep->iso_dma_desc_addr);
 
+		core_if->dev_if->out_ep_regs_shadow[dwc_ep->num].doepdma =
+					(uint32_t) dwc_ep->iso_dma_desc_addr;
 	}
 	/** ISO IN EP */
 	else {
@@ -519,6 +521,8 @@ void dwc_otg_iso_ep_start_ddma_transfer(dwc_otg_core_if_t * core_if,
 		/** Write dma_ad into diepdma register */
 		DWC_WRITE_REG32(&(in_regs->diepdma),
 				(uint32_t) dwc_ep->iso_dma_desc_addr);
+		core_if->dev_if->in_ep_regs_shadow[dwc_ep->num].diepdma =
+					(uint32_t) dwc_ep->iso_dma_desc_addr;
 	}
 	/** Enable endpoint, clear nak  */
 	depctl.d32 = 0;
@@ -578,9 +582,11 @@ void dwc_otg_iso_ep_start_buf_transfer(dwc_otg_core_if_t * core_if,
 					dieptsiz, deptsiz.d32);
 
 			/* Write the DMA register */
-			DWC_WRITE_REG32(&
-					(core_if->dev_if->in_ep_regs[ep->num]->
-					 diepdma), (uint32_t) ep->dma_addr);
+			DWC_WRITE_REG32(&(core_if->dev_if->
+					in_ep_regs[ep->num]->diepdma),
+						(uint32_t) ep->dma_addr);
+			core_if->dev_if->in_ep_regs_shadow[ep->num].diepdma =
+							(uint32_t) ep->dma_addr;
 
 		} else {
 			deptsiz.b.pktcnt =
@@ -873,6 +879,10 @@ int dwc_otg_pcd_get_iso_packet_count(dwc_otg_pcd_t * pcd, void *ep_handle,
 	dwc_ep_t *dwc_ep;
 
 	ep = get_ep_from_handle(pcd, ep_handle);
+	if (!ep) {
+		DWC_ERROR("Get EP failed\n");
+		return -EINVAL;
+	}
 	if (!ep->desc || ep->dwc_ep.num == 0) {
 		DWC_WARN("bad ep\n");
 		return -DWC_E_INVALID;
@@ -890,8 +900,10 @@ void dwc_otg_pcd_get_iso_packet_params(dwc_otg_pcd_t * pcd, void *ep_handle,
 	dwc_ep_t *dwc_ep;
 
 	ep = get_ep_from_handle(pcd, ep_handle);
-	if (!ep)
+	if (!ep) {
 		DWC_WARN("bad ep\n");
+		return;
+	}
 
 	dwc_ep = &ep->dwc_ep;
 
@@ -1377,12 +1389,6 @@ uint32_t dwc_otg_pcd_is_otg(dwc_otg_pcd_t * pcd)
 	uint32_t retval = 0;
 
 	usbcfg.d32 = DWC_READ_REG32(&core_if->core_global_regs->gusbcfg);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0)
-	if (!usbcfg.b.srpcap || !usbcfg.b.hnpcap)
-		return 0;
-	else 
-		return 1;
-# else
 	if (!usbcfg.b.srpcap)
 		return 0;
 	else 
@@ -1393,7 +1399,6 @@ uint32_t dwc_otg_pcd_is_otg(dwc_otg_pcd_t * pcd)
 	
 	if (core_if->adp_enable) 
 		retval |= 4;
-#endif
 
 	return retval;
 }
@@ -1470,9 +1475,10 @@ int dwc_otg_pcd_ep_enable(dwc_otg_pcd_t * pcd,
 	fifosize_data_t dptxfsiz = {.d32 = 0 };
 	gdfifocfg_data_t gdfifocfg = {.d32 = 0 };
 	gdfifocfg_data_t gdfifocfgbase = {.d32 = 0 };
-	int retval = 0;
+	int retval = 0, ep_already_enabled = 0;
 	int i, epcount;
 
+	pcd->nr_ep_enable++;
 	desc = (const usb_endpoint_descriptor_t *)ep_desc;
 
 	if (!desc) {
@@ -1519,6 +1525,8 @@ int dwc_otg_pcd_ep_enable(dwc_otg_pcd_t * pcd,
 
 	ep->desc = desc;
 	ep->priv = usb_ep;
+	if (ep->stopped == 0)
+		ep_already_enabled = 1;
 
 	/*
 	 * Activate the EP
@@ -1530,7 +1538,11 @@ int dwc_otg_pcd_ep_enable(dwc_otg_pcd_t * pcd,
 
 	ep->dwc_ep.type = desc->bmAttributes & UE_XFERTYPE;
 
-	if (ep->dwc_ep.is_in) {
+	/*
+	 * Don't modify FIFO as endpoint has already been enabled and has
+	 * already a fifo assigned
+	 */
+	if (ep->dwc_ep.is_in && !ep_already_enabled) {
 		if (!GET_CORE_IF(pcd)->en_multiple_tx_fifo) {
 			ep->dwc_ep.tx_fifo_num = 0;
 
@@ -1579,10 +1591,18 @@ int dwc_otg_pcd_ep_enable(dwc_otg_pcd_t * pcd,
 #ifndef DWC_UTE_PER_IO
 		if (ep->dwc_ep.type != UE_ISOCHRONOUS) {
 #endif
-			ep->dwc_ep.desc_addr =
-			    dwc_otg_ep_alloc_desc_chain(&ep->
+			/*
+			 * MTP gadget may call ep_enable multiple times without
+			 * calling ep_disable. So we should not alloc a desc
+			 * chain where it has already been done by previous
+			 * ep_enable call
+			 */
+			if (!ep->dwc_ep.desc_addr) {
+				ep->dwc_ep.desc_addr =
+				    dwc_otg_ep_alloc_desc_chain(&ep->
 							dwc_ep.dma_desc_addr,
 							MAX_DMA_DESC_CNT);
+			}
 			if (!ep->dwc_ep.desc_addr) {
 				DWC_WARN("%s, can't allocate DMA descriptor\n",
 					 __func__);
@@ -1656,6 +1676,7 @@ int dwc_otg_pcd_ep_disable(dwc_otg_pcd_t * pcd, void *ep_handle)
 	gdfifocfg_data_t gdfifocfg = {.d32 = 0 };
 	fifosize_data_t dptxfsiz = {.d32 = 0 };
 
+	pcd->nr_ep_enable--;
 	ep = get_ep_from_handle(pcd, ep_handle);
 
 	if (!ep || !ep->desc) {
@@ -1732,6 +1753,8 @@ int dwc_otg_pcd_ep_disable(dwc_otg_pcd_t * pcd, void *ep_handle)
 out_unlocked:
 	DWC_DEBUGPL(DBG_PCD, "%d %s disabled\n", ep->dwc_ep.num,
 		    ep->dwc_ep.is_in ? "IN" : "OUT");
+	if (pcd->nr_ep_enable == 0)
+		complete(&pcd->ep_disabled);
 	return 0;
 
 }
@@ -2321,6 +2344,10 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 	dwc_otg_pcd_ep_t *ep;
 	uint32_t max_transfer;
 
+	/* Queue only if core is powered */
+	if (pcd->core_if->lx_state != DWC_OTG_L0)
+		return 0;
+
 	ep = get_ep_from_handle(pcd, ep_handle);
 	if (!ep || (!ep->desc && ep->dwc_ep.num != 0)) {
 		DWC_WARN("bad ep\n");
@@ -2351,8 +2378,8 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 	req->priv = req_handle;
 	req->dw_align_buf = NULL;
 	if ((dma_buf & 0x3) && GET_CORE_IF(pcd)->dma_enable
-	    && !GET_CORE_IF(pcd)->dma_desc_enable)
-		req->dw_align_buf = DWC_DMA_ALLOC(buflen,
+	    && !GET_CORE_IF(pcd)->dma_desc_enable && buflen != 0)
+		req->dw_align_buf = DWC_DMA_ALLOC_ATOMIC(buflen,
 						  &req->dw_align_buf_dma);
 	DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 
@@ -2616,7 +2643,7 @@ int dwc_otg_pcd_ep_halt(dwc_otg_pcd_t * pcd, void *ep_handle, int value)
 			 ep->dwc_ep.is_in ? "IN" : "OUT");
 		retval = -DWC_E_AGAIN;
 	} else if (value == 0) {
-	    ep->dwc_ep.stall_clear_flag = 0;
+		ep->dwc_ep.stall_clear_flag = 0;
 		dwc_otg_ep_clear_stall(GET_CORE_IF(pcd), &ep->dwc_ep);
 	} else if (value == 1) {
 	stall:
@@ -2682,6 +2709,29 @@ void dwc_otg_pcd_rem_wkup_from_suspend(dwc_otg_pcd_t * pcd, int set)
 	if (pcd->remote_wakeup_enable) {
 		if (set) {
 
+#ifdef PARTIAL_POWER_DOWN
+			if (core_if->hwcfg4.b.power_optimiz) {
+				pcgcctl_data_t power = {.d32 = 0 };
+
+				power.d32 = DWC_READ_REG32(core_if->pcgcctl);
+				DWC_DEBUGPL(DBG_CIL, "PCGCCTL=%0x\n",
+					    power.d32);
+
+				power.b.stoppclk = 0;
+				DWC_WRITE_REG32(core_if->pcgcctl, power.d32);
+
+				power.b.pwrclmp = 0;
+				DWC_WRITE_REG32(core_if->pcgcctl, power.d32);
+
+				power.b.rstpdwnmodule = 0;
+				DWC_WRITE_REG32(core_if->pcgcctl, power.d32);
+				dwc_udelay(100);
+				/* Restore previously backuped registers */
+				cil_pcd_restore(core_if);
+
+				core_if->lx_state = DWC_OTG_L0;
+			}
+#endif
 			if (core_if->adp_enable) {
 				gpwrdn_data_t gpwrdn;
 
@@ -2721,6 +2771,13 @@ void dwc_otg_pcd_rem_wkup_from_suspend(dwc_otg_pcd_t * pcd, int set)
 			DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->
 					 dctl, dctl.d32, 0);
 			DWC_DEBUGPL(DBG_PCD, "Clear Remote Wakeup\n");
+			DWC_SPINUNLOCK(core_if->lock);
+			if (core_if->pcd_cb &&
+					core_if->pcd_cb->resume_wakeup) {
+				core_if->pcd_cb->resume_wakeup
+							(core_if->pcd_cb->p);
+			}
+			DWC_SPINLOCK(core_if->lock);
 		}
 	} else {
 		DWC_DEBUGPL(DBG_PCD, "Remote Wakeup is disabled\n");
@@ -2914,4 +2971,4 @@ int dwc_otg_pcd_get_rmwkup_enable(dwc_otg_pcd_t * pcd)
 	return pcd->remote_wakeup_enable;
 }
 
-#endif /* DWC_HOST_ONLY */
+#endif

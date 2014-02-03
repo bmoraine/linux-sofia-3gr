@@ -1797,11 +1797,13 @@ typedef struct dwc_otg_dev_if {
 	 * Device Logical IN Endpoint-Specific Registers 900h-AFCh
 	 */
 	dwc_otg_dev_in_ep_regs_t *in_ep_regs[MAX_EPS_CHANNELS];
+	dwc_otg_dev_in_ep_regs_t in_ep_regs_shadow[MAX_EPS_CHANNELS];
 #define DWC_DEV_IN_EP_REG_OFFSET 0x900
 #define DWC_EP_REG_OFFSET 0x20
 
 	/** Device Logical OUT Endpoint-Specific Registers B00h-CFCh */
 	dwc_otg_dev_out_ep_regs_t *out_ep_regs[MAX_EPS_CHANNELS];
+	dwc_otg_dev_out_ep_regs_t out_ep_regs_shadow[MAX_EPS_CHANNELS];
 #define DWC_DEV_OUT_EP_REG_OFFSET 0xB00
 
 	/* Device configuration information */

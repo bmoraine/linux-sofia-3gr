@@ -30,7 +30,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  * ========================================================================== */
-#ifndef DWC_DEVICE_ONLY
+#ifdef CONFIG_USB_DWC_HOST
 
 /**
  * @file
@@ -724,4 +724,4 @@ done:
 	return retval;
 }
 
-#endif /* DWC_DEVICE_ONLY */
+#endif

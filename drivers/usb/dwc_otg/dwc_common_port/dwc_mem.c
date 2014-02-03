@@ -1,7 +1,7 @@
 /* Memory Debugging */
 #ifdef DWC_DEBUG_MEMORY
 
-#include "dwc_os.h"
+#include "dwc_common_port/dwc_os.h"
 #include "dwc_list.h"
 
 struct allocation {

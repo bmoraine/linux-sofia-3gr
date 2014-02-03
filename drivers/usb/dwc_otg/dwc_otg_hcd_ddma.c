@@ -30,7 +30,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  * ========================================================================== */
-#ifndef DWC_DEVICE_ONLY
+#ifdef CONFIG_USB_DWC_HOST
 
 /** @file
  * This file contains Descriptor DMA support implementation for host mode.
@@ -84,6 +84,7 @@ static int desc_list_alloc(dwc_otg_qh_t * qh)
 	if (!qh->desc_list) {
 		retval = -DWC_E_NO_MEMORY;
 		DWC_ERROR("%s: DMA descriptor list allocation failed\n", __func__);
+		return retval;
 		
 	}
 
@@ -129,6 +130,7 @@ static int frame_list_alloc(dwc_otg_hcd_t * hcd)
 	if (!hcd->frame_list) {
 		retval = -DWC_E_NO_MEMORY;
 		DWC_ERROR("%s: Frame List allocation failed\n", __func__);
+		return retval;
 	}
 
 	dwc_memset(hcd->frame_list, 0x00, 4 * MAX_FRLIST_EN_NUM);
@@ -1119,4 +1121,4 @@ void dwc_otg_hcd_complete_xfer_ddma(dwc_otg_hcd_t * hcd,
 	}
 }
 
-#endif /* DWC_DEVICE_ONLY */
+#endif

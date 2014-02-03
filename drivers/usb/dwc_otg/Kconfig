@@ -1,0 +1,29 @@
+config USB_DWC_OTG
+	tristate "Synopsys Highspeed Dual Role Controller"
+	depends on USB || USB_GADGET
+	---help---
+	  Say Y here if your system has a dual role high speed USB
+	  controller based on Synopsys silicon IP.
+
+if USB_DWC_OTG
+
+config USB_DWC_UDC
+	bool "DWC device controller"
+	depends on USB_GADGET=y || USB_GADGET=USB_DWC_OTG
+	---help---
+	  Say Y here to enable device controller functionality of the
+	  Synopsys driver
+
+config USB_DWC_HOST
+	bool "DWC host controller"
+	depends on USB=y || USB=USB_DWC_OTG
+	---help---
+	  Say Y here to enable host controller functionality of the
+	  Synopsys driver.
+
+config USB_DWC_DEBUG
+	bool "DWC driver debug"
+	---help---
+	  Say Y here to enable debugging output of the Synopsys driver.
+
+endif

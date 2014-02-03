@@ -66,6 +66,13 @@ typedef struct dwc_otg_device {
 	/** Flag to indicate whether the common IRQ handler is installed. */
 	uint8_t common_irq_installed;
 
+	/** IRQ resource */
+	int irq;
+
+	/** Resume interrupt */
+	int resume_irq;
+
+	void *data;
 } dwc_otg_device_t;
 
 /*We must clear S3C24XX_EINTPEND external interrupt register 

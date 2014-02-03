@@ -30,12 +30,12 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  * ========================================================================== */
-#ifndef DWC_HOST_ONLY
+#ifdef CONFIG_USB_DWC_UDC
 #if !defined(__DWC_PCD_H__)
 #define __DWC_PCD_H__
 
 #include "dwc_otg_os_dep.h"
-#include "usb.h"
+#include "dwc_common_port/usb.h"
 #include "dwc_otg_cil.h"
 #include "dwc_otg_pcd_if.h"
 struct cfiobject;
@@ -81,6 +81,29 @@ typedef enum ep0_state {
 
 /** Fordward declaration.*/
 struct dwc_otg_pcd;
+
+struct usb_iso_request {
+	void 			*buf0;
+	void 			*buf1;
+	dma_addr_t		dma0;
+	dma_addr_t		dma1;
+
+	uint32_t		buf_proc_intrvl;
+	unsigned		no_interrupt:1;
+	unsigned		zero:1;
+	unsigned		short_not_ok:1;
+	uint32_t 		sync_frame;
+	uint32_t 		data_per_frame;
+	uint32_t 		data_pattern_frame;
+	uint32_t		start_frame;
+	uint32_t		flags;
+	void 			(*process_buffer)(struct usb_ep*,
+					    struct usb_iso_request*);
+	void			*context;
+	int 			status;
+	struct usb_iso_packet_descriptor *iso_packet_desc0;
+	struct usb_iso_packet_descriptor *iso_packet_desc1;
+};
 
 /** DWC_otg iso request structure.
  *
@@ -250,6 +273,21 @@ struct dwc_otg_pcd {
 #ifdef DWC_UTE_CFI
 	struct cfiobject *cfi;
 #endif
+	/*
+	 * This flag reflect pullup status
+	 */
+	unsigned soft_disconnected;
+
+	/*
+	 * Completion to know when all eps are disabled before switching off USB
+	 * core
+	 */
+	struct completion ep_disabled;
+
+	/*
+	 * Number of endpoints enabled
+	 */
+	int nr_ep_enable;
 
 };
 
@@ -265,4 +303,4 @@ extern void dwc_otg_pcd_start_iso_ddma(dwc_otg_core_if_t * core_if,
 
 extern void do_test_mode(void *data);
 #endif
-#endif /* DWC_HOST_ONLY */
+#endif

@@ -30,7 +30,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  * ========================================================================== */
-#ifndef DWC_DEVICE_ONLY
+#ifdef CONFIG_USB_DWC_HOST
 
 #include "dwc_otg_hcd.h"
 #include "dwc_otg_regs.h"
@@ -2102,4 +2102,4 @@ int32_t dwc_otg_hcd_handle_hc_n_intr(dwc_otg_hcd_t * dwc_otg_hcd, uint32_t num)
 	return retval;
 }
 
-#endif /* DWC_DEVICE_ONLY */
+#endif

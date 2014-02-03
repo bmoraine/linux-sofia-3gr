@@ -30,15 +30,15 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  * ========================================================================== */
-#ifndef DWC_DEVICE_ONLY
+#ifdef CONFIG_USB_DWC_HOST
 #ifndef __DWC_HCD_H__
 #define __DWC_HCD_H__
 
 #include "dwc_otg_os_dep.h"
-#include "usb.h"
+#include "dwc_common_port/usb.h"
 #include "dwc_otg_hcd_if.h"
 #include "dwc_otg_core_if.h"
-#include "dwc_list.h"
+#include "dwc_common_port/dwc_list.h"
 #include "dwc_otg_cil.h"
 
 /**
@@ -800,4 +800,4 @@ void dwc_otg_hcd_save_data_toggle(dwc_hc_t * hc,
 #define dwc_sample_frrem(_hcd, _qh, _letter)
 #endif
 #endif
-#endif /* DWC_DEVICE_ONLY */
+#endif

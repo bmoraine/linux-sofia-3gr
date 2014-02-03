@@ -49,49 +49,34 @@
  */
 
 #include "dwc_otg_os_dep.h"
-#include "dwc_os.h"
+#include "dwc_common_port/dwc_os.h"
 #include "dwc_otg_dbg.h"
 #include "dwc_otg_driver.h"
 #include "dwc_otg_attr.h"
 #include "dwc_otg_core_if.h"
 #include "dwc_otg_pcd_if.h"
 #include "dwc_otg_hcd_if.h"
+#include "dwc_otg_cil.h"
+
+#include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/delay.h>
+#include <linux/usb/phy.h>
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+#include <linux/platform_device_pm.h>
+#endif
 
 #define DWC_DRIVER_VERSION	"3.10b 20-MAY-2013"
 #define DWC_DRIVER_DESC		"HS OTG USB Controller driver"
 
 static const char dwc_driver_name[] = "dwc_otg";
 
-extern int pcd_init(
-#ifdef LM_INTERFACE
-			   struct lm_device *_dev
-#elif  defined(PCI_INTERFACE)
-			   struct pci_dev *_dev
-#endif
-    );
-extern int hcd_init(
-#ifdef LM_INTERFACE
-			   struct lm_device *_dev
-#elif  defined(PCI_INTERFACE)
-			   struct pci_dev *_dev
-#endif
-    );
+extern int pcd_init(struct platform_device *_dev);
+extern int hcd_init(struct platform_device *_dev);
 
-extern int pcd_remove(
-#ifdef LM_INTERFACE
-			     struct lm_device *_dev
-#elif  defined(PCI_INTERFACE)
-			     struct pci_dev *_dev
-#endif
-    );
+extern int pcd_remove(struct platform_device *_dev);
 
-extern void hcd_remove(
-#ifdef LM_INTERFACE
-			      struct lm_device *_dev
-#elif  defined(PCI_INTERFACE)
-			      struct pci_dev *_dev
-#endif
-    );
+extern void hcd_remove(struct platform_device *_dev);
 
 extern void dwc_otg_adp_start(dwc_otg_core_if_t * core_if, uint8_t is_host);
 
@@ -148,91 +133,7 @@ struct dwc_otg_driver_module_params {
 	int32_t adp_enable;
 };
 
-static struct dwc_otg_driver_module_params dwc_otg_module_params = {
-	.opt = -1,
-	.otg_cap = -1,
-	.dma_enable = -1,
-	.dma_desc_enable = -1,
-	.dma_burst_size = -1,
-	.speed = -1,
-	.host_support_fs_ls_low_power = -1,
-	.host_ls_low_power_phy_clk = -1,
-	.enable_dynamic_fifo = -1,
-	.data_fifo_size = -1,
-	.dev_rx_fifo_size = -1,
-	.dev_nperio_tx_fifo_size = -1,
-	.dev_perio_tx_fifo_size = {
-				   /* dev_perio_tx_fifo_size_1 */
-				   -1,
-				   -1,
-				   -1,
-				   -1,
-				   -1,
-				   -1,
-				   -1,
-				   -1,
-				   -1,
-				   -1,
-				   -1,
-				   -1,
-				   -1,
-				   -1,
-				   -1
-				   /* 15 */
-				   },
-	.host_rx_fifo_size = -1,
-	.host_nperio_tx_fifo_size = -1,
-	.host_perio_tx_fifo_size = -1,
-	.max_transfer_size = -1,
-	.max_packet_count = -1,
-	.host_channels = -1,
-	.dev_endpoints = -1,
-	.phy_type = -1,
-	.phy_utmi_width = -1,
-	.phy_ulpi_ddr = -1,
-	.phy_ulpi_ext_vbus = -1,
-	.i2c_enable = -1,
-	.ulpi_fs_ls = -1,
-	.ts_dline = -1,
-	.en_multiple_tx_fifo = -1,
-	.dev_tx_fifo_size = {
-			     /* dev_tx_fifo_size */
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1
-			     /* 15 */
-			     },
-	.thr_ctl = -1,
-	.tx_thr_length = -1,
-	.rx_thr_length = -1,
-	.pti_enable = -1,
-	.mpi_enable = -1,
-	.lpm_enable = -1,
-	.besl_enable = -1,
-	.baseline_besl = -1,
-	.deep_besl = -1,
-	.ic_usb_cap = -1,
-	.ahb_thr_ratio = -1,
-	.power_down = -1,
-	.reload_ctl = -1,
-	.dev_out_nak = -1,
-	.cont_on_bna = -1,
-	.ahb_single = -1,
-	.otg_ver = -1,
-	.adp_enable = -1,
-};
+static struct dwc_otg_driver_module_params dwc_otg_module_params;
 
 /**
  * This function shows the Driver Version.
@@ -567,10 +468,20 @@ static irqreturn_t dwc_otg_common_irq(int irq, void *dev)
 	int32_t retval = IRQ_NONE;
 
 	retval = dwc_otg_handle_common_intr(dev);
-	if (retval != 0) {
+	if (retval != 0)
 		S3C2410X_CLEAR_EINTPEND();
-	}
+
 	return IRQ_RETVAL(retval);
+}
+
+static int dwc_otg_driver_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int dwc_otg_driver_resume(struct device *dev)
+{
+	return 0;
 }
 
 /**
@@ -582,59 +493,36 @@ static irqreturn_t dwc_otg_common_irq(int irq, void *dev)
  *
  * @param _dev
  */
-static void dwc_otg_driver_remove(
-#ifdef LM_INTERFACE
-					 struct lm_device *_dev
-#elif defined(PCI_INTERFACE)
-					 struct pci_dev *_dev
-#endif
-    )
+static int dwc_otg_driver_remove(struct platform_device *_dev)
 {
-#ifdef LM_INTERFACE
-	dwc_otg_device_t *otg_dev = lm_get_drvdata(_dev);
-#elif defined(PCI_INTERFACE)
-	dwc_otg_device_t *otg_dev = pci_get_drvdata(_dev);
-#endif
+	dwc_otg_device_t *otg_dev =
+	    (dwc_otg_device_t *) dev_get_platdata(&_dev->dev);
 
 	DWC_DEBUGPL(DBG_ANY, "%s(%p)\n", __func__, _dev);
 
-	if (!otg_dev) {
-		/* Memory allocation for the dwc_otg_device failed. */
-		DWC_DEBUGPL(DBG_ANY, "%s: otg_dev NULL!\n", __func__);
-		return;
-	}
-#ifndef DWC_DEVICE_ONLY
+#ifdef CONFIG_USB_DWC_HOST
 	if (otg_dev->hcd) {
 		hcd_remove(_dev);
 	} else {
 		DWC_DEBUGPL(DBG_ANY, "%s: otg_dev->hcd NULL!\n", __func__);
-		return;
+		return -1;
 	}
 #endif
 
-#ifndef DWC_HOST_ONLY
+#ifdef CONFIG_USB_DWC_UDC
 	if (otg_dev->pcd) {
 		pcd_remove(_dev);
 	} else {
 		DWC_DEBUGPL(DBG_ANY, "%s: otg_dev->pcd NULL!\n", __func__);
-		return;
+		return -1;
 	}
 #endif
-	/*
-	 * Free the IRQ
-	 */
-	if (otg_dev->common_irq_installed) {
-		free_irq(_dev->irq, otg_dev);
-	} else {
-		DWC_DEBUGPL(DBG_ANY, "%s: There is no installed irq!\n", __func__);
-		return;
-	}
 
 	if (otg_dev->core_if) {
 		dwc_otg_cil_remove(otg_dev->core_if);
 	} else {
 		DWC_DEBUGPL(DBG_ANY, "%s: otg_dev->core_if NULL!\n", __func__);
-		return;
+		return -1;
 	}
 
 	/*
@@ -642,24 +530,53 @@ static void dwc_otg_driver_remove(
 	 */
 	dwc_otg_attr_remove(_dev);
 
-	/*
-	 * Return the memory.
-	 */
-	if (otg_dev->os_dep.base) {
-		iounmap(otg_dev->os_dep.base);
-	}
-	DWC_FREE(otg_dev);
-
-	/*
-	 * Clear the drvdata pointer.
-	 */
-#ifdef LM_INTERFACE
-	lm_set_drvdata(_dev, 0);
-#elif defined(PCI_INTERFACE)
-    release_mem_region(otg_dev->os_dep.rsrc_start, otg_dev->os_dep.rsrc_len);
-	pci_set_drvdata(_dev, 0);
-#endif
+	return 0;
 }
+
+#if !defined(CONFIG_PLATFORM_DEVICE_PM_VIRT)
+/* USB PM states & class */
+static struct device_state_pm_state usb_pm_states[] = {
+	{.name = "disable"},
+	{.name = "suspend"},
+	{.name = "suspend_no_psv"},
+	{.name = "enable"},
+	{.name = "enable_iso"},
+};
+
+static int usb_set_pm_state(struct device *_dev,
+		struct device_state_pm_state *state)
+{
+	dwc_otg_device_t *otg_dev = dev_get_platdata(_dev);
+	int id = 0;
+	if (!strcmp(state->name, usb_pm_states[0].name))
+		id = 0;
+	else if (!strcmp(state->name, usb_pm_states[1].name))
+		id = 1;
+	else if (!strcmp(state->name, usb_pm_states[2].name))
+		id = 2;
+	else if (!strcmp(state->name, usb_pm_states[3].name))
+		id = 3;
+	else if (!strcmp(state->name, usb_pm_states[4].name))
+		id = 4;
+	else
+		return -EINVAL;
+	return xgold_set_pm_state(otg_dev->data, id);
+}
+
+static struct device_state_pm_state *usb_get_initial_state(
+		struct device *dev)
+{
+	return &usb_pm_states[0];
+}
+
+static struct device_state_pm_ops usb_pm_ops = {
+	.set_state = usb_set_pm_state,
+	.get_initial_state = usb_get_initial_state,
+};
+
+DECLARE_DEVICE_STATE_PM_CLASS(usb);
+#endif
+
 
 /**
  * This function is called when an lm_device is bound to a
@@ -672,121 +589,62 @@ static void dwc_otg_driver_remove(
  *
  * @param _dev Bus device
  */
-static int dwc_otg_driver_probe(
-#ifdef LM_INTERFACE
-				       struct lm_device *_dev
-#elif defined(PCI_INTERFACE)
-				       struct pci_dev *_dev,
-				       const struct pci_device_id *id
-#endif
-    )
+static int dwc_otg_driver_probe(struct platform_device *_dev)
 {
-	int retval = 0;
+	struct device_node *np = _dev->dev.of_node;
 	dwc_otg_device_t *dwc_otg_device;
+	struct device *dev = &_dev->dev;
+	struct usb_phy *uphy;
+	struct resource *res;
+	unsigned len = 0;
+	int retval = 0;
 
-	dev_dbg(&_dev->dev, "dwc_otg_driver_probe(%p)\n", _dev);
-#ifdef LM_INTERFACE
-	dev_dbg(&_dev->dev, "start=0x%08x\n", (unsigned)_dev->resource.start);
-#elif defined(PCI_INTERFACE)
-	if (!id) {
-		DWC_ERROR("Invalid pci_device_id %p", id);
-		return -EINVAL;
-	}
+	dev_dbg(dev, "dwc_otg_driver_probe(%p)\n", _dev);
 
-	if (!_dev || (pci_enable_device(_dev) < 0)) {
-		DWC_ERROR("Invalid pci_device %p", _dev);
-		return -ENODEV;
-	}
-	dev_dbg(&_dev->dev, "start=0x%08x\n", (unsigned)pci_resource_start(_dev,0));
-	/* other stuff needed as well? */
-
-#endif
-
-	dwc_otg_device = DWC_ALLOC(sizeof(dwc_otg_device_t));
-
+	dwc_otg_device = devm_kzalloc(&_dev->dev, sizeof(dwc_otg_device_t),
+			GFP_KERNEL);
 	if (!dwc_otg_device) {
-		dev_err(&_dev->dev, "kmalloc of dwc_otg_device failed\n");
+		dev_err(dev, "kmalloc of dwc_otg_device failed\n");
 		return -ENOMEM;
 	}
 
-	memset(dwc_otg_device, 0, sizeof(*dwc_otg_device));
 	dwc_otg_device->os_dep.reg_offset = 0xFFFFFFFF;
+	_dev->dev.platform_data = dwc_otg_device;
+
+	/*
+	 * Request memory region
+	 */
+	res = platform_get_resource(_dev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_err(dev, "could not determine device base address\n");
+		return -EINVAL;
+	}
 
 	/*
 	 * Map the DWC_otg Core memory into virtual address space.
 	 */
-#ifdef LM_INTERFACE
-	dwc_otg_device->os_dep.base = ioremap(_dev->resource.start, SZ_256K);
-
+	dwc_otg_device->os_dep.base = devm_ioremap_resource(&_dev->dev, res);
 	if (!dwc_otg_device->os_dep.base) {
-		dev_err(&_dev->dev, "ioremap() failed\n");
-		DWC_FREE(dwc_otg_device);
-		return -ENOMEM;
+		dev_err(dev, "ioremap() failed\n");
+		return -EADDRNOTAVAIL;
 	}
-	dev_dbg(&_dev->dev, "base=0x%08x\n",
+	dev_dbg(dev, "base=0x%08x\n",
 		(unsigned)dwc_otg_device->os_dep.base);
-#elif defined(PCI_INTERFACE)
-	_dev->current_state = PCI_D0;
-	_dev->dev.power.power_state = PMSG_ON;
-
-	if (!_dev->irq) {
-		DWC_ERROR("Found HC with no IRQ. Check BIOS/PCI %s setup!",
-			  pci_name(_dev));
-		iounmap(dwc_otg_device->os_dep.base);
-		DWC_FREE(dwc_otg_device);
-		return -ENODEV;
-	}
-
-	dwc_otg_device->os_dep.rsrc_start = pci_resource_start(_dev, 0);
-	dwc_otg_device->os_dep.rsrc_len = pci_resource_len(_dev, 0);
-	DWC_DEBUGPL(DBG_ANY, "PCI resource: start=%08x, len=%08x\n",
-		    (unsigned)dwc_otg_device->os_dep.rsrc_start,
-		    (unsigned)dwc_otg_device->os_dep.rsrc_len);
-	if (!request_mem_region
-	    (dwc_otg_device->os_dep.rsrc_start, dwc_otg_device->os_dep.rsrc_len,
-	     "dwc_otg")) {
-		dev_dbg(&_dev->dev, "error requesting memory\n");
-		iounmap(dwc_otg_device->os_dep.base);
-		DWC_FREE(dwc_otg_device);
-		return -EFAULT;
-	}
-
-	dwc_otg_device->os_dep.base =
-	    ioremap_nocache(dwc_otg_device->os_dep.rsrc_start,
-			    dwc_otg_device->os_dep.rsrc_len);
-	if (dwc_otg_device->os_dep.base == NULL) {
-		dev_dbg(&_dev->dev, "error mapping memory\n");
-		release_mem_region(dwc_otg_device->os_dep.rsrc_start,
-				   dwc_otg_device->os_dep.rsrc_len);
-		iounmap(dwc_otg_device->os_dep.base);
-		DWC_FREE(dwc_otg_device);
-		return -EFAULT;
-	}
-	dev_dbg(&_dev->dev, "base=0x%p (before adjust) \n",
-		dwc_otg_device->os_dep.base);
-	dwc_otg_device->os_dep.base = (char *)dwc_otg_device->os_dep.base;
-	dev_dbg(&_dev->dev, "base=0x%p (after adjust) \n",
-		dwc_otg_device->os_dep.base);
-	dev_dbg(&_dev->dev, "%s: mapped PA 0x%x to VA 0x%p\n", __func__,
-		(unsigned)dwc_otg_device->os_dep.rsrc_start,
-		dwc_otg_device->os_dep.base);
-
-	pci_set_master(_dev);
-	pci_set_drvdata(_dev, dwc_otg_device);
-#endif
+	uphy = devm_usb_get_phy(&_dev->dev,
+			USB_PHY_TYPE_USB2);
+	if (!IS_ERR_OR_NULL(uphy))
+		uphy->io_priv = dwc_otg_device->os_dep.base + 0xE00;
 
 	/*
 	 * Initialize driver data to point to the global DWC_otg
 	 * Device structure.
 	 */
-#ifdef LM_INTERFACE
-	lm_set_drvdata(_dev, dwc_otg_device);
-#endif
-	dev_dbg(&_dev->dev, "dwc_otg_device=0x%p\n", dwc_otg_device);
+	platform_set_drvdata(_dev, dwc_otg_device);
+	dev_dbg(dev, "dwc_otg_device=0x%p\n", dwc_otg_device);
 
 	dwc_otg_device->core_if = dwc_otg_cil_init(dwc_otg_device->os_dep.base);
 	if (!dwc_otg_device->core_if) {
-		dev_err(&_dev->dev, "CIL initialization failed!\n");
+		dev_err(dev, "CIL initialization failed!\n");
 		retval = -ENOMEM;
 		goto fail;
 	}
@@ -794,13 +652,16 @@ static int dwc_otg_driver_probe(
 	/*
 	 * Attempt to ensure this device is really a DWC_otg Controller.
 	 * Read and verify the SNPSID register contents. The value should be
-	 * 0x45F42XXX or 0x45F42XXX, which corresponds to either "OT2" or "OTG3",
-	 * as in "OTG version 2.XX" or "OTG version 3.XX".
+	 * 0x45F42XXX or 0x45F42XXX, which corresponds to either "OT2" or
+	 * "OTG3", as in "OTG version 2.XX" or "OTG version 3.XX".
 	 */
 
-	if (((dwc_otg_get_gsnpsid(dwc_otg_device->core_if) & 0xFFFFF000) !=	0x4F542000) &&
-		((dwc_otg_get_gsnpsid(dwc_otg_device->core_if) & 0xFFFFF000) != 0x4F543000)) {
-		dev_err(&_dev->dev, "Bad value for SNPSID: 0x%08x\n",
+	if (((dwc_otg_get_gsnpsid(dwc_otg_device->core_if)
+			& 0xFFFFF000) != 0x4F542000)
+			&& ((dwc_otg_get_gsnpsid(dwc_otg_device->core_if)
+			& 0xFFFFF000) != 0x4F543000)
+			&& dwc_otg_device->core_if->phy_power) {
+		dev_err(dev, "Bad value for SNPSID: 0x%08x\n",
 			dwc_otg_get_gsnpsid(dwc_otg_device->core_if));
 		retval = -EINVAL;
 		goto fail;
@@ -809,11 +670,44 @@ static int dwc_otg_driver_probe(
 	/*
 	 * Validate parameter values.
 	 */
+	if (of_find_property(np, "intel,dwc_params", &len)) {
+		int i = 0;
+		dev_dbg(dev, "get %d usb params\n", len);
+		len /= sizeof(u32);
+		if (of_property_read_u32_array(np, "intel,dwc_params",
+					(u32 *) &dwc_otg_module_params, len)) {
+			retval = -EINVAL;
+			goto fail;
+		}
+		while (i < len) {
+			dev_dbg(dev, "dwc_params[%d] = %d\n",
+					i, ((int *) &dwc_otg_module_params)[i]);
+			i++;
+		}
+	} else {
+		retval = -EINVAL;
+		goto fail;
+	}
+
 	if (set_parameters(dwc_otg_device->core_if)) {
 		retval = -EINVAL;
 		goto fail;
 	}
-	
+
+	/* Get hw parameters values */
+	if (of_find_property(np, "intel,hwcfg1", NULL))
+		of_property_read_u32(np, "intel,hwcfg1",
+			&dwc_otg_device->core_if->hwcfg1.d32);
+	if (of_find_property(np, "intel,hwcfg2", NULL))
+		of_property_read_u32(np, "intel,hwcfg2",
+			&dwc_otg_device->core_if->hwcfg2.d32);
+	if (of_find_property(np, "intel,hwcfg3", NULL))
+		of_property_read_u32(np, "intel,hwcfg3",
+			&dwc_otg_device->core_if->hwcfg3.d32);
+	if (of_find_property(np, "intel,hwcfg4", NULL))
+		of_property_read_u32(np, "intel,hwcfg4",
+			&dwc_otg_device->core_if->hwcfg4.d32);
+
 	/*
 	 * Create Device Attributes in sysfs
 	 */
@@ -829,28 +723,25 @@ static int dwc_otg_driver_probe(
 	 * Install the interrupt handler for the common interrupts before
 	 * enabling common interrupts in core_init below.
 	 */
+	dwc_otg_device->irq = platform_get_irq_byname(_dev, "core");
 	DWC_DEBUGPL(DBG_CIL, "registering (common) handler for irq%d\n",
-		    _dev->irq);
-	retval = request_irq(_dev->irq, dwc_otg_common_irq,
-			     IRQF_SHARED | IRQF_DISABLED | IRQ_LEVEL, "dwc_otg",
-			     dwc_otg_device);
-	if (retval) {
-		DWC_ERROR("request of irq%d failed\n", _dev->irq);
+			dwc_otg_device->irq);
+	retval = devm_request_irq(&_dev->dev, dwc_otg_device->irq,
+			dwc_otg_common_irq, IRQF_SHARED | IRQ_LEVEL,
+					dwc_driver_name, dwc_otg_device);
+	if (retval != 0) {
+		DWC_ERROR("setup of irq%d failed\n",
+				dwc_otg_device->irq);
 		retval = -EBUSY;
 		goto fail;
-	} else {
-		dwc_otg_device->common_irq_installed = 1;
 	}
 
-#ifdef LM_INTERFACE
-	set_irq_type(_dev->irq, IRQT_LOW);
-#endif
 	/*
 	 * Initialize the DWC_otg core.
 	 */
 	dwc_otg_core_init(dwc_otg_device->core_if);
-		
-#ifndef DWC_HOST_ONLY
+
+#ifdef CONFIG_USB_DWC_UDC
 	/*
 	 * Initialize the PCD
 	 */
@@ -859,9 +750,9 @@ static int dwc_otg_driver_probe(
 		DWC_ERROR("pcd_init failed\n");
 		dwc_otg_device->pcd = NULL;
 		goto fail;
-	}	
+	}
 #endif
-#ifndef DWC_DEVICE_ONLY
+#ifdef CONFIG_USB_DWC_HOST
 	/*
 	 * Initialize the HCD
 	 */
@@ -871,25 +762,23 @@ static int dwc_otg_driver_probe(
 		dwc_otg_device->hcd = NULL;
 		goto fail;
 	}
-#endif
-#ifdef PCI_INTERFACE
-	pci_set_drvdata(_dev, dwc_otg_device);
-	dwc_otg_device->os_dep.pcidev = _dev;
+	dwc_otg_device->os_dep.dev = _dev;
 #endif
 
 	/*
 	 * Enable the global interrupt after all the interrupt
-	 * handlers are installed if there is no ADP support else 
+	 * handlers are installed if there is no ADP support else
 	 * perform initial actions required for Internal ADP logic.
 	 */
-	if (!dwc_otg_get_param_adp_enable(dwc_otg_device->core_if))	
+	if (!dwc_otg_get_param_adp_enable(dwc_otg_device->core_if))
 		dwc_otg_enable_global_interrupts(dwc_otg_device->core_if);
 	else
-		dwc_otg_adp_start(dwc_otg_device->core_if, 
-							dwc_otg_is_host_mode(dwc_otg_device->core_if));
+		dwc_otg_adp_start(dwc_otg_device->core_if,
+				dwc_otg_is_host_mode(dwc_otg_device->core_if));
 
+	/* Switch core state to OFF*/
+	dwc_otg_device->core_if->lx_state = DWC_OTG_L3;
 	return 0;
-
 fail:
 	dwc_otg_driver_remove(_dev);
 	return retval;
@@ -906,39 +795,30 @@ fail:
  * to this driver. The remove function is called when a device is
  * unregistered with the bus driver.
  */
-#ifdef LM_INTERFACE
-static struct lm_driver dwc_otg_driver = {
-	.drv = {.name = (char *)dwc_driver_name,},
-	.probe = dwc_otg_driver_probe,
-	.remove = dwc_otg_driver_remove,
-};
-#elif defined(PCI_INTERFACE)
-static const struct pci_device_id pci_ids[] = { {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
-						PCI_DEVICE(PCI_ANY_ID, 0xabcd),
-#else
-						PCI_DEVICE(0x16c3, 0xabcd),
-#endif
-						.driver_data =
-						(unsigned long)0xdeadbeef,
-						}, { /* end: all zeroes */ }
+
+static const struct of_device_id xgold_usb_of_match[] = {
+	{
+		.compatible = "intel,usb",
+	},
+	{}
 };
 
-MODULE_DEVICE_TABLE(pci, pci_ids);
+MODULE_DEVICE_TABLE(of, xgold_usb_of_match);
 
-/* pci driver glue; this is a "new style" PCI driver module */
-static struct pci_driver dwc_otg_driver = {
-	.name = "dwc_otg",
-	.id_table = pci_ids,
+static const struct dev_pm_ops usb_dev_pm_ops = {
+	.suspend = dwc_otg_driver_suspend,
+	.resume = dwc_otg_driver_resume,
+};
 
-	.probe = dwc_otg_driver_probe,
-	.remove = dwc_otg_driver_remove,
-
+static struct platform_driver dwc_otg_driver = {
 	.driver = {
 		   .name = (char *)dwc_driver_name,
+		   .of_match_table = of_match_ptr(xgold_usb_of_match),
+		   .pm = &usb_dev_pm_ops,
 		   },
+	.probe = dwc_otg_driver_probe,
+	.remove = dwc_otg_driver_remove,
 };
-#endif
 
 /**
  * This function is called when the dwc_otg_driver is installed with the
@@ -954,23 +834,22 @@ static int __init dwc_otg_driver_init(void)
 {
 	int retval = 0;
 	int error;
-	printk(KERN_INFO "%s: version %s\n", dwc_driver_name,
+	pr_info("%s: version %s\n", dwc_driver_name,
 	       DWC_DRIVER_VERSION);
-#ifdef LM_INTERFACE
-	retval = lm_driver_register(&dwc_otg_driver);
-#elif defined(PCI_INTERFACE)
-	retval = pci_register_driver(&dwc_otg_driver);
-#endif
+	retval = platform_driver_register(&dwc_otg_driver);
 	if (retval < 0) {
-		printk(KERN_ERR "%s retval=%d\n", __func__, retval);
+		pr_err("%s retval=%d\n", __func__, retval);
 		return retval;
 	}
-#ifdef LM_INTERFACE
-	error = driver_create_file(&dwc_otg_driver.drv, &driver_attr_version);
-	error = driver_create_file(&dwc_otg_driver.drv, &driver_attr_debuglevel);
-#elif defined(PCI_INTERFACE)
-	error = driver_create_file(&dwc_otg_driver.driver, &driver_attr_version);
-	error = driver_create_file(&dwc_otg_driver.driver, &driver_attr_debuglevel);
+	error =
+	    driver_create_file(&dwc_otg_driver.driver, &driver_attr_version);
+	error =
+	    driver_create_file(&dwc_otg_driver.driver, &driver_attr_debuglevel);
+#ifdef DEBUG_MEMORY
+	error =
+	    driver_create_file(&dwc_otg_driver.driver,
+			       &driver_attr_memorydebug);
+
 #endif
 	return retval;
 }
@@ -985,19 +864,14 @@ module_init(dwc_otg_driver_init);
  */
 static void __exit dwc_otg_driver_cleanup(void)
 {
-	printk(KERN_DEBUG "dwc_otg_driver_cleanup()\n");
-
-#ifdef LM_INTERFACE
-	driver_remove_file(&dwc_otg_driver.drv, &driver_attr_debuglevel);
-	driver_remove_file(&dwc_otg_driver.drv, &driver_attr_version);
-	lm_driver_unregister(&dwc_otg_driver);
-#elif defined(PCI_INTERFACE)
-	driver_remove_file(&dwc_otg_driver.driver, &driver_attr_debuglevel);
+	platform_driver_unregister(&dwc_otg_driver);
 	driver_remove_file(&dwc_otg_driver.driver, &driver_attr_version);
-	pci_unregister_driver(&dwc_otg_driver);
-#endif
+	driver_remove_file(&dwc_otg_driver.driver, &driver_attr_debuglevel);
+#ifdef DEBUG_MEMORY
+	driver_remove_file(&dwc_otg_driver.driver,
+			       &driver_attr_memorydebug);
 
-	printk(KERN_INFO "%s module removed\n", dwc_driver_name);
+#endif
 }
 
 module_exit(dwc_otg_driver_cleanup);

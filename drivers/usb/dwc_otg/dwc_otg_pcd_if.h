@@ -30,7 +30,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  * ========================================================================== */
-#ifndef DWC_HOST_ONLY
+#ifdef CONFIG_USB_DWC_UDC
 
 #if !defined(__DWC_PCD_IF_H__)
 #define __DWC_PCD_IF_H__
@@ -363,4 +363,4 @@ extern uint8_t *cfiw_ep_alloc_buffer(dwc_otg_pcd_t * pcd, void *pep,
 
 #endif				/* __DWC_PCD_IF_H__ */
 
-#endif				/* DWC_HOST_ONLY */
+#endif

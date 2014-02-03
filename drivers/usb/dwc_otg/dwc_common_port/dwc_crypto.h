@@ -48,7 +48,7 @@ extern "C" {
  * modules.
  */
 
-#include "dwc_os.h"
+#include "dwc_common_port/dwc_os.h"
 
 int dwc_wusb_aes_encrypt(u8 *src, u8 *key, u8 *dst);
 

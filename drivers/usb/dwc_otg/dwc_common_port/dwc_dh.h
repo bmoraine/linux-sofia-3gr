@@ -40,7 +40,7 @@
 extern "C" {
 #endif
 
-#include "dwc_os.h"
+#include "dwc_common_port/dwc_os.h"
 
 /** @file
  *
