@@ -77,6 +77,8 @@ obj-$(CONFIG_I2C_VERSATILE)	+= i2c-versatile.o
 obj-$(CONFIG_I2C_WMT)		+= i2c-wmt.o
 obj-$(CONFIG_I2C_OCTEON)	+= i2c-octeon.o
 obj-$(CONFIG_I2C_XILINX)	+= i2c-xiic.o
+obj-$(CONFIG_I2C_XGOLD_PLATFORM)		+= i2c-xgold-core.o i2c-xgold-platform.o
+obj-$(CONFIG_I2C_XGOLD_IDI)		+= i2c-xgold-core.o i2c-xgold-idi.o
 obj-$(CONFIG_I2C_XLR)		+= i2c-xlr.o
 obj-$(CONFIG_I2C_RCAR)		+= i2c-rcar.o
 

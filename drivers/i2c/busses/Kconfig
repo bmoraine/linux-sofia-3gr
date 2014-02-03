@@ -308,6 +308,26 @@ config I2C_POWERMAC
 
 comment "I2C system bus drivers (mostly embedded / system-on-chip)"
 
+config I2C_XGOLD_PLATFORM
+	tristate "XGOLD I2C adapter(platform bus)"
+	depends on I2C && X86_INTEL_XGOLD
+	help
+	  This supports the use of the I2C interface on Intel Xgold
+	  processors.
+
+	  Say yes if you want to use the XGOLD I2C interface, this driver is
+	  based on platform bus.
+
+config I2C_XGOLD_IDI
+	tristate "XGOLD I2C adapter(idi bus)"
+	depends on I2C && IDI
+	help
+	  This supports the use of the I2C interface on Intel Xgold
+	  processors.
+
+	  Say yes if you want to use the XGOLD I2C interface. This driver is
+	  based on IDI bus.
+
 config I2C_AT91
 	tristate "Atmel AT91 I2C Two-Wire interface (TWI)"
 	depends on ARCH_AT91
