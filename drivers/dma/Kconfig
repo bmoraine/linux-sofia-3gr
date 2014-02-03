@@ -320,6 +320,18 @@ config TI_CPPI41
 	  The Communications Port Programming Interface (CPPI) 4.1 DMA engine
 	  is currently used by the USB driver on AM335x platforms.
 
+config DMA_XGOLD
+	bool "XGOLD DMA support"
+	depends on X86_INTEL_XGOLD
+	select BUS_AMBA
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+	help
+	  Support the Intel XGold DMA driver.
+	  This driver integrates the amba-pl08x into a platform device,
+	  and also manage DMA requests multiplexing.
+	  Say Y here if you want to use the DMA engine with an Intel XGold Soc.
+
 config MMP_PDMA
 	bool "MMP PDMA support"
 	depends on (ARCH_MMP || ARCH_PXA)
