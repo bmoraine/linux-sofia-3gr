@@ -5,6 +5,7 @@
  *  presents a proper CID (0xB105F00D) at the end of the I/O register
  *  region or that is derived from a PrimeCell.
  *
+ *  Copyright (C) 2014 Intel Mobile Communications GmbH
  *  Copyright (C) 2003 Deep Blue Solutions Ltd, All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify

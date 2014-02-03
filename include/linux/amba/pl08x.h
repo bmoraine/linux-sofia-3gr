@@ -1,6 +1,7 @@
 /*
  * linux/amba/pl08x.h - ARM PrimeCell DMA Controller driver
  *
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  * Copyright (C) 2005 ARM Ltd
  * Copyright (C) 2010 ST-Ericsson SA
  *
@@ -67,6 +68,7 @@ struct pl08x_channel_data {
 	dma_addr_t addr;
 	bool single;
 	u8 periph_buses;
+	struct amba_device *adev;
 };
 
 /**

@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  * Copyright (c) 2006 ARM Ltd.
  * Copyright (c) 2010 ST-Ericsson SA
  *
@@ -91,6 +92,7 @@
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/amba/pl080.h>
+#include <linux/of_dma.h>
 
 #include "dmaengine.h"
 #include "virt-dma.h"
@@ -371,13 +373,13 @@ static void pl08x_write_lli(struct pl08x_driver_data *pl08x,
 			phychan->id, lli[PL080_LLI_SRC], lli[PL080_LLI_DST],
 			lli[PL080_LLI_LLI], lli[PL080_LLI_CCTL], ccfg);
 
-	writel_relaxed(lli[PL080_LLI_SRC], phychan->base + PL080_CH_SRC_ADDR);
-	writel_relaxed(lli[PL080_LLI_DST], phychan->base + PL080_CH_DST_ADDR);
-	writel_relaxed(lli[PL080_LLI_LLI], phychan->base + PL080_CH_LLI);
-	writel_relaxed(lli[PL080_LLI_CCTL], phychan->base + PL080_CH_CONTROL);
+	writel(lli[PL080_LLI_SRC], phychan->base + PL080_CH_SRC_ADDR);
+	writel(lli[PL080_LLI_DST], phychan->base + PL080_CH_DST_ADDR);
+	writel(lli[PL080_LLI_LLI], phychan->base + PL080_CH_LLI);
+	writel(lli[PL080_LLI_CCTL], phychan->base + PL080_CH_CONTROL);
 
 	if (pl08x->vd->pl080s)
-		writel_relaxed(lli[PL080S_LLI_CCTL2],
+		writel(lli[PL080S_LLI_CCTL2],
 				phychan->base + PL080S_CH_CONTROL2);
 
 	writel(ccfg, phychan->reg_config);
@@ -1535,6 +1537,13 @@ static struct pl08x_txd *pl08x_init_txd(
 		maxburst = plchan->cfg.src_maxburst;
 		src_buses = plchan->cd->periph_buses;
 		dst_buses = pl08x->mem_buses;
+	} else if (direction == DMA_SL_MEM_TO_MEM) {
+		cctl = PL080_CONTROL_SRC_INCR | PL080_CONTROL_DST_INCR;
+		*slave_addr = plchan->cfg.dst_addr;
+		addr_width = plchan->cfg.dst_addr_width;
+		maxburst = plchan->cfg.dst_maxburst;
+		src_buses = pl08x->mem_buses;
+		dst_buses = plchan->cd->periph_buses;
 	} else {
 		pl08x_free_txd(pl08x, txd);
 		dev_err(&pl08x->adev->dev,
@@ -1553,11 +1562,13 @@ static struct pl08x_txd *pl08x_init_txd(
 	txd->cctl = cctl | pl08x_select_bus(src_buses, dst_buses);
 
 	if (plchan->cfg.device_fc)
-		tmp = (direction == DMA_MEM_TO_DEV) ? PL080_FLOW_MEM2PER_PER :
-			PL080_FLOW_PER2MEM_PER;
+		tmp = (direction == DMA_MEM_TO_DEV ||
+				direction == DMA_SL_MEM_TO_MEM) ?
+			PL080_FLOW_MEM2PER_PER : PL080_FLOW_PER2MEM_PER;
 	else
-		tmp = (direction == DMA_MEM_TO_DEV) ? PL080_FLOW_MEM2PER :
-			PL080_FLOW_PER2MEM;
+		tmp = (direction == DMA_MEM_TO_DEV  ||
+				direction == DMA_SL_MEM_TO_MEM) ?
+			PL080_FLOW_MEM2PER : PL080_FLOW_PER2MEM;
 
 	txd->ccfg |= tmp << PL080_CONFIG_FLOW_CONTROL_SHIFT;
 
@@ -1574,7 +1585,7 @@ static struct pl08x_txd *pl08x_init_txd(
 		 plchan->signal, plchan->name);
 
 	/* Assign the flow control signal to this channel */
-	if (direction == DMA_MEM_TO_DEV)
+	if (direction == DMA_MEM_TO_DEV || direction == DMA_SL_MEM_TO_MEM)
 		txd->ccfg |= plchan->signal << PL080_CONFIG_DST_SEL_SHIFT;
 	else
 		txd->ccfg |= plchan->signal << PL080_CONFIG_SRC_SEL_SHIFT;
@@ -1597,7 +1608,8 @@ static int pl08x_tx_add_sg(struct pl08x_txd *txd,
 	list_add_tail(&dsg->node, &txd->dsg_list);
 
 	dsg->len = len;
-	if (direction == DMA_MEM_TO_DEV) {
+	if (direction == DMA_MEM_TO_DEV ||
+				direction == DMA_SL_MEM_TO_MEM) {
 		dsg->src_addr = buf_addr;
 		dsg->dst_addr = slave_addr;
 	} else {
@@ -1774,6 +1786,23 @@ bool pl08x_filter_id(struct dma_chan *chan, void *chan_id)
 }
 EXPORT_SYMBOL_GPL(pl08x_filter_id);
 
+#ifdef CONFIG_OF
+bool pl08x_dt_filter_id(struct dma_chan *chan, void *chan_id)
+{
+	int *id = (int *)chan_id;
+
+	/* Reject channels for devices not bound to this driver */
+	if (chan->device->dev->driver != &pl08x_amba_driver.drv)
+		return false;
+
+	return chan->chan_id == *id;
+}
+
+static struct of_dma_filter_info pl08x_dma_info = {
+	.filter_fn = pl08x_dt_filter_id,
+};
+#endif
+
 /*
  * Just check that the device is there and active
  * TODO: turn this bit on/off depending on the number of physical channels
@@ -1803,6 +1832,7 @@ static irqreturn_t pl08x_irq(int irq, void *dev)
 	tc = readl(pl08x->base + PL080_TC_STATUS);
 	if (tc)
 		writel(tc, pl08x->base + PL080_TC_CLEAR);
+
 
 	if (!err && !tc)
 		return IRQ_NONE;
@@ -2015,6 +2045,35 @@ static inline void init_pl08x_debugfs(struct pl08x_driver_data *pl08x)
 }
 #endif
 
+#ifdef CONFIG_PM
+static int pl08x_suspend(struct amba_device *adev, pm_message_t msg)
+{
+	/* FIXME: warn on any pending channel */
+
+	return 0;
+}
+
+static int pl08x_resume(struct amba_device *adev)
+{
+	struct pl08x_driver_data *pl08x = amba_get_drvdata(adev);
+
+	WARN_ON(!pl08x);
+
+	if (pl08x)
+		/* Turn on the PL08x */
+		pl08x_ensure_on(pl08x);
+
+	return 0;
+}
+#else
+#define pl08x_suspend	NULL
+#define pl08x_resume	NULL
+#endif
+
+static const struct dev_pm_ops pl08x_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(pl08x_suspend, pl08x_resume)
+};
+
 static int pl08x_probe(struct amba_device *adev, const struct amba_id *id)
 {
 	struct pl08x_driver_data *pl08x;
@@ -2022,7 +2081,6 @@ static int pl08x_probe(struct amba_device *adev, const struct amba_id *id)
 	u32 tsfr_size;
 	int ret = 0;
 	int i;
-
 	ret = amba_request_regions(adev, NULL);
 	if (ret)
 		return ret;
@@ -2110,11 +2168,17 @@ static int pl08x_probe(struct amba_device *adev, const struct amba_id *id)
 	writel(0x000000FF, pl08x->base + PL080_ERR_CLEAR);
 	writel(0x000000FF, pl08x->base + PL080_TC_CLEAR);
 
-	ret = request_irq(adev->irq[0], pl08x_irq, 0, DRIVER_NAME, pl08x);
-	if (ret) {
-		dev_err(&adev->dev, "%s failed to request interrupt %d\n",
-			__func__, adev->irq[0]);
-		goto out_no_irq;
+	for (i = 0; i < AMBA_NR_IRQS; i++) {
+		if (adev->irq[i] == 0)
+			continue;
+
+		ret = request_irq(adev->irq[i], pl08x_irq, IRQF_DISABLED,
+			  DRIVER_NAME, pl08x);
+		if (ret) {
+			dev_err(&adev->dev, "%s failed to request interrupt %d\n",
+				__func__, adev->irq[0]);
+			goto out_no_irq;
+		}
 	}
 
 	/* Initialize physical channels */
@@ -2192,6 +2256,18 @@ static int pl08x_probe(struct amba_device *adev, const struct amba_id *id)
 			__func__, ret);
 		goto out_no_slave_reg;
 	}
+
+#ifdef CONFIG_OF
+	if (adev->dev.of_node) {
+		pl08x_dma_info.dma_cap = pl08x->slave.cap_mask;
+
+		ret = of_dma_controller_register(adev->dev.of_node,
+				of_dma_simple_xlate, &pl08x_dma_info);
+		if (ret)
+			dev_err(&pl08x->adev->dev,
+			"Unable to register DMA to generic DT DMA helpers\n");
+	}
+#endif
 
 	amba_set_drvdata(adev, pl08x);
 	init_pl08x_debugfs(pl08x);
@@ -2284,7 +2360,10 @@ static struct amba_id pl08x_ids[] = {
 MODULE_DEVICE_TABLE(amba, pl08x_ids);
 
 static struct amba_driver pl08x_amba_driver = {
-	.drv.name	= DRIVER_NAME,
+	.drv = {
+		.name	= DRIVER_NAME,
+		.pm	= &pl08x_pm_ops,
+	},
 	.id_table	= pl08x_ids,
 	.probe		= pl08x_probe,
 };
@@ -2299,4 +2378,4 @@ static int __init pl08x_init(void)
 		       retval);
 	return retval;
 }
-subsys_initcall(pl08x_init);
+arch_initcall(pl08x_init);
