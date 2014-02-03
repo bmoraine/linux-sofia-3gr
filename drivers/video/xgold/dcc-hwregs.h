@@ -1,0 +1,674 @@
+/*
+ ****************************************************************
+ *
+ *  Component: DCC driver
+ *
+ *  Copyright (C) 2011, Intel Mobile Communications GmbH.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ ****************************************************************
+ */
+
+#ifndef __XGOLD_HWREGS_H__
+#define __XGOLD_HWREGS_H__
+
+/* register addresses external */
+/* external registers are all registers which can be accessed
+   directly via a specified address.
+   These are mainly DIF registers and gRacr control registers
+*/
+
+#define GRA_DIF_CLC           0x00000000
+#define GRA_DIF_ID            0x00000008
+#define GRA_DIF_RUNCTRL       0x00000010
+#define GRA_DIF_CON           0x00000020
+#define GRA_DIF_PERREG        0x00000024
+#define GRA_DIF_CSREG         0x00000028
+#define GRA_DIF_LCDTIM1       0x0000002C
+#define GRA_DIF_LCDTIM2       0x00000030
+#define GRA_DIF_STARTLCDRD    0x00000034
+#define GRA_DIF_STAT          0x00000038
+#define GRA_DIF_COEFF_REG1    0x0000003C
+#define GRA_DIF_COEFF_REG2    0x00000040
+#define GRA_DIF_COEFF_REG3    0x00000044
+#define GRA_DIF_OFFSET_REG    0x00000048
+#define GRA_DIF_PBCCON        0x0000004C
+#define GRA_DIF_BMREG0        0x00000050
+#define GRA_DIF_BMREG1        0x00000054
+#define GRA_DIF_BMREG2        0x00000058
+#define GRA_DIF_BMREG3        0x0000005C
+#define GRA_DIF_BMREG4        0x00000060
+#define GRA_DIF_BMREG5        0x00000064
+#define GRA_DIF_BCSEL0        0x00000068
+#define GRA_DIF_BCSEL1        0x0000006C
+#define GRA_DIF_BCREG         0x00000070
+#define GRA_DIF_INVERT        0x00000074
+#define GRA_DIF_SYNC_CONFIG   0x00000078
+#define GRA_DIF_SYNC_COUNT    0x0000007C
+#define GRA_DIF_BR            0x00000080
+#define GRA_DIF_FDIV          0x00000084
+#define GRA_DIF_DEBUG_REG     0x0000008C
+#define GRA_DIF_RXFIFO_CFG    0x00000090
+#define GRA_DIF_MRPS_CTRL     0x00000094
+#define GRA_DIF_RPS_STAT      0x00000098
+#define GRA_DIF_RXFFS_STAT    0x0000009C
+#define GRA_DIF_TXFIFO_CFG    0x000000A0
+#define GRA_DIF_TPS_CTRL      0x000000A4
+#define GRA_DIF_TXFFS_STAT    0x000000A8
+#define GRA_DIF_ERR_IRQSM     0x000000B0
+#define GRA_DIF_ERR_IRQSS     0x000000B4
+#define GRA_DIF_ERR_IRQSC     0x000000B8
+#define GRA_DIF_RIS           0x000000C0
+#define GRA_DIF_IMSC          0x000000C4
+#define GRA_DIF_MIS           0x000000C8
+#define GRA_DIF_ICR           0x000000CC
+#define GRA_DIF_ISR           0x000000D0
+#define GRA_DIF_DMAE          0x000000D4
+
+#define GRA_DIF_TXD           0x00008000
+#define GRA_DIF_RXD           0x000CC000
+
+/* register id's internal */
+/* internal registers are all registers which can be
+   accessed via the gRacr command set_register.
+   These are all gRacr grafic related registers
+*/
+
+#define GRA_DIF_CONF               0x00
+#define GRA_GRA_VIDEO_BASE         0x01
+#define GRA_GRA_VIDEO_SIZE         0x02
+#define GRA_GRA_CLIPPINGRECT_TL    0x03
+#define GRA_GRA_CLIPPINGRECT_BR    0x04
+#define GRA_GRA_IMAGE_SRC          0x05
+#define GRA_GRA_IMAGE_SIZE         0x06
+#define GRA_GRA_IMAGE_U_OFFSET     0x07
+#define GRA_GRA_IMAGE_V_OFFSET     0x08
+#define GRA_GRA_IMAGE_U_OFFSET2    0x1D
+#define GRA_GRA_IMAGE_V_OFFSET2    0x1E
+#define GRA_GRA_IMAGE_WINDOW_TL    0x09
+#define GRA_GRA_IMAGE_WINDOW_BR    0x0A
+#define GRA_GRA_IMAGE_SCALE        0x0B
+
+/* --- Sprite base registers ---- */
+/* from XG223 rev 0x4302*/
+#define GRA_GRA_SPRITE_BASEx0	0x16
+#define GRA_GRA_SPRITE_BASEx1	0x17
+#define GRA_GRA_SPRITE_BASEx2	0x0C
+#define GRA_GRA_SPRITE_BASEx3	0x18
+/* --- Sprite conf registers ---- */
+#define GRA_GRA_SPRITE_CONF0       0x0D
+#define GRA_GRA_SPRITE_CONF1       0x0E
+#define GRA_GRA_SPRITE_CONF2       0x0F
+#define GRA_GRA_SPRITE_CONF3       0x10
+/* --- Sprite size registers ---- */
+#define GRA_GRA_SPRITE_SIZE0      0x19
+#define GRA_GRA_SPRITE_SIZE1      0x1A
+#define GRA_GRA_SPRITE_SIZE3      0x1C
+
+#define GRA_DIF_DSI_CFG            0x27
+#define GRA_DIF_DSI_CLK            0x28
+#define GRA_DIF_DSI_HEAD           0x29
+#define GRA_DIF_DSI_TO0            0x2A
+#define GRA_DIF_DSI_TO1            0x2B
+#define GRA_DIF_DSI_VID0           0x2C
+#define GRA_DIF_DSI_VID1           0x2D
+#define GRA_DIF_DSI_VID2           0x2E
+#define GRA_DIF_DSI_VID3           0x2F
+#define GRA_DIF_DSI_VID4           0x30
+#define GRA_DIF_DSI_VID5           0x31
+#define GRA_DIF_DSI_VID6           0x32
+#define GRA_GRA_STENCIL_BASE       0x33
+#define GRA_DIF_DSI_PHY0           0x34
+#define GRA_DIF_DSI_PHY1           0x35
+#define GRA_DIF_DSI_PHY2           0x36
+#define GRA_DIF_DSI_PHY3           0x37
+
+/**
+ * Interrupt source bit masks
+ */
+#define DCC_IRQ_RXLSREQ	(1<<0)
+#define DCC_IRQ_RXSREQ	(1<<1)
+#define DCC_IRQ_RXLBREQ	(1<<2)
+#define DCC_IRQ_RXBREQ	(1<<3)
+#define DCC_IRQ_TXLSREQ	(1<<4)
+#define DCC_IRQ_TXSREQ	(1<<5)
+#define DCC_IRQ_TXLBREQ	(1<<6)
+#define DCC_IRQ_TXBREQ	(1<<7)
+#define DCC_IRQ_ERR	(1<<8)
+#define DCC_IRQ_CMD	(1<<9)
+#define DCC_IRQ_FRAME	(1<<10)
+
+/**
+ * Interrupt error source bit masks
+ */
+#define DCC_IRQ_ERR_RXFUFL	(1<<0)
+#define DCC_IRQ_ERR_RXFOFL	(1<<1)
+#define DCC_IRQ_ERR_TXFOFL	(1<<2)
+#define DCC_IRQ_ERR_PHASE	(1<<3)
+#define DCC_IRQ_ERR_CMD		(1<<4)
+#define DCC_IRQ_ERR_MASTER	(1<<5)
+#define DCC_IRQ_ERR_TXUFL	(1<<11)
+#define DCC_IRQ_ERR_MASTER2	(1<<12)
+#define DCC_IRQ_ERR_IDLE	(1<<13)
+#define DCC_IRQ_ERR_DSITR0	(1<<16)
+#define DCC_IRQ_ERR_DSITR1	(1<<17)
+#define DCC_IRQ_ERR_DSITR2	(1<<18)
+#define DCC_IRQ_ERR_DSITR3	(1<<19)
+#define DCC_IRQ_ERR_DSIUFL	(1<<20)
+#define DCC_IRQ_ERR_DSIFIN	(1<<21)
+#define DCC_IRQ_ERR_DSILTO	(1<<22)
+#define DCC_IRQ_ERR_DSIHTO	(1<<23)
+#define DCC_IRQ_ERR_DSIRTO	(1<<24)
+#define DCC_IRQ_ERR_DSIESC	(1<<25)
+#define DCC_IRQ_ERR_DSISYN	(1<<26)
+#define DCC_IRQ_ERR_DSICTR	(1<<27)
+#define DCC_IRQ_ERR_DSICON	(1<<28)
+
+#define DCC_IRQ_ERR_MASK (\
+	DCC_IRQ_ERR_RXFUFL |\
+	DCC_IRQ_ERR_RXFOFL |\
+	DCC_IRQ_ERR_TXFOFL |\
+	DCC_IRQ_ERR_PHASE |\
+	DCC_IRQ_ERR_CMD |\
+	DCC_IRQ_ERR_MASTER |\
+	DCC_IRQ_ERR_TXUFL |\
+	DCC_IRQ_ERR_MASTER2 |\
+	DCC_IRQ_ERR_IDLE |\
+	DCC_IRQ_ERR_DSITR0 |\
+	DCC_IRQ_ERR_DSITR1 |\
+	DCC_IRQ_ERR_DSITR2 |\
+	DCC_IRQ_ERR_DSITR3 |\
+	DCC_IRQ_ERR_DSIUFL |\
+	DCC_IRQ_ERR_DSIFIN |\
+	DCC_IRQ_ERR_DSILTO |\
+	DCC_IRQ_ERR_DSIHTO |\
+	DCC_IRQ_ERR_DSIRTO |\
+	DCC_IRQ_ERR_DSIESC |\
+	DCC_IRQ_ERR_DSISYN |\
+	DCC_IRQ_ERR_DSICTR |\
+	DCC_IRQ_ERR_DSICON)
+
+/* -------------------- */
+/* GRA Commands Opcodes */
+/* -------------------- */
+#define GRACMD_RECT            0x00	/* Draw rectangle */
+#define GRACMD_LINE_TO         0x01	/* Line to command opcode */
+#define GRACMD_LINE_REL        0x02	/* Line rel command opcode */
+#define GRACMD_MOVE_TO         0x03	/* Move to command opcode */
+#define GRACMD_MOVE_REL        0x04	/* Move rel command opcode */
+#define GRACMD_BITBLT          0x05	/* BitBlt command opcode */
+#define GRACMD_SCROLL_MOVE     0x06	/* Scroll move command opcode */
+#define GRACMD_SET_BK_COLOR    0x07	/* Set background color opcode */
+#define GRACMD_SET_COLOR       0x08	/* Set foreground color opcode */
+#define GRACMD_SET_LINESTYLE   0x09	/* Set line style command opcode */
+#define GRACMD_SET_ALPHA       0x0A	/* Set alpha channel command opcode */
+#define GRACMD_SET_DRAWMODE    0x0B	/* Set draw mode command opcode */
+#define GRACMD_TRIANGLE        0x0C	/* Triangle command opcode */
+#define GRACMD_SETPIXEL        0x0D	/* Set pixel command opcode */
+#define GRACMD_BITBLT2         0x0E	/* BitBlt2 command opcode */
+#define GRACMD_UPDATE          0x10	/* Update command opcode */
+#define GRACMD_ROTATE_IMAGE    0x11	/* Rotate image command opcode */
+#define GRACMD_DRAW_IMAGE      0x12	/* Draw image command opcode */
+#define GRACMD_INTERRUPT       0x13	/* Command interrupt command opcode */
+#define GRACMD_SET_REGISTER    0x14	/* Set internal register opcode */
+#define GRACMD_GET_REGISTER    0x15	/* Get internal register opcode */
+#define GRACMD_START_UPDATE    0x16	/* Start update command opcode */
+#define GRACMD_SCHEDULE_UPDATE 0x17	/* Schedule update command opcode */
+#define GRACMD_SWITCH_UPDATE   0x18	/* Switch update command opcode */
+
+#define DCC_MODE_CONF	0
+#define DCC_MODE_RUN	1
+
+/* ---------------------  */
+/* Reg description table indices */
+/* ---------------------  */
+
+enum {
+	EXR_DIF_CLC = 1,
+	EXR_DIF_CLC_DISR,
+	EXR_DIF_CLC_DISS,
+	EXR_DIF_CLC_SPEN,
+	EXR_DIF_CLC_EDIS,
+	EXR_DIF_CLC_SBWE,
+	EXR_DIF_CLC_FSOE,
+	EXR_DIF_CLC_RMC,
+	EXR_DIF_CLC_ORMC,
+
+	EXR_DIF_ID_NUMBER,
+	EXR_DIF_ID_CONFIG,
+
+	EXR_DIF_STAT,
+	EXR_DIF_STAT_BSY,
+	EXR_DIF_STAT_GRABSY,
+	EXR_DIF_STAT_DSIFULL,
+	EXR_DIF_STAT_DSIDIR,
+	EXR_DIF_STAT_DSILOCK,
+	/* DIF_RUN_CTRL (0x10) */
+	EXR_DIF_RUNCTRL,
+	/* DIF_CON (0x20) */
+	EXR_DIF_CON,
+	EXR_DIF_CON_TRI,
+	EXR_DIF_CON_HB,
+	EXR_DIF_CON_PH,
+	EXR_DIF_CON_PO,
+	EXR_DIF_CON_LB,
+	EXR_DIF_CON_BM,
+	/* DIF_PERREG (0x24) */
+	EXR_DIF_PERREG,
+	EXR_DIF_PERREG_DIFPERMODE,
+	EXR_DIF_PERREG_INBAND,
+	EXR_DIF_PERREG_CS1POL,
+	EXR_DIF_PERREG_CS2POL,
+	EXR_DIF_PERREG_RDPOL,
+	EXR_DIF_PERREG_WRPOL,
+	EXR_DIF_PERREG_CDPOL,
+	EXR_DIF_PERREG_CS3POL,
+	EXR_DIF_PERREG_MIPIEN,
+	/* DIF_CSREG (0x28) */
+	EXR_DIF_CSREG,
+	EXR_DIF_CSREG_CD,
+	EXR_DIF_CSREG_CS1,
+	EXR_DIF_CSREG_CS2,
+	EXR_DIF_CSREG_CS3,
+	EXR_DIF_CSREG_BSCONF,
+	EXR_DIF_CSREG_GRACMD,
+	/* DIF_LCDTIM1 (0x2C) */
+	EXR_DIF_LCDTIM1,
+	EXR_DIF_LCDTIM1_ADDRDELAY,
+	EXR_DIF_LCDTIM1_ACCESSCYCLE,
+	EXR_DIF_LCDTIM1_DATADELAY,
+	/* DIF_LCDTIM2 (0x30) */
+	EXR_DIF_LCDTIM2,
+	EXR_DIF_LCDTIM2_CSACT,
+	EXR_DIF_LCDTIM2_CSDEACT,
+	EXR_DIF_LCDTIM2_WRRDACT,
+	EXR_DIF_LCDTIM2_WRRDDEACT,
+	/* DIF_STARTLCDRD (0x34) */
+	EXR_DIF_STARTLCDRD_STARTREAD,
+	EXR_DIF_STARTLCDRD_READBYTES,
+	/* DIF_ (0x3C) */
+	EXR_DIF_COEFF_REG1,
+	EXR_DIF_COEFF_REG2,
+	EXR_DIF_COEFF_REG3,
+	EXR_DIF_OFFSET_REG,
+
+	/* DIF_PBCCONV (0x4C) */
+	EXR_DIF_PBBCONV_MODE,
+	/* DIF_BMREG0 (0x50) */
+	EXR_DIF_BMREG0,
+	/* DIF_BMREG1 (0x54) */
+	EXR_DIF_BMREG1,
+	/* DIF_BMREG2 (0x58) */
+	EXR_DIF_BMREG2,
+	/* DIF_BMREG3 (0x5C) */
+	EXR_DIF_BMREG3,
+	/* DIF_BMREG4 (0x60) */
+	EXR_DIF_BMREG4,
+	/* DIF_BMREG5 (0x64) */
+	EXR_DIF_BMREG5,
+	/* DIF_BCSEL0 (0x68) */
+	EXR_DIF_BCSEL0,
+	/* DIF_BCSEL1 (0x6C) */
+	EXR_DIF_BCSEL1,
+	/* DIF_BCREG (0x70) */
+	EXR_DIF_BCREG,
+	/* DIF_INVERT (0x74) */
+	EXR_DIF_INVERT_BIT,
+	/* DIF_SYNC_CONFIG (0x78) */
+	EXR_DIF_SYNCCONFIG,
+	EXR_DIF_SYNCCONFIG_SYNCEN,
+	EXR_DIF_SYNCCONFIG_HDPOL,
+	EXR_DIF_SYNCCONFIG_VDPOL,
+	EXR_DIF_SYNCCONFIG_SYNCCD,
+	EXR_DIF_SYNCCONFIG_SYNCCS1,
+	EXR_DIF_SYNCCONFIG_SYNCCS2,
+	EXR_DIF_SYNCCONFIG_SYNCCS3,
+	EXR_DIF_SYNCCONFIG_EXTSTART,
+	EXR_DIF_SYNCCONFIG_EXTBYTES,
+	EXR_DIF_SYNCCONFIG_EXTROWS,
+	EXR_DIF_SYNCCONFIG_COMP,
+	/* DIF_SYNC_COUNT (0x7C) */
+	EXR_DIF_SYNCCOUNT,
+	EXR_DIF_SYNCCOUNT_NUMROWS,
+	EXR_DIF_SYNCCOUNT_NUMBYTES,
+	EXR_DIF_SYNCCOUNT_HDSTART,
+	/* DIF_BR (0x80) */
+	EXR_DIF_BR,
+	/* DIF_FDIV (0x84) */
+	EXR_DIF_FDIV,
+	/* DIF_RXFIFO_CFG (0x90) */
+	EXR_DIF_RXFIFOCFG,
+	EXR_DIF_RXFIFOCFG_RXBS,
+	EXR_DIF_RXFIFOCFG_RXFA,
+	EXR_DIF_RXFIFOCFG_RXFC,
+	/* DIF_RPS_CTRL (0x94) */
+	EXR_DIF_MRPS_CTRL,
+	/* DIF_RXRPS_STAT (0x98) */
+	EXR_DIF_RPS_STAT,
+	/* DIF_RXFFS_STAT (0x9C) */
+	EXR_DIF_RXFFS_STAT,
+	/* DIF_RXD (0xC000) */
+	EXR_DIF_RXD,
+	/* DIF_TXFIFO_CFG (0xA0) */
+	EXR_DIF_TXFIFOCFG,
+	EXR_DIF_TXFIFOCFG_TXBS,
+	EXR_DIF_TXFIFOCFG_TXFA,
+	EXR_DIF_TXFIFOCFG_TXFC,
+	/* DIF_TPS_CTRL (0xA4) */
+	EXR_DIF_TPS_CTRL,
+	/* DIF_TXFFS_STAT (0xA8) */
+	EXR_DIF_TXFFS_STAT,
+	/* DIF_ERR_IRQSM (0x00B0) */
+	EXR_DIF_ERRIRQSM,
+	/* DIF_ERR_IRQSS (0x00B4) */
+	EXR_DIF_ERRIRQSS,
+	/* DIF_ERRIRQSC (0xB8) */
+	EXR_DIF_ERRIRQSC,
+	/* DIF_TXD (0x8000) */
+	EXR_DIF_TXD,
+	/* DIF_RIS (0x00C0) */
+	EXR_DIF_RIS,
+	/* DIF_IMSC (0x00C4) */
+	EXR_DIF_IMSC,
+	EXR_DIF_IMSC_RXLSREQ,
+	EXR_DIF_IMSC_RXSREQ,
+	EXR_DIF_IMSC_RXLBREQ,
+	EXR_DIF_IMSC_RXBREQ,
+	EXR_DIF_IMSC_TXLSREQ,
+	EXR_DIF_IMSC_TXSREQ,
+	EXR_DIF_IMSC_TXLBREQ,
+	EXR_DIF_IMSC_TXBREQ,
+	EXR_DIF_IMSC_ERR,
+	EXR_DIF_IMSC_CMD,
+	EXR_DIF_IMSC_FRAME,
+	/* DIF_ICR (0x00CC) */
+	EXR_DIF_ICR,
+
+	EXR_DIF_DEBUG,
+
+	/*---------------------------*/
+	/* INTERNAL REGISTERS        */
+	/*---------------------------*/
+	/* DIF_CONF (0x00) */
+	INR_DIF_CONF,
+	INR_DIF_CONF_CLIP,
+	INR_DIF_CONF_SPR,
+	INR_DIF_CONF_TRANS,
+	INR_DIF_CONF_MASK,
+	INR_DIF_CONF_BLEND,
+	INR_DIF_CONF_DEST,
+	INR_DIF_CONF_PIXEL,
+	INR_DIF_CONF_ALPHA,
+	INR_DIF_CONF_POWER,
+	INR_DIF_CONF_GLOBAL,
+	INR_DIF_CONF_BGR,
+	INR_DIF_CONF_STENCIL,
+	INR_DIF_CONF_AUTO,
+	INR_DIF_CONF_LOCK,
+	INR_DIF_CONF_ALPHA_SRC,
+	INR_DIF_CONF_BLEND_DRAW,
+	INR_DIF_CONF_BLEND_OVER,
+	INR_DIF_CONF_BACK,
+	/* DIF_VIDEO_BASE (0x01) */
+	INR_DIF_VIDEOBASE,
+	/* DIF_VIDEO_SIZE (0x02) */
+	INR_DIF_VIDEOSIZE,
+	INR_DIF_VIDEOSIZE_XRES,
+	/* DIF_CLIPPING_RECT_TL (0x03) */
+	INR_DIF_CLIPPING_TL,
+	INR_DIF_CLIPPING_TL_XCOORD,
+	INR_DIF_CLIPPING_TL_YCOORD,
+	/* DIF_CLIPPING_RECT_BR (0x04) */
+	INR_DIF_CLIPPING_BR,
+	INR_DIF_CLIPPING_BR_XCOORD,
+	INR_DIF_CLIPPING_BR_YCOORD,
+	/* DIF_IMAGE_SRC (0x05) */
+	INR_DIF_IMG_SRC,
+	INR_DIF_IMG_SRC_COL_EN,
+	INR_DIF_IMG_SRC_FORMAT,
+	INR_DIF_IMG_SRC_Y1_POS,
+	INR_DIF_IMG_SRC_Y2_POS,
+	INR_DIF_IMG_SRC_U_POS,
+	INR_DIF_IMG_SRC_V_POS,
+	INR_DIF_IMG_SRC_ROT,
+	INR_DIF_IMG_SRC_MIRROR,
+	INR_DIF_IMG_SRC_Y,
+	INR_DIF_IMG_SRC_INLINE,
+	INR_DIF_IMG_SRC_SEMI,
+	/* DIF_IMAGE_SIZE (0x06) */
+	INR_DIF_IMG_SIZE,
+	INR_DIF_IMG_SIZE_XRES,
+	INR_DIF_IMG_SIZE_YRES,
+	/* DIF_IMAGE_SIZE (0x07) */
+	INR_DIF_IMG_UOFFSET,
+	/* DIF_IMAGE_SIZE (0x08) */
+	INR_DIF_IMG_VOFFSET,
+	/* DIF_IMAGE_U_OFFSET2 (0x1D) */
+	INR_DIF_IMG_UOFFSET2,
+	/* DIF_IMAGE_V_OFFSET2 (0x1E) */
+	INR_DIF_IMG_VOFFSET2,
+	/* DIF_IMAGE_WINDOW_TL (0x09) */
+	INR_DIF_IMG_WINTL,
+	INR_DIF_IMG_WINTL_X1,
+	INR_DIF_IMG_WINTL_Y1,
+	/* DIF_IMAGE_WINDOW_BR (0x0A) */
+	INR_DIF_IMG_WINBR,
+	INR_DIF_IMG_WINBR_X2,
+	INR_DIF_IMG_WINBR_Y2,
+	/* DIF_IMAGE_SCALE (0x0B) */
+	INR_DIF_IMG_SCALE,
+	INR_DIF_IMG_SCALE_SCALEX,
+	INR_DIF_IMG_SCALE_SCALEY,
+	/* DIF_SPRITE_BASE0 (0x0C) *//* As per old dcc version; */
+	INR_DIF_SPRITE_BASE0,	/* (0x0C) */
+	/* DIF_SPRITE_CONF0 (0x0D) */
+	INR_DIF_SPRITE_CONF0,
+	INR_DIF_SPRITE_CONF0_TRI,
+	INR_DIF_SPRITE_CONF0_BGR,
+	INR_DIF_SPRITE_CONF0_ACT,
+	INR_DIF_SPRITE_CONF0_TYP,
+	INR_DIF_SPRITE_CONF0_XPOS,
+	INR_DIF_SPRITE_CONF0_YPOS,
+	/* DIF_SPRITE_CONF1 (0x0E) */
+	INR_DIF_SPRITE_CONF1,
+	INR_DIF_SPRITE_CONF1_TRI,
+	INR_DIF_SPRITE_CONF1_BGR,
+	INR_DIF_SPRITE_CONF1_ACT,
+	INR_DIF_SPRITE_CONF1_TYP,
+	INR_DIF_SPRITE_CONF1_XPOS,
+	INR_DIF_SPRITE_CONF1_YPOS,
+	/* DIF_SPRITE_CONF2 (0x0F) */
+	INR_DIF_SPRITE_CONF2,
+	INR_DIF_SPRITE_CONF2_TRI,
+	INR_DIF_SPRITE_CONF2_BGR,
+	INR_DIF_SPRITE_CONF2_ACT,
+	INR_DIF_SPRITE_CONF2_TYP,
+	INR_DIF_SPRITE_CONF2_BLEND,
+	INR_DIF_SPRITE_CONF2_CHROMA,
+	/* DIF_SPRITE_CONF3 (0x10) */
+	INR_DIF_SPRITE_CONF3,
+	INR_DIF_SPRITE_CONF3_TRI,
+	INR_DIF_SPRITE_CONF3_BGR,
+	INR_DIF_SPRITE_CONF3_ACT,
+	INR_DIF_SPRITE_CONF3_TYP,
+	INR_DIF_SPRITE_CONF3_XPOS,
+	INR_DIF_SPRITE_CONF3_YPOS,
+	/* DIF_SPRITE_BASE0 (0x16) */
+	INR_DIF_SPRITE_BASEx0,
+	/* DIF_SPRITE_BASE1 (0x17) */
+	INR_DIF_SPRITE_BASEx1,
+	/* DIF_SPRITE_BASE2 (0x0C) */
+	INR_DIF_SPRITE_BASEx2,
+	/* DIF_SPRITE_BASE3 (0x18) */
+	INR_DIF_SPRITE_BASEx3,
+	/* DIF_SPRITE_SIZE0 (0x19) */
+	INR_DIF_SPRITE_SIZE0,
+	INR_DIF_SPRITE_SIZE0_WIDTH,
+	INR_DIF_SPRITE_SIZE0_HEIGHT,
+	INR_DIF_SPRITE_SIZE0_WIDTHMSB,
+	INR_DIF_SPRITE_SIZE0_ALPHA,
+	INR_DIF_SPRITE_SIZE0_GLOBAL,
+	/* DIF_SPRITE_SIZE1 (0x1A) */
+	INR_DIF_SPRITE_SIZE1,
+	INR_DIF_SPRITE_SIZE1_WIDTH,
+	INR_DIF_SPRITE_SIZE1_HEIGHT,
+	INR_DIF_SPRITE_SIZE1_WIDTHMSB,
+	INR_DIF_SPRITE_SIZE1_ALPHA,
+	INR_DIF_SPRITE_SIZE1_GLOBAL,
+	/* DIF_SPRITE_SIZE3 (0x1C) */
+	INR_DIF_SPRITE_SIZE3,
+	INR_DIF_SPRITE_SIZE3_WIDTH,
+	INR_DIF_SPRITE_SIZE3_HEIGHT,
+	INR_DIF_SPRITE_SIZE3_WIDTHMSB,
+	INR_DIF_SPRITE_SIZE3_ALPHA,
+	INR_DIF_SPRITE_SIZE3_GLOBAL,
+
+	/* DIF_DSI_CFG (0x27) */
+	INR_DIF_DSICFG,
+	INR_DIF_DSICFG_CRC,
+	INR_DIF_DSICFG_ECC,
+	INR_DIF_DSICFG_GATE,
+	INR_DIF_DSICFG_TX,
+	INR_DIF_DSICFG_LP,
+	INR_DIF_DSICFG_MODE,
+	INR_DIF_DSICFG_EOT,
+	INR_DIF_DSICFG_TURN,
+	INR_DIF_DSICFG_VALID,
+	INR_DIF_DSICFG_DATA,
+	INR_DIF_DSICFG_STP,
+	INR_DIF_DSICFG_ULPS,
+	INR_DIF_DSICFG_EN,
+	INR_DIF_DSICFG_LANES,
+	INR_DIF_DSICFG_ID,
+	INR_DIF_DSICFG_TXS,
+	INR_DIF_DSICFG_TE,
+	INR_DIF_DSICFG_FIN,
+	/* DIF_DSI_CLK (0x28) */
+	INR_DIF_DSICLK,
+	INR_DIF_DSICLK_SETUP,
+	INR_DIF_DSICLK_HOLD,
+	/* */
+	INR_DIF_DSIHEAD,
+	INR_DIF_DSIHEAD_HEADER,
+	INR_DIF_DSIHEAD_WCNT,
+	INR_DIF_DSIHEAD_CMD,
+	/* */
+	INR_DIF_DSITO0,
+	INR_DIF_DSITO0_LPTX,
+	INR_DIF_DSITO0_HSTX,
+	/* */
+	INR_DIF_DSITO1,
+	INR_DIF_DSITO1_LPRX,
+	INR_DIF_DSITO1_BASE,
+	/* */
+	INR_DIF_DSIVID0,
+	INR_DIF_DSIVID0_HFPBYTES,
+	INR_DIF_DSIVID0_HBPBYTES,
+	INR_DIF_DSIVID0_HSABYTES,
+	INR_DIF_DSIVID0_HFP,
+	INR_DIF_DSIVID0_HBP,
+	INR_DIF_DSIVID0_HSA,
+	INR_DIF_DSIVID0_HFPLP,
+	INR_DIF_DSIVID0_HBPLP,
+	INR_DIF_DSIVID0_HSALP,
+	/* */
+	INR_DIF_DSIVID1,
+	INR_DIF_DSIVID1_VACT,
+	INR_DIF_DSIVID1_MODE,
+	INR_DIF_DSIVID1_ID,
+	INR_DIF_DSIVID1_PIXEL,
+	INR_DIF_DSIVID1_TOFILL,
+	INR_DIF_DSIVID1_LASTCS,
+	/* */
+	INR_DIF_DSIVID2,
+	INR_DIF_DSIVID2_VFP,
+	INR_DIF_DSIVID2_VBP,
+	INR_DIF_DSIVID2_VSA,
+	/* */
+	INR_DIF_DSIVID3,
+	INR_DIF_DSIVID3_PIXELPACKETS,
+	INR_DIF_DSIVID3_PIXELBYTES,
+	/* */
+	INR_DIF_DSIVID4,
+	INR_DIF_DSIVID4_BLANKPACKETS,
+	INR_DIF_DSIVID4_BLANKBYTES,
+	/* */
+	INR_DIF_DSIVID5,
+	INR_DIF_DSIVID5_LINE,
+	INR_DIF_DSIVID5_BLLP,
+	/* */
+	INR_DIF_DSIVID6,
+	INR_DIF_DSIVID6_LASTBLANK,
+	INR_DIF_DSIVID6_LASTPIXEL,
+	/* */
+	INR_DIF_DSIPHY0,
+	INR_DIF_DSIPHY0_SHARE,
+	INR_DIF_DSIPHY0_M,
+	INR_DIF_DSIPHY0_N,
+	INR_DIF_DSIPHY0_PWUP,
+	INR_DIF_DSIPHY0_CALIB,
+	INR_DIF_DSIPHY0_TOREQ,
+	/* */
+	INR_DIF_DSIPHY1,
+	INR_DIF_DSIPHY1_TOLPHSDIS,
+	INR_DIF_DSIPHY1_TOLPHSEOT,
+	INR_DIF_DSIPHY1_TOHSZERO,
+	INR_DIF_DSIPHY1_TOHSFLIP,
+	INR_DIF_DSIPHY1_LPCLKDIV,
+	/* */
+	INR_DIF_DSIPHY2,
+	INR_DIF_DSIPHY2_HSCLKPRE,
+	INR_DIF_DSIPHY2_HSCLKPOST,
+	INR_DIF_DSIPHY2_DATDELAY,
+	INR_DIF_DSIPHY2_CLKDELAY,
+	INR_DIF_DSIPHY2_LPTX_TFALL,
+	/* */
+	INR_DIF_DSIPHY3,
+	INR_DIF_DSIPHY3_EN,
+	INR_DIF_DSIPHY3_LPTX_TRISE,
+	INR_DIF_DSIPHY3_LPTX_VREF,
+
+	/* DIF_STENCILBASE (0x33) */
+	INR_GRA_STENCILBASE,
+
+	NBREG_MAX,
+};
+
+struct gra_command {
+	char *name;		/* command name string */
+	int type;		/* command type (internal reg, external reg) */
+	/*int access; *//* access restrictions */
+	unsigned int addr;	/* command register address */
+	unsigned int mask;	/* value field mask */
+	int shift;		/* value field shift */
+};
+
+/* -------------------------  */
+/* Declaration for Reg description table  */
+/* -------------------------  */
+extern struct gra_command gra_regs[];
+
+/* -------------------------  */
+/* Macro definitions          */
+/* -------------------------  */
+#define BITFLDS(_id_, _val_) \
+		(((_val_) & gra_regs[_id_].mask) << (gra_regs[_id_].shift))
+
+int gra_waitfor_external(void *base, unsigned int field, unsigned int value);
+int gra_read_field(struct dcc_drvdata *p, unsigned int id,
+		unsigned int *reg_value);
+int gra_write_field(struct dcc_drvdata *p, unsigned int id, unsigned int value);
+int gra_sendcmd(struct dcc_drvdata *p, unsigned int opcode,
+		bool iten, unsigned int *params, int nbparams);
+
+#endif
