@@ -1,6 +1,6 @@
 /*
  *  linux/arch/arm/common/amba.c
- *
+ *  Copyright (c) 2014 Intel Mobile Communications GmbH
  *  Copyright (C) 2003 Deep Blue Solutions Ltd, All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -149,6 +149,7 @@ static int __init amba_init(void)
 
 postcore_initcall(amba_init);
 
+#ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 static int amba_get_enable_pclk(struct amba_device *pcdev)
 {
 	int ret;
@@ -169,6 +170,18 @@ static void amba_put_disable_pclk(struct amba_device *pcdev)
 	clk_disable_unprepare(pcdev->pclk);
 	clk_put(pcdev->pclk);
 }
+#else
+static inline int amba_get_enable_pclk(struct amba_device *pcdev)
+{
+	/* NTD */
+	return 0;
+}
+
+static inline void amba_put_disable_pclk(struct amba_device *pcdev)
+{
+	/* NTD */
+}
+#endif
 
 /*
  * These are the device model conversion veneers; they convert the
@@ -304,6 +317,7 @@ int amba_device_add(struct amba_device *dev, struct resource *parent)
 	 * and use this for iomap
 	 */
 	size = resource_size(&dev->res);
+
 	tmp = ioremap(dev->res.start, size);
 	if (!tmp) {
 		ret = -ENOMEM;
