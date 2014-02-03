@@ -1,6 +1,10 @@
 config ARCH_HAS_RESET_CONTROLLER
 	bool
 
+config XGOLD_RESET
+	bool
+	select ARCH_HAS_RESET_CONTROLLER
+
 menuconfig RESET_CONTROLLER
 	bool "Reset Controller Support"
 	default y if ARCH_HAS_RESET_CONTROLLER
