@@ -11,6 +11,18 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
+config TOUCHSCREEN_FT5X0X
+        tristate "FocalTech tf5x0x touchscreen"
+        depends on I2C
+        default n
+        help
+          Say Y here if you have the FocalTech ft5x0x touchscreen.
+
+	  This driver uses standard I2C protocol. Initilization is
+	  done with device tree.
+
+          If unsure, say N.
+
 config TOUCHSCREEN_88PM860X
 	tristate "Marvell 88PM860x touchscreen"
 	depends on MFD_88PM860X
