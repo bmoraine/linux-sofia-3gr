@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  *    Copyright (C) 2006 Benjamin Herrenschmidt, IBM Corp.
  *			 <benh@kernel.crashing.org>
  *    and		 Arnd Bergmann, IBM Corp.
