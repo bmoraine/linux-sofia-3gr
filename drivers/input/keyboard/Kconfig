@@ -652,4 +652,15 @@ config KEYBOARD_CROS_EC
 	  To compile this driver as a module, choose M here: the
 	  module will be called cros_ec_keyb.
 
+config KEYBOARD_XGOLD
+	tristate "XGOLD Matrix Keypad support"
+	depends on X86_INTEL_XGOLD
+	help
+	  Say Y here to enable the matrix keypad on evaluation board
+
+	  If you have an XGOLD platform with a keypad, say Y or M here.
+
+	  If unsure, say N.
+
+
 endif
