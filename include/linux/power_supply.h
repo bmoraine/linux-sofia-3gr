@@ -170,6 +170,36 @@ enum power_supply_notifier_events {
 	PSY_EVENT_PROP_CHANGED,
 };
 
+enum power_supply_charger_event {
+	POWER_SUPPLY_CHARGER_EVENT_CONNECT = 0,
+	POWER_SUPPLY_CHARGER_EVENT_UPDATE,
+	POWER_SUPPLY_CHARGER_EVENT_RESUME,
+	POWER_SUPPLY_CHARGER_EVENT_SUSPEND,
+	POWER_SUPPLY_CHARGER_EVENT_DISCONNECT,
+};
+
+enum power_supply_charger_cable_type {
+	POWER_SUPPLY_CHARGER_TYPE_NONE = 0,
+	POWER_SUPPLY_CHARGER_TYPE_USB_SDP = 1 << 0,
+	POWER_SUPPLY_CHARGER_TYPE_USB_DCP = 1 << 1,
+	POWER_SUPPLY_CHARGER_TYPE_USB_CDP = 1 << 2,
+	POWER_SUPPLY_CHARGER_TYPE_USB_ACA = 1 << 3,
+	POWER_SUPPLY_CHARGER_TYPE_AC = 1 << 4,
+	POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK = 1 << 5,
+	POWER_SUPPLY_CHARGER_TYPE_ACA_A = 1 << 6,
+	POWER_SUPPLY_CHARGER_TYPE_ACA_B = 1 << 7,
+	POWER_SUPPLY_CHARGER_TYPE_ACA_C = 1 << 8,
+	POWER_SUPPLY_CHARGER_TYPE_SE1 = 1 << 9,
+	POWER_SUPPLY_CHARGER_TYPE_MHL = 1 << 10,
+	POWER_SUPPLY_CHARGER_TYPE_B_DEVICE = 1 << 11,
+};
+
+struct power_supply_cable_props {
+	enum power_supply_charger_event	chrg_evt;
+	enum power_supply_charger_cable_type chrg_type;
+	unsigned int			mA;	/* input current limit */
+};
+
 union power_supply_propval {
 	int intval;
 	const char *strval;
