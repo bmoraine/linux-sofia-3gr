@@ -1647,6 +1647,14 @@ int set_pages_uc(struct page *page, int numpages)
 }
 EXPORT_SYMBOL(set_pages_uc);
 
+int set_pages_wc(struct page *page, int numpages)
+{
+	unsigned long addr = (unsigned long)page_address(page);
+
+	return set_memory_wc(addr, numpages);
+}
+EXPORT_SYMBOL(set_pages_wc);
+
 static int _set_pages_array(struct page **pages, int addrinarray,
 		unsigned long new_type)
 {

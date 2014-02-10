@@ -133,6 +133,7 @@ int set_pages_array_wb(struct page **pages, int addrinarray);
  * virtual address, do not use these functions.
  */
 
+int set_pages_wc(struct page *page, int numpages);
 int set_pages_uc(struct page *page, int numpages);
 int set_pages_wb(struct page *page, int numpages);
 int set_pages_x(struct page *page, int numpages);

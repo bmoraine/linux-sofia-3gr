@@ -14,6 +14,7 @@
 #include <asm/calgary.h>
 #include <asm/x86_init.h>
 #include <asm/iommu_table.h>
+#include <asm/cacheflush.h>
 
 static int forbid_dac __read_mostly;
 
@@ -86,9 +87,23 @@ void __init pci_iommu_alloc(void)
 		}
 	}
 }
-void *dma_generic_alloc_coherent(struct device *dev, size_t size,
+static void __dma_set_pages(struct page *page, unsigned int count,
+				struct dma_attrs *attrs)
+{
+	if (attrs == NULL) {
+		set_pages_wb(page, count);
+		return;
+	}
+
+	if (dma_get_attr(DMA_ATTR_WRITE_COMBINE, attrs))
+		set_pages_wc(page, count);
+	else
+		set_pages_uc(page, count);
+}
+
+static void *__dma_alloc(struct device *dev, size_t size,
 				 dma_addr_t *dma_addr, gfp_t flag,
-				 struct dma_attrs *attrs)
+				 struct dma_attrs *attrs, bool is_coherent)
 {
 	unsigned long dma_mask;
 	struct page *page;
@@ -121,18 +136,51 @@ again:
 		return NULL;
 	}
 
+	if (is_coherent == false)
+		__dma_set_pages(page, count, attrs);
+
 	*dma_addr = addr;
 	return page_address(page);
+}
+
+void *dma_generic_alloc_coherent(struct device *dev, size_t size,
+				 dma_addr_t *dma_addr, gfp_t flag,
+				 struct dma_attrs *attrs)
+{
+	return __dma_alloc(dev, size, dma_addr, flag, attrs, true);
+}
+
+void *dma_generic_alloc_noncoherent(struct device *dev, size_t size,
+				 dma_addr_t *dma_addr, gfp_t flag,
+				 struct dma_attrs *attrs)
+{
+	return __dma_alloc(dev, size, dma_addr, flag, attrs, false);
+}
+
+static void __dma_free(struct device *dev, size_t size, void *vaddr,
+			       dma_addr_t dma_addr, struct dma_attrs *attrs,
+			       bool is_coherent)
+{
+	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	struct page *page = virt_to_page(vaddr);
+
+	if (is_coherent == false)
+		__dma_set_pages(page, count, NULL);
+
+	if (!dma_release_from_contiguous(dev, page, count))
+		free_pages((unsigned long)vaddr, get_order(size));
 }
 
 void dma_generic_free_coherent(struct device *dev, size_t size, void *vaddr,
 			       dma_addr_t dma_addr, struct dma_attrs *attrs)
 {
-	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
-	struct page *page = virt_to_page(vaddr);
+	__dma_free(dev, size, vaddr, dma_addr, attrs, true);
+}
 
-	if (!dma_release_from_contiguous(dev, page, count))
-		free_pages((unsigned long)vaddr, get_order(size));
+void dma_generic_free_noncoherent(struct device *dev, size_t size, void *vaddr,
+			       dma_addr_t dma_addr, struct dma_attrs *attrs)
+{
+	__dma_free(dev, size, vaddr, dma_addr, attrs, false);
 }
 
 /*
