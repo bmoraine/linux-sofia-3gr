@@ -592,6 +592,18 @@ config REGULATOR_WM8994
 	  This driver provides support for the voltage regulators on the
 	  WM8994 CODEC.
 
+config REGULATOR_XGOLD
+	tristate "Xgold regulator"
+	select REGMAP_MMIO
+	select REGMAP_I2C if I2C
+	select REGMAP
+	depends on !PLATFORM_DEVICE_PM_VIRT
+	help
+	  This driver provides support for volatge regulators on
+	  xgold SoCs.
+	  It can use I2C physical protocol in case registers
+	  access are done through I2C.
+
 config REGULATOR_DEVICE_PM
 	tristate "Platform device pm controlled regulator"
 	depends on PLATFORM_DEVICE_PM
