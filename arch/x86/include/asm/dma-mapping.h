@@ -93,6 +93,17 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
 }
 #endif /* CONFIG_X86_DMA_REMAP */
 
+/*
+ * Convert a physical address to a Page Frame Number and back
+ */
+#define	__phys_to_pfn(paddr)	((unsigned long)((paddr) >> PAGE_SHIFT))
+#define	__pfn_to_phys(pfn)	((phys_addr_t)(pfn) << PAGE_SHIFT)
+
+#define phys_to_page(phys)	(pfn_to_page(__phys_to_pfn(phys)))
+
+#define page_to_dma(dev, addr) (phys_to_dma(dev, page_to_phys(addr)))
+#define dma_to_page(dev, addr) (phys_to_page(dma_to_phys(dev, addr)))
+
 static inline void
 dma_cache_sync(struct device *dev, void *vaddr, size_t size,
 	enum dma_data_direction dir)
