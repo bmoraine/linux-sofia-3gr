@@ -1,6 +1,13 @@
+#
+# Copyright (C) 2014 Intel Mobile Communications GmbH
+#
+# Notes:
+# Mar 14 2014: IMC: Adjust feature dependencies for SoFIA
+#
+
 config MALI400
 	tristate "Mali-300/400/450 support"
-	depends on ARM
+	depends on ARM || X86_INTEL_XGOLD
 	select DMA_SHARED_BUFFER
 	---help---
 	  This enables support for the ARM Mali-300, Mali-400, and Mali-450
@@ -44,7 +51,7 @@ config MALI400_UMP
 
 config MALI400_POWER_PERFORMANCE_POLICY
 	bool "Enable Mali power performance policy"
-	depends on ARM
+	depends on ARM || X86_INTEL_XGOLD
 	default n
 	---help---
 	  This enables support for dynamic performance scaling of Mali with the goal of lowering power consumption.

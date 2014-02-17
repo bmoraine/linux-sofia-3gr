@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013-2014 ARM Limited. All rights reserved.
+ * Copyright (c) 2014 Intel Mobile Communications GmbH
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -16,6 +17,10 @@
 #include <linux/version.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
+
+#ifdef CONFIG_X86
+#include <asm/cacheflush.h>
+#endif
 
 #include "mali_osk.h"
 #include "mali_memory.h"
@@ -154,6 +159,9 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 		/* Ensure page is flushed from CPU caches. */
 		dma_addr = dma_map_page(&mali_platform_device->dev, new_page,
 					0, _MALI_OSK_MALI_PAGE_SIZE, DMA_TO_DEVICE);
+#ifdef CONFIG_X86
+		set_pages_wc(new_page, 1);
+#endif
 
 		/* Store page phys addr */
 		SetPagePrivate(new_page);
@@ -353,6 +361,9 @@ static void mali_mem_os_free_page(struct page *page)
 	dma_unmap_page(&mali_platform_device->dev, page_private(page),
 		       _MALI_OSK_MALI_PAGE_SIZE, DMA_TO_DEVICE);
 
+#ifdef CONFIG_X86
+	set_pages_wb(page, 1);
+#endif
 	ClearPagePrivate(page);
 
 	__free_page(page);
