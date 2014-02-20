@@ -1,4 +1,15 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  * Check for extended topology enumeration cpuid leaf 0xb and if it
  * exists, use it for populating initial_apicid and cpu topology
  * detection.
@@ -28,7 +39,7 @@
  */
 void detect_extended_topology(struct cpuinfo_x86 *c)
 {
-#ifdef CONFIG_SMP
+#if ((defined CONFIG_SMP) && !(defined CONFIG_X86_INTEL_SOFIA))
 	unsigned int eax, ebx, ecx, edx, sub_index;
 	unsigned int ht_mask_width, core_plus_mask_width;
 	unsigned int core_select_mask, core_level_siblings;
