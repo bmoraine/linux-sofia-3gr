@@ -1,7 +1,23 @@
+/*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 #ifndef _ASM_X86_IRQ_VECTORS_H
 #define _ASM_X86_IRQ_VECTORS_H
 
 #include <linux/threads.h>
+
+#ifdef CONFIG_X86_INTEL_SOFIA
+#include <sofia/irq_vectors.h>
+#endif
 /*
  * Linux IRQ vector layout.
  *
@@ -89,10 +105,22 @@
 # error SPURIOUS_APIC_VECTOR definition error
 #endif
 
+#ifndef ERROR_APIC_VECTOR
 #define ERROR_APIC_VECTOR		0xfe
+#endif
+
+#ifndef RESCHEDULE_VECTOR
 #define RESCHEDULE_VECTOR		0xfd
+#endif
+
+#ifndef CALL_FUNCTION_VECTOR
 #define CALL_FUNCTION_VECTOR		0xfc
+#endif
+
+#ifndef CALL_FUNCTION_SINGLE_VECTOR
 #define CALL_FUNCTION_SINGLE_VECTOR	0xfb
+#endif
+
 #define THERMAL_APIC_VECTOR		0xfa
 #define THRESHOLD_APIC_VECTOR		0xf9
 #define REBOOT_VECTOR			0xf8
@@ -122,7 +150,9 @@
  * to work around the 'lost local interrupt if more than 2 IRQ
  * sources per level' errata.
  */
+#ifndef LOCAL_TIMER_VECTOR
 #define LOCAL_TIMER_VECTOR		0xef
+#endif
 
 #define NR_VECTORS			 256
 
