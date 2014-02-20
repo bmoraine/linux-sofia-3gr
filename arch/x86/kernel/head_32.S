@@ -1,9 +1,19 @@
 /*
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2014 Intel Mobile Communications GmbH
  *
  *  Enhanced CPU detection and feature setting code by Mike Jagdis
  *  and Martin Mares, November 1997.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 .text
@@ -294,6 +304,9 @@ ENDPROC(start_cpu0)
  */
 ENTRY(startup_32_smp)
 	cld
+#ifdef CONFIG_X86_INTEL_SOFIA
+	lgdt pa(boot_gdt_descr)
+#endif
 	movl $(__BOOT_DS),%eax
 	movl %eax,%ds
 	movl %eax,%es
