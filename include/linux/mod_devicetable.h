@@ -224,7 +224,7 @@ struct of_device_id
 {
 	char	name[32];
 	char	type[32];
-	char	compatible[128];
+	char	compatible[156];
 	const void *data;
 };
 
