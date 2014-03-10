@@ -1,10 +1,27 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
  * This file contains work-arounds for x86 and x86_64 platform bugs.
  */
 #include <linux/pci.h>
 #include <linux/irq.h>
 
 #include <asm/hpet.h>
+
+#ifdef CONFIG_X86_INTEL_SOFIA_ERRATA_001
+DEFINE_SPINLOCK(sofia_mmio_lock);
+#endif
 
 #if defined(CONFIG_X86_IO_APIC) && defined(CONFIG_SMP) && defined(CONFIG_PCI)
 

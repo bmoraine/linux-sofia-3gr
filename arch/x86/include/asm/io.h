@@ -1,6 +1,8 @@
 #ifndef _ASM_X86_IO_H
 #define _ASM_X86_IO_H
 
+/* Copyright (c) 2014 Intel Mobile Communications GmbH */
+
 /*
  * This file contains the definitions for the x86 IO instructions
  * inb/inw/inl/outb/outw/outl and the "string versions" of the same
@@ -40,6 +42,35 @@
 #include <linux/compiler.h>
 #include <asm/page.h>
 
+#ifdef CONFIG_X86_INTEL_SOFIA_ERRATA_001
+#include <linux/spinlock.h>
+extern spinlock_t sofia_mmio_lock;
+
+#define build_mmio_read(name, size, type, reg, barrier) \
+static inline type name(const volatile void __iomem *addr) \
+{\
+	type ret;\
+	unsigned long flags;\
+	spin_lock_irqsave(&sofia_mmio_lock, flags);\
+	asm volatile("sfence");\
+	asm volatile("mov" size " %1,%0":reg (ret) \
+:"m" (*(volatile type __force *)addr) barrier);\
+	spin_unlock_irqrestore(&sofia_mmio_lock, flags);\
+	return ret;\
+}
+
+#define build_mmio_write(name, size, type, reg, barrier) \
+static inline void name(type val, volatile void __iomem *addr) \
+{\
+	unsigned long flags;\
+	spin_lock_irqsave(&sofia_mmio_lock, flags);\
+	asm volatile("sfence");\
+	asm volatile("mov" size " %0,%1": :reg (val), \
+"m" (*(volatile type __force *)addr) barrier);\
+	spin_unlock_irqrestore(&sofia_mmio_lock, flags);\
+}
+
+#else
 #define build_mmio_read(name, size, type, reg, barrier) \
 static inline type name(const volatile void __iomem *addr) \
 { type ret; asm volatile("mov" size " %1,%0":reg (ret) \
@@ -49,6 +80,8 @@ static inline type name(const volatile void __iomem *addr) \
 static inline void name(type val, volatile void __iomem *addr) \
 { asm volatile("mov" size " %0,%1": :reg (val), \
 "m" (*(volatile type __force *)addr) barrier); }
+
+#endif
 
 build_mmio_read(readb, "b", unsigned char, "=q", :"memory")
 build_mmio_read(readw, "w", unsigned short, "=r", :"memory")
