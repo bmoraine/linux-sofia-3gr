@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/dma-mapping.h>
 #include <linux/dma-debug.h>
 #include <linux/dmar.h>
@@ -87,18 +100,22 @@ void __init pci_iommu_alloc(void)
 		}
 	}
 }
+
 static void __dma_set_pages(struct page *page, unsigned int count,
 				struct dma_attrs *attrs)
 {
-	if (attrs == NULL) {
-		set_pages_wb(page, count);
-		return;
-	}
+	int ret = 0;
 
-	if (dma_get_attr(DMA_ATTR_WRITE_COMBINE, attrs))
-		set_pages_wc(page, count);
+	if (attrs == NULL)
+		ret = set_pages_uc(page, count);
+	else if (dma_get_attr(DMA_ATTR_WRITE_COMBINE, attrs))
+		ret = set_pages_wc(page, count);
 	else
-		set_pages_uc(page, count);
+		pr_warn("%s:DMA attrs %p not supported\n",
+					__func__, attrs->flags);
+
+	if (ret)
+		pr_err("%s failed\n", __func__);
 }
 
 static void *__dma_alloc(struct device *dev, size_t size,
@@ -165,7 +182,7 @@ static void __dma_free(struct device *dev, size_t size, void *vaddr,
 	struct page *page = virt_to_page(vaddr);
 
 	if (is_coherent == false)
-		__dma_set_pages(page, count, NULL);
+		set_pages_wb(page, count);
 
 	if (!dma_release_from_contiguous(dev, page, count))
 		free_pages((unsigned long)vaddr, get_order(size));
