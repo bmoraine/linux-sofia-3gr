@@ -1,0 +1,28 @@
+config VIDEO_OV8825
+	bool "OV8825"
+	depends on VIDEO_V4L2 && VIDEO_XGOLD && I2C
+	default n
+	---help---
+	Say Y here to enable OV8825.
+
+config VIDEO_OV9740
+	bool "OV9740"
+	depends on VIDEO_V4L2 && VIDEO_XGOLD && I2C
+	default n
+	---help---
+	Say Y here to enable OV9740.
+
+config VIDEO_OV9760
+	bool "OV9760"
+	depends on VIDEO_V4L2 && VIDEO_XGOLD && I2C
+	default n
+	---help---
+	Say Y here to enable OV9760.
+
+config VIDEO_OV13850
+	bool "OV13850"
+	depends on VIDEO_V4L2 && VIDEO_XGOLD && I2C
+	default n
+	---help---
+	Say Y here to enable OV13850.
+
