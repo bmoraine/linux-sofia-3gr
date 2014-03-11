@@ -1,6 +1,13 @@
 #
 # x86 CPU Frequency scaling drivers
 #
+config XGOLD_CPUFREQ
+       bool "Intel Xgold"
+       depends on X86_INTEL_XGOLD
+       default n
+       help
+	This adds the CPUFreq driver for Intel Xgold Soc.
+	Depending on XGOLD SoC platform
 
 config X86_INTEL_PSTATE
        bool "Intel P state control"
