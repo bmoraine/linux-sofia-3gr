@@ -9,6 +9,16 @@ config INTEL_IDLE
 	  can be configured at the same time, in order to handle
 	  processors intel_idle does not support.
 
+config XGOLD_IDLE
+	bool "Cpuidle Driver for Xgold Processors"
+	depends on CPU_IDLE
+	depends on X86_INTEL_XGOLD
+	help
+	  Enable xgold_idle, a cpuidle driver that includes both
+	  native and virtualised interfaces
+	  If unsure, say N.
+
+
 menu "Memory power savings"
 depends on X86_64
 
