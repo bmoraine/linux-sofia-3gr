@@ -1,0 +1,8 @@
+
+config HAVE_NOC
+	bool "Arteris NoC driver support on xgold platforms"
+	depends on X86_INTEL_XGOLD
+	default n
+	help
+	   Select this if you want support
+	   for Arteris FlexNOC on-chip interconnect
