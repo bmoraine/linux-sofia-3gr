@@ -469,6 +469,16 @@ config INPUT_GPIO
 	help
 	  Say Y here if you want to support gpio based keys, wheels etc...
 
+config INPUT_L3GD20_GYR
+    tristate "L3GD20 STM Gyroscope"
+	depends on I2C
+	help
+	  Say Y here to use the L3GD20 3-axis angular rate sensor
+	  from STM.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called l3gd20_gyr.
+
 config INPUT_LSM303DLHC_ACC
     tristate "LSM303DLHC STM Accelerometer"
 	depends on I2C
