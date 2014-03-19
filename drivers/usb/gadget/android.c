@@ -454,7 +454,7 @@ static void functionfs_release_dev_callback(struct ffs_dev *dev)
 {
 }
 
-#define MAX_ACM_INSTANCES 4
+#define MAX_ACM_INSTANCES 3
 struct acm_function_config {
 	int instances;
 	int instances_on;

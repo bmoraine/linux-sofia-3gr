@@ -1,6 +1,7 @@
 /*
  * f_acm.c -- USB CDC serial (ACM) function driver
  *
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  * Copyright (C) 2003 Al Borchers (alborchers@steinerpoint.com)
  * Copyright (C) 2008 by David Brownell
  * Copyright (C) 2008 by Nokia Corporation
@@ -103,7 +104,11 @@ acm_iad_descriptor = {
 	.bInterfaceCount = 	2,	// control + data
 	.bFunctionClass =	USB_CLASS_COMM,
 	.bFunctionSubClass =	USB_CDC_SUBCLASS_ACM,
+#ifndef CONFIG_USB_DWC_UDC
 	.bFunctionProtocol =	USB_CDC_ACM_PROTO_AT_V25TER,
+#else
+	.bFunctionProtocol =	USB_CDC_PROTO_NONE,
+#endif
 	/* .iFunction =		DYNAMIC */
 };
 
@@ -115,7 +120,11 @@ static struct usb_interface_descriptor acm_control_interface_desc = {
 	.bNumEndpoints =	1,
 	.bInterfaceClass =	USB_CLASS_COMM,
 	.bInterfaceSubClass =	USB_CDC_SUBCLASS_ACM,
+#ifndef CONFIG_USB_DWC_UDC
 	.bInterfaceProtocol =	USB_CDC_ACM_PROTO_AT_V25TER,
+#else
+	.bInterfaceProtocol =   USB_CDC_PROTO_NONE,
+#endif
 	/* .iInterface = DYNAMIC */
 };
 
@@ -280,12 +289,12 @@ static struct usb_descriptor_header *acm_ss_function[] = {
 #define ACM_DATA_IDX	1
 #define ACM_IAD_IDX	2
 
+#ifndef CONFIG_USB_DWC_UDC
 /* static strings, in UTF-8 */
 static struct usb_string acm_string_defs[] = {
 	[ACM_CTRL_IDX].s = "CDC Abstract Control Model (ACM)",
 	[ACM_DATA_IDX].s = "CDC ACM Data",
 	[ACM_IAD_IDX ].s = "CDC Serial",
-	{  } /* end of list */
 };
 
 static struct usb_gadget_strings acm_string_table = {
@@ -297,6 +306,51 @@ static struct usb_gadget_strings *acm_strings[] = {
 	&acm_string_table,
 	NULL,
 };
+#else
+/* static strings, in UTF-8 */
+static struct usb_string acm_string_defs_at[] = {
+	[ACM_CTRL_IDX].s = "CDC Abstract Control Model (ACM)",
+	[ACM_DATA_IDX].s = "at_commands",
+	[ACM_IAD_IDX ].s = "CDC Serial",
+};
+
+static struct usb_gadget_strings acm_string_table_at = {
+	.language =		0x0409,	/* en-us */
+	.strings =		acm_string_defs_at,
+};
+
+/* static strings, in UTF-8 */
+static struct usb_string acm_string_defs_oct[] = {
+	[ACM_CTRL_IDX].s = "CDC Abstract Control Model (ACM)",
+	[ACM_DATA_IDX].s = "oct_trace",
+	[ACM_IAD_IDX ].s = "CDC Serial",
+};
+
+static struct usb_gadget_strings acm_string_table_oct = {
+	.language =		0x0409,	/* en-us */
+	.strings =		acm_string_defs_oct,
+};
+
+/* static strings, in UTF-8 */
+static struct usb_string acm_string_defs_gti[] = {
+	[ACM_CTRL_IDX].s = "CDC Abstract Control Model (ACM)",
+	[ACM_DATA_IDX].s = "gti_ipicom",
+	[ACM_IAD_IDX ].s = "CDC Serial",
+};
+
+static struct usb_gadget_strings acm_string_table_gti = {
+	.language =		0x0409,	/* en-us */
+	.strings =		acm_string_defs_gti,
+};
+
+static struct usb_gadget_strings *acm_strings_imc[] = {
+	&acm_string_table_at,
+	&acm_string_table_oct,
+	&acm_string_table_gti,
+	NULL,
+};
+
+#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -616,9 +670,18 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 	 * distinguish instances ...
 	 */
 
+#ifndef CONFIG_USB_DWC_UDC
 	/* maybe allocate device-global string IDs, and patch descriptors */
 	us = usb_gstrings_attach(cdev, acm_strings,
 			ARRAY_SIZE(acm_string_defs));
+#else
+	if (acm->port_num > 2) {
+		pr_err("IMC platform doesn't support more than 3 instances\n");
+		return -EINVAL;
+	}
+	us = usb_gstrings_attach(cdev, &acm_strings_imc[acm->port_num],
+			ARRAY_SIZE(acm_string_defs_at));
+#endif
 	if (IS_ERR(us))
 		return PTR_ERR(us);
 	acm_control_interface_desc.iInterface = us[ACM_CTRL_IDX].id;
@@ -720,8 +783,13 @@ fail:
 static void acm_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_acm		*acm = func_to_acm(f);
-
+#ifndef CONFIG_USB_DWC_UDC
 	acm_string_defs[0].id = 0;
+#else
+	acm_string_defs_at[0].id = 0;
+	acm_string_defs_oct[0].id = 0;
+	acm_string_defs_gti[0].id = 0;
+#endif
 	usb_free_all_descriptors(f);
 	if (acm->notify_req)
 		gs_free_req(acm->notify, acm->notify_req);
@@ -750,7 +818,9 @@ static struct usb_function *acm_alloc_func(struct usb_function_instance *fi)
 	acm->port.send_break = acm_send_break;
 
 	acm->port.func.name = "acm";
+#ifndef CONFIG_USB_DWC_UDC
 	acm->port.func.strings = acm_strings;
+#endif
 	/* descriptors are per-instance copies */
 	acm->port.func.bind = acm_bind;
 	acm->port.func.set_alt = acm_set_alt;
@@ -761,6 +831,13 @@ static struct usb_function *acm_alloc_func(struct usb_function_instance *fi)
 	acm->port_num = opts->port_num;
 	acm->port.func.unbind = acm_unbind;
 	acm->port.func.free_func = acm_free_func;
+#ifdef CONFIG_USB_DWC_UDC
+	if (acm->port_num > 2) {
+		pr_err("IMC platform doesn't support more than 3 instances\n");
+		return ERR_PTR(-EINVAL);
+	}
+	acm->port.func.strings = &acm_strings_imc[acm->port_num];
+#endif
 
 	return &acm->port.func;
 }
