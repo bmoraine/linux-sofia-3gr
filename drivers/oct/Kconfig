@@ -1,0 +1,14 @@
+#
+# OCT configuration
+#
+
+menu "OCT config"
+
+config OCT
+	bool "OCT driver"
+	default n
+	help
+	  The OCT driver provides the interface to get the traces from
+	  the OCT HW.
+
+endmenu
