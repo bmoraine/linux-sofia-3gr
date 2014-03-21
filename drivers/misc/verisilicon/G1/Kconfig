@@ -1,0 +1,12 @@
+config VERISILICON_G1
+	tristate "VeriSilicon G1 driver"
+	default n
+	help
+	  Driver for Verisilicon G1 video decoder using an IOCTL Interface
+
+config VERISILICON_G1_DEBUG_FS
+	tristate "Verisilicon G1 debug file system"
+	depends on VERISILICON_G1 && DEBUG_FS
+	default n
+	help
+	  Debug FS for Verisilicon G1 video decoder
