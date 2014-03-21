@@ -617,5 +617,15 @@ config TILE_SROM
 	  device appear much like a simple EEPROM, and knows
 	  how to partition a single ROM for multiple purposes.
 
+config TADI
+	bool "Trace And Debug Interface"
+	default n
+		help
+			Some former Modem software will run on AP side (virtualized
+			Linux/Android) and so a Linux driver is needed to handle the traces
+			created by theses drivers. This is solved by creating a Linux kernel
+			driver which offers as an upper interface a standard Linux character
+			driver interface. This driver is the central driver to write traces
+			on AP side. It is the equivalent to TADI driver on MODEM side.
 endmenu
 
