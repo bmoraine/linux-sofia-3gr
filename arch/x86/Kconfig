@@ -500,6 +500,14 @@ config X86_INTEL_SOFIA_ERRATA_001
 	  Select this options if you want to force a sfence barrier
 	  before any MMIO accesses.
 
+config X86_INTEL_SOFIA_ERRATA_002
+	bool "Force IDI break commands to free-up IDI TX path"
+	---help---
+	  Select this options if you want to issue 3 IDI break commands
+	  to the ABB IDI during IDI initialization, and avoid any RX
+	  transaction (ioread of ABB) which would prevent any further \
+	  TX transactions.
+
 config BUS_AMBA
 	bool
 
