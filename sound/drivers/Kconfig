@@ -220,4 +220,13 @@ config SND_AC97_POWER_SAVE_DEFAULT
 
 	  See SND_AC97_POWER_SAVE for more details.
 
+config SND_XGOLD
+	bool "Xgold sound driver"
+	depends on ARCH_XGOLD
+	depends on HAVE_DSP
+	select SND_PCM
+	default n
+	help
+	  Say Y here to enable the sound support in XGOLD platforms through the DSP
+
 endif	# SND_DRIVERS

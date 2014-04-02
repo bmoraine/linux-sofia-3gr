@@ -1,0 +1,36 @@
+config SND_SOC_XGOLD_MACHINE
+	depends on IDI
+	tristate "SoC Audio for the Intel XGold Soc"
+	select SND_SOC_AGOLD_AFE
+	select SND_SOC_XGOLD_PCM
+	select SND_XGOLD_DSP
+	select SND_SOC_AGOLD_ACC_DET_INTERFACE
+#	select SND_SOC_AGOLD_PT_DEBUG
+	select SND_SOC_XGOLD_SPEECH_PROBE
+	select SND_SOC_AGOLD_BT_SCO_STREAMING
+
+config SND_XGOLD_DSP
+	tristate
+
+config SND_SOC_XGOLD_PCM
+	tristate
+
+config SND_SOC_AGOLD_ACC_DET_INTERFACE
+	tristate
+
+config SND_SOC_AGOLD_BT_SCO_STREAMING
+	tristate
+
+config SND_SOC_XGOLD_SPEECH_PROBE
+	tristate
+
+config SND_SOC_AGOLD_PT_DEBUG
+	tristate
+
+config SND_SOC_AGOLD_620
+	bool "Intel SoC Audio codec AG620"
+	depends on SND_SOC_AGOLD_AFE
+	help
+	  Say Y here if you want to support the Audio Front End (AFE)
+	  of the Intel AGold620 IC, which provide some more input compared
+	  to the Intel AGold610 IC (default AFE).

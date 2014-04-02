@@ -1,0 +1,316 @@
+/*
+ * Component: XGOLD Machine driver
+ *
+ * Copyright (C) 2014, Intel Mobile Communications GmbH.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License Version 2
+ * as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * You should have received a copy of the GNU General Public License Version 2
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Contributor(s):
+ * Suryaprakash
+ */
+
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/clk.h>
+#include <linux/platform_device.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/of.h>
+#include <sound/core.h>
+#include <sound/pcm.h>
+#include <sound/soc.h>
+#include <sound/soc-dapm.h>
+
+#define PCL_LOCK_EXCLUSIVE	1
+#define PCL_OPER_ACTIVATE	0
+
+#define	xgold_err(fmt, arg...) \
+		pr_err("snd: mac: "fmt, ##arg)
+
+#define	xgold_debug(fmt, arg...) \
+		pr_debug("snd: mac: "fmt, ##arg)
+
+int audio_native_mode;
+
+/* XGOLD machine DAPM */
+static const struct snd_soc_dapm_widget xgold_dapm_widgets[] = {
+	SND_SOC_DAPM_SPK("Speaker", NULL),
+	SND_SOC_DAPM_HP("Headset", NULL),
+	SND_SOC_DAPM_SPK("Earphone", NULL),
+	SND_SOC_DAPM_MIC("Headset Mic", NULL),
+	SND_SOC_DAPM_MIC("Handset Mic", NULL)
+};
+
+/* XGOLD Machine driver audio map*/
+static const struct snd_soc_dapm_route audio_map[] = {
+
+	/* External Speakers: LOUDSpeaker */
+	{"Speaker", NULL, "LOUDSPEAKER"},
+
+	/* Headset Stereophone (Headphone): HSL, HSR */
+	{"Headset", NULL, "HSL"},
+	{"Headset", NULL, "HSR"},
+
+	/* Earphone speaker */
+	{"Earphone", NULL, "EARPIECE"},
+
+	{"Headset Mic", NULL, "AMIC2"},
+	{"Handset Mic", NULL, "AMIC1"}
+};
+
+static int xgold_snd_init(struct snd_soc_pcm_runtime *runtime)
+{
+
+	struct snd_soc_codec *codec = runtime->codec;
+	int ret = 0;
+
+	xgold_debug("%s\n", __func__);
+
+	/* Add XGOLD specific widgets */
+	ret = snd_soc_dapm_new_controls(&codec->dapm, xgold_dapm_widgets,
+					ARRAY_SIZE(xgold_dapm_widgets));
+	if (ret) {
+		xgold_err("Failed to add DAPM controls\n");
+		return ret;
+	}
+
+	/* Set up XGOLD specific audio path audio_map */
+	snd_soc_dapm_add_routes(&codec->dapm, audio_map, ARRAY_SIZE(audio_map));
+
+	/* XGOLD connected pins */
+	snd_soc_dapm_enable_pin(&codec->dapm, "Speaker");
+	snd_soc_dapm_enable_pin(&codec->dapm, "Earphone");
+	snd_soc_dapm_enable_pin(&codec->dapm, "Headset");
+	snd_soc_dapm_enable_pin(&codec->dapm, "Headset Mic");
+	snd_soc_dapm_enable_pin(&codec->dapm, "Handset Mic");
+
+	ret = snd_soc_dapm_sync(&codec->dapm);
+
+	return ret;
+}
+
+#if 0 /* FIXME useless */
+static int xgold_hw_params(struct snd_pcm_substream *substream,
+			   struct snd_pcm_hw_params *params)
+{
+	xgold_debug("%s\n", __func__);
+	return 0;
+}
+
+static struct snd_soc_ops xgold_ops = {
+	.hw_params = xgold_hw_params,
+};
+#endif
+
+/* Digital audio interface glue - connects codec <--> CPU
+ * xgold dai's are devided into Front End (FE) and Back End (BE) devices
+ * FE devices are pure streaming devices, not in charge of enabling any codecs.
+ * BE devices are used for enabling codecs alone.
+ */
+static struct snd_soc_dai_link xgold_dai[] = {
+	/* PCM front end device */
+	{
+		.name = "XGOLD632_PCM",
+		.stream_name = "PCM Audio",
+		.init = xgold_snd_init,
+		.ignore_suspend = 1,
+	},
+	/* Codec back end device */
+	{
+		.name = "XGOLD632_VOICE",
+		.stream_name = "Voice",
+		.ignore_suspend = 1,
+	},
+#ifdef CONFIG_SND_SOC_XGOLD632_SPEECH_PROBE
+	/* Speech probe front end devices */
+	{
+		.name = "XGOLD632_SPEECH_PROBE_A",
+		.stream_name = "Speech Probe_A",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "XGOLD632_SPEECH_PROBE_B",
+		.stream_name = "Speech Probe_B",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "XGOLD632_SPEECH_PROBE_C",
+		.stream_name = "Speech Probe_C",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "XGOLD632_SPEECH_PROBE_D",
+		.stream_name = "Speech Probe_D",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "XGOLD632_SPEECH_PROBE_E",
+		.stream_name = "Speech Probe_E",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "XGOLD632_SPEECH_PROBE_F",
+		.stream_name = "Speech Probe_F",
+		.ignore_suspend = 1,
+	}
+#endif
+};
+
+/* Audio machine driver */
+static struct snd_soc_card xgold_snd_card = {
+	.name = "Agold_afe-audio",
+	.owner = THIS_MODULE,
+	.dai_link = xgold_dai,
+	.num_links = ARRAY_SIZE(xgold_dai),
+};
+
+static int xgold_mc_probe(struct platform_device *pdev)
+{
+	struct device_node *np = pdev->dev.of_node;
+	struct snd_soc_dai_link *dai_link;
+	int ret = 0;
+	int i;
+
+	xgold_debug("%s:\n", __func__);
+
+	xgold_snd_card.dev = &pdev->dev;
+	snd_soc_card_set_drvdata(&xgold_snd_card, (void *)audio_native_mode);
+
+#ifdef CONFIG_OF
+	if (!audio_native_mode) {
+		for (i = 0; i < xgold_snd_card.num_links; i++) {
+			dai_link = &xgold_snd_card.dai_link[i];
+
+			if (!strcmp(dai_link->stream_name, "PCM Audio")) {
+				dai_link->cpu_of_node =
+					dai_link->platform_of_node =
+					of_parse_phandle(np, "intel,pcm-audio",
+							0);
+				dai_link->codec_dai_name = "snd-soc-dummy-dai";
+				dai_link->codec_name = "snd-soc-dummy";
+			} else if (!strcmp(dai_link->stream_name, "Voice")) {
+				/* FIXME: for Voice stream, platform is
+				 * snd-soc-dummy */
+				dai_link->cpu_of_node = of_parse_phandle(np,
+						"intel,pcm-voice", 0);
+				dai_link->codec_of_node = of_parse_phandle(np,
+						"intel,audio-codec", 0);
+				dai_link->codec_dai_name = "ag620_afe";
+			} else if (!strncmp(dai_link->stream_name,
+						"Speech Probe",
+						strlen("Speech Probe"))) {
+				dai_link->cpu_of_node =
+					dai_link->platform_of_node =
+					of_parse_phandle(np, "intel,speech", 0);
+				dai_link->codec_dai_name = "snd-soc-dummy-dai";
+				dai_link->codec_name = "snd-soc-dummy";
+			}
+
+			if (!dai_link->cpu_of_node)
+				pr_err("error for %s DAI binding\n",
+						dai_link->name);
+		}
+	} else {
+		/* setup devices for native kernel support */
+		for (i = 0; i < xgold_snd_card.num_links; i++) {
+			dai_link = &xgold_snd_card.dai_link[i];
+			dai_link->codec_of_node =
+				of_parse_phandle(np, "intel,audio-codec", 0);
+			dai_link->codec_dai_name = "ag620_afe";
+
+			if (!strcmp(dai_link->stream_name, "PCM Audio"))
+				dai_link->cpu_of_node =
+					dai_link->platform_of_node =
+					of_parse_phandle(np, "intel,pcm-audio",
+							0);
+			else if (!strcmp(dai_link->stream_name, "Voice"))
+				/* FIXME: for Voice stream, platform is
+				 * snd-soc-dummy */
+				dai_link->cpu_of_node = of_parse_phandle(np,
+						"intel,pcm-voice", 0);
+			else if (!strncmp(dai_link->stream_name, "Speech Probe",
+						strlen("Speech Probe")))
+				dai_link->cpu_of_node =
+					dai_link->platform_of_node =
+					of_parse_phandle(np, "intel,speech", 0);
+			if (!dai_link->cpu_of_node)
+				pr_err("error for %s DAI binding\n",
+						dai_link->name);
+		}
+	}
+#endif
+
+	ret = snd_soc_register_card(&xgold_snd_card);
+
+	if (ret < 0)
+		xgold_err("%s: unable to register sound card err %d\n",
+			  __func__, ret);
+
+	return ret;
+}
+
+static int xgold_mc_remove(struct platform_device *pdev)
+{
+	xgold_debug("%s:\n", __func__);
+	return 0;
+}
+
+static struct of_device_id xgold_snd_asoc_of_match[] = {
+	{ .compatible = "intel,xgold-snd-asoc", },
+	{ },
+};
+
+static int __init setup_xgold_audio_native(char *str)
+{
+	audio_native_mode = 1;
+	return 0;
+}
+early_param("nomodem", setup_xgold_audio_native);
+
+static struct platform_driver xgold_snd_mc_drv = {
+	.driver = {
+		.name = "XGOLD_MACHINE",
+		.owner = THIS_MODULE,
+		.of_match_table = xgold_snd_asoc_of_match,
+		},
+
+	.probe = xgold_mc_probe,
+	.remove = xgold_mc_remove,
+};
+
+static int __init xgold_snd_soc_init(void)
+{
+	int ret = 0;
+	xgold_debug("ALSA SOC XGOLD machine driver init\n");
+
+	ret = platform_driver_register(&xgold_snd_mc_drv);
+
+	if (ret < 0) {
+		xgold_err("%s:unable to add machine driver\n", __func__);
+		return -ENODEV;
+	}
+
+	return ret;
+}
+module_init(xgold_snd_soc_init);
+
+static void __exit snd_soc_xgold_exit(void)
+{
+	xgold_debug("%s\n", __func__);
+	platform_driver_unregister(&xgold_snd_mc_drv);
+}
+
+module_exit(snd_soc_xgold_exit);
+
+MODULE_DESCRIPTION("XGOLD ASOC Machine driver");
+MODULE_AUTHOR("Intel Mobile Communications GmbH");
+MODULE_LICENSE("GPL V2");
+MODULE_DEVICE_TABLE(of, xgold_snd_asoc_of_match);
