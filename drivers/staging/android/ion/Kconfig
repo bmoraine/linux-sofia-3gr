@@ -33,3 +33,8 @@ config ION_TEGRA
 	help
 	  Choose this option if you wish to use ion on an nVidia Tegra.
 
+config ION_XGOLD
+	tristate "Ion for XGold"
+	depends on X86_INTEL_XGOLD && ION
+	help
+	  Choose this option if you wish to use ion on an Intel XGold.
