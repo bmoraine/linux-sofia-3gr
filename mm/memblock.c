@@ -3,6 +3,7 @@
  *
  * Peter Bergner, IBM Corp.	June 2001.
  * Copyright (C) 2001 Peter Bergner.
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  *
  *      This program is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU General Public License
@@ -1454,6 +1455,18 @@ static int __init early_memblock(char *p)
 	return 0;
 }
 early_param("memblock", early_memblock);
+
+static int __init early_memblock_reserve(char *p)
+{
+	u64 start_at, mem_size;
+
+	mem_size = memparse(p, &p);
+	start_at = memparse(p+1, &p);
+
+	memblock_reserve(start_at, mem_size);
+	return 0;
+}
+early_param("memblock_reserve", early_memblock_reserve);
 
 #if defined(CONFIG_DEBUG_FS) && !defined(CONFIG_ARCH_DISCARD_MEMBLOCK)
 
