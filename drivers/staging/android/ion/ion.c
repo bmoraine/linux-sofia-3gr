@@ -2,6 +2,7 @@
 
  * drivers/staging/android/ion/ion.c
  *
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  * Copyright (C) 2011 Google, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -417,7 +418,7 @@ static struct ion_handle *ion_handle_lookup(struct ion_client *client,
 	return ERR_PTR(-EINVAL);
 }
 
-static struct ion_handle *ion_handle_get_by_id(struct ion_client *client,
+struct ion_handle *ion_handle_get_by_id(struct ion_client *client,
 						int id)
 {
 	struct ion_handle *handle;
