@@ -1,6 +1,7 @@
 /*
  * drivers/staging/android/ion/ion_cma_heap.c
  *
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
  *
@@ -81,8 +82,13 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 		return ION_CMA_ALLOCATE_FAILED;
 	}
 
+#ifdef CONFIG_X86
+	info->cpu_addr = dma_alloc_writecombine(dev, len, &(info->handle),
+						GFP_HIGHUSER | __GFP_ZERO);
+#else
 	info->cpu_addr = dma_alloc_coherent(dev, len, &(info->handle),
 						GFP_HIGHUSER | __GFP_ZERO);
+#endif
 
 	if (!info->cpu_addr) {
 		dev_err(dev, "Fail to allocate buffer\n");
@@ -106,7 +112,11 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 free_table:
 	kfree(info->table);
 free_mem:
+#ifdef CONFIG_X86
+	dma_free_writecombine(dev, len, info->cpu_addr, info->handle);
+#else
 	dma_free_coherent(dev, len, info->cpu_addr, info->handle);
+#endif
 err:
 	kfree(info);
 	return ION_CMA_ALLOCATE_FAILED;
@@ -120,7 +130,11 @@ static void ion_cma_free(struct ion_buffer *buffer)
 
 	dev_dbg(dev, "Release buffer %p\n", buffer);
 	/* release memory */
+#ifdef CONFIG_X86
+	dma_free_writecombine(dev, buffer->size, info->cpu_addr, info->handle);
+#else
 	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
+#endif
 	/* release sg table */
 	sg_free_table(info->table);
 	kfree(info->table);
@@ -165,8 +179,14 @@ static int ion_cma_mmap(struct ion_heap *mapper, struct ion_buffer *buffer,
 	struct device *dev = cma_heap->dev;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
+#ifdef CONFIG_X86
+	return dma_mmap_writecombine(dev, vma, info->cpu_addr, info->handle,
+				 buffer->size);
+#else
 	return dma_mmap_coherent(dev, vma, info->cpu_addr, info->handle,
 				 buffer->size);
+#endif
+
 }
 
 static void *ion_cma_map_kernel(struct ion_heap *heap,

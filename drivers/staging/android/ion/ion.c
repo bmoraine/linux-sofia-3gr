@@ -37,6 +37,10 @@
 #include <linux/dma-buf.h>
 #include <linux/idr.h>
 
+#ifdef CONFIG_X86
+#include <asm/cacheflush.h>
+#endif
+
 #include "ion.h"
 #include "ion_priv.h"
 #include "compat_ion.h"
@@ -218,7 +222,13 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 		return ERR_PTR(PTR_ERR(table));
 	}
 	buffer->sg_table = table;
+
+#ifdef CONFIG_X86
+	if (ion_buffer_fault_user_mappings(buffer) ||
+		!(buffer->flags & ION_FLAG_CACHED)) {
+#else
 	if (ion_buffer_fault_user_mappings(buffer)) {
+#endif
 		int num_pages = PAGE_ALIGN(buffer->size) / PAGE_SIZE;
 		struct scatterlist *sg;
 		int i, j, k = 0;
@@ -238,6 +248,17 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 
 		if (ret)
 			goto err;
+#ifdef CONFIG_X86
+		if (!(buffer->flags & ION_FLAG_CACHED))
+			/* with CMA heaps, pages are mapped during alloc
+			 * callback hence page attributes cannot be
+			 * modified here
+			 */
+			if (!(heap->type == ION_HEAP_TYPE_DMA))
+				if (set_pages_array_wc(buffer->pages,
+							num_pages))
+					BUG();
+#endif
 	}
 
 	buffer->dev = dev;
@@ -275,6 +296,13 @@ void ion_buffer_destroy(struct ion_buffer *buffer)
 	if (WARN_ON(buffer->kmap_cnt > 0))
 		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
 	buffer->heap->ops->unmap_dma(buffer->heap, buffer);
+#ifdef CONFIG_X86
+	if (!(buffer->flags & ION_FLAG_CACHED))
+		if (set_pages_array_wb(buffer->pages,
+				(PAGE_ALIGN(buffer->size) / PAGE_SIZE)))
+			BUG();
+#endif
+
 	buffer->heap->ops->free(buffer);
 	if (buffer->pages)
 		vfree(buffer->pages);
