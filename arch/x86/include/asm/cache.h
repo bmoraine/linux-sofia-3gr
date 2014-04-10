@@ -7,6 +7,20 @@
 #define L1_CACHE_SHIFT	(CONFIG_X86_L1_CACHE_SHIFT)
 #define L1_CACHE_BYTES	(1 << L1_CACHE_SHIFT)
 
+/*
+ * Memory returned by kmalloc() may be used for DMA, so we must make
+ * sure that all such allocations are cache aligned. Otherwise,
+ * unrelated code may cause parts of the buffer to be read into the
+ * cache before the transfer is done, causing old data to be seen by
+ * the CPU.
+ * This is specific to XGOLD architecture for x86, used to host
+ * virtualized SOFIA platform
+ */
+#ifdef CONFIG_X86_INTEL_XGOLD
+#define ARCH_DMA_MINALIGN       L1_CACHE_BYTES
+#define ARCH_SLAB_MINALIGN	8
+#endif
+
 #define __read_mostly __attribute__((__section__(".data..read_mostly")))
 
 #define INTERNODE_CACHE_SHIFT CONFIG_X86_INTERNODE_CACHE_SHIFT
