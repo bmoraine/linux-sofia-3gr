@@ -4,6 +4,16 @@
  * 640k-1MB IO memory area on PC's
  *
  * (C) Copyright 1995 1996 Linus Torvalds
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/bootmem.h>
@@ -220,7 +230,7 @@ void __iomem *ioremap_nocache(resource_size_t phys_addr, unsigned long size)
 	 * Till we fix all X drivers to use ioremap_wc(), we will use
 	 * UC MINUS.
 	 */
-	unsigned long val = _PAGE_CACHE_UC_MINUS;
+	unsigned long val = pat_enabled ? _PAGE_CACHE_UC : _PAGE_CACHE_UC_MINUS;
 
 	return __ioremap_caller(phys_addr, size, val,
 				__builtin_return_address(0));
