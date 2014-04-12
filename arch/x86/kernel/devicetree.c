@@ -116,6 +116,43 @@ void x86_of_pci_init(void)
 }
 #endif
 
+#ifdef CONFIG_X86_LOCAL_APIC
+static void __init dtb_setup_cpus(void)
+{
+	struct device_node *cpu, *cpus;
+	unsigned apic_id;
+
+	cpus = of_find_node_by_path("/cpus");
+
+	if (!cpus) {
+		generic_processor_info(boot_cpu_physical_apicid,
+			       GET_APIC_VERSION(apic_read(APIC_LVR)));
+		return;
+	}
+
+	smp_found_config = 0;
+	num_processors = 0;
+
+	for_each_child_of_node(cpus, cpu) {
+		if (of_node_cmp(cpu->type, "cpu"))
+			continue;
+
+		if (of_property_read_u32(cpu, "reg", &apic_id)) {
+			pr_debug(" * %s missing reg property\n",
+				     cpu->full_name);
+			return;
+		}
+
+		generic_processor_info(apic_id,
+			       GET_APIC_VERSION(apic_read(APIC_LVR)));
+
+	}
+
+	if (num_processors > 1)
+		smp_found_config = 1;
+}
+#endif
+
 static void __init dtb_setup_hpet(void)
 {
 #ifdef CONFIG_HPET_TIMER
@@ -158,8 +195,7 @@ static void __init dtb_lapic_setup(void)
 	smp_found_config = 1;
 	pic_mode = 1;
 	register_lapic_address(r.start);
-	generic_processor_info(boot_cpu_physical_apicid,
-			       GET_APIC_VERSION(apic_read(APIC_LVR)));
+	dtb_setup_cpus();
 #endif
 }
 
