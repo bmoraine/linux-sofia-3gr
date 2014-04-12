@@ -1,6 +1,8 @@
 /*
  *	Intel IO-APIC support for multi-Pentium hosts.
  *
+ *
+ *	Copyright (C) 2014 Intel Mobile Communications GmbH
  *	Copyright (C) 1997, 1998, 1999, 2000, 2009 Ingo Molnar, Hajnalka Szabo
  *
  *	Many thanks to Stig Venaas for trying out countless experimental
@@ -18,6 +20,15 @@
  *					and Rolf G. Tews
  *					for testing these extensively
  *	Paul Diefenbaugh	:	Added full ACPI support
+ *
+ *	This software is licensed under the terms of the GNU General Public
+ *	License version 2, as published by the Free Software Foundation, and
+ *	may be copied, distributed, and modified under those terms.
+ *
+ *	This program is distributed in the hope that it will be useful,
+ *	but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *	GNU General Public License for more details.
  */
 
 #include <linux/mm.h>
@@ -307,6 +318,28 @@ static __attribute_const__ struct io_apic __iomem *io_apic_base(int idx)
 		+ (mpc_ioapic_addr(idx) & ~PAGE_MASK);
 }
 
+static __attribute_const__ struct io_apic __iomem *io_apic_entries(int idx)
+{
+	return (void __iomem *) __fix_to_virt(FIX_IO_APIC_REG_0 + idx);
+}
+
+static void __iomem *reg_to_offset(unsigned int apic, unsigned int reg)
+{
+	void __iomem *hw_base;
+	unsigned offset;
+	if (reg < 0x10) {
+		hw_base = io_apic_base(apic);
+		return hw_base + (reg * 4);
+	}
+
+	hw_base = io_apic_entries(apic);
+	offset = (((reg - 0x10)/2) * 0x10);
+	if (reg & 1)
+		offset += 0x4;
+
+	return (hw_base + offset);
+}
+
 void io_apic_eoi(unsigned int apic, unsigned int vector)
 {
 	struct io_apic __iomem *io_apic = io_apic_base(apic);
@@ -328,6 +361,21 @@ void native_io_apic_write(unsigned int apic, unsigned int reg, unsigned int valu
 	writel(value, &io_apic->data);
 }
 
+unsigned int direct_io_apic_read(unsigned int apic, unsigned int reg)
+{
+	void * __iomem offset = reg_to_offset(apic, reg);
+	unsigned value;
+	value = readl(offset);
+
+	return value;
+}
+
+void direct_io_apic_write(unsigned int apic, unsigned int reg, unsigned int value)
+{
+	void * __iomem offset = reg_to_offset(apic, reg);
+
+	writel(value, offset);
+}
 /*
  * Re-write a value: to be used for read-modify-write
  * cycles where the read already set up the index register.
@@ -3393,6 +3441,16 @@ int io_apic_setup_irq_pin_once(unsigned int irq, int node,
 	return ret;
 }
 
+static int io_apic_nr_entries __initdata;
+static int __init parse_io_apic_nr_entries(char *arg)
+{
+	if(kstrtoint(arg, 10, &io_apic_nr_entries))
+		apic_printk(APIC_QUIET,KERN_ERR
+			"io_apic_nr_entries cmdline param not correct\n");
+	return 0;
+}
+early_param("io_apic_nr_entries", parse_io_apic_nr_entries);
+
 static int __init io_apic_get_redir_entries(int ioapic)
 {
 	union IO_APIC_reg_01	reg_01;
@@ -3406,7 +3464,10 @@ static int __init io_apic_get_redir_entries(int ioapic)
 	 * supported, which is one less than the total number of redir
 	 * entries.
 	 */
-	return reg_01.bits.entries + 1;
+	if (io_apic_nr_entries)
+		return io_apic_nr_entries;
+	else
+		return reg_01.bits.entries + 1;
 }
 
 static void __init probe_nr_irqs_gsi(void)

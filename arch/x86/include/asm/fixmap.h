@@ -120,6 +120,11 @@ enum fixed_addresses {
 #ifdef	CONFIG_X86_INTEL_MID
 	FIX_LNW_VRTC,
 #endif
+#ifdef CONFIG_X86_IO_APIC
+	FIX_IO_APIC_REG_0,
+	FIX_IO_APIC_REG_END = FIX_IO_APIC_REG_0 + MAX_IO_APICS - 1,
+#endif
+
 	__end_of_permanent_fixed_addresses,
 
 	/*

@@ -193,7 +193,11 @@ static void __init dtb_lapic_setup(void)
 			return;
 	}
 	smp_found_config = 1;
-	pic_mode = 1;
+	if (of_property_read_bool(dn, "no_pic_mode"))
+		pic_mode = 0;
+	else
+		pic_mode = 1;
+
 	register_lapic_address(r.start);
 	dtb_setup_cpus();
 #endif
@@ -214,6 +218,9 @@ static void __init dtb_add_ioapic(struct device_node *dn)
 		return;
 	}
 	mp_register_ioapic(++ioapic_id, r.start, gsi_top);
+	ret = of_address_to_resource(dn, 1, &r);
+	if (!ret)
+		set_fixmap_nocache(FIX_IO_APIC_REG_0 + nr_ioapics - 1, r.start);
 }
 
 static void __init dtb_ioapic_setup(void)
@@ -422,6 +429,23 @@ void __init x86_add_irq_domains(void)
 	if (IS_ENABLED(CONFIG_OF))
 		irqchip_init();
 }
+/*
+ * empty function at time time
+ * The io-apic configuration is already done with ioapic_add_ofnode
+ * To be filled if we decide to not use the "intel,ce4100-ioapic"
+ * compatibility anymore
+ */
+int __init ioapic_of_init(struct device_node *node, struct device_node *parent)
+{
+	return 0;
+}
+
+static const struct of_device_id irqchip_of_match_sofia_native_ioapic
+	__used __section(__irqchip_of_table) = {
+	.compatible = "intel,ce4100-ioapic",
+	.data = ioapic_of_init
+};
+
 #else
 void __init x86_add_irq_domains(void)
 {
