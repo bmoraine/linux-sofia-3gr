@@ -568,6 +568,9 @@ static int mmc_sdio_init_uhs_card(struct mmc_card *card)
 	if (err)
 		goto out;
 
+	if ((card->cis.vendor == 0x0089) && (card->cis.device == 0x5502))
+		mmc_io_rw_direct(card, 1, 0, 0x16, 0x2, 0);
+
 	/*
 	 * SPI mode doesn't define CMD19 and tuning is only valid for SDR50 and
 	 * SDR104 mode SD-cards. Note that tuning is mandatory for SDR104.
