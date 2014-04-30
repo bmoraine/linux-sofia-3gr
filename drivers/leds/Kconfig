@@ -487,6 +487,14 @@ config LEDS_BLINKM
 	  This option enables support for the BlinkM RGB LED connected
 	  through I2C. Say Y to enable support for the BlinkM LED.
 
+config LCD_LEDS_XGOLD
+       tristate "LED Xgold support"
+	   depends on X86_INTEL_XGOLD
+	   depends on LEDS_CLASS && PINCTRL && PLATFORM_DEVICE_PM
+	help
+	  This allows LEDs to be enabled for xgold driver.
+	  If unsure, say Y.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
