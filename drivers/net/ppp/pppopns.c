@@ -74,12 +74,15 @@ static int pppopns_recv_core(struct sock *sk_raw, struct sk_buff *skb)
 	struct meta *meta = skb_meta(skb);
 	__u32 now = jiffies;
 	struct header *hdr;
+	unsigned int pull_size;
 
 	/* Skip transport header */
+	if (!pskb_may_pull(skb, skb_transport_header(skb) - skb->data))
+		goto drop;
 	skb_pull(skb, skb_transport_header(skb) - skb->data);
 
 	/* Drop the packet if GRE header is missing. */
-	if (skb->len < GRE_HEADER_SIZE)
+	if (skb->len < GRE_HEADER_SIZE || !pskb_may_pull(skb, GRE_HEADER_SIZE))
 		goto drop;
 	hdr = (struct header *)skb->data;
 
@@ -88,11 +91,13 @@ static int pppopns_recv_core(struct sock *sk_raw, struct sk_buff *skb)
 			(hdr->bits & PPTP_GRE_BITS_MASK) != PPTP_GRE_BITS)
 		goto drop;
 
+	pull_size = GRE_HEADER_SIZE +
+		    (hdr->bits & PPTP_GRE_SEQ_BIT ? 4 : 0) +
+		    (hdr->bits & PPTP_GRE_ACK_BIT ? 4 : 0);
 	/* Skip all fields including optional ones. */
-	if (!skb_pull(skb, GRE_HEADER_SIZE +
-			(hdr->bits & PPTP_GRE_SEQ_BIT ? 4 : 0) +
-			(hdr->bits & PPTP_GRE_ACK_BIT ? 4 : 0)))
+	if (skb->len < pull_size || !pskb_may_pull(skb, pull_size))
 		goto drop;
+	skb_pull(skb, pull_size);
 
 	/* Check the length. */
 	if (skb->len != ntohs(hdr->length))
@@ -106,12 +111,12 @@ static int pppopns_recv_core(struct sock *sk_raw, struct sk_buff *skb)
 	}
 
 	/* Skip PPP address and control if they are present. */
-	if (skb->len >= 2 && skb->data[0] == PPP_ADDR &&
-			skb->data[1] == PPP_CTRL)
+	if (pskb_may_pull(skb, 2) && skb->len >= 2 &&
+	    skb->data[0] == PPP_ADDR && skb->data[1] == PPP_CTRL)
 		skb_pull(skb, 2);
 
 	/* Fix PPP protocol if it is compressed. */
-	if (skb->len >= 1 && skb->data[0] & 1)
+	if (pskb_may_pull(skb, 1) && skb->len >= 1 && skb->data[0] & 1)
 		skb_push(skb, 1)[0] = 0;
 
 	/* Drop the packet if PPP protocol is missing. */
