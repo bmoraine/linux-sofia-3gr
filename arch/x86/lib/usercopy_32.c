@@ -4,7 +4,18 @@
  *
  * Copyright 1997 Andi Kleen <ak@muc.de>
  * Copyright 1997 Linus Torvalds
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #include <linux/mm.h>
 #include <linux/highmem.h>
 #include <linux/blkdev.h>
@@ -297,7 +308,11 @@ __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
  * Non Temporal Hint version of __copy_user_zeroing_intel.  It is cache aware.
  * hyoshiok@miraclelinux.com
  */
-
+#ifdef CONFIG_X86_INTEL_SOFIA_ERRATA_003
+#define SFENCE_ERRATA_003 "        sfence\n"
+#else
+#define SFENCE_ERRATA_003 "\n"
+#endif
 static unsigned long __copy_user_zeroing_intel_nocache(void *to,
 				const void __user *from, unsigned long size)
 {
@@ -313,35 +328,51 @@ static unsigned long __copy_user_zeroing_intel_nocache(void *to,
 	       "2:      movl 0(%4), %%eax\n"
 	       "21:     movl 4(%4), %%edx\n"
 	       "        movnti %%eax, 0(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 4(%3)\n"
+	       SFENCE_ERRATA_003
 	       "3:      movl 8(%4), %%eax\n"
 	       "31:     movl 12(%4),%%edx\n"
 	       "        movnti %%eax, 8(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 12(%3)\n"
+	       SFENCE_ERRATA_003
 	       "4:      movl 16(%4), %%eax\n"
 	       "41:     movl 20(%4), %%edx\n"
 	       "        movnti %%eax, 16(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 20(%3)\n"
+	       SFENCE_ERRATA_003
 	       "10:     movl 24(%4), %%eax\n"
 	       "51:     movl 28(%4), %%edx\n"
 	       "        movnti %%eax, 24(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 28(%3)\n"
+	       SFENCE_ERRATA_003
 	       "11:     movl 32(%4), %%eax\n"
 	       "61:     movl 36(%4), %%edx\n"
 	       "        movnti %%eax, 32(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 36(%3)\n"
+	       SFENCE_ERRATA_003
 	       "12:     movl 40(%4), %%eax\n"
 	       "71:     movl 44(%4), %%edx\n"
 	       "        movnti %%eax, 40(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 44(%3)\n"
+	       SFENCE_ERRATA_003
 	       "13:     movl 48(%4), %%eax\n"
 	       "81:     movl 52(%4), %%edx\n"
 	       "        movnti %%eax, 48(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 52(%3)\n"
+	       SFENCE_ERRATA_003
 	       "14:     movl 56(%4), %%eax\n"
 	       "91:     movl 60(%4), %%edx\n"
 	       "        movnti %%eax, 56(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 60(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        addl $-64, %0\n"
 	       "        addl $64, %4\n"
 	       "        addl $64, %3\n"
@@ -407,35 +438,51 @@ static unsigned long __copy_user_intel_nocache(void *to,
 	       "2:      movl 0(%4), %%eax\n"
 	       "21:     movl 4(%4), %%edx\n"
 	       "        movnti %%eax, 0(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 4(%3)\n"
+	       SFENCE_ERRATA_003
 	       "3:      movl 8(%4), %%eax\n"
 	       "31:     movl 12(%4),%%edx\n"
 	       "        movnti %%eax, 8(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 12(%3)\n"
+	       SFENCE_ERRATA_003
 	       "4:      movl 16(%4), %%eax\n"
 	       "41:     movl 20(%4), %%edx\n"
 	       "        movnti %%eax, 16(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 20(%3)\n"
+	       SFENCE_ERRATA_003
 	       "10:     movl 24(%4), %%eax\n"
 	       "51:     movl 28(%4), %%edx\n"
 	       "        movnti %%eax, 24(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 28(%3)\n"
+	       SFENCE_ERRATA_003
 	       "11:     movl 32(%4), %%eax\n"
 	       "61:     movl 36(%4), %%edx\n"
 	       "        movnti %%eax, 32(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 36(%3)\n"
+	       SFENCE_ERRATA_003
 	       "12:     movl 40(%4), %%eax\n"
 	       "71:     movl 44(%4), %%edx\n"
 	       "        movnti %%eax, 40(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 44(%3)\n"
+	       SFENCE_ERRATA_003
 	       "13:     movl 48(%4), %%eax\n"
 	       "81:     movl 52(%4), %%edx\n"
 	       "        movnti %%eax, 48(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 52(%3)\n"
+	       SFENCE_ERRATA_003
 	       "14:     movl 56(%4), %%eax\n"
 	       "91:     movl 60(%4), %%edx\n"
 	       "        movnti %%eax, 56(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        movnti %%edx, 60(%3)\n"
+	       SFENCE_ERRATA_003
 	       "        addl $-64, %0\n"
 	       "        addl $64, %4\n"
 	       "        addl $64, %3\n"
