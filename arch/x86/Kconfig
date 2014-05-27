@@ -508,6 +508,14 @@ config X86_INTEL_SOFIA_ERRATA_002
 	  transaction (ioread of ABB) which would prevent any further \
 	  TX transactions.
 
+config X86_INTEL_SOFIA_ERRATA_003
+	bool "Force memory barriers after some movtn and clflush instruction"
+	depends on SMP
+	---help---
+	  This adds mfence after some instructions causing CPU hangs in early
+	  version of sofia hardware.
+
+
 config BUS_AMBA
 	bool
 
