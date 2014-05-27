@@ -174,7 +174,7 @@ static struct idi_peripheral_type_lut type_lut[] = {
 	{.type = IDI_CHG, .property_value = "intel,idi,fan54x"},
 	{.type = IDI_CCD, .property_value = "intel,idi,fg_hal"},
 	{.type = IDI_BNT, .property_value = "intel,idi,brownout"},
-
+	{.type = IDI_ERROR, .property_value = "intel,idi,error"},
 };
 
 int of_idi_peripheral_find_channels_map(struct device_node *np)
@@ -274,10 +274,9 @@ static int __init idi_peripheral_device_register(struct device_node *np)
 
 	client = idi_get_client(0);
 	if (!client) {
-		pr_debug("IDI Client device not found !\n");
+		pr_err("IDI Client device not found !\n");
 		return -ENODEV;
 	}
-
 
 	info = kzalloc(sizeof(struct idi_peripheral_device_info), GFP_KERNEL);
 	if (!info)
@@ -286,6 +285,7 @@ static int __init idi_peripheral_device_register(struct device_node *np)
 	/* Get PM platform data */
 	info->pm_platdata = of_device_state_pm_setup(np);
 	if (IS_ERR(info->pm_platdata)) {
+		pr_err("%s: Miss PM info\n", info->name);
 		status = -EINVAL;
 		goto free_peripheral;
 	}
@@ -293,6 +293,7 @@ static int __init idi_peripheral_device_register(struct device_node *np)
 	/* Get peripheral type */
 	info->p_type = idi_peripheral_find_type(np);
 	if (info->p_type == IDI_MAX_PERIPHERAL) {
+		pr_err("%s: Could not get valid type\n", info->name);
 		status = -EINVAL;
 		goto free_peripheral;
 	}
@@ -301,8 +302,10 @@ static int __init idi_peripheral_device_register(struct device_node *np)
 	idi_peripheral_of_get_device_id(np, &info->id);
 
 	status = of_idi_peripheral_find_channels_map(np);
-	if (status < 0)
+	if (status < 0) {
+		pr_err("%s: Could not get valid channel map\n", info->name);
 		goto free_peripheral;
+	}
 
 	info->channel_map = status;
 
@@ -312,7 +315,6 @@ static int __init idi_peripheral_device_register(struct device_node *np)
 	/*
 	 * From of_device_alloc()
 	 */
-
 	status = of_idi_resource_populate(np, &info->resources);
 	if (status)
 		goto free_peripheral;

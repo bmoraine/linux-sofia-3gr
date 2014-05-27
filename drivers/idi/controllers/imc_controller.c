@@ -1391,7 +1391,7 @@ __acquires(&imc_idi->hw_lock) __releases(&imc_idi->hw_lock)
 			goto setup_done;
 		}
 		if (trans->idi_xfer.desc) {
-			iowrite32((trans->idi_xfer.desc),
+			iowrite32((u32) (trans->idi_xfer.desc),
 				IMC_IDI_RXCH_NEXT(ctrl, trans->channel));
 
 			goto setup_done;
@@ -1677,7 +1677,6 @@ __acquires(&imc_idi->sw_lock) __releases(&imc_idi->sw_lock)
 
 	IDI_IMC_ENTER;
 
-
 	if (trans->break_frame)
 		return imc_async_break(trans);
 
@@ -1710,7 +1709,8 @@ __acquires(&imc_idi->sw_lock) __releases(&imc_idi->sw_lock)
 	/*
 	 * We have to have a far side address (IDI Slave) to send to.
 	 */
-	if ((idi->channels[channel] != OUTSTANDING_READ) &&
+	if ((idi->channels[channel] != OUTSTANDING_READ &&
+		idi->channels[channel] != ERRORS) &&
 		((channel_ctx->dst_addr == 0)
 			&& (trans->idi_xfer.dst_addr == 0)))
 		return -EINVAL;
@@ -2581,7 +2581,6 @@ static int imc_set_channel_config(struct idi_controller_device *idi,
 			config->dst_addr , channel_ctx->dst_size);
 
 	}
-
 
 	/* Get the End Of packet Interrupt for Rx */
 	if (idi->channels[channel] == FILE) {
