@@ -661,10 +661,10 @@
 						interrupts = < USB_INT IRQ_TYPE_DEFAULT	>;
 						interrupt-names = "core";
 						dr_mode = "otg";
-						g_use_dma;
-						g_rx_fifo_size = < 1744 >;
-						g_np_tx_fifo_size = < 32 >;
-						g_tx_fifo_size = < 512 512 512 512
+						g-use-dma;
+						g-rx-fifo-size = < 1744 >;
+						g-np-tx-fifo-size = < 32 >;
+						g-tx-fifo-size = < 512 512 512 512
 								   512 64 64 64
 								   64 32 32 7
 								   3 3 3 >;
