@@ -3449,6 +3449,9 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
 			hsotg->phyif = GUSBCFG_PHYIF8;
 	}
 
+	/* FIXME: store pcgctl register in phy io_priv */
+	uphy->io_priv = hsotg->regs + 0xE00;
+
 	hsotg->clk = devm_clk_get(dev, "otg");
 	if (IS_ERR(hsotg->clk)) {
 		hsotg->clk = NULL;
