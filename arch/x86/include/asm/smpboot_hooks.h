@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
 /* two abstractions specific to kernel/smpboot.c, mainly to cater to visws
  * which needs to alter them. */
 
@@ -6,6 +19,15 @@ static inline void smpboot_clear_io_apic_irqs(void)
 #ifdef CONFIG_X86_IO_APIC
 	io_apic_irqs = 0;
 #endif
+}
+
+static inline bool system_needs_warm_reset_vector(void)
+{
+#ifndef CONFIG_X86_INTEL_SOFIA
+	if (get_uv_system_type() != UV_NON_UNIQUE_APIC)
+		return true;
+#endif
+	return false;
 }
 
 static inline void smpboot_setup_warm_reset_vector(unsigned long start_eip)
