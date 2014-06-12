@@ -2,6 +2,7 @@
  *	Local APIC handling, local APIC timers
  *
  *	(c) 1999, 2000, 2009 Ingo Molnar <mingo@redhat.com>
+ *      Copyright (C) 2014 Intel Mobile Communications GmbH
  *
  *	Fixes
  *	Maciej W. Rozycki	:	Bits for genuine 82489DX APICs;
@@ -12,6 +13,15 @@
  *	Mikael Pettersson	:	Power Management for UP-APIC.
  *	Pavel Machek and
  *	Mikael Pettersson	:	PM converted to driver model.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/perf_event.h>
@@ -941,7 +951,7 @@ __visible void __irq_entry smp_apic_timer_interrupt(struct pt_regs *regs)
 	 * Besides, if we don't timer interrupts ignore the global
 	 * interrupt lock, which is the WrongThing (tm) to do.
 	 */
-	entering_ack_irq();
+	entering_ack_irq(LOCAL_TIMER_VECTOR);
 	local_apic_timer_interrupt();
 	exiting_irq();
 
@@ -960,7 +970,7 @@ __visible void __irq_entry smp_trace_apic_timer_interrupt(struct pt_regs *regs)
 	 * Besides, if we don't timer interrupts ignore the global
 	 * interrupt lock, which is the WrongThing (tm) to do.
 	 */
-	entering_ack_irq();
+	entering_ack_irq(LOCAL_TIMER_VECTOR);
 	trace_local_timer_entry(LOCAL_TIMER_VECTOR);
 	local_apic_timer_interrupt();
 	trace_local_timer_exit(LOCAL_TIMER_VECTOR);

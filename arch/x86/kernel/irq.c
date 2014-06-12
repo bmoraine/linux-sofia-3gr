@@ -223,7 +223,7 @@ __visible void smp_x86_platform_ipi(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
-	entering_ack_irq();
+	entering_ack_irq(X86_PLATFORM_IPI_VECTOR);
 	__smp_x86_platform_ipi();
 	exiting_irq();
 	set_irq_regs(old_regs);
@@ -255,7 +255,7 @@ __visible void smp_trace_x86_platform_ipi(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
-	entering_ack_irq();
+	entering_ack_irq(X86_PLATFORM_IPI_VECTOR);
 	trace_x86_platform_ipi_entry(X86_PLATFORM_IPI_VECTOR);
 	__smp_x86_platform_ipi();
 	trace_x86_platform_ipi_exit(X86_PLATFORM_IPI_VECTOR);

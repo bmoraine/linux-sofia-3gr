@@ -4,6 +4,7 @@
  *	(c) 1995 Alan Cox, Building #3 <alan@lxorguk.ukuu.org.uk>
  *	(c) 1998-99, 2000, 2009 Ingo Molnar <mingo@redhat.com>
  *      (c) 2002,2003 Andi Kleen, SuSE Labs.
+ *	Copyright (C) 2014 Intel Mobile Communications GmbH
  *
  *	i386 and x86_64 integration by Glauber Costa <gcosta@redhat.com>
  *
@@ -216,7 +217,7 @@ static void native_stop_other_cpus(int wait)
 		while (num_online_cpus() > 1 && (wait || timeout--))
 			udelay(1);
 	}
-	
+
 	/* if the REBOOT_VECTOR didn't work, try with the NMI */
 	if ((num_online_cpus() > 1) && (!smp_no_nmi_ipi))  {
 		if (register_nmi_handler(NMI_LOCAL, smp_stop_nmi_callback,
@@ -258,16 +259,16 @@ static inline void __smp_reschedule_interrupt(void)
 
 __visible void smp_reschedule_interrupt(struct pt_regs *regs)
 {
-	ack_APIC_irq();
+	ack_APIC_vector(RESCHEDULE_VECTOR);
 	__smp_reschedule_interrupt();
 	/*
 	 * KVM uses this interrupt to force a cpu out of guest mode
 	 */
 }
 
-static inline void smp_entering_irq(void)
+static inline void smp_entering_irq(unsigned vector)
 {
-	ack_APIC_irq();
+	ack_APIC_vector(vector);
 	irq_enter();
 }
 
@@ -279,7 +280,7 @@ __visible void smp_trace_reschedule_interrupt(struct pt_regs *regs)
 	 * scheduler_ipi(). This is OK, since those functions are allowed
 	 * to nest.
 	 */
-	smp_entering_irq();
+	smp_entering_irq(RESCHEDULE_VECTOR);
 	trace_reschedule_entry(RESCHEDULE_VECTOR);
 	__smp_reschedule_interrupt();
 	trace_reschedule_exit(RESCHEDULE_VECTOR);
@@ -297,14 +298,14 @@ static inline void __smp_call_function_interrupt(void)
 
 __visible void smp_call_function_interrupt(struct pt_regs *regs)
 {
-	smp_entering_irq();
+	smp_entering_irq(CALL_FUNCTION_VECTOR);
 	__smp_call_function_interrupt();
 	exiting_irq();
 }
 
 __visible void smp_trace_call_function_interrupt(struct pt_regs *regs)
 {
-	smp_entering_irq();
+	smp_entering_irq(CALL_FUNCTION_VECTOR);
 	trace_call_function_entry(CALL_FUNCTION_VECTOR);
 	__smp_call_function_interrupt();
 	trace_call_function_exit(CALL_FUNCTION_VECTOR);
@@ -319,14 +320,14 @@ static inline void __smp_call_function_single_interrupt(void)
 
 __visible void smp_call_function_single_interrupt(struct pt_regs *regs)
 {
-	smp_entering_irq();
+	smp_entering_irq(CALL_FUNCTION_SINGLE_VECTOR);
 	__smp_call_function_single_interrupt();
 	exiting_irq();
 }
 
 __visible void smp_trace_call_function_single_interrupt(struct pt_regs *regs)
 {
-	smp_entering_irq();
+	smp_entering_irq(CALL_FUNCTION_SINGLE_VECTOR);
 	trace_call_function_single_entry(CALL_FUNCTION_SINGLE_VECTOR);
 	__smp_call_function_single_interrupt();
 	trace_call_function_single_exit(CALL_FUNCTION_SINGLE_VECTOR);

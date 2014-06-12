@@ -719,9 +719,9 @@ static inline void entering_irq(void)
 	exit_idle();
 }
 
-static inline void entering_ack_irq(void)
+static inline void entering_ack_irq(unsigned vector)
 {
-	ack_APIC_irq();
+	ack_APIC_vector(vector);
 	entering_irq();
 }
 
@@ -730,11 +730,11 @@ static inline void exiting_irq(void)
 	irq_exit();
 }
 
-static inline void exiting_ack_irq(void)
+static inline void exiting_ack_irq(unsigned vector)
 {
 	irq_exit();
 	/* Ack only at the end to avoid potential reentry */
-	ack_APIC_irq();
+	ack_APIC_vector(vector);
 }
 
 extern void ioapic_zap_locks(void);
