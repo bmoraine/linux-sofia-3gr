@@ -3,6 +3,16 @@
 
 /*
  * (C) 1992, 1993 Linus Torvalds, (C) 1997 Ingo Molnar
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * moved some of the old arch/i386/kernel/irq.h to here. VY
  *
@@ -162,7 +172,6 @@ int __ioapic_set_affinity(struct irq_data *, const struct cpumask *,
 extern int IO_APIC_get_PCI_irq_vector(int bus, int devfn, int pin, struct io_apic_irq_attr *irq_attr);
 extern void setup_ioapic_dest(void);
 
-extern void enable_IO_APIC(void);
 
 /* Statistics */
 extern atomic_t irq_err_count;
@@ -202,10 +211,12 @@ extern void setup_vector_irq(int cpu);
 extern void lock_vector_lock(void);
 extern void unlock_vector_lock(void);
 extern void __setup_vector_irq(int cpu);
+extern void enable_IO_APIC(void);
 #else
 static inline void lock_vector_lock(void) {}
 static inline void unlock_vector_lock(void) {}
 static inline void __setup_vector_irq(int cpu) {}
+static inline void enable_IO_APIC(void) {}
 #endif
 
 #endif /* !ASSEMBLY_ */

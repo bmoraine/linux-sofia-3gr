@@ -10,6 +10,16 @@
  * Intel IO-APIC support for SMP and UP systems.
  *
  * Copyright (C) 1997, 1998, 1999, 2000 Ingo Molnar
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 /* I/O Unit Redirection Table */
@@ -221,6 +231,8 @@ extern void io_apic_eoi(unsigned int apic, unsigned int vector);
 
 #define io_apic_assign_pci_irqs 0
 #define setup_ioapic_ids_from_mpc x86_init_noop
+static const int nr_ioapics = 0;
+#define skip_ioapic_setup 1
 static const int timer_through_8259 = 0;
 static inline void ioapic_insert_resources(void) { }
 #define gsi_top (NR_IRQS_LEGACY)
