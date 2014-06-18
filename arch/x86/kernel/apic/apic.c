@@ -187,6 +187,7 @@ early_param("nox2apic", setup_nox2apic);
 
 unsigned long mp_lapic_addr;
 int disable_apic;
+int noapicsetup = 0;
 /* Disable local APIC timer from the kernel commandline or via dmi quirk */
 static int disable_apic_timer __initdata;
 /* Local APIC timer works in C2 */
@@ -1298,6 +1299,9 @@ void setup_local_APIC(void)
 	int i, j, acked = 0;
 	unsigned long long tsc = 0, ntsc;
 	long long max_loops = cpu_khz ? cpu_khz : 1000000;
+
+	if (noapicsetup)
+		return;
 
 	if (cpu_has_tsc)
 		rdtscll(tsc);
@@ -2574,6 +2578,13 @@ static int __init setup_nolapic(char *arg)
 	return setup_disableapic(arg);
 }
 early_param("nolapic", setup_nolapic);
+
+static int __init setup_noapicsetup(char *arg)
+{
+	noapicsetup = 1;
+	return 0;
+}
+early_param("noapicsetup", setup_noapicsetup);
 
 static int __init parse_lapic_timer_c2_ok(char *arg)
 {
