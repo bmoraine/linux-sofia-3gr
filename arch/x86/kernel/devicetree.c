@@ -1,6 +1,19 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  * Architecture specific OF callbacks.
+ *
  */
+
 #include <linux/bootmem.h>
 #include <linux/export.h>
 #include <linux/io.h>
@@ -197,6 +210,9 @@ static void __init dtb_lapic_setup(void)
 		pic_mode = 0;
 	else
 		pic_mode = 1;
+
+	if (of_property_read_bool(dn, "no_apic_setup"))
+		noapicsetup = 1;
 
 	register_lapic_address(r.start);
 	dtb_setup_cpus();
