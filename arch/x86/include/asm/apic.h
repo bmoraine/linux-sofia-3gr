@@ -1,3 +1,15 @@
+/*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 #ifndef _ASM_X86_APIC_H
 #define _ASM_X86_APIC_H
 
@@ -489,6 +501,15 @@ static inline void ack_APIC_irq(void)
 	 * ... yummie.
 	 */
 	apic_eoi();
+}
+
+static inline void ack_APIC_vector(u32 vector)
+{
+#ifdef CONFIG_X86_INTEL_SOFIA
+	apic->eoi_write(APIC_EOI, vector);
+#else
+	ack_APIC_irq();
+#endif
 }
 
 static inline unsigned default_get_apic_id(unsigned long x)
