@@ -409,6 +409,8 @@ ssize_t iio_format_value(char *buf, unsigned int type, int val, int val2)
 		val2 = do_div(tmp, 1000000000LL);
 		val = tmp;
 		return sprintf(buf, "%d.%09u\n", val, val2);
+	case IIO_VAL_COMPOSITE:
+		return sprintf(buf, "%d %d\n", val, val2);
 	default:
 		return 0;
 	}
