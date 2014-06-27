@@ -985,14 +985,14 @@ err_pgtable:
 	return -ENOMEM;
 }
 
-static struct iommu_ops rockchip_iommu_ops = {
-	.domain_init = &rockchip_iommu_domain_init,
-	.domain_destroy = &rockchip_iommu_domain_destroy,
-	.attach_dev = &rockchip_iommu_attach_device,
-	.detach_dev = &rockchip_iommu_detach_device,
-	.map = &rockchip_iommu_map,
-	.unmap = &rockchip_iommu_unmap,
-	.iova_to_phys = &rockchip_iommu_iova_to_phys,
+static const struct iommu_ops rockchip_iommu_ops = {
+	.domain_init = rockchip_iommu_domain_init,
+	.domain_destroy = rockchip_iommu_domain_destroy,
+	.attach_dev = rockchip_iommu_attach_device,
+	.detach_dev = rockchip_iommu_detach_device,
+	.map = rockchip_iommu_map,
+	.unmap = rockchip_iommu_unmap,
+	.iova_to_phys = rockchip_iommu_iova_to_phys,
 	.pgsize_bitmap = SPAGE_SIZE,
 };
 
