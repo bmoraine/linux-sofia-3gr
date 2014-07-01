@@ -231,6 +231,10 @@ config AUDIT_ARCH
 	bool
 	default X86_64
 
+config ARCH_IS_NOT_COHERENT
+	bool
+	default n
+
 config ARCH_SUPPORTS_OPTIMIZED_INLINING
 	def_bool y
 
