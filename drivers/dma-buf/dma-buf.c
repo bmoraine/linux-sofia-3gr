@@ -117,6 +117,13 @@ static inline int is_dma_buf_file(struct file *file)
 	return file->f_op == &dma_buf_fops;
 }
 
+#ifdef CONFIG_ARCH_ROCKCHIP
+int dma_buf_is_dma_buf(struct file *file)
+{
+       return is_dma_buf_file(file);
+}
+#endif
+
 /**
  * dma_buf_export_named - Creates a new dma_buf, and associates an anon file
  * with this buffer, so it can be exported.
@@ -251,9 +258,8 @@ EXPORT_SYMBOL_GPL(dma_buf_put);
  * @dmabuf:	[in]	buffer to attach device to.
  * @dev:	[in]	device to be attached.
  *
- * Returns struct dma_buf_attachment * for this attachment; may return negative
- * error codes.
- *
+ * Returns struct dma_buf_attachment * for this attachment; returns ERR_PTR on
+ * error.
  */
 struct dma_buf_attachment *dma_buf_attach(struct dma_buf *dmabuf,
 					  struct device *dev)
@@ -319,9 +325,8 @@ EXPORT_SYMBOL_GPL(dma_buf_detach);
  * @attach:	[in]	attachment whose scatterlist is to be returned
  * @direction:	[in]	direction of DMA transfer
  *
- * Returns sg_table containing the scatterlist to be returned; may return NULL
- * or ERR_PTR.
- *
+ * Returns sg_table containing the scatterlist to be returned; returns ERR_PTR
+ * on error.
  */
 struct sg_table *dma_buf_map_attachment(struct dma_buf_attachment *attach,
 					enum dma_data_direction direction)
@@ -334,6 +339,8 @@ struct sg_table *dma_buf_map_attachment(struct dma_buf_attachment *attach,
 		return ERR_PTR(-EINVAL);
 
 	sg_table = attach->dmabuf->ops->map_dma_buf(attach, direction);
+	if (!sg_table)
+		sg_table = ERR_PTR(-ENOMEM);
 
 	return sg_table;
 }
@@ -491,7 +498,7 @@ EXPORT_SYMBOL_GPL(dma_buf_kunmap);
  * 			dma-buf buffer.
  *
  * This function adjusts the passed in vma so that it points at the file of the
- * dma_buf operation. It alsog adjusts the starting pgoff and does bounds
+ * dma_buf operation. It also adjusts the starting pgoff and does bounds
  * checking on the size of the vma. Then it calls the exporters mmap function to
  * set up the mapping.
  *
@@ -544,6 +551,8 @@ EXPORT_SYMBOL_GPL(dma_buf_mmap);
  * These calls are optional in drivers. The intended use for them
  * is for mapping objects linear in kernel space for high use objects.
  * Please attempt to use kmap/kunmap before thinking about these interfaces.
+ *
+ * Returns NULL on error.
  */
 void *dma_buf_vmap(struct dma_buf *dmabuf)
 {
@@ -566,7 +575,9 @@ void *dma_buf_vmap(struct dma_buf *dmabuf)
 	BUG_ON(dmabuf->vmap_ptr);
 
 	ptr = dmabuf->ops->vmap(dmabuf);
-	if (IS_ERR_OR_NULL(ptr))
+	if (WARN_ON_ONCE(IS_ERR(ptr)))
+		ptr = NULL;
+	if (!ptr)
 		goto out_unlock;
 
 	dmabuf->vmap_ptr = ptr;
