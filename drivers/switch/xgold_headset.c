@@ -370,15 +370,16 @@ read_iio_volt:
 **/
 static ssize_t headset_print_state(struct switch_dev *sdev, char *buf)
 {
-	dev_dbg(sdev->dev, "Entering %s at %d\n", __func__ , __LINE__);
+	dev_dbg(sdev->dev, "Entering %s at %d sdev->state = %d\n",
+		__func__, __LINE__, sdev->state);
 
-	if ((sdev->state == XGOLD_HEAD_SET) ||
-		(sdev->state == XGOLD_HEAD_PHONE))
-		return sprintf(buf, "%d\n", 1);
-	else
-		return sprintf(buf, "%d\n", 0);
+	if (sdev->state > (int)XGOLD_HEAD_PHONE) {
+		pr_err("Accessory: invalid state value %d\n", sdev->state);
+		return 0;
+	}
 
 	dev_dbg(sdev->dev, "Leaving %s at %d\n", __func__ , __LINE__);
+	return sprintf(buf, "%d\n", (int)sdev->state);
 }
 
 static int accessory_probe(struct platform_device *pdev)
@@ -519,8 +520,8 @@ static int accessory_probe(struct platform_device *pdev)
 				"IRQ registration failed\n");
 		goto failed_pmu_irq;
 	}
-	headset_device_data->iio_client = iio_channel_get(&pdev->dev,
-							"ACCID_ADC");
+	headset_device_data->iio_client = iio_channel_get(NULL,
+							"ACCID_SENSOR");
 	if (IS_ERR(headset_device_data->iio_client)) {
 		dev_err(headset_device_data->sdev.dev,
 				"CHP iio channel error\n");
