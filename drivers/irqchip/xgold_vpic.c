@@ -44,6 +44,7 @@ void sofia_vpic_irq_enable(struct irq_data *data)
 {
 	unsigned int irq = vpic_irq(data);
 	unsigned int vect = sofia_irq_to_vector(irq);
+	pr_debug("%s: vmm_guest_request_virq(%d, 1)\n", __func__, vect);
 	vmm_guest_request_virq(vect, 1);
 	vmm_virq_unmask(vect);
 }
@@ -80,7 +81,7 @@ void sofia_vpic_irq_eoi(struct irq_data *data)
 static int sofia_vpic_set_wake(struct irq_data *data, unsigned on)
 {
 	unsigned int irq =  vpic_irq(data);
-	return xgold_irq_set_wake(data, irq, on);
+	return xgold_irq_set_wake(data, irq, on, WAKE_ID_DBB);
 }
 #endif
 

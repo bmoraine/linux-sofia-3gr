@@ -27,3 +27,6 @@ obj-$(CONFIG_TB10X_IRQC)		+= irq-tb10x.o
 obj-$(CONFIG_XTENSA)			+= irq-xtensa-pic.o
 obj-$(CONFIG_XTENSA_MX)			+= irq-xtensa-mx.o
 obj-$(CONFIG_X86_INTEL_XGOLD_VPIC)	+= xgold_vpic.o
+obj-$(CONFIG_X86_INTEL_XGOLD)	+= irq-xgold.o irq-of-xgold.o irq-xgold-wake.o
+obj-$(CONFIG_X86_INTEL_XGOLD)	+= irq-eint.o irq-abb.o irq-pmu.o irq-capcom.o
+obj-$(CONFIG_X86_INTEL_XGOLD)	+= irq-hirq.o irq-hirq-main.o
