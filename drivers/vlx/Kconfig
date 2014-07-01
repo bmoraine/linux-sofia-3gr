@@ -1,0 +1,139 @@
+#
+#  Copyright (C) 2012-2013 Intel Mobile Communications
+#  Copyright (C) 2011, Red Bend Ltd.
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License Version 2
+#  as published by the Free Software Foundation.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+#  You should have received a copy of the GNU General Public License Version 2
+#  along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+#
+# Input device configuration
+#
+
+if NKERNEL_DDI
+
+menu "VLX virtual device support"
+
+config VBPIPE
+        tristate "Virtual bidirectional pipe for inter OS communication"
+        default n
+        help
+          Virtual bidirectional pipe for inter OS communication.
+
+          To compile this driver as a module, choose M here: the
+          module will be called vbpipe.
+
+config VMQ
+	tristate "Virtual Messages Queues inter-guest communication module"
+	default n
+
+config VVFS_BE
+        tristate "Virtual VFS backend interface"
+        default n
+	select VMQ
+        help
+          Virtual VFS backend
+
+          To compile this driver as a module, choose M here: the
+          module will be called vvfs-be.
+
+config VLX_VRPC
+	tristate "Virtual RPC inter-guest communication module"
+	default n
+
+config VPOWER
+	bool "Virtual Power management frontend interface"
+	select VLX_VRPC
+	default y
+	help
+	  Power management support for the native device drivers
+	  in a virtualized environment.
+
+config VPOWER_STUB
+	bool "Virtual Power management frontend interface stub"
+	depends on VPOWER
+	default n
+	help
+	  Do not forward the power request to the guest OS implementing
+	  the power firmware. Select this option if you are in
+	  development and want to get your driver using VPOWER probing
+	  despite the lack of PM FW running.
+
+config VRTC_FE
+	tristate "Virtual Real Time Clock frontend interface"
+	select RTC_CLASS
+	select VLX_VRPC
+	default y
+	help
+	  To compile this driver as a module, choose M here: the
+	  module will be called vrtc-fe.
+
+config VOEMCRYPTO_FE
+	tristate "Virtual OEMCrypto frontend interface"
+	select VLX_VRPC
+	default y
+	help
+	  Virtualized OEMCrypto library support for Widevine DRM
+	  from Secure VM.
+	  To compile this driver as a module, choose M here: the
+	  module will be called voemcrypto-fe.
+
+config VREBOOT
+        tristate "VREBOOT Driver"
+        default y
+        help
+          To support all variants of linux reboot command.
+
+          To compile this driver as a module, choose M here: the
+          module will be called vreboot.
+
+config VDUMP
+	tristate "VDUMP Driver"
+	default y
+	help
+	  To support coredump
+	  via VMM when Linux panic
+	  To compile this driver as a module, choose M here: the
+	  module will be called vdump.
+
+config VUSB_SIO_EXTENDER
+	tristate "Virtual USB SIO Extender Front End"
+	default n
+	help
+	 usb sio extender front end allows sending AT
+	 commands to modem vm over usb acm.
+	 vbpipe is used to forward from acm to modem vm.
+
+	 To compile this driver as a module, choose M here: the
+	 module will be called vusb_se_fe
+
+config NKERNEL_VETH
+        tristate "VLX Virtual Ethernet driver"
+        depends on NETDEVICES
+        default n
+        help
+          VLX virtual Ethernet driver.
+          This driver emulates Ethernet communication with a back-end driver
+          running in another partition.
+
+          To compile this driver as a module, choose M here: the
+          module will be called veth.
+
+config SYSTEM_PROFILING
+        tristate "Virtual System Profiling backend interface"
+        default n
+        help
+          Enable instrumentation for ExactProfiling in Linux
+          to generate traces for post-processing.
+
+endmenu
+
+endif

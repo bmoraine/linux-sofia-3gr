@@ -368,3 +368,14 @@ int32_t vmm_vtimer_get_freq(void)
 #ifdef __KERNEL__
 EXPORT_SYMBOL(vmm_vtimer_get_freq);
 #endif
+
+int32_t vmm_spcu_thermal_service(uint32_t opcode, uint32_t dev_id,
+		 uint32_t threshold)
+{
+	return vmm_platform_service(VMM_SPCU_THERMAL_SERVICE,
+				opcode, dev_id, threshold,
+				0, 0, 0, 0, 0);
+}
+#ifdef __KERNEL__
+EXPORT_SYMBOL(vmm_spcu_thermal_service);
+#endif

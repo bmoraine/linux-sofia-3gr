@@ -65,7 +65,8 @@ enum vmm_platform_service_type {
 	VMM_VTIMER_START_SERVICE,
 	VMM_VTIMER_STOP_SERVICE,
 	VMM_VTIMER_GET_FREQ_SERVICE,
-	RTC_SERVICE
+	RTC_SERVICE,
+	VMM_SPCU_THERMAL_SERVICE
 };
 
 
@@ -293,6 +294,16 @@ enum pmic_reg_access_op_code {
 	PMIC_REG_READ
 };
 
+/**
+  @typedef spcu_therml_service_op_code
+  @brief   enumeration containing the operation of spcu thermal service
+**/
+enum spcu_thermal_service_op_code {
+	SPCU_THERMAL_REQUEST = 0,
+	SPCU_THERMAL_ENABLE_INTR,
+	SPCU_THERMAL_DISABLE_INTR,
+};
+
 
 /**
  @brief  MobileVisor platform pin control service
@@ -493,5 +504,15 @@ int32_t vmm_vtimer_stop(void);
  @return virtual frequency value
 **/
 int32_t vmm_vtimer_get_freq(void);
+
+/**
+ @brief  MobileVisor platform spcu thermal service
+ @param  spcu thermal platform opcode, see enum spcu_thermal_service_op_code
+ @param  which thermal are you operating, 0, 1, 2
+ @param  which threshold are you operating, low or high
+ @return 0 if success, -1 if access disallowed
+**/
+int32_t vmm_spcu_thermal_service(uint32_t opcode, uint32_t dev_id,
+			 uint32_t thres);
 
 #endif /* _VMM_PLATFORM_SERVICE_H */
