@@ -73,6 +73,7 @@
 #include <linux/init_task.h>
 #include <linux/binfmts.h>
 #include <linux/context_tracking.h>
+#include <linux/sysprofile.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -2101,6 +2102,7 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
 		    struct task_struct *next)
 {
 	trace_sched_switch(prev, next);
+	sysprof_task_leave(prev->pid);
 	sched_info_switch(rq, prev, next);
 	perf_event_task_sched_out(prev, next);
 	fire_sched_out_preempt_notifiers(prev, next);
@@ -2146,6 +2148,7 @@ static void finish_task_switch(struct rq *rq, struct task_struct *prev)
 	vtime_task_switch(prev);
 	finish_arch_switch(prev);
 	perf_event_task_sched_in(prev, current);
+	sysprof_task_enter(current->pid);
 	finish_lock_switch(rq, prev);
 	finish_arch_post_lock_switch();
 
