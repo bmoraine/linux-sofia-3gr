@@ -1,4 +1,13 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Jul 11 2014: IMC: Force explicit alignment for all structures
+ *                   used in ioctls that have an IS_ALIGNED check
+ *                   in mali_kernel_linux.c
+ */
+
+/*
  * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
@@ -179,7 +188,7 @@ typedef struct {
 	u32 cookie;                     /**< [in] cookie from the _mali_uk_gp_job_suspended_s notification */
 	_maligp_job_suspended_response_code code; /**< [in] abort or resume response code, see \ref _maligp_job_suspended_response_code */
 	u32 arguments[2];               /**< [in] 0 when aborting a job. When resuming a job, the Mali start and end address for a new heap to resume the job with */
-} _mali_uk_gp_suspend_response_s;
+} __attribute__((aligned(8))) _mali_uk_gp_suspend_response_s;
 
 /** @} */ /* end group _mali_uk_gp_suspend_response_s */
 
@@ -267,7 +276,7 @@ typedef struct {
 	u32 flush_id;                       /**< [in] flush id within the originating frame builder */
 	_mali_uk_fence_t fence;             /**< [in] fence this job must wait on */
 	u64 timeline_point_ptr;            /**< [in,out] pointer to u32: location where point on gp timeline for this job will be written */
-} _mali_uk_gp_start_job_s;
+} __attribute__((aligned(8))) _mali_uk_gp_start_job_s;
 
 #define _MALI_PERFORMANCE_COUNTER_FLAG_SRC0_ENABLE (1<<0) /**< Enable performance counter SRC0 for a job */
 #define _MALI_PERFORMANCE_COUNTER_FLAG_SRC1_ENABLE (1<<1) /**< Enable performance counter SRC1 for a job */
@@ -375,13 +384,13 @@ typedef struct {
 	u64 memory_cookies;               /**< [in] pointer to array of u32 memory cookies attached to job */
 	_mali_uk_fence_t fence;             /**< [in] fence this job must wait on */
 	u64 timeline_point_ptr;           /**< [in,out] pointer to location of u32 where point on pp timeline for this job will be written */
-} _mali_uk_pp_start_job_s;
+} __attribute__((aligned(8))) _mali_uk_pp_start_job_s;
 
 typedef struct {
 	u64 ctx;       /**< [in,out] user-kernel context (trashed on output) */
 	u64 gp_args;   /**< [in,out] GP uk arguments (see _mali_uk_gp_start_job_s) */
 	u64 pp_args;   /**< [in,out] PP uk arguments (see _mali_uk_pp_start_job_s) */
-} _mali_uk_pp_and_gp_start_job_s;
+} __attribute__((aligned(8))) _mali_uk_pp_and_gp_start_job_s;
 
 /** @} */ /* end group _mali_uk_ppstartjob_s */
 
@@ -415,7 +424,7 @@ typedef struct {
 	u32 wb0_memory;
 	u32 wb1_memory;
 	u32 wb2_memory;
-} _mali_uk_pp_disable_wb_s;
+} __attribute__((aligned(8))) _mali_uk_pp_disable_wb_s;
 
 
 /** @} */ /* end group _mali_uk_pp */
@@ -430,7 +439,7 @@ typedef struct {
 	_mali_uk_fence_t fence;             /**< [in] fence this job must wait on */
 	u32 point;                          /**< [out] point on soft timeline for this job */
 	u32 type;                           /**< [in] type of soft job */
-} _mali_uk_soft_job_start_s;
+} __attribute__((aligned(8))) _mali_uk_soft_job_start_s;
 
 typedef struct {
 	u64 user_job;                       /**< [out] identifier for the job in user space */
@@ -439,7 +448,7 @@ typedef struct {
 typedef struct {
 	u64 ctx;                          /**< [in,out] user-kernel context (trashed on output) */
 	u32 job_id;                         /**< [in] id for soft job */
-} _mali_uk_soft_job_signal_s;
+} __attribute__((aligned(8))) _mali_uk_soft_job_signal_s;
 
 /** @} */ /* end group _mali_uk_soft_job */
 
@@ -582,7 +591,7 @@ typedef struct {
 		_mali_uk_settings_changed_s setting_changed;/**< [out] Notification data for _MALI_NOTIFICAATION_SETTINGS_CHANGED notification type */
 		_mali_uk_soft_job_activated_s soft_job_activated; /**< [out] Notification data for _MALI_NOTIFICATION_SOFT_ACTIVATED notification type */
 	} data;
-} _mali_uk_wait_for_notification_s;
+} __attribute__((aligned(8))) _mali_uk_wait_for_notification_s;
 
 /** @brief Arguments for _mali_ukk_post_notification()
  *
@@ -592,7 +601,7 @@ typedef struct {
 typedef struct {
 	u64 ctx;                       /**< [in,out] user-kernel context (trashed on output) */
 	_mali_uk_notification_type type; /**< [in] Type of notification to post */
-} _mali_uk_post_notification_s;
+} __attribute__((aligned(8))) _mali_uk_post_notification_s;
 
 /** @} */ /* end group _mali_uk_waitfornotification_s */
 
@@ -672,7 +681,7 @@ typedef struct {
 	u64 ctx;                        /**< [in,out] user-kernel context (trashed on output) */
 	_mali_uk_api_version version;   /**< [in,out] API version of user-side interface. */
 	int compatible;                 /**< [out] @c 1 when @version is compatible, @c 0 otherwise */
-} _mali_uk_get_api_version_v2_s;
+} __attribute__((aligned(8))) _mali_uk_get_api_version_v2_s;
 
 /** @} */ /* end group _mali_uk_getapiversion_s */
 
@@ -689,7 +698,7 @@ typedef struct {
 typedef struct {
 	u64 ctx;                       /**< [in,out] user-kernel context (trashed on output) */
 	u32 settings[_MALI_UK_USER_SETTING_MAX]; /**< [out] The values for all settings */
-} _mali_uk_get_user_settings_s;
+} __attribute__((aligned(8))) _mali_uk_get_user_settings_s;
 
 /** @brief struct to hold the value of a particular setting from the user space within a given context
  */
@@ -702,7 +711,7 @@ typedef struct {
 /** @brief Arguments for _mali_ukk_request_high_priority() */
 typedef struct {
 	u64 ctx;                       /**< [in,out] user-kernel context (trashed on output) */
-} _mali_uk_request_high_priority_s;
+} __attribute__((aligned(8))) _mali_uk_request_high_priority_s;
 
 /** @} */ /* end group _mali_uk_core */
 
@@ -721,12 +730,12 @@ typedef struct {
 	u32 rights;                     /**< [in] rights necessary for accessing memory */
 	u32 flags;                      /**< [in] flags, see \ref _MALI_MAP_EXTERNAL_MAP_GUARD_PAGE */
 	u32 cookie;                     /**< [out] identifier for mapped memory object in kernel space  */
-} _mali_uk_map_external_mem_s;
+} __attribute__((aligned(8))) _mali_uk_map_external_mem_s;
 
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	u32 cookie;                     /**< [out] identifier for mapped memory object in kernel space  */
-} _mali_uk_unmap_external_mem_s;
+} __attribute__((aligned(8))) _mali_uk_unmap_external_mem_s;
 
 /** @note This is identical to _mali_uk_map_external_mem_s above, however phys_addr is replaced by memory descriptor */
 typedef struct {
@@ -737,18 +746,18 @@ typedef struct {
 	u32 rights;                     /**< [in] rights necessary for accessing memory */
 	u32 flags;                      /**< [in] flags, see \ref _MALI_MAP_EXTERNAL_MAP_GUARD_PAGE */
 	u32 cookie;                     /**< [out] identifier for mapped memory object in kernel space  */
-} _mali_uk_attach_dma_buf_s;
+} __attribute__((aligned(8))) _mali_uk_attach_dma_buf_s;
 
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	u32 mem_fd;                     /**< [in] Memory descriptor */
 	u32 size;                       /**< [out] size */
-} _mali_uk_dma_buf_get_size_s;
+} __attribute__((aligned(8))) _mali_uk_dma_buf_get_size_s;
 
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	u64 cookie;                     /**< [in] identifier for mapped memory object in kernel space  */
-} _mali_uk_release_dma_buf_s;
+} __attribute__((aligned(8))) _mali_uk_release_dma_buf_s;
 
 /** @note This is identical to _mali_uk_map_external_mem_s above, however phys_addr is replaced by secure_id */
 typedef struct {
@@ -759,12 +768,12 @@ typedef struct {
 	u32 rights;                     /**< [in] rights necessary for accessing memory */
 	u32 flags;                      /**< [in] flags, see \ref _MALI_MAP_EXTERNAL_MAP_GUARD_PAGE */
 	u32 cookie;                     /**< [out] identifier for mapped memory object in kernel space  */
-} _mali_uk_attach_ump_mem_s;
+} __attribute__((aligned(8))) _mali_uk_attach_ump_mem_s;
 
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	u32 cookie;                     /**< [in] identifier for mapped memory object in kernel space  */
-} _mali_uk_release_ump_mem_s;
+} __attribute__((aligned(8))) _mali_uk_release_ump_mem_s;
 
 /**
  * @brief Arguments for _mali_uk[uk]_mem_write_safe()
@@ -774,12 +783,12 @@ typedef struct {
 	u64 src;  /**< [in] Pointer to source data */
 	u64 dest; /**< [in] Destination Mali buffer */
 	u32 size;   /**< [in,out] Number of bytes to write/copy on input, number of bytes actually written/copied on output */
-} _mali_uk_mem_write_safe_s;
+} __attribute__((aligned(8))) _mali_uk_mem_write_safe_s;
 
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	u32 size;                       /**< [out] size of MMU page table information (registers + page tables) */
-} _mali_uk_query_mmu_page_table_dump_size_s;
+} __attribute__((aligned(8))) _mali_uk_query_mmu_page_table_dump_size_s;
 
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
@@ -789,7 +798,7 @@ typedef struct {
 	u64 register_writes;           /**< [out] pointer within buffer where MMU register dump is stored */
 	u32 page_table_dump_size;       /**< [out] size of MMU page table dump */
 	u64 page_table_dump;           /**< [out] pointer within buffer where MMU page table dump is stored */
-} _mali_uk_dump_mmu_page_table_s;
+} __attribute__((aligned(8))) _mali_uk_dump_mmu_page_table_s;
 
 /** @} */ /* end group _mali_uk_memory */
 
@@ -807,7 +816,7 @@ typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	u32 number_of_total_cores;      /**< [out] Total number of Fragment Processor cores in the system */
 	u32 number_of_enabled_cores;    /**< [out] Number of enabled Fragment Processor cores */
-} _mali_uk_get_pp_number_of_cores_s;
+} __attribute__((aligned(8))) _mali_uk_get_pp_number_of_cores_s;
 
 /** @brief Arguments for _mali_ukk_get_pp_core_version()
  *
@@ -819,7 +828,7 @@ typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	_mali_core_version version;     /**< [out] version returned from core, see \ref _mali_core_version  */
 	u32 padding;
-} _mali_uk_get_pp_core_version_s;
+} __attribute__((aligned(8))) _mali_uk_get_pp_core_version_s;
 
 /** @} */ /* end group _mali_uk_pp */
 
@@ -836,7 +845,7 @@ typedef struct {
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	u32 number_of_cores;            /**< [out] number of Vertex Processor cores in the system */
-} _mali_uk_get_gp_number_of_cores_s;
+} __attribute__((aligned(8))) _mali_uk_get_gp_number_of_cores_s;
 
 /** @brief Arguments for _mali_ukk_get_gp_core_version()
  *
@@ -847,7 +856,7 @@ typedef struct {
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	_mali_core_version version;     /**< [out] version returned from core, see \ref _mali_core_version */
-} _mali_uk_get_gp_core_version_s;
+} __attribute__((aligned(8))) _mali_uk_get_gp_core_version_s;
 
 /** @} */ /* end group _mali_uk_gp */
 
@@ -855,12 +864,12 @@ typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	u32 event_id;                   /**< [in] event id to register (see  enum mali_profiling_events for values) */
 	u32 data[5];                    /**< [in] event specific data */
-} _mali_uk_profiling_add_event_s;
+} __attribute__((aligned(8))) _mali_uk_profiling_add_event_s;
 
 typedef struct {
 	u64 ctx;                     /**< [in,out] user-kernel context (trashed on output) */
 	u32 memory_usage;              /**< [out] total memory usage */
-} _mali_uk_profiling_memory_usage_get_s;
+} __attribute__((aligned(8))) _mali_uk_profiling_memory_usage_get_s;
 
 
 /** @addtogroup _mali_uk_memory U/K Memory
@@ -937,7 +946,7 @@ typedef enum _mali_uk_vsync_event {
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	_mali_uk_vsync_event event;     /**< [in] VSYNCH event type */
-} _mali_uk_vsync_event_report_s;
+} __attribute__((aligned(8))) _mali_uk_vsync_event_report_s;
 
 /** @} */ /* end group _mali_uk_vsync */
 
@@ -952,7 +961,7 @@ typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	u64 counters;                  /**< [in] The array of u32 counter values */
 	u32 num_counters;              /**< [in] The number of elements in counters array */
-} _mali_uk_sw_counters_report_s;
+} __attribute__((aligned(8))) _mali_uk_sw_counters_report_s;
 
 /** @} */ /* end group _mali_uk_sw_counters_report */
 
@@ -963,20 +972,20 @@ typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	u32 timeline;                   /**< [in] timeline id */
 	u32 point;                      /**< [out] latest point on timeline */
-} _mali_uk_timeline_get_latest_point_s;
+} __attribute__((aligned(8))) _mali_uk_timeline_get_latest_point_s;
 
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	_mali_uk_fence_t fence;         /**< [in] fence */
 	u32 timeout;                    /**< [in] timeout (0 for no wait, -1 for blocking) */
 	u32 status;                     /**< [out] status of fence (1 if signaled, 0 if timeout) */
-} _mali_uk_timeline_wait_s;
+} __attribute__((aligned(8))) _mali_uk_timeline_wait_s;
 
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	_mali_uk_fence_t fence;         /**< [in] mali fence to create linux sync fence from */
 	s32 sync_fd;                    /**< [out] file descriptor for new linux sync fence */
-} _mali_uk_timeline_create_sync_fence_s;
+} __attribute__((aligned(8))) _mali_uk_timeline_create_sync_fence_s;
 
 /** @} */ /* end group _mali_uk_timeline */
 

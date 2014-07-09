@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Jun 02 2014: IMC: Change hooks to platform adaption to use platform_device
+ *                   Add hooks for platform runtime pm
+ * May 19 2014: IMC: Set default debug level to 1
+ * Mar 14 2014: IMC: Add basic DTS support for SoFIA
+ */
+
 /**
  * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
  * 
@@ -40,6 +50,9 @@
 #include "mali_profiling_internal.h"
 #endif
 
+#include <xgold/platform.h>
+
+
 /* Streamline support for the Mali driver */
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_MALI400_PROFILING)
 /* Ask Linux to create the tracepoints */
@@ -55,7 +68,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(mali_sw_counters);
 extern const char *__malidrv_build_info(void);
 
 /* Module parameter to control log level */
-int mali_debug_level = 2;
+int mali_debug_level = 1;
 module_param(mali_debug_level, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
 MODULE_PARM_DESC(mali_debug_level, "Higher number, more dmesg output");
 
@@ -180,6 +193,11 @@ static const struct dev_pm_ops mali_dev_pm_ops = {
 };
 #endif
 
+static struct of_device_id xgold_mali_of_match[] = {
+	{ .compatible = "intel,mali", },
+	{ },
+};
+
 /* The Mali device driver struct */
 static struct platform_driver mali_platform_driver = {
 	.probe  = mali_probe,
@@ -195,6 +213,7 @@ static struct platform_driver mali_platform_driver = {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
 		.pm = &mali_dev_pm_ops,
 #endif
+		.of_match_table = xgold_mali_of_match,
 	},
 };
 
@@ -347,6 +366,14 @@ int mali_module_init(void)
 	mali_init_cpu_time_counters_on_all_cpus(1);
 #endif
 
+	/* GE: patch for DTS */
+	err = mali_platform_init();
+	if (err)	{
+		MALI_PRINT_ERROR(("mali_platform_init(): failed."));
+		return -EINVAL;
+	}
+	/* end of patch */
+
 	/* Initialize module wide settings */
 #if defined(MALI_FAKE_PLATFORM_DEVICE)
 	MALI_DEBUG_PRINT(2, ("mali_module_init() registering device\n"));
@@ -414,6 +441,14 @@ static int mali_probe(struct platform_device *pdev)
 		return -EEXIST;
 	}
 
+	/* GE: patch for DTS */
+	err = mali_platform_probe(pdev, &mali_dev_pm_ops);
+	if (err)	{
+		MALI_PRINT_ERROR(("mali_platform_probe(): failed."));
+		return -EINVAL;
+	}
+	/* end of patch */
+
 	mali_platform_device = pdev;
 
 	if (_MALI_OSK_ERR_OK == _mali_osk_wq_init()) {
@@ -447,12 +482,23 @@ static int mali_probe(struct platform_device *pdev)
 
 static int mali_remove(struct platform_device *pdev)
 {
+	int err = 0;
+
 	MALI_DEBUG_PRINT(2, ("mali_remove() called for platform device %s\n", pdev->name));
 	mali_sysfs_unregister();
 	mali_miscdevice_unregister();
 	mali_terminate_subsystems();
 	_mali_osk_wq_term();
 	mali_platform_device = NULL;
+
+	/* GE: patch for DTS */
+	err = mali_platform_remove(pdev);
+	if (err)	{
+		MALI_PRINT_ERROR(("mali_platform_remove(): failed."));
+		return -EINVAL;
+	}
+	/* end of patch */
+
 	return 0;
 }
 
@@ -480,12 +526,37 @@ static void mali_miscdevice_unregister(void)
 
 static int mali_driver_suspend_scheduler(struct device *dev)
 {
+	int err;
+	struct platform_device *pdev;
+
 	mali_pm_os_suspend();
+
+	/* GE: patch for DTS */
+	pdev = to_platform_device(dev);
+	err = mali_platform_suspend(pdev);
+	if (err)	{
+		MALI_PRINT_ERROR(("mali_platform_suspend(): failed."));
+		return -EINVAL;
+	}
+	/* end of patch */
+
 	return 0;
 }
 
 static int mali_driver_resume_scheduler(struct device *dev)
 {
+	int err;
+	struct platform_device *pdev;
+
+	/* GE: patch for DTS */
+	pdev = to_platform_device(dev);
+	err = mali_platform_resume(pdev);
+	if (err)	{
+		MALI_PRINT_ERROR(("mali_platform_resume(): failed."));
+		return -EINVAL;
+	}
+	/* end of patch */
+
 	mali_pm_os_resume();
 	return 0;
 }
@@ -493,18 +564,55 @@ static int mali_driver_resume_scheduler(struct device *dev)
 #ifdef CONFIG_PM_RUNTIME
 static int mali_driver_runtime_suspend(struct device *dev)
 {
+	int err;
+	struct platform_device *pdev;
+
 	mali_pm_runtime_suspend();
+
+	/* GE: patch for DTS */
+	pdev = to_platform_device(dev);
+	err = mali_platform_runtime_suspend(pdev);
+	if (err)	{
+		MALI_PRINT_ERROR(("mali_platform_runtime_suspend(): failed."));
+		return -EINVAL;
+	}
+	/* end of patch */
+
 	return 0;
 }
 
 static int mali_driver_runtime_resume(struct device *dev)
 {
+	int err;
+	struct platform_device *pdev;
+
+	/* GE: patch for DTS */
+	pdev = to_platform_device(dev);
+	err = mali_platform_runtime_resume(pdev);
+	if (err)	{
+		MALI_PRINT_ERROR(("mali_platform_runtime_resume(): failed."));
+		return -EINVAL;
+	}
+	/* end of patch */
+
 	mali_pm_runtime_resume();
 	return 0;
 }
 
 static int mali_driver_runtime_idle(struct device *dev)
 {
+	int err;
+	struct platform_device *pdev;
+
+	/* GE: patch for DTS */
+	pdev = to_platform_device(dev);
+	err = mali_platform_runtime_idle(pdev);
+	if (err)	{
+		MALI_PRINT_ERROR(("mali_platform_runtime_idle(): failed."));
+		return -EINVAL;
+	}
+	/* end of patch */
+
 	/* Nothing to do */
 	return 0;
 }
@@ -816,3 +924,4 @@ module_exit(mali_module_exit);
 MODULE_LICENSE(MALI_KERNEL_LINUX_LICENSE);
 MODULE_AUTHOR("ARM Ltd.");
 MODULE_VERSION(SVN_REV_STRING);
+MODULE_DEVICE_TABLE(of, xgold_mali_of_match);

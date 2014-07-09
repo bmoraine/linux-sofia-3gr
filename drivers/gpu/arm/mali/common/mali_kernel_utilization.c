@@ -1,4 +1,12 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Jan 23 2014: IMC: Allow save termination of mali utilization
+ * during runtime via platform debugfs
+ */
+
+/*
  * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
@@ -284,13 +292,18 @@ void mali_utilization_suspend(void)
 
 void mali_utilization_term(void)
 {
+	_mali_osk_spinlock_irq_lock(time_data_lock);
+
 	if (NULL != utilization_timer) {
 		_mali_osk_timer_del(utilization_timer);
 		timer_running = MALI_FALSE;
 		_mali_osk_timer_term(utilization_timer);
 		utilization_timer = NULL;
+		mali_utilization_callback = NULL;
+		mali_utilization_timeout = 0;
 	}
 
+	_mali_osk_spinlock_irq_unlock(time_data_lock);
 	_mali_osk_spinlock_irq_term(time_data_lock);
 }
 
