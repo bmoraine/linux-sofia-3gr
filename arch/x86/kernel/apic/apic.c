@@ -200,6 +200,8 @@ int disable_apic;
 int noapicsetup = 0;
 /* Disable local APIC timer from the kernel commandline or via dmi quirk */
 static int disable_apic_timer __initdata;
+/* Disable local APIC power management from kernel commandline */
+static int disable_apic_pm;
 /* Local APIC timer works in C2 */
 int local_apic_timer_c2_ok;
 EXPORT_SYMBOL_GPL(local_apic_timer_c2_ok);
@@ -1514,7 +1516,8 @@ void end_local_APIC_setup(void)
 	}
 #endif
 
-	apic_pm_activate();
+	if (!disable_apic_pm)
+		apic_pm_activate();
 }
 
 void __init bsp_end_local_APIC_setup(void)
@@ -1799,7 +1802,8 @@ static int __init detect_init_APIC(void)
 			return -1;
 	}
 
-	apic_pm_activate();
+	if (!disable_apic_pm)
+		apic_pm_activate();
 
 	return 0;
 
@@ -2616,6 +2620,13 @@ static int __init parse_nolapic_timer(char *arg)
 	return 0;
 }
 early_param("nolapic_timer", parse_nolapic_timer);
+
+static int __init parse_nolapic_pm(char *arg)
+{
+	disable_apic_pm = 1;
+	return 0;
+}
+early_param("nolapic_pm", parse_nolapic_pm);
 
 static int __init apic_set_verbosity(char *arg)
 {
