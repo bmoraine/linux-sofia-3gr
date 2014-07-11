@@ -515,6 +515,13 @@ config X86_INTEL_SOFIA_ERRATA_003
 	  This adds mfence after some instructions causing CPU hangs in early
 	  version of sofia hardware.
 
+config X86_INTEL_XGOLD_EXPERIMENTAL
+	bool "Enable experimental features"
+	default n
+	---help---
+	  Select this option to enable experimental feature such as PM.
+	  This experimental tends to evoluate and will not always be dedicated
+	  to PM.
 
 config BUS_AMBA
 	bool
