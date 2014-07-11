@@ -75,6 +75,14 @@ pmic {
 		/* LDO */
 		/* I2S */
 		/* AFE */
+		pmic_afe:pmic_afe {
+			compatible = "intel,pmic_afe";
+			pm,class-name = "generic_class";
+			pm,user-name = "afe_volt";
+			pm,state-D0 = "enable";
+			pm,state-D3 = "disable";
+			intel,codec_dai_name = "pmic_afe_i2s";
+		};
 	};
 
 	dev@6 {

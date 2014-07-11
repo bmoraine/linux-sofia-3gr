@@ -97,7 +97,11 @@
 	};
 
 	sound {
-		/* FIXME: Add sound desc */
+		compatible = "intel,xgold-snd-asoc";
+		intel,audio-codec = <&pmic_afe>;
+		intel,pcm-audio = <&pcm_music>;
+		intel,pcm-voice = <&pcm_voice>;
+		intel,speech = <&speech_probe>;
 	};
 	xgold_pmic {
 		/* compatible = "intel,xgold_pmic"; */

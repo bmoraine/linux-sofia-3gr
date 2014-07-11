@@ -678,19 +678,9 @@
 					ranges;
 					reg = <0xE3000000 0x1000000>;
 
-					sbadsp:sample-based-audio-dsp {
-						reg = <0xE3300000 0x2000
-								0xE3302000 0x2000>;
-						reg-names = "registers", "RAM";
-						resets = < &dbb_rst3 8 >;
-						reset-names = "dsp";
-					};
+					#include "xgold/sofia_lte_soc/dsp-audio-f.dtsi"
+					#include "xgold/sofia_lte_soc/dsp-audio-s.dtsi"
 
-					fbadsp:frame-based-audio-dsp {
-						reg = <0xE3304000 0x2000
-								0xE3306000 0x2000>;
-						reg-names = "registers", "RAM";
-					};
 				};
 			};
 			uspc_noc {
