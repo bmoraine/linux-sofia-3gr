@@ -162,12 +162,14 @@ agold {
 			intel,afe,id = "AG620";
 			idi-channels = < 5 >;
 
+			pm,user-name = "afe";
 			pm,class-name = "afe_class";
 			pm,state-D0 = "headset";
 			pm,state-D0i0 = "no_headset";
 			pm,state-D0i1 = "slpret_headset";
 			pm,state-D0i2 = "slpret_no_headset";
 			pm,state-D3 = "disable";
+			intel,codec_dai_name = "ag620_afe";
 		};
 #endif
 		idierror:idierror {
@@ -188,6 +190,7 @@ agold {
 			idi-id-device = <0xA6200>;
 			idi-id-subdevice = <0x3>;
 			pm,class-name = "btif_class";
+			pm,user-name = "btif";
 			pm,state-D0 = "enable";
 			pm,state-D0i2 = "enable_psv";
 			pm,state-D0i3 = "idle";
