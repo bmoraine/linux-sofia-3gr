@@ -56,7 +56,8 @@
  * RETURN VALUE: None
  *
  */
-void dsp_set_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
+void dsp_set_audio_dsp_communication_flag(struct dsp_audio_device *dsp,
+	enum dsp_irq_comm_flag comm_flag)
 {
 	if (comm_flag < DSP_IRQ_COMM_FLAG_0 ||
 			comm_flag > DSP_IRQ_COMM_FLAG_15) {
@@ -66,7 +67,7 @@ void dsp_set_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
 
 	/* Set the specified communication flag */
 	iowrite32((u32)BIT(comm_flag),
-		p_dsp_audio_dev->shm_regs + p_dsp_audio_dev->uccf.set);
+		dsp->shm_regs + dsp->uccf.set);
 }
 
 /* FUNCTION-DESCRIPTION
@@ -79,7 +80,9 @@ void dsp_set_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
  * RETURN VALUE: None
  *
  */
-void dsp_reset_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
+void dsp_reset_audio_dsp_communication_flag(
+		struct dsp_audio_device *dsp,
+		enum dsp_irq_comm_flag comm_flag)
 {
 	if (comm_flag < DSP_IRQ_COMM_FLAG_0 ||
 			comm_flag > DSP_IRQ_COMM_FLAG_15) {
@@ -88,7 +91,7 @@ void dsp_reset_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
 	}
 
 	iowrite32((u32)BIT(comm_flag),
-		p_dsp_audio_dev->shm_regs + p_dsp_audio_dev->uccf.clear);
+		dsp->shm_regs + dsp->uccf.clear);
 }
 
 /* FUNCTION-DESCRIPTION
@@ -101,7 +104,9 @@ void dsp_reset_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
  * RETURN VALUE: int - the value of the communication flag
  *
  */
-int dsp_read_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
+int dsp_read_audio_dsp_communication_flag(
+	struct dsp_audio_device *dsp,
+	enum dsp_irq_comm_flag comm_flag)
 {
 	int return_val;
 
@@ -111,8 +116,8 @@ int dsp_read_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
 		return 0;
 	}
 
-	return_val = ioread32(p_dsp_audio_dev->shm_regs +
-		p_dsp_audio_dev->uccf.get);
+	return_val = ioread32(dsp->shm_regs +
+		dsp->uccf.get);
 
 	return return_val & BIT(comm_flag) ? 1 : 0;
 }
@@ -127,7 +132,9 @@ int dsp_read_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
  * RETURN VALUE: None
  *
  */
-void dsp_generate_audio_dsp_interrupt(enum dsp_irq_no dsp_interrupt)
+void dsp_generate_audio_dsp_interrupt(
+	struct dsp_audio_device *dsp,
+	enum dsp_irq_no dsp_interrupt)
 {
 	/* Range check */
 	if (DSP_IRQ_0 > dsp_interrupt || DSP_IRQ_3 < dsp_interrupt) {
@@ -140,10 +147,15 @@ void dsp_generate_audio_dsp_interrupt(enum dsp_irq_no dsp_interrupt)
 	Directly set the intended interrupt bit to 1 and other bits to 0
 	DSP can accept very short pulse, so even if one OS has just set bit for
 	other interrupt to 1, pulling it 0 will not cause any harm*/
-	iowrite32(BIT(dsp_interrupt), p_dsp_audio_dev->shm_regs +
-		p_dsp_audio_dev->mcu2dsp);
-	iowrite32(0, p_dsp_audio_dev->shm_regs +
-		p_dsp_audio_dev->mcu2dsp);
+	iowrite32(BIT(dsp_interrupt), dsp->shm_regs +
+		dsp->mcu2dsp);
+	#ifdef CONFIG_X86_INTEL_XGOLD_VP
+	udelay(2);
+	#endif
+
+
+	iowrite32(0, dsp->shm_regs +
+		dsp->mcu2dsp);
 }
 
 /* FUNCTION-DESCRIPTION
@@ -156,9 +168,9 @@ void dsp_generate_audio_dsp_interrupt(enum dsp_irq_no dsp_interrupt)
  * RETURN VALUE: U32 The value of the IMSC register
  *
  */
-U32 dsp_get_audio_imsc(void)
+U32 dsp_get_audio_imsc(struct dsp_audio_device *dsp)
 {
-	return ioread32(p_dsp_audio_dev->shm_regs + p_dsp_audio_dev->imsc);
+	 return ioread32(dsp->shm_regs + dsp->imsc);
 }
 
 /* FUNCTION-DESCRIPTION
@@ -171,9 +183,9 @@ U32 dsp_get_audio_imsc(void)
  * RETURN VALUE: None
  *
  */
-void dsp_set_audio_imsc(U32 reg)
+void dsp_set_audio_imsc(struct dsp_audio_device *dsp, U32 reg)
 {
-	iowrite32(reg, p_dsp_audio_dev->shm_regs + p_dsp_audio_dev->imsc);
+	iowrite32(reg, dsp->shm_regs + dsp->imsc);
 }
 
 /* FUNCTION-DESCRIPTION
@@ -186,40 +198,10 @@ void dsp_set_audio_imsc(U32 reg)
  * RETURN VALUE: None
  *
  */
-void dsp_set_audio_icr(U32 icr)
+void dsp_set_audio_icr(struct dsp_audio_device *dsp, U32 icr)
 {
-	iowrite32(icr, p_dsp_audio_dev->shm_regs + p_dsp_audio_dev->icr);
+	iowrite32(icr, dsp->shm_regs + dsp->icr);
 	/* Read any DSP modem register to be sure that the ICR
 		is really written to the DSP ICR register */
-	(void)ioread32(p_dsp_audio_dev->shm_regs + p_dsp_audio_dev->imsc);
+	(void) ioread32(dsp->shm_regs + dsp->imsc);
 }
-
-/* FUNCTION-DESCRIPTION
- *
- * FUNCTION-NAME: dsp_get_audio_shmem_base_addr
- *
- * PROCESSING:
- * Returns the shared memory base address
- *
- * RETURN VALUE: None
- *
- */
-U32 dsp_get_audio_shmem_base_addr(void)
-{
-	return p_dsp_audio_dev->shm_mem_phys;
-}
-
-#ifdef CONFIG_OF
-/* TODO */
-struct dma_chan *xgold_of_dsp_get_dmach(struct dsp_audio_device *dsp, int req)
-{
-	switch (req) {
-	case STREAM_PLAY:
-		return dma_request_slave_channel(dsp->dev, "play1");
-	case STREAM_REC:
-		return dma_request_slave_channel(dsp->dev, "record");
-	default:
-		return NULL;
-	}
-}
-#endif

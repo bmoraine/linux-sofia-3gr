@@ -31,6 +31,8 @@
 
 #define PCL_LOCK_EXCLUSIVE	1
 #define PCL_OPER_ACTIVATE	0
+#define PROP_CODEC_DAI_NAME "intel,codec_dai_name"
+
 
 #define	xgold_err(fmt, arg...) \
 		pr_err("snd: mac: "fmt, ##arg)
@@ -97,19 +99,6 @@ static int xgold_snd_init(struct snd_soc_pcm_runtime *runtime)
 	return ret;
 }
 
-#if 0 /* FIXME useless */
-static int xgold_hw_params(struct snd_pcm_substream *substream,
-			   struct snd_pcm_hw_params *params)
-{
-	xgold_debug("%s\n", __func__);
-	return 0;
-}
-
-static struct snd_soc_ops xgold_ops = {
-	.hw_params = xgold_hw_params,
-};
-#endif
-
 /* Digital audio interface glue - connects codec <--> CPU
  * xgold dai's are devided into Front End (FE) and Back End (BE) devices
  * FE devices are pure streaming devices, not in charge of enabling any codecs.
@@ -118,55 +107,70 @@ static struct snd_soc_ops xgold_ops = {
 static struct snd_soc_dai_link xgold_dai[] = {
 	/* PCM front end device */
 	{
-		.name = "XGOLD632_PCM",
+		.name = "XGOLD_PCM",
 		.stream_name = "PCM Audio",
 		.init = xgold_snd_init,
 		.ignore_suspend = 1,
 	},
 	/* Codec back end device */
 	{
-		.name = "XGOLD632_VOICE",
+		.name = "XGOLD_VOICE",
 		.stream_name = "Voice",
 		.ignore_suspend = 1,
 	},
+	{
+		.name = "XGOLD_HW_PROBE_A",
+		.stream_name = "XGOLD_HW_PROBE_A",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "XGOLD_HW_PROBE_B",
+		.stream_name = "XGOLD_HW_PROBE_B",
+		.ignore_suspend = 1,
+	},
+
 #ifdef CONFIG_SND_SOC_XGOLD632_SPEECH_PROBE
 	/* Speech probe front end devices */
 	{
-		.name = "XGOLD632_SPEECH_PROBE_A",
+		.name = "XGOLD_SPEECH_PROBE_A",
 		.stream_name = "Speech Probe_A",
 		.ignore_suspend = 1,
 	},
 	{
-		.name = "XGOLD632_SPEECH_PROBE_B",
+		.name = "XGOLD_SPEECH_PROBE_B",
 		.stream_name = "Speech Probe_B",
 		.ignore_suspend = 1,
 	},
 	{
-		.name = "XGOLD632_SPEECH_PROBE_C",
+		.name = "XGOLD_SPEECH_PROBE_C",
 		.stream_name = "Speech Probe_C",
 		.ignore_suspend = 1,
 	},
 	{
-		.name = "XGOLD632_SPEECH_PROBE_D",
+		.name = "XGOLD_SPEECH_PROBE_D",
 		.stream_name = "Speech Probe_D",
 		.ignore_suspend = 1,
 	},
+	/* ALSA allows only 8 pcm devices with
+	static minor numbers check after LTE PO?*/
+#ifdef CONFIG_INCREASE_PCM_DEVICE
 	{
-		.name = "XGOLD632_SPEECH_PROBE_E",
+		.name = "XGOLD_SPEECH_PROBE_E",
 		.stream_name = "Speech Probe_E",
 		.ignore_suspend = 1,
 	},
 	{
-		.name = "XGOLD632_SPEECH_PROBE_F",
+		.name = "XGOLD_SPEECH_PROBE_F",
 		.stream_name = "Speech Probe_F",
 		.ignore_suspend = 1,
 	}
+#endif
 #endif
 };
 
 /* Audio machine driver */
 static struct snd_soc_card xgold_snd_card = {
-	.name = "Agold_afe-audio",
+	.name = "xgold_afe-audio",
 	.owner = THIS_MODULE,
 	.dai_link = xgold_dai,
 	.num_links = ARRAY_SIZE(xgold_dai),
@@ -175,7 +179,9 @@ static struct snd_soc_card xgold_snd_card = {
 static int xgold_mc_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
+	struct device_node *codec_of_node = NULL;
 	struct snd_soc_dai_link *dai_link;
+	const char *codec_dai_name = NULL;
 	int ret = 0;
 	int i;
 
@@ -185,6 +191,27 @@ static int xgold_mc_probe(struct platform_device *pdev)
 	snd_soc_card_set_drvdata(&xgold_snd_card, (void *)audio_native_mode);
 
 #ifdef CONFIG_OF
+	codec_of_node = of_parse_phandle(np,
+			"intel,audio-codec", 0);
+
+	if (codec_of_node == NULL) {
+		xgold_err("Unable to get codec node\n");
+		return -ENODEV;
+	}
+
+	ret = of_property_read_string(codec_of_node,
+				PROP_CODEC_DAI_NAME,
+				&codec_dai_name);
+
+	if (ret) {
+		xgold_err("Cannot get codec dai name ret %d\n", ret);
+		return ret;
+	}
+
+	/* for LTE we use native mode by default */
+	if (!strcmp(codec_dai_name, "pmic_afe_i2s"))
+		audio_native_mode = 1;
+
 	if (!audio_native_mode) {
 		for (i = 0; i < xgold_snd_card.num_links; i++) {
 			dai_link = &xgold_snd_card.dai_link[i];
@@ -196,20 +223,38 @@ static int xgold_mc_probe(struct platform_device *pdev)
 							0);
 				dai_link->codec_dai_name = "snd-soc-dummy-dai";
 				dai_link->codec_name = "snd-soc-dummy";
+
 			} else if (!strcmp(dai_link->stream_name, "Voice")) {
 				/* FIXME: for Voice stream, platform is
 				 * snd-soc-dummy */
 				dai_link->cpu_of_node = of_parse_phandle(np,
 						"intel,pcm-voice", 0);
-				dai_link->codec_of_node = of_parse_phandle(np,
-						"intel,audio-codec", 0);
-				dai_link->codec_dai_name = "ag620_afe";
+
+				dai_link->codec_of_node = codec_of_node;
+				dai_link->codec_dai_name = codec_dai_name;
+
 			} else if (!strncmp(dai_link->stream_name,
 						"Speech Probe",
 						strlen("Speech Probe"))) {
 				dai_link->cpu_of_node =
 					dai_link->platform_of_node =
 					of_parse_phandle(np, "intel,speech", 0);
+				dai_link->codec_dai_name = "snd-soc-dummy-dai";
+				dai_link->codec_name = "snd-soc-dummy";
+			} else if (!strncmp(dai_link->stream_name,
+						"XGOLD_HW_PROBE_A",
+						strlen("XGOLD_HW_PROBE_A"))) {
+				dai_link->cpu_of_node =
+				dai_link->platform_of_node =
+				of_parse_phandle(np, "intel,pcm-audio", 0);
+				dai_link->codec_dai_name = "snd-soc-dummy-dai";
+				dai_link->codec_name = "snd-soc-dummy";
+			} else if (!strncmp(dai_link->stream_name,
+						"XGOLD_HW_PROBE_B",
+						strlen("XGOLD_HW_PROBE_B"))) {
+				dai_link->cpu_of_node =
+				dai_link->platform_of_node =
+				of_parse_phandle(np, "intel,pcm-audio", 0);
 				dai_link->codec_dai_name = "snd-soc-dummy-dai";
 				dai_link->codec_name = "snd-soc-dummy";
 			}
@@ -222,9 +267,8 @@ static int xgold_mc_probe(struct platform_device *pdev)
 		/* setup devices for native kernel support */
 		for (i = 0; i < xgold_snd_card.num_links; i++) {
 			dai_link = &xgold_snd_card.dai_link[i];
-			dai_link->codec_of_node =
-				of_parse_phandle(np, "intel,audio-codec", 0);
-			dai_link->codec_dai_name = "ag620_afe";
+			dai_link->codec_of_node = codec_of_node;
+			dai_link->codec_dai_name = codec_dai_name;
 
 			if (!strcmp(dai_link->stream_name, "PCM Audio"))
 				dai_link->cpu_of_node =
@@ -241,6 +285,20 @@ static int xgold_mc_probe(struct platform_device *pdev)
 				dai_link->cpu_of_node =
 					dai_link->platform_of_node =
 					of_parse_phandle(np, "intel,speech", 0);
+			else if (!strncmp(dai_link->stream_name,
+							"XGOLD_HW_PROBE_A",
+						strlen("XGOLD_HW_PROBE_A")))
+				dai_link->cpu_of_node =
+				dai_link->platform_of_node =
+					of_parse_phandle(np, "intel,pcm-audio",
+							0);
+			else if (!strncmp(dai_link->stream_name,
+						"XGOLD_HW_PROBE_B",
+						strlen("XGOLD_HW_PROBE_B")))
+				dai_link->cpu_of_node =
+				dai_link->platform_of_node =
+					of_parse_phandle(np, "intel,pcm-audio",
+							0);
 			if (!dai_link->cpu_of_node)
 				pr_err("error for %s DAI binding\n",
 						dai_link->name);

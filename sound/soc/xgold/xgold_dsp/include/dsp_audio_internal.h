@@ -19,7 +19,7 @@
 
 #ifndef _DSP_AUDIO_INTERNAL_H
 #define _DSP_AUDIO_INTERNAL_H
-
+#include <dsp_audio_platform.h>
 /*----------------------------------------------------------------------*/
 /*			Defines related to DSP commands			*/
 /*----------------------------------------------------------------------*/
@@ -29,4 +29,13 @@
 #define DSP_AUDIO_CMD_ID_LEN        1
 #endif
 
+/**
+  @brief Initialization of the dsp audio sub-module
+
+  @param list of dsp's in the system
+
+  @return enum dsp_err_code error
+
+ */
+enum dsp_err_code dsp_audio_init(struct list_head *list);
 #endif /* _DSP_AUDIO_INTERNAL_H */

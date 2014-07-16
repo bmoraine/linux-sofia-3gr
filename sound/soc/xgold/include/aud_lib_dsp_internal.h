@@ -237,5 +237,20 @@ struct T_AUD_DSP_CMD_VB_SET_SWM_MIX_MATRIX {
 	U16 alpha_3;
 };
 
+struct T_AUD_DSP_CMD_HW_PROBE {
+	U16 probe_index;
+	U16 setting;
+	U16 sm_interface;
+	U16 mix_flag;
+	U16 injection_gain;
+};
+
+struct T_AUD_DSP_CMD_VB_SET_SPEECH_PATH_PAR {
+	U16  setting;
+	U16  rate;
+};
+
+
+
 #endif /* _AUD_LIB_DSP_HAL_H*/
 

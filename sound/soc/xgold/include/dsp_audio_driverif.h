@@ -22,6 +22,8 @@
 
 #include "bastypes.h"
 
+struct dsp_audio_device;
+
 /** @addtogroup DSP_drv_ispec Interface Specification for DSP Driver
 	to other driver modules */
 /*@{*/
@@ -33,19 +35,6 @@
 	implementing the DSP command interface used by other driver modules
 */
 
-/**
- * \brief dsp_add_fba_audio_msg_2_dsp \n
- *
- * Send an audio dsp command immediately to dsp without
- * buffering.
- *
- * \param word msg_id
- * \param word msg_length
- * \param word* p_msg_par
- * \return None
- *
- */
-void dsp_add_audio_msg_2_dsp(U16 msg_id, U16 msg_length, U16 *p_msg_par);
 
 /** \brief Maximum number of data words for audio DSP command. */
 #define CMD_AUD_DATA_WORDS          33
@@ -95,19 +84,20 @@ struct dsp_rw_shm_data {
 	U16    len_in_bytes;
 	U16    *p_data;
 };
-
 /*--------------------------------------------------*/
 /*	Declarations for accessing communication flags	*/
 /*--------------------------------------------------*/
 
 /*
- * Enumeration holding all the communication flags between the ARM
- * and the Frame Based Audio DSP.
- *
- * The defined communiactions flags are used together with the functions
- * dsp_set_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
- * dsp_reset_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
- * dsp_read_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
+	* Enumeration holding all the communication flags between the IA
+	* and the Frame Based Audio DSP.
+	*
+	* The defined communiactions flags are used together with the functions
+	* dsp_set_audio_dsp_communication_flag(enum dsp_irq_comm_flag comm_flag)
+	* dsp_reset_audio_dsp_communication_flag(
+			enum dsp_irq_comm_flag comm_flag)
+	* dsp_read_audio_dsp_communication_flag(
+			enum dsp_irq_comm_flag comm_flag)
  */
 enum dsp_irq_comm_flag {
 	DSP_IRQ_COMM_FLAG_0 = 0,
@@ -168,7 +158,8 @@ enum dsp_err_code {
 	DSP_ERR_RES_IN_USE       = -7,   /**< Resource already in use */
 	DSP_ERR_NOT_ALLOC        = -8,   /**< Resource not allocated */
 	DSP_ERR_INVALID_PTR      = -9,   /**< Invalid pointer provided */
-	DSP_ERR_INVALID_FUNC_PTR = -10   /**< Invalid function pointer provided */
+	DSP_ERR_INVALID_FUNC_PTR = -10,   /**< Invalid function pointer provided */
+	DSP_ERR_COMMAND_FAILURE  = -11   /**< Invalid function pointer provided */
 };
 
 /*
@@ -186,71 +177,94 @@ enum dsp_aud_cmds {
 	DSP_AUD_PCM_REC            = 59, /* start and stop a PCM recording */
 	DSP_AUD_SPEECH_PROBE       = 66, /* config/start/stop a speech I/O */
 	DSP_AUD_SET_SWM_MIX_MATRIX = 77, /* set the mix matrix coefficients */
+	DSP_AUD_HW_PROBE           = 100,
+	DSP_AUD_SPEECH_PATH        = 26
 };
 
-struct dsp_audio_device;
+/**
+ * \brief dsp_add_fba_audio_msg_2_dsp \n
+ *
+ * Send an audio dsp command immediately to dsp without
+ * buffering.
+ *
+ * \param dsp_device
+ * \param word msg_id
+ * \param word msg_length
+ * \param word* p_msg_par
+ * \return None
+ *
+ */
+void dsp_add_audio_msg_2_dsp(struct dsp_audio_device *dsp,
+	U16 msg_id,
+	U16 msg_length,
+	U16 *p_msg_par);
+
 
 /**
  * @brief Activate a previously allocated interrupt.
  *
  * When called the dsp will forward the interupts to the ICU.
  *
+ * @param dsp       Pointer to the dsp audio device struct
  * @param irq_no    Interrupt number
  *
  * @return       Error code from enum DSP_ERROR_CODES.
  */
-enum dsp_err_code dsp_audio_irq_activate(struct dsp_audio_device *,
-		enum dsp_irq_no);
+enum dsp_err_code dsp_audio_irq_activate(struct dsp_audio_device *dsp,
+			enum dsp_irq_no);
 
 /**
  * @brief De-activate a previously allocated interrupt.
  *
  * When called the fuction will mask the interrupt.
  *
+ * @param dsp       Pointer to the dsp audio device struct
  * @param irq_no    Interrupt number
  *
  * @return       Error code from enum DSP_ERROR_CODES.
  */
-enum dsp_err_code dsp_audio_irq_deactivate(enum dsp_irq_no);
+enum dsp_err_code dsp_audio_irq_deactivate(struct dsp_audio_device *dsp,
+			enum dsp_irq_no);
 
 /**
- * @brief Acknowlege interrupt.
  *
- * This function is to be called from the interrupt service routine to
- * acknowledege that the interrupt is handled.
+ * @brief Acknowledge interrupt interrupt in hardware
  *
+   @param dsp       pointer to dsp devicer
  * @param irq_no    Interrupt number
  *
  * @return       Error code from enum DSP_ERROR_CODES.
  */
-enum dsp_err_code dsp_audio_irq_ack(enum dsp_irq_no);
-
+enum dsp_err_code dsp_audio_irq_ack(struct dsp_audio_device *dsp,
+			enum dsp_irq_no irq_no);
 /**
   \brief Sets a communication flag between the ARM and frame based audio DSP.
-
+  \param dsp_device pointer to dsp device
   \param DSP_AUDIO_FBA_DSP_COMM_FLAG comm_flag: Which communication flag to set
   \return none
 */
-void dsp_set_audio_dsp_communication_flag(enum dsp_irq_comm_flag);
+void dsp_set_audio_dsp_communication_flag(struct dsp_audio_device *dsp,
+			enum dsp_irq_comm_flag);
 
 /**
   \brief Resets a communication flag between the ARM and frame based audio DSP.
-
+  \param dsp_device pointer to dsp device
   \param dsp_irq_comm_flag comm_flag: Which communication flag to reset
   \return none
 */
-void dsp_reset_audio_dsp_communication_flag(enum dsp_irq_comm_flag);
+void dsp_reset_audio_dsp_communication_flag(struct dsp_audio_device *dsp,
+			enum dsp_irq_comm_flag);
 
 /**
   \brief Reads the value of a communication flag between the ARM and
-	 frame based audio DSP.
-
-  \param DSP_AUDIO_FBA_DSP_COMM_FLAG comm_flag: Which communication flag to read
+   audio DSP.
+  \param dsp_device pointer to dsp device
+  \param DSP_AUDIO_DSP_COMM_FLAG comm_flag: Which communication flag to read
   \return The value of the specified communication flag
 */
-int dsp_read_audio_dsp_communication_flag(enum dsp_irq_comm_flag);
+int dsp_read_audio_dsp_communication_flag(struct dsp_audio_device *dsp,
+			enum dsp_irq_comm_flag);
 /*@}*/
-
 
 /**
     @defgroup dsp_drv_irq Defines, types and functions for implementing the
@@ -270,7 +284,7 @@ int dsp_read_audio_dsp_communication_flag(enum dsp_irq_comm_flag);
   @return enum dsp_err_code error
 
  */
-enum dsp_err_code dsp_audio_init(void);
+enum dsp_err_code dsp_audio_init(struct list_head *dsp_linked_list);
 
 /**
   @brief Register DSP INT interrupt function and enable  interrupt
@@ -303,6 +317,15 @@ enum dsp_err_code dsp_audio_read_shm(
 );
 
 /**
+  @brief Returns the base address of the DSP shared memory
+
+  @return base address of DSP shmem
+
+ */
+U32 dsp_get_audio_shmem_base_addr(void);
+
+
+/**
   @brief Writes requested no of bytes to the shared memory
 
   @param U16*: Source to copy the data from
@@ -332,6 +355,8 @@ enum dsp_lisr_cb {
 	DSP_LISR_CB_SPEECH_IO_POINT_E,
 	DSP_LISR_CB_SPEECH_IO_POINT_F,
 	DSP_LISR_CB_PCM_PLAYER_A,
+	DSP_LISR_CB_HW_PROBE_A,
+	DSP_LISR_CB_HW_PROBE_B,
 	DSP_LISR_CB_END
 };
 

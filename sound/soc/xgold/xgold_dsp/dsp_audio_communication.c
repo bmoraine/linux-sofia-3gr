@@ -44,8 +44,8 @@
 **                             LOCAL DATA
 **
 ** =========================================================================*/
-/*!< Pointer to access command pipes for audio in shared memory */
-struct dsp_aud_cmd_pipes *p_sm_aud_cmd_data;
+/*!< Pointer to access command pipes for FBA audio in shared memory */
+static struct dsp_aud_cmd_pipes *p_sm_aud_cmd_data;
 /*!< Mutex to serialize one command at a time in the command pipe */
 static struct mutex dsp_audio_cmd_pipe_lock;
 
@@ -79,10 +79,6 @@ static struct mutex dsp_audio_cmd_pipe_lock;
 *****************************************************************************/
 void dsp_audio_communication_init(void)
 {
-	/* set to command pipe shared memory */
-	p_sm_aud_cmd_data = p_dsp_audio_dev->shm_mem +
-			DSP_AUDIO_COMMAND_PIPE_SM_OFFSET * 2;
-
 	/* Initialize the mutex for command pipe */
 	mutex_init(&dsp_audio_cmd_pipe_lock);
 }
@@ -94,7 +90,9 @@ void dsp_audio_communication_init(void)
 * Description: This procedure sends either the command interrupt 0, 1 or
 *              2 to the frame based audio DSP.
 *****************************************************************************/
-void dsp_cmd_int_2_audio_dsp(enum dsp_irq_no int_no, U16 msg_id)
+void dsp_cmd_int_2_audio_dsp(struct dsp_audio_device *dsp,
+			enum dsp_irq_no int_no,
+			u16 msg_id)
 {
 	int timeout_value;
 	enum dsp_irq_comm_flag comm_flag;
@@ -110,7 +108,7 @@ void dsp_cmd_int_2_audio_dsp(enum dsp_irq_no int_no, U16 msg_id)
 	switch (int_no) {
 	case DSP_IRQ_0:
 		comm_flag = DSP_IRQ_COMM_FLAG_0;
-/* P_msg_id_shmem already initialized to point to pipe 0 */
+/* p_msg_id_shmem already initialized to point to pipe 0 */
 	break;
 
 	case DSP_IRQ_1:
@@ -131,9 +129,9 @@ void dsp_cmd_int_2_audio_dsp(enum dsp_irq_no int_no, U16 msg_id)
 	}
 
 /* Set communication flag. Command is accepted when DSP clears flag. */
-	dsp_set_audio_dsp_communication_flag(comm_flag);
-/* Generate the interrupt in DSP subsystem */
-	dsp_generate_audio_dsp_interrupt(int_no);
+	dsp_set_audio_dsp_communication_flag(dsp, comm_flag);
+	/* Generate the interrupt in DSP subsystem */
+	dsp_generate_audio_dsp_interrupt(dsp, int_no);
 /* Init timeout_value */
 	timeout_value = 0;
 
@@ -150,8 +148,8 @@ void dsp_cmd_int_2_audio_dsp(enum dsp_irq_no int_no, U16 msg_id)
 		udelay(1);
 		timeout_value++;
 	} while ((timeout_value <= DSP_AUDIO_CMD_TIMEOUT) &&
-			((dsp_read_audio_dsp_communication_flag(comm_flag)) ||
-			(*p_msg_id_shmem != -msg_id)));
+			((dsp_read_audio_dsp_communication_flag(dsp, comm_flag))
+			|| (*p_msg_id_shmem != -msg_id)));
 
 /* If timeout value larger than DSP_AUDIO_CMD_TIMEOUT then trap!
 	Means DSP was to long to respond and probably crashed */
@@ -164,20 +162,26 @@ void dsp_cmd_int_2_audio_dsp(enum dsp_irq_no int_no, U16 msg_id)
 
 /*****************************************************************************
 * Function:... dsp_add_audio_msg_2_dsp
-* Parameters:. msg_id: the ID number of the frame based audio DSP command
+* Parameters:. dsp_device: the dsp_device structure pointing to the DSP
+*              msg_id: the ID number of the audio DSP command
 *              msg_length: Number of 16-bit words in the command
 *              p_msg_par: Pointer to the command data
 * Returns:.... none
 * Description: This procedure implements the frame based audio dsp command
 				interface.
 ******************************************************************************/
-void dsp_add_audio_msg_2_dsp(U16  msg_id, U16 msg_length, U16 *p_msg_par)
+void dsp_add_audio_msg_2_dsp(
+	struct dsp_audio_device *dsp,
+	U16  msg_id,
+	U16 msg_length,
+	U16 *p_msg_par)
 {
 	U16  *p_dsp_cmd_pipe;
 
 	xgold_debug("in %s\n", __func__);
 
-/* Make a sanity check. Check that no parameters are send if message length is
+
+/* Make a sanity check. Check that no parameters are sent if message length is
 	larger than the message ID length */
 	if (msg_length > DSP_AUDIO_CMD_ID_LEN && p_msg_par == NULL) {
 		xgold_debug("Too long message length\n");
@@ -186,6 +190,8 @@ void dsp_add_audio_msg_2_dsp(U16  msg_id, U16 msg_length, U16 *p_msg_par)
 
 /* lock the pipe 2 */
 	mutex_lock(&dsp_audio_cmd_pipe_lock);
+	p_sm_aud_cmd_data = dsp->shm_mem +
+				DSP_AUDIO_COMMAND_PIPE_SM_OFFSET * 2;
 
 /* Point to pipe 2 */
 	p_dsp_cmd_pipe = p_sm_aud_cmd_data->cmd_2_data;
@@ -204,7 +210,7 @@ void dsp_add_audio_msg_2_dsp(U16  msg_id, U16 msg_length, U16 *p_msg_par)
 	xgold_debug("cmd id = %d, msg_length = %d", msg_id, msg_length);
 
 /* Generate interrupt to dsp for command in pipe 2 */
-	dsp_cmd_int_2_audio_dsp(DSP_IRQ_2, msg_id);
+	dsp_cmd_int_2_audio_dsp(dsp, DSP_IRQ_2, msg_id);
 
 /* unlock the pipe 2 */
 	mutex_unlock(&dsp_audio_cmd_pipe_lock);

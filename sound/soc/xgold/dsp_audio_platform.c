@@ -60,7 +60,7 @@ static int dsp_audio_rw_shm_control_get(
 		rw_shm_data.len_in_bytes = p_rw_shm_header->len_in_bytes;
 		rw_shm_data.p_data = (U16 *) p_rw_shm_header->data;
 		ret =
-		    p_dsp_audio_dev->ops->
+		    p_dsp_audio_dev->p_dsp_common_data->ops->
 		    set_controls(DSP_AUDIO_CONTROL_READ_SHM,
 				 (void *)&rw_shm_data);
 	} else {
@@ -87,7 +87,7 @@ static int dsp_audio_rw_shm_control_set(
 		rw_shm_data.len_in_bytes = p_rw_shm_header->len_in_bytes;
 		rw_shm_data.p_data = (U16 *) p_rw_shm_header->data;
 
-		ret = p_dsp_audio_dev->ops->set_controls(
+		ret = p_dsp_audio_dev->p_dsp_common_data->ops->set_controls(
 			DSP_AUDIO_CONTROL_WRITE_SHM, (void *)&rw_shm_data);
 	} else {
 		ret = -ENODEV;
@@ -123,7 +123,7 @@ static int dsp_audio_send_cmd_control_set(
 		cmd_data.command_len = p_cmd_header->command_len;
 		cmd_data.p_data = (U16 *) p_cmd_header->data;
 
-		ret = p_dsp_audio_dev->ops->set_controls(
+		ret = p_dsp_audio_dev->p_dsp_common_data->ops->set_controls(
 			DSP_AUDIO_CONTROL_SEND_CMD, (void *)&cmd_data);
 	} else {
 		ret = -ENODEV;

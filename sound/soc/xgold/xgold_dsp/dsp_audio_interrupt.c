@@ -40,6 +40,18 @@ const struct dsp_lisr_cb_conf lisr_int1_db[] = {
 /* Interrupt callback list for DSP_INT_2 */
 const struct dsp_lisr_cb_conf lisr_int2_db[] = {
 	{DSP_LISR_CB_PCM_RECORDER, DSP_IRQ_COMM_FLAG_4},
+	{DSP_LISR_CB_END, (enum dsp_irq_comm_flag)-1},
+};
+
+/* Interrupt callback list for DSP_INT_3 */
+const struct dsp_lisr_cb_conf lisr_int3_db[] = {
+	{DSP_LISR_CB_HW_PROBE_A, DSP_IRQ_COMM_FLAG_1},
+	{DSP_LISR_CB_HW_PROBE_B, DSP_IRQ_COMM_FLAG_2},
+	{DSP_LISR_CB_END, (enum dsp_irq_comm_flag)-1},
+};
+
+/* Interrupt callback list for DSP_INT_6 */
+const struct dsp_lisr_cb_conf lisr_int6_db[] = {
 	{DSP_LISR_CB_SPEECH_IO_POINT_A, DSP_IRQ_COMM_FLAG_8},
 	{DSP_LISR_CB_SPEECH_IO_POINT_B, DSP_IRQ_COMM_FLAG_9},
 	{DSP_LISR_CB_SPEECH_IO_POINT_C, DSP_IRQ_COMM_FLAG_10},
@@ -55,10 +67,10 @@ const struct dsp_lisr_cb_conf *p_lisr_db[DSP_IRQ_7] = {
 	lisr_int0_db,
 	lisr_int1_db,
 	lisr_int2_db,
+	lisr_int3_db,
 	NULL,
 	NULL,
-	NULL,
-	NULL,
+	lisr_int6_db,
 };
 
 /* FUNCTION-DESCRIPTION
@@ -98,15 +110,18 @@ enum dsp_err_code dsp_audio_irq_activate(struct dsp_audio_device *dsp,
 
 	if (irq_no > DSP_IRQ_7)
 		return DSP_ERR_INVALID_IRQ;
-
-	/* Read IMSC register for fba DSP */
-	reg = dsp_get_audio_imsc();
+	/* Read IMSC register for sba DSP */
+	reg = dsp_get_audio_imsc(dsp);
 	/* Check if the interrupt is disabled */
+
+	/* For LTE IRQs are split beween 2 dsps [0..3]*/
+	irq_no = irq_no % 4;
+
 	if (!(reg & BIT(irq_no))) {
 		/* Set bit in IMSC register for intended interrupt */
 		reg |= BIT(irq_no);
 		/* Set the updated value for the IMSC register */
-		dsp_set_audio_imsc(reg);
+		dsp_set_audio_imsc(dsp, reg);
 	}
 	return DSP_SUCCESS;
 }
@@ -126,21 +141,20 @@ enum dsp_err_code dsp_audio_irq_activate(struct dsp_audio_device *dsp,
 ** DSP_ERR_NOT_ALLOC       Interrupt Not allocated
 **
 */
-enum dsp_err_code dsp_audio_irq_deactivate(enum dsp_irq_no irq_no)
+enum dsp_err_code dsp_audio_irq_deactivate(struct dsp_audio_device *dsp,
+				enum dsp_irq_no irq_no)
 {
 	enum dsp_err_code ret = DSP_SUCCESS;
 	U32 reg;
-
 	if (irq_no > DSP_IRQ_7)
 		return DSP_ERR_INVALID_IRQ;
-
 	/* Read IMSC register for modem DSP */
-	reg = dsp_get_audio_imsc();
+	reg = dsp_get_audio_imsc(dsp);
 	if (0 != (reg & (1 << irq_no))) {
 		/* Reset bit in IMSC register for intended interrupt */
 		reg &= ~(1 << irq_no);
 		/* Set the updated value for the IMSC register */
-		dsp_set_audio_imsc(reg);
+		dsp_set_audio_imsc(dsp, reg);
 	}
 	return ret;
 }
@@ -157,14 +171,18 @@ enum dsp_err_code dsp_audio_irq_deactivate(enum dsp_irq_no irq_no)
 ** DSP_ERR_INVALID_HANDLE  Invalid interrupt handle
 ** DSP_ERR_NOT_ALLOC       Interrupt Not allocated
 */
-enum dsp_err_code dsp_audio_irq_ack(enum dsp_irq_no irq_no)
+enum dsp_err_code dsp_audio_irq_ack(struct dsp_audio_device *dsp_dev,
+			enum dsp_irq_no irq_no)
 {
 	enum dsp_err_code ret = DSP_SUCCESS;
 
 	if (irq_no > DSP_IRQ_7)
 		return DSP_ERR_INVALID_IRQ;
 
+	/* For LTE IRQs are split beween 2 dsps [0..3]*/
+	irq_no = irq_no % 4;
+
 	/* Set the ICR register */
-	dsp_set_audio_icr(1 << irq_no);
+	dsp_set_audio_icr(dsp_dev, 1 << irq_no);
 	return ret;
 }

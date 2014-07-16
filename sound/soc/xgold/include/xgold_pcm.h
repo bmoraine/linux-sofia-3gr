@@ -24,6 +24,8 @@ enum xgold_pcm_stream_type {
 	STREAM_PLAY = 0,
 	/*TODO PLAY2*/
 	STREAM_REC,
+	HW_PROBE_A,
+	HW_PROBE_B,
 	NR_STREAM
 };
 

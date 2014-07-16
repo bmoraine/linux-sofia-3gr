@@ -27,11 +27,46 @@
 #include <sound/soc.h>
 #include <linux/pm_runtime.h>
 #include <linux/delay.h>
+#include <linux/clk.h>
+#include <linux/reset.h>
+#include <linux/regulator/consumer.h>
+#include <linux/platform_device_pm.h>
 
 #include "xgold_machine.h"
 #include "dsp_audio_platform.h"
 #include "dsp_audio_driverif.h"
 #include "aud_lib_dsp_internal.h"
+
+
+#define MAX_DSP_CMD_LEN_BYTES		0x70
+#define PROP_DSP_INT_IMSC				"intel,dsp-imsc"
+#define PROP_DSP_INT_ICR				"intel,dsp-icr"
+#define PROP_DSP_INT_MIS				"intel,dsp-mis"
+#define PROP_DSP_CF						"intel,dsp-cf"
+#define PROP_DSP_REMAIN_PCM				"intel,dsp-pcm-offset"
+#define PROP_DSP_BUF_SIZE_UL_OFFSET		"intel,dsp-buf-size-ul-offset"
+#define PROP_DSP_BUF_SIZE_DL_OFFSET		"intel,dsp-buf-size-dl-offset"
+#define PROP_DSP_SM_AUD_BUF_UL_OFFSET	"intel,dsp-sm-aud-buf-ul-offset"
+#define PROP_DSP_CMD_GAIN_CONST			"intel,dsp-cmd-gain_const"
+#define PROP_DSP_CMD_SWM_PCM_OUT		"intel,dsp-cmd-swm_pcmout"
+#define PROP_DSP_CMD_SWM_AFE_OUT		"intel,dsp-cmd-swm_afeout"
+#define PROP_DSP_CMD_SET_IIR_PCM_LEFT	"intel,dsp-cmd-pcm_iir_left"
+#define PROP_DSP_CMD_SET_IIR_PCM_RIGHT	"intel,dsp-cmd-pcm_iir_right"
+#define PROP_DSP_CMD_SET_IIR_AFE_TX		"intel,dsp-cmd-afe_tx_iir"
+#define PROP_DSP_CMD_SET_GAIN			"intel,dsp-cmd-pcm_gain"
+#define PROP_DSP_CMD_SET_MIX_MATRIX		"intel,dsp-cmd-mix_matrix"
+#define PROP_DSP_SM_HW_PROBE_A_OFFSET	"intel,dsp-sm-buf_sm_hw_probe_a_offset"
+#define PROP_DSP_SM_HW_PROBE_B_OFFSET	"intel,dsp-sm-buf_sm_hw_probe_b_offset"
+#define PROP_DSP_SM_SPEECH_BUFFER_1	"intel,dsp-sm-buf-speech-buffer_1"
+#define PROP_DSP_SM_SPEECH_BUFFER_2	"intel,dsp-sm-buf-speech-buffer_2"
+#define PROP_DSP_SM_SPEECH_BUFFER_3	"intel,dsp-sm-buf-speech-buffer_3"
+#define PROP_DSP_SM_SPEECH_BUFFER_4	"intel,dsp-sm-buf-speech-buffer_4"
+#define PROP_DSP_SM_SPEECH_BUFFER_5	"intel,dsp-sm-buf-speech-buffer_5"
+#define PROP_DSP_SM_SPEECH_BUFFER_6	"intel,dsp-sm-buf-speech-buffer_6"
+#define PROP_DSP_CMD_ENA_I2S2_TX	"intel,dsp-cmd-i2s2_tx"
+#define PROP_DSP_CMD_ENA_I2S2_RX	"intel,dsp-cm-i2s2_rx"
+
+
 
 #define	xgold_err(fmt, arg...) \
 		pr_err("snd: dsp: "fmt, ##arg)
@@ -50,9 +85,15 @@ struct dsp_audio_cb_list {
 	void *dev;
 } g_dsp_audio_cb_list[DSP_LISR_CB_END] = {{0,} };
 
+/* dsp device */
+/*FIXME: remove global variables */
+static struct dsp_audio_device *g_dsp_audio_dev;
+static struct dsp_common_data *p_dsp_common_data;
+static LIST_HEAD(list_dsp);
+
 /* Function to register the callbacks for interrupt type of enum dsp_lisr_cb */
 int register_dsp_audio_lisr_cb(enum dsp_lisr_cb lisr_type,
-	void (*p_func) (void *), void *dev)
+	void (*p_func)(void *), void *dev)
 {
 	if (lisr_type >= DSP_LISR_CB_END)
 		return -EINVAL;
@@ -67,7 +108,7 @@ int register_dsp_audio_lisr_cb(enum dsp_lisr_cb lisr_type,
 
 /* Function to invoke the registered callbacks for interrupts */
 static void dsp_audio_lisr_cb_handler(enum dsp_irq_no intr_no,
-				      void *dev)
+				      void *dsp_dev)
 {
 	int comm_flag = 0;
 	int i = 0;
@@ -83,19 +124,21 @@ static void dsp_audio_lisr_cb_handler(enum dsp_irq_no intr_no,
 		while (p_dsp_aud_lisr_db[i].lisr_cb_type !=
 			DSP_LISR_CB_END) {
 			comm_flag =
-			    dsp_read_audio_dsp_communication_flag
-			    (p_dsp_aud_lisr_db[i].comm_flag_no);
+		dsp_read_audio_dsp_communication_flag(
+		(struct dsp_audio_device *)dsp_dev,
+			p_dsp_aud_lisr_db[i].comm_flag_no);
 			if (comm_flag) {
-				dsp_reset_audio_dsp_communication_flag
-				    (p_dsp_aud_lisr_db[i].comm_flag_no);
+				dsp_reset_audio_dsp_communication_flag(
+				(struct dsp_audio_device *)dsp_dev,
+					p_dsp_aud_lisr_db[i].comm_flag_no);
 				if (g_dsp_audio_cb_list
-				    [p_dsp_aud_lisr_db[i].lisr_cb_type].
-				    p_func != NULL) {
+				[p_dsp_aud_lisr_db[i].lisr_cb_type].
+				p_func != NULL) {
 					(g_dsp_audio_cb_list
 					 [p_dsp_aud_lisr_db[i].lisr_cb_type].
 					 p_func) (g_dsp_audio_cb_list
-						  [p_dsp_aud_lisr_db[i].
-						   lisr_cb_type].dev);
+						[p_dsp_aud_lisr_db[i].
+						lisr_cb_type].dev);
 				}
 			}
 			i++;
@@ -105,23 +148,21 @@ static void dsp_audio_lisr_cb_handler(enum dsp_irq_no intr_no,
 }
 
 /* LISR for DSP_INT1 */
-static irqreturn_t dsp_audio_int1_lisr(int irq, void *dev)
+static irqreturn_t dsp_audio_int1_lisr(int irq, void *dsp_dev)
 {
 	xgold_debug("In %s\n", __func__);
-
 	/* clear the interrupt */
-	dsp_audio_irq_ack(DSP_IRQ_1);
+	dsp_audio_irq_ack((struct dsp_audio_device *)dsp_dev, DSP_IRQ_1);
 
 	return IRQ_WAKE_THREAD;
 }
 
 /* LISR for DSP_INT2 */
-static irqreturn_t dsp_audio_int2_lisr(int irq, void *dev)
+static irqreturn_t dsp_audio_int2_lisr(int irq, void *dsp_dev)
 {
 	xgold_debug("In %s\n", __func__);
-
 	/* clear the interrupt */
-	dsp_audio_irq_ack(DSP_IRQ_2);
+	dsp_audio_irq_ack((struct dsp_audio_device *)dsp_dev, DSP_IRQ_2);
 
 	return IRQ_WAKE_THREAD;
 }
@@ -142,9 +183,43 @@ static irqreturn_t dsp_audio_int2_hisr(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-/*FIXME remove static variable */
-/* dsp device */
-static struct dsp_audio_device *g_dsp_audio_dev;
+/* LISR for DSP_INT3 */
+static irqreturn_t dsp_audio_int3_lisr(int irq, void *dsp_dev)
+{
+	xgold_debug("In %s\n", __func__);
+	/* clear the interrupt */
+	dsp_audio_irq_ack((struct dsp_audio_device *)dsp_dev, DSP_IRQ_3);
+
+	return IRQ_WAKE_THREAD;
+}
+
+/* HISR for DSP_INT3 */
+static irqreturn_t dsp_audio_int3_hisr(int irq, void *dev)
+{
+	xgold_debug("In %s\n", __func__);
+	dsp_audio_lisr_cb_handler(DSP_IRQ_3, dev);
+	return IRQ_HANDLED;
+}
+
+#if 0 /* BU_hack , speech probe interrupt not enabled in MV */
+/* LISR for DSP_INT6 */
+static irqreturn_t dsp_audio_int6_lisr(int irq, void *dsp_dev)
+{
+	xgold_debug("In %s\n", __func__);
+	/* clear the interrupt */
+	dsp_audio_irq_ack((struct dsp_audio_device *)dsp_dev, DSP_IRQ_6);
+
+	return IRQ_WAKE_THREAD;
+}
+
+/* HISR for DSP_INT6 */
+static irqreturn_t dsp_audio_int6_hisr(int irq, void *dev)
+{
+	xgold_debug("In %s\n", __func__);
+	dsp_audio_lisr_cb_handler(DSP_IRQ_6, dev);
+	return IRQ_HANDLED;
+}
+#endif
 
 /* open call for the device */
 static int dsp_audio_dev_open(void)
@@ -200,19 +275,244 @@ static void dsp_audio_mark_scheduler_status(struct dsp_aud_cmd_data *p_cmd_data)
 	}
 }
 
+static int dsp_audio_xgold_set_pcm_path(bool pcm_dir)
+{
+	int ret_val = 0;
+	unsigned cmd_len;
+	unsigned short *p_dsp_cmd;
+
+	p_dsp_cmd = kzalloc(MAX_DSP_CMD_LEN_BYTES, GFP_KERNEL);
+
+	xgold_debug("%s pcm_dir %d\n", __func__, pcm_dir);
+
+	if (p_dsp_cmd == NULL) {
+		xgold_err("Failed to allocate memory for DSP cmds\n");
+		return -ENOMEM;
+	}
+
+	/* Program Gain constant in firmware */
+	of_find_property(g_dsp_audio_dev->dev->of_node,
+			PROP_DSP_CMD_GAIN_CONST,
+			&cmd_len);
+
+	ret_val =
+		of_property_read_u16_array(g_dsp_audio_dev->dev->of_node,
+					PROP_DSP_CMD_GAIN_CONST,
+					p_dsp_cmd,
+					cmd_len/2);
+
+	if (ret_val != 0) {
+		xgold_err("read %s property failed with error %d\n",
+		PROP_DSP_CMD_GAIN_CONST, ret_val);
+	} else
+		(void)dsp_audio_cmd(*p_dsp_cmd,
+						*(p_dsp_cmd + 1),
+						p_dsp_cmd + 2);
+
+	if (pcm_dir == 0) {
+		/* Program PCM_IN->AFE_OUT SWM connection */
+		of_find_property(g_dsp_audio_dev->dev->of_node,
+			PROP_DSP_CMD_SWM_AFE_OUT,
+			&cmd_len);
+
+		ret_val =
+			of_property_read_u16_array(
+					g_dsp_audio_dev->dev->of_node,
+					PROP_DSP_CMD_SWM_AFE_OUT,
+					p_dsp_cmd,
+					cmd_len/2);
+
+		if (ret_val != 0) {
+			xgold_err("read %s property failed with error %d\n",
+			PROP_DSP_CMD_SWM_AFE_OUT, ret_val);
+		} else
+			(void)dsp_audio_cmd(*p_dsp_cmd,
+							*(p_dsp_cmd + 1),
+							p_dsp_cmd + 2);
+
+		/*Switch off IIR filters in PCM Left path */
+		of_find_property(g_dsp_audio_dev->dev->of_node,
+			PROP_DSP_CMD_SET_IIR_PCM_LEFT,
+			&cmd_len);
+
+		ret_val =
+			of_property_read_u16_array(
+						g_dsp_audio_dev->dev->of_node,
+						PROP_DSP_CMD_SET_IIR_PCM_LEFT,
+						p_dsp_cmd,
+						cmd_len/2);
+
+		if (ret_val != 0) {
+			xgold_err("read %s property failed with error %d\n",
+			PROP_DSP_CMD_SET_IIR_PCM_LEFT, ret_val);
+		} else
+			(void)dsp_audio_cmd(*p_dsp_cmd,
+							*(p_dsp_cmd + 1),
+							p_dsp_cmd + 2);
+
+		/*Switch off IIR filters in PCM RIGHT path */
+		of_find_property(g_dsp_audio_dev->dev->of_node,
+				PROP_DSP_CMD_SET_IIR_PCM_RIGHT,
+				&cmd_len);
+
+		ret_val =
+			of_property_read_u16_array(
+						g_dsp_audio_dev->dev->of_node,
+						PROP_DSP_CMD_SET_IIR_PCM_RIGHT,
+						p_dsp_cmd,
+						cmd_len/2);
+
+		if (ret_val != 0) {
+			xgold_err("read %s property failed with error %d\n",
+			PROP_DSP_CMD_SET_IIR_PCM_RIGHT, ret_val);
+		} else
+			(void)dsp_audio_cmd(*p_dsp_cmd,
+							*(p_dsp_cmd + 1),
+							p_dsp_cmd + 2);
+
+		/*Enable I2S2 in playback path */
+		of_find_property(g_dsp_audio_dev->dev->of_node,
+				PROP_DSP_CMD_ENA_I2S2_TX,
+				&cmd_len);
+
+		ret_val =
+			of_property_read_u16_array(
+						g_dsp_audio_dev->dev->of_node,
+						PROP_DSP_CMD_ENA_I2S2_TX,
+						p_dsp_cmd,
+						cmd_len/2);
+
+		if (ret_val != 0) {
+			xgold_err("read %s property failed with error %d\n",
+			PROP_DSP_CMD_ENA_I2S2_TX, ret_val);
+		} else
+			(void)dsp_audio_cmd(*p_dsp_cmd,
+							*(p_dsp_cmd + 1),
+							p_dsp_cmd + 2);
+
+	} else {
+
+		/* Program AFE_IN->PCM_OUT SWM connection */
+		of_find_property(g_dsp_audio_dev->dev->of_node,
+			PROP_DSP_CMD_SWM_PCM_OUT,
+			&cmd_len);
+
+		ret_val =
+			of_property_read_u16_array(
+						g_dsp_audio_dev->dev->of_node,
+						PROP_DSP_CMD_SWM_PCM_OUT,
+						p_dsp_cmd,
+						cmd_len/2);
+
+		if (ret_val != 0) {
+			xgold_err("read %s property failed with error %d\n",
+			PROP_DSP_CMD_SWM_PCM_OUT, ret_val);
+		} else
+			(void)dsp_audio_cmd(*p_dsp_cmd,
+							*(p_dsp_cmd + 1),
+							p_dsp_cmd + 2);
+
+		/*Switch off IIR filters in AFE TX path */
+		of_find_property(g_dsp_audio_dev->dev->of_node,
+				PROP_DSP_CMD_SET_IIR_AFE_TX,
+				&cmd_len);
+
+		ret_val =
+			of_property_read_u16_array(
+						g_dsp_audio_dev->dev->of_node,
+						PROP_DSP_CMD_SET_IIR_AFE_TX,
+						p_dsp_cmd,
+						cmd_len/2);
+
+		if (ret_val != 0) {
+			xgold_err("read %s property failed with error %d\n",
+			PROP_DSP_CMD_SET_IIR_AFE_TX, ret_val);
+		} else
+			(void)dsp_audio_cmd(*p_dsp_cmd,
+							*(p_dsp_cmd + 1),
+							p_dsp_cmd + 2);
+
+		/*Enable I2S2 RX*/
+		of_find_property(g_dsp_audio_dev->dev->of_node,
+				PROP_DSP_CMD_ENA_I2S2_RX,
+				&cmd_len);
+
+		ret_val =
+			of_property_read_u16_array(
+						g_dsp_audio_dev->dev->of_node,
+						PROP_DSP_CMD_ENA_I2S2_RX,
+						p_dsp_cmd,
+						cmd_len/2);
+
+		if (ret_val != 0) {
+			xgold_err("read %s property failed with error %d\n",
+			PROP_DSP_CMD_ENA_I2S2_RX, ret_val);
+		} else
+			(void)dsp_audio_cmd(*p_dsp_cmd,
+							*(p_dsp_cmd + 1),
+							p_dsp_cmd + 2);
+
+	}
+
+	/*Unmute all gain cells in DSP*/
+	of_find_property(g_dsp_audio_dev->dev->of_node,
+			PROP_DSP_CMD_SET_GAIN,
+			&cmd_len);
+
+	ret_val =
+		of_property_read_u16_array(
+					g_dsp_audio_dev->dev->of_node,
+					PROP_DSP_CMD_SET_GAIN,
+					p_dsp_cmd,
+					cmd_len/2);
+
+	if (ret_val != 0) {
+		xgold_err("read %s property failed with error %d\n",
+		PROP_DSP_CMD_SET_GAIN, ret_val);
+	} else
+		(void)dsp_audio_cmd(*p_dsp_cmd,
+						*(p_dsp_cmd + 1),
+						p_dsp_cmd + 2);
+
+	/*Set mix Matrix in DSP*/
+	of_find_property(g_dsp_audio_dev->dev->of_node,
+		PROP_DSP_CMD_SET_MIX_MATRIX,
+		&cmd_len);
+
+	ret_val =
+		of_property_read_u16_array(
+				g_dsp_audio_dev->dev->of_node,
+				PROP_DSP_CMD_SET_MIX_MATRIX,
+				p_dsp_cmd,
+				cmd_len/2);
+
+	if (ret_val != 0) {
+		xgold_err("read %s property failed with error %d\n",
+		PROP_DSP_CMD_SET_MIX_MATRIX, ret_val);
+	} else
+		(void)dsp_audio_cmd(*p_dsp_cmd,
+						*(p_dsp_cmd + 1),
+						p_dsp_cmd + 2);
+
+	kfree(p_dsp_cmd);
+	return ret_val;
+}
+
+
+
 /* device controls handler */
 static int dsp_audio_dev_set_controls(enum dsp_audio_controls cmd, void *arg)
 {
 	int ret_val = 0;
+	bool *power_state = NULL;
 	struct dsp_rw_shm_data *p_rw_shm = NULL;
 	struct dsp_aud_cmd_data *p_cmd_data = NULL;
-
 	unsigned short *data_trace_ptr;
 	unsigned short i;
 
 	xgold_debug("In :%s, cmd:%d\n", __func__, cmd);
 
-	if (!arg)
+	if (NULL == arg && cmd <= DSP_AUDIO_CONTROL_WRITE_SHM)
 		return -EINVAL;
 
 	switch (cmd) {
@@ -258,6 +558,69 @@ static int dsp_audio_dev_set_controls(enum dsp_audio_controls cmd, void *arg)
 			p_rw_shm->len_in_bytes);
 		break;
 
+	case DSP_AUDIO_CONTROL_SET_PLAY_PATH:
+		/* control to setup PCM play path */
+		xgold_err("DSP_AUDIO_CONTROL_SET_PLAY_PATH\n");
+			ret_val = dsp_audio_xgold_set_pcm_path(0);
+		break;
+
+	case DSP_AUDIO_CONTROL_SET_REC_PATH:
+		/* control to setup PCM record path */
+			ret_val = dsp_audio_xgold_set_pcm_path(1);
+		break;
+
+	case DSP_AUDIO_POWER_REQ:
+		/*control to request DSP power */
+		power_state = (bool *)arg;
+
+		xgold_debug("DSP power request %d\n", *power_state);
+
+		/* DSP power management is done only for SF LTE in linux */
+		if (g_dsp_audio_dev->id != XGOLD_DSP_XG742_SBA)
+			break;
+
+		if (*power_state == 1) {
+			ret_val = pm_runtime_get_sync(g_dsp_audio_dev->dev);
+
+			if (ret_val < 0) {
+				xgold_err("%s: Power req error for sba %d\n",
+					__func__, ret_val);
+				return ret_val;
+			}
+
+			ret_val =
+				pm_runtime_get_sync(
+				g_dsp_audio_dev->
+				p_dsp_common_data->fba_dev);
+
+			if (ret_val < 0) {
+				xgold_err("%s: Power req error for fba %d\n",
+				__func__, ret_val);
+				return ret_val;
+			}
+		} else {
+			ret_val =
+				pm_runtime_put_sync_suspend(
+				g_dsp_audio_dev->dev);
+
+			if (ret_val < 0) {
+				xgold_err("%s: Power req error for sba %d\n",
+						__func__, ret_val);
+				return ret_val;
+			}
+
+			ret_val = pm_runtime_put_sync_suspend(
+				g_dsp_audio_dev->
+				p_dsp_common_data->fba_dev);
+
+			if (ret_val < 0) {
+				xgold_err("%s: Power req error for fba %d\n",
+						__func__, ret_val);
+				return ret_val;
+			}
+		}
+		break;
+
 	default:
 		break;
 	}
@@ -265,38 +628,87 @@ static int dsp_audio_dev_set_controls(enum dsp_audio_controls cmd, void *arg)
 	return ret_val;
 }
 
+enum dsp_err_code dsp_audio_intr_activate(
+			enum dsp_irq_no irq_no)
+{
+	enum dsp_err_code ret = DSP_SUCCESS;
+	struct dsp_audio_device *dsp_dev = NULL;
+
+	list_for_each_entry(dsp_dev, &list_dsp, node) {
+		switch (dsp_dev->id) {
+		case XGOLD_DSP_XG632:
+		case XGOLD_DSP_XG642:
+		case XGOLD_DSP_XG631:
+		case XGOLD_DSP_XG223:
+			ret = dsp_audio_irq_activate(dsp_dev,
+					irq_no);
+		break;
+		case XGOLD_DSP_XG742_FBA:
+			if (irq_no > 3)
+				ret = dsp_audio_irq_activate(dsp_dev,
+						irq_no);
+			else
+				ret = DSP_ERR_INVALID_REQUEST;
+		break;
+		case XGOLD_DSP_XG742_SBA:
+			if (irq_no < 4)
+				ret = dsp_audio_irq_activate(dsp_dev,
+						irq_no);
+			else
+				ret = DSP_ERR_INVALID_REQUEST;
+		break;
+
+		default:
+		break;
+		}
+	}
+	return ret;
+}
+
+enum dsp_err_code dsp_audio_intr_deactivate(
+			enum dsp_irq_no irq_no)
+{
+	struct dsp_audio_device *dsp_dev = NULL;
+	enum dsp_err_code ret = DSP_SUCCESS;
+
+	list_for_each_entry(dsp_dev, &list_dsp, node) {
+		switch (dsp_dev->id) {
+		case XGOLD_DSP_XG632:
+		case XGOLD_DSP_XG642:
+		case XGOLD_DSP_XG631:
+		case XGOLD_DSP_XG223:
+			ret = dsp_audio_irq_deactivate(dsp_dev, irq_no);
+		break;
+		case XGOLD_DSP_XG742_FBA:
+			if (irq_no > 3)
+				ret = dsp_audio_irq_deactivate(dsp_dev,
+						irq_no);
+			else
+				ret = DSP_ERR_INVALID_REQUEST;
+		break;
+		case XGOLD_DSP_XG742_SBA:
+			if (irq_no < 4)
+				ret = dsp_audio_irq_deactivate(dsp_dev,
+						irq_no);
+			else
+				ret = DSP_ERR_INVALID_REQUEST;
+		break;
+
+		default:
+		break;
+		}
+	}
+	return ret;
+}
+
+
 /* dsp device operations */
 static struct dsp_ops dsp_dev_ops = {
 	.open = dsp_audio_dev_open,
 	.set_controls = dsp_audio_dev_set_controls,
+	.irq_activate = dsp_audio_intr_activate,
+	.irq_deactivate = dsp_audio_intr_deactivate,
 	.close = dsp_audio_dev_close,
-};
-
-/* runtime PM operations of dsp device */
-static int dsp_audio_runtime_suspend(struct device *dev)
-{
-	xgold_debug("dsp_audio_runtime_suspend called\n");
-	return 0;
-}
-
-static int dsp_audio_runtime_resume(struct device *dev)
-{
-	xgold_debug("dsp_audio_runtime_resume called\n");
-	return 0;
-}
-
-static int dsp_audio_runtime_idle(struct device *dev)
-{
-	xgold_debug("dsp_audio_runtime_idle called\n");
-	return 0;
-}
-
-static const struct dev_pm_ops dsp_audio_pm = {
-	.suspend = dsp_audio_runtime_suspend,
-	.resume = dsp_audio_runtime_resume,
-	.runtime_suspend = dsp_audio_runtime_suspend,
-	.runtime_resume = dsp_audio_runtime_resume,
-	.runtime_idle = dsp_audio_runtime_idle,
 };
 
 /* static functions */
@@ -307,6 +719,9 @@ enum dsp_interrupt {
 	TONE_INT,
 	I2S_INT,
 	AUDIO_OV_USB,
+	HW_PROBE,
+	SPEECH_PROBES,
+	DSP_INTERRUPT_END
 };
 
 static int xgold_dsp_get_interrupt_index(const char *name)
@@ -319,15 +734,13 @@ static int xgold_dsp_get_interrupt_index(const char *name)
 		return PLAYBACK2_INT;
 	else if (!strcmp(name, "dsp_tone"))
 		return TONE_INT;
+	else if (!strcmp(name, "dsp_hw_probe"))
+		return HW_PROBE;
+	else if (!strcmp(name, "dsp_speech_probe"))
+		return SPEECH_PROBES;
 	else
 		return -EINVAL;
 }
-
-#define PROP_DSP_INT_IMSC		"intel,dsp-imsc"
-#define PROP_DSP_INT_ICR		"intel,dsp-icr"
-#define PROP_DSP_INT_MIS		"intel,dsp-mis"
-#define PROP_DSP_CF			"intel,dsp-cf"
-#define PROP_DSP_REMAIN_PCM		"intel,dsp-pcm-offset"
 
 /* DSP interrupts */
 #define DSP_INT_ID_LENGTH	9
@@ -365,13 +778,10 @@ static int xgold_dsp_get_interrupt_index(const char *name)
 	((_mis & DSP_INT_MIS_MASK) << DSP_INT_MIS_OFFSET) | \
 	((_cf & DSP_INT_CF_MASK) << DSP_INT_CF_OFFSET))
 
-static int xgold_dsp_fill_interrupt_array(struct dsp_audio_device *dsp)
+static int xgold_dsp_fill_interrupt_array(struct device_node *np,
+		struct dsp_audio_device *dsp)
 {
-	struct device_node *np = dsp->dev->of_node;
-	unsigned out_imsc[8];
-	unsigned out_icr[8];
-	unsigned out_mis[8];
-	unsigned out_cf[8];
+	unsigned out_imsc[8], out_icr[8], out_mis[8], out_cf[8];
 	int irq_num, ret, i;
 
 	if (!np) {
@@ -472,6 +882,119 @@ static int xgold_dsp_init_reg_array(struct device_node *np,
 
 }
 
+static void xgold_dsp_fill_shm_offset(struct device_node *np,
+		struct dsp_audio_device *dsp)
+{
+	int ret = 0;
+
+	/* PCM remaining block offset */
+	ret = of_property_read_u32_array(np,
+			PROP_DSP_REMAIN_PCM,
+			dsp->p_dsp_common_data->pcm_offset, 2);
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_REMAIN_PCM);
+
+	/* Buffer size UL offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_BUF_SIZE_UL_OFFSET,
+			&dsp->p_dsp_common_data->buf_size_ul_offset);
+
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_BUF_SIZE_UL_OFFSET);
+
+	/* Buffer size UL offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_BUF_SIZE_DL_OFFSET,
+			&dsp->p_dsp_common_data->buf_size_dl_offset);
+
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_BUF_SIZE_DL_OFFSET);
+
+	/* Aud SM buffer UL offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_SM_AUD_BUF_UL_OFFSET,
+			&dsp->p_dsp_common_data->buf_sm_ul_offset);
+
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_SM_AUD_BUF_UL_OFFSET);
+
+	/* Aud SM HW probe A offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_SM_HW_PROBE_A_OFFSET,
+			&dsp->p_dsp_common_data->buf_sm_hw_probe_a_offset);
+
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_SM_HW_PROBE_A_OFFSET);
+
+	/* Aud SM HW probe B offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_SM_HW_PROBE_B_OFFSET,
+			&dsp->p_dsp_common_data->buf_sm_hw_probe_b_offset);
+
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_SM_HW_PROBE_B_OFFSET);
+
+	/* Aud SM SPEECH PROBE 1 offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_SM_SPEECH_BUFFER_1,
+			&dsp->p_dsp_common_data->buf_sm_speech_probe_a_offset);
+
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_SM_SPEECH_BUFFER_1);
+
+	/* Aud SM SPEECH PROBE 2 offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_SM_SPEECH_BUFFER_2,
+			&dsp->p_dsp_common_data->buf_sm_speech_probe_b_offset);
+
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_SM_SPEECH_BUFFER_2);
+
+	/* Aud SM SPEECH PROBE 3 offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_SM_SPEECH_BUFFER_3,
+			&dsp->p_dsp_common_data->buf_sm_speech_probe_c_offset);
+
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_SM_SPEECH_BUFFER_3);
+
+	/* Aud SM SPEECH PROBE 4 offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_SM_SPEECH_BUFFER_4,
+			&dsp->p_dsp_common_data->buf_sm_speech_probe_d_offset);
+
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_SM_SPEECH_BUFFER_4);
+
+	/* Aud SM SPEECH PROBE 5 offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_SM_SPEECH_BUFFER_5,
+			&dsp->p_dsp_common_data->buf_sm_speech_probe_e_offset);
+
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_SM_SPEECH_BUFFER_5);
+
+	/* Aud SM SPEECH PROBE 6 offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_SM_SPEECH_BUFFER_6,
+			&dsp->p_dsp_common_data->buf_sm_speech_probe_f_offset);
+
+	if (ret)
+		xgold_err("Could not find property %s\n",
+			PROP_DSP_SM_SPEECH_BUFFER_6);
+
+}
 static int xgold_dsp_init_reg(struct device_node *np,
 			      struct xgold_dsp_reg *dsp_reg,
 			      const char *propname)
@@ -487,44 +1010,59 @@ static int xgold_dsp_init_reg(struct device_node *np,
 #define PROP_DSP_FIRMWARE	"intel,dsp-fw"
 #define PROP_DSP_SUPPLY		"dsp"
 
+
+/* TODO move all DTS configuration handling to separate file ? */
 static int dsp_audio_of_parse(struct device *dev, struct dsp_audio_device *dsp)
 {
 	struct device_node *np = dev->of_node;
 	const char *name;
 	int ret;
 
-#ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
-	struct dsp_clk *dsp_clk;
-	struct clk *clk;
-	int i = 0, n = 0, clk_num = 0;
-
-	/* Clocks */
-	xgold_debug("DSP clocks initialization\n");
-	if (!of_find_property(np, "clocks", &n))
-		return -EINVAL;
-
-	n /= sizeof(struct clk *);
-	xgold_debug("%s: %d clocks to be added\n", __func__, n);
-	INIT_LIST_HEAD(&dsp->clk_list);
-	clk = of_clk_get_by_name(np, "clk_dsp");
-	if (IS_ERR(clk)) {
-		xgold_err("clk %s not found\n", "clk_dsp");
-		return PTR_ERR(clk);
+	/* DSP identification */
+	ret = of_property_read_string(np, PROP_DSP_ID, &name);
+	if (ret)
+		xgold_err("cannot get DSP name id\n");
+	if (!strcmp(name, "XG631"))
+		dsp->id = XGOLD_DSP_XG631;
+	else if (!strcmp(name, "XG632"))
+		dsp->id = XGOLD_DSP_XG632;
+	else if (!strcmp(name, "XG642")) {
+		dsp->id = XGOLD_DSP_XG642;
+		g_dsp_audio_dev = dsp;
+	} else if (!strcmp(name, "XG742_FBA")) {
+		dsp->id = XGOLD_DSP_XG742_FBA;
+		dsp->p_dsp_common_data->fba_dev = dev;
+		audio_native_mode = 1;
+	} else if (!strcmp(name, "XG742_SBA")) {
+		dsp->id = XGOLD_DSP_XG742_SBA;
+		g_dsp_audio_dev = dsp;
+		audio_native_mode = 1;
+	} else {
+		xgold_err("name id '%s' doesn't match\n", name);
+		ret = -EINVAL;
 	}
-	dsp_clk = kzalloc(sizeof(struct dsp_clk), GFP_KERNEL);
-	if (!dsp_clk)
-		return -ENOMEM;
 
-	dsp_clk->clk = clk;
-	list_add_tail(&dsp_clk->node, &dsp->clk_list);
-	clk_num++;
-	i++;
+	dsp->p_dsp_common_data->num_dsp++;
+	dsp->p_dsp_common_data->native_mode = audio_native_mode;
 
-	while (i < n) {
-		clk = of_clk_get(np, i++);
-		if (IS_ERR(clk))
-			continue;
+#ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
+	if (XGOLD_DSP_XG742_FBA != dsp->id && XGOLD_DSP_XG742_SBA != dsp->id) {
+		struct dsp_clk *dsp_clk;
+		struct clk *clk;
+		int i = 0, n = 0, clk_num = 0;
+		/* Clocks */
+		xgold_debug("DSP clocks initialization\n");
+		if (!of_find_property(np, "clocks", &n))
+			return -EINVAL;
 
+		n /= sizeof(struct clk *);
+		xgold_debug("%s: %d clocks to be added\n", __func__, n);
+		INIT_LIST_HEAD(&dsp->clk_list);
+		clk = of_clk_get_by_name(np, "clk_dsp");
+		if (IS_ERR(clk)) {
+			xgold_err("clk %s not found\n", "clk_dsp");
+			return PTR_ERR(clk);
+		}
 		dsp_clk = kzalloc(sizeof(struct dsp_clk), GFP_KERNEL);
 		if (!dsp_clk)
 			return -ENOMEM;
@@ -532,11 +1070,39 @@ static int dsp_audio_of_parse(struct device *dev, struct dsp_audio_device *dsp)
 		dsp_clk->clk = clk;
 		list_add_tail(&dsp_clk->node, &dsp->clk_list);
 		clk_num++;
+		i++;
+
+		while (i < n) {
+			clk = of_clk_get(np, i++);
+			if (IS_ERR(clk))
+				continue;
+
+			dsp_clk = kzalloc(sizeof(struct dsp_clk), GFP_KERNEL);
+			if (!dsp_clk)
+				return -ENOMEM;
+
+			dsp_clk->clk = clk;
+			list_add_tail(&dsp_clk->node, &dsp->clk_list);
+			clk_num++;
+		}
+		xgold_debug("%d clocks attributed to this dsp\n", clk_num);
+
+		/* Regulator */
+		dsp->regulator = regulator_get(dev, PROP_DSP_SUPPLY);
+		if (IS_ERR(dsp->regulator)) {
+			xgold_err("read %s-supply property failed\n",
+				PROP_DSP_SUPPLY);
+			dsp->regulator = NULL;
+			goto skip_regulator;
+		}
+		ret = regulator_enable(dsp->regulator);
+		if (ret)
+			xgold_err("Unable to switch on DSP power domain\n");
+skip_regulator:
 	}
-	xgold_debug("%d clocks attributed to this dsp\n", clk_num);
 #endif /* CONFIG_PLATFORM_DEVICE_PM_VIRT */
 
-	if (dsp->native_mode) {
+	if (dsp->p_dsp_common_data->native_mode) {
 		/* FW patch and length */
 		of_find_property(np, PROP_DSP_FIRMWARE, &dsp->patch_length);
 		dsp->patch_length /= 2;
@@ -565,9 +1131,12 @@ static int dsp_audio_of_parse(struct device *dev, struct dsp_audio_device *dsp)
 	}
 
 	/* Interrupt */
-	ret = xgold_dsp_fill_interrupt_array(dsp);
+	ret = xgold_dsp_fill_interrupt_array(np, dsp);
 	if (ret)
 		xgold_err("Interrupt array assignement failed\n");
+
+	/* SHM offset */
+	xgold_dsp_fill_shm_offset(np, dsp);
 
 	/* Regulator */
 	dsp->regulator = regulator_get(dev, PROP_DSP_SUPPLY);
@@ -603,34 +1172,6 @@ skip_regulator:
 			PROP_DSP_CLC, ret);
 	}
 
-	/* PCM remaining block offset */
-	ret = of_property_read_u32_array(np, PROP_DSP_REMAIN_PCM,
-			dsp->pcm_offset, 2);
-	if (ret) {
-		xgold_err("Could not find property %s\n", PROP_DSP_REMAIN_PCM);
-		return ret;
-	}
-
-	/* DSP identification */
-	ret = of_property_read_string(np, PROP_DSP_ID, &name);
-	if (ret)
-		xgold_err("cannot get DSP name id\n");
-
-	if (!strcmp(name, "XG631"))
-		/* ret = of_xgold631_dsp_register(dsp, np);
-		if (ret)
-			goto err_dsp_id;*/
-
-		dsp->id = XGOLD_DSP_XG631;
-	else if (!strcmp(name, "XG632"))
-		dsp->id = XGOLD_DSP_XG632;
-	else if (!strcmp(name, "XG642"))
-		dsp->id = XGOLD_DSP_XG642;
-	else {
-		xgold_err("name id '%s' doesn't match\n", name);
-		ret = -EINVAL;
-	}
-
 /* Optional properties */
 	/* Intenal Reset (RSTMODS) */
 	ret = of_property_read_u32(np, "intel,dsp-rstmods", &dsp->rstmods);
@@ -651,22 +1192,18 @@ static int dsp_clock_init(struct dsp_audio_device *dsp)
 		if (ret)
 			return ret;
 	}
-
 	return 0;
 }
 #else
 static int dsp_clock_init(struct dsp_audio_device *dsp)
 {
 	int ret = 0;
-
 	/* BUG_ON(!dsp->pm_platdata); */
 	if (dsp->pm_platdata) {
 		ret = device_state_pm_set_state_by_name(dsp->dev,
 				dsp->pm_platdata->pm_state_D0_name);
-
 		pr_info("%s set state return %d\n", __func__, ret);
 	}
-
 	return ret;
 }
 #endif
@@ -688,20 +1225,19 @@ static void __dsp_write_rstmods(struct dsp_audio_device *dsp, unsigned val)
 	dsp_writel(val, dsp->shm_regs + dsp->rstmods);
 }
 
-static void __dsp_write_imsc(struct dsp_audio_device *dsp, unsigned val)
-{
-	dsp_writel(val, dsp->shm_regs + dsp->imsc);
-}
-
 static void dsp_reset(struct dsp_audio_device *dsp)
 {
-	reset_control_assert(dsp->rst_ctl);
-	udelay(200);
-	reset_control_deassert(dsp->rst_ctl);
+	if (!dsp->p_dsp_common_data->rst_done) {
+		reset_control_assert(dsp->rst_ctl);
+		udelay(200);
+		reset_control_deassert(dsp->rst_ctl);
+	}
+
 	__dsp_write_clc(dsp, 0x100);
 
-	/* switch in RUN mode */
 	__dsp_write_rstmods(dsp, 1);
+
+	dsp->p_dsp_common_data->rst_done = 1;
 }
 /* Low level func */
 static void dsp_set_uccf(struct dsp_audio_device *dsp, unsigned val)
@@ -723,8 +1259,14 @@ static void go_cmd(struct dsp_audio_device *dsp, unsigned id)
 	mcu2dsp = ioread32(dsp->shm_regs + dsp->mcu2dsp);
 	mcu2dsp &= ~BIT(id);
 	iowrite32(mcu2dsp, dsp->shm_regs + dsp->mcu2dsp);
+	#ifdef CONFIG_X86_INTEL_XGOLD_VP
+	udelay(5);
+	#endif
 	mcu2dsp |= BIT(id);
 	iowrite32(mcu2dsp, dsp->shm_regs + dsp->mcu2dsp);
+	#ifdef CONFIG_X86_INTEL_XGOLD_VP
+	udelay(20);
+	#endif
 }
 
 static int poll_cmd(struct dsp_audio_device *dsp, unsigned id)
@@ -747,22 +1289,44 @@ static unsigned short dsp_read_reg(
 	return ioread16(dsp->shm_mem + (offset * 2));
 }
 
-#define DSP_NAME "DSPXG631"
 
 #define OFFSET_SM_FW_VERSION                       0
 #define OFFSET_SM_HW_VERSION                       1
 #define OFFSET_SM_CUSTOMER_INTERFACE_VERSION       2
 #define OFFSET_SM_STARTUP_DEBUG_VERSION            3
+
 static void dsp_show_info(struct dsp_audio_device *dsp)
 {
-
-	xgold_debug("%s: Firmware version 0x%04x\n", DSP_NAME,
+	char *name = "DSPXG223";
+	switch (dsp->id) {
+	case XGOLD_DSP_XG223:
+		name = "DSPXG223";
+		break;
+	case XGOLD_DSP_XG631:
+		name = "DSPXG631";
+		break;
+	case XGOLD_DSP_XG632:
+		name = "DSPXG632";
+		break;
+	case XGOLD_DSP_XG642:
+		name = "DSPXG642";
+		break;
+	case XGOLD_DSP_XG742_FBA:
+		name = "DSPXG742_FBA";
+		break;
+	case XGOLD_DSP_XG742_SBA:
+		name = "DSPXG742_SBA";
+		break;
+	default:
+		break;
+	}
+	xgold_debug("%s: Firmware version 0x%04x\n", name,
 		dsp_read_reg(dsp, OFFSET_SM_FW_VERSION));
-	xgold_debug("%s: Hardware version 0x%04x\n", DSP_NAME,
+	xgold_debug("%s: Hardware version 0x%04x\n", name,
 		dsp_read_reg(dsp, OFFSET_SM_HW_VERSION));
-	xgold_debug("%s: Customer itf version 0x%04x\n", DSP_NAME,
+	xgold_debug("%s: Customer itf version 0x%04x\n", name,
 		dsp_read_reg(dsp, OFFSET_SM_CUSTOMER_INTERFACE_VERSION));
-	xgold_debug("%s: Startup dbg version version 0x%04x\n", DSP_NAME,
+	xgold_debug("%s: Startup dbg version version 0x%04x\n", name,
 		dsp_read_reg(dsp, OFFSET_SM_STARTUP_DEBUG_VERSION));
 }
 
@@ -1149,13 +1713,28 @@ struct s_dsp_cmd_pcm_play {
 int dsp_start_audio_hwafe(void)
 {
 	struct s_dsp_cmd_vb_hw_afe afe;
-	int ret;
+	struct dsp_audio_device *dsp_dev = NULL;
+	int ret = 0;
 
 	memset(&afe, 0, sizeof(struct s_dsp_cmd_vb_hw_afe));
 	afe.cmd_switch = 1;	/* On & Update */
 	afe.ratesw = 0;		/* Hard Code 8 Khz */
-
-	ret = dsp_do_command(g_dsp_audio_dev, VB_HW_AFE, &afe, NULL);
+	list_for_each_entry(dsp_dev, &list_dsp, node) {
+		switch (dsp_dev->id) {
+		case XGOLD_DSP_XG632:
+		case XGOLD_DSP_XG642:
+		case XGOLD_DSP_XG631:
+		case XGOLD_DSP_XG223:
+			ret = dsp_do_command(dsp_dev,
+					VB_HW_AFE, &afe, NULL);
+			break;
+		case XGOLD_DSP_XG742_SBA:
+		case XGOLD_DSP_XG742_FBA:
+			ret = dsp_audio_cmd(85, 0, NULL);
+		default:
+			break;
+		}
+	}
 	if (ret)
 		xgold_err("VB_HW_AFE command generated error\n");
 	xgold_debug("VB_HW_AFE command sent\n");
@@ -1164,36 +1743,236 @@ int dsp_start_audio_hwafe(void)
 }
 EXPORT_SYMBOL(dsp_start_audio_hwafe);
 
+int dsp_stop_audio_hwafe(void)
+{
+	struct s_dsp_cmd_vb_hw_afe afe;
+	struct dsp_audio_device *dsp_dev = NULL;
+	int ret = 0;
+
+	memset(&afe, 0, sizeof(struct s_dsp_cmd_vb_hw_afe));
+	afe.cmd_switch = 0;	/* off */
+	afe.ratesw = 0;		/* Hard Code 8 Khz */
+
+	list_for_each_entry(dsp_dev, &list_dsp, node) {
+		switch (dsp_dev->id) {
+		case XGOLD_DSP_XG632:
+		case XGOLD_DSP_XG642:
+		case XGOLD_DSP_XG631:
+		case XGOLD_DSP_XG223:
+			ret = dsp_do_command(dsp_dev,
+					VB_HW_AFE, &afe, NULL);
+			break;
+		case XGOLD_DSP_XG742_SBA:
+		case XGOLD_DSP_XG742_FBA:
+			dsp_audio_cmd(14, 0, NULL);
+		default:
+			break;
+		}
+	}
+	return ret;
+}
+EXPORT_SYMBOL(dsp_stop_audio_hwafe);
+
 #define OFFSET_SM_BOOT_DATA		OFFSET_SM_CUSTOMER_INTERFACE_VERSION
 #define OFFSET_SM_MCU_CMD_0             4
+
+/* DSP boot and patch ram download */
+static int dsp_audio_boot(struct dsp_audio_device *dsp)
+{
+	int ret;
+	dsp_clock_init(dsp);
+	dsp_reset(dsp);
+	ret = dsp_patch(dsp, OFFSET_SM_BOOT_DATA);
+	if (ret)
+		xgold_err("error during FW download\n");
+	return ret;
+}
+
+#ifdef CONFIG_PM
+static int dsp_audio_suspend(struct device *dev)
+{
+	int ret = 0;
+	struct dsp_audio_device *dsp_dev;
+	xgold_debug("%s : Enter", __func__);
+
+	dsp_dev = dev_get_drvdata(dev);
+
+	if (dsp_dev->id == XGOLD_DSP_XG742_SBA ||
+		dsp_dev->id == XGOLD_DSP_XG742_FBA) {
+
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+		ret = device_state_pm_set_state_by_name(dev,
+				dsp_dev->pm_platdata->pm_state_D3_name);
+#endif
+
+		if (ret < 0)
+			xgold_err("%s: Failed with error %d\n",
+				__func__, ret);
+	}
+		xgold_debug("%s : Exit", __func__);
+
+	return ret;
+}
+
+static int dsp_audio_resume(struct device *dev)
+{
+	int ret = 0;
+
+	struct dsp_audio_device *dsp_dev;
+	xgold_debug("%s : Enter", __func__);
+
+	dsp_dev = dev_get_drvdata(dev);
+
+	if (dsp_dev->id == XGOLD_DSP_XG742_SBA ||
+		dsp_dev->id == XGOLD_DSP_XG742_FBA) {
+
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+		/* Request clock/voltage for DSP */
+		ret = device_state_pm_set_state_by_name(dev,
+				dsp_dev->pm_platdata->pm_state_D0_name);
+#endif
+
+		if (ret < 0)
+			xgold_err("%s: Failed with error %d\n",
+				__func__, ret);
+
+		ret = dsp_audio_boot(dsp_dev);
+
+		if (ret < 0)
+			xgold_err("%s: Boot Failed with error %d\n",
+				__func__, ret);
+
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+		/* Suspend DSP to Memory retention mode after dsp boot*/
+		ret = device_state_pm_set_state_by_name(dev,
+				dsp_dev->pm_platdata->pm_state_D0i3_name);
+#endif
+
+		if (ret < 0)
+			xgold_err("%s: Failed with error %d\n",
+				__func__, ret);
+
+		xgold_debug("%s: Exit\n", __func__);
+	}
+
+	return ret;
+}
+#else
+#define dsp_audio_suspend NULL
+#define dsp_audio_resume NULL
+#endif
+
+
+#ifdef CONFIG_PM_RUNTIME
+static int dsp_audio_runtime_suspend(struct device *dev)
+{
+	struct dsp_audio_device *dsp_dev;
+	int ret = 0;
+
+	xgold_debug("%s: called\n", __func__);
+
+	dsp_dev = dev_get_drvdata(dev);
+
+	if (dsp_dev != NULL)
+		ret = device_state_pm_set_state_by_name(dev,
+				dsp_dev->pm_platdata->pm_state_D0i3_name);
+
+	if (ret < 0)
+		xgold_err("%s : failed with error %d", __func__, ret);
+
+	return ret;
+}
+
+static int dsp_audio_runtime_resume(struct device *dev)
+{
+	struct dsp_audio_device *dsp_dev;
+	int ret = 0;
+
+	xgold_debug("%s: Called\n", __func__);
+
+	dsp_dev = dev_get_drvdata(dev);
+
+	if (dsp_dev != NULL)
+		ret = device_state_pm_set_state_by_name(dev,
+				dsp_dev->pm_platdata->pm_state_D0_name);
+
+	if (ret < 0)
+		xgold_err("%s : failed with error %d", __func__, ret);
+
+	return ret;
+}
+
+static int dsp_audio_runtime_idle(struct device *dev)
+{
+	struct dsp_audio_device *dsp_dev;
+	int ret = 0;
+
+	xgold_debug("%s: called\n", __func__);
+
+	dsp_dev = dev_get_drvdata(dev);
+
+	if (dsp_dev != NULL)
+		ret = device_state_pm_set_state_by_name(dev,
+				dsp_dev->pm_platdata->pm_state_D0i3_name);
+
+	if (ret < 0)
+		xgold_err("%s : failed with error %d", __func__, ret);
+
+	return ret;
+}
+#endif
+
+static const struct dev_pm_ops dsp_audio_pm = {
+	SET_RUNTIME_PM_OPS(dsp_audio_runtime_suspend, dsp_audio_runtime_resume,
+			dsp_audio_runtime_idle)
+	SET_SYSTEM_SLEEP_PM_OPS(dsp_audio_suspend,
+			dsp_audio_resume)
+};
 
 /* device probe function */
 static int dsp_audio_drv_probe(struct platform_device *pdev)
 {
-	struct dsp_audio_device *dsp;
-	unsigned imsc, interrupt;
+	struct dsp_audio_device *dsp_dev;
+	unsigned interrupt;
 	struct resource *res;
-	int ret;
+	int ret = 0;
 
-	dsp = devm_kzalloc(&pdev->dev, sizeof(struct dsp_audio_device),
-			GFP_KERNEL);
-	if (!dsp)
+	dsp_dev = devm_kzalloc(&pdev->dev, sizeof(struct dsp_audio_device),
+						GFP_KERNEL);
+
+	if (!dsp_dev) {
+		xgold_err("Failed to allocate dsp audio device\n");
 		return -ENOMEM;
-
-	dsp->dev = &pdev->dev;
-	dsp->dsp_sched_start = 0;
-	dsp->native_mode = audio_native_mode;
-	platform_set_drvdata(pdev, dsp);
-	dsp->pm_platdata = of_device_state_pm_setup(pdev->dev.of_node);
-	if (IS_ERR(dsp->pm_platdata)) {
-		dev_warn(&pdev->dev, "Missing pm platdata properties\n");
-		/* FIXME: for legacy only. Should never be NULL ! */
-		dsp->pm_platdata = NULL;
 	}
 
-	if (dsp->pm_platdata)
+	if (!p_dsp_common_data) {
+		p_dsp_common_data = kzalloc(sizeof(struct dsp_common_data),
+							GFP_KERNEL);
+
+		if (!p_dsp_common_data) {
+			xgold_err("Failed to allocate common dsp data\n");
+			return -ENOMEM;
+		}
+		INIT_LIST_HEAD(&list_dsp);
+		dsp_dev->p_dsp_common_data = p_dsp_common_data;
+	} else
+		dsp_dev->p_dsp_common_data = p_dsp_common_data;
+
+	dsp_dev->dev = &pdev->dev;
+
+	platform_set_drvdata(pdev, dsp_dev);
+
+	dsp_dev->pm_platdata = of_device_state_pm_setup(pdev->dev.of_node);
+
+	if (IS_ERR(dsp_dev->pm_platdata)) {
+		dev_warn(&pdev->dev, "Missing pm platdata properties\n");
+		/* FIXME: for legacy only. Should never be NULL ! */
+		dsp_dev->pm_platdata = NULL;
+	}
+
+	if (dsp_dev->pm_platdata)
 		ret = platform_device_pm_set_class(pdev,
-				dsp->pm_platdata->pm_user_name);
+				dsp_dev->pm_platdata->pm_user_name);
 
 	/* SHM REGS */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "shm-regs");
@@ -1210,15 +1989,15 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	dsp->shm_regs =
+	dsp_dev->shm_regs =
 		devm_ioremap(&pdev->dev, res->start, resource_size(res));
-	if (!dsp->shm_regs) {
+	if (!dsp_dev->shm_regs) {
 		xgold_err("shm-regs ioremap failed\n");
 		ret = -EBUSY;
 		goto out;
 	}
 	pr_info("%s: ioremap for %X size %X returned %p\n", __func__,
-			res->start, resource_size(res), dsp->shm_regs);
+			res->start, resource_size(res), dsp_dev->shm_regs);
 
 	/* SHM Memory */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "shm-mem");
@@ -1228,82 +2007,155 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	if (!devm_request_mem_region
-	    (&pdev->dev, res->start, resource_size(res), res->name)) {
+	if (!devm_request_mem_region(&pdev->dev,
+		res->start, resource_size(res), res->name)) {
+
 		xgold_err("Request shm-mem region failed\n");
 		ret = -EBUSY;
 		goto out;
 	}
 
-	dsp->shm_mem = devm_ioremap(&pdev->dev, res->start, resource_size(res));
-	if (!dsp->shm_mem) {
+	dsp_dev->shm_mem = devm_ioremap(&pdev->dev,
+		res->start, resource_size(res));
+
+	if (!dsp_dev->shm_mem) {
 		xgold_err("shm-mem ioremap failed\n");
 		ret = -EBUSY;
 		goto out;
 	}
-	dsp->shm_mem_phys = res->start;
-	pr_info("%s: ioremap for %X size %X returned %p\n", __func__,
-			res->start, resource_size(res), dsp->shm_mem);
 
-	ret = dsp_audio_of_parse(&pdev->dev, dsp);
+	dsp_dev->shm_mem_phys = res->start;
+
+	pr_info("%s: ioremap for %X size %X returned %p\n", __func__,
+			res->start, resource_size(res), dsp_dev->shm_mem);
+
+	ret = dsp_audio_of_parse(&pdev->dev, dsp_dev);
 	if (ret) {
 		xgold_err("dsp dts file parsing failed\n");
 		goto out;
 	}
 
-	imsc = ioread32(dsp->shm_regs + dsp->imsc);
+	/* Enable dsp power only for SF LTE */
+	if (dsp_dev->id == XGOLD_DSP_XG742_SBA ||
+		dsp_dev->id == XGOLD_DSP_XG742_FBA) {
 
-	/* register DSP_INT1 interrupt handler */
-	interrupt = dsp->interrupts[PLAYBACK_INT];
-	ret = request_threaded_irq(DSP_INT_GET_ID(interrupt),
-			dsp_audio_int1_lisr, dsp_audio_int1_hisr,
-			IRQF_DISABLED, "dsp_int1", dsp);
-	if (ret < 0) {
-		xgold_err("\n FAILED to attach DSP_INT1 %d\n", ret);
-		goto out;
+		ret = platform_device_pm_set_state_by_name(pdev,
+				dsp_dev->pm_platdata->pm_state_D0_name);
+		if (ret < 0)
+			xgold_err("%s: failed to set PM state error %d\n",
+			__func__, ret);
+		ret = 0;
 	}
-	imsc |= BIT(DSP_INT_GET_IMSC(interrupt));
 
-	/* register DSP_INT2 interrupt handler */
-	interrupt = dsp->interrupts[RECORD_INT];
-	ret = request_threaded_irq(DSP_INT_GET_ID(interrupt),
-			dsp_audio_int2_lisr, dsp_audio_int2_hisr,
-			IRQF_DISABLED, "dsp_int2", dsp);
-	if (ret < 0) {
-		xgold_err("\n FAILED to attach DSP_INT2 %d\n", ret);
-		goto out;
+	list_add_tail(&dsp_dev->node, &list_dsp);
+
+	if (dsp_dev->p_dsp_common_data->native_mode) {
+		/* FIXME: those parameters must come from dts */
+		dsp_init(dsp_dev, OFFSET_SM_MCU_CMD_0, SM_MCU_CMD_LENGHT);
+		ret = dsp_audio_boot(dsp_dev);
 	}
-	imsc |= BIT(DSP_INT_GET_IMSC(interrupt));
+
+	switch (dsp_dev->id) {
+	case XGOLD_DSP_XG223:
+	case XGOLD_DSP_XG631:
+	case XGOLD_DSP_XG632:
+	case XGOLD_DSP_XG642:
+	case XGOLD_DSP_XG742_SBA:
+
+		/* register DSP_INT1 interrupt handler */
+		interrupt = dsp_dev->interrupts[PLAYBACK_INT];
+		ret = request_threaded_irq(DSP_INT_GET_ID(interrupt),
+				dsp_audio_int1_lisr, dsp_audio_int1_hisr,
+				IRQF_TRIGGER_RISING, "dsp_int1",
+				dsp_dev);
+		if (ret < 0) {
+			xgold_err("FAILED to attach DSP_INT1 %d\n", ret);
+			goto out;
+		}
+
+		/* register DSP_INT2 interrupt handler */
+		interrupt = dsp_dev->interrupts[RECORD_INT];
+		ret = request_threaded_irq(DSP_INT_GET_ID(interrupt),
+				dsp_audio_int2_lisr,
+				dsp_audio_int2_hisr,
+				IRQF_TRIGGER_RISING, "dsp_int2",
+				dsp_dev);
+		if (ret < 0) {
+			xgold_err("FAILED to attach DSP_INT2 %d\n", ret);
+			goto out;
+		}
+
+		if (dsp_dev->id == XGOLD_DSP_XG742_SBA) {
+
+			/* register DSP_INT3 interrupt handler */
+			interrupt = dsp_dev->interrupts[HW_PROBE];
+			ret = request_threaded_irq(DSP_INT_GET_ID(interrupt),
+				dsp_audio_int3_lisr,
+				dsp_audio_int3_hisr,
+				IRQF_TRIGGER_RISING, "dsp_int3",
+				dsp_dev);
+
+			if (ret < 0) {
+				xgold_err("DSP_INT3 reg failed%d\n", ret);
+				goto out;
+			}
+		}
+	break;
+	/* TODO add interrupts related Speech probe */
+	case XGOLD_DSP_XG742_FBA:
+
+		/* register FBA_INT2 interrupt handler */
+#if 0 /* BU_hack , speech probe interrupt not enabled in MV */
+		interrupt = dsp_dev->interrupts[SPEECH_PROBES];
+		ret = request_threaded_irq(DSP_INT_GET_ID(interrupt),
+				dsp_audio_int6_lisr,
+				dsp_audio_int6_hisr,
+				IRQF_TRIGGER_RISING, "dsp_int6",
+				dsp_dev);
+
+		if (ret < 0) {
+			xgold_err("\n FAILED to attach DSP_INT6 %d\n", ret);
+			goto out;
+
+		}
+#endif
+	break;
+	default:
+		break;
+	}
 
 	init_rwsem(&dsp_audio_cb_rwsem);
 
-	dsp->name = "DSP AUDIO DEV",
-	dsp->ops = &dsp_dev_ops,
-	g_dsp_audio_dev = dsp; /* FIXME do not use global static variable */
-	init_rwsem(&dsp_audio_cb_rwsem);
-	register_audio_dsp(dsp);
-	dsp_audio_init();
+	/* Register dsp with client only after all dsp's in the
+	 * system have initialised, because the number of dsp's
+	 * in the system is transparent to the higher layers */
+	/*FIXME: What about other DSP types ? */
+	if (dsp_dev->p_dsp_common_data->num_dsp == 2 ||
+			dsp_dev->id == XGOLD_DSP_XG642) {
 
-	if (dsp->native_mode) {
-		dsp_init(dsp, OFFSET_SM_MCU_CMD_0, SM_MCU_CMD_LENGHT);
-		ret = dsp_clock_init(dsp);
+		g_dsp_audio_dev->name = "DSP AUDIO DEV";
+		g_dsp_audio_dev->p_dsp_common_data->ops = &dsp_dev_ops;
 
-		if (ret)
-			xgold_err("error during pm init\n");
+		register_audio_dsp(g_dsp_audio_dev);
+		dsp_audio_init(&list_dsp);
 
-		dsp_reset(dsp);
-		__dsp_write_imsc(dsp, imsc);
-		ret = dsp_patch(dsp, OFFSET_SM_BOOT_DATA);
-
-		if (ret)
-			xgold_err("error during FW download\n");
-
-		dsp_start_audio_sched(dsp);
+		/* FIXME: native for other DSP types ? */
+		if (dsp_dev->id == XGOLD_DSP_XG642 &&
+				dsp_dev->p_dsp_common_data->native_mode)
+			dsp_start_audio_sched(dsp_dev);
 	}
-
 	pr_info("DSP initialization done %d\n", ret);
 
 out:
+
+/* BU_HACK memory retention mode not working on ES 1.0
+    keep the DSP on always */
+#if 0
+	if (dsp_dev->id == XGOLD_DSP_XG742_SBA ||
+		dsp_dev->id == XGOLD_DSP_XG742_FBA)
+		platform_device_pm_set_state_by_name(pdev,
+			dsp_dev->pm_platdata->pm_state_D0i3_name);
+#endif
 	return ret;
 }
 
@@ -1340,15 +2192,11 @@ static struct platform_driver dsp_audio_driver = {
 		   .name = "dsp_audio",
 		   .owner = THIS_MODULE,
 		   .of_match_table = xgold_snd_dsp_of_match,
-		   },
+		   .pm = &dsp_audio_pm,
+	},
+	.shutdown = dsp_audio_drv_shutdown,
 	.probe = dsp_audio_drv_probe,
 	.remove = dsp_audio_drv_remove,
-	.shutdown = dsp_audio_drv_shutdown,
-#if 0 /* TODO: enable power management */
-	.driver = {
-		   .pm = &dsp_audio_pm,
-		   },
-#endif
 };
 
 static int __init dsp_audio_drv_init(void)

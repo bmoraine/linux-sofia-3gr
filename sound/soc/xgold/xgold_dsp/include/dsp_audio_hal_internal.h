@@ -19,20 +19,20 @@
 
 #ifndef _DSP_HAL_INTERNAL_H
 #define _DSP_HAL_INTERNAL_H
-
 #include <linux/dmaengine.h>
+#include <dsp_audio_platform.h>
 
 /*---------------------------------------------------------------------------
 							Function Declarations
 ----------------------------------------------------------------------------*/
-U32 dsp_get_audio_shmem_base_addr(void);
-void dsp_generate_audio_dsp_interrupt(enum dsp_irq_no dsp_interrupt);
-U32 dsp_get_audio_imsc(void);
-void dsp_set_audio_imsc(U32 reg);
-void dsp_set_audio_icr(U32 icr);
-
+void dsp_generate_audio_dsp_interrupt(struct dsp_audio_device *dsp,
+		enum dsp_irq_no dsp_interrupt);
+U32 dsp_get_audio_imsc(struct dsp_audio_device *dsp);
+void dsp_set_audio_imsc(struct dsp_audio_device *dsp, U32 reg);
+void dsp_set_audio_icr(struct dsp_audio_device *dsp, U32 icr);
 #ifdef CONFIG_OF
-struct dma_chan *xgold_of_dsp_get_dmach(struct dsp_audio_device *dsp, int req);
+struct dma_chan *xgold_of_dsp_get_dmach(struct dsp_audio_device *dsp,
+		int req);
 #endif
 
 /*------------------------------------------------------------------------------
