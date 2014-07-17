@@ -2633,7 +2633,7 @@ early_param("nolapic_pm", parse_nolapic_pm);
 static int __init apic_set_verbosity(char *arg)
 {
 	if (!arg)  {
-#ifdef CONFIG_X86_64
+#if defined(CONFIG_X86_64) && defined(CONFIG_X86_IO_APIC)
 		skip_ioapic_setup = 0;
 		return 0;
 #endif
