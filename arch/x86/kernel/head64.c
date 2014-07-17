@@ -178,6 +178,13 @@ asmlinkage void __init x86_64_start_kernel(char * real_mode_data)
 	clear_page(init_level4_pgt);
 	/* set init_level4_pgt kernel high mapping*/
 	init_level4_pgt[511] = early_level4_pgt[511];
+	switch (boot_params.hdr.hardware_subarch) {
+	case X86_SUBARCH_XGOLD:
+		x86_xgold_early_setup();
+		break;
+	default:
+		break;
+	}
 
 	x86_64_start_reservations(real_mode_data);
 }
