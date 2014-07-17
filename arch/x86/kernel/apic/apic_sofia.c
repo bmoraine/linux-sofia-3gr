@@ -64,7 +64,11 @@ static void sofia_send_IPI_all(int vector)
 static int sofia_wakeup_secondary_cpu(int apicid, unsigned long start_ip)
 {
 	/* FIXME: Not so good to highjack the parameter.. */
+#ifdef CONFIG_X86_32
 	unsigned long hack_start_ip = (unsigned long)__pa(startup_32_smp);
+#else
+	unsigned long hack_start_ip = (unsigned long)__pa(secondary_startup_64);
+#endif
 	mv_start_vcpu(apicid, hack_start_ip);
 	return 0;
 }
