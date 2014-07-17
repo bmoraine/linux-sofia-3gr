@@ -178,9 +178,11 @@ ENTRY(secondary_startup_64)
 1:
 
 	/* Enable PAE mode and PGE */
+	/* FIXME: Don't overwrite CR4 as already configured by VMM */
+#ifndef CONFIG_X86_INTEL_SOFIA
 	movl	$(X86_CR4_PAE | X86_CR4_PGE), %ecx
 	movq	%rcx, %cr4
-
+#endif
 	/* Setup early boot stage 4 level pagetables. */
 	addq	phys_base(%rip), %rax
 	movq	%rax, %cr3
