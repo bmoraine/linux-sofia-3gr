@@ -201,10 +201,12 @@ static void __init dtb_lapic_setup(void)
 		return;
 
 	/* Did the boot loader setup the local APIC ? */
+#ifndef CONFIG_X86_64
 	if (!cpu_has_apic) {
 		if (apic_force_enable(r.start))
 			return;
 	}
+#endif
 	smp_found_config = 1;
 	if (of_property_read_bool(dn, "no_pic_mode"))
 		pic_mode = 0;
