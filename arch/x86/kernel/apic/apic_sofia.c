@@ -175,10 +175,12 @@ static void sofia_apic_mem_write(u32 reg, u32 v)
 	}
 }
 
+#ifdef CONFIG_X86_32
 static int sofia_early_logical_apicid(int cpu)
 {
 	return BIT(cpu);
 }
+#endif
 
 static void sofia_apic_eoi_write(u32 reg, u32 value)
 {
@@ -256,7 +258,9 @@ static struct apic apic_sofia = {
 	.wait_icr_idle			= sofia_apic_wait_icr_idle,
 	.safe_wait_icr_idle		= NULL,
 
+#ifdef CONFIG_X86_32
 	.x86_32_early_logical_apicid	= sofia_early_logical_apicid,
+#endif
 };
 
 apic_driver(apic_sofia);
