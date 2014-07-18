@@ -1917,7 +1917,8 @@ int __init APIC_init_uniprocessor(void)
 	connect_bsp_APIC();
 
 #ifdef CONFIG_X86_64
-	apic_write(APIC_ID, SET_APIC_ID(boot_cpu_physical_apicid));
+	if (apic->set_apic_id)
+		apic_write(APIC_ID, SET_APIC_ID(boot_cpu_physical_apicid));
 #else
 	/*
 	 * Hack: In case of kdump, after a crash, kernel might be booting
