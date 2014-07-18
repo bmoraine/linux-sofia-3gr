@@ -862,7 +862,8 @@ static void identify_cpu(struct cpuinfo_x86 *c)
 	}
 
 #ifdef CONFIG_X86_64
-	c->apicid = apic->phys_pkg_id(c->initial_apicid, 0);
+	if (apic->phys_pkg_id)
+		c->apicid = apic->phys_pkg_id(c->initial_apicid, 0);
 #endif
 
 	/*
