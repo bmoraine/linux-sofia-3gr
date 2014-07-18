@@ -23,28 +23,55 @@
 #include <asm/ipi.h>
 #include <asm/setup.h>
 
+static int cmdline_apic __initdata;
+static int __init parse_apic(char *arg)
+{
+
+	struct apic **drv;
+	pr_info("%s\n", __func__);
+
+	if (!arg)
+		return -EINVAL;
+
+	for (drv = __apicdrivers; drv < __apicdrivers_end; drv++) {
+		if (!strcmp((*drv)->name, arg)) {
+			apic = *drv;
+			pr_info("Switched APIC routing to %s.\n",
+					apic->name);
+			cmdline_apic = 1;
+			return 0;
+		}
+	}
+
+	/* Parsed again by __setup for debug/verbose */
+	return 0;
+}
+early_param("apic", parse_apic);
+
 /*
  * Check the APIC IDs in bios_cpu_apicid and choose the APIC mode.
  */
 void __init default_setup_apic_routing(void)
 {
-	struct apic **drv;
+	if (!cmdline_apic) {
+		struct apic **drv;
 
-	enable_IR_x2apic();
+		enable_IR_x2apic();
 
-	for (drv = __apicdrivers; drv < __apicdrivers_end; drv++) {
-		if ((*drv)->probe && (*drv)->probe()) {
-			if (apic != *drv) {
-				apic = *drv;
-				pr_info("Switched APIC routing to %s.\n",
-					apic->name);
+		for (drv = __apicdrivers; drv < __apicdrivers_end; drv++) {
+			if ((*drv)->probe && (*drv)->probe()) {
+				if (apic != *drv) {
+					apic = *drv;
+					pr_info("Switched APIC routing to %s.\n",
+							apic->name);
+				}
+				break;
 			}
-			break;
 		}
-	}
 
-	if (x86_platform.apic_post_init)
-		x86_platform.apic_post_init();
+		if (x86_platform.apic_post_init)
+			x86_platform.apic_post_init();
+	}
 }
 
 /* Same for both flat and physical. */
