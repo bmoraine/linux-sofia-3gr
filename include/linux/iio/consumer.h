@@ -121,7 +121,16 @@ struct iio_channel
  * scale will need to be applied if standard units required.
  */
 int iio_read_channel_raw(struct iio_channel *chan,
-			 int *val);
+				int *val);
+
+/**
+ * iio_read_channel_raw_mask() - read from a given channel
+ * @channel:            The channel being queried.
+ * @val:                Value read back.
+ * @mask:               Type of read
+ */
+int iio_read_channel_raw_mask(struct iio_channel *chan,
+				int *val, long mask);
 
 /**
  * iio_read_channel_processed() - read processed value from a given channel
