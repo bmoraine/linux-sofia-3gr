@@ -165,6 +165,9 @@ config NEED_DMA_MAP_STATE
 config NEED_SG_DMA_LENGTH
 	def_bool y
 
+config NO_IOPORT
+	def_bool n
+
 config GENERIC_ISA_DMA
 	def_bool y
 	depends on ISA_DMA_API
@@ -2180,7 +2183,7 @@ source "drivers/pci/Kconfig"
 
 # x86_64 have no ISA slots, but can have ISA-style DMA.
 config ISA_DMA_API
-	bool "ISA-style DMA support" if (X86_64 && EXPERT)
+	bool "ISA-style DMA support" if (X86_64 && EXPERT) || NO_IOPORT
 	default y
 	help
 	  Enables ISA-style DMA support for devices requiring such controllers.
