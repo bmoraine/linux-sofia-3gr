@@ -126,6 +126,8 @@ snd-soc-wm9713-objs := wm9713.o
 snd-soc-wm-hubs-objs := wm_hubs.o
 snd-soc-agold-afe-objs := agold_afe.o
 snd-soc-agold-acc-det-objs := agold_acc_det.o
+snd-soc-intel-pmic-afe-objs := intel_pmic_afe.o
+snd-soc-intel-pmic-acc-det-objs := intel_pmic_acc_det.o
 # Amp
 snd-soc-max9877-objs := max9877.o
 snd-soc-tpa6130a2-objs := tpa6130a2.o
@@ -257,6 +259,8 @@ obj-$(CONFIG_SND_SOC_WM_ADSP)	+= snd-soc-wm-adsp.o
 obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
 obj-$(CONFIG_SND_SOC_AGOLD_AFE) += snd-soc-agold-afe.o
 obj-$(CONFIG_SND_SOC_AGOLD_ACC_DET_INTERFACE) += snd-soc-agold-acc-det.o
+obj-$(CONFIG_SND_SOC_AGOLD_AFE) += snd-soc-intel-pmic-afe.o
+obj-$(CONFIG_SND_SOC_AGOLD_ACC_DET_INTERFACE) += snd-soc-intel-pmic-acc-det.o
 
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
