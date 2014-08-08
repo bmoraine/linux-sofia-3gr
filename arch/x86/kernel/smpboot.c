@@ -1463,9 +1463,17 @@ static inline void hlt_play_dead(void)
 	}
 }
 
+#ifdef CONFIG_X86_INTEL_SOFIA
+extern void vmm_stop_vcpu(unsigned int vcpu);
+#endif
+
 void native_play_dead(void)
 {
 	play_dead_common();
+
+#ifdef CONFIG_X86_INTEL_SOFIA
+	vmm_stop_vcpu(smp_processor_id());
+#endif
 	tboot_shutdown(TB_SHUTDOWN_WFS);
 
 	mwait_play_dead();	/* Only returns on failure */

@@ -411,6 +411,10 @@ void fixup_irqs(void)
 			pr_notice("Cannot set affinity for irq %i\n", irq);
 	}
 
+#ifdef CONFIG_X86_INTEL_SOFIA
+	return;
+#endif
+
 	/*
 	 * We can remove mdelay() and then send spuriuous interrupts to
 	 * new cpu targets for all the irqs that were handled previously by
