@@ -1,6 +1,7 @@
 /*
  *  Universal power supply monitor class
  *
+ *  Copyright (C) 2013 Intel Mobile Communications GmbH
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
@@ -103,6 +104,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_AVG,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
+	POWER_SUPPLY_PROP_VOLTAGE_FULL,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_AVG,
@@ -121,6 +123,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
 	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX,
+	POWER_SUPPLY_PROP_INLMT,
 	POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN,
 	POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN,
 	POWER_SUPPLY_PROP_ENERGY_FULL,
@@ -143,6 +146,12 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
 	POWER_SUPPLY_PROP_TYPE, /* use power_supply.type instead */
 	POWER_SUPPLY_PROP_SCOPE,
+	POWER_SUPPLY_PROP_CHARGE_TERM_CUR,
+	POWER_SUPPLY_PROP_ENABLE_CHARGING,
+	POWER_SUPPLY_PROP_CONTINUE_CHARGING,
+	POWER_SUPPLY_PROP_ENABLE_CHARGER,
+	POWER_SUPPLY_PROP_CABLE_TYPE,
+	POWER_SUPPLY_PROP_PRIORITY,
 	/* Local extensions */
 	POWER_SUPPLY_PROP_USB_HC,
 	POWER_SUPPLY_PROP_USB_OTG,
@@ -178,6 +187,12 @@ enum power_supply_charger_event {
 	POWER_SUPPLY_CHARGER_EVENT_DISCONNECT,
 };
 
+struct power_supply_charger_cap {
+	enum power_supply_charger_event	chrg_evt;
+	enum power_supply_type		chrg_type;
+	unsigned int			mA;	/* input current limit */
+};
+
 enum power_supply_charger_cable_type {
 	POWER_SUPPLY_CHARGER_TYPE_NONE = 0,
 	POWER_SUPPLY_CHARGER_TYPE_USB_SDP = 1 << 0,
@@ -192,19 +207,41 @@ enum power_supply_charger_cable_type {
 	POWER_SUPPLY_CHARGER_TYPE_SE1 = 1 << 9,
 	POWER_SUPPLY_CHARGER_TYPE_MHL = 1 << 10,
 	POWER_SUPPLY_CHARGER_TYPE_B_DEVICE = 1 << 11,
+	POWER_SUPPLY_CHARGER_TYPE_USB_FLOATING = 1 << 12,
 };
 
 struct power_supply_cable_props {
 	enum power_supply_charger_event	chrg_evt;
 	enum power_supply_charger_cable_type chrg_type;
-	unsigned int			mA;	/* input current limit */
+	unsigned int			ma;	/* input current limit */
 };
+
+#define POWER_SUPPLY_CHARGER_TYPE_USB \
+	(POWER_SUPPLY_CHARGER_TYPE_USB_SDP | \
+	POWER_SUPPLY_CHARGER_TYPE_USB_DCP | \
+	POWER_SUPPLY_CHARGER_TYPE_USB_CDP | \
+	POWER_SUPPLY_CHARGER_TYPE_USB_ACA | \
+	POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK)
+
 
 union power_supply_propval {
 	int intval;
 	const char *strval;
 	int64_t int64val;
 };
+
+enum psy_throttle_action {
+
+	PSY_THROTTLE_DISABLE_CHARGER = 0,
+	PSY_THROTTLE_DISABLE_CHARGING,
+	PSY_THROTTLE_CC_LIMIT,
+	PSY_THROTTLE_INPUT_LIMIT,
+};
+
+struct power_supply_throttle {
+	enum psy_throttle_action throttle_action;
+	unsigned throttle_val;
+ };
 
 struct device_node;
 
@@ -215,9 +252,11 @@ struct power_supply {
 	size_t num_properties;
 
 	char **supplied_to;
+	unsigned long supported_cables;
 	size_t num_supplicants;
-
+	struct power_supply_throttle *throttle_states;
 	char **supplied_from;
+	size_t num_throttle_states;
 	size_t num_supplies;
 	struct device_node *of_node;
 
