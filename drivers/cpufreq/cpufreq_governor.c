@@ -22,6 +22,10 @@
 
 #include "cpufreq_governor.h"
 
+#ifdef CONFIG_X86_INTEL_SOFIA
+#include <linux/vpower.h>
+#endif
+
 static struct attribute_group *get_sysfs_attr(struct dbs_data *dbs_data)
 {
 	if (have_governor_per_policy())
@@ -39,7 +43,9 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 	unsigned int max_load = 0;
 	unsigned int ignore_nice;
 	unsigned int j;
-
+#ifdef CONFIG_X86_INTEL_SOFIA
+	unsigned int mex_tmp_load;
+#endif
 	if (dbs_data->cdata->governor == GOV_ONDEMAND)
 		ignore_nice = od_tuners->ignore_nice_load;
 	else
@@ -96,7 +102,33 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 		if (unlikely(!wall_time || wall_time < idle_time))
 			continue;
 
+#ifdef CONFIG_X86_INTEL_SOFIA
+#ifdef CONFIG_SMP
+		if (j >= 1) {/* Core 1*/
+			load = xgold_cpu_load_get(j+1);
+#else
+			load = xgold_cpu_load_get(1);
+
+#endif
+			mex_tmp_load = xgold_cpu_load_get(0);
+
+			mex_tmp_load = 100 - mex_tmp_load;
+
+			if (mex_tmp_load <= 0)
+				mex_tmp_load = 1;
+
+			load = load * 100 / mex_tmp_load;
+			if (load > 100)
+				load = 100;
+#ifdef CONFIG_SMP
+		} else
+			load = xgold_cpu_load_get(1);
+#endif
+
+#else
 		load = 100 * (wall_time - idle_time) / wall_time;
+#endif
+
 
 		if (load > max_load)
 			max_load = load;
