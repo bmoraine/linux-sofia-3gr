@@ -56,6 +56,8 @@ source "drivers/hsi/Kconfig"
 
 source "drivers/idi/Kconfig"
 
+source "drivers/fm/Kconfig"
+
 source "drivers/pps/Kconfig"
 
 source "drivers/ptp/Kconfig"

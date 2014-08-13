@@ -1,0 +1,40 @@
+#
+# Copyright (C) 2013 Intel Mobile Communications GmbH
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU General Public License,
+# version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+# more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+#
+# fmdev character device support
+#
+
+config FMDEV
+  tristate "FM Character Device Support"
+  depends on FM
+  default y if FM
+  help
+    If you say yes to this option, support for the Frequency Manager (FM)
+    Character Device will be included.
+    If you say no to this option, support for the Frequency Manager (FM)
+    Character Device will not be included.
+
+config FMDEV_VERBOSE
+  bool "FM Character Device Verbose Debugging"
+  depends on FMDEV
+  default n if FMDEV
+  help
+    If you say yes to this option, verbose debug tracing will be enabled
+    within the FM Character Device driver (fmdev).
+    If you say no to this option, verbose debug tracing will be disabled within
+    the FM Character Device driver (fmdev).

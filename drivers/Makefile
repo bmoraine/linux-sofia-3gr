@@ -125,6 +125,11 @@ obj-$(CONFIG_HWMON)		+= hwmon/
 obj-$(CONFIG_THERMAL)		+= thermal/
 obj-$(CONFIG_WATCHDOG)		+= watchdog/
 obj-$(CONFIG_MD)		+= md/
+# fm/ must come before any drivers that interface with Frequency Manager via the
+# iui_fm_* API's, including FM Radio (FMR), WLAN, IDI, CP-Audio, Class-D and
+# SD/eMMC.
+obj-$(CONFIG_FM)       += fm/
+
 obj-$(CONFIG_BT)		+= bluetooth/
 obj-$(CONFIG_ACCESSIBILITY)	+= accessibility/
 obj-$(CONFIG_ISDN)		+= isdn/

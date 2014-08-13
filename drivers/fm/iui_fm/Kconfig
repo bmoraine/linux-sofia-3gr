@@ -1,0 +1,142 @@
+#
+# Copyright (C) 2013 Intel Mobile Communications GmbH
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU General Public License,
+# version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+# more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+#
+# IUI FM Interface support
+#
+
+config IUI_FM
+  tristate "IUI FM Support"
+  depends on FMDEV
+  default y if FMDEV
+  help
+    If you say yes to this option, support for the IUI Frequency Manager
+    (FM) Interface will be included.
+    If you say no to this option, support for the IUI Frequency Manager
+    (FM) Interface will not be included.
+
+config IUI_FM_EMMC
+  bool "EMMC Macro Support"
+  depends on IUI_FM
+  default n if IUI_FM
+  help
+    If you say yes to this option, support for the EMMC Frequency Macro
+    will be included in the IUI Frequency Manager interface.
+    If you say no to this option, support for the EMMC Frequency Macro
+    will not be included in the IUI Frequency Manager interface.
+
+config IUI_FM_CLASS_D
+  bool "Class D Macro Support"
+  depends on IUI_FM
+  default n if IUI_FM
+  help
+    If you say yes to this option, support for the Class D Frequency Macro
+    will be included in the IUI Frequency Manager interface.
+    If you say no to this option, support for the Class D Frequency Macro
+    will not be included in the IUI Frequency Manager interface.
+
+config IUI_FM_PMU_CP
+  bool "Power Management Unit Charge Pump (PMU_CP) Macro Support"
+  depends on IUI_FM
+  default n if IUI_FM
+  help
+    If you say yes to this option, support for the Power Management Unit
+    Charge Pump (PMU_CP) Frequency Macro will be included in the IUI
+    Frequency Manager interface.
+    If you say no to this option, support for the Power Management Unit
+    Charge Pump (PMU_CP) Frequency Macro will not be included in the IUI
+    Frequency Manager interface.
+
+config IUI_FM_MS_CP
+  bool "Mixed Signal Charge Pump (MS_CP) Macro Support"
+  depends on IUI_FM
+  default y if IUI_FM
+  help
+    If you say yes to this option, support for the Mixed Signal Charge Pump
+    (MS_CP) Frequency Macro will be included in the IUI Frequency Manager
+    interface.
+    If you say no to this option, support for the Mixed Signal Charge Pump
+    (MS_CP) Frequency Macro will not be included in the IUI Frequency Manager
+    interface.
+
+config IUI_FM_DCDC
+  bool "DC to DC Converter (DCDC) Macro Support"
+  depends on IUI_FM
+  default n if IUI_FM
+  help
+    If you say yes to this option, support for the DC to DC converter
+    (DCDC) Frequency Macro will be included in the IUI Frequency Manager
+    interface.
+    If you say no to this option, support for the DC to DC converter
+    (DCDC) Frequency Macro will not be included in the IUI Frequency Manager
+    interface.
+
+config IUI_FM_IDI
+  bool "Inter-Die Interface (IDI) Macro Support"
+  depends on IUI_FM
+  default y if IUI_FM
+  help
+    If you say yes to this option, support for the Inter-Die Interface
+    (IDI) Frequency Macro will be included in the IUI Frequency Manager
+    interface.
+    If you say no to this option, support for the Inter-Die Interface
+    (IDI) Frequency Macro will not be included in the IUI Frequency Manager
+    interface.
+
+config IUI_FM_WLAN
+  bool "Wireless LAN (WLAN) Macro Support"
+  depends on IUI_FM
+  default y if IUI_FM
+  help
+    If you say yes to this option, support for the Wireless LAN (WLAN)
+    Frequency Macro will be included in the IUI Frequency Manager
+    interface.
+    If you say no to this option, support for the Wireless LAN (WLAN)
+    Frequency Macro will not be included in the IUI Frequency Manager
+    interface.
+
+config IUI_FM_FMR
+  bool "FM Radio (FMR) Macro Support"
+  depends on IUI_FM
+  default y if IUI_FM
+  help
+    If you say yes to this option, support for the FM Radio (FMR) Frequency
+    Macro will be included in the IUI Frequency Manager interface.
+    If you say no to this option, support for the FM Radio (FMR) Frequency
+    Macro will not be included in the IUI Frequency Manager interface.
+
+config IUI_FM_BT
+  bool "Bluetooth (BT) Macro Support"
+  depends on IUI_FM
+  default n if IUI_FM
+  help
+    If you say yes to this option, support for the Bluetooth (BT) Frequency
+    Macro will be included in the IUI Frequency Manager interface.
+    If you say no to this option, support for the Bluetooth (BT) Frequency
+    Macro will no be included in the IUI Frequency Manager interface
+
+config IUI_FM_GNSS
+  bool "Global Navigation Satellite System (GNSS) Macro Support"
+  depends on IUI_FM
+  default n if IUI_FM
+  help
+    If you say yes to this option, support for the Global Navigation
+    Satellite System (GNSS) Frequency Macro will be included in the IUI
+    Frequency Manager interface.
+    If you say no to this option, support for the Global Navigation
+    Satellite System (GNSS) Frequency Macro will not be included in the IUI
+    Frequency Manager interface.

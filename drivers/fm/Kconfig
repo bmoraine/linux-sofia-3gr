@@ -1,0 +1,33 @@
+#
+# Copyright (C) 2013 Intel Mobile Communications GmbH
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU General Public License,
+# version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+# more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+menuconfig FM
+  tristate "Frequency Manager (FM) Support"
+  help
+    FM (Frequency Manager) correlates operating frequency information
+    between several components to minimize crosstalk between them.
+
+  if FM
+
+  source drivers/fm/fmdev/Kconfig
+  source drivers/fm/iui_fm/Kconfig
+  source drivers/fm/iui_fm_test/Kconfig
+
+  endif # FM
+
+
+
