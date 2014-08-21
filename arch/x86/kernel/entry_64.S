@@ -1174,11 +1174,13 @@ apicinterrupt3 \num \sym \do_sym
 trace_apicinterrupt \num \sym
 .endm
 
+#ifdef CONFIG_X86_IO_APIC
 #ifdef CONFIG_SMP
 apicinterrupt3 IRQ_MOVE_CLEANUP_VECTOR \
 	irq_move_cleanup_interrupt smp_irq_move_cleanup_interrupt
 apicinterrupt3 REBOOT_VECTOR \
 	reboot_interrupt smp_reboot_interrupt
+#endif
 #endif
 
 #ifdef CONFIG_X86_UV
