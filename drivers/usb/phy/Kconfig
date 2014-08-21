@@ -52,6 +52,14 @@ config INTEL_USB2PHY
 	  This driver handled charger detect, runtime power management and otg
 	  state machine.
 
+config INTEL_USB3PHY
+	tristate "Intel USB 3.0 PHY controller Driver"
+	select USB_PHY
+	help
+	  Enable to support Intel USB 3.0 phy controller driver for Intel SoCs.
+	  This driver handles runtime power management,
+	  charger detection and OTG state machine.
+
 config ISP1301_OMAP
 	tristate "Philips ISP1301 with OMAP OTG"
 	depends on I2C && ARCH_OMAP_OTG
