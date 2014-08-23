@@ -211,13 +211,11 @@ static struct xgold_i2c_platdata *xgold_i2c_of_get_platdata(struct device *dev)
 	platdata->clk_kernel = of_clk_get_by_name(np, OF_KERNEL_CLK);
 	if (IS_ERR(platdata->clk_kernel)) {
 		i2c_err("Clk %s not found\n", OF_KERNEL_CLK);
-		return NULL;
 	}
 
 	platdata->clk_bus = of_clk_get_by_name(np, OF_AHB_CLK);
 	if (IS_ERR(platdata->clk_bus)) {
 		i2c_err("Clk %s not found\n", OF_AHB_CLK);
-		return NULL;
 	}
 #endif
 
