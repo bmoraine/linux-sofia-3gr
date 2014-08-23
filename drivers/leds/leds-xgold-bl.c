@@ -24,6 +24,8 @@
 #include <linux/fs.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <sofia/vmm_pmic.h>
+#include "leds-pmic.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -61,20 +63,34 @@
 
 #define BL_MODE_ON	\
 	do { \
-		val = (SCU_K2_VAL*100)/intensity; \
-		led_write32(mmio_base, LED_CTRL, SCU_LED_DOWN); \
-		led_write32(mmio_base, LED_K2_CONTROL, val); \
-		led_write32(mmio_base, LED_K1MAX, SCU_K1MAX_VAL); \
-		led_write32(mmio_base, LED_K2MAX, SCU_K2MAX_VAL); \
-		if (pdata->flags & XGOLD_LED_USE_SAFE_CTRL) \
-			led_write32(mmio_base, SAFE_LED_CTRL, SCU_SAFE_LED_UP);\
-		led_write32(mmio_base, LED_CTRL, SCU_LED_UP); \
+		if (pdata->pmic_bl) {\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K1_LOW_CTRL_REG, 0x10);\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K2_LOW_CTRL_REG, 0x6);\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K2_HIGH_CTRL_REG, 0x0);\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CFG_REG, 0x1);\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CTRL_REG, 0x2);\
+		} else {\
+			val = (SCU_K2_VAL*100)/intensity; \
+			led_write32(mmio_base, LED_CTRL, SCU_LED_DOWN); \
+			led_write32(mmio_base, LED_K2_CONTROL, val); \
+			led_write32(mmio_base, LED_K1MAX, SCU_K1MAX_VAL); \
+			led_write32(mmio_base, LED_K2MAX, SCU_K2MAX_VAL); \
+			if (pdata->flags & XGOLD_LED_USE_SAFE_CTRL) \
+				led_write32(mmio_base, SAFE_LED_CTRL, SCU_SAFE_LED_UP);\
+			led_write32(mmio_base, LED_CTRL, SCU_LED_UP); \
+		} \
 	} while (0);
 
 #define SET_LCD_BL_ON BL_MODE_ON
 
-#define BL_MODE_OFF \
-		led_write32(mmio_base, LED_CTRL, SCU_LED_DOWN);
+#define BL_MODE_OFF	\
+	do { \
+		if (pdata->pmic_bl) { \
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CTRL_REG, 0x0);\
+		} else {\
+			led_write32(mmio_base, LED_CTRL, SCU_LED_DOWN);\
+		} \
+	} while (0);
 #define SET_LCD_BL_OFF BL_MODE_OFF
 
 /*In micro secs*/
@@ -107,6 +123,7 @@ struct xgold_led_bl_device {
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
+	bool pmic_bl;
 };
 
 static int led_ctrl = SCU_LED_UP_CMP_100mv;
@@ -188,7 +205,8 @@ static const unsigned long pcl_deactivate =
 */
 static void led_write32(void *mmio_base, u16 offset, u32 val)
 {
-	iowrite32(val, (char *)mmio_base + offset);
+	if (mmio_base)
+		iowrite32(val, (char *)mmio_base + offset);
 }
 
 struct xgold_bl_timer {
@@ -298,19 +316,23 @@ static int xgold_set_lcd_backlight(struct device *dev,
 				int intensity)
 {
 	struct xgold_led_bl_device *pdata = dev_get_drvdata(dev);
+	unsigned long flags = 0;
 	int val;
-	unsigned long flags;
 	dev_dbg(dev, "%s %d\n", __func__, intensity);
 
 	intensity = SCALING_INTENSITY(intensity);
 	if (intensity) {
-		spin_lock_irqsave(lock, flags);
+		if (!pdata->pmic_bl)
+			spin_lock_irqsave(lock, flags);
 		SET_LCD_BL_ON;
-		spin_unlock_irqrestore(lock, flags);
+		if (!pdata->pmic_bl)
+			spin_unlock_irqrestore(lock, flags);
 	} else {
-		spin_lock_irqsave(lock, flags);
+		if (!pdata->pmic_bl)
+			spin_lock_irqsave(lock, flags);
 		SET_LCD_BL_OFF;
-		spin_unlock_irqrestore(lock, flags);
+		if (!pdata->pmic_bl)
+			spin_unlock_irqrestore(lock, flags);
 	}
 	return 0;
 }
@@ -404,31 +426,6 @@ static int xgold_led_bl_probe(struct platform_device *pdev)
 
 	nbl = pdev->dev.of_node;
 
-	/* device pm */
-	led_bl->pm_platdata = of_device_state_pm_setup(nbl);
-	if (IS_ERR(led_bl->pm_platdata)) {
-		dev_err(&pdev->dev, "Error during device state pm init\n");
-		ret = -EINVAL;
-		goto failed_free_mem;
-	}
-
-	if (!led_bl->pm_platdata || !led_bl->pm_platdata->pm_state_D3_name
-			|| !led_bl->pm_platdata->pm_state_D0_name) {
-		dev_err(&pdev->dev, "missing PM info\n");
-		return -EINVAL;
-	}
-
-	led_bl->mmio_base = of_iomap(nbl, 0);
-	if (led_bl->mmio_base == NULL) {
-		dev_err(&pdev->dev,
-			" I/O remap failed\n");
-		ret = -EINVAL;
-		goto failed_free_mem;
-	}
-
-	if (of_find_property(nbl, "intel,flags-use-safe-ctrl", NULL))
-		led_bl->flags |= XGOLD_LED_USE_SAFE_CTRL;
-
 	led_bl->init = xgold_led_bl_cbinit;
 	led_bl->exit = xgold_led_bl_cbexit;
 	led_bl->set_clk = xgold_bl_set_clk;
@@ -450,7 +447,41 @@ static int xgold_led_bl_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto failed_unmap;
 	}
+
 	dev_set_drvdata(&pdev->dev, led_bl);
+
+	if (of_device_is_compatible(nbl, "intel,pmic-led")) {
+		dev_info(&pdev->dev, "PMIC Backlight driver probed\n");
+		led_bl->pmic_bl = true;
+		led_bl->set_clk = NULL;
+		return 0;
+	}
+
+	/* device pm */
+	led_bl->pm_platdata = of_device_state_pm_setup(nbl);
+	if (IS_ERR(led_bl->pm_platdata)) {
+		dev_err(&pdev->dev, "Error during device state pm init\n");
+		ret = -EINVAL;
+		goto failed_free_mem;
+	}
+
+	if (!led_bl->pm_platdata ||
+			!led_bl->pm_platdata->pm_state_D3_name ||
+			!led_bl->pm_platdata->pm_state_D0_name) {
+		dev_err(&pdev->dev, "missing PM info\n");
+		return -EINVAL;
+	}
+
+	led_bl->mmio_base = of_iomap(nbl, 0);
+	if (led_bl->mmio_base == NULL) {
+		dev_err(&pdev->dev,
+			" I/O remap failed\n");
+		ret = -EINVAL;
+		goto failed_free_mem;
+	}
+
+	if (of_find_property(nbl, "intel,flags-use-safe-ctrl", NULL))
+		led_bl->flags |= XGOLD_LED_USE_SAFE_CTRL;
 
 	led_bl->pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(led_bl->pinctrl))
@@ -544,6 +575,7 @@ static const struct dev_pm_ops xgold_led_bl_pm = {
 
 static struct of_device_id xgold_led_bl_of_match[] = {
 	{.compatible = "intel,led-bl",},
+	{.compatible = "intel,pmic-led",},
 	{},
 };
 
