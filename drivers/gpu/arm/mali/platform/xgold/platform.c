@@ -178,7 +178,7 @@ static int mali_platform_update_irq(struct platform_device *pdev, int irq)
 	for (i = 0; i < pdev->num_resources; i++) {
 		p_curr_mali_gpu_resource = &pdev->resource[i];
 		if (p_curr_mali_gpu_resource->flags == IORESOURCE_IRQ) {
-			mali_info("Update %s from %d to %d\n",
+			mali_dbg("Update %s from %d to %d\n",
 				p_curr_mali_gpu_resource->name,
 				p_curr_mali_gpu_resource->start, irq);
 			p_curr_mali_gpu_resource->start =

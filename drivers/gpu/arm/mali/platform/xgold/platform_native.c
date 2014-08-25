@@ -130,22 +130,16 @@ static int mali_platform_power_set(struct mali_platform_data *pdata, int en)
 
 static int mali_plf_set_pm_state_by_num(int state_num)
 {
-	switch (state_num) {
-	case MALI_PLF_PM_STATE_D3:
+	if (MALI_PLF_PM_STATE_D3) {
 		/*mali_pmu_powerdown();*/
 		mali_platform_clock_set(p_plf_data, 0);
 		mali_platform_power_set(p_plf_data, 0);
-		break;
-
-	case MALI_PLF_PM_STATE_D0:
+	} else {
 		mali_platform_power_set(p_plf_data, 1);
 		mali_platform_clock_set(p_plf_data, 1);
 		/*mali_pmu_powerup();*/
-		break;
-
-	default:
-		mali_err("Unknown power state\n");
 	}
+
 	return 0;
 }
 
