@@ -40,36 +40,47 @@
 #define GPU_THROTTLE_DOWN_THRESHOLD 76 /*30%*/
 
 #if defined(GPU_NO_PMU)
-static struct resource mali_gpu_res[] = {
-	MALI_GPU_RESOURCES_MALI400_MP1(0xE2E00000,
-		-1, -1, -1, -1)
+static struct resource mali_gpu_0xE2E00000_mp1_res[] = {
+MALI_GPU_RESOURCES_MALI400_MP1(0xE2E00000, -1, -1, -1, -1)
 };
 
-static struct resource mali_gpu_mp2_res[] = {
-	MALI_GPU_RESOURCES_MALI400_MP2(0xE2E00000,
-		-1, -1, -1, -1, -1, -1)
+static struct resource mali_gpu_0xE2E00000_mp2_res[] = {
+MALI_GPU_RESOURCES_MALI400_MP2(0xE2E00000, -1, -1, -1, -1, -1, -1)
+};
+
+static struct resource mali_gpu_0xEB300000_mp1_res[] = {
+MALI_GPU_RESOURCES_MALI400_MP1(0xEB300000, -1, -1, -1, -1)
+};
+
+static struct resource mali_gpu_0xEB300000_mp2_res[] = {
+MALI_GPU_RESOURCES_MALI400_MP2(0xEB300000, -1, -1, -1, -1, -1, -1)
 };
 
 #else
 static struct resource mali_gpu_res[] = {
-	MALI_GPU_RESOURCES_MALI400_MP1_PMU(0xE2E00000,
-		-1, -1, -1, -1)
+MALI_GPU_RESOURCES_MALI400_MP1_PMU(0xE2E00000, -1, -1, -1, -1)
 };
 
 static struct resource mali_gpu_mp2_res[] = {
-	MALI_GPU_RESOURCES_MALI400_MP2_PMU(0xE2E00000,
-		-1, -1, -1, -1, -1, -1)
+MALI_GPU_RESOURCES_MALI400_MP2_PMU(0xE2E00000, -1, -1, -1, -1, -1, -1)
 };
 
 #endif
 
 struct xgold_mali_resources {
+	unsigned int base;
 	unsigned id;
 	struct resource *gpu_res;
 	unsigned resource_sz;
 } gpu_resources[] = {
-	{ 1, mali_gpu_res, ARRAY_SIZE(mali_gpu_res) },
-	{ 2, mali_gpu_mp2_res, ARRAY_SIZE(mali_gpu_mp2_res) },
+	{ 0xE2E00000, 1, mali_gpu_0xE2E00000_mp1_res,
+		ARRAY_SIZE(mali_gpu_0xE2E00000_mp1_res) },
+	{ 0xE2E00000, 2, mali_gpu_0xE2E00000_mp2_res,
+		ARRAY_SIZE(mali_gpu_0xE2E00000_mp2_res) },
+	{ 0xEB300000, 1, mali_gpu_0xEB300000_mp1_res,
+		ARRAY_SIZE(mali_gpu_0xEB300000_mp1_res) },
+	{ 0xEB300000, 2, mali_gpu_0xEB300000_mp2_res,
+		ARRAY_SIZE(mali_gpu_0xEB300000_mp2_res) },
 };
 
 static struct mali_gpu_device_data xgold_mali_gpu_data;
@@ -272,15 +283,22 @@ int mali_platform_probe(struct platform_device *pdev,
 	int ret = 0, i;
 	unsigned int irq;
 	struct device_node *np = pdev->dev.of_node;
-	unsigned int nr_cores;
+	unsigned int nr_cores, regbase;
+
+	ret = of_property_read_u32(np, "reg", &regbase);
+	if (ret) {
+		mali_err("Could not get register base adress\n");
+		return -1;
+	}
 
 	ret = of_property_read_u32(np, "intel,mali,cores", &nr_cores);
 	if (ret)
 		nr_cores = 1;
 
 	for (i = 0; i < ARRAY_SIZE(gpu_resources); i++)
-		if (gpu_resources[i].id == nr_cores)
-			break;
+		if (gpu_resources[i].base == regbase)
+			if (gpu_resources[i].id == nr_cores)
+				break;
 
 	mali_info("Using %d cores\n",  nr_cores);
 
