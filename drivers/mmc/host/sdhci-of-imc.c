@@ -376,6 +376,13 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* correct corecfg register if needed */
+	if (!of_property_read_u32(np, "intel,corecfg_reg", &offset)) {
+		corereg = scu_base + offset;
+		if (!of_property_read_u32(np, "intel,corecfg_val", &offset))
+			writel(offset, corereg);
+	}
+
 	of_property_read_u32_array(np, "intel,quirks", &quirktab[0], 2);
 
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
