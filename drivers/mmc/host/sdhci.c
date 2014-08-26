@@ -1867,6 +1867,11 @@ static int sdhci_card_busy(struct mmc_host *mmc)
 	struct sdhci_host *host = mmc_priv(mmc);
 	u32 present_state;
 
+	if (host->quirks2 & SDHCI_QUIRK2_WA_LNP) {
+		u16 ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+		return !(ctrl & SDHCI_CTRL_VDD_180);
+	}
+
 	sdhci_runtime_pm_get(host);
 	/* Check whether DAT[3:0] is 0000 */
 	present_state = sdhci_readl(host, SDHCI_PRESENT_STATE);
