@@ -276,6 +276,7 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	struct resource res;
 	void __iomem *scu_base;
 	u32 offset;
+	void __iomem *corereg;
 	int it_wk;
 #if defined CONFIG_PLATFORM_DEVICE_PM && defined CONFIG_PLATFORM_DEVICE_PM_VIRT
 	struct device_node *pm_node;
@@ -310,6 +311,13 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	} else
 		of_property_read_u32_array(np, "intel,tap_values2",
 						&mmc_pdata->tap_values2[0], 6);
+
+	/* correct corecfg register if needed */
+	if (!of_property_read_u32(np, "intel,corecfg_reg", &offset)) {
+		corereg = scu_base + offset;
+		if (!of_property_read_u32(np, "intel,corecfg_val", &offset))
+			writel(offset, corereg);
+	}
 
 	of_property_read_u32_array(np, "intel,quirks", &quirktab[0], 2);
 
