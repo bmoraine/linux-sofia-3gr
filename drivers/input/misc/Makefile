@@ -38,6 +38,7 @@ obj-$(CONFIG_INPUT_KEYCHORD)		+= keychord.o
 obj-$(CONFIG_INPUT_KEYSPAN_REMOTE)	+= keyspan_remote.o
 obj-$(CONFIG_INPUT_KXTJ9)		+= kxtj9.o
 obj-$(CONFIG_INPUT_L3GD20_GYR)		+= l3gd20_gyr.o
+obj-$(CONFIG_INPUT_KXCJK1013_ACC)	+= kxcjk1013_acc.o
 obj-$(CONFIG_INPUT_LSM303DLHC_ACC)	+= lsm303dlhc_acc.o
 obj-$(CONFIG_INPUT_LSM303DLHC_MAG)	+= lsm303dlhc_mag.o
 obj-$(CONFIG_INPUT_M68K_BEEP)		+= m68kspkr.o

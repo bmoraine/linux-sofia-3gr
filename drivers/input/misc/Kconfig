@@ -479,6 +479,16 @@ config INPUT_L3GD20_GYR
 	  To compile this driver as a module, choose M here: the module
 	  will be called l3gd20_gyr.
 
+config INPUT_KXCJK1013_ACC
+    tristate "KXCJK-1013 Kionix Accelerometer"
+	depends on I2C
+	help
+	  Say Y here to use the KXCJK-1013 3D Accelerometer
+	  from Kionix.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called kxcjk1013_acc.
+
 config INPUT_LSM303DLHC_ACC
     tristate "LSM303DLHC STM Accelerometer"
 	depends on I2C
