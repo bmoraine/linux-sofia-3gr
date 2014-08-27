@@ -472,7 +472,8 @@ static irqreturn_t xgold_noc_error_irq(int irq, void *dev)
 		list_add_tail(&noc_err->link, &noc_device->err_queue);
 		spin_unlock_irqrestore(&noc_device->lock, flags);
 		dev_err(mydev,
-			"Error interrupt 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			"Error interrupt"
+			" -0 0x%08x -1 0x%08x -3 0x%08x -5 0x%08x -7 0x%08x\n",
 			noc_err->err[0], noc_err->err[1],
 			noc_err->err[2], noc_err->err[3], noc_err->err[4]);
 	}
@@ -1200,8 +1201,10 @@ static int xgold_noc_parse_dts_qoscfg(struct device *_dev,
 			list_add_tail(&reg->list,
 					&(*config)->list);
 		}
-	}
-	return 0;
+	} else
+		*config = NULL;
+
+	return *config == NULL ? -EINVAL : 0;
 }
 
 static int xgold_noc_parse_dts_qoslist(struct device *_dev)
@@ -1228,6 +1231,7 @@ static int xgold_noc_parse_dts_qoslist(struct device *_dev)
 		}
 		INIT_LIST_HEAD(&noc_device->qos->list);
 		for (i = 0; i < ncfg; i++) {
+			int ret = 0;
 			devqos = (struct dev_qos_cfg *)
 				devm_kzalloc(_dev,
 					sizeof(struct dev_qos_cfg), GFP_KERNEL);
@@ -1241,13 +1245,19 @@ static int xgold_noc_parse_dts_qoslist(struct device *_dev)
 					&devqos->name);
 
 			sprintf(str, "intel,%s-qos-settings", devqos->name);
-			xgold_noc_parse_dts_qoscfg(_dev, str, &devqos->config);
-			list_add_tail(&devqos->list,
+			ret = xgold_noc_parse_dts_qoscfg(_dev, str,
+					&devqos->config);
+			if (ret) {
+				dev_info(_dev, "%s not add to list\n", str);
+				devm_kfree(_dev, devqos);
+			} else {
+				dev_info(_dev, "%s added to list\n", str);
+				list_add_tail(&devqos->list,
 					&noc_device->qos->list);
+			}
 		}
-
-
 	} else {
+		dev_info(_dev, "no QoS config list\n");
 		noc_device->qos = NULL;
 	}
 	return 0;
@@ -1259,9 +1269,8 @@ void xgold_noc_qos_set(char *name)
 	struct dev_qos_cfg *qos;
 	struct regcfg *reg;
 	struct xgold_noc_device *noc_dev = noc_dev_glob[0];
-	int found = 0;
 
-	if (!noc_dev->qos)
+	if ((!noc_dev) || (!noc_dev->qos))
 		return;
 
 	list_for_each_entry(qos, &noc_dev->qos->list, list) {
@@ -1273,13 +1282,12 @@ void xgold_noc_qos_set(char *name)
 						&qos->config->list, list) {
 					iowrite32(reg->value,
 						noc_dev->hw_base + reg->offset);
-					found = 1;
 				}
 			}
+			return;
 		}
 	}
-	if (!found)
-		pr_debug("QoS config %s not found\n", name);
+	pr_debug("QoS config %s not found\n", name);
 }
 EXPORT_SYMBOL(xgold_noc_qos_set);
 
@@ -1440,19 +1448,19 @@ static int xgold_noc_probe(struct platform_device *pdev)
 
 	noc_device->err_irq = platform_get_irq_byname(pdev, "error");
 	if (IS_ERR_VALUE(noc_device->err_irq)) {
-		dev_err(mydev, "Error %d while extracting error irq\n",
-			(int)noc_device->err_irq);
+		dev_warn(mydev, "error irq not defined\n");
 
 		ret = noc_device->err_irq;
 		goto put_clock;
-	}
-	ret = request_irq(noc_device->err_irq, xgold_noc_error_irq,
-			  IRQF_SHARED, "noc error", noc_device);
-	if (ret) {
-		dev_err(mydev, "Error %d while installing error irq\n",
-			(int)noc_device->err_irq);
+	} else {
+		ret = request_irq(noc_device->err_irq, xgold_noc_error_irq,
+				IRQF_SHARED, "noc error", noc_device);
+		if (ret) {
+			dev_err(mydev, "Error %d while installing error irq\n",
+					(int)noc_device->err_irq);
 
-		goto put_clock;
+			goto put_clock;
+		}
 	}
 
 	noc_device->stat_irq = platform_get_irq_byname(pdev, "stat_alarm");
