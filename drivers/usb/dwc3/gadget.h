@@ -167,4 +167,6 @@ static inline const char *dwc3_ep_event_string(u8 event)
 	return "UNKNOWN";
 }
 
+int dwc3_gadget_reinit(struct dwc3 *dwc);
+
 #endif /* __DRIVERS_USB_DWC3_GADGET_H */

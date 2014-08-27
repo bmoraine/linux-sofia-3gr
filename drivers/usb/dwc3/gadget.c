@@ -29,6 +29,7 @@
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <linux/usb/otg.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -1532,6 +1533,37 @@ static void dwc3_gadget_disable_irq(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_DEVTEN, 0x00);
 }
 
+static int dwc3_gaget_vbus_session(struct usb_gadget *g, int is_active)
+{
+	struct dwc3		*dwc = gadget_to_dwc(g);
+	unsigned long		flags;
+	int			ret;
+
+	is_active = !!is_active;
+
+	dev_info(dwc->dev, "vbus_session %s\n",
+			is_active ? "active" : "deactive");
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	/* TODO: missing preventing of reinitialization if vbus
+	 * session is already active */
+	if (is_active) {
+		/* TODO: reinit is tested on VP but on HW still needs
+		 * to be tested */
+		dwc3_gadget_reinit(dwc);
+		dwc3_gadget_enable_irq(dwc);
+		ret = dwc3_gadget_run_stop(dwc, is_active);
+	} else {
+		ret = dwc3_gadget_run_stop(dwc, is_active);
+		dwc3_gadget_disable_irq(dwc);
+		__dwc3_gadget_ep_disable(dwc->eps[0]);
+		__dwc3_gadget_ep_disable(dwc->eps[1]);
+	}
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	return ret;
+}
+
 static irqreturn_t dwc3_interrupt(int irq, void *_dwc);
 static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc);
 
@@ -1647,6 +1679,36 @@ err0:
 	return ret;
 }
 
+static int dwc3_gadget_enable_ep0(struct dwc3 *dwc)
+{
+	struct dwc3_ep		*dep = NULL;
+	int ret = 0;
+
+	/* Start with SuperSpeed Default */
+	dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(512);
+
+	dep = dwc->eps[0];
+	ret = __dwc3_gadget_ep_enable(dep, &dwc3_gadget_ep0_desc, NULL, false);
+	if (ret) {
+		dev_err(dwc->dev, "failed to enable %s\n", dep->name);
+		goto err0;
+	}
+
+	dep = dwc->eps[1];
+	ret = __dwc3_gadget_ep_enable(dep, &dwc3_gadget_ep0_desc, NULL, false);
+	if (ret) {
+		dev_err(dwc->dev, "failed to enable %s\n", dep->name);
+		goto err1;
+	}
+
+	return 0;
+
+err1:
+	__dwc3_gadget_ep_disable(dwc->eps[0]);
+err0:
+	return ret;
+}
+
 static int dwc3_gadget_stop(struct usb_gadget *g,
 		struct usb_gadget_driver *driver)
 {
@@ -1670,6 +1732,18 @@ static int dwc3_gadget_stop(struct usb_gadget *g,
 	return 0;
 }
 
+static int dwc3_gadget_vbus_draw(struct usb_gadget *g, unsigned mA)
+{
+	struct dwc3		*dwc = gadget_to_dwc(g);
+
+	if (!dwc && !dwc->usb2_phy)
+		return -ENOTSUPP;
+
+	usb_phy_set_power(dwc->usb2_phy, mA);
+
+	return 0;
+}
+
 static const struct usb_gadget_ops dwc3_gadget_ops = {
 	.get_frame		= dwc3_gadget_get_frame,
 	.wakeup			= dwc3_gadget_wakeup,
@@ -1677,6 +1751,8 @@ static const struct usb_gadget_ops dwc3_gadget_ops = {
 	.pullup			= dwc3_gadget_pullup,
 	.udc_start		= dwc3_gadget_start,
 	.udc_stop		= dwc3_gadget_stop,
+	.vbus_session		= dwc3_gaget_vbus_session,
+	.vbus_draw		= dwc3_gadget_vbus_draw,
 };
 
 /* -------------------------------------------------------------------------- */
@@ -2676,6 +2752,7 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		goto err4;
 	}
 
+	otg_set_peripheral(dwc->usb2_phy->otg, &dwc->gadget);
 	return 0;
 
 err4:
@@ -2716,6 +2793,114 @@ void dwc3_gadget_exit(struct dwc3 *dwc)
 
 	dma_free_coherent(dwc->dev, sizeof(*dwc->ctrl_req),
 			dwc->ctrl_req, dwc->ctrl_req_addr);
+}
+
+int dwc3_gadget_reinit(struct dwc3 *dwc)
+{
+	int ret = 0;
+	u32 reg = 0;
+	unsigned long timeout = 0;
+
+	reg = dwc3_readl(dwc->regs, DWC3_GSNPSID);
+	/* This should read as U3 followed by revision number */
+	if ((reg & DWC3_GSNPSID_MASK) != 0x55330000) {
+		dev_err(dwc->dev, "this is not a DesignWare USB3 DRD Core\n");
+		ret = -ENODEV;
+		goto err0;
+	}
+	dwc->revision = reg;
+
+	/* issue device SoftReset too */
+	timeout = jiffies + msecs_to_jiffies(500);
+	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+	reg &= ~DWC3_DCTL_RUN_STOP;
+	reg |= DWC3_DCTL_CSFTRST;
+	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+	do {
+		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+		if (!(reg & DWC3_DCTL_CSFTRST))
+			break;
+
+		if (time_after(jiffies, timeout)) {
+			dev_err(dwc->dev, "Reset Timed Out\n");
+			ret = -ETIMEDOUT;
+			goto err0;
+		}
+
+		cpu_relax();
+	} while (true);
+
+	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
+	reg &= ~DWC3_GCTL_SCALEDOWN_MASK;
+	reg &= ~DWC3_GCTL_DISSCRAMBLE;
+
+	switch (DWC3_GHWPARAMS1_EN_PWROPT(dwc->hwparams.hwparams1)) {
+	case DWC3_GHWPARAMS1_EN_PWROPT_CLK:
+		reg &= ~DWC3_GCTL_DSBLCLKGTNG;
+		break;
+	default:
+		dev_dbg(dwc->dev, "No power optimization available\n");
+	}
+	/*
+	 * WORKAROUND: DWC3 revisions <1.90a have a bug
+	 * where the device can fail to connect at SuperSpeed
+	 * and falls back to high-speed mode which causes
+	 * the device to enter a Connect/Disconnect loop
+	 */
+	if (dwc->revision < DWC3_REVISION_190A)
+		reg |= DWC3_GCTL_U2RSTECN;
+
+	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
+
+	ret = dwc3_event_buffers_setup(dwc);
+	if (ret) {
+		dev_err(dwc->dev, "failed to setup event buffers\n");
+		goto err1;
+	}
+
+	reg = dwc3_readl(dwc->regs, DWC3_DCFG);
+	reg |= DWC3_DCFG_LPM_CAP;
+	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
+
+	reg = dwc3_readl(dwc->regs, DWC3_DCFG);
+	reg &= ~(DWC3_DCFG_SPEED_MASK);
+
+	/**
+	 * WORKAROUND: DWC3 revision < 2.20a have an issue
+	 * which would cause metastability state on Run/Stop
+	 * bit if we try to force the IP to USB2-only mode.
+	 *		 * Because of that, we cannot configure the IP to any
+	 * speed other than the SuperSpeed
+	 *
+	 * Refers to:
+	 *
+	 * STAR#9000525659: Clock Domain Crossing on DCTL in
+	 * USB 2.0 Mode
+	 */
+	if (dwc->revision < DWC3_REVISION_220A)
+		reg |= DWC3_DCFG_SUPERSPEED;
+	else
+		reg |= dwc->maximum_speed;
+	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
+
+	dwc->start_config_issued = false;
+
+	ret = dwc3_gadget_enable_ep0(dwc);
+	if (ret) {
+		dev_err(dwc->dev, "failed to setup init ep0\n");
+		goto err1;
+	}
+
+	/* begin to receive SETUP packets */
+	dwc->ep0state = EP0_SETUP_PHASE;
+	dwc3_ep0_out_start(dwc);
+
+	return 0;
+
+err1:
+	dwc3_event_buffers_cleanup(dwc);
+err0:
+	return ret;
 }
 
 int dwc3_gadget_prepare(struct dwc3 *dwc)
