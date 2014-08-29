@@ -1341,4 +1341,12 @@ config RTC_DRV_HID_SENSOR_TIME
 	  rtc-hid-sensor-time.
 
 
+config RTC_XGOLD_PLATFORM
+	tristate "Intel xgold RTC (platform bus)"
+	depends on X86_INTEL_XGOLD
+	help
+	 If you say Y here you will get support for the RTC found on
+	 the XGOLD and this is base on platform bus.
+
+
 endif # RTC_CLASS
