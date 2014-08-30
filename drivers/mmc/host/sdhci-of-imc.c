@@ -120,6 +120,10 @@ int xgold_sdhci_of_set_timing(struct sdhci_host *host, unsigned int uhs)
 			tap_index = 4;
 			mode = 4;
 			break;
+		case MMC_TIMING_UHS_SDR104:
+			tap_index = 6;
+			mode = 6;
+			break;
 		default:
 			tap_index = 0;
 			break;
@@ -277,7 +281,7 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	void __iomem *scu_base;
 	u32 offset;
 	void __iomem *corereg;
-	int it_wk;
+	int it_wk, i;
 #if defined CONFIG_PLATFORM_DEVICE_PM && defined CONFIG_PLATFORM_DEVICE_PM_VIRT
 	struct device_node *pm_node;
 #endif
@@ -303,20 +307,24 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 		mmc_pdata->tap_reg2 = NULL;
 
 	ret |= of_property_read_u32_array(np, "intel,tap_values",
-					&mmc_pdata->tap_values[0], 6);
+					&mmc_pdata->tap_values[0], 7);
 	if (ret) {
 		dev_dbg(&pdev->dev, "no tap values\n");
 		mmc_pdata->tap_reg = 0;
 		mmc_pdata->tap_reg2 = 0;
 	} else
 		of_property_read_u32_array(np, "intel,tap_values2",
-						&mmc_pdata->tap_values2[0], 6);
+						&mmc_pdata->tap_values2[0], 7);
 
 	/* correct corecfg register if needed */
-	if (!of_property_read_u32(np, "intel,corecfg_reg", &offset)) {
-		corereg = scu_base + offset;
-		if (!of_property_read_u32(np, "intel,corecfg_val", &offset))
-			writel(offset, corereg);
+	for (i = 0; i < 5; i++) {
+		if (!of_property_read_u32_index(np, "intel,corecfg_reg",
+				i, &offset)) {
+			corereg = scu_base + offset;
+			if (!of_property_read_u32_index(np,
+					"intel,corecfg_val", i , &offset))
+				writel(offset, corereg);
+		}
 	}
 
 	of_property_read_u32_array(np, "intel,quirks", &quirktab[0], 2);
@@ -444,7 +452,7 @@ static int xgold_sdhci_ctrl_set_pm_state(struct device *dev,
 			dev_dbg(dev, "clk_core enable failed\n");
 			return -1;
 		}
-		clk_set_rate(mmc_pdata->master_clk, 52000000);
+	/*	clk_set_rate(mmc_pdata->master_clk, 52000000); */
 	} else if (!strcmp(state->name, sdhci_pm_states[SDHCI_PM_D0i2].name)) {
 		clk_set_rate(mmc_pdata->master_clk, mmc_pdata->max_clock);
 	} else if (!strcmp(state->name, sdhci_pm_states[SDHCI_PM_D3].name)) {
