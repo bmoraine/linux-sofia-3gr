@@ -34,11 +34,21 @@ static struct mutex pmic_access_mutex;
 static DECLARE_WAIT_QUEUE_HEAD(pmic_wait_queue);
 static int32_t vmm_pmic_reg_access_initialised;
 static int32_t vmm_pmic_reg_access_done;
-static struct pmic_access_shared_data *pmic_access_shared_data;
+
+static struct pmic_access_shared_data *vmm_pmic_get_shared_data(void)
+{
+	struct vmm_shared_data *vmm_shared_data;
+	struct pal_shared_data *pal_shared_data;
+	vmm_shared_data = get_vmm_shared_data();
+	pal_shared_data = (struct pal_shared_data *)
+			(&vmm_shared_data->pal_shared_mem_data);
+	return &(pal_shared_data->pmic_access_shared_data);
+}
 
 int32_t vmm_pmic_reg_write_by_range(uint32_t reg_address,
 				uint8_t *data, uint32_t size_in_byte)
 {
+	struct pmic_access_shared_data *pmic_access_shared_data;
 	int32_t result = 0;
 
 	mutex_lock(&pmic_access_mutex);
@@ -48,6 +58,7 @@ int32_t vmm_pmic_reg_write_by_range(uint32_t reg_address,
 		goto pmic_write_end;
 	}
 
+	pmic_access_shared_data = vmm_pmic_get_shared_data();
 	pmic_access_shared_data->data[0] = (uint8_t)(reg_address & 0xFF);
 	memcpy(&(pmic_access_shared_data->data[1]), data, size_in_byte);
 	vmm_pmic_reg_access_done = 0;
@@ -78,6 +89,7 @@ EXPORT_SYMBOL(vmm_pmic_reg_write);
 int32_t vmm_pmic_reg_read_by_range(uint32_t reg_address,
 					uint8_t *data, uint32_t size_in_byte)
 {
+	struct pmic_access_shared_data *pmic_access_shared_data;
 	int32_t result = 0;
 
 	mutex_lock(&pmic_access_mutex);
@@ -85,6 +97,7 @@ int32_t vmm_pmic_reg_read_by_range(uint32_t reg_address,
 		result = -1;
 		goto pmic_read_end;
 	}
+	pmic_access_shared_data = vmm_pmic_get_shared_data();
 	pmic_access_shared_data->data[0] = (uint8_t)(reg_address & 0xFF);
 	vmm_pmic_reg_access_done = 0;
 	if (0 != vmm_pmic_reg_access(PMIC_REG_READ, reg_address,
@@ -237,20 +250,12 @@ const struct file_operations vmm_pmic_i2cdev_ops = {
 static int32_t vmm_pmic_probe(struct platform_device *pdev)
 {
 	uint32_t irq_number;
-	struct vmm_shared_data *vmm_shared_data;
-	struct pal_shared_data *pal_shared_data;
 	struct dentry *vmm_pmic_dentry;
 	struct dentry *vmm_pmic_dbg_root;
 	int ret = 0;
 
 	/* mutex/wait queue init */
 	mutex_init(&pmic_access_mutex);
-
-	/* pmic share data init */
-	vmm_shared_data = get_vmm_shared_data();
-	pal_shared_data = (struct pal_shared_data *)
-			(&vmm_shared_data->pal_shared_mem_data);
-	pmic_access_shared_data = &(pal_shared_data->pmic_access_shared_data);
 
 	/* irq init */
 	irq_number = platform_get_irq_byname(pdev, "PMIC_ACCESS_HIRQ");
