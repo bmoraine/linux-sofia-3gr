@@ -31,4 +31,5 @@ obj-$(CONFIG_INTEL_POWERCLAMP)	+= intel_powerclamp.o
 obj-$(CONFIG_X86_PKG_TEMP_THERMAL)	+= x86_pkg_temp_thermal.o
 obj-$(CONFIG_TI_SOC_THERMAL)	+= ti-soc-thermal/
 obj-$(CONFIG_ACPI_INT3403_THERMAL)	+= int3403_thermal.o
+obj-$(CONFIG_MEAS_THERMAL)	+= meas_thermal.o
 obj-$(CONFIG_SPCU_THERMAL) += spcu_thermal.o

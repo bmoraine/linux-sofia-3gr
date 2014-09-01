@@ -239,4 +239,11 @@ depends on PLAT_SAMSUNG
 source "drivers/thermal/samsung/Kconfig"
 endmenu
 
+config MEAS_THERMAL
+	tristate "Intel AGOLD620 MEAS thermal driver"
+	depends on THERMAL
+	depends on OF
+	depends on X86_INTEL_XGOLD
+	help
+	  Enable this to enable Intel AGOLD620 MEAS thermal driver.
 endif
