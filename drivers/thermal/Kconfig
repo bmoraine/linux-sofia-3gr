@@ -89,6 +89,14 @@ config THERMAL_GOV_USER_SPACE
 	help
 	  Enable this to let the user space manage the platform thermals.
 
+config SPCU_THERMAL
+	bool "spcu thermal monitor support"
+	depends on OF
+	depends on X86_INTEL_XGOLD
+	help
+	  This implements the spcu thermal monitor driver.
+	  Turn this on only if you're running on a Xgold platform.
+
 config CPU_THERMAL
 	bool "generic cpu cooling support"
 	depends on CPU_FREQ
