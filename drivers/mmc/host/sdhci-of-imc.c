@@ -20,6 +20,9 @@
 #include <linux/gpio.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
+#ifdef CONFIG_X86_INTEL_SOFIA
+#include <sofia/vmm_platform_service.h>
+#endif
 
 #define XGOLD_DEFAULT_QUIRKS  (SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK \
 				| SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN)
@@ -129,11 +132,31 @@ int xgold_sdhci_of_set_timing(struct sdhci_host *host, unsigned int uhs)
 			break;
 		}
 		dev_dbg(&pdev->dev, "Set tap values to mode %d\n", mode);
-		iowrite32(mmc_pdata->tap_values[tap_index],
-				(void __iomem *)mmc_pdata->tap_reg);
-		if (mmc_pdata->tap_reg2)
-			iowrite32(mmc_pdata->tap_values2[tap_index],
+#ifdef CONFIG_X86_INTEL_SOFIA
+		if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_VMM) {
+			if (vmm_reg_write((uint32_t)mmc_pdata->tap_reg,
+						mmc_pdata->tap_values[tap_index],
+						-1))
+				dev_err(&pdev->dev, "vmm_reg_write_service fails @%#x\n",
+						(uint32_t)mmc_pdata->tap_reg);
+		} else
+#endif
+			iowrite32(mmc_pdata->tap_values[tap_index],
+					(void __iomem *)mmc_pdata->tap_reg);
+
+		if (mmc_pdata->tap_reg2) {
+#ifdef CONFIG_X86_INTEL_SOFIA
+			if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_VMM) {
+				if (vmm_reg_write((uint32_t)mmc_pdata->tap_reg2,
+						mmc_pdata->tap_values2[tap_index],
+						-1))
+					dev_err(&pdev->dev, "vmm_reg_write_service fails @%#x\n",
+						(uint32_t)mmc_pdata->tap_reg2);
+			} else
+#endif
+				iowrite32(mmc_pdata->tap_values2[tap_index],
 					(void __iomem *)mmc_pdata->tap_reg2);
+		}
 	}
 	return ret;
 }
@@ -273,6 +296,17 @@ static irqreturn_t xgold_detect(int irq, void *dev_id)
 	pr_info("%s: SD card inserted\n", __func__);
 	return IRQ_HANDLED;
 }
+
+/*
+ * Get intel,io-access property if any from dts
+ */
+bool xgold_sdhci_get_io_master(struct device_node *np)
+{
+	if (of_find_property(np, "intel,io-access-guest", NULL))
+		return SCU_IO_ACCESS_BY_LNX;
+	return SCU_IO_ACCESS_BY_VMM;
+}
+
 static int xgold_sdhci_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -298,7 +332,15 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "no address base for tap values\n");
 
-	scu_base = devm_ioremap(&pdev->dev, res.start, resource_size(&res));
+	mmc_pdata->io_master = xgold_sdhci_get_io_master(np);
+	if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_LNX)
+		scu_base = devm_ioremap(&pdev->dev, res.start,
+				resource_size(&res));
+	else
+		scu_base = (void __iomem *)res.start;
+	pr_info("sdhci: io:%s-@:%#x\n",
+		mmc_pdata->io_master == SCU_IO_ACCESS_BY_LNX ?
+		"linux" : "vmm", (uint32_t)scu_base);
 	of_property_read_u32(np, "intel,tap_reg", &offset);
 	mmc_pdata->tap_reg = (void *)scu_base + offset;
 	if (!of_property_read_u32(np, "intel,tap_reg2", &offset))
@@ -322,8 +364,15 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 				i, &offset)) {
 			corereg = scu_base + offset;
 			if (!of_property_read_u32_index(np,
-					"intel,corecfg_val", i , &offset))
-				writel(offset, corereg);
+					"intel,corecfg_val", i , &offset)) {
+#ifdef CONFIG_X86_INTEL_SOFIA
+				if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_VMM) {
+					if (vmm_reg_write((uint32_t)corereg, offset, -1))
+						dev_err(&pdev->dev, "vmm_reg_write_service fails @%#x\n", (uint32_t)corereg);
+				} else
+#endif
+					writel(offset, corereg);
+			}
 		}
 	}
 

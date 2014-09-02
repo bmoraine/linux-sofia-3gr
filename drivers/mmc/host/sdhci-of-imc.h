@@ -22,6 +22,7 @@ struct xgold_mmc_pdata {
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
+	bool io_master;
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	struct device dev;
 	struct device_pm_platdata *pm_platdata_ctrl;
@@ -31,3 +32,5 @@ struct xgold_mmc_pdata {
 };
 
 
+#define SCU_IO_ACCESS_BY_VMM 0
+#define SCU_IO_ACCESS_BY_LNX 1
