@@ -42,6 +42,7 @@
 		pinctrl-0 = <&bt_fmr_default_pins>;
 		pinctrl-1 = <&bt_fmr_sleep_pins>;
 		pinctrl-2 = <&bt_fmr_inactive_pins>;
+		intel,bt-fmr-gpio-reset = <&xgold_pmx_gpio 77 >;
 	};
 
 	headset:headset {
