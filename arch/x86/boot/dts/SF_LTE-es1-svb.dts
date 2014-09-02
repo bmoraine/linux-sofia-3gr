@@ -37,7 +37,7 @@
 	};
 
 	bt_fmr {
-		compatible = "intel,lnp,bt-fmr";
+		compatible = "intel,bt-fmr";
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&bt_fmr_default_pins>;
 		pinctrl-1 = <&bt_fmr_sleep_pins>;
