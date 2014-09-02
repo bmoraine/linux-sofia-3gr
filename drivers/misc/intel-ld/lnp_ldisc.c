@@ -26,6 +26,9 @@
 #include <linux/wait.h>
 #include <linux/time.h>
 #include <linux/kernel.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/init.h>
 #include <linux/types.h>
 #include <linux/skbuff.h>
@@ -36,7 +39,7 @@
 #include <linux/platform_device.h>
 
 #define RECEIVE_ROOM 4096
-
+#define PROP_LNP_BT_GPIO_ENB "intel,bt-fmr-gpio-reset"
 
 /*------ Forward Declaration-----*/
 struct sk_buff *lbf_dequeue(void);
@@ -1197,19 +1200,45 @@ static void lbf_ldisc_set_termios(struct tty_struct *tty, struct ktermios *old)
 
 static int intel_bluetooth_pdata_probe(struct platform_device *pdev)
 {
-	struct bcm_bt_lpm_platform_data *pdata = pdev->dev.platform_data;
+	struct pinctrl_state *pins_default, *pins_sleep, *pins_inactive;
+	struct device_node *dn = pdev->dev.of_node;
+	struct pinctrl *pinctrl;
+
 	pr_info("%s\n", __func__);
-	if (pdata == NULL) {
-		pr_err("Cannot register bcm_bt_lpm drivers, pdata is NULL\n");
-		return -EINVAL;
-	}
+	if (!dn)
+		pr_err("cann't find matching node\n");
 
-	if (!gpio_is_valid(pdata->gpio_enable)) {
-		pr_err("%s: gpio not valid\n", __func__);
-		return -EINVAL;
-	}
+	pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(pinctrl))
+		goto skip_pinctrl;
 
-	bt_lpm.gpio_enable_bt = pdata->gpio_enable;
+	pins_default = pinctrl_lookup_state(pinctrl,
+						 PINCTRL_STATE_DEFAULT);
+	if (IS_ERR(pins_default))
+		pr_err("could not get default pinstate\n");
+
+	pins_sleep = pinctrl_lookup_state(pinctrl,
+					       PINCTRL_STATE_SLEEP);
+	if (IS_ERR(pins_sleep))
+		pr_err("could not get sleep pinstate\n");
+
+	pins_inactive = pinctrl_lookup_state(pinctrl,
+					       "inactive");
+	if (IS_ERR(pins_inactive))
+		pr_err("could not get inactive pinstate\n");
+
+	bt_lpm.gpio_enable_bt = of_get_named_gpio_flags(dn,
+					PROP_LNP_BT_GPIO_ENB, 0, NULL);
+	if (bt_lpm.gpio_enable_bt <= 0) {
+		pr_err("Can't find node %s\n", PROP_LNP_BT_GPIO_ENB);
+		goto error;
+	} else
+		pr_err("bt_fmr %d\n", bt_lpm.gpio_enable_bt);
+
+	return 0;
+error:
+skip_pinctrl:
+	pr_err("%s: devm_pinctrl_get not valid\n", __func__);
 	return 0;
 }
 
@@ -1230,7 +1259,7 @@ static void bt_rfkill_set_power(unsigned long blocked)
 
 static int intel_lpm_bluetooth_probe(struct platform_device *pdev)
 {
-	int default_state = 0;	/* off */
+	int default_state = 1;	/* off */
 	int ret = 0;
 
 	pr_info("%s\n", __func__);
@@ -1246,19 +1275,21 @@ static int intel_lpm_bluetooth_probe(struct platform_device *pdev)
 		goto err_data_probe;
 	}
 
-	ret = gpio_request(bt_lpm.gpio_enable_bt, pdev->name);
+	ret = gpio_request(bt_lpm.gpio_enable_bt, "bt-reset");
 	if (ret < 0) {
 		pr_err("%s: Unable to request gpio %d\n", __func__,
 				bt_lpm.gpio_enable_bt);
 		goto err_gpio_enable_req;
-	}
+	} else
+		pr_err("%s: succeded to request gpio\n", __func__);
 
 	ret = gpio_direction_output(bt_lpm.gpio_enable_bt, 0);
 	if (ret < 0) {
 		pr_err("%s: Unable to set int direction for gpio %d\n",
 			__func__, bt_lpm.gpio_enable_bt);
 		goto err_gpio_enable_dir;
-	}
+	} else
+		pr_err("%s: succeded to request direction gpio\n", __func__);
 
 	pr_err("OFF : %s: gpio_enable=%d\n", __func__, bt_lpm.gpio_enable_bt);
 
@@ -1299,7 +1330,7 @@ static struct tty_ldisc_ops lbf_ldisc = {
 };
 
 static struct of_device_id intel_bluetooth_of_match[] = {
-	{.compatible = "intel,lnp,bt-fmr",},
+	{.compatible = "intel,bt-fmr",},
 	{},
 };
 
