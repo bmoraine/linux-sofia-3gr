@@ -114,11 +114,11 @@ pstore_cannot_block_path(enum kmsg_dump_reason reason)
 {
 	return false;
 }
-static pstore_register_extra_dumper(struct pstore_extra_dumper *extra_dumper)
+static inline int pstore_register_extra_dumper(struct pstore_extra_dumper *extra_dumper)
 {
 	return 0;
 }
-static pstore_unregister_extra_dumper(struct pstore_extra_dumper *extra_dumper)
+static inline int pstore_unregister_extra_dumper(struct pstore_extra_dumper *extra_dumper)
 {
 	return 0;
 }
