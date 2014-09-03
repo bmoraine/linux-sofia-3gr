@@ -34,11 +34,11 @@
 		#include "xgold/sofia_lte_soc/irq-apic.dtsi"
 		#include "xgold/sofia_lte_soc/pm.dtsi"
 
-		trace_port:sw-stace {
+		tadi:tadi {
 			compatible = "intel,tadi";
 			#address-cells = < 0 >;
-			reg = <0x80000000 0x100000
-					0x81000000 0x100000>;
+			reg = <0x80000000 0x1000000
+					0x81000000 0x1000000>;
 			reg-names = "trace-port", "trace-port-1";
 		};
 
