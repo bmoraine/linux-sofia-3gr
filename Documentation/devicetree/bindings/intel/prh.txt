@@ -1,0 +1,62 @@
+* IMC PRH
+
+IMC Linux is relying on a vpower interface to enable clocks and regulators.
+For each IMC SoC a pm.dtsi contains pm classes and pm users description:
+
+** pm_class:
+Following compatible must be used: "intel,xgold_pm_class";
+Required properties:
+	intel,name: class name
+	intel,state-names: pm state names
+	intel,states: pm state id
+Optional properties:
+	intel,sync: sync words (platform dependent)
+
+Example:
+generic_pm_class:generic_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "generic_class";
+	intel,states-names =
+		"disable",
+		"enable";
+	intel,states = <
+		PRH_PER_TYPE_GENERIC PRH_PER_GENERIC_DISABLE
+		PRH_PER_TYPE_GENERIC PRH_PER_GENERIC_ENABLE >;
+};
+
+** pm_user
+Following compatible must be used: "intel,xgold_pm_user";
+
+Required properties:
+	intel,name: user name
+	intel,user-i: user id
+	intel,per-id = peripheral id
+	intel,class = class binding
+
+Example:
+ext_gyroscope_pm_user:ext_gyroscope_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "gyroscope";
+	intel,user-id = <PRH_USER_GYROSCOPE>;
+	intel,per-id = <PRH_PER_EXT_GYROSCOPE>;
+	intel,class = <&generic_pm_class>;
+};
+
+** core_pm (optional)
+Following compatible must be used: "intel,vpower";
+
+Required properties:
+	intel,prh_mode: async or sync
+
+Example:
+core_pm:core_pm {
+	compatible = "intel,vpower";
+	intel,prh_mode = "async";
+
+	#address-cells = < 0 >;
+	interrupts = < 0 >;
+	interrupt-parent = <&core_pm>;
+	#interrupt-cells = < 1 >;
+	interrupt-map = < 0 &hirq HIRQ_PMIC_PRH_SIGNALING IRQ_TYPE_DEFAULT>;
+	interrupt-names = "notification";
+};

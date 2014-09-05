@@ -49,6 +49,7 @@ honeywell	Honeywell
 hp	Hewlett Packard
 ibm	International Business Machines (IBM)
 idt	Integrated Device Technologies, Inc.
+intel	Intel Mobiles Communications (IMC)
 img	Imagination Technologies Ltd.
 intercontrol	Inter Control Group
 inv	InvenSense, Inc.

@@ -1,0 +1,19 @@
+* IMC IRQ
+
+** IMC Linux is relying on IRQ domains for interrupt cascading
+Depending on the plaform the following domain could be used
+
+*** With VMM
+compatible = "intel,sofia-hirq"
+compatible = "intel,sofia-main-hirq"
+
+*** With ABB (AGOLD)
+compatible = "intel,xgold_abb_irq_wake"
+compatible = "intel,xgold_pmu"
+
+*** With External Interrupt
+compatible = "intel,xgold_eint"
+
+
+** For wake-up capability from interrupt, following compatible is used:
+compatible = "intel,xgold_irq_wake"

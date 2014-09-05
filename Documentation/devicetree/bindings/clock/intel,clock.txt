@@ -1,0 +1,24 @@
+IMC CLOCK
+
+Clock framework could be enabled on IMC Linux native
+The dtsi file is generated
+
+** for fixed clock (32K, 26M..) following compatible is used:
+compatible = "fixed-clock"
+
+** for intel pll following compatible is used
+compatible = "intel,xgold-pll"
+
+** for intel phase shifter following compatible is used
+compatible = "intel,xgold-phs"
+
+** for intel clock divivers following compatibles is used
+compatible = "intel,xgold-fixed-divider"
+compatible = "intel,xgold-divider"
+
+** for intel clock divivers following compatible is used
+compatible = "intel,xgold-mux"
+
+** for intel clock  following compatibles is used
+compatible = "intel,xgold-clock"
+compatible = "intel,xgold-block-clock"

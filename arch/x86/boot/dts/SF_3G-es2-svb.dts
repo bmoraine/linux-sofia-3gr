@@ -37,7 +37,6 @@
 		#interrupt-cells = < 1 >;
 		interrupt-map = < 0 &hirq HIRQ_CPU_CLK_CHANGE IRQ_TYPE_DEFAULT>;
 		interrupt-names = "CPU_CLK_CHANGE";
-		
 	};
 
 	ion {
