@@ -66,7 +66,8 @@ enum vmm_platform_service_type {
 	VMM_VTIMER_STOP_SERVICE,
 	VMM_VTIMER_GET_FREQ_SERVICE,
 	RTC_SERVICE,
-	VMM_SPCU_THERMAL_SERVICE
+	VMM_SPCU_THERMAL_SERVICE,
+	VMM_PWM_SERVICE
 };
 
 
@@ -304,6 +305,15 @@ enum spcu_thermal_service_op_code {
 	SPCU_THERMAL_DISABLE_INTR,
 };
 
+/**
+  @typedef pwm_op_code
+  @brief   enumeration containing the operation of PWM service
+**/
+enum pwm_op_code {
+	PWM_CONFIG = 0,
+	PWM_ENABLE,
+	PWM_DISABLE,
+};
 
 /**
  @brief  MobileVisor platform pin control service
@@ -514,5 +524,14 @@ int32_t vmm_vtimer_get_freq(void);
 **/
 int32_t vmm_spcu_thermal_service(uint32_t opcode, uint32_t dev_id,
 			 uint32_t thres);
+/**
+ @brief  VMM PWM access service
+ @param  operation config/enable/disable
+ @param  duty_ns duty time in ns
+ @param  period_ns total period time in ns
+ @return 0 if success, -1 if access disallowed
+**/
+int32_t vmm_pwm_access(enum pwm_op_code op,
+			uint32_t duty_ns, uint32_t period_ns);
 
 #endif /* _VMM_PLATFORM_SERVICE_H */

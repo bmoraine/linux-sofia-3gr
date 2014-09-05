@@ -334,6 +334,15 @@ int32_t vmm_pmic_reg_access(enum pmic_reg_access_op_code op,
 		op, reg_address, size_in_byte,
 		0, 0, 0, 0, 0);
 }
+
+int32_t vmm_pwm_access(enum pwm_op_code op,
+		uint32_t duty_ns, uint32_t period_ns)
+{
+	return vmm_platform_service(VMM_PWM_SERVICE,
+		op, duty_ns, period_ns,
+		0, 0, 0, 0, 0);
+}
+
 #ifdef __KERNEL__
 EXPORT_SYMBOL(vmm_pmic_reg_access);
 #endif
