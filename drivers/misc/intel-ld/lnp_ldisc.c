@@ -141,7 +141,7 @@ static inline void check_unthrottle(struct tty_struct *tty)
 static void reset_buffer_flags(struct tty_struct *tty)
 {
 	struct lbf_uart *lbf_ldisc;
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 	lbf_ldisc = tty->disc_data;
 	spin_lock(&lbf_ldisc->tx_lock);
 	lbf_ldisc->read_head = lbf_ldisc->read_cnt = lbf_ldisc->read_tail = 0;
@@ -156,7 +156,7 @@ int lbf_tx_wakeup(struct lbf_uart *lbf_uart)
 {
 	struct sk_buff *skb;
 	int len = 0;
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 
 	mutex_lock(&lbf_tx->tx_wakeup);
 	if (lbf_tx->tbusy) {
@@ -181,7 +181,7 @@ check_again:
 
 			if (skb->len) {
 				lbf_tx->tx_skb = skb;
-				pr_info("-> %s added to pending buffer:%d\n",
+				pr_debug("-> %s added to pending buffer:%d\n",
 					__func__, skb->len);
 				break;
 			}
@@ -195,7 +195,7 @@ check_again:
 	lbf_tx->tbusy = 0; /* Done with Tx.*/
 	mutex_unlock(&lbf_tx->tx_wakeup);
 
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 
 
 	return len;
@@ -207,9 +207,9 @@ check_again:
 int lbf_tty_write(struct tty_struct *tty, const unsigned char *data, int count)
 {
 	int len;
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 	len = tty->ops->write(tty, data, count);
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 	return  len;
 }
 
@@ -221,11 +221,11 @@ static void lbf_tx_wakeup_work(struct work_struct *work)
 long lbf_write(struct sk_buff *skb)
 {
 	long len = skb->len;
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 
 	lbf_enqueue(skb);
 	lbf_tx_wakeup(NULL);
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 
 	return len;
 }
@@ -247,7 +247,7 @@ long register_fmdrv_to_ld_driv(struct fm_ld_drv_register *fm_ld_drv_reg)
 	unsigned long flags;
 	long err = 0;
 	fm = NULL;
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 
 	if (lbf_ldisc_running == 1) {
 
@@ -255,7 +255,7 @@ long register_fmdrv_to_ld_driv(struct fm_ld_drv_register *fm_ld_drv_reg)
 				== NULL
 				|| fm_ld_drv_reg->ld_drv_reg_complete_cb
 						== NULL) {
-			pr_info("fm_ld_drv_register reg_complete_cb not ready");
+			pr_debug("fm_ld_drv_register reg_complete_cb not ready");
 			return -EINVAL;
 		}
 		spin_lock_irqsave(&lbf_tx->lock, flags);
@@ -268,7 +268,7 @@ long register_fmdrv_to_ld_driv(struct fm_ld_drv_register *fm_ld_drv_reg)
 			if (likely(fm->ld_drv_reg_complete_cb != NULL)) {
 				fm->ld_drv_reg_complete_cb(fm->priv_data,
 						0);
-				pr_info("Registration called");
+				pr_debug("Registration called");
 
 			}
 		}
@@ -284,7 +284,7 @@ static void lbf_ldisc_flush_buffer(struct tty_struct *tty)
 	/* clear everything and unthrottle the driver */
 
 	unsigned long flags;
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 	reset_buffer_flags(tty);
 
 	if (tty->link) {
@@ -295,7 +295,7 @@ static void lbf_ldisc_flush_buffer(struct tty_struct *tty)
 		}
 		spin_unlock_irqrestore(&tty->ctrl_lock, flags);
 	}
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 }
 
 /**
@@ -345,26 +345,26 @@ static int lbf_ldisc_open(struct tty_struct *tty)
 	struct lbf_uart *lbf_uart;
 	pr_info("-> %s\n", __func__);
 	if (tty->disc_data) {
-		pr_info("%s ldiscdata exist\n ", __func__);
+		pr_debug("%s ldiscdata exist\n ", __func__);
 		return -EEXIST;
 	}
 	/* Error if the tty has no write op instead of leaving an exploitable
 	 hole */
 	if (tty->ops->write == NULL) {
-		pr_info("%s write = NULL\n ", __func__);
+		pr_debug("%s write = NULL\n ", __func__);
 		return -EOPNOTSUPP;
 	}
 
 	lbf_uart = kzalloc(sizeof(struct lbf_uart), GFP_KERNEL);
 	if (!lbf_uart) {
-		pr_info(" kzalloc for lbf_uart failed\n ");
+		pr_debug(" kzalloc for lbf_uart failed\n ");
 		tty_unregister_ldisc(N_INTEL_LDISC);
 		return -ENOMEM;
 	}
 
 	lbf_tx = kzalloc(sizeof(struct lbf_q_tx), GFP_KERNEL);
 	if (!lbf_tx) {
-		pr_info(" kzalloc for lbf_tx failed\n ");
+		pr_debug(" kzalloc for lbf_tx failed\n ");
 		kfree(lbf_uart);
 
 		tty_unregister_ldisc(N_INTEL_LDISC);
@@ -418,7 +418,7 @@ static int lbf_ldisc_open(struct tty_struct *tty)
 		tty->ldisc->ops->flush_buffer(tty);
 	tty_driver_flush_buffer(tty);
 
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 
 	return 0;
 }
@@ -465,14 +465,14 @@ static void lbf_ldisc_wakeup(struct tty_struct *tty)
 {
 
 	struct lbf_uart *lbf_uart = (void *) tty->disc_data;
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 
 	clear_bit(TTY_DO_WRITE_WAKEUP, &lbf_uart->tty->flags);
 
 	/*lbf_tx_wakeup(NULL);*/
 	schedule_work(&lbf_tx->tx_wakeup_work);
 
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 
 }
 
@@ -506,13 +506,13 @@ static int st_send_frame(struct tty_struct *tty, struct lbf_uart *lbf_uart)
 	unsigned int count = 0;
 
 	if (unlikely(lbf_uart == NULL || lbf_uart->rx_skb == NULL)) {
-		pr_info(" No channel registered, no data to send?");
+		pr_debug(" No channel registered, no data to send?");
 		return ret;
 	}
 	buff = &lbf_uart->rx_skb->data[0];
 	count = lbf_uart->rx_skb->len;
 	STREAM_TO_UINT16(opcode, buff);
-	pr_info("opcode : 0x%x event code: 0x%x registered", opcode,
+	pr_debug("opcode : 0x%x event code: 0x%x registered", opcode,
 			 lbf_uart->rx_skb->data[1]);
 	/* for (i = lbf_uart->rx_skb->len, j = 0; i > 0; i--, j++)
 	 printk (KERN_ERR " --%d : 0x%x " ,j ,lbf_uart->rx_skb->data[j]);*/
@@ -527,11 +527,11 @@ static int st_send_frame(struct tty_struct *tty, struct lbf_uart *lbf_uart)
 		case FMR_TOP_READ:
 		case FMR_TOP_WRITE:
 			chnl_id = LBF_FM;
-			pr_info("Its FM event ");
+			pr_debug("Its FM event ");
 			break;
 		default:
 			chnl_id = LBF_BT;
-			pr_info("Its BT event ");
+			pr_debug("Its BT event ");
 			break;
 		}
 	}
@@ -544,16 +544,16 @@ static int st_send_frame(struct tty_struct *tty, struct lbf_uart *lbf_uart)
 			if (likely(fm->fm_cmd_handler != NULL)) {
 				if (unlikely(fm->fm_cmd_handler(fm->
 					priv_data, lbf_uart->rx_skb) != 0))
-					pr_info("proto stack %d recv failed"
+					pr_debug("proto stack %d recv failed"
 						, chnl_id);
 				else
 					ret = lbf_uart->rx_skb->len;
 			}
 		}
 	else
-		pr_info("fm is NULL ");
+		pr_debug("fm is NULL ");
 	} else if (chnl_id == LBF_BT) {
-		pr_info("In buffer count %d readhead %d read_cnt: %d\n", count
+		pr_debug("In buffer count %d readhead %d read_cnt: %d\n", count
 			, lbf_uart->read_head, lbf_uart->read_cnt);
 		spin_lock(&lbf_uart->tx_lock);
 		i = min3((N_INTEL_LDISC_BUF_SIZE - lbf_uart->read_cnt),
@@ -568,11 +568,11 @@ static int st_send_frame(struct tty_struct *tty, struct lbf_uart *lbf_uart)
 		lbf_uart->read_cnt += i;
 		spin_unlock(&lbf_uart->tx_lock);
 		count = count - i;
-		pr_info("count: %d, i:%d read_cnt:%d\n", count, i,
+		pr_debug("count: %d, i:%d read_cnt:%d\n", count, i,
 					lbf_uart->read_cnt);
 
 		if (unlikely(count)) {
-			pr_info(" Added in buffer inside count %d readhead %d\n"
+			pr_debug(" Added in buffer inside count %d readhead %d\n"
 				, count , lbf_uart->read_head);
 			spin_lock(&lbf_uart->tx_lock);
 			i = min3((N_INTEL_LDISC_BUF_SIZE - lbf_uart->read_cnt),
@@ -610,10 +610,10 @@ static int st_send_frame(struct tty_struct *tty, struct lbf_uart *lbf_uart)
 static int lbf_ldisc_fw_download_init(void)
 {
 	unsigned long ret = -1;
-	pr_info("->%s\n", __func__);
+	pr_debug("->%s\n", __func__);
 	if (mutex_lock_interruptible(&lbf_tx->fwdownloadlock))
 		return -ERESTARTSYS;
-	pr_info("->%s fw_download_state : %d\n", __func__ , fw_download_state);
+	pr_debug("->%s fw_download_state : %d\n", __func__ , fw_download_state);
 	if (bt_enable_state == DISABLE) {
 		bt_rfkill_set_power(ENABLE);
 		ret = DO_FW_DL;
@@ -623,7 +623,7 @@ static int lbf_ldisc_fw_download_init(void)
 		else if (fw_download_state == FW_SUCCESS)
 			ret = DO_STACK_INIT;
 	}
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 	return ret;
 }
 
@@ -667,7 +667,7 @@ static inline int st_check_data_len(struct lbf_uart *lbf_uart, int len)
 		/* Received packet's payload length is larger.
 		 * We can't accommodate it in created skb.
 		 */
-		pr_info("Data length is too large len %d room %d", len, room);
+		pr_debug("Data length is too large len %d room %d", len, room);
 		kfree_skb(lbf_uart->rx_skb);
 	} else {
 		/* Packet header has non-zero payload length and
@@ -716,7 +716,7 @@ static void lbf_update_set_room(struct tty_struct *tty, signed int cnt)
 	tty->receive_room = left;
 	spin_unlock(&lbf_uart->tx_update_lock);
 
-	pr_info("->%s, RcvRoom:%d cnt: %d\n", __func__, tty->receive_room, cnt);
+	pr_debug("->%s, RcvRoom:%d cnt: %d\n", __func__, tty->receive_room, cnt);
 	if (left && !old_left) {
 		WARN_RATELIMIT(tty->port->itty == NULL,
 				"scheduling with invalid itty\n");
@@ -765,20 +765,20 @@ static void lbf_ldisc_receive(struct tty_struct *tty, const u8 *cp, char *fp,
 	struct lbf_uart *lbf_uart = (struct lbf_uart *) tty->disc_data;
 	unsigned long flags;
 
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 	print_hex_dump(KERN_DEBUG, ">in>", DUMP_PREFIX_NONE, 16, 1, cp, count,
 			0);
 	ptr = (unsigned char *) cp;
 	if (unlikely(ptr == NULL) || unlikely(lbf_uart == NULL)) {
-		pr_info(" received null from TTY ");
+		pr_debug(" received null from TTY ");
 		return;
 	}
 
 	lbf_update_set_room(tty, (-1)*count);
 
-	spin_lock_irqsave(&lbf_uart->rx_lock, flags);
+	/*spin_lock_irqsave(&lbf_uart->rx_lock, flags);*/
 
-	pr_info("-> %s count: %d lbf_uart->rx_state: %ld\n", __func__ , count,
+	pr_debug("-> %s count: %d lbf_uart->rx_state: %ld\n", __func__ , count,
 		 lbf_uart->rx_state);
 
 	while (count) {
@@ -796,7 +796,7 @@ static void lbf_ldisc_receive(struct tty_struct *tty, const u8 *cp, char *fp,
 		switch (lbf_uart->rx_state) {
 		case LBF_W4_H4_HDR:
 			if (*ptr == 0xFF) {
-				pr_info(" Discard a byte 0x%x\n" , *ptr);
+				pr_debug(" Discard a byte 0x%x\n" , *ptr);
 				ptr++;
 				count = count - 1;
 				continue;
@@ -821,7 +821,7 @@ static void lbf_ldisc_receive(struct tty_struct *tty, const u8 *cp, char *fp,
 					lbf_uart->rx_count =
 				lbf_st_proto[lbf_uart->rx_chnl].hdr_len + 1;
 				} else {
-					pr_info("Invalid header type: 0x%x\n",
+					pr_debug("Invalid header type: 0x%x\n",
 					 type);
 					count = 0;
 					break;
@@ -832,7 +832,7 @@ static void lbf_ldisc_receive(struct tty_struct *tty, const u8 *cp, char *fp,
 
 		case LBF_W4_PKT_HDR:
 			pkt_status = packet_state(lbf_uart->rx_count, count);
-			pr_info("%s: lbf_uart->rx_count %ld\n", __func__,
+			pr_debug("%s: lbf_uart->rx_count %ld\n", __func__,
 				lbf_uart->rx_count);
 			count -= len;
 			ptr += len;
@@ -852,7 +852,7 @@ static void lbf_ldisc_receive(struct tty_struct *tty, const u8 *cp, char *fp,
 					payload_len =
 					__le16_to_cpu(*(unsigned short *)plen);
 				else
-					pr_info(
+					pr_debug(
 					"%s: invalid length for id %d\n",
 					__func__, proto);
 
@@ -867,7 +867,7 @@ static void lbf_ldisc_receive(struct tty_struct *tty, const u8 *cp, char *fp,
 			i = 0;
 			lbf_uart->rx_count -= len;
 			if (!pkt_status) {
-				pr_info(
+				pr_debug(
 				"\n---------Complete pkt received----------\n");
 				lbf_uart->rx_state = LBF_W4_H4_HDR;
 				st_ret = st_send_frame(tty, lbf_uart);
@@ -887,7 +887,7 @@ static void lbf_ldisc_receive(struct tty_struct *tty, const u8 *cp, char *fp,
 
 	} /* end of while*/
 
-	spin_unlock_irqrestore(&lbf_uart->rx_lock, flags);
+	/*spin_unlock_irqrestore(&lbf_uart->rx_lock, flags);*/
 
 	if (waitqueue_active(&lbf_uart->read_wait))
 		wake_up_interruptible(&lbf_uart->read_wait);
@@ -896,7 +896,7 @@ static void lbf_ldisc_receive(struct tty_struct *tty, const u8 *cp, char *fp,
 	if (tty->receive_room < TTY_THRESHOLD_THROTTLE)
 		tty_throttle(tty);
 
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 }
 
 /* lbf_ldisc_ioctl()
@@ -917,7 +917,7 @@ static int lbf_ldisc_ioctl(struct tty_struct *tty, struct file *file,
 {
 
 	int err = 0;
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 	switch (cmd) {
 	case BT_FW_DOWNLOAD_INIT:
 		err = lbf_ldisc_fw_download_init();
@@ -928,7 +928,7 @@ static int lbf_ldisc_ioctl(struct tty_struct *tty, struct file *file,
 	default:
 		err = n_tty_ioctl_helper(tty, file, cmd, arg);
 	}
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 	return err;
 }
 
@@ -950,20 +950,20 @@ static long lbf_ldisc_compat_ioctl(struct tty_struct *tty, struct file *file,
 {
 
 	long err = 0;
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 	switch (cmd) {
 	case BT_FW_DOWNLOAD_INIT:
-		pr_info("-> %s BT_FW_DOWNLOAD_INIT\n", __func__);
+		pr_debug("-> %s BT_FW_DOWNLOAD_INIT\n", __func__);
 		err = lbf_ldisc_fw_download_init();
 		break;
 	case BT_FW_DOWNLOAD_COMPLETE:
-		pr_info("-> %s BT_FW_DOWNLOAD_COMPLETE\n", __func__);
+		pr_debug("-> %s BT_FW_DOWNLOAD_COMPLETE\n", __func__);
 		lbf_ldisc_fw_download_complete(arg);
 		break;
 	default:
 		err = n_tty_ioctl_helper(tty, file, cmd, arg);
 	}
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 	return err;
 }
 
@@ -1036,7 +1036,7 @@ static ssize_t lbf_ldisc_read(struct tty_struct *tty, struct file *file,
 	int retval = 0;
 	int state = -1;
 	struct lbf_uart *lbf_uart = (struct lbf_uart *)tty->disc_data;
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 	init_waitqueue_entry(&lbf_uart->wait, current);
 
 	if (!lbf_ldisc_get_read_cnt()) {
@@ -1091,7 +1091,7 @@ static ssize_t lbf_ldisc_read(struct tty_struct *tty, struct file *file,
 	lbf_update_set_room(tty, retval);
 
 
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 	return retval;
 }
 
@@ -1114,7 +1114,7 @@ static ssize_t lbf_ldisc_write(struct tty_struct *tty, struct file *file,
 	struct sk_buff *skb = alloc_skb(count + 1, GFP_ATOMIC);
 	int len = 0;
 
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 
 	print_hex_dump(KERN_DEBUG, "<BT<", DUMP_PREFIX_NONE, 16, 1, data,
 			count, 0);
@@ -1129,7 +1129,7 @@ static ssize_t lbf_ldisc_write(struct tty_struct *tty, struct file *file,
 
 	lbf_tx_wakeup(NULL);
 
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 	return len;
 }
 
@@ -1150,7 +1150,7 @@ static unsigned int lbf_ldisc_poll(struct tty_struct *tty, struct file *file,
 	unsigned int mask = 0;
 	struct lbf_uart *lbf_uart = (struct lbf_uart *) tty->disc_data;
 
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 
 	if (lbf_uart->read_cnt > 0)
 		mask |= POLLIN | POLLRDNORM;
@@ -1169,7 +1169,7 @@ static unsigned int lbf_ldisc_poll(struct tty_struct *tty, struct file *file,
 				&& tty_write_room(tty) > 0)
 			mask |= POLLOUT | POLLWRNORM;
 	}
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 	return mask;
 }
 
@@ -1189,12 +1189,12 @@ static void lbf_ldisc_set_termios(struct tty_struct *tty, struct ktermios *old)
 {
 	unsigned int cflag;
 	cflag = tty->termios.c_cflag;
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 
 	if (cflag & CRTSCTS)
-		pr_info(" - RTS/CTS is enabled\n");
+		pr_debug(" - RTS/CTS is enabled\n");
 	else
-		pr_info(" - RTS/CTS is disabled\n");
+		pr_debug(" - RTS/CTS is disabled\n");
 }
 
 
@@ -1204,7 +1204,7 @@ static int intel_bluetooth_pdata_probe(struct platform_device *pdev)
 	struct device_node *dn = pdev->dev.of_node;
 	struct pinctrl *pinctrl;
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	if (!dn)
 		pr_err("cann't find matching node\n");
 
@@ -1233,7 +1233,7 @@ static int intel_bluetooth_pdata_probe(struct platform_device *pdev)
 		pr_err("Can't find node %s\n", PROP_LNP_BT_GPIO_ENB);
 		goto error;
 	} else
-		pr_err("bt_fmr %d\n", bt_lpm.gpio_enable_bt);
+		pr_info("bt_fmr %d\n", bt_lpm.gpio_enable_bt);
 
 	return 0;
 error:
@@ -1244,14 +1244,14 @@ skip_pinctrl:
 
 static void bt_rfkill_set_power(unsigned long blocked)
 {
-	pr_info("%s blocked: %lu\n", __func__, blocked);
+	pr_debug("%s blocked: %lu\n", __func__, blocked);
 	if (ENABLE == blocked) {
 		gpio_set_value(bt_lpm.gpio_enable_bt, 1);
-		pr_err("%s: turn BT on\n", __func__);
+		pr_info("%s: turn BT on\n", __func__);
 		bt_enable_state = ENABLE;
 	} else if (DISABLE == blocked) {
 		gpio_set_value(bt_lpm.gpio_enable_bt, 0);
-		pr_err("%s: turn BT off\n", __func__);
+		pr_info("%s: turn BT off\n", __func__);
 		bt_enable_state = DISABLE;
 	}
 }
@@ -1259,10 +1259,10 @@ static void bt_rfkill_set_power(unsigned long blocked)
 
 static int intel_lpm_bluetooth_probe(struct platform_device *pdev)
 {
-	int default_state = 1;	/* off */
+	int default_state = 0;	/* off */
 	int ret = 0;
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	if (pdev == NULL)
 		pr_err("%s pdev NULL", __func__);
 	else
@@ -1350,7 +1350,7 @@ static int __init lbf_uart_init(void)
 {
 	int err = 0;
 
-	pr_info("-> %s\n", __func__);
+	pr_debug("-> %s\n", __func__);
 
 	err = platform_driver_register(&intel_bluetooth_platform_driver);
 	if (err) {
@@ -1368,7 +1368,7 @@ static int __init lbf_uart_init(void)
 	} else
 		pr_info("%s: N_INTEL_LDISC registration succeded\n", __func__);
 
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 
 	return err;
 
@@ -1390,7 +1390,7 @@ static void __exit lbf_uart_exit(void)
 			 err);
 	platform_driver_unregister(&intel_bluetooth_platform_driver);
 
-	pr_info("<- %s\n", __func__);
+	pr_debug("<- %s\n", __func__);
 }
 
 module_init(lbf_uart_init);
