@@ -41,6 +41,7 @@ obj-$(CONFIG_INPUT_L3GD20_GYR)		+= l3gd20_gyr.o
 obj-$(CONFIG_INPUT_KXCJK1013_ACC)	+= kxcjk1013_acc.o
 obj-$(CONFIG_INPUT_LSM303DLHC_ACC)	+= lsm303dlhc_acc.o
 obj-$(CONFIG_INPUT_LSM303DLHC_MAG)	+= lsm303dlhc_mag.o
+obj-$(CONFIG_SENSORS_MMC3416XPJ_MAG)	+= mmc3416x.o mecs.o
 obj-$(CONFIG_INPUT_M68K_BEEP)		+= m68kspkr.o
 obj-$(CONFIG_INPUT_MAX8925_ONKEY)	+= max8925_onkey.o
 obj-$(CONFIG_INPUT_MAX8997_HAPTIC)	+= max8997_haptic.o
