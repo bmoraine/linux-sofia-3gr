@@ -1,10 +1,20 @@
 #ifndef _PAL_VECTORS_H
 #define _PAL_VECTORS_H
 /* AUTO GENERATED - DO NOT MODIFY */
+/* This MUST be sync across full system or system could break! */
 
+#define HIRQ 32
+#define XIRQ 33
+#define VMM_IPI_SCHEDULE 34
+#define LINUX_OS_LOCAL_TIMER 35
+#define LINUX_OS_RESCHEDULE_IPI 36
+#define LINUX_OS_CALL_FUNC 37
+#define LINUX_OS_CALL_FUNC_SINGLE 38
+#define VMM_PERF_CTR_IRQ 123
+#define VMM_SOCWATCH_IRQ 124
+#define VMM_LAPIC_SPURIOUS 255
 #define NOC_TRACEALARM 0
 #define SDIO_INT 0
-#define I2C3_INT 0
 #define EXI3 0
 #define EXI4 0
 #define EXI5 0
@@ -13,13 +23,21 @@
 #define EXI13 0
 #define EXI14 0
 #define EXI15 0
-#define STM_INT1 0
-#define VMM_VIRQ_VECT 32
-#define VMM_LOCAL_VIRQ_VECT 33
-#define VMM_IPI_SCHEDULE_VECT 34
-#define USIF2_INT 36
-#define USIF1_INT 39
 #define DIF_RX_BREQ_INT 0
+#define I2C3_INT 0
+#define AFE_LS_ALERT 0
+#define NOC_ERR_AUDIO_IDI 0
+#define USIF2_INT 0
+#define OCP_DATA_ABORT 0
+#define VM_ID_VIOLATION 0
+#define PROF_CORE0_INT 0
+#define GT1_INT5 0
+#define GT1_INT6 0
+#define GT1_INT7 0
+#define CGU_INT 0
+#define NSEC_CEU2_TX_IRQ 0
+#define SEC_INT 0
+#define USIF1_INT 39
 #define DIF_TX_XREQ_INT 40
 #define DIF_ERR_INT 41
 #define DCC_CMD_INT 42
@@ -29,11 +47,12 @@
 #define EMMC_INT 46
 #define I2C1_INT 47
 #define STM_INT0 48
-#define DIF_RX_XREQ_INT 49
+#define STM_INT1 49
 #define GPU_INT 50
 #define VID_HINT_ENC 51
 #define VID_HINT_DEC 52
-#define NANDCTRL_INT 53
+#define DIF_RX_XREQ_INT 53
+#define NANDCTRL_INT 0
 #define CIF_ISP_INT 54
 #define CIF_JPEG_ERR_INT 55
 #define CIF_JPEG_STAT_INT 56
@@ -80,7 +99,6 @@
 #define GNSS_NOTIFICATION 97
 #define GNSS_ERR 98
 #define CC1_CCINT0_7 99
-#define AFE_LS_ALERT 0
 #define ACI_INT 100
 #define USIF_ALL_INT 101
 #define I2C_RAWIRQ 102
@@ -103,7 +121,6 @@
 #define NOC_ERR_APS_L1 119
 #define NOC_ERR_APS_L2 120
 #define NOC_STATALARM 121
-#define NOC_ERR_AUDIO_IDI 121
 #define AUDIODSP_INT7 122
 #define OCT_INT 125
 #define NSEC2 126
@@ -118,8 +135,8 @@
 #define NSEC_CEU2_EOP_IRQ 135
 #define NSEC_CEU2_GLOBAL_IRQ 136
 #define NSEC_CEU2_RX_IRQ 137
-#define NSEC_CEU2_TX_IRQ 138
-#define SEC_INT 139
+#define USIM1_IN_INT 138
+#define USIM2_IN_INT 139
 #define SEC_T_INT 140
 #define MC_CONTROLLER_INT 141
 #define MC_INT 142
@@ -162,11 +179,11 @@
 #define GT1_INT2 183
 #define GT1_INT3 184
 #define GT1_INT4 185
-#define GT1_INT5 186
-#define GT1_INT6 187
-#define GT1_INT7 188
-#define CGU_INT 189
-#define PROF_CORE0_INT 190
+#define MPUL_INT 186
+#define G3FP 187
+#define MPDL_INT 188
+#define U2H1 189
+#define U2H2 190
 #define CC0_T0INT 192
 #define CC0_T1INT 193
 #define RTC_INT 194
@@ -174,21 +191,14 @@
 #define COMMTX 197
 #define COMMRX 198
 #define DRF_RXSTAT2G 199
-#define MPUL_INT 200
-#define G3FP 201
-#define MPDL_INT 202
-#define U2H1 203
 #define DRF_ERR2G 204
 #define DRF_LPINT2G 205
-#define U2H2 206
 #define _2GDSP_INT0 217
 #define _2GDSP_INT1 218
 #define SCU_INT2 219
 #define SCU_INT4 220
 #define GSI_GP0_INT 222
 #define GSI_T_INT2 223
-#define USIM1_IN_INT 230
-#define USIM2_IN_INT 231
 #define AUDIODSP_INT4 236
 #define AUDIODSP_INT5 237
 #define USIM1_ERR_INT 238
@@ -200,7 +210,5 @@
 #define USIM1_OK_INT 250
 #define USIM2_FIFO_INT 251
 #define USIM2_OK_INT 252
-#define OCP_DATA_ABORT 253
-#define VM_ID_VIOLATION 254
 
 #endif /* _PAL_VECTORS_H */

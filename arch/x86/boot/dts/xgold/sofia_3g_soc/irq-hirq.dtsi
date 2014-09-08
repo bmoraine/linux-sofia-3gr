@@ -5,7 +5,7 @@ main_hirq:main-hirq-interrupt-controller {
 	interrupt-controller;
 	interrupt-parent = <&pic>;
 	interrupts =
-		< VMM_VIRQ_VECT IRQ_TYPE_DEFAULT >;
+		< HIRQ IRQ_TYPE_DEFAULT >;
 };
 hirq:hirq-interrupt-controller {
 	compatible = "intel,sofia-hirq";

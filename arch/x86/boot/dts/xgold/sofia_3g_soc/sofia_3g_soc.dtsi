@@ -631,7 +631,8 @@
 						reg = <0xE4300000 0x100000>;
 						clocks = <&clk_stm_26m >;
 						clock-names = "kernel";
-						interrupts = < STM_INT0 IRQ_TYPE_DEFAULT >;
+						interrupts = < STM_INT0 IRQ_TYPE_DEFAULT >,
+								< STM_INT1 IRQ_TYPE_DEFAULT >;
 						intel,faf = <0x319>;
 					};
 					xgold_pmx_core: pinmux@E4600000 {
