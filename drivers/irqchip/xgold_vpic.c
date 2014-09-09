@@ -85,6 +85,22 @@ static int sofia_vpic_set_wake(struct irq_data *data, unsigned on)
 }
 #endif
 
+static int sofia_vpic_set_affinity(struct irq_data *data,
+			       const struct cpumask *mask,
+			       bool force)
+{
+	unsigned int irq = vpic_irq(data);
+	unsigned int vect = sofia_irq_to_vector(irq);
+	unsigned bit_mask = cpumask_bits(mask)[0];
+
+	if (!config_enabled(CONFIG_SMP))
+		return -1;
+
+	vmm_set_vaffinity(vect, bit_mask);
+
+	return 0;
+}
+
 static struct irq_chip sofia_vpic_chip = {
 	.name = "SoFIA VPIC",
 	.irq_mask = sofia_vpic_irq_mask,
@@ -92,6 +108,7 @@ static struct irq_chip sofia_vpic_chip = {
 	.irq_enable = sofia_vpic_irq_enable,
 	.irq_disable = sofia_vpic_irq_disable,
 	.irq_eoi = sofia_vpic_irq_eoi,
+	.irq_set_affinity   = sofia_vpic_set_affinity,
 #ifdef CONFIG_PM
 	.irq_set_wake = sofia_vpic_set_wake,
 #endif
@@ -100,14 +117,15 @@ static struct irq_chip sofia_vpic_chip = {
 static int sofia_vpic_irq_domain_map(struct irq_domain *d, unsigned int irq,
 			      irq_hw_number_t hw)
 {
-	int vector;
+	int vector, cpu;
 	irq_set_chip_and_handler(irq, &sofia_vpic_chip, handle_fasteoi_irq);
 	irq_set_chip_data(irq, d->host_data);
 
 	/* FIXME: Why are we filling this vector_irq table ? */
 	if (irq > 31) {
 		vector = sofia_irq_to_vector(irq);
-		per_cpu(vector_irq, 0)[vector] = irq;
+		for_each_possible_cpu(cpu)
+			per_cpu(vector_irq, cpu)[vector] = irq;
 	}
 	return 0;
 }
