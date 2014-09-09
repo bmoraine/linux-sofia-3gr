@@ -334,11 +334,14 @@ static struct s_xgold_usif_baudrate_divider {
 /*
  * NOTE : there is no definition of B3250000 so we use B3500000 instead.
  * there is also a problem in the GNSS core
- * so when we do B3500000 setting we actually setting it for 6500000Mbps.
+ * so when we do B4000000 setting we actually setting it for 6500000Mbps
+ * and when we do B3500000, we actually set for 3250000
  */
-		DECLARE_BAUD_RATE(3500000, 0x0, 0x0, 0x0, 0xFFFF),
-		DECLARE_BAUD_RATE(3000000, 0x0, 0x0, 0x1, 0xFFFF),
+		DECLARE_BAUD_RATE(4000000, 0x0, 0x0, 0x0, 0xFFFF),
+		DECLARE_BAUD_RATE(3500000, 0x0, 0x0, 0x1, 0xFFFF),
+		DECLARE_BAUD_RATE(3000000, 0x1, 0xC, 0x1, 0xFFFF),
 		DECLARE_BAUD_RATE(921600, 0x0B29, 0x1D8, 0x0, 0x4000),
+		DECLARE_BAUD_RATE(460800, 0x1C2, 0x14D, 0x5, 0x4000),
 		DECLARE_BAUD_RATE(115200, 0x1d0, 0x37, 0x5, 0x800),
 	},
 
