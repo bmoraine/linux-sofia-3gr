@@ -3088,8 +3088,10 @@ int sdhci_add_host(struct sdhci_host *host)
 	} else if (caps[1] & SDHCI_SUPPORT_SDR50)
 		mmc->caps |= MMC_CAP_UHS_SDR50;
 
-	if (caps[1] & SDHCI_SUPPORT_DDR50)
+	if (caps[1] & SDHCI_SUPPORT_DDR50) {
+		mmc->caps |= MMC_CAP_1_8V_DDR;
 		mmc->caps |= MMC_CAP_UHS_DDR50;
+	}
 
 	/* Does the host need tuning for SDR50? */
 	if (caps[1] & SDHCI_USE_SDR50_TUNING)
