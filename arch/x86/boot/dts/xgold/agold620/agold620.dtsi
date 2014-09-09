@@ -64,7 +64,18 @@ agold {
 		intel,gpiochip-id = <1>;
 		intel,gpiochip-num = <45>;
 	};
-
+	on_button:on_button {
+		compatible = "intel,agold620,on-button";
+		#address-cells = <0>;
+		interrupts = <0 1>;
+		interrupt-parent = <&on_button>;
+		#interrupt-cells = <1>;
+		interrupt-map = <
+			0 &ag620_pmu ABB_PMU_ONRE XGOLD_IRQ_TYPE_NONE
+			1 &ag620_pmu ABB_PMU_ONFE XGOLD_IRQ_TYPE_NONE>;
+		interrupt-names = "on_button1", "on_button0";
+		linux,keymap = <0x00000074>; /* KEY_POWER */
+	};
 	ahb_per@0 {
 		compatible = "intel,ahbper";
 		#address-cells = <1>;

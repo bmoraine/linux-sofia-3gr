@@ -707,14 +707,13 @@
 						compatible = "intel,keypad";
 						#address-cells = < 0 >;
 						reg = <0xE4200000 0x100000>;
-						interrupts = < 0 1 >;
+						interrupts = < 0 >;
 						interrupt-parent = < &keypad>;
 						#interrupt-cells = < 1 >;
 						interrupt-map = <
 							/* KPINT */ 0 &pic KPD_INT IRQ_TYPE_DEFAULT
-							/* ONFE */ 1 &hirq HIRQ_PMIC_POWER_BUTTON IRQ_TYPE_DEFAULT
 						>;
-						interrupt-names = "kpint", "onfe";
+						interrupt-names = "kpint";
 						clocks = <&clk_ahb_per4>;
 						clock-names = "clk_ahb";
 						pm,class-name = "xgold_kpd_class";

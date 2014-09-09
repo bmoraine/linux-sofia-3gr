@@ -427,9 +427,9 @@
 	pinctrl-0 = <&kp_default_pins>;
 	pinctrl-1 = <&kp_sleep_pins>;
 	pinctrl-2 = <&kp_inactive_pins>;
-	keypad,num-rows = <4>;
+	keypad,num-rows = <3>;
 	keypad,num-columns = <8>;
-	keypad,rows = <0 2 3>;
+	keypad,rows = <0 2>;
 	keypad,columns = <0 1 2>;
 	linux,keymap = <0x00000073	/* KEY_VOLUMEUP */
 			0x00010066	/* KEY_HOME */
@@ -449,8 +449,7 @@
 			0x01070000	/* KEY_RESERVED */
 			0x02000072	/* KEY_VOLUMEDOWN */
 			0x02010000	/* KEY_RESERVED */
-			0x02020000	/* KEY_RESERVED */
-			0x03000074>;	/* KEY_POWER */
+			0x02020000>;	/* KEY_RESERVED */
 };
 
 #ifndef RECOVERY_KERNEL
