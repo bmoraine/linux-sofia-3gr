@@ -619,7 +619,6 @@ static inline unsigned int agold_afe_reg_read_cache(struct snd_soc_codec *codec,
 	if (reg >= AGOLD_AFE_CACHEREGNUM)
 		return 0;
 
-	afe_debug("%s: reg %d return %x\n", __func__, reg, cache[reg]);
 	return cache[reg];
 }
 
@@ -1018,6 +1017,11 @@ static int agold_afe_mux_fm_event(struct snd_soc_dapm_widget *w,
 
 			agold_afe_handle_codec_power(w->dapm->codec,
 			agold_afe->afe_pow.current_bias);
+		} else {
+			agold_afe->afe_pow.direct_dac_on = 0;
+
+			agold_afe_handle_codec_power(w->dapm->codec,
+			agold_afe->afe_pow.current_bias);
 		}
 		break;
 
@@ -1151,11 +1155,18 @@ static const struct snd_soc_dapm_widget agold_afe_dapm_widgets[] = {
 static const struct snd_soc_dapm_route agold_afe_audio_map[] = {
 
 	/* Speaker Output Map */
+	{"FMR AFE output Route", "FM", "FM In"},
+	{"FMR AFE output Route", "DSP", "DSP In"},
+	{"DACL", NULL, "FMR AFE output Route"},
 	{"LS Output Route", "LS", "DACL"},
 	{"LS Amp Enable", NULL , "LS Output Route"},
 	{"LOUDSPEAKER", NULL, "LS Amp Enable"},
 
 	/* Headset Output Map */
+	{"FMR AFE output Route", "FM", "FM In"},
+	{"FMR AFE output Route", "DSP", "DSP In"},
+	{"DACL", NULL, "FMR AFE output Route"},
+	{"DACR", NULL, "FMR AFE output Route"},
 	{"HSL Output Route", "LDAC", "DACL"},
 	{"HSL Output Route", "RDAC", "DACR"},
 	{"Headset Left Amp", NULL, "HSL Output Route"},
@@ -1740,7 +1751,7 @@ static int agold_afe_suspend(struct snd_soc_codec *codec)
 	afe_debug("%s\n", __func__);
 	mutex_lock(&codec->mutex);
 
-	if (!agold_afe->afe_pow.direct_dac_on == 0)
+	if (!agold_afe->afe_pow.direct_dac_on)
 		ret = agold_afe_set_bias(codec, SND_SOC_BIAS_OFF);
 
 	mutex_unlock(&codec->mutex);
