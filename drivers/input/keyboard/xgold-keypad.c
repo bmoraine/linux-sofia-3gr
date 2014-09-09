@@ -93,8 +93,6 @@ struct xgold_kpd_device {
 	struct xgold_keypad_platform_data *pdata;
 	void __iomem *mmio_base;
 	int kpd_irq;
-	int onfe_irq;
-	int onre_irq;
 	unsigned short keycodes[MAX_MATRIX_KEY_NUM];
 	union key_matrix key_mail_matrix;
 	union key_matrix key_old_mail_matrix;
@@ -308,32 +306,6 @@ static irqreturn_t xgold_keypad_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t onre(int irq, void *dev_id)
-{
-	struct xgold_kpd_device *keypad = (struct xgold_kpd_device *)dev_id;
-	if (keypad->input_dev) {
-		input_report_key(keypad->input_dev, KEY_POWER, 1);
-		dev_info(&keypad->pdev->dev, "key event reported for %d, %d\n",
-			KEY_POWER, 1);
-		input_sync(keypad->input_dev);
-	}
-	pr_info("%s: Power key pressed\n", __func__);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t onfe(int irq, void *dev_id)
-{
-	struct xgold_kpd_device *keypad = (struct xgold_kpd_device *)dev_id;
-	if (keypad->input_dev) {
-		input_report_key(keypad->input_dev, KEY_POWER, 0);
-		dev_info(&keypad->pdev->dev, "key event reported for %d, %d\n",
-			KEY_POWER, 0);
-		input_sync(keypad->input_dev);
-	}
-	pr_info("%s: Power key released\n", __func__);
-	return IRQ_HANDLED;
-}
-
 static void xgold_keypad_config(struct xgold_kpd_device *keypad)
 {
 	u32 reg_val, val;
@@ -442,10 +414,6 @@ static int xgold_keypad_suspend(struct platform_device *pdev,
 	if (device_may_wakeup(_dev)) {
 		kpd_write32(keypad, KPD_MISC, KPD_INTR_ENABLE);
 		enable_irq_wake(keypad->kpd_irq);
-		if (keypad->onre_irq)
-			enable_irq_wake(keypad->onre_irq);
-		if (keypad->onfe_irq)
-			enable_irq_wake(keypad->onfe_irq);
 	}
 	mutex_unlock(&input_dev->mutex);
 
@@ -467,10 +435,6 @@ static int xgold_keypad_resume(struct platform_device *pdev)
 	if (device_may_wakeup(_dev)) {
 		kpd_write32(keypad, KPD_MISC, KPD_INTR_DISABLE);
 		disable_irq_wake(keypad->kpd_irq);
-		if (keypad->onre_irq)
-			disable_irq_wake(keypad->onre_irq);
-		if (keypad->onfe_irq)
-			disable_irq_wake(keypad->onfe_irq);
 	}
 	if (input_dev->users) {
 		if (!keypad->enabled) {
@@ -493,43 +457,6 @@ static int xgold_keypad_resume(struct platform_device *pdev)
 	return 0;
 }
 #endif
-
-static int xgold_keypad_pmu_irq(struct platform_device *pdev,
-				 struct xgold_kpd_device *keypad)
-{
-	int ret = 0;
-	struct device *dev = &pdev->dev;
-	/* Register PMU ONRE interrupt */
-	keypad->onre_irq = platform_get_irq_byname(pdev, "onre");
-	if (!IS_ERR_VALUE(keypad->onre_irq)) {
-		ret = devm_request_irq(dev, keypad->onre_irq, onre,
-				IRQF_SHARED | IRQF_NO_SUSPEND, "onre", keypad);
-		if (ret != 0) {
-			dev_err(dev,
-				"setup irq%d failed with ret = %d\n",
-				keypad->onre_irq, ret);
-			return -1;
-		}
-	} else {
-		dev_info(dev, "onre irq not found\n");
-	}
-
-	/* Register PMU ONFE interrupt */
-	keypad->onfe_irq = platform_get_irq_byname(pdev, "onfe");
-	if (!IS_ERR_VALUE(keypad->onfe_irq)) {
-		ret = devm_request_irq(dev, keypad->onfe_irq, onfe,
-				IRQF_SHARED | IRQF_NO_SUSPEND, "onfe", keypad);
-		if (ret != 0) {
-			dev_err(dev,
-				"setup irq%d failed with ret = %d\n",
-				keypad->onfe_irq, ret);
-			return -1;
-		}
-	} else {
-		dev_info(dev, "onfe irq not found\n");
-	}
-	return ret;
-}
 
 #ifdef CONFIG_OF
 static int xgold_keypad_parse_dt(struct device *dev,
@@ -701,13 +628,6 @@ static int xgold_keypad_probe(struct platform_device *pdev)
 		error = -EINVAL;
 		goto failed_free_key;
 	}
-	error = xgold_keypad_pmu_irq(pdev, keypad);
-	if (error) {
-		dev_err(&pdev->dev, "failing parsing pmu kpd interrupt\n");
-		error = -EINVAL;
-		goto failed_free_key;
-	}
-
 	keypad->input_dev = input_dev;
 	keypad->kpd_irq = irq;
 	keypad->pdev = pdev;
@@ -759,8 +679,6 @@ static int xgold_keypad_probe(struct platform_device *pdev)
 
 failed_free_irq:
 	free_irq(keypad->kpd_irq, keypad);
-	free_irq(keypad->onre_irq, keypad);
-	free_irq(keypad->onfe_irq, keypad);
 failed_unmap:
 	iounmap(keypad->mmio_base);
 failed_free_key:
@@ -791,8 +709,6 @@ static int xgold_keypad_remove(struct platform_device *pdev)
 
 	input_unregister_device(keypad->input_dev);
 	free_irq(keypad->kpd_irq, keypad);
-	free_irq(keypad->onre_irq, keypad);
-	free_irq(keypad->onfe_irq, keypad);
 	iounmap(keypad->mmio_base);
 	kfree(keypad);
 
