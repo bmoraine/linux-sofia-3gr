@@ -19,6 +19,7 @@
 #include <linux/wait.h>
 #include <linux/interrupt.h>
 #include <linux/irqchip.h>
+#include <linux/debugfs.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -119,12 +120,127 @@ static irqreturn_t vmm_pmic_reg_access_irq_hdl(int irq, void *dev)
 	}
 	return IRQ_HANDLED;
 }
+u8 regaddr;
+u8 val;
+u8 i2cdev;
+
+static ssize_t vmm_pmic_val_write(struct file *file, const char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	int status = count;
+	char buf[8];
+
+	if (count > 8)
+		return -EFAULT;
+	if (copy_from_user(&buf, ubuf, count))
+		return -EFAULT;
+
+	if (kstrtou8(buf, 0, &val))
+		return -EFAULT;
+
+	vmm_pmic_reg_write((i2cdev << 24) | regaddr, val);
+
+	return status;
+
+}
+static int vmm_pmic_val_show(struct seq_file *s, void *unused)
+{
+	int read_val = 0;
+	vmm_pmic_reg_read((i2cdev << 24) | regaddr, &read_val);
+	seq_printf(s, "0x%x\n", read_val);
+	return 0;
+}
+
+static int vmm_pmic_val_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, vmm_pmic_val_show, inode->i_private);
+}
+
+const struct file_operations vmm_pmic_val_ops = {
+	.open = vmm_pmic_val_open,
+	.read = seq_read,
+	.write = vmm_pmic_val_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static ssize_t vmm_pmic_regaddr_write(struct file *file, const char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	int status = count;
+	char buf[8];
+
+	if (count > 8)
+		return -EFAULT;
+	if (copy_from_user(&buf, ubuf, count))
+		return -EFAULT;
+
+	if (kstrtou8(buf, 0, &regaddr))
+		return -EFAULT;
+	return status;
+
+}
+static int vmm_pmic_regaddr_show(struct seq_file *s, void *unused)
+{
+	seq_printf(s, "0x%x\n", regaddr);
+	return 0;
+}
+
+static int vmm_pmic_regaddr_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, vmm_pmic_regaddr_show, inode->i_private);
+}
+
+const struct file_operations vmm_pmic_regaddr_ops = {
+	.open = vmm_pmic_regaddr_open,
+	.read = seq_read,
+	.write = vmm_pmic_regaddr_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static ssize_t vmm_pmic_i2cdev_write(struct file *file, const char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	int status = count;
+	char buf[8];
+
+	if (count > 8)
+		return -EFAULT;
+	if (copy_from_user(&buf, ubuf, count))
+		return -EFAULT;
+
+	if (kstrtou8(buf, 0, &i2cdev))
+		return -EFAULT;
+	return status;
+
+}
+static int vmm_pmic_i2cdev_show(struct seq_file *s, void *unused)
+{
+	seq_printf(s, "0x%x\n", i2cdev);
+	return 0;
+}
+
+static int vmm_pmic_i2cdev_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, vmm_pmic_i2cdev_show, inode->i_private);
+}
+
+const struct file_operations vmm_pmic_i2cdev_ops = {
+	.open = vmm_pmic_i2cdev_open,
+	.read = seq_read,
+	.write = vmm_pmic_i2cdev_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 
 static int32_t vmm_pmic_probe(struct platform_device *pdev)
 {
 	uint32_t irq_number;
 	struct vmm_shared_data *vmm_shared_data;
 	struct pal_shared_data *pal_shared_data;
+	struct dentry *vmm_pmic_dentry;
+	struct dentry *vmm_pmic_dbg_root;
 	int ret = 0;
 
 	/* mutex/wait queue init */
@@ -147,6 +263,40 @@ static int32_t vmm_pmic_probe(struct platform_device *pdev)
 					irq_number, ret);
 			return -EINVAL;
 		}
+	}
+	vmm_pmic_dbg_root = debugfs_create_dir("vmm_pmic", NULL);
+
+	if (!vmm_pmic_dbg_root || IS_ERR(vmm_pmic_dbg_root))
+		return -ENODEV;
+
+	vmm_pmic_dentry = debugfs_create_file("i2cdev", S_IRUGO | S_IWUSR,
+		vmm_pmic_dbg_root, NULL,
+		&vmm_pmic_i2cdev_ops);
+
+	if (!vmm_pmic_dentry) {
+		debugfs_remove(vmm_pmic_dbg_root);
+		vmm_pmic_dbg_root = NULL;
+		return -ENODEV;
+	}
+
+	vmm_pmic_dentry = debugfs_create_file("regaddr", S_IRUGO | S_IWUSR,
+		vmm_pmic_dbg_root, NULL,
+		&vmm_pmic_regaddr_ops);
+
+	if (!vmm_pmic_dentry) {
+		debugfs_remove(vmm_pmic_dbg_root);
+		vmm_pmic_dbg_root = NULL;
+		return -ENODEV;
+	}
+
+	vmm_pmic_dentry = debugfs_create_file("val", S_IRUGO | S_IWUSR,
+		vmm_pmic_dbg_root, NULL,
+		&vmm_pmic_val_ops);
+
+	if (!vmm_pmic_dentry) {
+		debugfs_remove(vmm_pmic_dbg_root);
+		vmm_pmic_dbg_root = NULL;
+		return -ENODEV;
 	}
 
 	/* init done */
