@@ -426,8 +426,10 @@ performance support */
 #define PRH_USER_GYROSCOPE (PRH_USER_PROXIMITY_SENSOR + 1)
 /**< PRH user identifier for display driver */
 #define PRH_USER_DISPLAY (PRH_USER_GYROSCOPE + 1)
+/**< PRH user identifier for MAGNETOMETER driver */
+#define PRH_USER_MAGNETOMETER (PRH_USER_DISPLAY + 1)
 /**< PRH user dummy identifier */
-#define PRH_USER_DUMMY (PRH_USER_DISPLAY + 1)
+#define PRH_USER_DUMMY (PRH_USER_MAGNETOMETER + 1)
 /**< End indicator */
 #define PRH_USER_NOF_ID (PRH_USER_DUMMY + 1)
 
@@ -654,8 +656,10 @@ performance support */
 #define PRH_PER_EXT_TP (PRH_PER_VIDEO_ENC + 1)
 /**< PRH peripheral identifier for accelerometer */
 #define PRH_PER_EXT_ACCELEROMETER (PRH_PER_EXT_TP + 1)
+/**< PRH peripheral identifier for magnetometer */
+#define PRH_PER_EXT_MAGNETOMETER (PRH_PER_EXT_ACCELEROMETER + 1)
 /**< PRH peripheral identifier for proximity_sensor */
-#define PRH_PER_EXT_PROXIMITY_SENSOR (PRH_PER_EXT_ACCELEROMETER + 1)
+#define PRH_PER_EXT_PROXIMITY_SENSOR (PRH_PER_EXT_MAGNETOMETER + 1)
 /**< PRH peripheral identifier for gyroscope */
 #define PRH_PER_EXT_GYROSCOPE (PRH_PER_EXT_PROXIMITY_SENSOR + 1)
 /**< PRH peripheral identifier for external display */

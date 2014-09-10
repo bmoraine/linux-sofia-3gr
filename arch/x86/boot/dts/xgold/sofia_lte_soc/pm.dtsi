@@ -1314,3 +1314,11 @@ ext_display_pm_user:ext_display_pm_user {
 	intel,class = <&generic_pm_class>;
 };
 
+ext_magnetometer_pm_user:ext_magnetometer_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "ext_magnetometer";
+	intel,user-id = <PRH_USER_MAGNETOMETER>;
+	intel,per-id = <PRH_PER_EXT_MAGNETOMETER>;
+	intel,class = <&generic_pm_class>;
+};
+

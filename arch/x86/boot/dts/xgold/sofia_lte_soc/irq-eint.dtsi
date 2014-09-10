@@ -55,12 +55,9 @@ eint:eint-interrupt-controller {
 	intel,io-access-guest;
 	/* Comment the EINT used by Linux guest */
 	intel,virq,0	= <1>; /* EINT0 */
-	intel,virq,2	= <1>; /* EINT2 */
-	intel,virq,3	= <1>; /* EINT3 */
 	intel,virq,4	= <1>; /* EINT4 */
 	intel,virq,5	= <1>; /* EINT5 */
 	intel,virq,6	= <1>; /* EINT6 */
-	intel,virq,7	= <1>; /* EINT7 */
 	intel,virq,8	= <1>; /* USIF2 */
 	intel,virq,9	= <1>; /* USIF3 */
 	intel,virq,10	= <1>; /* WDT */
