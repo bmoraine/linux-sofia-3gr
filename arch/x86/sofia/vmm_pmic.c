@@ -133,6 +133,36 @@ static irqreturn_t vmm_pmic_reg_access_irq_hdl(int irq, void *dev)
 	}
 	return IRQ_HANDLED;
 }
+
+static DEFINE_MUTEX(setfield_lock);
+
+int32_t vmm_pmic_reg_set_field(uint32_t reg_address,
+				uint8_t mask, uint8_t data)
+{
+	uint32_t reg_val = 0, field_val = 0;
+	int ret;
+
+	mutex_lock(&setfield_lock);
+
+	ret = vmm_pmic_reg_read(reg_address, &reg_val);
+	if (ret)
+		goto out;
+	pr_info("read: 0x%x\n", reg_val);
+	reg_val &= ~(mask);
+	field_val = data & mask;
+	reg_val |= field_val;
+	pr_info("write: 0x%x\n", reg_val);
+
+	ret = vmm_pmic_reg_write(reg_address, reg_val);
+	if (ret)
+		goto out;
+
+out:
+	mutex_unlock(&setfield_lock);
+	return ret;
+}
+EXPORT_SYMBOL(vmm_pmic_reg_set_field);
+
 u8 regaddr;
 u8 val;
 u8 i2cdev;

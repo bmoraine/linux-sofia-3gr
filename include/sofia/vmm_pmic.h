@@ -52,3 +52,14 @@ int32_t vmm_pmic_reg_read(uint32_t reg_address, uint32_t *p_reg_val);
 int32_t vmm_pmic_reg_read_by_range(uint32_t reg_address,
 			uint8_t *data, uint32_t size_in_byte);
 
+
+/**
+ @brief  MobileVisor pmic 32bit register access service
+ @param  reg_address, bit 24-31 slave address, bit 0-23 reg address to be access
+ @param  mask - mask for the fields to be set
+ @param  value - value to be set in masked fields
+ @return 0 if success, -1 if access disallowed
+**/
+int32_t vmm_pmic_reg_set_field(uint32_t reg_address,
+				uint8_t mask, uint8_t value);
+
