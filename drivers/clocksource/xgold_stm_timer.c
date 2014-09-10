@@ -14,6 +14,8 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/slab.h>
+#include <linux/cpu.h>
 #ifdef CONFIG_ARM
 #include <asm/sched_clock.h>
 #elif defined CONFIG_X86
@@ -25,17 +27,76 @@ static void __iomem *stm_hw_base;
 static unsigned period0;
 static unsigned long clk_rate = 26 * 1e6;
 static struct clk *stm_clk;
-static unsigned last_alarm;
-static bool irq_enabled;
 #ifdef CONFIG_XGOLD_STM_TIMER_SCHED_CLOCK
 static int stm_disabled __read_mostly = 1;
 static unsigned long sched_clock_mult __read_mostly;
 #endif
+static DEFINE_SPINLOCK(stm_hw_lock);
+static int irq_nodes[2];
+
+struct xgold_stm_clkevt {
+	struct clock_event_device evt;
+	unsigned id;
+	bool enable;
+	unsigned last_alarm;
+	char name[8];
+};
 
 
-static inline void xgold_stm_set_event(unsigned cycles)
+#define REG_STM_CMPx(cpu) \
+	((cpu == 0) ? REG_STM_CMP0_OFFSET : REG_STM_CMP1_OFFSET)
+
+#define REG_STM_CMPXIRx_IRQSM(cpu) \
+	((cpu == 0) ? \
+	 REG_STM_CMPXIR0_IRQSM_OFFSET : REG_STM_CMPXIR1_IRQSM_OFFSET)
+
+#define REG_STM_CMPXIRx_IRQSC(cpu) \
+	((cpu == 0) ? \
+	 REG_STM_CMPXIR0_IRQSC_OFFSET : REG_STM_CMPXIR1_IRQSC_OFFSET)
+
+static inline struct xgold_stm_clkevt *
+				evt_to_stm_dev(struct clock_event_device *evt)
 {
-	unsigned alarm, initial, tmp, period, wrap;
+	return container_of(evt, struct xgold_stm_clkevt, evt);
+}
+
+
+static inline void xgold_stm_clr_irq(struct xgold_stm_clkevt *stm_clkevt)
+{
+	int id = stm_clkevt->id;
+
+	iowrite32(BIT(id), stm_hw_base + REG_STM_CMPXIRx_IRQSC(id));
+}
+
+static void _xgold_stm_enable_irq(struct xgold_stm_clkevt *stm_clkevt)
+{
+	unsigned tmp;
+	unsigned irq = stm_clkevt->id;
+
+	tmp = ioread32(stm_hw_base + REG_STM_CMPXIRx_IRQSM(irq));
+	tmp |= BIT(irq);
+	stm_clkevt->enable = true;
+	iowrite32(tmp, stm_hw_base + REG_STM_CMPXIRx_IRQSM(irq));
+}
+
+static void _xgold_stm_disable_irq(struct xgold_stm_clkevt *stm_clkevt)
+{
+	unsigned tmp;
+	unsigned irq = stm_clkevt->id;
+
+	tmp = ioread32(stm_hw_base + REG_STM_CMPXIRx_IRQSM(irq));
+	tmp &= ~BIT(irq);
+	stm_clkevt->enable = false;
+	iowrite32(tmp, stm_hw_base + REG_STM_CMPXIRx_IRQSM(irq));
+}
+
+static inline void xgold_stm_set_event(struct xgold_stm_clkevt *stm_clkevt,
+					unsigned cycles)
+{
+	unsigned long flags;
+	unsigned alarm, initial, tmp, period, wrap, id;
+
+	id = stm_clkevt->id;
 
 	if (cycles)
 		period = cycles;
@@ -50,18 +111,13 @@ static inline void xgold_stm_set_event(unsigned cycles)
 	else
 		wrap = 0;
 
-	iowrite32(alarm, stm_hw_base + REG_STM_CMP0_OFFSET);
-	last_alarm = alarm;
+	iowrite32(alarm, stm_hw_base + REG_STM_CMPx(id));
+	stm_clkevt->last_alarm = alarm;
 
-	if (cycles) {
-		tmp = readl_relaxed(stm_hw_base + REG_STM_CMPXIR0_IRQSM_OFFSET);
-		tmp &= (STM_CMPXIR0_IRQSM_CMP0EN_MASK
-			<< STM_CMPXIR0_IRQSM_CMP0EN_OFFSET);
-		tmp |= (STM_CMPXIR0_IRQSM_CMP0EN_C0IR0
-			<< STM_CMPXIR0_IRQSM_CMP0EN_OFFSET);
-
-		iowrite32(tmp, stm_hw_base + REG_STM_CMPXIR0_IRQSM_OFFSET);
-	}
+	spin_lock_irqsave(&stm_hw_lock, flags);
+	if (cycles)
+		_xgold_stm_enable_irq(stm_clkevt);
+	spin_unlock_irqrestore(&stm_hw_lock, flags);
 
 	tmp = ioread32(stm_hw_base + REG_STM_TIM0_OFFSET);
 	/* We might have missed the interrupt
@@ -69,70 +125,68 @@ static inline void xgold_stm_set_event(unsigned cycles)
 	 * */
 	if ((((wrap == 1) && (tmp > alarm) && (tmp < initial))
 		|| ((wrap == 0) && ((tmp > alarm) || (tmp < initial))))
-		&& last_alarm != 0) {
+		&& stm_clkevt->last_alarm != 0) {
 		pr_err("%s:(now %#x): Last alarm (@%#x, + %#x cycles) was missed!\n",
-				__func__, tmp, last_alarm, period);
-		iowrite32(STM_ISR_IR0_MASK << STM_ISR_IR0_OFFSET,
-				stm_hw_base + REG_STM_ISR_OFFSET);
+				__func__, tmp, stm_clkevt->last_alarm, period);
+		iowrite32(BIT(id), stm_hw_base + REG_STM_ISR_OFFSET);
 	}
+}
+
+static void xgold_stm_reload(struct xgold_stm_clkevt *stm_clkevt,
+				unsigned period)
+{
+	xgold_stm_set_event(stm_clkevt, period);
+}
+
+static void xgold_stm_unmask_irq(struct xgold_stm_clkevt *stm_clkevt)
+{
+	unsigned long flags;
+
+	xgold_stm_clr_irq(stm_clkevt);
+
+	spin_lock_irqsave(&stm_hw_lock, flags);
+	_xgold_stm_enable_irq(stm_clkevt);
+	spin_unlock_irqrestore(&stm_hw_lock, flags);
 
 }
 
-void xgold_stm_reload(unsigned period)
+static void xgold_stm_mask_irq(struct xgold_stm_clkevt *stm_clkevt)
 {
-	xgold_stm_set_event(period);
-}
+	unsigned long flags;
 
-static void xgold_stm_unmask_irq(void)
-{
+	spin_lock_irqsave(&stm_hw_lock, flags);
+	_xgold_stm_disable_irq(stm_clkevt);
+	spin_unlock_irqrestore(&stm_hw_lock, flags);
 
-	iowrite32((STM_CMPXIR0_IRQSC_CMP0CL_CLRC0 <<
-			STM_CMPXIR0_IRQSC_CMP0CL_OFFSET),
-		       stm_hw_base + REG_STM_CMPXIR0_IRQSC_OFFSET);
-
-	iowrite32((STM_IMSC_IR0_INT_EN	<< STM_IMSC_IR0_OFFSET),
-		       stm_hw_base + REG_STM_IMSC_OFFSET);
-
-	irq_enabled = true;
-}
-
-static void xgold_stm_mask_irq(void)
-{
-	iowrite32((STM_IMSC_IR0_INT_DIS	<< STM_IMSC_IR0_OFFSET),
-		       stm_hw_base + REG_STM_IMSC_OFFSET);
-
-	irq_enabled = false;
-	iowrite32((STM_CMPXIR0_IRQSC_CMP0CL_CLRC0 <<
-			STM_CMPXIR0_IRQSC_CMP0CL_OFFSET) |
-		       (STM_CMPXIR0_IRQSC_CMP1CL_CLRC1 <<
-			STM_CMPXIR0_IRQSC_CMP1CL_OFFSET),
-		       stm_hw_base + REG_STM_CMPXIR0_IRQSC_OFFSET);
+	xgold_stm_clr_irq(stm_clkevt);
 }
 
 static void xgold_stm_tick_set_mode(enum clock_event_mode mode,
 				    struct clock_event_device *evt)
 {
+	struct xgold_stm_clkevt *stm_clkevt = evt_to_stm_dev(evt);
+	unsigned id = stm_clkevt->id;
+
 	switch (mode) {
 	case CLOCK_EVT_MODE_UNUSED:
-		pr_debug("Clock event device set to UNUSED\n");
+		pr_debug("Clock event device %d set to UNUSED\n", id);
 		break;
 	case CLOCK_EVT_MODE_PERIODIC:
-		pr_debug("Clock event device set to PERIODIC\n");
-		if (!irq_enabled)
-			xgold_stm_unmask_irq();
-		xgold_stm_reload(period0);
+		pr_debug("Clock event device %d set to PERIODIC\n", id);
+		xgold_stm_unmask_irq(stm_clkevt);
+		xgold_stm_reload(stm_clkevt, period0);
 		break;
 	case CLOCK_EVT_MODE_SHUTDOWN:
-		pr_debug("Clock event device set to SHUTDOWN\n");
-		xgold_stm_mask_irq();
+		pr_debug("Clock event device %d set to SHUTDOWN\n", id);
+		xgold_stm_mask_irq(stm_clkevt);
 		break;
 	case CLOCK_EVT_MODE_ONESHOT:
-		pr_debug("Clock event device set to ONESHOT\n");
-		if (!irq_enabled)
-			xgold_stm_unmask_irq();
+		pr_debug("Clock event device %d set to ONESHOT\n", id);
+		xgold_stm_unmask_irq(stm_clkevt);
 		break;
 	case CLOCK_EVT_MODE_RESUME:
-		pr_debug("Clock event device set to RESUME\n");
+		pr_debug("Clock event device %d set to RESUME\n", id);
+		xgold_stm_unmask_irq(stm_clkevt);
 		break;
 	}
 }
@@ -140,19 +194,19 @@ static void xgold_stm_tick_set_mode(enum clock_event_mode mode,
 static int xgold_stm_tick_set_next_event(unsigned long cycles,
 					 struct clock_event_device *evt)
 {
-	xgold_stm_set_event(cycles);
+	struct xgold_stm_clkevt *stm_clkevt = evt_to_stm_dev(evt);
+
+	xgold_stm_set_event(stm_clkevt, cycles);
 	return 0;
 }
 
-irqreturn_t xgold_dyn_timer_isr(int irq, void *dev_id)
+static irqreturn_t xgold_dyn_timer_isr(int irq, void *dev_id)
 {
-	struct clock_event_device *evt = dev_id;
+	struct xgold_stm_clkevt *stm_clkevt = dev_id;
+	struct clock_event_device *evt = &stm_clkevt->evt;
 
-	iowrite32((STM_CMPXIR0_IRQSC_CMP0CL_CLRC0 <<
-			STM_CMPXIR0_IRQSC_CMP0CL_OFFSET),
-		       stm_hw_base + REG_STM_CMPXIR0_IRQSC_OFFSET);
-
-	last_alarm = 0;
+	xgold_stm_clr_irq(stm_clkevt);
+	stm_clkevt->last_alarm = 0;
 
 	if (evt->event_handler == NULL)
 		return IRQ_HANDLED;
@@ -160,7 +214,7 @@ irqreturn_t xgold_dyn_timer_isr(int irq, void *dev_id)
 	evt->event_handler(evt);
 
 	if (evt->mode == CLOCK_EVT_MODE_PERIODIC)
-		xgold_stm_reload(0);
+		xgold_stm_reload(stm_clkevt, 0);
 
 	return IRQ_HANDLED;
 }
@@ -174,7 +228,7 @@ static void __init xgold_stm_init(void)
 	/*Assume only 32bit comparison is needed so far */
 	tmp = (STM_CMCON_MSIZE0_COMP31 << STM_CMCON_MSIZE0_OFFSET);
 	tmp |= (STM_CMCON_MSTART0_LB0 << STM_CMCON_MSTART0_OFFSET);
-	tmp |= (STM_CMCON_MSIZE1_COMP0 << STM_CMCON_MSIZE1_OFFSET);
+	tmp |= (STM_CMCON_MSIZE1_COMP31 << STM_CMCON_MSIZE1_OFFSET);
 	tmp |= (STM_CMCON_MSTART1_LB0 << STM_CMCON_MSTART1_OFFSET);
 
 	iowrite32(tmp, stm_hw_base + REG_STM_CMCON_OFFSET);
@@ -191,7 +245,7 @@ static void __init xgold_stm_init(void)
 			STM_CMPXIR1_IRQSC_CMP1CL_OFFSET),
 		       stm_hw_base + REG_STM_CMPXIR1_IRQSC_OFFSET);
 
-	xgold_stm_unmask_irq();
+	iowrite32(0x3, stm_hw_base + REG_STM_IMSC_OFFSET);
 }
 
 /**************************************
@@ -220,14 +274,16 @@ cycle_t xgold_stm_clock_source_read(struct clocksource *cs)
 	return ull_time2;
 }
 
-static void xgold_stm_evt_suspend(struct clock_event_device *evt_device)
+static void xgold_stm_evt_suspend(struct clock_event_device *evt)
 {
-	xgold_stm_mask_irq();
+	struct xgold_stm_clkevt *stm_clkevt = evt_to_stm_dev(evt);
+	xgold_stm_mask_irq(stm_clkevt);
 }
 
-static void xgold_stm_evt_resume(struct clock_event_device *evt_device)
+static void xgold_stm_evt_resume(struct clock_event_device *evt)
 {
-	xgold_stm_unmask_irq();
+	struct xgold_stm_clkevt *stm_clkevt = evt_to_stm_dev(evt);
+	xgold_stm_unmask_irq(stm_clkevt);
 }
 
 static struct clock_event_device xgold_stm_clockevent = {
@@ -241,6 +297,7 @@ static struct clock_event_device xgold_stm_clockevent = {
 	.resume = xgold_stm_evt_resume,
 
 };
+static DEFINE_PER_CPU(struct xgold_stm_clkevt, stm_events);
 
 static struct clocksource xgold_stm_clocksource = {
 	.name = "xgold_stm_clocksource",
@@ -248,14 +305,7 @@ static struct clocksource xgold_stm_clocksource = {
 	.read = xgold_stm_clock_source_read,
 	.mask = CLOCKSOURCE_MASK(56),
 	.shift = 24,		/*FIXME: Refine this choice */
-	.flags = CLOCK_SOURCE_IS_CONTINUOUS,
-};
-
-static struct irqaction xgold_stm_irq = {
-	.name = "stm_timer",
-	.flags = IRQF_DISABLED,
-	.handler = xgold_dyn_timer_isr,
-	.dev_id = &xgold_stm_clockevent,
+	.flags = CLOCK_SOURCE_IS_CONTINUOUS | CLOCK_SOURCE_SUSPEND_NONSTOP,
 };
 
 #ifdef CONFIG_ARM
@@ -265,10 +315,91 @@ static notrace u32 xgold_sched_clock_read(void)
 }
 #endif
 
-static void __init xgold_of_timer_map(struct device_node *np)
+static void xgold_stm_clkevent_setup(void)
 {
 	int ret;
-	unsigned int intspec, faf;
+	int cpu = smp_processor_id();
+	struct xgold_stm_clkevt *stm_clkevt = &__get_cpu_var(stm_events);
+	struct clock_event_device *levt = &stm_clkevt->evt;
+
+	/* Max STM counters currently hardcoded to 2 */
+	BUG_ON(cpu > 1);
+	if (levt->irq != 0)
+		return;
+
+	stm_clkevt->id = cpu;
+	stm_clkevt->enable = false;
+	stm_clkevt->last_alarm = 0;
+	snprintf(stm_clkevt->name, 8, "STM %d", cpu);
+
+	memcpy(levt, &xgold_stm_clockevent, sizeof(*levt));
+
+	levt->cpumask = cpumask_of(cpu);
+	levt->irq = irq_nodes[cpu];
+
+	ret = request_irq(levt->irq, xgold_dyn_timer_isr,
+		IRQF_TIMER | IRQF_DISABLED | IRQF_NOBALANCING | IRQF_PERCPU,
+		stm_clkevt->name, stm_clkevt);
+
+	BUG_ON(ret);
+
+	disable_irq(levt->irq);
+	irq_set_affinity(levt->irq, levt->cpumask);
+	enable_irq(levt->irq);
+
+	pr_err("%s: Installing vector %d done\n", __func__, irq_nodes[cpu]);
+
+	clockevents_register_device(levt);
+}
+
+struct xgold_stm_work_struct {
+	struct delayed_work work;
+	struct completion complete;
+};
+
+static void xgold_stm_work(struct work_struct *w)
+{
+	struct xgold_stm_work_struct *xgold_stm_work;
+	xgold_stm_work = container_of(w, struct xgold_stm_work_struct, work.work);
+
+	/* Register the clock event device */
+	xgold_stm_clkevent_setup();
+
+	complete(&xgold_stm_work->complete);
+}
+
+static int xgold_stm_cpu_notify(struct notifier_block *n,
+		unsigned long action, void *hcpu)
+{
+	unsigned long cpu = (unsigned long) hcpu;
+	struct xgold_stm_work_struct work;
+	struct xgold_stm_clkevt *stm_clkevt = &per_cpu(stm_events, cpu);
+	struct clock_event_device *levt = &stm_clkevt->evt;
+
+	switch (action & 0xf) {
+	case CPU_ONLINE:
+		INIT_DELAYED_WORK_ONSTACK(&work.work, xgold_stm_work);
+		init_completion(&work.complete);
+		/* FIXME: add schedule_work_on() */
+		schedule_delayed_work_on(cpu, &work.work, 0);
+		wait_for_completion(&work.complete);
+		destroy_timer_on_stack(&work.work.timer);
+		break;
+	case CPU_DEAD:
+		if (levt->irq) {
+			free_irq(levt->irq, stm_clkevt);
+			levt->irq = 0;
+		}
+		break;
+	}
+	return NOTIFY_OK;
+}
+
+
+static void __init xgold_of_timer_map(struct device_node *np)
+{
+	int ret, i;
+	unsigned int faf, evt_rating;
 
 	stm_clk = of_clk_get_by_name(np, "kernel");
 
@@ -280,15 +411,22 @@ static void __init xgold_of_timer_map(struct device_node *np)
 		panic("unable to map timer cpu registers\n");
 
 	/* Get the interrupts property */
-	intspec = irq_of_parse_and_map(np, 0);
-
-	BUG_ON(!intspec);
-	xgold_stm_irq.irq = intspec;
+	for (i = 0; i < of_irq_count(np); i++) {
+		irq_nodes[i] = irq_of_parse_and_map(np, i);
+		BUG_ON(irq_nodes[i] == 0);
+	}
 
 	ret = of_property_read_u32(np, "intel,faf", &faf);
 	if (!ret) {
 		pr_info("%s:Initializing STM FAF to %#x\n", __func__, faf);
 		iowrite32(faf, stm_hw_base + 0x70);
+	}
+
+	ret = of_property_read_u32(np, "intel,stm,evt,rating", &evt_rating);
+	if (!ret) {
+		pr_info("%s:Clock event device rating set to %#x\n",
+							__func__, evt_rating);
+		xgold_stm_clockevent.rating = evt_rating;
 	}
 }
 
@@ -331,19 +469,33 @@ void __init xgold_timer_init(struct device_node *np)
 	setup_sched_clock(xgold_sched_clock_read, 32, clk_rate);
 #endif
 
-	BUG_ON(setup_irq(xgold_stm_irq.irq, &xgold_stm_irq));
 	clockevents_calc_mult_shift(ce, clk_rate, 180);
 
 /*FIXME: Not sure about max/min_delta_ns */
 	ce->max_delta_ns = clockevent_delta2ns(0xffffffff, ce);
 	ce->min_delta_ns = clockevent_delta2ns(1024, ce);
-	ce->cpumask = cpumask_of(0);
-	clockevents_register_device(ce);
+
+	/* Register immediately the clock event on BOOT cpu */
+	xgold_stm_clkevent_setup();
+
 #ifdef CONFIG_X86
 	global_clock_event = &xgold_stm_clockevent;
 #endif
 
+
 }
+static __init int xgold_stm_late_init(void)
+{
+	unsigned cpu;
+	for_each_online_cpu(cpu) {
+		xgold_stm_cpu_notify(NULL, CPU_ONLINE, (void *)(long)cpu);
+	}
+
+	/* This notifier should be called after workqueue is ready */
+	hotcpu_notifier(xgold_stm_cpu_notify, -20);
+	return 0;
+}
+late_initcall(xgold_stm_late_init);
 
 CLOCKSOURCE_OF_DECLARE(xgold_timer_stm, "intel,stm", xgold_timer_init);
 
