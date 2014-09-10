@@ -42,7 +42,17 @@
 #define LED_K4_CONTROL	0x050
 #define SAFE_LED_CTRL	0x154
 
-/*LED BL Normal*/
+/* LED PMIC */
+
+#define PMIC_K2_VAL		0x12A
+#define PMIC_K1MAX_HIGH		0x0
+#define PMIC_K1MAX_LOW		0xb8
+#define PMIC_LED_CTRL_UP	0x83
+#define PMIC_LED_CTRL_DOWN	0x80
+#define PMIC_LED_CFG_UP		0xa
+#define PMIC_LED_CFG_DOWN	0x04
+
+/* LED BL Normal */
 #define SCU_K2_VAL	0xFF
 #define SCU_K1MAX_VAL	0xFB
 #define SCU_K2MAX_VAL	0xFFFF
@@ -50,7 +60,7 @@
 #define SCU_LED_DOWN	0x200
 #define SCU_SAFE_LED_UP	0x12
 
-/*LED BL LPBL*/
+/* LED BL LPBL */
 #define SCU_K4_VAL		0xFF
 #define SCU_K3MAX_VAL		0xFB
 #define SCU_LED_STBY_UP		0x303
@@ -64,11 +74,19 @@
 #define BL_MODE_ON	\
 	do { \
 		if (pdata->pmic_bl) {\
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K1_LOW_CTRL_REG, 0x10);\
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K2_LOW_CTRL_REG, 0x6);\
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K2_HIGH_CTRL_REG, 0x0);\
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CFG_REG, 0x1);\
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CTRL_REG, 0x2);\
+			val = (PMIC_K2_VAL * 100)/intensity; \
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K1MAX_HIGH_REG,\
+					PMIC_K1MAX_HIGH);\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K1MAX_LOW_REG,\
+					PMIC_K1MAX_LOW);\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K2_HIGH_CTRL_REG,\
+					(val & 0xFF00) >> 8);\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K2_LOW_CTRL_REG,\
+					(val & 0xFF));\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CFG_REG,\
+					PMIC_LED_CFG_UP);\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CTRL_REG,\
+					PMIC_LED_CTRL_UP);\
 		} else {\
 			val = (SCU_K2_VAL*100)/intensity; \
 			led_write32(mmio_base, LED_CTRL, SCU_LED_DOWN); \
@@ -76,7 +94,8 @@
 			led_write32(mmio_base, LED_K1MAX, SCU_K1MAX_VAL); \
 			led_write32(mmio_base, LED_K2MAX, SCU_K2MAX_VAL); \
 			if (pdata->flags & XGOLD_LED_USE_SAFE_CTRL) \
-				led_write32(mmio_base, SAFE_LED_CTRL, SCU_SAFE_LED_UP);\
+				led_write32(mmio_base, SAFE_LED_CTRL,\
+						SCU_SAFE_LED_UP);\
 			led_write32(mmio_base, LED_CTRL, SCU_LED_UP); \
 		} \
 	} while (0);
@@ -86,7 +105,10 @@
 #define BL_MODE_OFF	\
 	do { \
 		if (pdata->pmic_bl) { \
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CTRL_REG, 0x0);\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CFG_REG,\
+					PMIC_LED_CFG_DOWN);\
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CTRL_REG,\
+					PMIC_LED_CTRL_DOWN);\
 		} else {\
 			led_write32(mmio_base, LED_CTRL, SCU_LED_DOWN);\
 		} \
@@ -454,6 +476,10 @@ static int xgold_led_bl_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "PMIC Backlight driver probed\n");
 		led_bl->pmic_bl = true;
 		led_bl->set_clk = NULL;
+
+		/* CABC PCL must configured as input */
+		vmm_pmic_reg_write(PMIC_DEV1_ADDR | GPIO0P6CTLO_REG, 0x40);
+		vmm_pmic_reg_write(PMIC_DEV1_ADDR | GPIO0P6CTLI_REG, 0x00);
 		return 0;
 	}
 
