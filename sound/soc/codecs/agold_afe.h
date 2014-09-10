@@ -116,6 +116,7 @@ struct xgold_afe_reg {
 struct agold_afe_data {
 	void __iomem *membase;
 	void __iomem *fifobase;
+	resource_size_t fifosize;
 	struct snd_soc_codec *codec;
 	struct idi_peripheral_device *dev;
 	struct idi_channel_config rx_config;

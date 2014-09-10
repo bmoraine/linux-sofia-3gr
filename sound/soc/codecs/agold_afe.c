@@ -1761,9 +1761,21 @@ static int agold_afe_suspend(struct snd_soc_codec *codec)
 
 static int agold_afe_resume(struct snd_soc_codec *codec)
 {
+	struct agold_afe_data *agold_afe = snd_soc_codec_get_drvdata(codec);
+	int i;
+
 	afe_debug("%s\n", __func__);
 
 	agold_afe_configure_idi_channel(codec);
+
+	if (!agold_afe)
+		return 0;
+
+	/* Clear the AFE internal FIFO after resume */
+	for (i = 0; i < agold_afe->fifosize; i++)
+		writel(0, agold_afe->fifobase);
+
+	afe_debug("%s: in-fifo reset done\n", __func__);
 
 	return 0;
 }
@@ -1944,6 +1956,8 @@ static int agold_afe_device_probe(struct idi_peripheral_device *pdev,
 	}
 
 	agold_afe->fifobase = devm_ioremap(&pdev->device, fifores->start, 4);
+	agold_afe->fifosize = resource_size(fifores);
+
 	afe_debug("Register base @ 0x%x\n", (unsigned int)agold_afe->membase);
 
 	/* clock */
@@ -2002,7 +2016,7 @@ static int agold_afe_device_probe(struct idi_peripheral_device *pdev,
 skip_pinctrl:
 
 	/* Clear the AFE internal FIFO after bootup*/
-	for (i = 0; i < resource_size(fifores); i++)
+	for (i = 0; i < agold_afe->fifosize; i++)
 		writel(0, agold_afe->fifobase);
 
 	ret = dev_set_drvdata(&pdev->device, agold_afe);
