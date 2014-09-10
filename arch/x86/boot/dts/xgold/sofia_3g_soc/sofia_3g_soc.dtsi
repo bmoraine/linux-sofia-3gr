@@ -703,6 +703,7 @@
 						intel,reset-set = <0>;
 						intel,reset-clear = <4>;
 						intel,reset-status = <8>;
+						intel,io-access-guest;
 					};
 					dbb_rst2:reset-controller2 {
 						compatible = "intel,xgold-reset";
@@ -711,6 +712,7 @@
 						intel,reset-set = <0>;
 						intel,reset-clear = <4>;
 						intel,reset-status = <8>;
+						intel,io-access-guest;
 					};
 					keypad:keypad {
 						compatible = "intel,keypad";

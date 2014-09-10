@@ -32,6 +32,7 @@ agold {
 		#reset-cells = <1>;
 		intel,reset-set = <0>;
 		intel,reset-status = <0>;
+		intel,io-access-guest;
 	};
 
 	abb_pmx_core:pinmux@E6300000 {
