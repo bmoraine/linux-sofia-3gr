@@ -5,6 +5,13 @@
 #include <linux/delay.h>
 #include <linux/reset-controller.h>
 
+#if defined(CONFIG_X86_INTEL_SOFIA)
+#include <sofia/vmm_platform_service.h>
+#endif
+
+#define SCU_IO_ACCESS_BY_VMM 0
+#define SCU_IO_ACCESS_BY_LNX 1
+
 enum xgold_reset_write_mode {
 	XGOLD_RESET_USE_RW_REG = 0,
 	XGOLD_RESET_USE_SET_CLEAR_REG,
@@ -13,11 +20,13 @@ enum xgold_reset_write_mode {
 struct xgold_reset_ctrl {
 	struct reset_controller_dev rcdev;
 	void __iomem *ctrl_io;
+	uint32_t ctrl_io_phys;
 	unsigned reg_status;
 	unsigned reg_set;
 	unsigned reg_clear;
 	spinlock_t lock;
 	int write_mode;
+	bool io_master;
 };
 
 
@@ -28,47 +37,69 @@ static struct of_device_id xgold_reset_ids[] = {
 static int xgold_rst_assert(struct reset_controller_dev *rcdev,
 							 unsigned long id)
 {
-	unsigned reg;
-	unsigned long flags;
 	struct xgold_reset_ctrl *xgrc =
 			container_of(rcdev, struct xgold_reset_ctrl, rcdev);
+	uint32_t reg, addr;
+	unsigned long flags;
+	int32_t ret = 0;
 
 	spin_lock_irqsave(&xgrc->lock, flags);
+
+#if defined(CONFIG_X86_INTEL_SOFIA)
+	addr = xgrc->ctrl_io_phys + xgrc->reg_set;
 	if (xgrc->write_mode == XGOLD_RESET_USE_RW_REG) {
-		reg = ioread32(xgrc->ctrl_io + xgrc->reg_set);
+		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
+			ret |= vmm_reg_read(addr, &reg, -1);
+		else
+			reg = ioread32(xgrc->ctrl_io + xgrc->reg_set);
 		reg |= BIT(id);
 	} else { /* XGOLD_RESET_USE_SET_CLEAR_REG */
 		reg = BIT(id);
 	}
-	iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
+	if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
+		ret |= vmm_reg_write(addr, reg, -1);
+	else
+		iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
+#endif
 	spin_unlock_irqrestore(&xgrc->lock, flags);
-
-	return 0;
+	return ret == 0 ? 0 : -EPERM;
 }
 
 static int xgold_rst_deassert(struct reset_controller_dev *rcdev,
 							unsigned long id)
 {
-	unsigned reg;
-	unsigned long flags;
-
 	struct xgold_reset_ctrl *xgrc =
 			container_of(rcdev, struct xgold_reset_ctrl, rcdev);
+	int32_t ret = 0;
+	uint32_t reg, addr;
+	unsigned long flags;
 
 	spin_lock_irqsave(&xgrc->lock, flags);
 
+#if defined(CONFIG_X86_INTEL_SOFIA)
 	if (xgrc->write_mode == XGOLD_RESET_USE_RW_REG) {
-		reg = ioread32(xgrc->ctrl_io + xgrc->reg_set);
+		addr = xgrc->ctrl_io_phys + xgrc->reg_set;
+		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
+			ret |= vmm_reg_read(addr, &reg, -1);
+		else
+			reg = ioread32(xgrc->ctrl_io + xgrc->reg_set);
+
 		reg &= ~BIT(id);
-		iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
+		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
+			ret |= vmm_reg_write(addr, 0, reg);
+		else
+			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
 	} else { /* XGOLD_RESET_USE_SET_CLEAR_REG */
+		addr = xgrc->ctrl_io_phys + xgrc->reg_clear;
 		reg = BIT(id);
-		iowrite32(reg, xgrc->ctrl_io + xgrc->reg_clear);
+		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
+			ret |= vmm_reg_write(addr, reg, -1);
+		else
+			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_clear);
 	}
-
+#endif
 	spin_unlock_irqrestore(&xgrc->lock, flags);
-
-	return 0;
+	return ret == 0 ? 0 : -EPERM;
 }
 
 static int xgold_rst_reset(struct reset_controller_dev *rcdev, unsigned long id)
@@ -94,6 +125,7 @@ static int xgold_reset_parse_dt(struct reset_controller_dev *rcdev)
 	struct xgold_reset_ctrl *xgrc =
 			container_of(rcdev, struct xgold_reset_ctrl, rcdev);
 	unsigned val;
+	struct resource regs;
 
 #define PROPERTY_MISSING "xgold-reset: \"%s\" property is missing.\n"
 
@@ -111,6 +143,12 @@ static int xgold_reset_parse_dt(struct reset_controller_dev *rcdev)
 
 	xgrc->reg_status = val;
 
+	if (of_address_to_resource(np, 0, &regs)) {
+		pr_err(PROPERTY_MISSING, "reg");
+		return -EINVAL;
+	} else
+		xgrc->ctrl_io_phys = regs.start;
+
 	xgrc->ctrl_io = of_iomap(np, 0);
 	if (!xgrc->ctrl_io) {
 		pr_err("xgold-reset: I/O remapping failed");
@@ -124,6 +162,10 @@ static int xgold_reset_parse_dt(struct reset_controller_dev *rcdev)
 		xgrc->write_mode = XGOLD_RESET_USE_SET_CLEAR_REG;
 		xgrc->reg_clear = val;
 	}
+	if (of_find_property(np, "intel,io-access-guest", NULL))
+		xgrc->io_master = SCU_IO_ACCESS_BY_LNX;
+	else
+		xgrc->io_master = SCU_IO_ACCESS_BY_VMM;
 
 	return 0;
 }
