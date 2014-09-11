@@ -20,8 +20,7 @@
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM_VIRT
 #ifdef CONFIG_X86_INTEL_SOFIA
-#include <linux/platform_data/vpower_common.h>
-#include <linux/platform_data/vpower_prh.h>
+#include <linux/vpower.h>
 #include <linux/interrupt.h>
 #include <linux/irqchip.h>
 #else
@@ -404,11 +403,9 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 
 	xgold_cpu_info->freq_table = cpufreq_table;
 	for (i = 0; i < nr_freq; i++) {
-		cpufreq_table[i].index = i;
 		cpufreq_table[i].frequency = freq_table[i];
 	}
 
-	cpufreq_table[nr_freq].index = nr_freq;
 	cpufreq_table[nr_freq].frequency = CPUFREQ_TABLE_END;
 
 	kfree(freq_table);
