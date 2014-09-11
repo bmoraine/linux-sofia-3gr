@@ -6,11 +6,12 @@
 #define HIRQ_PMIC_TEST 1
 #define HIRQ_HIRQ_TEST 2
 #define HIRQ_PRH_SIGNALING 3
-#define HIRQ_CPU_CLK_CHANGE 4
+#define HIRQ_VTIMER 4
 /* 5 */
 /* 6 */
 /* 7 */
 /* 8 */
 #define HIRQ_RTC_ALARM 9
-
+#define HIRQ_CPU_CLK_CHANGE 10
+#define HIRQ_MODEM_DVFS 11
 #endif /* _HIRQ_IRQ_H */
