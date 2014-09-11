@@ -655,26 +655,49 @@ static struct android_usb_function ptp_function = {
 
 
 struct rndis_function_config {
-	u8      ethaddr[ETH_ALEN];
-	u32     vendorID;
-	char	manufacturer[256];
 	/* "Wireless" RNDIS; auto-detected by Windows */
-	bool	wceis;
+	bool   wceis;
 	struct eth_dev *dev;
+	struct usb_function *f_rndis;
+	struct usb_function_instance *f_rndis_inst;
 };
 
 static int
 rndis_function_init(struct android_usb_function *f,
 		struct usb_composite_dev *cdev)
 {
-	f->config = kzalloc(sizeof(struct rndis_function_config), GFP_KERNEL);
-	if (!f->config)
+	int ret;
+	struct rndis_function_config *config;
+	config = kzalloc(sizeof(struct rndis_function_config), GFP_KERNEL);
+	if (!config)
 		return -ENOMEM;
+
+	f->config = config;
+	config->f_rndis_inst = usb_get_function_instance("rndis");
+	if (IS_ERR(config->f_rndis_inst)) {
+		BUG();
+		ret = PTR_ERR(config->f_rndis_inst);
+		goto err_usb_get_function_instance;
+	}
+	config->f_rndis = usb_get_function(config->f_rndis_inst);
+	if (IS_ERR(config->f_rndis)) {
+		ret = PTR_ERR(config->f_rndis);
+		goto err_usb_get_function;
+	}
+	return 0;
+err_usb_get_function_instance:
+		usb_put_function(config->f_rndis);
+err_usb_get_function:
+		usb_put_function_instance(config->f_rndis_inst);
+
 	return 0;
 }
 
 static void rndis_function_cleanup(struct android_usb_function *f)
 {
+	struct rndis_function_config *config = f->config;
+	usb_put_function(config->f_rndis);
+	usb_put_function_instance(config->f_rndis_inst);
 	kfree(f->config);
 	f->config = NULL;
 }
@@ -684,8 +707,8 @@ rndis_function_bind_config(struct android_usb_function *f,
 		struct usb_configuration *c)
 {
 	int ret;
-	struct eth_dev *dev;
-	struct rndis_function_config *rndis = f->config;
+	struct rndis_function_config *rndis_func = f->config;
+	struct f_rndis *rndis = func_to_rndis(rndis_func->f_rndis);
 
 	if (!rndis) {
 		pr_err("%s: rndis_pdata\n", __func__);
@@ -696,15 +719,7 @@ rndis_function_bind_config(struct android_usb_function *f,
 		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
 		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
 
-	dev = gether_setup_name(c->cdev->gadget,dev_addr, host_addr, rndis->ethaddr, qmult, "rndis");
-	if (IS_ERR(dev)) {
-		ret = PTR_ERR(dev);
-		pr_err("%s: gether_setup failed\n", __func__);
-		return ret;
-	}
-	rndis->dev = dev;
-
-	if (rndis->wceis) {
+	if (rndis_func->wceis) {
 		/* "Wireless" RNDIS; auto-detected by Windows */
 		rndis_iad_descriptor.bFunctionClass =
 						USB_CLASS_WIRELESS_CONTROLLER;
@@ -716,34 +731,34 @@ rndis_function_bind_config(struct android_usb_function *f,
 		rndis_control_intf.bInterfaceProtocol =	 0x03;
 	}
 
-	return rndis_bind_config_vendor(c, rndis->ethaddr, rndis->vendorID,
-					   rndis->manufacturer, rndis->dev);
-}
+	ret = usb_add_function(c, rndis_func->f_rndis);
+	if (ret) {
+		pr_err("Could not bind rndis config\n");
+		return ret;
+	}
 
-static void rndis_function_unbind_config(struct android_usb_function *f,
-						struct usb_configuration *c)
-{
-	struct rndis_function_config *rndis = f->config;
-	gether_cleanup(rndis->dev);
+	return 0;
 }
 
 static ssize_t rndis_manufacturer_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct android_usb_function *f = dev_get_drvdata(dev);
-	struct rndis_function_config *config = f->config;
-	return sprintf(buf, "%s\n", config->manufacturer);
+	struct rndis_function_config *rndis_func = f->config;
+	struct f_rndis *rndis = func_to_rndis(rndis_func->f_rndis);
+	return sprintf(buf, "%s\n", rndis->manufacturer);
 }
 
 static ssize_t rndis_manufacturer_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct android_usb_function *f = dev_get_drvdata(dev);
-	struct rndis_function_config *config = f->config;
+	struct rndis_function_config *rndis_func = f->config;
+	struct f_rndis *rndis = func_to_rndis(rndis_func->f_rndis);
 
-	if (size >= sizeof(config->manufacturer))
+	if (size >= sizeof(rndis->manufacturer))
 		return -EINVAL;
-	if (sscanf(buf, "%s", config->manufacturer) == 1)
+	if (sscanf(buf, "%s", rndis->manufacturer) == 1)
 		return size;
 	return -1;
 }
@@ -780,7 +795,8 @@ static ssize_t rndis_ethaddr_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct android_usb_function *f = dev_get_drvdata(dev);
-	struct rndis_function_config *rndis = f->config;
+	struct rndis_function_config *rndis_func = f->config;
+	struct f_rndis *rndis = func_to_rndis(rndis_func->f_rndis);
 	return sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
 		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
 		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
@@ -790,7 +806,8 @@ static ssize_t rndis_ethaddr_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct android_usb_function *f = dev_get_drvdata(dev);
-	struct rndis_function_config *rndis = f->config;
+	struct rndis_function_config *rndis_func = f->config;
+	struct f_rndis *rndis = func_to_rndis(rndis_func->f_rndis);
 
 	if (sscanf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
 		    (int *)&rndis->ethaddr[0], (int *)&rndis->ethaddr[1],
@@ -807,19 +824,21 @@ static ssize_t rndis_vendorID_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct android_usb_function *f = dev_get_drvdata(dev);
-	struct rndis_function_config *config = f->config;
-	return sprintf(buf, "%04x\n", config->vendorID);
+	struct rndis_function_config *rndis_func = f->config;
+	struct f_rndis *rndis = func_to_rndis(rndis_func->f_rndis);
+	return sprintf(buf, "%04x\n", rndis->vendorID);
 }
 
 static ssize_t rndis_vendorID_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct android_usb_function *f = dev_get_drvdata(dev);
-	struct rndis_function_config *config = f->config;
+	struct rndis_function_config *rndis_func = f->config;
+	struct f_rndis *rndis = func_to_rndis(rndis_func->f_rndis);
 	int value;
 
 	if (sscanf(buf, "%04x", &value) == 1) {
-		config->vendorID = value;
+		rndis->vendorID = value;
 		return size;
 	}
 	return -EINVAL;
@@ -841,7 +860,6 @@ static struct android_usb_function rndis_function = {
 	.init		= rndis_function_init,
 	.cleanup	= rndis_function_cleanup,
 	.bind_config	= rndis_function_bind_config,
-	.unbind_config	= rndis_function_unbind_config,
 	.attributes	= rndis_function_attributes,
 };
 
