@@ -2046,15 +2046,16 @@ static inline void init_pl08x_debugfs(struct pl08x_driver_data *pl08x)
 #endif
 
 #ifdef CONFIG_PM
-static int pl08x_suspend(struct amba_device *adev, pm_message_t msg)
+static int pl08x_suspend(struct device *dev)
 {
 	/* FIXME: warn on any pending channel */
 
 	return 0;
 }
 
-static int pl08x_resume(struct amba_device *adev)
+static int pl08x_resume(struct device *dev)
 {
+	struct amba_device *adev = to_amba_device(dev);
 	struct pl08x_driver_data *pl08x = amba_get_drvdata(adev);
 
 	WARN_ON(!pl08x);
