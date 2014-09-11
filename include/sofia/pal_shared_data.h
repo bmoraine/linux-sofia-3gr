@@ -65,6 +65,7 @@ struct pm_control_shared_data {
 	uint32_t gsm_sleep_timer_frames_in;
 	uint32_t gsm_sleep_timer_frames_out;
 	uint32_t cpu_drv_param;
+	uint32_t cpu_scaling_states[7];
 	uint32_t cpu_clk;
 	uint32_t vcpu_c0[12];
 };
@@ -120,17 +121,11 @@ enum vmm_pm_opcode {
 	PM_CPU_DIS_PRF_INT = 13,
 	PM_CPU_EN_PRF_INT = 14,
 	PM_CPU_SCALING_START = 15,
-	PM_CPU_SCALING_STOP = 16,
-	PM_CPU_SCALING_RESTART = 17,
-	PM_CPU_PERF_CLK_SCALING_STEP = 18,
-	PM_CPU_SET_MIN_CLK_LIMIT = 19,
-	PM_CPU_SET_MAX_CLK_LIMIT = 20,
-	PM_CPU_LISR = 21,
-	PM_CPU_HISR = 22,
-	PM_CPU_LOAD2 = 23,
-	PM_OMP_SET_POLICY = 24,
-	PM_GET_VCPU_C0 = 25,
-	PM_OPCODE_END = 26,
+	PM_CPU_LOAD2 = 16,
+	PM_OMP_SET_POLICY = 17,
+	PM_GET_VCPU_C0 = 18,
+	PM_REQ_FREQ_CHNG = 19,
+	PM_OPCODE_END = 20,
 };
 
 
