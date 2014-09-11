@@ -105,6 +105,10 @@
 		intel,slave-addr = /bits/ 8 < 0x4f 0x5e 0x5f 0x6d 0x6e >;
 		intel,slave-names = "dev2", "dev3", "dev4", "dev5", "dev6";
 	};
+
+	radio {
+		compatible = "intel,fm-radio";
+	};
 };
 
 &dcc {
