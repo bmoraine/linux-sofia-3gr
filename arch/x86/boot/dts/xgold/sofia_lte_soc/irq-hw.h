@@ -204,7 +204,7 @@
 #define TDIP_HWUP_PREW 54
 #define LTE_HWUP_PREW 55
 #define DMA2_INT 49
-#define USIF3_INT 49
+#define USIF3_INT 57
 #define GSI_GP0_INT 87
 #define GSI_T_INT2 93
 #define USIM1_IN_INT 79
