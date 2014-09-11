@@ -1,0 +1,19 @@
+#Kconfig
+#
+# Intel LnP FM driver
+#
+menu "Intel LnP FM driver"
+config RADIO_LNP
+        tristate "Intel FM Radio driver"
+        depends on VIDEO_V4L2
+        ---help---
+           Choose Y here if you have this FM radio chip.
+
+           In order to control your radio card, you will need to use programs
+           that are compatible with the Video For Linux 2 API.  Information on
+           this API and pointers to "v4l2" programs may be found at
+           <file:Documentation/video4linux/API.html>.
+
+           To compile this driver as a module, choose M here: the
+           module will be called fmdrv_intel.
+endmenu
