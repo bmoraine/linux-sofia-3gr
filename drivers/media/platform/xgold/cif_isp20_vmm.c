@@ -301,13 +301,13 @@ int cif_isp20_pltfrm_l_s_csi_config(
 	}
 
 	cif_isp20_pltfrm_pr_dbg(dev,
-		"updated CSI config:"
-		"\n   pps = %d"
-		"\n   vc = %d"
-		"\n   nb_lanes = %d"
-		"\n   dphy1 = 0x%08x"
-		"\n   dphy2 = 0x%08x"
-		"\n   ana_bandgap_bias = %d\n",
+		"updated CSI config:\n"
+		"   pps = %d\n"
+		"   vc = %d\n"
+		"   nb_lanes = %d\n"
+		"   dphy1 = 0x%08x\n"
+		"   dphy2 = 0x%08x\n"
+		"   ana_bandgap_bias = %d\n",
 		cfg->pps, cfg->csi_config.vc, cfg->csi_config.nb_lanes,
 		cfg->csi_config.dphy1, cfg->csi_config.dphy2,
 		cfg->csi_config.ana_bandgab_bias);
@@ -477,13 +477,13 @@ static ssize_t cif_isp20_dbgfs_read(
 		cfg = list_entry(list_pos,
 			struct cif_isp20_pltfrm_csi_config, list);
 		sprintf(kbuf,
-			"csi-config-%d:"
-			"\n   pps = %d"
-			"\n   vc = %d"
-			"\n   nb_lanes = %d"
-			"\n   dphy1 = 0x%08x"
-			"\n   dphy2 = 0x%08x"
-			"\n   ana_bandgap_bias = %d\n",
+			"csi-config-%d:\n"
+			"   pps = %d\n"
+			"   vc = %d\n"
+			"   nb_lanes = %d\n"
+			"   dphy1 = 0x%08x\n"
+			"   dphy2 = 0x%08x\n"
+			"   ana_bandgap_bias = %d\n",
 			index,
 			cfg->pps, cfg->csi_config.vc, cfg->csi_config.nb_lanes,
 			cfg->csi_config.dphy1, cfg->csi_config.dphy2,
@@ -834,9 +834,9 @@ int cif_isp20_pltfrm_write_cif_ana_bandgap_bias(
 
 	return 0;
 err:
-	cif_isp20_pltfrm_pr_err(dev, "failed with error %d\n", ret);
+	cif_isp20_pltfrm_pr_warn(dev, "failed with error %d\n", ret);
 	/* Failing to set the bandgap is not critial error. Just notify with
-	the error message. */
+		the error message. */
 	return 0;
 }
 

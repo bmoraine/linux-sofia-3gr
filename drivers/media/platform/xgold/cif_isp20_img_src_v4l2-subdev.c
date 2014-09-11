@@ -185,6 +185,8 @@ static int cif_isp20_v4l2_cid2v4l2_cid(u32 cif_isp20_cid)
 		return V4L2_CID_EXPOSURE;
 	case CIF_ISP20_CID_ANALOG_GAIN:
 		return V4L2_CID_GAIN;
+	case CIF_ISP20_CID_FOCUS_ABSOLUTE:
+		return V4L2_CID_FOCUS_ABSOLUTE;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
 			"unknown/unsupported CIF ISP20 ID %d\n",

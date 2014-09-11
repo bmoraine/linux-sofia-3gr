@@ -195,6 +195,8 @@ static int cif_isp20_v4l2_cid2cif_isp20_cid(u32 v4l2_cid)
 		return CIF_ISP20_CID_EXPOSURE_TIME;
 	case V4L2_CID_GAIN:
 		return CIF_ISP20_CID_ANALOG_GAIN;
+	case V4L2_CID_FOCUS_ABSOLUTE:
+		return CIF_ISP20_CID_FOCUS_ABSOLUTE;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
 			"unknown/unsupported V4L2 CID 0x%x\n",
@@ -224,6 +226,8 @@ static int cif_isp20_v4l2_cid2v4l2_cid(u32 cif_isp20_cid)
 		return V4L2_CID_EXPOSURE;
 	case CIF_ISP20_CID_ANALOG_GAIN:
 		return V4L2_CID_GAIN;
+	case CIF_ISP20_CID_FOCUS_ABSOLUTE:
+		return V4L2_CID_FOCUS_ABSOLUTE;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
 			"unknown/unsupported CIF ISP20 ID %d\n",
@@ -1008,16 +1012,13 @@ static int v4l2_s_ctrl(struct file *file, void *priv,
 	case V4L2_CID_GAIN:
 	case V4L2_CID_EXPOSURE:
 	case V4L2_CID_BLACK_LEVEL:
+	case V4L2_CID_FOCUS_ABSOLUTE:
 		{
 			enum cif_isp20_cid id =
 				cif_isp20_v4l2_cid2cif_isp20_cid(vc->id);
 			ret = cif_isp20_img_src_s_ctrl(dev->img_src,
 				id, vc->value);
 		}
-		break;
-	case V4L2_CID_FOCUS_ABSOLUTE:
-		/* todo */
-		ret = 0;
 		break;
 	default:
 		ret = -EINVAL;

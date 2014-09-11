@@ -210,6 +210,7 @@ enum cif_isp20_cid {
 	CIF_ISP20_CID_AUTO_GAIN,
 	CIF_ISP20_CID_AUTO_EXPOSURE,
 	CIF_ISP20_CID_AUTO_WHITE_BALANCE,
+	CIF_ISP20_CID_FOCUS_ABSOLUTE,
 };
 
 enum marvin_version {
@@ -686,9 +687,9 @@ struct xgold_fmt {
 
 /* marvin_hw operators prototypes */
 struct marvin_hw_ops {
-	int (*open) (struct marvinconfig *);
-	int (*close) (struct marvinconfig *);
-	int (*control) (struct marvinconfig *);
+	int (*open)(struct marvinconfig *);
+	int (*close)(struct marvinconfig *);
+	int (*control)(struct marvinconfig *);
 };
 
 /* ======================================================================== */

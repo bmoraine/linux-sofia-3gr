@@ -411,8 +411,7 @@ int ov_camera_module_s_power(struct v4l2_subdev *sd, int on)
 					if (IS_ERR_VALUE(ret)) {
 						pltfrm_camera_module_pr_err(
 							&cam_mod->sd,
-							"camera check ID failed, "
-							"powering off sensor\n");
+							"camera check ID failed, powering off sensor\n");
 						(void)ov_camera_module_s_power(
 							sd, 0);
 						goto err;
@@ -495,6 +494,15 @@ int ov_camera_module_g_ctrl(struct v4l2_subdev *sd,
 		return -EFAULT;
 	}
 
+	if (ctrl->id == V4L2_CID_FOCUS_ABSOLUTE) {
+		struct v4l2_subdev *af_ctrl;
+		af_ctrl = pltfrm_camera_module_get_af_ctrl(sd);
+		if (!IS_ERR_OR_NULL(af_ctrl)) {
+			ret = v4l2_subdev_call(af_ctrl, core, g_ctrl, ctrl);
+			return ret;
+		}
+	}
+
 	if (!IS_ERR_OR_NULL(cam_mod->custom.g_ctrl)) {
 		ret = cam_mod->custom.g_ctrl(cam_mod, ctrl->id);
 		if (IS_ERR_VALUE(ret))
@@ -536,6 +544,12 @@ int ov_camera_module_g_ctrl(struct v4l2_subdev *sd,
 		ctrl->value = cam_mod->wb_config.auto_wb;
 		pltfrm_camera_module_pr_debug(&cam_mod->sd,
 			"V4L2_CID_AUTO_WHITE_BALANCE %d\n",
+			ctrl->value);
+		break;
+	case V4L2_CID_FOCUS_ABSOLUTE:
+		ctrl->value = cam_mod->af_config.abs_pos;
+		pltfrm_camera_module_pr_debug(&cam_mod->sd,
+			"V4L2_CID_FOCUS_ABSOLUTE %d\n",
 			ctrl->value);
 		break;
 	case V4L2_CID_HFLIP:
@@ -648,6 +662,27 @@ int ov_camera_module_s_ext_ctrls(
 			cam_mod->wb_config.auto_wb = ctrl->value;
 			pltfrm_camera_module_pr_debug(&cam_mod->sd,
 			"V4L2_CID_AUTO_WHITE_BALANCE %d\n",
+			ctrl->value);
+			break;
+		case V4L2_CID_FOCUS_ABSOLUTE:
+			{
+				struct v4l2_subdev *af_ctrl;
+				af_ctrl = pltfrm_camera_module_get_af_ctrl(sd);
+				if (!IS_ERR_OR_NULL(af_ctrl)) {
+					struct v4l2_control single_ctrl;
+					single_ctrl.id =
+						V4L2_CID_FOCUS_ABSOLUTE;
+					single_ctrl.value = ctrl->value;
+					ret = v4l2_subdev_call(af_ctrl,
+						core, s_ctrl, &single_ctrl);
+					return ret;
+				}
+			}
+			ctrl_updt =
+				OV_CAMERA_MODULE_CTRL_UPDT_FOCUS_ABSOLUTE;
+			cam_mod->af_config.abs_pos = ctrl->value;
+			pltfrm_camera_module_pr_debug(&cam_mod->sd,
+			"V4L2_CID_FOCUS_ABSOLUTE %d\n",
 			ctrl->value);
 			break;
 		case V4L2_CID_HFLIP:

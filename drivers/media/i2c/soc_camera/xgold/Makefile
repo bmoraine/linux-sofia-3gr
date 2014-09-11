@@ -5,5 +5,5 @@ endif
 obj-$(CONFIG_VIDEO_OV8825) += ov_camera_module.o sofia-3g_camera_module.o ov8825_v4l2-i2c-subdev.o
 obj-$(CONFIG_VIDEO_OV9740) += ov_camera_module.o sofia-3g_camera_module.o ov9740_v4l2-i2c-subdev.o
 obj-$(CONFIG_VIDEO_OV9760) += ov_camera_module.o sofia-3g_camera_module.o ov9760_v4l2-i2c-subdev.o
-obj-$(CONFIG_VIDEO_OV13850) += ov_camera_module.o sofia-3g_camera_module.o ov13850_v4l2-i2c-subdev.o
+obj-$(CONFIG_VIDEO_OV13850) += wv511_v4l2-i2c-subdev.o ad5823_v4l2-i2c-subdev.o ov_camera_module.o sofia-3g_camera_module.o ov13850_v4l2-i2c-subdev.o
 

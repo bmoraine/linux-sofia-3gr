@@ -60,6 +60,7 @@ struct pltfrm_camera_module_data {
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
 	struct device_pm_platdata *pm_platdata;
+	struct v4l2_subdev *af_ctrl;
 };
 
 /* ======================================================================== */
@@ -138,6 +139,8 @@ static struct pltfrm_camera_module_data *pltfrm_camera_module_get_data(
 	int ret = 0;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct device_node *np = of_node_get(client->dev.of_node);
+	struct device_node *af_ctrl_node = NULL;
+	struct i2c_client *af_ctrl_client = NULL;
 	struct pltfrm_camera_module_data *pdata = NULL;
 
 	pltfrm_camera_module_pr_debug(sd, "\n");
@@ -149,6 +152,28 @@ static struct pltfrm_camera_module_data *pltfrm_camera_module_get_data(
 	}
 
 	client->dev.platform_data = pdata;
+
+	af_ctrl_node = of_parse_phandle(np, "intel,af-ctrl", 0);
+	if (!IS_ERR_OR_NULL(af_ctrl_node)) {
+		af_ctrl_client = of_find_i2c_device_by_node(af_ctrl_node);
+		of_node_put(af_ctrl_node);
+		if (IS_ERR_OR_NULL(af_ctrl_client)) {
+			pltfrm_camera_module_pr_err(sd,
+				"cannot not get node\n");
+			ret = -EFAULT;
+			goto err;
+		}
+		pdata->af_ctrl = i2c_get_clientdata(af_ctrl_client);
+		if (IS_ERR_OR_NULL(pdata->af_ctrl)) {
+			pltfrm_camera_module_pr_warn(sd,
+				"cannot not get camera i2c client, maybe not yet created, deferring device probing...\n");
+			ret = -EPROBE_DEFER;
+			goto err;
+		}
+		pltfrm_camera_module_pr_info(sd,
+			"camera module has auto focus controller %s\n",
+			pltfrm_dev_string(pdata->af_ctrl));
+	}
 
 	pdata->pinctrl = devm_pinctrl_get(&client->dev);
 	if (!IS_ERR(pdata->pinctrl)) {
@@ -419,8 +444,7 @@ static int pltfrm_camera_module_write_reglist_node(
 		if (((reg_table_num_entries / 12) == 0) ||
 			(reg_table_num_entries % 3)) {
 				pltfrm_camera_module_pr_err(sd,
-					"wrong register format in %s,"
-					" must be 'type, address, value' per register\n",
+					"wrong register format in %s, must be 'type, address, value' per register\n",
 					config_node->name);
 				ret = -EINVAL;
 				goto err;
@@ -795,8 +819,8 @@ int pltfrm_camera_module_s_power(
 		ret = pltfrm_camera_module_set_pm_state(sd, PM_STATE_D0);
 		if (IS_ERR_VALUE(ret))
 			pltfrm_camera_module_pr_err(sd,
-				"set PM state failed (%d), "
-				"could not power on camera\n", ret);
+				"set PM state failed (%d), could not power on camera\n",
+				ret);
 		else {
 			pltfrm_camera_module_pr_debug(sd,
 				"set PM state to %d successful, camera module is on\n",
@@ -813,8 +837,8 @@ int pltfrm_camera_module_s_power(
 				sd, PM_STATE_D3);
 			if (IS_ERR_VALUE(ret))
 				pltfrm_camera_module_pr_err(sd,
-					"set PM state failed (%d), "
-					"could not power off camera\n", ret);
+					"set PM state failed (%d), could not power off camera\n",
+					ret);
 			else
 				pltfrm_camera_module_pr_debug(sd,
 					"set PM state to %d successful, camera module is off\n",
@@ -822,6 +846,16 @@ int pltfrm_camera_module_s_power(
 		}
 	}
 	return ret;
+}
+
+struct v4l2_subdev *pltfrm_camera_module_get_af_ctrl(
+	struct v4l2_subdev *sd)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct pltfrm_camera_module_data *pdata =
+		dev_get_platdata(&client->dev);
+
+	return pdata->af_ctrl;
 }
 
 int pltfrm_camera_module_patch_config(
@@ -886,7 +920,10 @@ int pltfrm_camera_module_init(
 	if (IS_ERR_OR_NULL(pdata)) {
 		pltfrm_camera_module_pr_err(sd,
 			"unable to get platform data\n");
-		return -EFAULT;
+		if (NULL == pdata)
+			return -EFAULT;
+		else
+			return (int)pdata;
 	}
 	ret = pltfrm_camera_module_init_pm(sd);
 	if (IS_ERR_VALUE(ret)) {

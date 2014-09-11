@@ -167,6 +167,11 @@
 	pinctrl-2 = <&i2c1_inactive_pins>;
 
 #ifndef RECOVERY_KERNEL
+	afc0: af-controller@0 {
+		compatible = "analog devices,ad5823-v4l2-i2c-subdev";
+		reg = < 0x0C >;
+	};
+
 	camera0: camera-module@0 {
 		compatible = "omnivision,ov13850-v4l2-i2c-subdev";
 		reg = < 0x36 >;
@@ -194,6 +199,8 @@
 		intel,camera-module-mounting = "landscape";
 		intel,camera-module-flash-support = <1>;
 		intel,camera-module-flash-exp-time = <5000>;
+
+		intel,af-ctrl = <&afc0>;
 
 		intel,camera-module-csi-config-0 {
 			intel,csi-pixels-per-second = <0>;

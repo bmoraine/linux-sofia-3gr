@@ -82,6 +82,9 @@ int pltfrm_camera_module_patch_config(
 	struct v4l2_mbus_framefmt *frm_fmt,
 	struct v4l2_subdev_frame_interval *frm_intrvl);
 
+struct v4l2_subdev *pltfrm_camera_module_get_af_ctrl(
+	struct v4l2_subdev *sd);
+
 int pltfrm_camera_module_init(
 	struct v4l2_subdev *sd,
 	void **pldata);

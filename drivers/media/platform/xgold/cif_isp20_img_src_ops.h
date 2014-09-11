@@ -28,7 +28,7 @@
 #include "cif_isp20_img_src_v4l2-subdev.h"
 
 struct cif_isp20_img_src_ops {
-	void *(*to_img_src)(
+	void * (*to_img_src)(
 		CIF_ISP20_PLTFRM_DEVICE dev);
 	int (*s_streaming)(
 		void *img_src,

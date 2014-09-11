@@ -916,8 +916,8 @@ static void cif_isp20_config_clk(
 	cif_iowrite32(0x0000187B, (marvin_config->base_addr) + CIF_ICCL);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"\n  CIF_CCL 0x%08x,"
-		"\n  CIF_ICCL 0x%08x,",
+		"\n  CIF_CCL 0x%08x\n"
+		"  CIF_ICCL 0x%08x\n",
 		cif_ioread32(marvin_config->base_addr + CIF_CCL),
 		cif_ioread32(marvin_config->base_addr + CIF_ICCL));
 }
@@ -1376,12 +1376,12 @@ static int cif_isp20_config_isp(
 		cifisp_disable_isp(&dev->isp_dev);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"\n  ISP_CTRL 0x%08x"
-		"\n  ISP_IMSC 0x%08x"
-		"\n  ISP_ACQ_PROP 0x%08x"
-		"\n  ISP_ACQ %dx%d@(%d,%d)"
-		"\n  ISP_OUT %dx%d@(%d,%d)"
-		"\n  ISP_IS %dx%d@(%d,%d)\n",
+		"  ISP_CTRL 0x%08x\n"
+		"  ISP_IMSC 0x%08x\n"
+		"  ISP_ACQ_PROP 0x%08x\n"
+		"  ISP_ACQ %dx%d@(%d,%d)\n"
+		"  ISP_OUT %dx%d@(%d,%d)\n"
+		"  ISP_IS %dx%d@(%d,%d)\n",
 		cif_ioread32((marvin_config->base_addr) + CIF_ISP_CTRL),
 		cif_ioread32((marvin_config->base_addr) + CIF_ISP_IMSC),
 		cif_ioread32((marvin_config->base_addr) + CIF_ISP_ACQ_PROP),
@@ -1544,14 +1544,14 @@ static int cif_isp20_config_mipi(
 		marvin_config->base_addr + CIF_MIPI_IMSC);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"\n  MIPI_CTRL 0x%08x,"
-		"\n  MIPI_IMG_DATA_SEL 0x%08x,"
-		"\n  MIPI_STATUS 0x%08x,"
-		"\n  MIPI_IMSC 0x%08x,"
-		"\n  MIPI_DPHY1_1 0x%08x,"
-		"\n  MIPI_DPHY1_2 0x%08x"
-		"\n  MIPI_DPHY2_1 0x%08x,"
-		"\n  MIPI_DPHY2_2 0x%08x\n",
+		"\n  MIPI_CTRL 0x%08x\n"
+		"  MIPI_IMG_DATA_SEL 0x%08x\n"
+		"  MIPI_STATUS 0x%08x\n"
+		"  MIPI_IMSC 0x%08x\n"
+		"  MIPI_DPHY1_1 0x%08x\n"
+		"  MIPI_DPHY1_2 0x%08x\n"
+		"  MIPI_DPHY2_1 0x%08x\n"
+		"  MIPI_DPHY2_2 0x%08x\n",
 		cif_ioread32(marvin_config->base_addr + CIF_MIPI_CTRL),
 		cif_ioread32(marvin_config->base_addr + CIF_MIPI_IMG_DATA_SEL),
 		cif_ioread32(marvin_config->base_addr + CIF_MIPI_STATUS),
@@ -1674,11 +1674,11 @@ static int cif_isp20_config_mi_mp(
 		marvin_config->base_addr + CIF_MI_CTRL);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"\n  MI_CTRL 0x%08x,"
-		"\n  MI_STATUS 0x%08x,"
-		"\n  MI_MP_Y_SIZE %d,"
-		"\n  MI_MP_CB_SIZE %d,"
-		"\n  MI_MP_CR_SIZE %d\n",
+		"\n  MI_CTRL 0x%08x\n"
+		"  MI_STATUS 0x%08x\n"
+		"  MI_MP_Y_SIZE %d\n"
+		"  MI_MP_CB_SIZE %d\n"
+		"  MI_MP_CR_SIZE %d\n",
 		cif_ioread32(marvin_config->base_addr +
 			CIF_MI_CTRL),
 		cif_ioread32(marvin_config->base_addr +
@@ -1876,15 +1876,15 @@ static int cif_isp20_config_mi_sp(
 		marvin_config->base_addr + CIF_MI_CTRL);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"\n  MI_CTRL 0x%08x,"
-		"\n  MI_STATUS 0x%08x,"
-		"\n  MI_SP_Y_SIZE %d,"
-		"\n  MI_SP_CB_SIZE %d,"
-		"\n  MI_SP_CR_SIZE %d,"
-		"\n  MI_SP_PIC_WIDTH %d,"
-		"\n  MI_SP_PIC_HEIGHT %d,"
-		"\n  MI_SP_PIC_LLENGTH %d"
-		"\n  MI_SP_PIC_SIZE %d\n",
+		"\n  MI_CTRL 0x%08x\n"
+		"  MI_STATUS 0x%08x\n"
+		"  MI_SP_Y_SIZE %d\n"
+		"  MI_SP_CB_SIZE %d\n"
+		"  MI_SP_CR_SIZE %d\n"
+		"  MI_SP_PIC_WIDTH %d\n"
+		"  MI_SP_PIC_HEIGHT %d\n"
+		"  MI_SP_PIC_LLENGTH %d\n"
+		"  MI_SP_PIC_SIZE %d\n",
 		cif_ioread32(marvin_config->base_addr + CIF_MI_CTRL),
 		cif_ioread32(marvin_config->base_addr + CIF_MI_STATUS),
 		cif_ioread32(marvin_config->base_addr + CIF_MI_SP_Y_SIZE_INIT),
@@ -2362,10 +2362,10 @@ static int cif_isp20_stop(
 	spin_unlock_irqrestore(&dev->vbq_lock, flags);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"SP state = %s, MP state = %s, img_src state = %s"
-		"\n  MI_CTRL 0x%08x,"
-		"\n  ISP_CTRL 0x%08x,"
-		"\n  MIPI_CTRL 0x%08x\n",
+		"SP state = %s, MP state = %s, img_src state = %s\n"
+		"  MI_CTRL 0x%08x\n"
+		"  ISP_CTRL 0x%08x\n"
+		"  MIPI_CTRL 0x%08x\n",
 		cif_isp20_state_string(dev->sp_stream.state),
 		cif_isp20_state_string(dev->mp_stream.state),
 		cif_isp20_img_src_state_string(dev->img_src_state),
@@ -2437,10 +2437,10 @@ static int cif_isp20_start(
 			ret);
 	else
 		cif_isp20_pltfrm_pr_dbg(dev->dev,
-			"SP state = %s, MP state = %s, img_src state = %s"
-			"\n  MI_CTRL 0x%08x,"
-			"\n  ISP_CTRL 0x%08x,"
-			"\n  MIPI_CTRL 0x%08x\n",
+			"SP state = %s, MP state = %s, img_src state = %s\n"
+			"  MI_CTRL 0x%08x\n"
+			"  ISP_CTRL 0x%08x\n"
+			"  MIPI_CTRL 0x%08x\n",
 			cif_isp20_state_string(dev->sp_stream.state),
 			cif_isp20_state_string(dev->mp_stream.state),
 			cif_isp20_img_src_state_string(dev->img_src_state),
@@ -2461,9 +2461,9 @@ static int cif_isp20_mi_isr(void *cntxt)
 	mi_mis = cif_ioread32(marvin_config->base_addr + CIF_MI_MIS);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"\n  MI_RIS 0x%08x,"
-		"\n  MI_IMSC 0x%08x,"
-		"\n  MI_MIS 0x%08x\n",
+		"\n  MI_RIS 0x%08x\n"
+		"  MI_IMSC 0x%08x\n"
+		"  MI_MIS 0x%08x\n",
 		cif_ioread32(marvin_config->base_addr + CIF_MI_RIS),
 		cif_ioread32(marvin_config->base_addr + CIF_MI_IMSC),
 		mi_mis);
@@ -4891,16 +4891,6 @@ static void marvin_hw_restart(struct cif_isp20_device *xgold_v4l2_dev)
 		      CIF_MI_SP_CB_OFFS_CNT_INIT);
 	cif_iowrite32OR(CIF_MI_CTRL_INIT_OFFSET_EN,
 			(marvin_config->base_addr) + CIF_MI_CTRL);
-	/* Update MI SubModule */
-	xgold_v4l2_dev->xgold_hw.sp_dma_add =
-	    marvin_config->mi_config.null_buff_dma_addr;
-	xgold_v4l2_dev->xgold_hw.mp_dma_add =
-	    marvin_config->mi_config.null_buff_dma_addr;
-	update_mi_sp(xgold_v4l2_dev);
-	update_mi_mp(xgold_v4l2_dev);
-	/* Soft update*/
-	cif_iowrite32OR(CIF_MI_INIT_SOFT_UPD,
-		(marvin_config->base_addr) + CIF_MI_INIT);
 
 	/* Enable ISP ! */
 	cif_iowrite32OR(CIF_ISP_CTRL_ISP_CFG_UPD |
@@ -5287,29 +5277,6 @@ int marvin_isp_isr(void *cntxt)
 	return 0;
 }
 
-/* ======================================================================== */
-#if 0
-int marvin_s_csi_config(struct cif_isp20_device *dev,
-			      struct cif_isp20_csi_config *csi_config)
-{
-	struct xgold_hardware *my_xgold_hw = &dev->xgold_hw;
-	struct marvinconfig *marvin_config = &my_xgold_hw->marvin_config;
-
-	marvin_config->mipi_config.csi_config = *csi_config;
-
-	xgold_v4l2_debug(XGOLD_V4L2_INFO,
-		"%s: %s: CSI config: vc = %d, nb_lanes = %d, "
-		"dphy1 = 0x%08x, dphy2 = 0x%02x, ana_bandgab_bias = %d\n",
-		DRIVER_NAME, __func__,
-		marvin_config->mipi_config.csi_config.vc,
-		marvin_config->mipi_config.csi_config.nb_lanes,
-		marvin_config->mipi_config.csi_config.dphy1,
-		marvin_config->mipi_config.csi_config.dphy2,
-		marvin_config->mipi_config.csi_config.ana_bandgab_bias);
-
-	return 0;
-}
-#endif
 /* ======================================================================== */
 
 int marvin_s_ctrl(struct cif_isp20_device *dev, struct v4l2_control *vc)
