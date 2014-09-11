@@ -213,10 +213,6 @@ enum cif_isp20_cid {
 	CIF_ISP20_CID_FOCUS_ABSOLUTE,
 };
 
-enum marvin_version {
-	marvin_xg6310 = 12,	/* corresponds to bitfield value !!! */
-};
-
 enum marvin_channel_mode {
 	marvin_no_mode = 0,	/* corresponds to bitfield value !!! */
 	marvin_main_path = 1,	/* corresponds to bitfield value !!! */
@@ -253,7 +249,6 @@ struct marvin_control {
 	enum marvin_control_id id;
 	signed int val;		/* Note signedness */
 };
-
 
 #define CIF_ISP20_PIX_FMT_MASK					0xf0000000
 #define CIF_ISP20_PIX_FMT_MASK_BPP				0x0003f000
@@ -314,6 +309,7 @@ struct marvin_control {
 enum cif_isp20_pix_fmt {
 	/* YUV */
 	CIF_YUV400				= 0x10008000,
+	CIF_YVU400				= CIF_YUV400,
 
 	CIF_YUV420I				= 0x1000c200,
 	CIF_YUV420SP			= 0x1000c201,	/* NV12 */
@@ -470,45 +466,23 @@ struct cif_isp20_stream {
 	bool stall;
 };
 
+enum cif_isp20_jpeg_header {
+	CIF_ISP20_JPEG_HEADER_JFIF,
+	CIF_ISP20_JPEG_HEADER_NONE
+};
+
+struct cif_isp20_jpeg_config {
+	bool enable;
+	bool busy;
+	u32 ratio;
+	struct cif_isp20_frm_fmt *input;
+	enum cif_isp20_jpeg_header header;
+};
+
 enum marvin_w_format {
 	marvin_planar = 0,	/* corresponds to bitfield value !!! */
 	marvin_semiplanar = 1,	/* corresponds to bitfield value !!! */
 	marvin_interleaved = 2,	/* corresponds to bitfield value !!! */
-};
-
-struct marvin_picture {
-	unsigned int inputwidth;
-	unsigned int inputheight;
-	unsigned int outputwidth;
-	unsigned int outputheight;
-	enum cif_isp20_pix_fmt inputformat;
-	enum cif_isp20_pix_fmt outputformat;
-	enum marvin_w_format writeformat;
-	bool rotation;
-};
-
-struct tmarvin_qtable {
-	const unsigned char *y;
-	const unsigned char *uv;
-};
-
-enum marvin_jpeg_format {
-	CIF_JPEG_YUV422,
-	CIF_JPEG_YUV400
-};
-
-enum marvin_jpeg_header {
-	CIF_JPE_JFIF,
-	CIF_JPE_NOAPPN
-};
-
-struct marvin_jpeg {
-	bool enable;
-	bool busy;
-	u32 ratio;
-	enum marvin_jpeg_format format;
-	enum marvin_jpeg_header header;
-	unsigned int size;
 };
 
 struct marvin_isp {
@@ -612,13 +586,12 @@ struct marvin_cbh {
 };
 
 struct marvinconfig {
-	enum marvin_version marvin_version;
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR base_addr;	/* registers base address */
 	unsigned int id;
 	enum cif_isp20_flash_mode flash_mode;
 	enum cif_isp20_inp input_sel;
 	struct marvin_control control;	/* control */
-	struct marvin_jpeg jpeg_config;	/* configuration of the JPEG encoder */
+	struct cif_isp20_jpeg_config jpeg_config;
 	struct marvin_isp isp_config;	/* isp configuration */
 	struct marvin_dmaport dmaport_config;	/* DMA Port configuration */
 	struct marvin_overlay_pos overlay_pos;
@@ -758,10 +731,6 @@ unsigned int marvin_lib_clear_frame_in_error(
 	struct marvinconfig *marvin_config);
 unsigned int marvin_lib_s_control(struct marvinconfig *marvin_config);
 unsigned int marvin_lib_g_control(struct marvinconfig *marvin_config);
-int marvin_lib_jpeg_config(struct marvinconfig *marvin_config);
-int marvin_lib_program_jpeg_tables(
-	struct marvinconfig *marvin_config);
-int marvin_lib_select_jpeg_tables(struct marvinconfig *marvin_config);
 unsigned int marvin_lib_dmaport(struct marvinconfig *marvin_config);
 unsigned int marvin_lib_si_config(struct marvinconfig *marvin_config);
 unsigned int marvin_lib_isp_shutter(struct marvinconfig *marvin_config);

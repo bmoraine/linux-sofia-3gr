@@ -98,6 +98,7 @@ static int wv511_s_ctrl(
 	struct v4l2_subdev *sd,
 	struct v4l2_control *ctrl)
 {
+	int ret;
 	u8 lsb;
 	u8 msb;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -109,16 +110,27 @@ static int wv511_s_ctrl(
 		if (ctrl->value > 1023) {
 			dev_err(&client->dev,
 				"value out of range, must be in [0..1023]\n");
-			return -EINVAL;
+			ret = -ERANGE;
+			goto err;
 		}
 		dev->current_lens_pos = ctrl->value;
 		msb = (dev->current_lens_pos >> 4) & 0xff;
 		lsb = ((dev->current_lens_pos << 4) | 0x0) & 0xff;
 
-		return wv511_write_msg(client, msb, lsb);
+		ret = wv511_write_msg(client, msb, lsb);
+		if (IS_ERR_VALUE(ret))
+			goto err;
+	} else {
+		dev_dbg(&client->dev,
+			"ctrl ID %d not supported\n", ctrl->id);
+		return -EINVAL;
 	}
 
-	return -EINVAL;
+	return 0;
+err:
+	dev_err(&client->dev,
+		"failed with error %d\n", ret);
+	return ret;
 }
 
 /* ======================================================================== */

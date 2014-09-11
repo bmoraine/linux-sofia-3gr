@@ -151,21 +151,37 @@ static int ad5823_s_ctrl(
 	if (ctrl->id == V4L2_CID_FOCUS_ABSOLUTE) {
 		dev_dbg(&client->dev,
 			"V4L2_CID_FOCUS_ABSOLUTE %d\n", ctrl->value);
+		if (ctrl->value > 1023) {
+			dev_err(&client->dev,
+				"value out of range, must be in [0..1023]\n");
+			ret = -ERANGE;
+			goto err;
+		}
 		ret = ad5823_read_reg(client,
 			AD5823_VCM_DAC_MSB_ADDR, &val);
-		if (!IS_ERR_VALUE(ret)) {
-			val = (val & 0xc) | ((ctrl->value >> 8) & 0x3);
-			ret = ad5823_write_reg(client,
-				AD5823_VCM_DAC_MSB_ADDR, val);
-			if (!IS_ERR_VALUE(ret))
-				ret = ad5823_write_reg(client,
-					AD5823_VCM_DAC_LSB_ADDR,
-					ctrl->value & 0xff);
-		}
-		return ret;
+		if (IS_ERR_VALUE(ret))
+			goto err;
+		val = (val & 0xc) | ((ctrl->value >> 8) & 0x3);
+		ret = ad5823_write_reg(client,
+			AD5823_VCM_DAC_MSB_ADDR, val);
+		if (IS_ERR_VALUE(ret))
+			goto err;
+		ret = ad5823_write_reg(client,
+			AD5823_VCM_DAC_LSB_ADDR,
+			ctrl->value & 0xff);
+		if (IS_ERR_VALUE(ret))
+			goto err;
+	} else {
+		dev_dbg(&client->dev,
+			"ctrl ID %d not supported\n", ctrl->id);
+		return -EINVAL;
 	}
 
-	return -EINVAL;
+	return 0;
+err:
+	dev_err(&client->dev,
+		"failed with error %d\n", ret);
+	return ret;
 }
 
 /* ======================================================================== */

@@ -72,12 +72,22 @@
 #define MEASURE_VERTICAL_BLANKING
 */
 
-static int update_mi_sp(struct cif_isp20_device *xgold_v4l2);
-static int update_mi_mp(struct cif_isp20_device *xgold_v4l2);
-static int marvin_hw_probe(struct platform_device *pdev);
+static int update_mi_sp(
+	struct cif_isp20_device *xgold_v4l2);
+static int update_mi_mp(
+	struct cif_isp20_device *xgold_v4l2);
+static int marvin_hw_probe(
+	struct platform_device *pdev);
+static int marvin_mipi_isr(
+	void *cntxt);
+static int marvin_isp_isr(
+	void *cntxt);
+static int marvin_lib_program_jpeg_tables(
+	struct marvinconfig *marvin_config);
+static int marvin_lib_select_jpeg_tables(
+	struct marvinconfig *marvin_config);
+
 struct v4l2_fmtdesc output_formats[MAX_NB_FORMATS];
-static int marvin_mipi_isr(void *cntxt);
-static int marvin_isp_isr(void *cntxt);
 
 /*
 	JPEG quantization tables for JPEG encoding
@@ -1902,6 +1912,149 @@ err:
 	return ret;
 }
 
+static int cif_isp20_config_jpeg_enc(
+	struct cif_isp20_device *dev)
+{
+	int ret;
+	struct marvinconfig *marvin_config =
+		&dev->xgold_hw.marvin_config;
+	struct cif_isp20_frm_fmt *inp_fmt =
+		&marvin_config->mp_config.rsz_config.output;
+	marvin_config->jpeg_config.input = inp_fmt;
+
+	cif_isp20_pltfrm_pr_dbg(NULL,
+		"%s %dx%d\n",
+		cif_isp20_pix_fmt_string(inp_fmt->pix_fmt),
+		inp_fmt->width, inp_fmt->height);
+
+	/*
+	   Reset JPEG-Encoder. In contrast to other software resets this
+	   triggers the modules asynchronous reset resulting in loss of all data
+	 */
+	cif_iowrite32OR(CIF_IRCL_JPEG_SW_RST,
+		marvin_config->base_addr + CIF_IRCL);
+	cif_iowrite32AND(~CIF_IRCL_JPEG_SW_RST,
+		marvin_config->base_addr + CIF_IRCL);
+	cif_iowrite32(CIF_JPE_ERROR_MASK,
+		marvin_config->base_addr + CIF_JPE_ERROR_IMSC);
+
+	/* Set configuration for the Jpeg capturing */
+	cif_iowrite32(inp_fmt->width,
+		marvin_config->base_addr + CIF_JPE_ENC_HSIZE);
+	cif_iowrite32(inp_fmt->height,
+		marvin_config->base_addr + CIF_JPE_ENC_VSIZE);
+
+	/* upscaling of BT601 color space to full range 0..255 */
+	cif_iowrite32(CIF_JPE_LUM_SCALE_ENABLE,
+		marvin_config->base_addr + CIF_JPE_Y_SCALE_EN);
+	cif_iowrite32(CIF_JPE_CHROM_SCALE_ENABLE,
+		marvin_config->base_addr + CIF_JPE_CBCR_SCALE_EN);
+
+	switch (inp_fmt->pix_fmt) {
+	case CIF_YUV422I:
+	case CIF_YUV422SP:
+	case CIF_YUV422P:
+		cif_iowrite32(CIF_JPE_PIC_FORMAT_YUV422,
+			marvin_config->base_addr + CIF_JPE_PIC_FORMAT);
+		break;
+	case CIF_YUV400:
+		cif_iowrite32(CIF_JPE_PIC_FORMAT_YUV400,
+			marvin_config->base_addr + CIF_JPE_PIC_FORMAT);
+		break;
+	default:
+		cif_isp20_pltfrm_pr_err(NULL,
+			"format %s not supported as input for JPEG encoder\n",
+			cif_isp20_pix_fmt_string(inp_fmt->pix_fmt));
+		BUG();
+		break;
+	}
+
+	/* Set to normal operation (wait for encoded image data
+	to fill output buffer) */
+	cif_iowrite32(0, marvin_config->base_addr + CIF_JPE_TABLE_FLUSH);
+
+	/*
+	   CIF Spec 4.7
+	   3.14 JPEG Encoder Programming
+	   Do not forget to re-program all AC and DC tables
+	   after system reset as well as after
+	   module software reset because after any reset
+	   the internal RAM is filled with FFH which
+	   is an illegal symbol. This filling takes
+	   approximately 400 clock cycles. So do not start
+	   any table programming during the first 400 clock
+	   cycles after reset is de-asserted.
+	   Note: depends on CIF clock setting
+	   400 clock cycles at 312 Mhz CIF clock-> 1.3 us
+	   400 clock cycles at 208 Mhz CIF clock-> 1.93 us
+	   -> 2us ok for both
+	 */
+	udelay(2);
+
+	/* Program tables */
+	ret = marvin_lib_program_jpeg_tables(marvin_config);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	/* Select tables */
+	ret = marvin_lib_select_jpeg_tables(marvin_config);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	switch (marvin_config->jpeg_config.header) {
+	case CIF_ISP20_JPEG_HEADER_JFIF:
+		cif_isp20_pltfrm_pr_dbg(NULL,
+			"generate JFIF header\n");
+		cif_iowrite32(CIF_JPE_HEADER_MODE_JFIF,
+			marvin_config->base_addr +
+			CIF_JPE_HEADER_MODE);
+		break;
+	case CIF_ISP20_JPEG_HEADER_NONE:
+		cif_isp20_pltfrm_pr_dbg(NULL,
+			"generate no JPEG header\n");
+		cif_iowrite32(CIF_JPE_HEADER_MODE_NOAPPN,
+			marvin_config->base_addr +
+			CIF_JPE_HEADER_MODE);
+		break;
+	default:
+		cif_isp20_pltfrm_pr_err(NULL,
+			"unkown/unsupport JPEG header type %d\n",
+			marvin_config->jpeg_config.header);
+		BUG();
+		break;
+	}
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"\n  JPE_PIC_FORMAT 0x%08x\n"
+		"  JPE_ENC_HSIZE %d\n"
+		"  JPE_ENC_VSIZE %d\n"
+		"  JPE_Y_SCALE_EN 0x%08x\n"
+		"  JPE_CBCR_SCALE_EN 0x%08x\n"
+		"  JPE_ERROR_RIS 0x%08x\n"
+		"  JPE_ERROR_IMSC 0x%08x\n"
+		"  JPE_STATUS_RIS 0x%08x\n"
+		"  JPE_STATUS_IMSC 0x%08x\n"
+		"  JPE_DEBUG 0x%08x\n",
+		cif_ioread32(marvin_config->base_addr + CIF_JPE_PIC_FORMAT),
+		cif_ioread32(marvin_config->base_addr + CIF_JPE_ENC_HSIZE),
+		cif_ioread32(marvin_config->base_addr + CIF_JPE_ENC_VSIZE),
+		cif_ioread32(marvin_config->base_addr + CIF_JPE_Y_SCALE_EN),
+		cif_ioread32(marvin_config->base_addr + CIF_JPE_CBCR_SCALE_EN),
+		cif_ioread32(marvin_config->base_addr + CIF_JPE_ERROR_RIS),
+		cif_ioread32(marvin_config->base_addr + CIF_JPE_ERROR_IMSC),
+		cif_ioread32(marvin_config->base_addr + CIF_JPE_STATUS_RIS),
+		cif_ioread32(marvin_config->base_addr + CIF_JPE_STATUS_IMSC),
+		cif_ioread32(marvin_config->base_addr + CIF_JPE_DEBUG));
+
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(NULL,
+		"failed with error %d\n", ret);
+	return ret;
+}
+
+
+
 static int cif_isp20_config_path(struct cif_isp20_device *dev)
 {
 	struct marvinconfig *marvin_config = &dev->xgold_hw.marvin_config;
@@ -1954,24 +2107,6 @@ static int cif_isp20_jpeg_gen_header(
 	struct marvinconfig *marvin_config = &dev->xgold_hw.marvin_config;
 
 	cif_isp20_pltfrm_pr_dbg(NULL, "\n");
-
-	switch (marvin_config->jpeg_config.header) {
-	case CIF_JPE_JFIF:
-		cif_isp20_pltfrm_pr_dbg(NULL, "JFIF header\n");
-		cif_iowrite32(CIF_JPE_HEADER_MODE_JFIF,
-			marvin_config->base_addr + CIF_JPE_HEADER_MODE);
-		break;
-	case CIF_JPE_NOAPPN:
-		cif_isp20_pltfrm_pr_dbg(NULL, "no header\n");
-		cif_iowrite32(CIF_JPE_HEADER_MODE_NOAPPN,
-			marvin_config->base_addr + CIF_JPE_HEADER_MODE);
-		break;
-	default:
-		cif_isp20_pltfrm_pr_dbg(NULL,
-			"unknown/unsupported header type\n");
-		BUG();
-		return -EINVAL;
-	}
 
 	cif_iowrite32(CIF_JPE_GEN_HEADER_ENABLE,
 		marvin_config->base_addr + CIF_JPE_GEN_HEADER);
@@ -2028,13 +2163,16 @@ static int cif_isp20_mi_frame_end(
 					marvin_config->base_addr +
 						CIF_JPE_STATUS_ICR);
 				marvin_config->jpeg_config.busy = false;
-				marvin_config->jpeg_config.size =
+				if (stream->curr_buf != NULL) {
+					stream->curr_buf->size =
 					cif_ioread32(marvin_config->base_addr +
 						CIF_MI_BYTE_CNT);
-				if (marvin_config->jpeg_config.size >
-					marvin_config->mi_config.mp.y_size)
-					cif_isp20_pltfrm_pr_err(dev->dev,
-						 "JPEG image too large for buffer\n");
+					if (stream->curr_buf->size >
+						marvin_config->mi_config.
+						mp.y_size)
+						cif_isp20_pltfrm_pr_err(NULL,
+							"JPEG image too large for buffer, presumably corrupted\n");
+				}
 			} else {
 				frame_done = false;
 			}
@@ -2055,9 +2193,6 @@ static int cif_isp20_mi_frame_end(
 			(marvin_config->jpeg_config.enable && mp)) {
 			do_gettimeofday(&stream->curr_buf->ts);
 			stream->curr_buf->field_count++;
-			if (marvin_config->jpeg_config.enable && mp)
-				stream->curr_buf->size =
-				marvin_config->jpeg_config.size;
 			/*Inform the wait queue */
 			stream->curr_buf->state = VIDEOBUF_DONE;
 			wake_up(&stream->curr_buf->done);
@@ -2899,6 +3034,8 @@ void cif_isp20_init_mp(
 	struct cif_isp20_device *dev)
 {
 	dev->xgold_hw.marvin_config.jpeg_config.ratio = 50;
+	dev->xgold_hw.marvin_config.jpeg_config.header =
+		CIF_ISP20_JPEG_HEADER_JFIF;
 	dev->xgold_hw.marvin_config.jpeg_config.enable = false;
 	dev->xgold_hw.marvin_config.mi_config.raw_enable = false;
 	dev->xgold_hw.marvin_config.mp_config.updt_cfg = false;
@@ -3322,9 +3459,9 @@ static int marvin_lib_sp_scaler(struct cif_isp20_device *dev)
 				CIF_SRSZ_CTRL);
 
 			cif_iowrite32((
-				((size_out_v - 1) * 16384)
+				((size_out_v / 2 - 1) * 16384)
 				/
-				(size_in_v - 1) + 1) / 2,
+				(size_in_v - 1) + 1),
 				marvin_config->base_addr +
 				CIF_SRSZ_SCALE_VC);
 		} else {
@@ -3354,9 +3491,9 @@ static int marvin_lib_sp_scaler(struct cif_isp20_device *dev)
 			marvin_config->base_addr + CIF_SRSZ_SCALE_VY);
 		if (colour_downsampling) {
 			cif_iowrite32((
-				((size_out_v - 1) * 16384)
+				((size_out_v / 2 - 1) * 16384)
 				/
-				(size_in_v - 1) + 1) / 2,
+				(size_in_v - 1) + 1),
 				marvin_config->base_addr +
 				CIF_SRSZ_SCALE_VC);
 		} else {
@@ -3379,10 +3516,38 @@ static int marvin_lib_sp_scaler(struct cif_isp20_device *dev)
 	cif_iowrite32OR(CIF_SRSZ_CTRL_CFG_UPD,
 		marvin_config->base_addr + CIF_SRSZ_CTRL);
 
-	xgold_v4l2_debug(XGOLD_V4L2_INFO,
-		"%s: %s: CIF_SRSZ_CTRL = 0x%x\n",
-		DRIVER_NAME, __func__,
-		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_CTRL));
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"\n  SRSZ_CTRL 0x%08x/0x%08x\n"
+		"  SRSZ_SCALE_HY %d/%d\n"
+		"  SRSZ_SCALE_HCB %d/%d\n"
+		"  SRSZ_SCALE_HCR %d/%d\n"
+		"  SRSZ_SCALE_VY %d/%d\n"
+		"  SRSZ_SCALE_VC %d/%d\n"
+		"  SRSZ_PHASE_HY %d/%d\n"
+		"  SRSZ_PHASE_HC %d/%d\n"
+		"  SRSZ_PHASE_VY %d/%d\n"
+		"  SRSZ_PHASE_VC %d/%d\n",
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_CTRL),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_CTRL_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_SCALE_HY),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_SCALE_HY_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_SCALE_HCB),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_SCALE_HCB_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_SCALE_HCR),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_SCALE_HCR_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_SCALE_VY),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_SCALE_VY_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_SCALE_VC),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_SCALE_VC_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_PHASE_HY),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_PHASE_HY_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_PHASE_HC),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_PHASE_HC_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_PHASE_VY),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_PHASE_VY_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_PHASE_VC),
+		cif_ioread32(marvin_config->base_addr + CIF_SRSZ_PHASE_VC_SHD));
+
 	return ret;
 }
 
@@ -3529,9 +3694,9 @@ static int marvin_lib_mp_scaler(struct cif_isp20_device *dev)
 					CIF_MRSZ_CTRL);
 
 				cif_iowrite32((
-					((size_out_v - 1) * 16384)
+					((size_out_v / 2 - 1) * 16384)
 					/
-					(size_in_v - 1) + 1) / 2,
+					(size_in_v - 1) + 1),
 					marvin_config->base_addr +
 					CIF_MRSZ_SCALE_VC);
 			} else {
@@ -3568,9 +3733,9 @@ static int marvin_lib_mp_scaler(struct cif_isp20_device *dev)
 
 			if (colour_downsampling) {
 				cif_iowrite32((
-					((size_out_v - 1) * 16384)
+					((size_out_v / 2 - 1) * 16384)
 					/
-					(size_in_v - 1) + 1) / 2,
+					(size_in_v - 1) + 1),
 					marvin_config->base_addr +
 					CIF_MRSZ_SCALE_VC);
 			} else {
@@ -3593,10 +3758,37 @@ static int marvin_lib_mp_scaler(struct cif_isp20_device *dev)
 	cif_iowrite32OR(CIF_MRSZ_CTRL_CFG_UPD,
 			marvin_config->base_addr + CIF_MRSZ_CTRL);
 
-	xgold_v4l2_debug(XGOLD_V4L2_INFO,
-		"%s: %s: CIF_MRSZ_CTRL = 0x%x\n",
-		DRIVER_NAME, __func__,
-		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_CTRL));
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"\n  MRSZ_CTRL 0x%08x/0x%08x\n"
+		"  MRSZ_SCALE_HY %d/%d\n"
+		"  MRSZ_SCALE_HCB %d/%d\n"
+		"  MRSZ_SCALE_HCR %d/%d\n"
+		"  MRSZ_SCALE_VY %d/%d\n"
+		"  MRSZ_SCALE_VC %d/%d\n"
+		"  MRSZ_PHASE_HY %d/%d\n"
+		"  MRSZ_PHASE_HC %d/%d\n"
+		"  MRSZ_PHASE_VY %d/%d\n"
+		"  MRSZ_PHASE_VC %d/%d\n",
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_CTRL),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_CTRL_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_SCALE_HY),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_SCALE_HY_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_SCALE_HCB),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_SCALE_HCB_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_SCALE_HCR),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_SCALE_HCR_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_SCALE_VY),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_SCALE_VY_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_SCALE_VC),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_SCALE_VC_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_PHASE_HY),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_PHASE_HY_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_PHASE_HC),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_PHASE_HC_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_PHASE_VY),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_PHASE_VY_SHD),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_PHASE_VC),
+		cif_ioread32(marvin_config->base_addr + CIF_MRSZ_PHASE_VC_SHD));
 
 	return ret;
 }
@@ -3663,7 +3855,7 @@ static int config_mp(struct marvinconfig *marvin_config,
 	if (IS_ERR_VALUE(ret))
 		goto err;
 	if (marvin_config->jpeg_config.enable) {
-		ret = marvin_lib_jpeg_config(marvin_config);
+		ret = cif_isp20_config_jpeg_enc(xgold_v4l2);
 		if (IS_ERR_VALUE(ret))
 			goto err;
 		marvin_config->jpeg_config.busy = false;
@@ -3716,6 +3908,10 @@ int config_cif(struct cif_isp20_device *dev)
 		CIF_ISP20_PM_STATE_SW_STNDBY);
 	if (IS_ERR_VALUE(ret))
 		goto err;
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"CIF_ID 0x%08x\n",
+		cif_ioread32(marvin_config->base_addr + CIF_VI_ID));
 
 	cif_iowrite32(CIF_IRCL_CIF_SW_RST,
 		(marvin_config->base_addr) + CIF_IRCL);
@@ -4520,154 +4716,6 @@ unsigned int marvin_lib_s_control(struct marvinconfig *marvin_config)
 }
 
 /********************************************************************
-*\function:  marvin_lib_jpeg_config\n
-*
-*	\par Description: JPEG Configuration
-*
-*	\param   none\n
-*
-*	\return Status\n
-*
-*	\par HISTORY (ascending):
-*
-*********************************************************************/
-int marvin_lib_jpeg_config(struct marvinconfig *marvin_config)
-{
-
-	unsigned int hsize = marvin_config->mi_config.mp.output.width;
-	unsigned int vsize = marvin_config->mi_config.mp.output.height;
-	unsigned int ret = 0;
-
-	marvin_lib_debug(MARVIN_LIB_ENTER, " %s: %s: Enter...\n", DRIVER_NAME,
-			 __func__);
-	BUG_ON(!(marvin_config->base_addr));
-	BUG_ON(!hsize);
-	BUG_ON(!vsize);
-
-	marvin_config->jpeg_config.format = CIF_JPEG_YUV422;
-	marvin_config->jpeg_config.header = CIF_JPE_JFIF;
-
-	/*
-	   Reset JPEG-Encoder. In contrast to other software resets this
-	   triggers the modules asynchronous reset resulting in loss of all data
-	 */
-	cif_iowrite32OR(CIF_IRCL_JPEG_SW_RST,
-			(marvin_config->base_addr) + CIF_IRCL);
-	cif_iowrite32AND(~CIF_IRCL_JPEG_SW_RST,
-			 (marvin_config->base_addr) + CIF_IRCL);
-
-	cif_iowrite32(CIF_JPE_ERROR_MASK,
-		      (marvin_config->base_addr) + CIF_JPE_ERROR_IMSC);
-
-	/* Set configuration for the Jpeg capturing */
-	cif_iowrite32(hsize, (marvin_config->base_addr) + CIF_JPE_ENC_HSIZE);
-	cif_iowrite32(vsize, (marvin_config->base_addr) + CIF_JPE_ENC_VSIZE);
-	marvin_lib_debug(MARVIN_LIB_INFO, " %s: %s: JPEG Picture: %d x %d\n",
-			 DRIVER_NAME, __func__, hsize, vsize);
-
-	/* upscaling of BT601 color space to full range 0..255 */
-	cif_iowrite32(CIF_JPE_LUM_SCALE_ENABLE,
-		      (marvin_config->base_addr) + CIF_JPE_Y_SCALE_EN);
-	cif_iowrite32(CIF_JPE_CHROM_SCALE_ENABLE,
-		      (marvin_config->base_addr) + CIF_JPE_CBCR_SCALE_EN);
-
-	/* Picture Format */
-	switch (marvin_config->jpeg_config.format) {
-	case CIF_JPEG_YUV422:
-		marvin_lib_debug(MARVIN_LIB_INFO,
-				 " %s: %s: JPEG Format is YUV422\n",
-				 DRIVER_NAME, __func__);
-		cif_iowrite32(CIF_JPE_PIC_FORMAT_YUV422,
-			      (marvin_config->base_addr) +
-			      CIF_JPE_PIC_FORMAT);
-		break;
-	case CIF_JPEG_YUV400:
-		marvin_lib_debug(MARVIN_LIB_INFO,
-				 " %s: %s: JPEG Format is YUV400\n",
-				 DRIVER_NAME, __func__);
-		cif_iowrite32(CIF_JPE_PIC_FORMAT_YUV400,
-			      (marvin_config->base_addr) +
-			      CIF_JPE_PIC_FORMAT);
-		break;
-	default:
-		BUG();
-		break;
-	}
-
-	marvin_lib_debug(MARVIN_LIB_REG, " %s: %s: CIF_JPE_ENC_HSIZE = 0x%x\n",
-			 DRIVER_NAME, __func__,
-			 cif_ioread32((marvin_config->base_addr) +
-				      CIF_JPE_ENC_HSIZE));
-	marvin_lib_debug(MARVIN_LIB_REG, " %s: %s: CIF_JPE_ENC_VSIZE = 0x%x\n",
-			 DRIVER_NAME, __func__,
-			 cif_ioread32((marvin_config->base_addr) +
-				      CIF_JPE_ENC_VSIZE));
-	marvin_lib_debug(MARVIN_LIB_REG, " %s: %s: CIF_JPE_Y_SCALE_EN = 0x%x\n",
-			 DRIVER_NAME, __func__,
-			 cif_ioread32((marvin_config->base_addr) +
-				      CIF_JPE_Y_SCALE_EN));
-	marvin_lib_debug(MARVIN_LIB_REG,
-			 " %s: %s: CIF_JPE_CBCR_SCALE_EN = 0x%x\n", DRIVER_NAME,
-			 __func__,
-			 cif_ioread32((marvin_config->base_addr) +
-				      CIF_JPE_CBCR_SCALE_EN));
-	marvin_lib_debug(MARVIN_LIB_REG, " %s: %s: CIF_JPE_PIC_FORMAT = 0x%x\n",
-			 DRIVER_NAME, __func__,
-			 cif_ioread32((marvin_config->base_addr) +
-				      CIF_JPE_PIC_FORMAT));
-
-	/* Set to normal operation (wait for encoded image data
-	to fill output buffer) */
-	cif_iowrite32(0, (marvin_config->base_addr) + CIF_JPE_TABLE_FLUSH);
-
-	/*
-	   CIF Spec 4.7
-	   3.14 JPEG Encoder Programming
-	   Do not forget to re-program all AC and DC tables
-	   after system reset as well as after
-	   module software reset because after any reset
-	   the internal RAM is filled with FFH which
-	   is an illegal symbol. This filling takes
-	   approximately 400 clock cycles. So do not start
-	   any table programming during the first 400 clock
-	   cycles after reset is de-asserted.
-	   Note: depends on CIF clock setting
-	   400 clock cycles at 312 Mhz CIF clock-> 1.3 us
-	   400 clock cycles at 208 Mhz CIF clock-> 1.93 us
-	   -> 2us ok for both
-	 */
-	udelay(2);
-
-	/* Program tables */
-	ret |= marvin_lib_program_jpeg_tables(marvin_config);
-
-	/* Select tables */
-	ret |= marvin_lib_select_jpeg_tables(marvin_config);
-
-	switch (marvin_config->jpeg_config.header) {
-	case CIF_JPE_JFIF:
-		marvin_lib_debug(MARVIN_LIB_INFO, " %s: %s: Header is JFIF\n",
-				 DRIVER_NAME, __func__);
-		cif_iowrite32(CIF_JPE_HEADER_MODE_JFIF,
-			      (marvin_config->base_addr) +
-			      CIF_JPE_HEADER_MODE);
-		break;
-	case CIF_JPE_NOAPPN:
-		marvin_lib_debug(MARVIN_LIB_INFO, " %s: %s: No Header\n",
-				 DRIVER_NAME, __func__);
-		cif_iowrite32(CIF_JPE_HEADER_MODE_NOAPPN,
-			      (marvin_config->base_addr) +
-			      CIF_JPE_HEADER_MODE);
-		break;
-	default:
-		BUG();
-		break;
-	}
-
-	return ret;
-}
-
-/********************************************************************
 *\function:  marvin_lib_program_jpeg_tables\n
 *
 *	\par Description: progam jpeg tables
@@ -4786,7 +4834,6 @@ int marvin_lib_program_jpeg_tables(struct marvinconfig *marvin_config)
 *********************************************************************/
 int marvin_lib_select_jpeg_tables(struct marvinconfig *marvin_config)
 {
-
 	unsigned int ret = 0;
 
 	marvin_lib_debug(MARVIN_LIB_ENTER, " %s: %s: Enter...\n", DRIVER_NAME,
