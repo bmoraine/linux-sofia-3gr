@@ -463,7 +463,7 @@ agold {
 			        adc,consumer-channel = "ACCID_ADC";
 				adc,datasheet-name = "AG620_M4";
 				adc,log-channel-id = <ADC_ID_ACC>;
-				adc,phy-channel-num = <ADC_PHY_M11>;
+				adc,phy-channel-num = <ADC_PHY_M4>;
 				adc,adc-bias-na = <0>;
 				adc,max-signal-settling-time-ms = <0>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;

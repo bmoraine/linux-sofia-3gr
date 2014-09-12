@@ -72,7 +72,7 @@
 			>;
 		interrupt-names = "acd1", "acd2";
 		io-channel-names = "ACCID_ADC";
-		io-channels = < &meas 7 >;
+		io-channels = < &meas 4 >;
 	};
 #endif
 	lcd:lcd {
