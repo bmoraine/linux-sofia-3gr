@@ -16,6 +16,9 @@
 #include <linux/errno.h>
 #include <linux/smp.h>
 #include <linux/cpuidle.h>
+#include <linux/notifier.h>
+#include <linux/clockchips.h>
+#include <linux/of.h>
 #ifdef CONFIG_X86_INTEL_XGOLD
 #include <asm/irqflags.h>
 #else
@@ -32,64 +35,48 @@
 #endif
 #endif
 
-/****
-	1 - C1	- WFE
-	2 - C2	- Dormant
-	3 - C3	- Shutdown
-	4 - S0i3- Shutdown with higher latency. MEX sleep allowed.
-****/
+struct xgold_cpuidle_state {
+	unsigned id;
+};
+
+static struct xgold_cpuidle_state xgold_cpuidle_states[CPUIDLE_STATE_MAX] = {
+	[0] = {
+		.id = PM_S0,
+	},
+	[1] = {
+		.id = PM_S1,
+	},
+};
 
 
+#define XGOLD_CPUIDLE_ACTIVE xgold_cpuidle_states[0].id
+
+#ifdef CONFIG_X86_INTEL_SOFIA
 static int xgold_enter_idle(struct cpuidle_device *dev,
 			struct cpuidle_driver *drv, int index)
 {
-#ifdef CONFIG_PLATFORM_DEVICE_PM_VIRT
+	struct xgold_cpuidle_state *xg_idle = &xgold_cpuidle_states[index];
 	struct vmm_shared_data *data = get_vmm_shared_data();
-	switch (index) {
-	case 0:
-		vm_enter_idle(data->pal_shared_mem_data,
-					PM_S0);
-		native_safe_halt();
-		break;
-#if 0
-	case 1:		/* go to Shutdown state */
-		vm_enter_idle(data->pal_shared_mem_data,
-					PM_S1);
-		native_safe_halt();
-		break;
-	case 2:		/* Allow MEX to sleep */
-		vm_enter_idle(data->pal_shared_mem_data,
-					PM_S0i3);
-		native_safe_halt();
-		break;
-#endif
-	default:	/* should never get here */
-		break;
-		}
+
+	vm_enter_idle(data->pal_shared_mem_data, xg_idle->id);
+	native_safe_halt();
 	/* back to active */
-	vm_enter_idle(data->pal_shared_mem_data,
-				PM_S0);
-	/* inform MEX not to sleep */
-#else
-	switch (index) {
-	case 0:
-		native_safe_halt();
-		break;
-	case 1: /*dummy case for test */
-		native_safe_halt();
-		break;
-	default:
-		break;
-	};
-#endif
-	local_irq_enable();
+	vm_enter_idle(data->pal_shared_mem_data, XGOLD_CPUIDLE_ACTIVE);
+
 	return index;
 }
+#else
+static int xgold_enter_idle(struct cpuidle_device *dev,
+			struct cpuidle_driver *drv, int index)
+	native_safe_halt();
+	return index;
+}
+#endif
+
 
 static struct cpuidle_driver xgold_cpuidle_driver = {
 	.name = "cpuidle_xgold",
 	.owner = THIS_MODULE,
-#ifdef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	.states = {
 		[0] = {
 			.name = "S0",
@@ -100,7 +87,6 @@ static struct cpuidle_driver xgold_cpuidle_driver = {
 			.target_residency = 2,
 			.enter = &xgold_enter_idle,
 		},
-#if 0
 		[1] = {
 			.name = "S1",
 			.desc = "Shutdown",
@@ -110,48 +96,127 @@ static struct cpuidle_driver xgold_cpuidle_driver = {
 			.target_residency = 100,
 			.enter = xgold_enter_idle,
 		},
-		[2] = {
-			.name = "S0i3",
-			.desc = "Allow MEX sleep",
-			.flags = CPUIDLE_FLAG_TIME_VALID,
-			.exit_latency = 200,
-			.power_usage = 5,
-			.target_residency = 400,
-			.enter = xgold_enter_idle,
-		},
-#endif
-	},
-	/*.state_count = 3,*/
-	.state_count = 1,
-#else
-	.states = {
-		[0] = {
-			.name = "C1",
-			.desc = "WFE",
-			.flags = CPUIDLE_FLAG_TIME_VALID,
-			.exit_latency = 1,
-			.power_usage = 100,
-			.target_residency = 2,
-			.enter = &xgold_enter_idle,
-		},
-		[1] = {
-			.name = "C2",
-			.desc = "Shutdown",
-			.flags = CPUIDLE_FLAG_TIME_VALID,
-			.exit_latency = 100,
-			.power_usage = 50,
-			.target_residency = 100,
-			.enter = &xgold_enter_idle,
-		},
 	},
 	.state_count = 2,
-#endif
 };
+static void __setup_broadcast_timer(void *arg)
+{
+	unsigned long reason = (unsigned long)arg;
+	int cpu = smp_processor_id();
 
+	reason = reason ?
+		CLOCK_EVT_NOTIFY_BROADCAST_ON : CLOCK_EVT_NOTIFY_BROADCAST_OFF;
+
+	clockevents_notify(reason, &cpu);
+}
+
+#define INTEL_IDLE_STATE_COMPAT "intel,sofia,idle-state"
+#define INTEL_IDLE_STATE_DESC "desc"
+#define INTEL_IDLE_STATE_RESIDENCY "target-residency"
+#define INTEL_IDLE_STATE_LATENCY "exit-latency"
+#define INTEL_IDLE_STATE_POWER "power-usage"
+#define INTEL_IDLE_STATE_FLAGS "flags"
+#define INTEL_IDLE_STATE_VMMID "vmm-id"
+
+static void xgold_cpuidle_print_states(struct cpuidle_driver *idle_drv)
+{
+	unsigned i;
+
+	pr_info("idle xgold: Name | latency | residency | power | flags | vmmid\n");
+	for (i = 0; i < idle_drv->state_count; i++) {
+		struct cpuidle_state *idle_state;
+		struct xgold_cpuidle_state *xg_idle_state;
+		idle_state = &idle_drv->states[i];
+		xg_idle_state = &xgold_cpuidle_states[i];
+		pr_info("\t%s [%s]\t %d\t %d\t %d\t %d %d\n",
+				idle_state->name,
+				idle_state->desc,
+				idle_state->exit_latency,
+				idle_state->target_residency,
+				idle_state->power_usage,
+				idle_state->flags,
+				xg_idle_state->id);
+	}
+}
+
+static int __init xgold_cpuidle_parse_dt(void)
+{
+	int ret;
+	unsigned nr_state = 0;
+	const char *desc;
+	struct device_node *states, *state;
+	struct cpuidle_driver *idle_drv = &xgold_cpuidle_driver;
+	states = of_find_node_by_path("/cpus/idle-states");
+	if (states == NULL) {
+		pr_err("%s: No idle states defined in dts\n", __func__);
+		return -EINVAL;
+	}
+
+	/* How Many states */
+	for_each_child_of_node(states, state) {
+		struct cpuidle_state *idle_state;
+		struct xgold_cpuidle_state *xg_cpuidle_state;
+		if (!(of_device_is_compatible(state, INTEL_IDLE_STATE_COMPAT)))
+			continue;
+
+		idle_state = &idle_drv->states[nr_state];
+		xg_cpuidle_state = &xgold_cpuidle_states[nr_state];
+
+		strncpy(idle_state->name, state->name, CPUIDLE_NAME_LEN);
+
+		ret = of_property_read_string(state, INTEL_IDLE_STATE_DESC,
+							&desc);
+		BUG_ON(ret);
+
+		strncpy(idle_state->desc, desc, CPUIDLE_DESC_LEN);
+
+		ret = of_property_read_u32(state, INTEL_IDLE_STATE_FLAGS,
+							&idle_state->flags);
+		BUG_ON(ret);
+
+		ret = of_property_read_u32(state, INTEL_IDLE_STATE_LATENCY,
+						&idle_state->exit_latency);
+		BUG_ON(ret);
+
+		ret = of_property_read_u32(state, INTEL_IDLE_STATE_POWER,
+						&idle_state->power_usage);
+		BUG_ON(ret);
+
+		ret = of_property_read_u32(state, INTEL_IDLE_STATE_RESIDENCY,
+						&idle_state->target_residency);
+		BUG_ON(ret);
+
+		ret = of_property_read_u32(state, INTEL_IDLE_STATE_VMMID,
+						&xg_cpuidle_state->id);
+		BUG_ON(ret);
+
+		idle_state->enter = xgold_enter_idle;
+
+		nr_state++;
+	}
+
+	idle_drv->state_count = nr_state;
+
+	return 0;
+}
 
 static int __init xgold_cpuidle_init(void)
 {
+	pr_info("%s: Initializing xgold cpuidle driver\n", __func__);
+
+	on_each_cpu(__setup_broadcast_timer, (void *)true, 1);
+	xgold_cpuidle_parse_dt();
+	xgold_cpuidle_print_states(&xgold_cpuidle_driver);
 	return cpuidle_register(&xgold_cpuidle_driver, NULL);
 }
 
-device_initcall(xgold_cpuidle_init);
+static void __exit xgold_cpuidle_exit(void)
+{
+	cpuidle_unregister(&xgold_cpuidle_driver);
+
+	on_each_cpu(__setup_broadcast_timer, (void *)false, 1);
+
+	return;
+}
+
+subsys_initcall(xgold_cpuidle_init);
