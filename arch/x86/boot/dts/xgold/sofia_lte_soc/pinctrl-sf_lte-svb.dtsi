@@ -825,6 +825,21 @@
 			0x80368 0x2001	/* prox_amb_irq */
 		>;
 	};
+	gyroscope_default_pins:gyroscope_default_pins {
+		pinctrl-single,pins = <
+			0x8021c 0x3	/* gyroscope_irq */
+		>;
+	};
+	gyroscope_inactive_pins:gyroscope_inactive_pins {
+		pinctrl-single,pins = <
+			0x8021c 0x4100	/* gyroscope_irq */
+		>;
+	};
+	gyroscope_sleep_pins:gyroscope_sleep_pins {
+		pinctrl-single,pins = <
+			0x8021c 0x4100	/* gyroscope_irq */
+		>;
+	};
 	gps_function_B_active_pins:gps_function_B_active_pins {
 		pinctrl-single,pins = <
 			0x80370 0x1010	/* gps_fta */

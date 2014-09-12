@@ -302,7 +302,7 @@
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
 	};
-/*
+
 	gyroscope {
 		compatible = "stm,l3gd20_gyr";
 		reg = < 0x6a >;
@@ -321,7 +321,7 @@
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
 	};
-*/
+
 };
 
 &gnss {
