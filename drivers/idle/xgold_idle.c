@@ -51,6 +51,7 @@ static int xgold_enter_idle(struct cpuidle_device *dev,
 					PM_S0);
 		native_safe_halt();
 		break;
+#if 0
 	case 1:		/* go to Shutdown state */
 		vm_enter_idle(data->pal_shared_mem_data,
 					PM_S1);
@@ -61,7 +62,7 @@ static int xgold_enter_idle(struct cpuidle_device *dev,
 					PM_S0i3);
 		native_safe_halt();
 		break;
-
+#endif
 	default:	/* should never get here */
 		break;
 		}
@@ -99,6 +100,7 @@ static struct cpuidle_driver xgold_cpuidle_driver = {
 			.target_residency = 2,
 			.enter = &xgold_enter_idle,
 		},
+#if 0
 		[1] = {
 			.name = "S1",
 			.desc = "Shutdown",
@@ -117,8 +119,10 @@ static struct cpuidle_driver xgold_cpuidle_driver = {
 			.target_residency = 400,
 			.enter = xgold_enter_idle,
 		},
+#endif
 	},
-	.state_count = 3,
+	/*.state_count = 3,*/
+	.state_count = 1,
 #else
 	.states = {
 		[0] = {
