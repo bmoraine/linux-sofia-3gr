@@ -334,19 +334,16 @@
 						#address-cells = < 0 >;
 						reg = < 0xE1000000 0x100000 >;
 						reg-names = "registers";
-						clocks = <&clk_dcc>, <&clk_ahb_per1>, <&clk_x2>, <&D_0_1>; /* FIXME D_0_1 must be enabled through clk_dcc */
+						clocks = <&clk_dcc>, <&clk_ahb_per1>, <&clk_x2>, <&D_0_1>;
 						clock-names = "clk_kernel", "clk_ahb", "clk_master", "clk_pll";
-						interrupts = < 0 1 2 3 4 5 >;
+						interrupts = < 0 1 2 >;
 						interrupt-parent = <&dcc>;
 						#interrupt-cells = < 1 >;
 						interrupt-map = <
-							0 &pic DIF_RX_XREQ_INT IRQ_TYPE_DEFAULT
-							1 &pic DIF_TX_XREQ_INT IRQ_TYPE_DEFAULT
-							2 &pic DIF_ERR_INT IRQ_TYPE_DEFAULT
-							3 &pic DCC_CMD_INT IRQ_TYPE_DEFAULT
-							4 &pic DCC_FRAME_INT IRQ_TYPE_DEFAULT
-							5 &eint EINT_EXI2 XGOLD_IRQ_TYPE_EDGE_FALLING>;
-						interrupt-names = "rx", "tx", "err", "cmd", "frame", "vsync";
+							0 &pic DIF_ERR_INT IRQ_TYPE_DEFAULT
+							1 &pic DCC_CMD_INT IRQ_TYPE_DEFAULT
+							2 &pic DCC_FRAME_INT IRQ_TYPE_DEFAULT>;
+						interrupt-names = "err", "cmd", "frame";
 
 						pm,class-name = "dcc_class";
 						pm,user-name = "dcc";
