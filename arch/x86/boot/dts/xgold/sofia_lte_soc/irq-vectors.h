@@ -3,11 +3,11 @@
 /* AUTO GENERATED - DO NOT MODIFY */
 
 #define NOC_TRACEALARM 0
-#define EXI3 0
 #define EXI4 0
 #define EXI5 0
 #define EXI6 0
-#define EXI7 0
+#define EXI8 0
+#define EXI9 0
 #define EXI13 0
 #define EXI14 0
 #define EXI15 0
@@ -44,8 +44,8 @@
 #define EXI0 64
 #define EXI1 65
 #define EXI2 66
-#define EXI8 67
-#define EXI9 68
+#define EXI3 67
+#define EXI7 68
 #define EXI10 69
 #define EXI11 70
 #define EXI12 71
