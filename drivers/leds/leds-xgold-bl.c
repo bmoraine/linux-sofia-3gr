@@ -584,7 +584,7 @@ static int xgold_led_bl_resume(struct device *dev)
 	struct xgold_led_bl_device *led_bl = dev_get_drvdata(dev);
 
 	xgold_led_set_pinctrl_state(dev, led_bl->pins_default);
-	return led_bl->set_clk(dev, TRUE);
+	return 0;
 }
 
 #else
