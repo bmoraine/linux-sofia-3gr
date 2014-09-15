@@ -174,10 +174,13 @@ enum cif_isp20_pm_state {
 };
 
 enum cif_isp20_inp {
-	CIF_ISP20_INP_CSI_0 = 0,
-	CIF_ISP20_INP_CSI_1 = 1,
-	CIF_ISP20_INP_CPI = 2,
-	CIF_ISP20_INP_DMA = 3,
+	CIF_ISP20_INP_CSI_0 = (1 << 1),
+	CIF_ISP20_INP_CSI_1 = (1 << 2),
+	CIF_ISP20_INP_CPI = (1 << 3),
+	CIF_ISP20_INP_DMA = (1 << 4), /* DMA -> ISP */
+	CIF_ISP20_INP_DMA_IE = (1 << 5), /* DMA -> IE */
+	CIF_ISP20_INP_DMA_SP = (1 << 6), /* DMA -> SP */
+	CIF_ISP20_INP_SI = (1 << 15) /* can be combined with some others */
 };
 
 enum cif_isp20_irq {
@@ -447,6 +450,10 @@ struct cif_isp20_mp_config {
 	bool updt_cfg;
 };
 
+struct cif_isp20_dma_config {
+	bool updt_cfg;
+};
+
 #ifdef NO_YET
 struct cif_isp20_buffer {
 	struct list_head list;
@@ -541,14 +548,13 @@ struct marvin_mi_path {
 	unsigned int y_size;
 	unsigned int cb_size;
 	unsigned int cr_size;
-	struct marvin_mi_selfpicture selfpicture;
-	bool configured;
 };
 
 struct marvin_mi {
 	bool raw_enable;
-	struct marvin_mi_path mp;	/* Memory Interface main path */
-	struct marvin_mi_path sp;	/* Memory Interface self path */
+	struct marvin_mi_path mp;
+	struct marvin_mi_path sp;
+	struct marvin_mi_path dma;
 #if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
 	void *null_buff;
 #endif
@@ -605,6 +611,7 @@ struct marvinconfig {
 	struct cif_isp20_strm_fmt img_src_output;
 	struct cif_isp20_sp_config sp_config;
 	struct cif_isp20_mp_config mp_config;
+	struct cif_isp20_dma_config dma_config;
 };
 
 struct cif_isp20_mi_state {
@@ -786,6 +793,11 @@ int cif_isp20_s_fmt_sp(
 	struct cif_isp20_strm_fmt *strm_fmt,
 	u32 stride);
 
+int cif_isp20_s_fmt_dma(
+	struct cif_isp20_device *dev,
+	struct cif_isp20_strm_fmt *strm_fmt,
+	u32 stride);
+
 int cif_isp20_qbuf(
 	struct cif_isp20_device *dev,
 	enum cif_isp20_stream_id stream,
@@ -797,6 +809,10 @@ int cif_isp20_calc_isp_cropping(
 	u32 *height,
 	u32 *h_offs,
 	u32 *v_offs);
+
+const char *cif_isp20_g_input_name(
+	struct cif_isp20_device *dev,
+	enum cif_isp20_inp inp);
 
 int cif_isp20_calc_min_out_buff_size(
 	struct cif_isp20_device *dev,

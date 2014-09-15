@@ -167,33 +167,13 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_VI_DPCL_IF_SEL_PARALLEL        (0<<8)
 #define CIF_VI_DPCL_IF_SEL_SMIA            (1<<8)
 #define CIF_VI_DPCL_IF_SEL_MIPI            (2<<8)
-#define CIF_VI_DPCL_IF_SEL_RB			   (3<<8)
+#define CIF_VI_DPCL_IF_SEL_DMA			   (3<<8)
 #define CIF_VI_DPCL_DMA_IE_MUX_CIF         (0<<10)
 #define CIF_VI_DPCL_DMA_IE_MUX_DMA         (1<<10)
 #define CIF_VI_DPCL_DMA_SP_MUX_CIF         (0<<11)
 #define CIF_VI_DPCL_DMA_SP_MUX_DMA         (1<<11)
 #define CIF_VI_DPCL_YC_SPMUX_SPLIT         (0<<12)
 #define CIF_VI_DPCL_YC_SPMUX_FILT          (1<<12)
-
-
-/* DMA Swith Configuration */
-
-#define CIF_DMAPORT_IE          (CIF_VI_DPCL_IF_SEL_RB |\
-	CIF_VI_DPCL_DMA_SW_IE| \
-	CIF_VI_DPCL_DMA_IE_MUX_DMA)
-
-#define CIF_DMAPORT_SI          (CIF_VI_DPCL_IF_SEL_RB |\
-	CIF_VI_DPCL_DMA_SW_SI)
-
-#define CIF_DMAPORT_JPEG        (CIF_VI_DPCL_DMA_SW_JPEG| \
-	CIF_VI_DPCL_MP_MUX_MRSZ_JPEG)
-
-#define CIF_DMAPORT_SP          (CIF_VI_DPCL_IF_SEL_RB |\
-	CIF_VI_DPCL_DMA_SW_SPMUX| \
-	CIF_VI_DPCL_DMA_SP_MUX_DMA)
-
-#define CIF_DMAPORT_ISP			(CIF_VI_DPCL_DMA_SW_ISP | \
-	CIF_VI_DPCL_IF_SEL_RB)
 
 /* ISP_IMSC - ISP_MIS - ISP_RIS - ISP_ICR - ISP_ISR */
 #define CIF_ISP_OFF                        (1<<0)
@@ -341,12 +321,12 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_JPE_STATUS_GENHEADER_DONE      (1<<5)
 
 /* MI_DMA_CTRL */
-#define CIF_MI_DMA_CTRL_Y_LEN_4BURSTS      (0<<0)
-#define CIF_MI_DMA_CTRL_Y_LEN_8BURSTS      (1<<0)
-#define CIF_MI_DMA_CTRL_Y_LEN_16BURSTS     (2<<0)
-#define CIF_MI_DMA_CTRL_CbCr_LEN_4BURSTS   (0<<2)
-#define CIF_MI_DMA_CTRL_CbCr_LEN_8BURSTS   (1<<2)
-#define CIF_MI_DMA_CTRL_CbCr_LEN_16BURSTS  (2<<2)
+#define CIF_MI_DMA_CTRL_BURST_LEN_LUM_16   (0<<0)
+#define CIF_MI_DMA_CTRL_BURST_LEN_LUM_32   (1<<0)
+#define CIF_MI_DMA_CTRL_BURST_LEN_LUM_64   (2<<0)
+#define CIF_MI_DMA_CTRL_BURST_LEN_CHROM_16 (0<<2)
+#define CIF_MI_DMA_CTRL_BURST_LEN_CHROM_32 (1<<2)
+#define CIF_MI_DMA_CTRL_BURST_LEN_CHROM_64 (2<<2)
 #define CIF_MI_DMA_CTRL_READ_FMT_PLANAR    (0<<4)
 #define CIF_MI_DMA_CTRL_READ_FMT_SPLANAR   (1<<4)
 #define CIF_MI_DMA_CTRL_READ_FMT_PACKED    (2<<4)
@@ -358,6 +338,8 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_MI_DMA_CTRL_NO_BYTE_SWAP       (0<<8)
 #define CIF_MI_DMA_CTRL_CONTINOUS_ENA      (1<<9)
 #define CIF_MI_DMA_CTRL_CONTINOUS_DIS      (0<<9)
+#define CIF_MI_DMA_CTRL_WRITE_FMT(a)       ((a)<<4)
+
 
 /* MI_DMA_START */
 #define CIF_MI_DMA_START_ENABLE            (1<<0)

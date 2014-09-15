@@ -58,6 +58,9 @@ int cif_isp20_img_src_v4l2_subdev_s_ctrl(
 	int id,
 	int val);
 
+const char *cif_isp20_img_src_v4l2_subdev_g_name(
+	void *img_src);
+
 int cif_isp20_img_src_v4l2_subdev_s_ext_ctrls(
 	void *img_src,
 	struct cif_isp20_img_src_ext_ctrl *ctrl);

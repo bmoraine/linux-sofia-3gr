@@ -351,6 +351,14 @@ int cif_isp20_img_src_v4l2_subdev_s_ctrl(
 	return v4l2_subdev_call(subdev, core, s_ctrl, &ctrl);
 }
 
+const char *cif_isp20_img_src_v4l2_subdev_g_name(
+	void *img_src)
+{
+	struct v4l2_subdev *subdev = img_src;
+
+	return dev_driver_string(subdev->dev);
+}
+
 int cif_isp20_img_src_v4l2_subdev_s_ext_ctrls(
 	void *img_src,
 	struct cif_isp20_img_src_ext_ctrl *ctrl)

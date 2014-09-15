@@ -176,6 +176,36 @@ const char *cif_isp20_v4l2_pix_fmt_string(
 	return "UNKNOWN/UNSUPPORTED";
 }
 
+static enum cif_isp20_inp cif_isp20_v4l2_inp2cif_isp20_inp(
+	unsigned int i)
+{
+	enum cif_isp20_inp inp;
+
+	if (i & 8) {
+		inp |= CIF_ISP20_INP_SI;
+		inp -= 8;
+	}
+	if (0 == i)
+		inp = CIF_ISP20_INP_CSI_0;
+	else if (1 == i)
+		inp = CIF_ISP20_INP_CSI_1;
+	else if (2 == i)
+		inp = CIF_ISP20_INP_CPI;
+	else if (3 == i)
+		inp = CIF_ISP20_INP_DMA;
+	else if (4 == i)
+		inp = CIF_ISP20_INP_DMA_IE;
+	else if (5 == i)
+		inp = CIF_ISP20_INP_DMA_SP;
+	else {
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"index %d out of bounds\n", i);
+		return -EINVAL;
+	}
+
+	return inp;
+}
+
 static int cif_isp20_v4l2_cid2cif_isp20_cid(u32 v4l2_cid)
 {
 	switch (v4l2_cid) {
@@ -760,19 +790,9 @@ static int v4l2_s_input(struct file *file, void *priv, unsigned int i)
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "setting input to %d\n", i);
 
-	if (0 == i)
-		inp = CIF_ISP20_INP_CSI_0;
-	else if (1 == i)
-		inp = CIF_ISP20_INP_CSI_1;
-	else if (2 == i)
-		inp = CIF_ISP20_INP_CPI;
-	else if (3 == i)
-		inp = CIF_ISP20_INP_DMA;
-	else {
-		cif_isp20_pltfrm_pr_err(dev->dev,
-			"index %d out of bounds\n", i);
-		return -EINVAL;
-	}
+	inp = cif_isp20_v4l2_inp2cif_isp20_inp(i);
+	if (IS_ERR_VALUE(inp))
+		return inp;
 
 	return cif_isp20_s_input(dev, inp);
 }
@@ -780,12 +800,15 @@ static int v4l2_s_input(struct file *file, void *priv, unsigned int i)
 static int v4l2_enum_input(struct file *file, void *priv,
 			   struct v4l2_input *input)
 {
-	struct videobuf_queue *q = to_videobuf_queue(file);
+	struct videobuf_queue *queue = to_videobuf_queue(file);
+	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
+	const char *inp_name;
+	enum cif_isp20_inp inp;
 
-	if ((q->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
-		(q->type != V4L2_BUF_TYPE_VIDEO_OVERLAY)) {
+	if ((queue->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
+		(queue->type != V4L2_BUF_TYPE_VIDEO_OVERLAY)) {
 		cif_isp20_pltfrm_pr_err(NULL,
-			"wrong buffer queue %d\n", q->type);
+			"wrong buffer queue %d\n", queue->type);
 		return -EINVAL;
 	}
 
@@ -798,7 +821,11 @@ static int v4l2_enum_input(struct file *file, void *priv,
 
 	input->type = V4L2_INPUT_TYPE_CAMERA;
 	input->std = V4L2_STD_UNKNOWN;
-	strcpy(input->name, "Marvin <=> Sensor");
+	inp = cif_isp20_v4l2_inp2cif_isp20_inp(input->index);
+	if (IS_ERR_VALUE(inp))
+		return inp;
+	inp_name = cif_isp20_g_input_name(dev, inp);
+	strcpy(input->name, inp_name);
 
 	return 0;
 }

@@ -513,6 +513,36 @@ static const char *cif_isp20_stream_id_string(
 	}
 }
 
+static const char *cif_isp20_inp_string(
+	enum cif_isp20_inp inp)
+{
+	switch (inp & ~CIF_ISP20_INP_SI) {
+	case CIF_ISP20_INP_CSI_0:
+		if (inp & CIF_ISP20_INP_SI)
+			return "CSI-0 + Superimpose";
+		else
+			return "CSI-0";
+	case CIF_ISP20_INP_CSI_1:
+		if (inp & CIF_ISP20_INP_SI)
+			return "CSI-1 + Superimpose";
+		else
+			return "CSI-1";
+	case CIF_ISP20_INP_CPI:
+		if (inp & CIF_ISP20_INP_SI)
+			return "CPI + Superimpose";
+		else
+			return "CPI";
+	case CIF_ISP20_INP_DMA:
+		return "DMA";
+	case CIF_ISP20_INP_DMA_IE:
+		return "DMA(Image Effects)";
+	case CIF_ISP20_INP_DMA_SP:
+		return "DMA(SP)";
+	default:
+		return "UNKNOWN/UNSUPPORTED";
+	}
+}
+
 static const char *cif_isp20_pix_fmt_string(int pixfmt)
 {
 	switch (pixfmt) {
@@ -1623,12 +1653,12 @@ static int cif_isp20_config_mi_mp(
 				(marvin_config->mi_config.mp.y_size * 4) /
 				(4 + mult *
 				CIF_ISP20_PIX_FMT_YUV_GET_X_SUBS(out_pix_fmt));
-			if (num_cplanes == 1) {
+			marvin_config->mi_config.mp.cb_size =
+				size -
+				marvin_config->mi_config.mp.y_size;
+			if (num_cplanes == 1)
 				writeformat = marvin_semiplanar;
-				marvin_config->mi_config.mp.cb_size =
-					size -
-					marvin_config->mi_config.mp.y_size;
-			} else if (num_cplanes == 2) {
+			else if (num_cplanes == 2) {
 				writeformat = marvin_planar;
 				marvin_config->mi_config.mp.cb_size /= 2;
 			}
@@ -1637,7 +1667,7 @@ static int cif_isp20_config_mi_mp(
 				marvin_config->mi_config.mp.cb_size;
 		}
 		if (CIF_ISP20_PIX_FMT_YUV_IS_UV_SWAPPED(out_pix_fmt))
-			swap_cb_cr = CIF_MI_SP_CB_CR_SWAP;
+			swap_cb_cr = CIF_MI_MP_CB_CR_SWAP;
 	} else if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(out_pix_fmt) &&
 		CIF_ISP20_PIX_FMT_GET_BPP(out_pix_fmt) > 8) {
 		writeformat = marvin_semiplanar;
@@ -1678,8 +1708,8 @@ static int cif_isp20_config_mi_mp(
 	cif_iowrite32OR(
 		CIF_MI_CTRL_MP_WRITE_FMT(writeformat) |
 		swap_cb_cr |
-		CIF_MI_CTRL_BURST_LEN_LUM_32 |
-		CIF_MI_CTRL_BURST_LEN_CHROM_32 |
+		CIF_MI_CTRL_BURST_LEN_LUM_64 |
+		CIF_MI_CTRL_BURST_LEN_CHROM_64 |
 		CIF_MI_CTRL_INIT_BASE_EN,
 		marvin_config->base_addr + CIF_MI_CTRL);
 
@@ -1761,12 +1791,12 @@ static int cif_isp20_config_mi_sp(
 				(marvin_config->mi_config.sp.y_size * 4) /
 				(4 + mult *
 				CIF_ISP20_PIX_FMT_YUV_GET_X_SUBS(out_pix_fmt));
-			if (num_cplanes == 1) {
+			marvin_config->mi_config.sp.cb_size =
+				size -
+				marvin_config->mi_config.sp.y_size;
+			if (num_cplanes == 1)
 				writeformat = marvin_semiplanar;
-				marvin_config->mi_config.sp.cb_size =
-					size -
-					marvin_config->mi_config.sp.y_size;
-			} else if (num_cplanes == 2) {
+			else if (num_cplanes == 2) {
 				writeformat = marvin_planar;
 				marvin_config->mi_config.sp.cb_size /= 2;
 			}
@@ -1792,7 +1822,7 @@ static int cif_isp20_config_mi_sp(
 		else {
 			cif_isp20_pltfrm_pr_err(dev->dev,
 				"unsupported YUV output format %s\n",
-				cif_isp20_pix_fmt_string(in_pix_fmt));
+				cif_isp20_pix_fmt_string(out_pix_fmt));
 			ret = -EINVAL;
 			goto err;
 		}
@@ -1862,6 +1892,8 @@ static int cif_isp20_config_mi_sp(
 
 	cif_iowrite32(marvin_config->mi_config.sp.y_size,
 		marvin_config->base_addr + CIF_MI_SP_Y_SIZE_INIT);
+	cif_iowrite32(marvin_config->mi_config.sp.y_size,
+		marvin_config->base_addr + CIF_MI_SP_Y_PIC_SIZE);
 	cif_iowrite32(marvin_config->mi_config.sp.cb_size,
 		marvin_config->base_addr + CIF_MI_SP_CB_SIZE_INIT);
 	cif_iowrite32(marvin_config->mi_config.sp.cr_size,
@@ -1872,16 +1904,14 @@ static int cif_isp20_config_mi_sp(
 		marvin_config->base_addr + CIF_MI_SP_Y_PIC_HEIGHT);
 	cif_iowrite32(llength,
 		marvin_config->base_addr + CIF_MI_SP_Y_LLENGTH);
-	cif_iowrite32(llength * height,
-		marvin_config->base_addr + CIF_MI_SP_Y_PIC_SIZE);
 
 	cif_iowrite32OR(
 		CIF_MI_CTRL_SP_WRITE_FMT(writeformat) |
 		swap_cb_cr |
 		input_format |
 		output_format |
-		CIF_MI_CTRL_BURST_LEN_LUM_32 |
-		CIF_MI_CTRL_BURST_LEN_CHROM_32 |
+		CIF_MI_CTRL_BURST_LEN_LUM_64 |
+		CIF_MI_CTRL_BURST_LEN_CHROM_64 |
 		CIF_MI_CTRL_INIT_BASE_EN,
 		marvin_config->base_addr + CIF_MI_CTRL);
 
@@ -1904,6 +1934,150 @@ static int cif_isp20_config_mi_sp(
 		cif_ioread32(marvin_config->base_addr + CIF_MI_SP_Y_PIC_HEIGHT),
 		cif_ioread32(marvin_config->base_addr + CIF_MI_SP_Y_LLENGTH),
 		cif_ioread32(marvin_config->base_addr + CIF_MI_SP_Y_PIC_SIZE));
+
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(dev->dev,
+		"failed with error %d\n", ret);
+	return ret;
+}
+
+static int cif_isp20_config_mi_dma(
+	struct cif_isp20_device *dev)
+{
+	int ret = 0;
+	struct marvinconfig *marvin_config =
+		&dev->xgold_hw.marvin_config;
+	enum cif_isp20_pix_fmt out_pix_fmt =
+		marvin_config->mi_config.dma.output.pix_fmt;
+	u32 llength =
+		marvin_config->mi_config.dma.llength;
+	u32 width =
+		marvin_config->mi_config.dma.output.width;
+	u32 height =
+		marvin_config->mi_config.dma.output.height;
+	u32 writeformat = marvin_planar;
+	u32 bpp = CIF_ISP20_PIX_FMT_GET_BPP(out_pix_fmt);
+	u32 size = llength * height * bpp / 8;
+	u32 output_format;
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"%s %dx%d, llength = %d\n",
+		cif_isp20_pix_fmt_string(out_pix_fmt),
+		width,
+		height,
+		llength);
+
+	marvin_config->mi_config.dma.y_size = size;
+	marvin_config->mi_config.dma.cb_size = 0;
+	marvin_config->mi_config.dma.cr_size = 0;
+	if (CIF_ISP20_PIX_FMT_IS_YUV(out_pix_fmt)) {
+		u32 num_cplanes =
+			CIF_ISP20_PIX_FMT_YUV_GET_NUM_CPLANES(out_pix_fmt);
+		if (num_cplanes == 0) {
+			writeformat = marvin_interleaved;
+		} else {
+			u32 mult = 1;
+
+			if (CIF_ISP20_PIX_FMT_YUV_GET_Y_SUBS(out_pix_fmt))
+				mult = 2;
+			marvin_config->mi_config.dma.y_size =
+				(marvin_config->mi_config.dma.y_size * 4) /
+				(4 + mult *
+				CIF_ISP20_PIX_FMT_YUV_GET_X_SUBS(out_pix_fmt));
+			marvin_config->mi_config.dma.cb_size =
+				size -
+				marvin_config->mi_config.dma.y_size;
+			if (num_cplanes == 1)
+				writeformat = marvin_semiplanar;
+			else if (num_cplanes == 2) {
+				writeformat = marvin_planar;
+				marvin_config->mi_config.dma.cb_size /= 2;
+			}
+			/* for U<->V swapping: */
+			marvin_config->mi_config.dma.cr_size =
+				marvin_config->mi_config.dma.cb_size;
+		}
+
+		if ((CIF_ISP20_PIX_FMT_YUV_GET_X_SUBS(out_pix_fmt) == 0) &&
+			(CIF_ISP20_PIX_FMT_YUV_GET_Y_SUBS(out_pix_fmt) == 0))
+			output_format = CIF_MI_DMA_CTRL_FMT_YUV400;
+		else if ((CIF_ISP20_PIX_FMT_YUV_GET_X_SUBS(out_pix_fmt) == 2) &&
+			(CIF_ISP20_PIX_FMT_YUV_GET_Y_SUBS(out_pix_fmt) == 0))
+			output_format = CIF_MI_DMA_CTRL_FMT_YUV420;
+		else if ((CIF_ISP20_PIX_FMT_YUV_GET_X_SUBS(out_pix_fmt) == 2) &&
+			(CIF_ISP20_PIX_FMT_YUV_GET_Y_SUBS(out_pix_fmt) == 2))
+			output_format = CIF_MI_DMA_CTRL_FMT_YUV422;
+		else if ((CIF_ISP20_PIX_FMT_YUV_GET_X_SUBS(out_pix_fmt) == 4) &&
+			(CIF_ISP20_PIX_FMT_YUV_GET_Y_SUBS(out_pix_fmt) == 4))
+			output_format = CIF_MI_DMA_CTRL_FMT_YUV444;
+		else {
+			cif_isp20_pltfrm_pr_err(dev->dev,
+				"unsupported YUV output format %s\n",
+				cif_isp20_pix_fmt_string(out_pix_fmt));
+			ret = -EINVAL;
+			goto err;
+		}
+	} else {
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"unsupported output format %s\n",
+			cif_isp20_pix_fmt_string(out_pix_fmt));
+		ret = -EINVAL;
+		goto err;
+	}
+
+	if (writeformat == marvin_semiplanar) {
+		marvin_config->mi_config.dma.cb_offs =
+		    marvin_config->mi_config.dma.y_size;
+		marvin_config->mi_config.dma.cr_offs =
+		    marvin_config->mi_config.dma.cb_offs;
+	} else if (writeformat == marvin_planar) {
+		marvin_config->mi_config.dma.cb_offs =
+			marvin_config->mi_config.dma.y_size;
+		marvin_config->mi_config.dma.cr_offs =
+			marvin_config->mi_config.dma.cb_offs +
+			marvin_config->mi_config.dma.cb_size;
+	}
+
+	cif_iowrite32(marvin_config->mi_config.dma.y_size,
+		marvin_config->base_addr + CIF_MI_DMA_Y_PIC_SIZE);
+	cif_iowrite32(width,
+		marvin_config->base_addr + CIF_MI_DMA_Y_PIC_WIDTH);
+	cif_iowrite32(llength,
+		marvin_config->base_addr + CIF_MI_DMA_Y_LLENGTH);
+
+	cif_iowrite32OR(
+		CIF_MI_DMA_CTRL_WRITE_FMT(writeformat) |
+		output_format |
+		CIF_MI_DMA_CTRL_BURST_LEN_LUM_64 |
+		CIF_MI_DMA_CTRL_BURST_LEN_CHROM_64,
+		marvin_config->base_addr + CIF_MI_DMA_CTRL);
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"\n  MI_DMA_CTRL 0x%08x\n"
+		"  MI_DMA_STATUS 0x%08x\n"
+		"  MI_DMA_Y_PIC_WIDTH %d\n"
+		"  MI_DMA_Y_LLENGTH %d\n"
+		"  MI_DMA_Y_PIC_SIZE %d\n"
+		"  MI_DMA_Y_PIC_START_AD %d\n"
+		"  MI_DMA_CB_PIC_START_AD %d\n"
+		"  MI_DMA_CR_PIC_START_AD %d\n",
+		cif_ioread32(marvin_config->base_addr +
+			CIF_MI_DMA_CTRL),
+		cif_ioread32(marvin_config->base_addr +
+			CIF_MI_DMA_STATUS),
+		cif_ioread32(marvin_config->base_addr +
+			CIF_MI_DMA_Y_PIC_WIDTH),
+		cif_ioread32(marvin_config->base_addr +
+			CIF_MI_DMA_Y_LLENGTH),
+		cif_ioread32(marvin_config->base_addr +
+			CIF_MI_DMA_Y_PIC_SIZE),
+		cif_ioread32(marvin_config->base_addr +
+			CIF_MI_DMA_Y_PIC_START_AD),
+		cif_ioread32(marvin_config->base_addr +
+			CIF_MI_DMA_CB_PIC_START_AD),
+		cif_ioread32(marvin_config->base_addr +
+			CIF_MI_DMA_CR_PIC_START_AD));
 
 	return 0;
 err:
@@ -2065,23 +2239,28 @@ static int cif_isp20_config_path(struct cif_isp20_device *dev)
 	/* TBD: yc_spmux */
 
 	/* if_sel */
-	if (marvin_config->input_sel == CIF_ISP20_INP_DMA) {
-		dpcl |= CIF_VI_DPCL_IF_SEL_RB;
-		BUG(); /*TBD: finish implementation */
-	} else {
-		if ((marvin_config->input_sel == CIF_ISP20_INP_CSI_0) ||
-			(marvin_config->input_sel == CIF_ISP20_INP_CSI_1)) {
+	if (marvin_config->input_sel & CIF_ISP20_INP_DMA)
+		dpcl |= CIF_VI_DPCL_IF_SEL_DMA;
+	else if (marvin_config->input_sel & CIF_ISP20_INP_DMA_IE)
+		dpcl |= CIF_VI_DPCL_DMA_IE_MUX_DMA | CIF_VI_DPCL_DMA_SW_IE;
+	else if (marvin_config->input_sel & CIF_ISP20_INP_DMA_SP)
+		dpcl |= CIF_VI_DPCL_DMA_SP_MUX_DMA;
+	else {
+		if ((marvin_config->input_sel & CIF_ISP20_INP_CSI_0) ||
+			(marvin_config->input_sel & CIF_ISP20_INP_CSI_1)) {
 			dpcl |= CIF_VI_DPCL_IF_SEL_MIPI;
-		} else {
+		} else
 			dpcl |= CIF_VI_DPCL_IF_SEL_PARALLEL;
-		}
+		if (marvin_config->input_sel & CIF_ISP20_INP_SI)
+			dpcl |= CIF_VI_DPCL_DMA_SW_SI;
 	}
 
 	/* chan_mode */
 	if (dev->sp_stream.state == CIF_ISP20_STATE_READY)
 		dpcl |= CIF_VI_DPCL_CHAN_MODE_SP;
 
-	if (dev->mp_stream.state == CIF_ISP20_STATE_READY) {
+	if ((dev->mp_stream.state == CIF_ISP20_STATE_READY) &&
+		!(marvin_config->input_sel & CIF_ISP20_INP_DMA_SP)) {
 			dpcl |= CIF_VI_DPCL_CHAN_MODE_MP;
 		/* mp_dmux */
 		if (marvin_config->jpeg_config.enable == true)
@@ -3016,6 +3195,57 @@ err:
 	return ret;
 }
 
+int cif_isp20_s_fmt_dma(
+	struct cif_isp20_device *dev,
+	struct cif_isp20_strm_fmt *strm_fmt,
+	u32 stride)
+{
+	int ret = 0;
+	struct marvinconfig *marvin_config = &dev->xgold_hw.marvin_config;
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"%s %dx%d@%d/%dfps, stride = %d\n",
+		cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
+		strm_fmt->frm_fmt.width,
+		strm_fmt->frm_fmt.height,
+		strm_fmt->frm_intrvl.numerator,
+		strm_fmt->frm_intrvl.denominator,
+		stride);
+
+	if ((!CIF_ISP20_PIX_FMT_IS_YUV(strm_fmt->frm_fmt.pix_fmt) &&
+		!CIF_ISP20_PIX_FMT_IS_RAW_BAYER(strm_fmt->frm_fmt.pix_fmt)) ||
+		(CIF_ISP20_PIX_FMT_IS_YUV(strm_fmt->frm_fmt.pix_fmt) &&
+		CIF_ISP20_PIX_FMT_YUV_IS_UV_SWAPPED(
+			strm_fmt->frm_fmt.pix_fmt))) {
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"format %s %dx%d@%d/%dfps, stride = %d not supported for DMA\n",
+			cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
+			strm_fmt->frm_fmt.width,
+			strm_fmt->frm_fmt.height,
+			strm_fmt->frm_intrvl.numerator,
+			strm_fmt->frm_intrvl.denominator,
+			stride);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	marvin_config->mi_config.dma.output = strm_fmt->frm_fmt;
+	marvin_config->mi_config.dma.llength =
+		cif_isp20_calc_llength(
+		strm_fmt->frm_fmt.width,
+		stride,
+		strm_fmt->frm_fmt.pix_fmt);
+
+	marvin_config->dma_config.updt_cfg = true;
+	dev->dma_stream.state = CIF_ISP20_STATE_READY;
+
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(dev->dev,
+		"failed with error %d\n", ret);
+	return ret;
+}
+
 void cif_isp20_init_sp(struct cif_isp20_device *dev)
 {
 	dev->xgold_hw.marvin_config.sp_config.updt_cfg = false;
@@ -3025,7 +3255,7 @@ void cif_isp20_init_sp(struct cif_isp20_device *dev)
 
 	/* default */
 	if (dev->img_src == NULL)
-		cif_isp20_s_input(dev, 0);
+		cif_isp20_s_input(dev, CIF_ISP20_INP_CSI_0);
 
 	dev->sp_stream.state = CIF_ISP20_STATE_INACTIVE;
 }
@@ -3045,7 +3275,7 @@ void cif_isp20_init_mp(
 
 	/* default */
 	if (dev->img_src == NULL)
-		cif_isp20_s_input(dev, 0);
+		cif_isp20_s_input(dev, CIF_ISP20_INP_CSI_0);
 
 	dev->mp_stream.state = CIF_ISP20_STATE_INACTIVE;
 }
@@ -3083,40 +3313,71 @@ int cif_isp20_s_input(
 	struct cif_isp20_device *dev,
 	enum cif_isp20_inp inp)
 {
+	int ret;
 	struct marvinconfig *marvin_config =
 		&dev->xgold_hw.marvin_config;
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"setting input to %d\n", inp);
+		"setting input to %s(0x%08x)\n",
+		cif_isp20_inp_string(inp), inp);
 
-	if (inp == CIF_ISP20_INP_CSI_0) {
+	if (inp & CIF_ISP20_INP_CSI_0) {
 		if (NULL == dev->img_src_array[0]) {
 			cif_isp20_pltfrm_pr_err(dev->dev,
 				"no image source connected to CSI-0\n");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err;
 		}
 		dev->img_src = dev->img_src_array[0];
 		marvin_config->mipi_config.input_sel = 0;
-	} else if (inp == CIF_ISP20_INP_CSI_1) {
+	} else if (inp & CIF_ISP20_INP_CSI_1) {
 		if (NULL == dev->img_src_array[1]) {
 			cif_isp20_pltfrm_pr_err(dev->dev,
 				"no image source connected to CSI-1\n");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err;
 		}
 		dev->img_src = dev->img_src_array[1];
 		marvin_config->mipi_config.input_sel = 1;
-	} else if (inp == CIF_ISP20_INP_CPI) {
+	} else if (inp & CIF_ISP20_INP_CPI) {
 		cif_isp20_pltfrm_pr_err(dev->dev,
 			"parallel input currently not supported\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err;
+	} else /* DMA */ {
+		if (inp & CIF_ISP20_INP_SI) {
+			cif_isp20_pltfrm_pr_err(dev->dev,
+				"cannot do super impose on DMA input\n");
+			ret = -EINVAL;
+			goto err;
+		}
+		dev->img_src = NULL;
 	}
 
 	/* TODO: handle other possible input sources, e.g. readback path */
 	marvin_config->isp_config.input =
 		&marvin_config->img_src_output.frm_fmt;
-
 	marvin_config->input_sel = inp;
+
 	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(NULL,
+		"failed with error %d\n", ret);
+	return ret;
+}
+
+const char *cif_isp20_g_input_name(
+	struct cif_isp20_device *dev,
+	enum cif_isp20_inp inp)
+{
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"get name of input source %s(0x%08x)\n",
+		cif_isp20_inp_string(inp), inp);
+
+	if ((inp & ~CIF_ISP20_INP_SI) <= CIF_ISP20_INP_CPI)
+		return cif_isp20_img_src_g_name(dev->img_src);
+	else
+		return cif_isp20_inp_string(inp);
 }
 
 int cif_isp20_qbuf(
@@ -3900,9 +4161,12 @@ int config_cif(struct cif_isp20_device *dev)
 		!marvin_config->sp_config.updt_cfg)
 		return 0;
 
-	ret = cif_isp20_config_img_src(dev);
-	if (IS_ERR_VALUE(ret))
-		goto err;
+	if ((marvin_config->input_sel & ~CIF_ISP20_INP_SI) <=
+		CIF_ISP20_INP_CPI) {
+		ret = cif_isp20_config_img_src(dev);
+		if (IS_ERR_VALUE(ret))
+			goto err;
+	}
 
 	ret = cif_isp20_set_pm_state(dev,
 		CIF_ISP20_PM_STATE_SW_STNDBY);
@@ -3933,6 +4197,12 @@ int config_cif(struct cif_isp20_device *dev)
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
+	if (marvin_config->dma_config.updt_cfg) {
+		ret = cif_isp20_config_mi_dma(dev);
+		if (IS_ERR_VALUE(ret))
+			goto err;
+	}
+
 	if (marvin_config->sp_config.updt_cfg) {
 		ret = config_sp(marvin_config, my_xgold_hw, dev);
 		if (IS_ERR_VALUE(ret))
@@ -3943,8 +4213,6 @@ int config_cif(struct cif_isp20_device *dev)
 		if (IS_ERR_VALUE(ret))
 			goto err;
 	}
-
-	rb_configure(&dev->rb_dev);
 
 	return 0;
 err:
@@ -4576,7 +4844,6 @@ unsigned int marvin_lib_s_control(struct marvinconfig *marvin_config)
 				(marvin_config->base_addr) + CIF_MI_INIT);
 
 		/* udpate marvin structure (avoid overwrite) */
-		marvin_config->mi_config.sp.selfpicture.hflip = val;
 		break;
 	case marvin_vflip:
 		if (val) {
@@ -4594,7 +4861,6 @@ unsigned int marvin_lib_s_control(struct marvinconfig *marvin_config)
 		cif_iowrite32OR(CIF_MI_INIT_SOFT_UPD,
 				(marvin_config->base_addr) + CIF_MI_INIT);
 		/* udpate marvin structure (avoid overwrite) */
-		marvin_config->mi_config.sp.selfpicture.vflip = val;
 		break;
 
 	case marvin_rotate:

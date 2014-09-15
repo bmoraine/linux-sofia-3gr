@@ -167,3 +167,13 @@ long cif_isp20_img_src_ioctl(
 	return img_src->ops->ioctl(img_src->img_src, cmd, arg);
 }
 
+const char *cif_isp20_img_src_g_name(
+	struct cif_isp20_img_src *img_src)
+{
+	if (NULL == img_src) {
+		cif_isp20_pltfrm_pr_err(NULL, "img_src is NULL\n");
+		return ERR_PTR(-EINVAL);
+	}
+	return img_src->ops->g_name(img_src->img_src);
+}
+

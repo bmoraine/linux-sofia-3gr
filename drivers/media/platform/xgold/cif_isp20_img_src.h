@@ -74,6 +74,9 @@ int cif_isp20_img_src_s_ctrl(
 	int id,
 	int val);
 
+const char *cif_isp20_img_src_g_name(
+	struct cif_isp20_img_src *img_src);
+
 int cif_isp20_img_src_s_ext_ctrls(
 	struct cif_isp20_img_src *img_src,
 	struct cif_isp20_img_src_ext_ctrl *ctrls);

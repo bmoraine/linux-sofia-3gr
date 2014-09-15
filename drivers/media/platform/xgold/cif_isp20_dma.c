@@ -532,9 +532,9 @@ int rb_configure(struct xgold_readback_path_dev *rbpath_dev)
 
 		}
 		/* Configure DMA Lunimance burst length */
-		mi_dma_ctrl |= CIF_MI_DMA_CTRL_Y_LEN_16BURSTS;
+		mi_dma_ctrl |= CIF_MI_DMA_CTRL_BURST_LEN_LUM_64;
 		/* Configure DMA Chrominance burst length */
-		mi_dma_ctrl |= CIF_MI_DMA_CTRL_CbCr_LEN_16BURSTS;
+		mi_dma_ctrl |= CIF_MI_DMA_CTRL_BURST_LEN_CHROM_64;
 		/* Configure bytes swap */
 		mi_dma_ctrl |= CIF_MI_DMA_CTRL_NO_BYTE_SWAP;
 

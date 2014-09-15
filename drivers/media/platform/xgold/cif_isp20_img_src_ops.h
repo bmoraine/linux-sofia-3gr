@@ -47,6 +47,8 @@ struct cif_isp20_img_src_ops {
 		void *img_src,
 		int id,
 		int *val);
+	const char * (*g_name)(
+		void *img_src);
 	int (*s_ctrl)(
 		void *img_src,
 		int id,
@@ -79,6 +81,8 @@ const struct {
 				cif_isp20_img_src_v4l2_subdev_s_strm_fmt,
 			.g_ctrl =
 				cif_isp20_img_src_v4l2_subdev_g_ctrl,
+			.g_name =
+				cif_isp20_img_src_v4l2_subdev_g_name,
 			.s_ctrl =
 				cif_isp20_img_src_v4l2_subdev_s_ctrl,
 			.s_ext_ctrls =
