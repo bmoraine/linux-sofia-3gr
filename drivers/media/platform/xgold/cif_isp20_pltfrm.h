@@ -30,6 +30,7 @@
 
 struct cif_isp20_strm_fmt;
 struct cif_isp20_csi_config;
+struct cif_isp20_device;
 enum cif_isp20_pinctrl_state;
 enum cif_isp20_inp;
 enum cif_isp20_pm_state;
@@ -52,7 +53,9 @@ enum cif_isp20_irq;
 		__func__, __LINE__, ## arg)
 
 int cif_isp20_pltfrm_dev_init(
-	struct device **dev);
+	struct cif_isp20_device *cif_isp_dev,
+	struct device **dev,
+	void __iomem **reg_base_addr);
 
 void cif_isp20_pltfrm_dev_release(
 	struct device *dev);

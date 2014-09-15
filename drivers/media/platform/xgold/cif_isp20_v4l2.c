@@ -497,14 +497,14 @@ static int cif_isp20_v4l2_buf_prepare(
 	buf->size = size;
 	if (strm == CIF_ISP20_STREAM_SP) {
 		buf->width =
-			dev->xgold_hw.marvin_config.mi_config.sp.output.width;
+			dev->config.mi_config.sp.output.width;
 		buf->height =
-			dev->xgold_hw.marvin_config.mi_config.sp.output.height;
+			dev->config.mi_config.sp.output.height;
 	} else if (strm == CIF_ISP20_STREAM_MP) {
 		buf->width =
-			dev->xgold_hw.marvin_config.mi_config.mp.output.width;
+			dev->config.mi_config.mp.output.width;
 		buf->height =
-			dev->xgold_hw.marvin_config.mi_config.mp.output.height;
+			dev->config.mi_config.mp.output.height;
 	} else if (strm == CIF_ISP20_STREAM_DMA) {
 		/* TBD */
 		BUG();
@@ -1101,36 +1101,37 @@ static int v4l2_s_ext_ctrls(struct file *file, void *priv,
 
 const struct v4l2_ioctl_ops cif_isp20_sp_ioctlops = {
 	.vidioc_reqbufs = cif_isp20_v4l2_reqbufs,
+	.vidioc_querybuf = cif_isp20_v4l2_querybuf,
 	.vidioc_qbuf = cif_isp20_v4l2_qbuf,
 	.vidioc_dqbuf = cif_isp20_v4l2_dqbuf,
-	.vidioc_querybuf = cif_isp20_v4l2_querybuf,
-	.vidioc_querycap = v4l2_querycap,
 	.vidioc_streamon = cif_isp20_v4l2_streamon,
 	.vidioc_streamoff = cif_isp20_v4l2_streamoff,
 	.vidioc_s_input = v4l2_s_input,
 	.vidioc_enum_input = v4l2_enum_input,
 	.vidioc_g_ctrl = v4l2_g_ctrl,
 	.vidioc_s_ctrl = v4l2_s_ctrl,
-	.vidioc_s_ext_ctrls = v4l2_s_ext_ctrls,
 	.vidioc_s_fmt_vid_overlay = v4l2_s_fmt_overlay,
 	.vidioc_g_fmt_vid_overlay = v4l2_g_fmt_overlay,
+	.vidioc_s_ext_ctrls = v4l2_s_ext_ctrls,
+	.vidioc_querycap = v4l2_querycap,
 	.vidioc_default = v4l2_default_ioctl,
 };
 
 const struct v4l2_ioctl_ops cif_isp20_mp_ioctlops = {
-	.vidioc_querybuf = cif_isp20_v4l2_querybuf,
 	.vidioc_reqbufs = cif_isp20_v4l2_reqbufs,
+	.vidioc_querybuf = cif_isp20_v4l2_querybuf,
 	.vidioc_qbuf = cif_isp20_v4l2_qbuf,
 	.vidioc_dqbuf = cif_isp20_v4l2_dqbuf,
 	.vidioc_streamon = cif_isp20_v4l2_streamon,
 	.vidioc_streamoff = cif_isp20_v4l2_streamoff,
+	.vidioc_s_input = v4l2_s_input,
+	.vidioc_enum_input = v4l2_enum_input,
 	.vidioc_g_ctrl = mainpath_g_ctrl,
 	.vidioc_s_ctrl = v4l2_s_ctrl,
-	.vidioc_enum_fmt_vid_cap = v4l2_enum_fmt_cap,
-	.vidioc_g_fmt_vid_cap = v4l2_g_fmt_cap,
 	.vidioc_s_fmt_vid_cap = v4l2_s_fmt_cap,
+	.vidioc_g_fmt_vid_cap = v4l2_g_fmt_cap,
+	.vidioc_enum_fmt_vid_cap = v4l2_enum_fmt_cap,
 	.vidioc_enum_framesizes = cif_isp20_v4l2_enum_framesizes,
-	.vidioc_s_input = v4l2_s_input,
 	.vidioc_s_parm = v4l2_s_parm
 };
 
@@ -1176,7 +1177,7 @@ int mainpath_open(struct file *file)
 	return ret;
 }
 
-int xgold_v4l2_core_open(struct file *file)
+static int xgold_v4l2_core_open(struct file *file)
 {
 	struct video_device *vdev = video_devdata(file);
 	int minor = video_devdata(file)->minor;
@@ -1233,5 +1234,266 @@ const struct v4l2_file_operations cif_isp20_mp_v4l2_fops = {
 	.release = cif_isp20_v4l2_release,
 	.poll = cif_isp20_v4l2_poll,
 };
+
+static int register_mainpath_device(struct cif_isp20_device *dev,
+			     void __iomem *cif_reg_baseaddress)
+{
+	int ret = 0;
+	struct video_device *vdev_cifmainpath = NULL;
+
+	vdev_cifmainpath = video_device_alloc();
+	if (!vdev_cifmainpath) {
+		dev_err(&(vdev_cifmainpath->dev),
+			"could not allocate video device for main path\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	vdev_cifmainpath->release = video_device_release;
+	strlcpy(vdev_cifmainpath->name, "CIF ISP20 MP",
+		sizeof(vdev_cifmainpath->name));
+	vdev_cifmainpath->vfl_type = V4L2_CAP_VIDEO_CAPTURE;
+	vdev_cifmainpath->fops = &cif_isp20_mp_v4l2_fops;
+	video_set_drvdata(vdev_cifmainpath, dev);
+	vdev_cifmainpath->minor = -1;
+	vdev_cifmainpath->ioctl_ops = &cif_isp20_mp_ioctlops;
+	vdev_cifmainpath->v4l2_dev = &dev->v4l2_dev;
+
+	if (video_register_device
+	    (vdev_cifmainpath, VFL_TYPE_GRABBER, dev->mp_major) < 0) {
+		dev_err(&(vdev_cifmainpath->dev),
+			"could not register main path video note\n");
+		ret = -ENODEV;
+		goto err;
+	}
+
+	xgold_v4l2_debug(XGOLD_V4L2_INFO,
+			 "%s: %s: dev minor=%d\n",
+			 DRIVER_NAME, __func__, vdev_cifmainpath->minor);
+
+	if (dev->mp_minor == -1)
+		dev->mp_minor = vdev_cifmainpath->minor;
+
+	return 0;
+
+err:
+	/*kfree(NULL) is safe, so no check is required */
+	kfree(vdev_cifmainpath);
+	return ret;
+}
+
+static int marvin_hw_probe(struct platform_device *pdev)
+{
+	/* FIXME: find proper way to do it. */
+	struct cif_isp20_device *dev = platform_get_drvdata(pdev);
+	int ret = 0;
+	struct video_device *vfd_overlay = NULL;
+
+	BUG_ON(!dev);
+
+	/* Initialize and allocate video device structure */
+	vfd_overlay = video_device_alloc();
+	if (!vfd_overlay) {
+		dev_err(dev->dev,
+			"could not allocate video device overlay\n");
+		return -ENOMEM;
+	}
+	vfd_overlay->release = video_device_release;
+	strlcpy(vfd_overlay->name, DRIVER_NAME,
+		sizeof(vfd_overlay->name));
+	vfd_overlay->vfl_type = V4L2_CAP_VIDEO_OVERLAY;
+	vfd_overlay->fops = &cif_isp20_sp_v4l2_fops;
+	video_set_drvdata(vfd_overlay, dev);
+	vfd_overlay->minor = -1;
+	vfd_overlay->ioctl_ops = &cif_isp20_sp_ioctlops;
+	vfd_overlay->v4l2_dev = &dev->v4l2_dev;
+
+	if (video_register_device
+	    (vfd_overlay, VFL_TYPE_GRABBER, dev->sp_major) < 0) {
+		dev_err(dev->dev, "could not register Video for Linux device\n");
+		video_device_release(vfd_overlay);
+		return -ENODEV;
+	}
+	dev_dbg(dev->dev, "%s: vfd_min overlay %d\n",
+			__func__, vfd_overlay->minor);
+
+	if (dev->sp_minor == -1)
+		dev->sp_minor = vfd_overlay->minor;
+
+	return ret;
+}
+
+static int xgold_v4l2_drv_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct cif_isp20_device *dev = NULL;
+
+	cif_isp20_pltfrm_pr_info(NULL, "probing...\n");
+
+	dev = cif_isp20_create(&pdev->dev);
+	if (IS_ERR_OR_NULL(dev)) {
+		ret = -ENODEV;
+		goto err;
+	}
+
+	dev->mp_minor = -1;
+	dev->mp_major = -1;
+	dev->sp_minor = -1;
+	dev->sp_major = -1;
+
+	spin_lock_init(&dev->img_lock);
+	spin_lock_init(&dev->vbq_lock);
+
+	ret = v4l2_device_register(dev->dev, &dev->v4l2_dev);
+	if (IS_ERR_VALUE(ret)) {
+		cif_isp20_pltfrm_pr_err(NULL,
+			"V4L2 device registration failed\n");
+		goto err;
+	}
+
+	marvin_hw_probe(pdev);
+	ret = register_cifisp_device(&dev->isp_dev,
+		&dev->v4l2_dev,
+		dev->config.base_addr);
+	if (ret) {
+		ret = -ENODEV;
+		goto err;
+	}
+	register_mainpath_device(dev,
+				 dev->config.base_addr);
+	register_rbpath_device(&dev->rb_dev,
+			       dev->config.base_addr);
+
+#if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
+	dev->config.mi_config.null_buff =
+		dma_alloc_coherent(dev->dev, 6 * CIF_NULL_BUFF_SIZE,
+			 &dev->config.mi_config.
+			 null_buff_dma_addr, GFP_KERNEL);
+	if (!dev->config.mi_config.null_buff) {
+		cif_isp20_pltfrm_pr_err(NULL,
+			"null_buff could not be allocatedn");
+		ret = -ENOMEM;
+		goto err;
+	}
+#else
+	dev->config.mi_config.null_buff_dma_addr = 0;
+#endif
+	return 0;
+err:
+	cif_isp20_destroy(dev);
+	return ret;
+}
+
+/* ======================================================================== */
+
+static int xgold_v4l2_drv_remove(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct cif_isp20_device *cif_isp20_dev =
+		(struct cif_isp20_device *)platform_get_drvdata(pdev);
+
+	if (IS_ERR_VALUE(cif_isp20_release(cif_isp20_dev, true, true)))
+		cif_isp20_pltfrm_pr_warn(cif_isp20_dev->dev,
+			"CIF power off failed\n");
+#if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
+	{
+		if (cif_isp20_dev->config.mi_config.null_buff) {
+			dma_free_coherent(cif_isp20_dev->dev,
+				6*CIF_NULL_BUFF_SIZE,
+				cif_isp20_dev->config.mi_config.
+				null_buff,
+				cif_isp20_dev->config.mi_config.
+				null_buff_dma_addr);
+		cif_isp20_dev->config.mi_config.
+			null_buff = NULL;
+		}
+	}
+#endif
+	return ret;
+}
+
+static int xgold_v4l2_drv_suspend(struct platform_device *pdev,
+	pm_message_t state)
+{
+	int ret = 0;
+	struct cif_isp20_device *cif_isp20_dev =
+		(struct cif_isp20_device *)platform_get_drvdata(pdev);
+
+	cif_isp20_pltfrm_pr_dbg(cif_isp20_dev->dev, "\n");
+
+	ret = cif_isp20_suspend(cif_isp20_dev);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	cif_isp20_pltfrm_pinctrl_set_state(&pdev->dev,
+		CIF_ISP20_PINCTRL_STATE_SLEEP);
+
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(cif_isp20_dev->dev,
+		"failed with error %d\n", ret);
+	return ret;
+}
+
+static int xgold_v4l2_drv_resume(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct cif_isp20_device *cif_isp20_dev =
+		(struct cif_isp20_device *)platform_get_drvdata(pdev);
+
+	cif_isp20_pltfrm_pr_dbg(cif_isp20_dev->dev, "\n");
+
+	ret = cif_isp20_resume(cif_isp20_dev);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	cif_isp20_pltfrm_pinctrl_set_state(&pdev->dev,
+		CIF_ISP20_PINCTRL_STATE_DEFAULT);
+
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(cif_isp20_dev->dev,
+		"failed with error %d\n", ret);
+	return ret;
+}
+
+static struct of_device_id xgold_v4l2_of_match[] = {
+	{.compatible = "intel," DRIVER_NAME,},
+	{},
+};
+
+static struct platform_driver xgold_v4l2_plat_drv = {
+	.driver = {
+		   .name = DRIVER_NAME,
+		   .of_match_table = xgold_v4l2_of_match,
+		   },
+	.probe = xgold_v4l2_drv_probe,
+	.remove = xgold_v4l2_drv_remove,
+	.suspend = xgold_v4l2_drv_suspend,
+	.resume = xgold_v4l2_drv_resume,
+};
+
+/* ======================================================================== */
+static int xgold_v4l2_init(void)
+{
+	int ret = platform_driver_register(&xgold_v4l2_plat_drv);
+
+	if (ret) {
+		xgold_v4l2_debug(XGOLD_V4L2_ERROR,
+				 " %s: %s: Failed while registering platform driver\n",
+				 DRIVER_NAME, __func__);
+		return -ENODEV;
+	}
+	return ret;
+}
+
+/* ======================================================================== */
+static void __exit xgold_v4l2_exit(void)
+{
+	/* TO DO */
+}
+
+late_initcall(xgold_v4l2_init);
+module_exit(xgold_v4l2_exit);
 
 

@@ -25,6 +25,7 @@
 #ifndef _CIF_ISP20_H
 #define _CIF_ISP20_H
 
+#include <linux/platform_device.h>
 #include "cif_isp20_pltfrm.h"
 #include "cif_isp20_img_src.h"
 #include "cif_isp20_isp.h"
@@ -228,12 +229,6 @@ struct marvin_overlay_pos {
 	unsigned int left;
 };
 
-struct marvin_fb {
-	unsigned int addr;
-	unsigned int width;
-	unsigned int height;
-};
-
 enum marvin_control_id {
 	marvin_hflip,		/* SelfPicture SubModule */
 	marvin_vflip,		/* SelfPicture SubModule */
@@ -395,6 +390,13 @@ enum cif_isp20_stream_id {
 	CIF_ISP20_STREAM_ISP	= 0x8
 };
 
+enum cif_isp20_buff_fmt {
+	/* values correspond to bitfield values */
+	CIF_ISP20_BUFF_FMT_PLANAR = 0,
+	CIF_ISP20_BUFF_FMT_SEMIPLANAR = 1,
+	CIF_ISP20_BUFF_FMT_INTERLEAVED = 2
+};
+
 struct cif_isp20_csi_config {
 	u32 vc;
 	u32 nb_lanes;
@@ -454,10 +456,39 @@ struct cif_isp20_dma_config {
 	bool updt_cfg;
 };
 
+struct cif_isp20_mi_path_config {
+	struct cif_isp20_frm_fmt *input;
+	struct cif_isp20_frm_fmt output;
+	u32 llength;
+	u32 curr_buff_addr;
+	u32 next_buff_addr;
+	u32 cb_offs;
+	u32 cr_offs;
+	u32 y_size;
+	u32 cb_size;
+	u32 cr_size;
+};
+
+struct cif_isp20_mi_config {
+	bool raw_enable;
+	struct cif_isp20_mi_path_config mp;
+	struct cif_isp20_mi_path_config sp;
+	struct cif_isp20_mi_path_config dma;
+#if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
+	void *null_buff;
+#endif
+	u32 null_buff_dma_addr;
+};
+
+struct cif_isp20_mipi_config {
+	u32 input_sel;
+	struct cif_isp20_csi_config csi_config;
+};
+
 #ifdef NO_YET
 struct cif_isp20_buffer {
 	struct list_head list;
-	CIF_ISP20_PLTFRM_MEM_IO_ADDR dma_addr;
+	u32 dma_addr;
 	u32 size;
 };
 #else
@@ -486,12 +517,6 @@ struct cif_isp20_jpeg_config {
 	enum cif_isp20_jpeg_header header;
 };
 
-enum marvin_w_format {
-	marvin_planar = 0,	/* corresponds to bitfield value !!! */
-	marvin_semiplanar = 1,	/* corresponds to bitfield value !!! */
-	marvin_interleaved = 2,	/* corresponds to bitfield value !!! */
-};
-
 struct marvin_isp {
 	unsigned int in_sel;
 	unsigned int vsync;
@@ -517,53 +542,7 @@ struct marvin_dmaport {
 	unsigned int size;
 	unsigned int cb_pic;
 	unsigned int cr_pic;
-	enum marvin_w_format w_format;
 	enum marvin_dmaport_fmt format;
-};
-
-struct marvin_resolution_path {
-	unsigned int input_width;
-	unsigned int input_height;
-	unsigned int output_width;
-	unsigned int output_height;
-};
-
-struct marvin_mi_selfpicture {
-	bool enable;
-	bool hflip;		/* Horizontal Flipping */
-	bool vflip;		/* Vertical Flipping */
-	bool rotate;		/* Rotate 90 deg */
-	unsigned int width;
-	unsigned int height;
-	unsigned int size;
-};
-
-struct marvin_mi_path {
-	struct cif_isp20_frm_fmt *input;
-	struct cif_isp20_frm_fmt output;
-	u32 llength;
-	unsigned int y_base;
-	unsigned int cb_offs;
-	unsigned int cr_offs;
-	unsigned int y_size;
-	unsigned int cb_size;
-	unsigned int cr_size;
-};
-
-struct marvin_mi {
-	bool raw_enable;
-	struct marvin_mi_path mp;
-	struct marvin_mi_path sp;
-	struct marvin_mi_path dma;
-#if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
-	void *null_buff;
-#endif
-	dma_addr_t null_buff_dma_addr;
-};
-
-struct marvin_mipi {
-	u32 input_sel;
-	struct cif_isp20_csi_config csi_config;
 };
 
 enum marvin_si_mode {
@@ -585,33 +564,22 @@ struct marvin_ei {
 	unsigned int image_effect;
 };
 
-struct marvin_cbh {
-	unsigned int contrast;
-	signed int brightness;
-	signed int hue;
-};
-
-struct marvinconfig {
+struct cif_isp20_config {
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR base_addr;	/* registers base address */
-	unsigned int id;
 	enum cif_isp20_flash_mode flash_mode;
 	enum cif_isp20_inp input_sel;
-	struct marvin_control control;	/* control */
 	struct cif_isp20_jpeg_config jpeg_config;
-	struct marvin_isp isp_config;	/* isp configuration */
-	struct marvin_dmaport dmaport_config;	/* DMA Port configuration */
-	struct marvin_overlay_pos overlay_pos;
-	struct marvin_fb framebuffer;
-	/* Input picture resolution & Output picture resolution */
-	struct marvin_mi mi_config;	/* data storage configuration */
-	struct marvin_mipi mipi_config;	/* mipi configuration */
-	struct marvin_si si_config;	/* superimopse configuration */
-	struct marvin_ei ei_config;	/* image_effect configuration */
-	struct marvin_cbh cbh_config;	/* Contrast, Brightnes and Hue */
-	struct cif_isp20_strm_fmt img_src_output;
+	struct cif_isp20_mi_config mi_config;
+	struct cif_isp20_mipi_config mipi_config;
 	struct cif_isp20_sp_config sp_config;
 	struct cif_isp20_mp_config mp_config;
 	struct cif_isp20_dma_config dma_config;
+	struct cif_isp20_strm_fmt img_src_output;
+	struct marvin_control control;	/* control */
+	struct marvin_isp isp_config;	/* isp configuration */
+	struct marvin_dmaport dmaport_config;	/* DMA Port configuration */
+	struct marvin_si si_config;	/* superimopse configuration */
+	struct marvin_ei ei_config;	/* image_effect configuration */
 };
 
 struct cif_isp20_mi_state {
@@ -665,28 +633,6 @@ struct xgold_fmt {
 
 /* ======================================================================== */
 
-/* marvin_hw operators prototypes */
-struct marvin_hw_ops {
-	int (*open)(struct marvinconfig *);
-	int (*close)(struct marvinconfig *);
-	int (*control)(struct marvinconfig *);
-};
-
-/* ======================================================================== */
-
-struct xgold_hardware {
-	/* marvin lib configuration */
-	struct marvinconfig marvin_config;
-	/* current format */
-
-	/* marvin operators */
-	struct marvin_hw_ops hw_ops;
-
-	/* DMA Address */
-	unsigned int mp_dma_add;
-	unsigned int sp_dma_add;
-};
-
 /* =============================================== */
 
 struct cif_isp20_device {
@@ -701,13 +647,10 @@ struct cif_isp20_device {
 
 	spinlock_t vbq_lock;	/* spinlock for videobuf queues */
 	spinlock_t img_lock;	/* spinlock for image parameters */
-	struct semaphore sem;
 
 	struct cif_isp20_img_src *img_src;
 	struct cif_isp20_img_src *img_src_array[CIF_ISP20_NUM_CSI_INPUTS];
-	/* xgold_hw related structure */
-	struct xgold_hardware xgold_hw;
-	/* ISP device */
+	struct cif_isp20_config config;
 	struct xgold_isp_dev isp_dev;
 	struct xgold_readback_path_dev rb_dev;
 	struct cif_isp20_stream sp_stream;
@@ -730,20 +673,14 @@ struct cif_isp20_device {
 
 int marvin_lib_mi_sp(struct cif_isp20_device *dev);
 unsigned int marvin_lib_start(struct cif_isp20_device *dev);
-unsigned int marvin_lib_mi_address(struct marvinconfig *marvin_config,
+unsigned int marvin_lib_mi_address(struct cif_isp20_device *dev,
 				   int write_sp);
-unsigned int marvin_lib_disable_dma_read_int(
-	struct marvinconfig *marvin_config);
-unsigned int marvin_lib_clear_frame_in_error(
-	struct marvinconfig *marvin_config);
-unsigned int marvin_lib_s_control(struct marvinconfig *marvin_config);
-unsigned int marvin_lib_g_control(struct marvinconfig *marvin_config);
-unsigned int marvin_lib_dmaport(struct marvinconfig *marvin_config);
-unsigned int marvin_lib_si_config(struct marvinconfig *marvin_config);
-unsigned int marvin_lib_isp_shutter(struct marvinconfig *marvin_config);
-unsigned int marvin_lib_isp_flash(struct marvinconfig *marvin_config);
+unsigned int marvin_lib_s_control(struct cif_isp20_device *dev);
 int marvin_s_ctrl(struct cif_isp20_device *dev,
 	struct v4l2_control *vc);
+int register_rbpath_device(
+	struct xgold_readback_path_dev *rbpath_dev,
+	void __iomem *cif_reg_baseaddress);
 
 /* Config CIF*/
 int config_cif(struct cif_isp20_device *dev);
@@ -756,7 +693,11 @@ int get_xgold_output_format_desc_size(void);
 
 /*Clean code starts from here*************************************************/
 
-struct cif_isp20_device *cif_isp20_create(void);
+struct cif_isp20_device *cif_isp20_create(
+	CIF_ISP20_PLTFRM_DEVICE pdev);
+
+void cif_isp20_destroy(
+	struct cif_isp20_device *dev);
 
 int cif_isp20_release(
 	struct cif_isp20_device *dev,
@@ -798,6 +739,12 @@ int cif_isp20_s_fmt_dma(
 	struct cif_isp20_strm_fmt *strm_fmt,
 	u32 stride);
 
+int cif_isp20_resume(
+	struct cif_isp20_device *dev);
+
+int cif_isp20_suspend(
+	struct cif_isp20_device *dev);
+
 int cif_isp20_qbuf(
 	struct cif_isp20_device *dev,
 	enum cif_isp20_stream_id stream,
@@ -818,16 +765,5 @@ int cif_isp20_calc_min_out_buff_size(
 	struct cif_isp20_device *dev,
 	enum cif_isp20_stream_id stream,
 	u32 *size);
-
-/*TBD: remove these declarations once the respective code has been moved
-	to cif_isp20_v4l2.c */
-int xgold_v4l2_core_open(
-	struct file *file);
-
-extern const struct v4l2_ioctl_ops cif_isp20_sp_ioctlops;
-extern const struct v4l2_ioctl_ops cif_isp20_mp_ioctlops;
-extern const struct v4l2_file_operations cif_isp20_sp_v4l2_fops;
-extern const struct v4l2_file_operations cif_isp20_mp_v4l2_fops;
-
 
 #endif

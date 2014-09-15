@@ -591,21 +591,21 @@ static irqreturn_t cif_isp20_pltfrm_irq_handler(int irq, void *cntxt)
 {
 	unsigned int i;
 	int ret;
-	struct platform_device *pdev = cntxt;
+	struct device *dev = cntxt;
 	struct cif_isp20_pltfrm_data *pdata =
-		dev_get_platdata(&pdev->dev);
-	void *dev = platform_get_drvdata(pdev);
+		dev_get_platdata(dev);
+	void *cif_isp20_dev = dev_get_drvdata(dev);
 
 	for (i = 0; i < ARRAY_SIZE(pdata->irq_handlers); i++) {
 		if (pdata->irq_handlers[i].irq == irq) {
 			if (IS_ERR_OR_NULL(pdata->irq_handlers[i].isr)) {
-				cif_isp20_pltfrm_pr_err(&pdev->dev,
+				cif_isp20_pltfrm_pr_err(NULL,
 					"ISR for IRQ #%d not set\n", irq);
 				break;
 			}
-			ret = pdata->irq_handlers[i].isr(dev);
+			ret = pdata->irq_handlers[i].isr(cif_isp20_dev);
 			if (IS_ERR_VALUE(ret)) {
-				cif_isp20_pltfrm_pr_err(&pdev->dev,
+				cif_isp20_pltfrm_pr_err(NULL,
 					"ISR for IRQ #%d failed with error %d\n",
 					irq, ret);
 			}
@@ -648,20 +648,53 @@ const char *cif_isp20_pltfrm_pm_state_string(
 }
 
 int cif_isp20_pltfrm_dev_init(
-	struct device **_dev)
+	struct cif_isp20_device *cif_isp20_dev,
+	struct device **_dev,
+	void __iomem **reg_base_addr)
 {
+	int ret;
 	struct cif_isp20_pltfrm_data *pdata;
 	struct device *dev = *_dev;
+	struct platform_device *pdev =
+		container_of(dev, struct platform_device, dev);
 	struct device_node *np = dev->of_node;
+	struct resource *res;
+	void __iomem *base_addr;
 	unsigned int i;
 
-	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (IS_ERR_VALUE(dev_set_drvdata(dev, cif_isp20_dev))) {
+		cif_isp20_pltfrm_pr_err(dev,
+			"could not set driver data\n");
+		return -ENODEV;
+	}
 
-	if (!pdata) {
+	cif_isp20_dev->dev = dev;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (NULL == pdata) {
 		cif_isp20_pltfrm_pr_err(dev,
 			"could not allocate memory for platform data\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err;
 	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "register");
+	if (res == NULL) {
+		cif_isp20_pltfrm_pr_err(NULL,
+			"platform_get_resource_byname failed\n");
+		ret = -ENODEV;
+		goto err;
+	}
+	base_addr = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR_OR_NULL(base_addr)) {
+		cif_isp20_pltfrm_pr_err(NULL, "devm_ioremap_resource failed\n");
+		if (IS_ERR(base_addr))
+			ret = PTR_ERR(base_addr);
+		else
+			ret = -ENODEV;
+	}
+	*reg_base_addr = base_addr;
+
 	/* FIXME:
 	 * In case of CSI platform, no need for pinctrl
 	 * but since parallel interfaces are possible we need to keep it
@@ -688,7 +721,8 @@ int cif_isp20_pltfrm_dev_init(
 	if (IS_ERR(pdata->pm_platdata)) {
 		cif_isp20_pltfrm_pr_err(dev,
 			"error during device state pm init\n");
-		return -EINVAL;
+		ret = PTR_ERR(pdata->pm_platdata);
+		goto err;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(pdata->irq_handlers); i++)
@@ -704,14 +738,16 @@ int cif_isp20_pltfrm_dev_init(
 				pdata->pm_platdata->pm_user_name))) {
 			cif_isp20_pltfrm_pr_err(dev,
 				"Registering to PM class failed\n");
-			return -EINVAL;
+			ret = -ENODEV;
+			goto err;
 		}
 
 		if (IS_ERR_VALUE(device_pm_get_states_handlers(dev,
 			pdata->pm_platdata))) {
 			cif_isp20_pltfrm_pr_err(dev,
 				"Errors while retrieving PM states\n");
-			return -EINVAL;
+			ret = -ENODEV;
+			goto err;
 		}
 	}
 #endif
@@ -735,6 +771,11 @@ int cif_isp20_pltfrm_dev_init(
 #endif
 
 	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(NULL, "failed with error %d\n", ret);
+	if (!IS_ERR_OR_NULL(pdata))
+		devm_kfree(dev, pdata);
+	return ret;
 }
 
 int cif_isp20_pltfrm_pm_set_state(
@@ -1104,7 +1145,7 @@ int cif_isp20_pltfrm_irq_register_isr(
 			NULL,
 			IRQF_DISABLED,
 			dev_driver_string(dev),
-			pdev);
+			dev);
 		if (IS_ERR_VALUE(ret))
 			goto err;
 	}

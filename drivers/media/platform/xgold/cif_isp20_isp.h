@@ -112,7 +112,8 @@ struct xgold_isp_dev {
 	bool streamon;
 };
 
-int register_cifisp_device(struct xgold_isp_dev *isp_dev,
+int register_cifisp_device(
+	struct xgold_isp_dev *isp_dev,
 	struct v4l2_device *v4l2_dev,
 	void __iomem *cif_reg_baseaddress);
 void cifisp_configure_isp(struct xgold_isp_dev *isp_dev, unsigned int capture);

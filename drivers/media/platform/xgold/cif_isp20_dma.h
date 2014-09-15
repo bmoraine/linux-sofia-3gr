@@ -151,7 +151,4 @@ struct xgold_readback_path_dev {
 
 /* Function definitions ***********************************/
 /**********************************************************/
-int register_rbpath_device(struct xgold_readback_path_dev *rbpath_dev,
-			   void __iomem *cif_reg_baseaddress);
-int rb_configure(struct xgold_readback_path_dev *rbpath_dev);
 #endif /* end of _CIF_READBACK_PATH_H */
