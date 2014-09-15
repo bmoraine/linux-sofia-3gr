@@ -62,10 +62,10 @@
 #define OV9760_HORIZONTAL_END_LOW_REG 0x349
 #define OV9760_VERTICAL_END_HIGH_REG 0x34a
 #define OV9760_VERTICAL_END_LOW_REG 0x34b
-#define OV9760_HORIZONTAL_OUTPUT_SIZE_HIGH_REG 0x38c
-#define OV9760_HORIZONTAL_OUTPUT_SIZE_LOW_REG 0x38d
-#define OV9760_VERTICAL_OUTPUT_SIZE_HIGH_REG 0x38e
-#define OV9760_VERTICAL_OUTPUT_SIZE_LOW_REG 0x38f
+#define OV9760_HORIZONTAL_OUTPUT_SIZE_HIGH_REG 0x34c
+#define OV9760_HORIZONTAL_OUTPUT_SIZE_LOW_REG 0x34d
+#define OV9760_VERTICAL_OUTPUT_SIZE_HIGH_REG 0x34e
+#define OV9760_VERTICAL_OUTPUT_SIZE_LOW_REG 0x34f
 #define OV9760_EXT_CLK 26000000
 #define OV9760_PLL2_PREDIV 0x3090
 #define OV9760_PLL2_MUL 0x3091
@@ -661,7 +661,7 @@ static int ov9760_g_timings(struct ov_camera_module *cam_mod,
 		&reg_val)))
 		goto err;
 
-	timings->sensor_output_height = (reg_val & 0x15) << 8;
+	timings->sensor_output_height = (reg_val & 0xF) << 8;
 
 	if (IS_ERR_VALUE(ov_camera_module_read_reg_table(
 		cam_mod,
