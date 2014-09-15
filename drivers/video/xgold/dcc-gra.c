@@ -1223,7 +1223,7 @@ int dcc_rq_update(struct dcc_drvdata *p, struct dcc_rect_t *ru)
 }
 
 
-int dcc_rq_compose(struct dcc_drvdata *p, struct dcc_update_layers *updt)
+static int dcc_rq_compose(struct dcc_drvdata *p, struct dcc_update_layers *updt)
 {
 	struct dcc_rect_t ru;
 	unsigned int global_ovl_status = 0;
@@ -1286,6 +1286,60 @@ int dcc_rq_compose(struct dcc_drvdata *p, struct dcc_update_layers *updt)
 	}
 
 	return ret;
+}
+
+static void acq_fence_wq(struct work_struct *ws)
+{
+	int i;
+	struct dcc_acq_fence_work *w;
+	w = container_of(ws, struct dcc_acq_fence_work, work);
+
+#if defined(CONFIG_SYNC)
+	/* Wait for acquire fence to signal if we got one */
+	for (i = 0 ; i < DCC_OVERLAY_NUM + 1; i++) {
+		struct sync_fence *fence;
+		fence = w->acquire_fence[i];
+		if (fence != NULL) {
+			sync_fence_wait(fence, -1);
+			sync_fence_put(fence);
+		}
+	}
+#endif
+	dcc_rq_compose(w->drv, &w->update);
+
+	kfree(ws);
+}
+
+int dcc_rq_acquire_and_compose(struct dcc_drvdata *p,
+		struct dcc_update_layers *updt)
+{
+	struct dcc_acq_fence_work *work;
+	unsigned int i;
+#if defined(CONFIG_SYNC)
+	unsigned int fence;
+#endif
+
+	work = kzalloc(sizeof(*work), GFP_KERNEL);
+	if (!work) {
+		dcc_err("allocation of fence acquire item failed\n");
+		return -ENOMEM;
+	}
+	INIT_WORK(&work->work, acq_fence_wq);
+	work->drv = p;
+	work->update = *updt;
+#if defined(CONFIG_SYNC)
+	fence = updt->back.fence_acquire;
+	if (fence >= 0)
+		work->acquire_fence[0] = sync_fence_fdget(fence);
+	for (i = 0; i < DCC_OVERLAY_NUM ; i++) {
+		fence = updt->ovls[i].fence_acquire;
+		if (fence >= 0)
+			work->acquire_fence[i + 1] = sync_fence_fdget(fence);
+	}
+#endif
+
+	queue_work(p->acq_wq, &work->work);
+	return 0;
 }
 
 int dcc_rq_fillrectangle(struct dcc_drvdata *p, struct dcc_rect_t *ru)

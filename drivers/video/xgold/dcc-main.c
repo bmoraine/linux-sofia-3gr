@@ -828,7 +828,7 @@ long dcc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				}
 			}
 #endif
-			err = dcc_rq_compose(pdata, &updt);
+			err = dcc_rq_acquire_and_compose(pdata, &updt);
 		} else
 			err = 0;
 

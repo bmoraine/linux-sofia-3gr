@@ -295,6 +295,8 @@ int dcc_core_probe(struct platform_device *pdev)
 		"vsync_wq", WQ_NON_REENTRANT | WQ_HIGHPRI);
 	pdata->eof_wq = alloc_ordered_workqueue(
 		"eof_wq", WQ_NON_REENTRANT | WQ_HIGHPRI);
+	pdata->acq_wq = alloc_ordered_workqueue(
+		"acq_wq", WQ_NON_REENTRANT | WQ_HIGHPRI);
 
 	/* initialize some data fields */
 	pdata->overlay_status = 0;
@@ -428,6 +430,9 @@ int dcc_core_remove(struct platform_device *pdev)
 	flush_workqueue(pdata->vsync_wq);
 	destroy_workqueue(pdata->vsync_wq);
 
+	flush_workqueue(pdata->acq_wq);
+	destroy_workqueue(pdata->acq_wq);
+
 	flush_workqueue(pdata->eof_wq);
 	destroy_workqueue(pdata->eof_wq);
 
@@ -462,6 +467,7 @@ int dcc_core_suspend(struct platform_device *pdev)
 	dcc_set_pinctrl_state(&pdev->dev, pdata->pins_sleep);
 
 	flush_workqueue(pdata->vsync_wq);
+	flush_workqueue(pdata->acq_wq);
 	flush_workqueue(pdata->eof_wq);
 
 	return ret;

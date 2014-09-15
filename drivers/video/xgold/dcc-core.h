@@ -246,6 +246,7 @@ struct dcc_drvdata {
 	struct workqueue_struct *vsync_wq; /* vsync workqueue */
 	struct work_struct eof_work; /* end of frame work_struct */
 	struct workqueue_struct *eof_wq;   /* end of frame workqueue */
+	struct workqueue_struct *acq_wq;   /* frame acquire workqueue */
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
@@ -310,6 +311,15 @@ struct dcc_sprite_t {
 				   from DIF_SPRITE_SIZEx.ALPHA or update cmd */
 	unsigned int fmt;
 	unsigned int chromakey;	/* chromakey for overlay only */
+};
+
+struct dcc_acq_fence_work {
+	struct work_struct work;
+	struct dcc_update_layers update;
+	struct dcc_drvdata *drv;
+#if defined(CONFIG_SYNC)
+	struct sync_fence *acquire_fence[DCC_OVERLAY_NUM + 1];
+#endif
 };
 
 #define DCC_SPRITE_INIT(_sp_, _e_, _i_, _o_, \

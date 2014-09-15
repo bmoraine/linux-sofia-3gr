@@ -38,7 +38,8 @@ enum {
 void dcc_config_reset(struct dcc_drvdata *p);
 int dcc_rq_convert(struct dcc_drvdata *p, struct dcc_rq_t *rq);
 int dcc_rq_update(struct dcc_drvdata *p, struct dcc_rect_t *r);
-int dcc_rq_compose(struct dcc_drvdata *p, struct dcc_update_layers *updt);
+int dcc_rq_acquire_and_compose(struct dcc_drvdata *p,
+		struct dcc_update_layers *updt);
 int dcc_rq_fillrectangle(struct dcc_drvdata *p, struct dcc_rect_t *r);
 int dcc_rq_setpixel(struct dcc_drvdata *p, struct dcc_point_t *pu);
 int dcc_rq_drawline(struct dcc_drvdata *p, struct dcc_rect_t *ru);
