@@ -1731,7 +1731,8 @@ static int fan54020_configure_pmu_irq(struct fan54020_charger *chrgr)
 
 	/* register callback with PMU for CHGINT irq */
 	ret = request_irq(chrgr->irq,
-		fan54020_charger_chgint_cb, 0, FAN54020_NAME, chrgr);
+		fan54020_charger_chgint_cb,
+			IRQF_NO_SUSPEND, FAN54020_NAME, chrgr);
 	if (ret != 0) {
 		pr_err("Failed to register @PMU for GHGINT irq! ret=%d", ret);
 		return ret;
@@ -2230,6 +2231,8 @@ static int fan54020_i2c_probe(struct i2c_client *client,
 
 	fan54020_setup_dbglogs_sysfs_attr(&client->dev);
 
+	device_init_wakeup(&client->dev, true);
+
 	return 0;
 
 pmu_irq_fail:
@@ -2331,6 +2334,7 @@ static int __exit fan54020_idi_remove(struct idi_peripheral_device *ididev)
 static int fan54020_suspend(struct device *dev)
 {
 	/* Unused parameter */
+	struct fan54020_charger *chrgr = &chrgr_data;
 	(void)dev;
 
 	if (chrgr_data.state.charging_enabled) {
@@ -2340,7 +2344,10 @@ static int fan54020_suspend(struct device *dev)
 	} else {
 		/* Not charging - allow suspend. */
 		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_SUSPEND_OK, 0, 0);
-
+		if (device_may_wakeup(dev)) {
+			pr_info("fan: enable wakeirq\n");
+			enable_irq_wake(chrgr->irq);
+		}
 		unfreezable_bh_suspend(&chrgr_data.chgint_bh);
 		return 0;
 	}
@@ -2354,12 +2361,16 @@ static int fan54020_suspend(struct device *dev)
 static int fan54020_resume(struct device *dev)
 {
 	/* Unused parameter */
+	struct fan54020_charger *chrgr = &chrgr_data;
 	(void)dev;
 
 	CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_RESUME, 0, 0);
 
 	unfreezable_bh_resume(&chrgr_data.chgint_bh);
-
+	if (device_may_wakeup(dev)) {
+		pr_info("fan: disable wakeirq\n");
+		disable_irq_wake(chrgr->irq);
+	}
 	return 0;
 }
 
