@@ -1,3 +1,6 @@
+#undef PREFERRED_LOCAL_APIC_USE
+#undef BOOST_LOCAL_APIC_USE
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -13,6 +16,45 @@
 			reg = <1>;
 #else
 			reg = <2>;
+#endif
+		};
+
+		 idle-states {
+
+#define CPUIDLE_FLAG_TIME_VALID	(0x01) /* is residency time measurable? */
+#define CPUIDLE_FLAG_COUPLED	(0x02) /* state applies to multiple cpus */
+#define CPUIDLE_FLAG_TIMER_STOP (0x04)  /* timer is stopped on this state */
+
+			S0 {
+				compatible = "intel,sofia,idle-state";
+				desc = "WFE";
+#ifdef PREFERRED_LOCAL_APIC_USE
+				power-usage = <37>;
+#else
+				power-usage = <3>;
+#endif
+				exit-latency = <20>;
+				target-residency= <35>; /* 15+20 (entry+exit) */
+				flags = <1>;	/* CPUIDLE_FLAG_TIME_VALID */
+#ifdef PREFERRED_LOCAL_APIC_USE
+				vmm-id = <0>;
+#else
+				vmm-id = <1>;
+#endif
+			};
+
+#ifdef PREFERRED_LOCAL_APIC_USE
+#ifndef BOOST_LOCAL_APIC_USE
+			S1 {
+				compatible = "intel,sofia,idle-state";
+				desc = "Shutdown";
+				power-usage = <3>;
+				exit-latency = <22>;
+				target-residency = <50>; /* 15+20 (entry+exit+broadcast overhead) */
+				flags = <5>;	/* CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TIMER_STOP */
+				vmm-id = <1>;
+			};
+#endif
 #endif
 		};
 	};
@@ -631,6 +673,9 @@
 						interrupts = < STM_INT0 IRQ_TYPE_DEFAULT >,
 								< STM_INT1 IRQ_TYPE_DEFAULT >;
 						intel,faf = <0x319>;
+#ifndef PREFERRED_LOCAL_APIC_USE
+						intel,stm,evt,rating = <1000>;
+#endif
 					};
 					xgold_pmx_core: pinmux@E4600000 {
 						compatible = "pinctrl-single";
