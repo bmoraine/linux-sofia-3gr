@@ -258,17 +258,18 @@ static unsigned long __init xgold_calibrate_tsc(void)
 	tsc = get_cycles();
 	delta_tsc = tsc - prev_tsc;
 
-	pr_info("-->%s: delta cycles: %lld, delta tsc: %llu, tsc:%llu,prev tsc:%llu\n",
-			__func__, delta, delta_tsc, tsc, prev_tsc);
-	do_div(delta_tsc, 9);
-	pr_info("-->%s: Is Tsc rate %llu kHz\n", __func__, delta_tsc);
+	/* Because of wrong CPU fuses values, we have to divide by 9 */
+	do_div(delta_tsc, 90000);
+	pr_info("%s: Tsc rate estimated to %llu MHz\n", __func__, delta_tsc);
 	/* FIXME:
 	 * tsc rate is inconsistent on FPGA/VP, return tsc as unstable for now
 	 *	The lapic timer frequency needs to come from hw...
 	 * */
 #ifdef CONFIG_X86_LOCAL_APIC
-	lapic_timer_frequency = 182000000 / HZ;
-	pr_err("lapic frequency is %d Hz\n", lapic_timer_frequency);
+	/* CPU clock is 4x timer clock  (1 000 000 / 4)*/
+	lapic_timer_frequency = ((unsigned int)delta_tsc * 250000);
+	pr_info("lapic frequency is %d Hz\n", lapic_timer_frequency);
+	lapic_timer_frequency /= HZ;
 #endif
 	return 0;
 }
