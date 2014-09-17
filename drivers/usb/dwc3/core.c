@@ -76,7 +76,7 @@ void dwc3_set_mode(struct dwc3 *dwc, u32 mode)
 #define GUSB2PHYACC0_REGDATA(v)  (v & 0xFF)
 #define GUSB2PHYACC0_REGDATA_MASK  0xFF
 
-static int ulpi_read(struct dwc3 *dwc, u32 reg)
+int ulpi_read(struct dwc3 *dwc, u32 reg)
 {
 	u32 val32 = 0, count = 200;
 	u8 val, tmp;
