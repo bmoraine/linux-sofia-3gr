@@ -492,10 +492,13 @@ static __init int xgold_stm_late_init(void)
 	}
 
 	/* This notifier should be called after workqueue is ready */
-	hotcpu_notifier(xgold_stm_cpu_notify, -20);
+	hotcpu_notifier(xgold_stm_cpu_notify, CPU_PRI_WORKQUEUE_UP);
 	return 0;
 }
-late_initcall(xgold_stm_late_init);
+
+early_initcall(xgold_stm_late_init);
+
+
 
 CLOCKSOURCE_OF_DECLARE(xgold_timer_stm, "intel,stm", xgold_timer_init);
 
