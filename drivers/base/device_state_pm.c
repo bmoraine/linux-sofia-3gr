@@ -383,9 +383,8 @@ struct device_pm_platdata *of_device_state_pm_setup(
 	ret = of_property_read_string(np, OF_PM_USER_NAME,
 			&pm_platdata->pm_user_name);
 	if (ret) {
-		/* if user name property is not specified, use node name
-		 * instead */
-		pm_platdata->pm_user_name = np->name;
+		ret = -EINVAL;
+		goto err_free_pm_data;
 	}
 
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
@@ -473,11 +472,9 @@ struct device_pm_platdata *of_device_state_pm_setup(
 
 	return pm_platdata;
 
-#ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 err_free_pm_data:
 	kfree(pm_platdata);
 	return ERR_PTR(ret);
-#endif
 }
 EXPORT_SYMBOL(of_device_state_pm_setup);
 #endif
