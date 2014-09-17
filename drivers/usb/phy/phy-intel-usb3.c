@@ -18,24 +18,29 @@
 /*----------------------------------------------------------------------*/
 /* INCLUDE								*/
 /*----------------------------------------------------------------------*/
+#include <linux/clk.h>
+#include <linux/debugfs.h>
 #include <linux/io.h>
-#include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/platform_device_pm.h>
-#include <linux/reset.h>
-#include "phy-intel-usb.h"
 #include <linux/regulator/consumer.h>
-#include <linux/clk.h>
+#include <linux/reset.h>
+#include <linux/slab.h>
+#include "phy-intel-usb.h"
 
 /*----------------------------------------------------------------------*/
 /* DEFINE								*/
 /*----------------------------------------------------------------------*/
-#define INTEL_USB3_FORCE_VBUS
+/*#define INTEL_USB3_FORCE_VBUS*/
 /*#define INTEL_USB3_HW_STUB*/
 /*#define INTEL_USB3_WA_RST*/
 /*#define INTEL_USB3_WA_PM*/
+#define INTEL_USB3_PMIC_WA
+#ifdef INTEL_USB3_PMIC_WA
+#include <sofia/vmm_pmic.h>
+#endif
 
 /**
  * todo: comment
@@ -60,12 +65,15 @@ struct intel_usb3 {
 	unsigned long		state;
 #define POWERED			(0)
 #define SUSPENDED		(1)
+#ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	struct regulator	*reg_iso;
 	struct regulator	*reg_phy;
 	struct regulator	*reg_core;
 	struct regulator	*reg_dig;
 	struct clk		*clk_kernel;
 	struct clk		*clk_bus;
+#endif
+	struct dentry		*debugfs_root;
 };
 
 /*----------------------------------------------------------------------*/
@@ -92,6 +100,12 @@ static const struct intel_usb3_bf scu_usb_ss_trim[] = {
 	{0x0634UL, ~0},
 	{0x0638UL, ~0}
 };
+
+/*----------------------------------------------------------------------*/
+/* PROTOTYPES								*/
+/*----------------------------------------------------------------------*/
+static int intel_usb3_debugfs_init(struct intel_usb3 *iusb3);
+static int intel_usb3_debugfs_exit(struct intel_usb3 *iusb3);
 
 /*----------------------------------------------------------------------*/
 /* LOCAL - UTILITIES							*/
@@ -291,7 +305,6 @@ static int intel_usb3_hw_powerup(struct intel_usb3 *iusb3)
 {
 	int ret = 0;
 
-
 	if (IS_ERR_OR_NULL(iusb3)) {
 		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
@@ -315,17 +328,6 @@ static int intel_usb3_hw_powerup(struct intel_usb3 *iusb3)
 		intel_phy_err("set pm state enable, %d", ret);
 		return intel_phy_kernel_trap();
 	}
-
-	/* TODO: check with vmm power driver team to confirm whether
-	 * the delay is required here or they ensure the power up of
-	 * the USB HW completely including delay */
-	/* actual msleep(1~20) implementation may sleep until ~20ms
-	 * for higher accuraty usleep_range should be used instead
-	 * but it is built on top of hrtimers so extra processing
-	 * HW recommends to wait 1ms for LDO stabilization but
-	 * if driver waits for a longer time has no side effect
-	 * so 1ms waiting for better msleep(1~20) implementation */
-	msleep(1);
 
 	/* signal forces HS bias & PLL block to be
 	 * powered down in suspend state */
@@ -371,6 +373,7 @@ static int intel_usb3_hw_powerdown(struct intel_usb3 *iusb3)
 		intel_phy_err("set pm state disable, %d", ret);
 		return intel_phy_kernel_trap();
 	}
+
 	return 0;
 }
 
@@ -396,7 +399,7 @@ static int intel_usb3_hw_suspend(struct intel_usb3 *iusb3)
 
 
 	if (IS_ERR_OR_NULL(iusb3)) {
-		intel_phy_err("invalid parameter iusb3\n");
+		intel_phy_err("invalid parameter iusb3");
 		return intel_phy_kernel_trap();
 	}
 
@@ -485,11 +488,11 @@ static int intel_usb3_hw_wakeup(struct intel_usb3 *iusb3)
 	/* switch on VCC supply of USB core & remove isolation */
 	ret = intel_usb3_pm_set_state(iusb3, "enable");
 	if (IS_ERR_VALUE(ret)) {
-		intel_phy_err("set pm state enable iso, %d", ret);
+		intel_phy_err("set pm state enable, %d", ret);
 		return intel_phy_kernel_trap();
 	}
 
-	/* leave in suspend state enabling 26Mhz phy reference clock */
+	/* leave suspend state enabling 26Mhz phy reference clock */
 	intel_usb3_hw_bf_write(iusb3, &scu_ref_ssp_en, 1);
 
 	/* request wakeup power state */
@@ -535,16 +538,26 @@ static int intel_usb3_otg_fsm_start_host(struct otg_fsm *fsm, int on)
  */
 static int intel_usb3_otg_fsm_start_gadget(struct otg_fsm *fsm, int on)
 {
-	struct intel_phy *iphy = container_of(fsm, struct intel_phy, fsm);
-	struct intel_usb3 *iusb3 = container_of(iphy, struct intel_usb3, iphy);
-	struct usb_gadget *gadget = intel_usb3_get_gadget(iusb3);
+	struct intel_phy *iphy = NULL;
+	struct intel_usb3 *iusb3 = NULL;
+	struct usb_gadget *gadget = NULL;
 
 
 	if (IS_ERR_OR_NULL(fsm)) {
 		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
 	}
-
+	iphy = container_of(fsm, struct intel_phy, fsm);
+	if (IS_ERR_OR_NULL(iphy)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+	iusb3 = container_of(iphy, struct intel_usb3, iphy);
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+	gadget = intel_usb3_get_gadget(iusb3);
 	if (IS_ERR_OR_NULL(gadget)) {
 		intel_phy_warn("gadget not bind");
 		return 0;
@@ -555,19 +568,9 @@ static int intel_usb3_otg_fsm_start_gadget(struct otg_fsm *fsm, int on)
 		/* do power up of USB core & PHY
 		 * required for initializing USB stack */
 		intel_usb3_hw_powerup(iusb3);
-		/* TODO: Check whether using pull-up is enough to
-		 * use on HW*/
-#ifndef INTEL_USB3_FORCE_VBUS
-		/* vbus session tested on VP using debug interface
-		 * but currently disabled for the HW bring up as force vbus
-		 * approach is followed during boot up */
 		usb_gadget_vbus_connect(gadget);
-#endif
 	} else {
-		/* TODO: Check whether using pull-up is enough to use */
-#ifndef INTEL_USB3_FORCE_VBUS
 		usb_gadget_vbus_disconnect(gadget);
-#endif
 		intel_usb3_hw_powerdown(iusb3);
 	}
 	return 0;
@@ -778,13 +781,13 @@ static int intel_usb3_probe(struct platform_device *pdev)
 	regulator_enable(iusb3->reg_core);
 
 	iusb3->clk_kernel = of_clk_get_by_name(pdev->dev.of_node, "clk_kernel");
-	if (IS_ERR(iusb3->clk_kernel)) {
+	if (IS_ERR(iusb3->clk_kernel))
 		intel_phy_err("Clk kernel not found\n");
-	}
+
 	iusb3->clk_bus = of_clk_get_by_name(pdev->dev.of_node, "clk_bus");
-	if (IS_ERR(iusb3->clk_bus)) {
+	if (IS_ERR(iusb3->clk_bus))
 		intel_phy_err("Clk bus not found\n");
-	}
+
 
 	clk_prepare_enable(iusb3->clk_bus);
 	clk_prepare_enable(iusb3->clk_kernel);
@@ -797,6 +800,12 @@ static int intel_usb3_probe(struct platform_device *pdev)
 		goto error_clkput;
 	}
 
+	ret = intel_usb3_debugfs_init(iusb3);
+	if (IS_ERR_VALUE(ret)) {
+		intel_phy_err("debugfs initialization");
+		goto error_phy_exit;
+	}
+
 	/* required only during boot time */
 	intel_usb3_hw_init(iusb3);
 
@@ -807,23 +816,29 @@ static int intel_usb3_probe(struct platform_device *pdev)
 	iusb3->irq_usb_resume = platform_get_irq_byname(pdev, "usb_resume");
 	if (IS_ERR_VALUE(iusb3->irq_usb_resume)) {
 		intel_phy_err("platform resource irq usb resume not found");
-		goto error_phy_exit;
+		goto error_debugfs_exit;
 	}
 	ret = devm_request_irq(&pdev->dev, iusb3->irq_usb_resume,
 				intel_usb3_isr_usb_resume, IRQF_SHARED,
 				"usb_resume", iusb3);
 	if (IS_ERR_VALUE(ret)) {
 		intel_phy_err("request irq%d, %d", iusb3->irq_usb_resume, ret);
-		goto error_phy_exit;
+		goto error_debugfs_exit;
 	}
-
 #ifdef INTEL_USB3_FORCE_VBUS
 	intel_phy_warn("forced cable attach for hardware bring up");
 	intel_phy_notify(&iusb3->iphy, USB_EVENT_VBUS, NULL);
 #endif
-
+#ifdef INTEL_USB3_PMIC_WA
+	intel_phy_warn("applying pmic workaround");
+	/* vmm addr = SLAVE_DEV3 << 24 | USBPHYCTRL_REG */
+	vmm_pmic_reg_write((0x5EUL << 24) | 0x08UL, 1);
+	intel_phy_warn("pmic workaround applied!");
+#endif
 	return 0;
 
+error_debugfs_exit:
+	intel_usb3_debugfs_exit(iusb3);
 error_phy_exit:
 	intel_phy_exit(&pdev->dev, &iusb3->iphy);
 error_clkput:
@@ -854,7 +869,12 @@ static int intel_usb3_remove(struct platform_device *pdev)
 	iusb3 = platform_get_drvdata(pdev);
 
 	devm_free_irq(&pdev->dev, iusb3->irq_usb_resume, iusb3);
+	intel_usb3_debugfs_exit(iusb3);
 	intel_phy_exit(&pdev->dev, &iusb3->iphy);
+#ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
+	clk_put(iusb3->clk_kernel);
+	clk_put(iusb3->clk_bus);
+#endif
 	devm_iounmap(&pdev->dev, iusb3->iomem);
 	devm_kfree(&pdev->dev, iusb3);
 
@@ -905,3 +925,237 @@ module_exit(intel_usb3_driver_exit);
 
 MODULE_LICENSE("GPLv2");
 MODULE_ALIAS("platform:intel-phy-usb3");
+
+/*----------------------------------------------------------------------*/
+/* LOCAL - DEBUGFS & TEST						*/
+/*----------------------------------------------------------------------*/
+static int intel_usb3_debugfs_open(struct inode *inode, struct file *file);
+static ssize_t intel_usb3_debugfs_read(
+	struct file *file, char __user *ubuf, size_t count, loff_t *ppos);
+static ssize_t intel_usb3_debugfs_write(
+	struct file *file, const char __user *ubuf, size_t count, loff_t *ppos);
+
+/**
+ * @todo: comment
+ */
+static int intel_usb3_test_zero(struct intel_usb3 *iusb3,
+	unsigned dummy1, unsigned dummy2, unsigned dummy3)
+{
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	/* disable crash during this test */
+	intel_phy_kernel_trap_enable(false);
+
+	/* internal */
+	intel_usb3_get_device(NULL);
+	intel_usb3_get_gadget(NULL);
+	intel_usb3_get_speed(NULL);
+	intel_usb3_hw_bf_read(NULL, NULL);
+	intel_usb3_hw_bf_write(NULL, NULL, 0);
+	intel_usb3_hw_req_pwr_state(NULL, false);
+	intel_usb3_hw_reset(NULL, false);
+	intel_usb3_pm_set_state(NULL, NULL);
+	intel_usb3_hw_init(NULL);
+	intel_usb3_hw_powerup(NULL);
+	intel_usb3_hw_powerdown(NULL);
+	intel_usb3_hw_suspend(NULL);
+	intel_usb3_hw_wakeup(NULL);
+
+	/* interface */
+	usb_bus_start_enum(NULL, 0);
+	intel_usb3_otg_fsm_start_host(NULL, 0);
+	intel_usb3_otg_fsm_start_gadget(NULL, 0);
+#ifdef CONFIG_PM_RUNTIME
+	intel_usb3_runtime_suspend(NULL);
+	intel_usb3_runtime_resume(NULL);
+	intel_usb3_runtime_idle(NULL);
+#endif
+#ifdef CONFIG_PM_SLEEP
+	intel_usb3_system_sleep_suspend(NULL);
+	intel_usb3_system_sleep_resume(NULL);
+#endif
+	intel_usb3_isr_usb_resume(0, NULL);
+	intel_usb3_probe(NULL);
+	intel_usb3_remove(NULL);
+
+	/* debugfs and test */
+	intel_usb3_test_zero(NULL, 0, 0, 0);
+	intel_usb3_debugfs_open(NULL, NULL);
+	intel_usb3_debugfs_read(NULL, NULL, 0, NULL);
+	intel_usb3_debugfs_write(NULL, NULL, 0, NULL);
+	intel_usb3_debugfs_init(NULL);
+	intel_usb3_debugfs_exit(NULL);
+
+	/* re-enable crash after this test */
+	intel_phy_kernel_trap_enable(true);
+
+	return 0;
+}
+
+/**
+ * @todo: comment
+ */
+static int intel_usb3_debugfs_open(struct inode *inode, struct file *file)
+{
+	if (IS_ERR_OR_NULL(inode) || IS_ERR_OR_NULL(file)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	if (IS_ERR_OR_NULL(inode->i_private)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+/**
+ * @todo: comment
+ */
+static ssize_t intel_usb3_debugfs_read(
+	struct file *file, char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct intel_usb3 *iusb3 = NULL;
+
+
+	if (IS_ERR_OR_NULL(file) || IS_ERR_OR_NULL(ubuf)
+	|| (IS_ERR_OR_NULL(ppos))) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	if (IS_ERR_OR_NULL(file->private_data)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+
+	iusb3 = file->private_data;
+
+	/* todo: log in provided buffer instead */
+
+	intel_phy_info("PHY state: %04X", cpu_to_le32(iusb3->state));
+	return 0;
+}
+
+/**
+ * @todo: comment
+ */
+static ssize_t intel_usb3_debugfs_write(
+	struct file *file, const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct intel_usb3 *iusb3 = NULL;
+	char buf[16] = {0};
+	unsigned test, loop, t1, t2 = 0;
+
+
+	if (IS_ERR_OR_NULL(file) || IS_ERR_OR_NULL(ubuf)
+	|| (IS_ERR_OR_NULL(ppos))) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	if (IS_ERR_OR_NULL(file->private_data)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+
+	iusb3 = file->private_data;
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count))) {
+		intel_phy_err("copy from user");
+		return intel_phy_kernel_trap();
+	}
+
+	if (sscanf(buf, "%u %u %u %u", &test, &loop, &t1, &t2) != 4) {
+		intel_phy_err("wrong parameter number!");
+		goto info;
+	}
+	/* fix KW warnings */
+	if (test > USHRT_MAX)
+		test = USHRT_MAX;
+	if (loop > USHRT_MAX)
+		loop = USHRT_MAX;
+	if (t1 > USHRT_MAX)
+		t1 = USHRT_MAX;
+	if (t2 > USHRT_MAX)
+		t2 = USHRT_MAX;
+
+	switch (test) {
+	case 0:
+		intel_usb3_test_zero(iusb3, loop, t1, t2);
+		break;
+	default:
+		intel_phy_err("test not defined!");
+		break;
+	}
+
+	return count;
+info:
+	intel_phy_info("<test> <loop> <t1> <t2>");
+	intel_phy_info("test 0: test invalid parameter, boost coverage");
+	return count;
+}
+
+/**
+ * @todo: comment
+ */
+const struct file_operations intel_usb3_debugfs_fops = {
+	.open = intel_usb3_debugfs_open,
+	.read = intel_usb3_debugfs_read,
+	.write = intel_usb3_debugfs_write,
+};
+
+/**
+ * @todo: comment
+ */
+static int intel_usb3_debugfs_init(struct intel_usb3 *iusb3)
+{
+	struct dentry *root = NULL;
+	struct dentry *file = NULL;
+
+
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	root = debugfs_create_dir("intel_usb3", NULL);
+	if (IS_ERR_OR_NULL(root)) {
+		intel_phy_err("debugfs create dir");
+		return intel_phy_kernel_trap();
+	}
+
+	file = debugfs_create_file("debug", S_IRUGO | S_IWUSR,
+		root, iusb3, &intel_usb3_debugfs_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		intel_phy_err("debugfs create file");
+		debugfs_remove(root);
+		return intel_phy_kernel_trap();
+	}
+
+	iusb3->debugfs_root = root;
+	return 0;
+}
+
+/**
+ * @todo: comment
+ */
+static int intel_usb3_debugfs_exit(struct intel_usb3 *iusb3)
+{
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+	if (IS_ERR_OR_NULL(iusb3->debugfs_root)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+	debugfs_remove_recursive(iusb3->debugfs_root);
+	iusb3->debugfs_root = NULL;
+	return 0;
+}
