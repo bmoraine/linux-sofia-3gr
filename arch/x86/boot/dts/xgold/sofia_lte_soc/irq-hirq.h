@@ -6,14 +6,16 @@
 #define HIRQ_PMIC_TEST 1
 #define HIRQ_HIRQ_TEST 2
 #define HIRQ_PMIC_PRH_SIGNALING 3
-#define HIRQ_PMIC_TIME_UNIT 4
-#define HIRQ_PMIC_THERMAL_UNIT 5
-#define HIRQ_PMIC_BCU 6
-#define HIRQ_PMIC_ADC 7
-#define HIRQ_PMIC_CHARGER 8
-#define HIRQ_PMIC_GPIO 9
-#define HIRQ_PMIC_CRITICAL_EVENT 10
-#define HIRQ_PMIC_POWER_BUTTON 11
+/* The order of PMIC HIRQ's should match their bit-position in IRQLVL1_REG */
+#define HIRQ_PMIC_POWER_BUTTON 4
+#define HIRQ_PMIC_TIME_UNIT 5
+#define HIRQ_PMIC_THERMAL_UNIT 6
+#define HIRQ_PMIC_BCU 7
+#define HIRQ_PMIC_ADC 8
+#define HIRQ_PMIC_CHARGER 9
+#define HIRQ_PMIC_GPIO 10
+#define HIRQ_PMIC_CRITICAL_EVENT 11
+/* Please do not change the order of PMIC HIRQ's */
 #define HIRQ_PMIC_VTIMER 12
 
 #endif /* _HIRQ_IRQ_H */

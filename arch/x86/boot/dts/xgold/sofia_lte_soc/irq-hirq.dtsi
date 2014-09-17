@@ -18,14 +18,14 @@ hirq:hirq-interrupt-controller {
 		< 0 IRQ_TYPE_DEFAULT >, /* 513: pmic test */
 		< 0 IRQ_TYPE_DEFAULT >, /* 514: hirq test */
 		< 0 IRQ_TYPE_DEFAULT >, /* 515: PRH SIGNALING */
-		< 0 IRQ_TYPE_DEFAULT >, /* 516: time unit (PMIC) */
-		< 0 IRQ_TYPE_DEFAULT >, /* 517: thermal unit (PMIC) */
-		< 0 IRQ_TYPE_DEFAULT >, /* 518: BCU (PMIC) */
-		< 0 IRQ_TYPE_DEFAULT >, /* 519: ADC (PMIC) */
-		< 0 IRQ_TYPE_DEFAULT >, /* 520: Charger (PMIC) */
-		< 0 IRQ_TYPE_DEFAULT >, /* 521: GPIO (PMIC) */
-		< 0 IRQ_TYPE_DEFAULT >, /* 522: CRITICAL EVENT (PMIC) */
-		< 0 IRQ_TYPE_DEFAULT >, /* 523: power button (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 516: power button (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 517: time unit (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 518: thermal unit (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 519: BCU (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 520: ADC (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 521: Charger (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 522: GPIO (PMIC) */
+		< 0 IRQ_TYPE_DEFAULT >, /* 523: CRITICAL EVENT (PMIC) */
 		< 0 IRQ_TYPE_DEFAULT >; /* 524: VTIMER */
 	intel,hirq_offset = <512>;
 };
