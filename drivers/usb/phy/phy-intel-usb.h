@@ -80,6 +80,7 @@ int intel_phy_exit(struct device *dev, struct intel_phy *iphy);
 int intel_phy_notify(
 	struct intel_phy *iphy, enum usb_phy_events event, void *priv);
 int intel_phy_kernel_trap(void);
+int intel_phy_kernel_trap_enable(bool value);
 
 #endif /* PHY_INTEL_USB_H */
 
