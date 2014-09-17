@@ -41,7 +41,6 @@
 
 #define CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG
 #if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
-#define CIF_NULL_BUFF_SIZE 128
 #endif
 
 /* Definitions */
@@ -59,63 +58,14 @@
 #define cif_iowrite32FIELD(d, p, m, a)	\
 	iowrite32((d << p) | (ioread32(a) & (~m)), a)
 
-#define XGOLD_V4L2_ISR		(1<<5)
-#define XGOLD_V4L2_QUEUE	(1<<4)
-#define XGOLD_V4L2_FMT		(1<<3)
-#define XGOLD_V4L2_ENTER	(1<<2)
-#define XGOLD_V4L2_INFO		(1<<1)
-#define XGOLD_V4L2_ERROR	(1<<0)
-
-extern int xgold_v4l2_level;
-#define xgold_v4l2_debug(level, fmt, arg...) \
-	do { \
-		if (XGOLD_V4L2_ERROR&level) \
-			pr_err(fmt, ##arg); \
-		else if (xgold_v4l2_level&level) \
-			pr_debug(fmt, ##arg); \
-	} while (0)
-
-#define CIF_MRSZ_W_MAX	3264
-#define CIF_MRSZ_H_MAX	2448
-#define CIF_MRSZ_W_MIN	32
-#define CIF_MRSZ_H_MIN	16
-
-#define CIF_SRSZ_W_MAX	854
-#define CIF_SRSZ_H_MAX	480
-#define CIF_SRSZ_W_MIN	32
-#define CIF_SRSZ_H_MIN	16
-
 #define DRIVER_NAME "cif_isp20"
-
-#define PREVIEW_WIDTH		854
-#define PREVIEW_HEIGHT		480
-
-#define MAGIC_XGOLD_MEM 0xCAFEBABE
 
 /* FORMAT */
 #define MAX_NB_FORMATS	30
 
-#define XGOLD_MAX_WIDTH	3264
-#define XGOLD_MAX_HEIGHT	2448
 #define CONTRAST_DEF	0x80
 #define BRIGHTNESS_DEF	0x0
 #define HUE_DEF	0x0
-
-#define MARVIN_MIPI_PRIORITY 1
-#define MARVIN_FRAME_IN_PRIORITY 10
-#define MARVIN_FRAME_OUT_PRIORITY 6
-#define MARVIN_JPEG_PRIORITY      11
-
-/* MARVIN-5MP */
-#define MARVIN_HW_MAX_WIDTH_MP	3264
-#define MARVIN_HW_MAX_HEIGHT_MP	2448
-#define MARVIN_HW_MAX_WIDTH_SP	640
-#define MARVIN_HW_MAX_HEIGHT_SP	480
-#define MARVIN_HW_MAX_WIDTH			MARVIN_HW_MAX_WIDTH_MP
-#define MARVIN_HW_MAX_HEIGHT		MARVIN_HW_MAX_HEIGHT_MP
-
-#define MARVIN_HW_MIN_WIDTH		32
-#define MARVIN_HW_MIN_HEIGHT	16
 
 #define MARVIN_HW_MAX_ERRORS 50
 
@@ -132,23 +82,6 @@ extern int xgold_v4l2_level;
 #define CSI2_DT_RAW8	(0x2A)
 #define CSI2_DT_RAW10	(0x2B)
 #define CSI2_DT_RAW12	(0x2C)
-
-#define MARVIN_HW_ISR	(1<<4)
-#define MARVIN_HW_DEBUG	(1<<3)
-#define MARVIN_HW_ENTER	(1<<2)
-#define MARVIN_HW_INFO	(1<<1)
-#define MARVIN_HW_ERROR	(1<<0)
-
-#define PREVIEW_MODE_CAP 0
-#define PREVIEW_MODE_VID 1
-
-#define		SOFIA_ES1_BU_PM_NATIVE	1
-#ifdef SOFIA_ES1_BU_PM_NATIVE
-#define OF_KERNEL_CLK			"clk_kernel"
-#define OF_SLAVE_CLK			"clk_slave"
-#define OF_MASTER_CLK			"clk_master"
-#define OF_SENSOR_CLK			"clk_sensor"
-#endif
 
 enum cif_isp20_img_src_state {
 	CIF_ISP20_IMG_SRC_STATE_OFF = 0,
@@ -217,18 +150,6 @@ enum cif_isp20_cid {
 	CIF_ISP20_CID_FOCUS_ABSOLUTE,
 };
 
-enum marvin_channel_mode {
-	marvin_no_mode = 0,	/* corresponds to bitfield value !!! */
-	marvin_main_path = 1,	/* corresponds to bitfield value !!! */
-	marvin_self_path = 2,	/* corresponds to bitfield value !!! */
-	marvin_both_path = 3	/* corresponds to bitfield value !!! */
-};
-
-struct marvin_overlay_pos {
-	unsigned int top;
-	unsigned int left;
-};
-
 enum marvin_control_id {
 	marvin_hflip,		/* SelfPicture SubModule */
 	marvin_vflip,		/* SelfPicture SubModule */
@@ -284,6 +205,11 @@ struct marvin_control {
 		pix_fmt = ((pix_fmt & ~CIF_ISP20_PIX_FMT_YUV_MASK_Y) |\
 			((y_subs << 4) & CIF_ISP20_PIX_FMT_YUV_MASK_Y));\
 	}
+#define cif_isp20_pix_fmt_set_x_subs(pix_fmt, x_subs) \
+	{\
+		pix_fmt = ((pix_fmt & ~CIF_ISP20_PIX_FMT_YUV_MASK_X) |\
+			((x_subs << 8) & CIF_ISP20_PIX_FMT_YUV_MASK_X));\
+	}
 
 #define CIF_ISP20_PIX_FMT_BAYER_PAT_IS_BGGR(pix_fmt) \
 	((pix_fmt & CIF_ISP20_PIX_FMT_BAYER_MASK_PAT) == 0x0)
@@ -307,21 +233,21 @@ struct marvin_control {
 enum cif_isp20_pix_fmt {
 	/* YUV */
 	CIF_YUV400				= 0x10008000,
-	CIF_YVU400				= CIF_YUV400,
+	CIF_YVU400				= 0x10008004,
 
-	CIF_YUV420I				= 0x1000c200,
-	CIF_YUV420SP			= 0x1000c201,	/* NV12 */
-	CIF_YUV420P				= 0x1000c202,
-	CIF_YVU420I				= 0x1000c204,
-	CIF_YVU420SP			= 0x1000c205,	/* NV21 */
-	CIF_YVU420P				= 0x1000c206,	/* YV12 */
+	CIF_YUV420I				= 0x1000c220,
+	CIF_YUV420SP			= 0x1000c221,	/* NV12 */
+	CIF_YUV420P				= 0x1000c222,
+	CIF_YVU420I				= 0x1000c224,
+	CIF_YVU420SP			= 0x1000c225,	/* NV21 */
+	CIF_YVU420P				= 0x1000c226,	/* YV12 */
 
-	CIF_YUV422I				= 0x10010220,
-	CIF_YUV422SP			= 0x10010221,
-	CIF_YUV422P				= 0x10010222,
-	CIF_YVU422I				= 0x10010224,
-	CIF_YVU422SP			= 0x10010225,
-	CIF_YVU422P				= 0x10010226,
+	CIF_YUV422I				= 0x10010240,
+	CIF_YUV422SP			= 0x10010241,
+	CIF_YUV422P				= 0x10010242,
+	CIF_YVU422I				= 0x10010244,
+	CIF_YVU422SP			= 0x10010245,
+	CIF_YVU422P				= 0x10010246,
 
 	CIF_YUV444I				= 0x10018440,
 	CIF_YUV444SP			= 0x10018441,
@@ -332,19 +258,19 @@ enum cif_isp20_pix_fmt {
 
 	CIF_UYV400				= 0x10008008,
 
-	CIF_UYV420I				= 0x1000c208,
-	CIF_UYV420SP			= 0x1000c209,
-	CIF_UYV420P				= 0x1000c20a,
-	CIF_VYU420I				= 0x1000c20c,
-	CIF_VYU420SP			= 0x1000c20d,
-	CIF_VYU420P				= 0x1000c20e,
+	CIF_UYV420I				= 0x1000c228,
+	CIF_UYV420SP			= 0x1000c229,
+	CIF_UYV420P				= 0x1000c22a,
+	CIF_VYU420I				= 0x1000c22c,
+	CIF_VYU420SP			= 0x1000c22d,
+	CIF_VYU420P				= 0x1000c22e,
 
-	CIF_UYV422I				= 0x10010228,
-	CIF_UYV422SP			= 0x10010229,
-	CIF_UYV422P				= 0x1001022a,
-	CIF_VYU422I				= 0x1001022c,
-	CIF_VYU422SP			= 0x1001022d,
-	CIF_VYU422P				= 0x1001022e,
+	CIF_UYV422I				= 0x10010248,
+	CIF_UYV422SP			= 0x10010249,
+	CIF_UYV422P				= 0x1001024a,
+	CIF_VYU422I				= 0x1001024c,
+	CIF_VYU422SP			= 0x1001024d,
+	CIF_VYU422P				= 0x1001024e,
 
 	CIF_UYV444I				= 0x10018448,
 	CIF_UYV444SP			= 0x10018449,
@@ -474,10 +400,6 @@ struct cif_isp20_mi_config {
 	struct cif_isp20_mi_path_config mp;
 	struct cif_isp20_mi_path_config sp;
 	struct cif_isp20_mi_path_config dma;
-#if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
-	void *null_buff;
-#endif
-	u32 null_buff_dma_addr;
 };
 
 struct cif_isp20_mipi_config {
@@ -681,9 +603,6 @@ int marvin_s_ctrl(struct cif_isp20_device *dev,
 int register_rbpath_device(
 	struct xgold_readback_path_dev *rbpath_dev,
 	void __iomem *cif_reg_baseaddress);
-
-/* Config CIF*/
-int config_cif(struct cif_isp20_device *dev);
 
 struct xgold_fmt *get_xgold_output_format(int index);
 int get_xgold_output_format_size(void);

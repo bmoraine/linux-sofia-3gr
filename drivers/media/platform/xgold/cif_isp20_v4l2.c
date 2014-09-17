@@ -852,21 +852,7 @@ static int mainpath_try_fmt_cap(struct v4l2_format *f)
 	int ifmt = 0;
 	struct v4l2_pix_format *pix = &f->fmt.pix;
 
-	xgold_v4l2_debug(XGOLD_V4L2_ENTER,
-			 "%s: %s: Enter...\n",
-			 DRIVER_NAME, __func__);
-
-	if (pix->width > MARVIN_HW_MAX_WIDTH)
-		pix->width = MARVIN_HW_MAX_WIDTH;
-
-	if (pix->height > MARVIN_HW_MAX_HEIGHT)
-		pix->height = MARVIN_HW_MAX_HEIGHT;
-
-	if (pix->width < MARVIN_HW_MIN_WIDTH)
-		pix->width = MARVIN_HW_MIN_WIDTH;
-
-	if (pix->height < MARVIN_HW_MIN_HEIGHT)
-		pix->height = MARVIN_HW_MIN_HEIGHT;
+	cif_isp20_pltfrm_pr_dbg(NULL, "\n");
 
 	for (ifmt = 0; ifmt < get_xgold_output_format_size(); ifmt++) {
 		if (pix->pixelformat == get_xgold_output_format(ifmt)->fourcc)
@@ -990,9 +976,7 @@ static int v4l2_enum_fmt_cap(struct file *file, void *fh,
 	if ((f->index >= xgold_num_format)
 	    || (get_xgold_output_format_desc(f->index)->pixelformat == 0)) {
 
-		xgold_v4l2_debug(XGOLD_V4L2_ERROR,
-				 "%s: %s: Index %i not supported\n",
-				 DRIVER_NAME, __func__, f->index);
+		cif_isp20_pltfrm_pr_err(NULL, "index %d\n", f->index);
 		return -EINVAL;
 	}
 	strlcpy(f->description,
@@ -1135,6 +1119,15 @@ const struct v4l2_ioctl_ops cif_isp20_mp_ioctlops = {
 	.vidioc_s_parm = v4l2_s_parm
 };
 
+const struct v4l2_ioctl_ops cif_isp20_dma_ioctlops = {
+	.vidioc_reqbufs = cif_isp20_v4l2_reqbufs,
+	.vidioc_querybuf = cif_isp20_v4l2_querybuf,
+	.vidioc_qbuf = cif_isp20_v4l2_qbuf,
+	.vidioc_dqbuf = cif_isp20_v4l2_dqbuf,
+	.vidioc_streamon = cif_isp20_v4l2_streamon,
+	.vidioc_streamoff = cif_isp20_v4l2_streamoff
+};
+
 const struct videobuf_queue_ops cif_isp20_qops = {
 	.buf_setup = cif_isp20_v4l2_buf_setup,
 	.buf_prepare = cif_isp20_v4l2_buf_prepare,
@@ -1158,9 +1151,8 @@ int mainpath_open(struct file *file)
 	file->private_data = fh;
 
 	if (minor == dev->mp_minor) {
-		xgold_v4l2_debug(XGOLD_V4L2_INFO,
-				 "%s: %s: open video minor=%d\n",
-				 DRIVER_NAME, __func__, minor);
+		cif_isp20_pltfrm_pr_dbg(NULL,
+				 "open video, minor %d\n", minor);
 		videobuf_queue_dma_contig_init(&fh->buf_queue,
 					       &cif_isp20_qops, dev->dev,
 					       &dev->vbq_lock,
@@ -1186,9 +1178,8 @@ static int xgold_v4l2_core_open(struct file *file)
 
 	unsigned int ret = 0;
 
-	xgold_v4l2_debug(XGOLD_V4L2_INFO,
-			 " %s: %s: open video minor=%d\n",
-			 DRIVER_NAME, __func__, minor);
+	cif_isp20_pltfrm_pr_dbg(NULL,
+			 "open video, minor %d\n", minor);
 
 	/* Allocate per-filehandle data */
 	fh = kmalloc(sizeof(*fh), GFP_KERNEL);
@@ -1261,15 +1252,15 @@ static int register_mainpath_device(struct cif_isp20_device *dev,
 
 	if (video_register_device
 	    (vdev_cifmainpath, VFL_TYPE_GRABBER, dev->mp_major) < 0) {
-		dev_err(&(vdev_cifmainpath->dev),
+		cif_isp20_pltfrm_pr_err(&(vdev_cifmainpath->dev),
 			"could not register main path video note\n");
 		ret = -ENODEV;
 		goto err;
 	}
 
-	xgold_v4l2_debug(XGOLD_V4L2_INFO,
-			 "%s: %s: dev minor=%d\n",
-			 DRIVER_NAME, __func__, vdev_cifmainpath->minor);
+	cif_isp20_pltfrm_pr_dbg(NULL,
+		"video device minor %d registered\n",
+		vdev_cifmainpath->minor);
 
 	if (dev->mp_minor == -1)
 		dev->mp_minor = vdev_cifmainpath->minor;
@@ -1364,20 +1355,6 @@ static int xgold_v4l2_drv_probe(struct platform_device *pdev)
 	register_rbpath_device(&dev->rb_dev,
 			       dev->config.base_addr);
 
-#if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
-	dev->config.mi_config.null_buff =
-		dma_alloc_coherent(dev->dev, 6 * CIF_NULL_BUFF_SIZE,
-			 &dev->config.mi_config.
-			 null_buff_dma_addr, GFP_KERNEL);
-	if (!dev->config.mi_config.null_buff) {
-		cif_isp20_pltfrm_pr_err(NULL,
-			"null_buff could not be allocatedn");
-		ret = -ENOMEM;
-		goto err;
-	}
-#else
-	dev->config.mi_config.null_buff_dma_addr = 0;
-#endif
 	return 0;
 err:
 	cif_isp20_destroy(dev);
@@ -1395,20 +1372,6 @@ static int xgold_v4l2_drv_remove(struct platform_device *pdev)
 	if (IS_ERR_VALUE(cif_isp20_release(cif_isp20_dev, true, true)))
 		cif_isp20_pltfrm_pr_warn(cif_isp20_dev->dev,
 			"CIF power off failed\n");
-#if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
-	{
-		if (cif_isp20_dev->config.mi_config.null_buff) {
-			dma_free_coherent(cif_isp20_dev->dev,
-				6*CIF_NULL_BUFF_SIZE,
-				cif_isp20_dev->config.mi_config.
-				null_buff,
-				cif_isp20_dev->config.mi_config.
-				null_buff_dma_addr);
-		cif_isp20_dev->config.mi_config.
-			null_buff = NULL;
-		}
-	}
-#endif
 	return ret;
 }
 
@@ -1479,9 +1442,9 @@ static int xgold_v4l2_init(void)
 	int ret = platform_driver_register(&xgold_v4l2_plat_drv);
 
 	if (ret) {
-		xgold_v4l2_debug(XGOLD_V4L2_ERROR,
-				 " %s: %s: Failed while registering platform driver\n",
-				 DRIVER_NAME, __func__);
+		cif_isp20_pltfrm_pr_err(NULL,
+			"cannot register platfrom driver, failed with %d\n",
+			ret);
 		return -ENODEV;
 	}
 	return ret;
