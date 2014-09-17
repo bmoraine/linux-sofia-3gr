@@ -286,8 +286,7 @@ static int __init idi_peripheral_device_register(struct device_node *np)
 	info->pm_platdata = of_device_state_pm_setup(np);
 	if (IS_ERR(info->pm_platdata)) {
 		pr_err("%s: Miss PM info\n", info->name);
-		status = -EINVAL;
-		goto free_peripheral;
+		info->pm_platdata = NULL;
 	}
 
 	/* Get peripheral type */
