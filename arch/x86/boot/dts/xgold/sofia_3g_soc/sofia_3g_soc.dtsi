@@ -1,5 +1,5 @@
-#undef PREFERRED_LOCAL_APIC_USE
-#undef BOOST_LOCAL_APIC_USE
+#define PREFERRED_LOCAL_APIC_USE
+#define BOOST_LOCAL_APIC_USE
 
 	cpus {
 		#address-cells = <1>;
