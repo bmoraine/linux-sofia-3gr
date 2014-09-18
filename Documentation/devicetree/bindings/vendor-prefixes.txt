@@ -15,6 +15,7 @@ amstaos	AMS-Taos Inc.
 apm	Applied Micro Circuits Corporation (APM)
 arm	ARM Ltd.
 atmel	Atmel Corporation
+avago	Avago Technologies
 auo	AU Optronics Corporation
 avago	Avago Technologies
 bosch	Bosch Sensortec GmbH
@@ -36,9 +37,11 @@ epson	Seiko Epson Corp.
 est	ESTeem Wireless Modems
 fsl	Freescale Semiconductor
 galaxycore	GalaxyCore Inc.
+focaltech	Focaltech Systems
 GEFanuc	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
 gef	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
 gmt	Global Mixed-mode Technology, Inc.
+goodix	Shenzhen Huiding Technology Co. Ltd
 gumstix	Gumstix, Inc.
 haoyu	Haoyu Microelectronic Co. Ltd.
 hisilicon	Hisilicon Limited.
@@ -48,6 +51,7 @@ ibm	International Business Machines (IBM)
 idt	Integrated Device Technologies, Inc.
 img	Imagination Technologies Ltd.
 intercontrol	Inter Control Group
+inv	InvenSense, Inc.
 isl	Intersil
 intel	Intel
 karo	Ka-Ro electronics GmbH
@@ -64,6 +68,7 @@ neonode		Neonode Inc.
 nintendo	Nintendo
 nvidia	NVIDIA
 nxp	NXP Semiconductors
+omnivision	Omnivision Technologies
 onnn	ON Semiconductor Corp.
 panasonic	Panasonic Corporation
 phytec	PHYTEC Messtechnik GmbH
