@@ -2137,7 +2137,7 @@ static int xgold_probe_fmdrv(struct idi_peripheral_device *idi_per_dev,
 	fmdrv_info("Device probe called\n");
 
 	/* Allocate the FM device struct */
-	xgold_fmdev = kzalloc(sizeof(struct xgold_fmdev), GFP_KERNEL);
+	xgold_fmdev = kzalloc(sizeof(*xgold_fmdev), GFP_KERNEL);
 	if (NULL == xgold_fmdev) {
 		rc = -ENOMEM;
 		fmdrv_crit("Could not allocate driver data structure\n");

@@ -78,6 +78,8 @@ struct fmtrx_int_ev_info {
 #define XGOLD_FMR_DED1_IRQ_LINE \
 	(xgold_sys_fmdev->irqs[2]) /* FMRX_EV_TUNE  */
 
+#define XGOLD_FMR_WAIT_EV	1
+#define XGOLD_FMR_TRIG_EV	0
 
 /*
 ** ============================================================================
@@ -100,8 +102,8 @@ static struct xgold_fmdev *xgold_sys_fmdev;
 static const struct firmware *fw_entry;
 
 static wait_queue_head_t wait_msg;
-static int fmr_cmd_wait_event = true;
-static int fmr_cmd2_wait_event = true;
+static u8 fmr_cmd_wait_event = XGOLD_FMR_WAIT_EV;
+static u8 fmr_cmd2_wait_event = XGOLD_FMR_WAIT_EV;
 static struct fmrx_cfg *rx_cfg;
 
 static struct rssi_offs rssi_offs_int_ant = {108000, 108000,
@@ -140,7 +142,7 @@ static s32 fmr_sys_sim_msg_init_queue(void)
 	s32 rc = 0;
 
 	/* initialize the messages list */
-	p_fmr_msg_list = kmalloc(sizeof(struct fmtrx_sys_sim_msg), GFP_KERNEL);
+	p_fmr_msg_list = kmalloc(sizeof(*p_fmr_msg_list), GFP_KERNEL);
 
 	if (NULL == p_fmr_msg_list) {
 		fmdrv_err("message list allocation failed\n");
@@ -417,7 +419,7 @@ int fmr_sys_msg_send(const struct fmtrx_msg_params *const event_params)
 	}
 
 	/* Allocate memory space for storing the message item */
-	new_msg_node = kzalloc(sizeof(struct fmtrx_sys_sim_msg), GFP_KERNEL);
+	new_msg_node = kzalloc(sizeof(*new_msg_node), GFP_KERNEL);
 
 	if (NULL == new_msg_node) {
 		fmdrv_crit("Could not allocate memory\n");
@@ -445,16 +447,16 @@ void fmr_sys_int_event_send(const enum fmtrx_int_ev fmtrx_int_evt_id,
 }
 
 /* Invoke power interfaces to request/release power demands */
-int fmr_sys_power_enable(s32 enable, s32 idi_bus_required)
+int fmr_sys_power_enable(bool enable, bool idi_bus_required)
 {
 	int rc = -EIO;
 
 #ifdef CONFIG_IDI
 	struct device_state_pm_state *pm_handler = NULL;
 
-	if (true == enable)
+	if (enable)
 		pm_handler = xgold_sys_fmdev->pm_state.en_handler;
-	else if (enable == false)
+	else
 		pm_handler = xgold_sys_fmdev->pm_state.dis_handler;
 
 	if (NULL != pm_handler) {
@@ -544,11 +546,11 @@ void fmr_sys_trigger_event(enum fmtrx_trigger_events event_id)
 {
 	switch (event_id) {
 	case FMR_IR_CMD_DONE:
-		fmr_cmd_wait_event = false;
+		fmr_cmd_wait_event = XGOLD_FMR_TRIG_EV;
 		break;
 
 	case FMR_IR_CMD2_DONE:
-		fmr_cmd2_wait_event = false;
+		fmr_cmd2_wait_event = XGOLD_FMR_TRIG_EV;
 		break;
 
 	default:
@@ -565,13 +567,15 @@ s32 fmr_sys_wait_for_event(enum fmtrx_trigger_events event_id)
 
 	switch (event_id) {
 	case FMR_IR_CMD_DONE:
-		wait_event(wait_msg, (fmr_cmd_wait_event != true));
-		fmr_cmd_wait_event = true;
+		wait_event(wait_msg,
+			   (fmr_cmd_wait_event != XGOLD_FMR_WAIT_EV));
+		fmr_cmd_wait_event = XGOLD_FMR_WAIT_EV;
 		break;
 
 	case FMR_IR_CMD2_DONE:
-		wait_event(wait_msg, (fmr_cmd2_wait_event != true));
-		fmr_cmd2_wait_event = true;
+		wait_event(wait_msg,
+			   (fmr_cmd2_wait_event != XGOLD_FMR_WAIT_EV));
+		fmr_cmd2_wait_event = XGOLD_FMR_WAIT_EV;
 		break;
 
 	default:
@@ -797,7 +801,7 @@ int fmr_sys_get_cfg(struct fmrx_cfg **cfg)
 	int rc = 0;
 	const struct firmware *fw = NULL;
 
-	rx_cfg = kzalloc(sizeof(struct fmrx_cfg), GFP_KERNEL);
+	rx_cfg = kzalloc(sizeof(*rx_cfg), GFP_KERNEL);
 	if (rx_cfg == NULL) {
 		rc = -ENOMEM;
 		*cfg = NULL;

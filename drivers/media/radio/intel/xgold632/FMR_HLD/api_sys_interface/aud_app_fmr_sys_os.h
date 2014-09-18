@@ -167,7 +167,7 @@ void fmr_sys_clock_sel(enum fmtrx_clk_src clk_src);
   @param   enable  if true, turns on power supply for FMR macro, else turn off
   @param   enable  if true, whether IDI bus is required, else turn off
 */
-int fmr_sys_power_enable(s32 enable, s32 idi_bus_required);
+int fmr_sys_power_enable(bool enable, bool idi_bus_required);
 
 /*   @brief
   Fetches FW.

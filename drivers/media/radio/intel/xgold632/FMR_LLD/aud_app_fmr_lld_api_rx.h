@@ -240,7 +240,7 @@ struct fmtrx_lld_aud_state {
 	u16 sm_level;		/* Soft mute level (0 to 0x7FFF) */
 	u16 snc_level;		/* Stereo Noise Cancellation (0 to 0x7FFF) */
 	s32 is_stereo;		/* Stereo or mono */
-	s32 audio_en;		/* Audio Processing Block State*/
+	u8 audio_en;		/* Audio Processing Block State*/
 };
 
 /* Structure to hold RDS configuration */
@@ -635,7 +635,7 @@ void fmrx_set_output(enum fmtrx_lld_aud_routing route);
  *
  * @return void
  */
-void fmrx_audio_processing_enable(int enable_audio);
+void fmrx_audio_processing_enable(u8 enable_audio);
 
 /*
  * Set up volume of audio output for different channel in DAC router mode.
@@ -682,7 +682,7 @@ void fmrx_audio_mute(int mute);
 *
 * @return void
 */
-void fmrx_set_soft_mute(int enabled, u16 stepsize, s16 rssi_thres);
+void fmrx_set_soft_mute(u8 enabled, u16 stepsize, s16 rssi_thres);
 
 /*
  * Set deemphasis time constant. This may only be called at startup.
@@ -714,7 +714,7 @@ u16 fmrx_get_phase_noise(void);
  *
  * @return void
  */
-void fmrx_set_snc_cfg(int enabled, u16 stepsize, s16 upper_rssi_thres,
+void fmrx_set_snc_cfg(u8 enable, u16 stepsize, s16 upper_rssi_thres,
 	s16 lower_rssi_thres);
 
 /*

@@ -137,7 +137,7 @@ void fmtrx_halt_mini_dsp(void)
 }
 
 /* Reads mask bits from INTCTL hardware register. */
-u32 fmtrx_get_interrupt_mask()
+u32 fmtrx_get_interrupt_mask(void)
 {
 	return fmtrx_read32_masked(INTMASK_ADDR,
 		INTMASK_INTMASK_MASK32 | INTMASK_INTMASKDED_MASK32);
@@ -170,7 +170,7 @@ void fmtrx_enable_interrupts(u32 intmask, s32 enb, enum fmtrx_running_ctx ctx)
 }
 
 /* Reads interrupt status bits from INTCTL hardware register */
-u32 fmtrx_get_interrupt_status()
+u32 fmtrx_get_interrupt_status(void)
 {
 	return fmtrx_read32_masked(INTSTATUS_ADDR, INTSTATUS_INTDED_MASK32 |
 		INTSTATUS_BUSERR_MASK32 | INTSTATUS_BRK_MASK32 |
@@ -210,12 +210,12 @@ void fmrx_get_id(u32 *hw_id, u32 *fw_id, u32 *fw_timestamp, u32 *lld_id)
 
 
 /* Reads the actual RSSI value from firmware register (RSSI). */
-s16 fmrx_get_rssi()
+s16 fmrx_get_rssi(void)
 {
 	return fmtrx_read16(FMR_RXMAIN_RSSI_ADDR);
 }
 
-s32 fmrx_get_freq_offs_int()
+s32 fmrx_get_freq_offs_int(void)
 {
 	s32 foffs = 0, foffs_int = 0;
 
@@ -224,7 +224,7 @@ s32 fmrx_get_freq_offs_int()
 	return foffs >> 15;
 }
 
-u16 fmrx_get_pilot_ampl()
+u16 fmrx_get_pilot_ampl(void)
 {
 	return fmtrx_read16(FMR_RXMAIN_PILOT_AMPL_HZ_ADDR);
 }
@@ -261,9 +261,9 @@ void fmrx_set_output(enum fmtrx_lld_aud_routing route)
 /* Totally enable or disable the audio processing block. Enables or disables
  * the AUDIO_EN bit
  */
-void fmrx_audio_processing_enable(s32 enable)
+void fmrx_audio_processing_enable(u8 enable)
 {
-	if (true == enable)
+	if (enable)
 		fmtrx_write16(FMR_RXMAIN_AUDIO_EN_ADDR, AUDIO_ENABLED);
 	else
 		fmtrx_write16(FMR_RXMAIN_AUDIO_EN_ADDR, AUDIO_DISABLED);
@@ -292,9 +292,9 @@ void fmrx_audio_mute(s32 mute)
 	fmtrx_write16(FMR_RXMAIN_AUDIO_MUTE_ADDR, mute);
 }
 
-void fmrx_set_soft_mute(s32 enabled, u16 stepsize, s16 rssi_thres)
+void fmrx_set_soft_mute(u8 enable, u16 stepsize, s16 rssi_thres)
 {
-	if (true == enabled)
+	if (enable)
 		fmtrx_write16(FMR_RXMAIN_SM_EN_ADDR, SOFT_MUT_ENABLED);
 	else
 		fmtrx_write16(FMR_RXMAIN_SM_EN_ADDR, SOFT_MUTE_DISABLED);
@@ -325,10 +325,10 @@ u16 fmrx_get_phase_noise(void)
 	return fmtrx_read16(FMR_RXMAIN_PN_ADDR);
 }
 
-void fmrx_set_snc_cfg(s32 enabled, u16 stepsize, s16 upper_rssi_thres,
+void fmrx_set_snc_cfg(u8 enable, u16 stepsize, s16 upper_rssi_thres,
 	s16 lower_rssi_thres)
 {
-	if (true == enabled) {
+	if (enable) {
 		/* write to FW register to enable SNC */
 		fmtrx_write16(FMR_RXMAIN_SNC_EN_ADDR, SNC_ENABLED);
 	} else {
@@ -580,7 +580,7 @@ void fmrx_set_event_mask(u16 event_mask)
 	fmtrx_write16(FMR_RXMAIN_EVENT_EN_ADDR, event_mask);
 }
 
-u16 fmrx_get_event_mask()
+u16 fmrx_get_event_mask(void)
 {
 	/* get event enable fw register */
 	return fmtrx_read16(FMR_RXMAIN_EVENT_EN_ADDR);
@@ -592,7 +592,7 @@ u16 fmrx_get_event_mask()
 * Returns:.... -
 *  Read the current event status (EVENT_STATUS).
 */
-u16 fmrx_get_event_status()
+u16 fmrx_get_event_status(void)
 {
 	return fmtrx_read16(FMR_RXMAIN_EVENT_STATUS_ADDR);
 }

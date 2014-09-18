@@ -313,7 +313,7 @@ struct fmrx_state {
 	enum fmrx_rds_pi_mode rds_pi_mode_bkp;
 	enum fmtrx_subscribe_rds_mode rds_mode_bkp;
 
-	s32 af_eval_state; /* State of AF evaluation */
+	u8 af_eval_state; /* State of AF evaluation */
 	s32 idi_hs_ctrl;   /* State of FMR IDI handshake control bit */
 
 	/* Results from last channel evaluation */

@@ -37,7 +37,7 @@
 #define FMRX_SWEEP_BAND_STEP_SIZE	(1 * 50000)	/* in Hz */
 #define RDS_MAX_VALID_GRPS		(FMRX_RDS_MAX_VALID_GRPS * 4)
 #define FMTRX_IP_REG_START_ADD		FMR_RXMAIN_HOSTIF_BUF_ADDR
-#define FMTRX_IP_REG_END_ADD		0x8500
+#define FMTRX_IP_REG_END_ADD		0x8780
 
 /* LOCAL FUNCTION DECLARATIONS */
 
@@ -1396,7 +1396,7 @@ static int fmrx_normal_receive(struct fmrx_msgbox_buff *p_msg)
 
 	case FMRX_EVENT_DC_RDS_FASTPI_CB: {
 		if ((NULL != misc_cfg.fmrx_cbs->p_seek_eval_rpt_cb) &&
-		    (true == rx_state.af_eval_state)) {
+		    rx_state.af_eval_state) {
 			/* Current frequency and RSSI value */
 			struct fmtrx_rssi_report scan_array;
 			scan_array.freq = rx_state.freq;
@@ -1695,8 +1695,7 @@ static int fmrx_seek_next_channel(struct fmrx_msgbox_buff *p_msg)
 	/* get the actual seeking rssi here */
 	act_sk_rssi = ((rx_state.freq > clk_swt_min) &&
 			(rx_state.freq < clk_swt_max)) ?
-			rx_state.cfg->seek_rssi + SEEK_THRES_AROUND_104 :
-			rx_state.cfg->seek_rssi;
+			rx_state.cfg->seek_rssi : rx_state.cfg->seek_rssi;
 	ch_search_cmd.rssi_thres = RSSI_TO_INT(act_sk_rssi);
 	ch_search_cmd.force_meas = 0;
 
@@ -2366,17 +2365,8 @@ static void fmrx_pilot_cb(void)
 	union fmrx_ev_prams rx_ev_info;
 	struct fmtrx_msg_params msg_params = {0};
 	struct fmtrx_lld_aud_state audio_status;
-	/* s16 pilot = fmrx_get_pilot_ampl(); */
 
 	fmrx_get_audio_status(&audio_status);
-
-	/* if ((true == rx_state.pilot_found) &&
-	 *	(false == audio_status.is_stereo))
-	 *	fmdrv_info("%d, Pilot lost!!", pilot);
-	 * else if ((false == rx_state.pilot_found) &&
-	 *	(true == audio_status.is_stereo))
-	 *	fmdrv_info("FMR: %d, Pilot found!!", pilot);
-	 */
 
 	if (rx_state.pilot_found != audio_status.is_stereo) {
 		rx_state.pilot_found = audio_status.is_stereo;
@@ -2482,7 +2472,7 @@ static void fmrx_timer_cb(void *args)
 	struct fmtrx_msg_params msg_params;
 	struct fmtrx_rssi_report scan_array;
 
-	if (false == rx_state.af_eval_state)
+	if (!rx_state.af_eval_state)
 		return;
 
 	scan_array.freq = rx_state.freq;

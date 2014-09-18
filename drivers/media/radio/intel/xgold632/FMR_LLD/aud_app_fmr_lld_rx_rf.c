@@ -545,7 +545,7 @@ void fmr_stop_receiver(struct fmrx_state *state)
 	fmr_sys_power_enable(false, false);
 }
 
-void fmr_mute_wait()
+void fmr_mute_wait(void)
 {
 	struct fmtrx_lld_aud_state audio_state;
 
@@ -560,7 +560,7 @@ void fmr_mute_wait()
 
 		/* Volume not yet reached zero, sleep for a while */
 		fmr_sys_busy_wait(blkres * 160);
-	} while ((audio_state.audio_en == true) &&
+	} while ((audio_state.audio_en) &&
 		 ((audio_state.gains.audio_gain_l != 0) ||
 		 (audio_state.gains.audio_gain_r != 0)));
 
@@ -823,11 +823,11 @@ void fmtrx_enable_test_trace_int(s32 en)
 	fmtrx_enable_interrupts(IR_TRX_TRACE, en, CTX_THREAD);
 }
 
-void fmrx_set_agc_gain(s32 agc_enable, u16 gain_index)
+void fmrx_set_agc_gain(u8 agc_enable, u16 gain_index)
 {
 	struct fmtrx_agc_cmd agc_cmd_params = {0};
 
-	if (agc_enable == true)
+	if (agc_enable)
 		agc_cmd_params.agc_en = AGC_ENABLED;
 	else
 		agc_cmd_params.agc_en = AGC_DISABLED;

@@ -72,13 +72,6 @@
 #define PN_EST_SLOW (PN_EST_FAST*16)
 #endif
 
-/* Special seeking threshold around 104, */
-/* ActualThreshold = GivenThreshold + SEEK_THRES_AROUND_104 */
-/* Set to 0 to disable this feature */
-#if !defined(SeekingThresholdAround104)
-#define SEEK_THRES_AROUND_104 0 /* 15 dB higher than given threshold */
-#endif
-
 /* As the RSSI interrupt subscribeing in "Verbose" mode, the interrput keeps
  * being generated whenever the signal cross 2 verbose steps */
 #if !defined(RSSI_VERBOSE_STEP)
@@ -337,7 +330,7 @@ void fmr_clk_switch(struct fmrx_state *state);
 void fmr_setup_rssi_thresholds(struct fmrx_state *state);
 void fmr_ant_switch(struct fmrx_state *state);
 void fmtrx_enable_test_trace_int(s32 en);
-void fmrx_set_agc_gain(s32 agc_enable, u16 gain_index);
+void fmrx_set_agc_gain(u8 agc_enable, u16 gain_index);
 void fmr_send_ch_search_cmd(struct fmrx_state *state,
 	struct fmtrx_ch_search_cmd *ch_search_params);
 enum fmrx_ch_search_status fmr_check_ch_search_status(
