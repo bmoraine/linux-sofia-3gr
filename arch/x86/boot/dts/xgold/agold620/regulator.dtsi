@@ -1,5 +1,5 @@
 regulator_abb {
-	compatible = "xgold-reg";
+	compatible = "intel,xgold-reg";
 	intel,pmu-phys = < &pmu >;
 	intel,csc-phys = < &ABB_cgu >;
 	intel,regulators = <&abb_regulators>;

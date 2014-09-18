@@ -288,7 +288,7 @@
 
 #ifndef RECOVERY_KERNEL
 	accelerometer {
-		compatible = "stm,lsm303dlhc_acc";
+		compatible = "st,lsm303dlhc_acc";
 		reg = < 0x19 >;
 		interrupt-parent = <&eint>;
 		interrupts = < EINT_EXI12 XGOLD_IRQ_TYPE_LEVEL_HIGH >;
@@ -307,7 +307,7 @@
 #endif
 #ifndef RECOVERY_KERNEL
 	magnetometer {
-		compatible = "stm,lsm303dlhc_mag";
+		compatible = "st,lsm303dlhc_mag";
 		reg = < 0x1e >;
 		intel,axis-map = < 0 1 2 >;
 		intel,negate = < 0 0 0 >;
@@ -345,7 +345,7 @@
 #endif
 #ifndef RECOVERY_KERNEL
 	gyroscope {
-		compatible = "stm,l3gd20_gyr";
+		compatible = "st,l3gd20_gyr";
 		reg = < 0x6a >;
 		interrupt-parent = <&eint>;
 		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_RISING >;

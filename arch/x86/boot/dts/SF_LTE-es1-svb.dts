@@ -6,7 +6,7 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 	model = "intel,sofia_lte_soc-es1";
-	compatible = "sofia_lte_soc-svb", "intel,xgold";
+	compatible = "intel,sofia_lte_soc-svb", "intel,xgold";
 
 	#include "xgold/sofia_lte_soc/sofia_lte_soc.dtsi"
 	#include "xgold/sofia_lte_soc/irq.dtsi"
@@ -341,7 +341,7 @@
 	};
 
 	accelerometer {
-		compatible = "stm,lsm303dlhc_acc";
+		compatible = "st,lsm303dlhc_acc";
 		reg = < 0x19 >;
 		interrupt-parent = <&eint>;
 		interrupts = < EINT_EXI2 XGOLD_IRQ_TYPE_LEVEL_HIGH >;
@@ -359,7 +359,7 @@
 	};
 
 	magnetometer {
-		compatible = "stm,lsm303dlhc_mag";
+		compatible = "st,lsm303dlhc_mag";
 		reg = < 0x1e >;
 		intel,axis-map = < 0 1 2 >;
 		intel,negate = < 0 0 0 >;
@@ -372,7 +372,7 @@
 	};
 
 	gyroscope {
-		compatible = "stm,l3gd20_gyr";
+		compatible = "st,l3gd20_gyr";
 		reg = < 0x6a >;
 		interrupt-parent = <&eint>;
 		interrupts = < EINT_EXI7 XGOLD_IRQ_TYPE_EDGE_RISING >;

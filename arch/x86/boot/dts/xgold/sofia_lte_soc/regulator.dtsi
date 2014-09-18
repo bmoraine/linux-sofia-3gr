@@ -1,5 +1,5 @@
 regulator {
-	compatible = "xgold-reg";
+	compatible = "intel,xgold-reg";
 	intel,csc-phys = < &cgu>;
 	reg = < 0x4e >;
 	vdd1:ldo@0 {

@@ -1,5 +1,5 @@
 lmmc1:pm@0 {
-	compatible = "regulator-device-pm";
+	compatible = "intel,regulator-device-pm";
 	regulator-name = "lmmc1";
 	intel,table-len = < 4 >;
 	intel,table = < 1200000 1800000 2850000 2900000 >;
@@ -15,7 +15,7 @@ lmmc1:pm@0 {
 
 };
 lemmc:pm@1 {
-	compatible = "regulator-device-pm";
+	compatible = "intel,regulator-device-pm";
 	regulator-name = "lemmc";
 	regulator-min-microvolt = < 1200000 >;
 	regulator-max-microvolt = < 2900000 >;

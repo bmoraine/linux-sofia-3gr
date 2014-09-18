@@ -1,5 +1,5 @@
 regulator {
-	compatible = "xgold-reg";
+	compatible = "intel,xgold-reg";
 	reg = < 0xE4700a40 0x4
 		0xE6500500 0x32 >;
 	reg-names = "spcu", "pmu";

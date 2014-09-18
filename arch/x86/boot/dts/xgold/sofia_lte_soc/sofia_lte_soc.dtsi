@@ -523,7 +523,7 @@
 					};
 
 					usb_core:usb_core {
-						compatible = "synopsys,dwc3";
+						compatible = "snps,dwc3";
 						#size-cells = < 1 >;
 						#address-cells = < 0 >;
 						reg= < 0xE2D00000 0x80000 >;

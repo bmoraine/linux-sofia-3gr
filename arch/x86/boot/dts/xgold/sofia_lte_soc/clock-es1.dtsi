@@ -46,7 +46,7 @@ clocks {
 		intel,pll-status-mux = <131236 8 1>;
 	};
 	B_0_1:B_0_1 {
-		compatible = "DUMMYintel,xgold-pll";
+/*		compatible = "intel,xgold-pll";*/
 		#clock-cells = <0>;
 		clock-frequency= <1040000000>;
 		clock-output-names = "B_0_1";
@@ -63,7 +63,7 @@ clocks {
 		intel,pll-status-lock = <131232 1 1>;
 	};
 	C_0_1:C_0_1 {
-		compatible = "DUMMYintel,xgold-pll";
+/*		compatible = "intel,xgold-pll";*/
 		#clock-cells = <0>;
 		clock-frequency= <338000000>;
 		clock-output-names = "C_0_1";
@@ -78,7 +78,7 @@ clocks {
 		intel,pll-status-lock = <131232 2 1>;
 	};
 	F_0_1:F_0_1 {
-		compatible = "DUMMYintel,xgold-pll";
+/*		compatible = "intel,xgold-pll";*/
 		#clock-cells = <0>;
 		clock-frequency= <800000000>;
 		clock-output-names = "F_0_1";
@@ -141,7 +141,7 @@ clocks {
 		intel,pll-update = <131220 19 1>;
 	};
 	K_0_1:K_0_1 {
-		compatible = "DUMMYintel,xgold-pll";
+/*		compatible = "intel,xgold-pll";*/
 		#clock-cells = <0>;
 		clock-frequency= <598000000>;
 		clock-output-names = "K_0_1";
@@ -156,7 +156,7 @@ clocks {
 		intel,pll-status-lock = <131232 9 1>;
 	};
 	M_0_1:M_0_1 {
-		compatible = "DUMMYintel,xgold-pll";
+/*		compatible = "intel,xgold-pll";*/
 		#clock-cells = <0>;
 		clock-frequency= <400000000>;
 		clock-output-names = "M_0_1";
@@ -425,7 +425,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	A_3_5:A_3_5 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "A_3_5";
 		clocks = <&A_3_1>;
@@ -434,7 +434,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	A_3_6:A_3_6 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "A_3_6";
 		clocks = <&A_3_1>;
@@ -443,7 +443,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	A_4_2:A_4_2 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "A_4_2";
 		clocks = <&A_4_1>;
@@ -452,7 +452,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	A_4_4:A_4_4 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "A_4_4";
 		clocks = <&A_4_1>;
@@ -461,7 +461,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	A_5_2:A_5_2 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "A_5_2";
 		clocks = <&A_5_1>;
@@ -470,7 +470,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	A_6_2:A_6_2 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "A_6_2";
 		clocks = <&A_6_1>;
@@ -488,7 +488,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	A_6_5:A_6_5 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "A_6_5";
 		clocks = <&A_6_1>;
@@ -506,7 +506,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	A_7_5:A_7_5 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "A_7_5";
 		clocks = <&A_7_1>;
@@ -515,7 +515,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	B_0_2:B_0_2 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "B_0_2";
 		clocks = <&B_0_1>;
@@ -524,7 +524,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	B_0_3:B_0_3 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "B_0_3";
 		clocks = <&B_0_1>;
@@ -533,7 +533,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	B_0_4:B_0_4 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "B_0_4";
 		clocks = <&B_0_1>;
@@ -542,7 +542,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	C_0_2:C_0_2 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "C_0_2";
 		clocks = <&C_0_1>;
@@ -551,7 +551,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	F_0_2:F_0_2 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "F_0_2";
 		clocks = <&F_0_1>;
@@ -560,7 +560,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	F_0_3:F_0_3 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "F_0_3";
 		clocks = <&F_0_1>;
@@ -569,7 +569,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	G_0_2:G_0_2 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "G_0_2";
 		clocks = <&G_0_1>;
@@ -578,7 +578,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	G_0_3:G_0_3 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "G_0_3";
 		clocks = <&G_0_1>;
@@ -596,7 +596,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	I_0_25:I_0_25 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "I_0_25";
 		clocks = <&I_0_1>;
@@ -605,7 +605,7 @@ clocks {
 		intel,mult = < 1 >;
 	};
 	M_0_2:M_0_2 {
-		compatible = "DUMMYintel,xgold-fixed-divider";
+/*		compatible = "intel,xgold-fixed-divider";*/
 		#clock-cells = <0>;
 		clock-output-names = "M_0_2";
 		clocks = <&M_0_1>;
@@ -626,7 +626,7 @@ clocks {
 		intel,mux-select = <131584 0 8>;
 	};
 	MUX_3G_124M:MUX_3G_124M {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_3g_124m";
 		clocks = < &OFF >, < &A_2_2 >, < &IN_0_1 > ;
@@ -639,7 +639,7 @@ clocks {
 		intel,mux-select = <131708 0 3>;
 	};
 	MUX_3G_178M:MUX_3G_178M {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_3g_178m";
 		clocks = < &OFF >, < &A_4_2 >, < &IN_0_1 > ;
@@ -652,7 +652,7 @@ clocks {
 		intel,mux-select = <131712 0 3>;
 	};
 	MUX_3G_208M:MUX_3G_208M {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_3g_208m";
 		clocks = < &OFF >, < &A_0_2 >, < &IN_0_1 > ;
@@ -665,7 +665,7 @@ clocks {
 		intel,mux-select = <131716 0 3>;
 	};
 	MUX_3G_DSP:MUX_3G_DSP {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_3g_dsp";
 		clocks = < &OFF >, < &IN_0_1 >, < &A_1_8 >, < &A_1_4 >, < &A_2_2 >, < &A_1_2 >, < &A_4_2 >, < &I_0_1 >, < &C_0_1 > ;
@@ -678,7 +678,7 @@ clocks {
 		intel,mux-select = <131724 0 8>;
 	};
 	MUX_3G_HSORX:MUX_3G_HSORX {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_3g_hsorx";
 		clocks = < &OFF >, < &A_2_4 >, < &A_2_2 >, < &H_0_1 > ;
@@ -691,7 +691,7 @@ clocks {
 		intel,mux-select = <131728 0 8>;
 	};
 	MUX_3G_SEARCHER:MUX_3G_SEARCHER {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_3g_searcher";
 		clocks = < &OFF >, < &A_2_4 >, < &A_2_2 >, < &A_4_2 >, < &A_0_2 > ;
@@ -704,7 +704,7 @@ clocks {
 		intel,mux-select = <131732 0 8>;
 	};
 	MUX_3G_SYSTEM:MUX_3G_SYSTEM {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_3g_system";
 		clocks = < &OFF >, < &IN_0_1 >, < &A_2_2 >, < &A_5_2 >, < &A_1_2 >, < &A_0_2 >, < &I_0_1 >, < &H_0_1 > ;
@@ -717,7 +717,7 @@ clocks {
 		intel,mux-select = <131736 0 8>;
 	};
 	MUX_3G_TEAK:MUX_3G_TEAK {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_3g_teak";
 		clocks = < &OFF >, < &IN_0_1 >, < &A_2_2 >, < &A_0_2 >, < &H_0_1 >, < &C_0_1 >, < &A_0_1 >, < &A_1_2 >, < &G_0_1 > ;
@@ -730,7 +730,7 @@ clocks {
 		intel,mux-select = <131720 0 8>;
 	};
 	MUX_AHB_MACOM:MUX_AHB_MACOM {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_ahb_macom";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_0_4 >, < &A_2_2 >, < &A_6_4 >, < &A_2_4 >, < &A_0_8 >, < &A_1_4 > ;
@@ -744,7 +744,7 @@ clocks {
 		intel,mux-select = <131700 0 8>;
 	};
 	MUX_ATCLK:MUX_ATCLK {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_atclk";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_5_2 >, < &C_0_2 >, < &A_4_2 >, < &G_0_2 >, < &H_0_1 >, < &A_1_1 > ;
@@ -760,7 +760,7 @@ clocks {
 		intel,mux-select = <131692 0 8>;
 	};
 	MUX_CORESIGHT:MUX_CORESIGHT {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_coresight";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &H_0_1 >, < &A_1_1 >, < &C_0_1 >, < &G_0_1 >, < &G_0_1 >, < &A_0_1 > ;
@@ -774,7 +774,7 @@ clocks {
 		intel,mux-select = <131672 0 8>;
 	};
 	MUX_CPU:MUX_CPU {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_cpu";
 		clocks = < &OFF >, < &RTC_0_1 >, < &A_0_2 >, < &H_0_1 >, < &B_0_2 >, < &B_0_1 >, < &G_0_1 >, < &A_1_1 >, < &IN_0_1 > ;
@@ -873,7 +873,7 @@ clocks {
 		intel,mux-select = <131808 0 8>;
 	};
 	MUX_DSP_2G_I:MUX_DSP_2G_I {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_dsp_2g_i";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &H_0_1 >, < &C_0_1 >, < &A_4_2 >, < &A_5_2 >, < &A_1_2 >, < &A_0_2 > ;
@@ -887,7 +887,7 @@ clocks {
 		intel,mux-select = <131604 0 8 131604 8 8 131604 16 8>;
 	};
 	MUX_DSP_2G_O:MUX_DSP_2G_O {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_dsp_2g_o";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_6_2 >, < &A_0_4 >, < &A_4_2 >, < &A_5_2 >, < &A_1_2 >, < &A_0_2 > ;
@@ -901,7 +901,7 @@ clocks {
 		intel,mux-select = <131608 0 8 131608 8 8 131608 16 8>;
 	};
 	MUX_DSP_AUD_F:MUX_DSP_AUD_F {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_dsp_aud_f";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_6_2 >, < &A_0_4 >, < &A_4_2 >, < &A_5_2 >, < &A_1_2 >, < &A_0_2 > ;
@@ -915,7 +915,7 @@ clocks {
 		intel,mux-select = <131612 0 8 131612 8 8 131612 16 8>;
 	};
 	MUX_DSP_AUD_S:MUX_DSP_AUD_S {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_dsp_aud_s";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_6_2 >, < &A_0_4 >, < &A_4_2 >, < &A_5_2 >, < &A_1_2 >, < &A_0_2 > ;
@@ -943,7 +943,7 @@ clocks {
 		intel,mux-select = <131592 0 8>;
 	};
 	MUX_LTE_CTRL_CSC:MUX_LTE_CTRL_CSC {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_lte_ctrl_csc";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_0_4 >, < &A_2_2 >, < &A_1_2 >, < &A_0_2 > ;
@@ -957,7 +957,7 @@ clocks {
 		intel,mux-select = <131744 0 8>;
 	};
 	MUX_LTE_CTRL_FE:MUX_LTE_CTRL_FE {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_lte_ctrl_fe";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_0_4 >, < &A_2_2 >, < &A_1_2 >, < &A_0_2 > ;
@@ -971,7 +971,7 @@ clocks {
 		intel,mux-select = <131752 0 8>;
 	};
 	MUX_LTE_CTRL_IRX:MUX_LTE_CTRL_IRX {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_lte_ctrl_irx";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_0_4 >, < &A_2_2 >, < &A_1_2 >, < &A_0_2 > ;
@@ -985,7 +985,7 @@ clocks {
 		intel,mux-select = <131756 0 8>;
 	};
 	MUX_LTE_CTRL_L1CC:MUX_LTE_CTRL_L1CC {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_lte_ctrl_l1cc";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_0_4 >, < &A_2_2 >, < &A_1_2 >, < &A_0_2 > ;
@@ -999,7 +999,7 @@ clocks {
 		intel,mux-select = <131748 0 8>;
 	};
 	MUX_LTE_CTRL_ORX:MUX_LTE_CTRL_ORX {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_lte_ctrl_orx";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_0_4 >, < &A_2_2 >, < &A_1_2 >, < &A_0_2 > ;
@@ -1013,7 +1013,7 @@ clocks {
 		intel,mux-select = <131760 0 8>;
 	};
 	MUX_LTE_SYS_CSC:MUX_LTE_SYS_CSC {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_lte_sys_csc";
 		clocks = < &OFF >, < &IN_0_1 >, < &A_0_4 >, < &A_1_2 >, < &A_0_2 >, < &H_0_1 > ;
@@ -1026,7 +1026,7 @@ clocks {
 		intel,mux-select = <131768 0 8>;
 	};
 	MUX_LTE_SYS_FE:MUX_LTE_SYS_FE {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_lte_sys_fe";
 		clocks = < &OFF >, < &IN_0_1 >, < &A_0_4 >, < &A_1_2 >, < &A_0_2 >, < &H_0_1 > ;
@@ -1039,7 +1039,7 @@ clocks {
 		intel,mux-select = <131764 0 8>;
 	};
 	MUX_LTE_SYS_ODRX:MUX_LTE_SYS_ODRX {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_lte_sys_odrx";
 		clocks = < &OFF >, < &IN_0_1 >, < &A_0_4 >, < &A_1_2 >, < &A_0_2 >, < &H_0_1 >, < &A_1_1 >, < &C_0_1 > ;
@@ -1052,7 +1052,7 @@ clocks {
 		intel,mux-select = <131776 0 8>;
 	};
 	MUX_LTE_SYS_RX:MUX_LTE_SYS_RX {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_lte_sys_rx";
 		clocks = < &OFF >, < &IN_0_1 >, < &A_0_4 >, < &A_1_2 >, < &A_0_2 >, < &H_0_1 > ;
@@ -1065,7 +1065,7 @@ clocks {
 		intel,mux-select = <131772 0 8>;
 	};
 	MUX_LTE_TDEC:MUX_LTE_TDEC {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_lte_tdec";
 		clocks = < &OFF >, < &A_0_4 >, < &A_2_2 >, < &A_1_2 >, < &A_0_2 >, < &H_0_1 >, < &C_0_1 >, < &G_0_1 >, < &A_0_1 > ;
@@ -1078,7 +1078,7 @@ clocks {
 		intel,mux-select = <131780 0 8>;
 	};
 	MUX_LTE_TOP:MUX_LTE_TOP {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_lte_top";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_0_4 >, < &A_0_2 > ;
@@ -1092,7 +1092,7 @@ clocks {
 		intel,mux-select = <131740 0 8>;
 	};
 	MUX_MACPHY_TILE:MUX_MACPHY_TILE {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_macphy_tile";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_0_4 >, < &A_1_2 >, < &A_4_2 >, < &A_0_2 >, < &A_2_1 >, < &I_0_1 > ;
@@ -1107,7 +1107,7 @@ clocks {
 		intel,mux-select = <131704 0 8>;
 	};
 	MUX_MC2:MUX_MC2 {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_mc2";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_0_2 >, < &C_0_1 >, < &G_0_1 >, < &F_0_3 >, < &G_0_1 >, < &A_0_1 > ;
@@ -1165,7 +1165,7 @@ clocks {
 		intel,mux-select = <131628 0 8>;
 	};
 	MUX_OUT_2:MUX_OUT_2 {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_out_2";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_0_2 >, < &A_2_2 >, < &A_4_2 >, < &A_3_1 >, < &A_5_2 >, < &A_3_2 > ;
@@ -1207,7 +1207,7 @@ clocks {
 		intel,mux-select = <131644 0 8>;
 	};
 	MUX_SYSTRACE:MUX_SYSTRACE {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_systrace";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &G_0_2 >, < &H_0_1 >, < &C_0_1 >, < &G_0_1 >, < &A_1_1 >, < &A_0_1 > ;
@@ -1221,7 +1221,7 @@ clocks {
 		intel,mux-select = <131676 0 8>;
 	};
 	MUX_TDS_TH:MUX_TDS_TH {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_tds_th";
 		clocks = < &OFF >, < &A_0_4 >, < &A_2_2 >, < &A_5_2 >, < &A_1_2 > ;
@@ -1234,7 +1234,7 @@ clocks {
 		intel,mux-select = <132116 0 8>;
 	};
 	MUX_TDS_BUS:MUX_TDS_BUS {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_tds_bus";
 		clocks = < &OFF >, < &A_0_6 >, < &A_3_2 >, < &A_0_4 >, < &A_1_2 >, < &A_0_8 > ;
@@ -1247,7 +1247,7 @@ clocks {
 		intel,mux-select = <132120 0 8>;
 	};
 	MUX_TPIU_OUT:MUX_TPIU_OUT {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_tpiu_out";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &H_0_1 >, < &A_1_1 >, < &C_0_1 >, < &G_0_1 >, < &G_0_1 > ;
@@ -1261,7 +1261,7 @@ clocks {
 		intel,mux-select = <131688 0 8>;
 	};
 	MUX_TRACEOUT1:MUX_TRACEOUT1 {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_traceout1";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &H_0_1 >, < &A_1_1 >, < &C_0_1 >, < &G_0_1 >, < &G_0_1 >, < &A_0_2 > ;
@@ -1275,7 +1275,7 @@ clocks {
 		intel,mux-select = <131680 0 8>;
 	};
 	MUX_TRACEOUT2:MUX_TRACEOUT2 {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_traceout2";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_5_2 >, < &A_1_2 >, < &A_4_2 >, < &A_0_2 >, < &A_1_4 >, < &A_0_4 > ;
@@ -1303,7 +1303,7 @@ clocks {
 		intel,mux-select = <131660 0 8>;
 	};
 	MUX_USIM:MUX_USIM {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_usim";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_1_4 > ;
@@ -1317,7 +1317,7 @@ clocks {
 		intel,mux-select = <131664 0 8>;
 	};
 	MUX_USPC:MUX_USPC {
-		compatible = "DUMMYintel,xgold-mux";
+/*		compatible = "intel,xgold-mux";*/
 		#clock-cells = <0>;
 		clock-output-names = "mclk_uspc";
 		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_0_4 >, < &A_1_2 >, < &A_0_2 > ;
@@ -1344,7 +1344,7 @@ clocks {
 		intel,mux-select = <131596 0 8>;
 	};
 	clk_26s_gated:clk_26s_gated {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_26s_gated";
 		clocks = <&IN_0_1>;
@@ -1354,7 +1354,7 @@ clocks {
 		intel,block-disable = <786480 22 1>;
 	};
 	clk_gser:clk_gser {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_gser";
 		clocks = <&IN_0_1>;
@@ -1364,7 +1364,7 @@ clocks {
 		intel,block-disable = <786480 15 1>;
 	};
 	clk_modtim:clk_modtim {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_modtim";
 		clocks = <&IN_0_1>;
@@ -1374,7 +1374,7 @@ clocks {
 		intel,block-disable = <131344 3 1>;
 	};
 	clk_26m_age:clk_26m_age {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_26m_age";
 		clocks = <&MUX_26M>;
@@ -1384,7 +1384,7 @@ clocks {
 		intel,block-disable = <131340 0 1>;
 	};
 	clk_26m_dsp_2g_i:clk_26m_dsp_2g_i {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_26m_dsp_2g_i";
 		clocks = <&MUX_26M>;
@@ -1394,7 +1394,7 @@ clocks {
 		intel,block-disable = <131340 1 1>;
 	};
 	clk_26m_dsp_2g_o:clk_26m_dsp_2g_o {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_26m_dsp_2g_o";
 		clocks = <&MUX_26M>;
@@ -1404,7 +1404,7 @@ clocks {
 		intel,block-disable = <131340 2 1>;
 	};
 	clk_26m_dsp_aud_f:clk_26m_dsp_aud_f {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_26m_dsp_aud_f";
 		clocks = <&MUX_26M>;
@@ -1414,7 +1414,7 @@ clocks {
 		intel,block-disable = <131340 3 1>;
 	};
 	clk_26m_dsp_aud_s:clk_26m_dsp_aud_s {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_26m_dsp_aud_s";
 		clocks = <&MUX_26M>;
@@ -1434,7 +1434,7 @@ clocks {
 		intel,block-disable = <131340 5 1>;
 	};
 	clk_cap0:clk_cap0 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_cap0";
 		clocks = <&MUX_26M>;
@@ -1444,7 +1444,7 @@ clocks {
 		intel,block-disable = <131340 13 1>;
 	};
 	clk_cap1:clk_cap1 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_cap1";
 		clocks = <&MUX_26M>;
@@ -1454,7 +1454,7 @@ clocks {
 		intel,block-disable = <131340 14 1>;
 	};
 	clk_cap2:clk_cap2 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_cap2";
 		clocks = <&MUX_26M>;
@@ -1464,7 +1464,7 @@ clocks {
 		intel,block-disable = <131352 14 1>;
 	};
 	clk_gptu0:clk_gptu0 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_gptu0";
 		clocks = <&MUX_26M>;
@@ -1474,7 +1474,7 @@ clocks {
 		intel,block-disable = <131340 23 1>;
 	};
 	clk_gptu1:clk_gptu1 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_gptu1";
 		clocks = <&MUX_26M>;
@@ -1484,7 +1484,7 @@ clocks {
 		intel,block-disable = <131340 24 1>;
 	};
 	clk_mc_ctrl:clk_mc_ctrl {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_mc_ctrl";
 		clocks = <&MUX_26M>;
@@ -1494,7 +1494,7 @@ clocks {
 		intel,block-disable = <131340 27 1>;
 	};
 	clk_mc3:clk_mc3 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_mc3";
 		clocks = <&MUX_26M>;
@@ -1504,7 +1504,7 @@ clocks {
 		intel,block-disable = <131340 30 1>;
 	};
 	int_dsp_aud_r:int_dsp_aud_r {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "int_dsp_aud_r";
 		clocks = <&MUX_26M>;
@@ -1514,7 +1514,7 @@ clocks {
 		intel,block-disable = <131344 7 1>;
 	};
 	clk_ahb_3G:clk_ahb_3G {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_ahb_3G";
 		clocks = <&MUX_AHB_MACOM>;
@@ -1529,7 +1529,7 @@ clocks {
 		intel,block-divider-activate = <131360 6 1>;
 	};
 	clk_3g_atclk:clk_3g_atclk {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_3g_atclk";
 		clocks = <&MUX_ATCLK>;
@@ -1539,7 +1539,7 @@ clocks {
 		intel,block-disable = <131340 22 1>;
 	};
 	clk_cpu_atclk:clk_cpu_atclk {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_cpu_atclk";
 		clocks = <&MUX_ATCLK>;
@@ -1549,7 +1549,7 @@ clocks {
 		intel,block-disable = <131340 20 1>;
 	};
 	clk_uspc_atclk:clk_uspc_atclk {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_uspc_atclk";
 		clocks = <&MUX_ATCLK>;
@@ -1559,7 +1559,7 @@ clocks {
 		intel,block-disable = <131340 21 1>;
 	};
 	clk_coresight:clk_coresight {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_coresight";
 		clocks = <&MUX_CORESIGHT>;
@@ -1574,7 +1574,7 @@ clocks {
 		intel,block-divider-activate = <131364 5 1>;
 	};
 	pclkdbg:pclkdbg {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "pclkdbg";
 		clocks = <&MUX_CORESIGHT>;
@@ -1614,7 +1614,7 @@ clocks {
 		intel,block-disable = <131348 6 1>;
 	};
 	clk_cpu_kernel:clk_cpu_kernel {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_cpu_kernel";
 		clocks = <&MUX_CPU>;
@@ -1628,7 +1628,7 @@ clocks {
 		intel,block-divider-activate = <131360 9 1>;
 	};
 	clk_czclk:clk_czclk {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_czclk";
 		clocks = <&MUX_CPU>;
@@ -1660,7 +1660,7 @@ clocks {
 		intel,block-divider-activate = <131360 10 1>;
 	};
 	clk_L2_NoC:clk_L2_NoC {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_L2_NoC";
 		clocks = <&MUX_L1L2NOC>;
@@ -1677,7 +1677,7 @@ clocks {
 		intel,block-divider-activate = <131360 11 1>;
 	};
 	clk_lmu:clk_lmu {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_lmu";
 		clocks = <&MUX_L1L2NOC>;
@@ -1687,7 +1687,7 @@ clocks {
 		intel,block-disable = <131344 25 1>;
 	};
 	clk_pdb_en:clk_pdb_en {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_pdb_en";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -1702,7 +1702,7 @@ clocks {
 		intel,block-divider-activate = <131364 22 1>;
 	};
 	clk_pdb_cfg_en:clk_pdb_cfg_en {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_pdb_cfg_en";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -1757,7 +1757,7 @@ clocks {
 		intel,block-disable = <131356 11 1>;
 	};
 	clk_l1l2noc:clk_l1l2noc {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_l1l2noc";
 		clocks = <&MUX_L1L2NOC>;
@@ -1767,7 +1767,7 @@ clocks {
 		intel,block-disable = <131356 0 1>;
 	};
 	clk_dsp_2g_i:clk_dsp_2g_i {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_dsp_2g_i";
 		clocks = <&MUX_DSP_2G_I>;
@@ -1782,7 +1782,7 @@ clocks {
 		intel,block-divider-activate = <131276 30 1>;
 	};
 	clk_dsp_2g_o:clk_dsp_2g_o {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_dsp_2g_o";
 		clocks = <&MUX_DSP_2G_O>;
@@ -1797,7 +1797,7 @@ clocks {
 		intel,block-divider-activate = <131276 30 1>;
 	};
 	clk_dsp_aud_f:clk_dsp_aud_f {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_dsp_aud_f";
 		clocks = <&MUX_DSP_AUD_F>;
@@ -1812,7 +1812,7 @@ clocks {
 		intel,block-divider-activate = <131276 30 1>;
 	};
 	clk_dsp_aud_s:clk_dsp_aud_s {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_dsp_aud_s";
 		clocks = <&MUX_DSP_AUD_S>;
@@ -1827,7 +1827,7 @@ clocks {
 		intel,block-divider-activate = <131276 30 1>;
 	};
 	clk_cpu_periph:clk_cpu_periph {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_cpu_periph";
 		clocks = <&MUX_FIX1>;
@@ -1841,7 +1841,7 @@ clocks {
 		intel,block-divider-activate = <131276 30 1>;
 	};
 	clk_dap_hclk:clk_dap_hclk {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_dap_hclk";
 		clocks = <&MUX_FIX1>;
@@ -1856,7 +1856,7 @@ clocks {
 		intel,block-divider-activate = <131364 26 1>;
 	};
 	clk_gc:clk_gc {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_gc";
 		clocks = <&MUX_FIX1>;
@@ -1943,7 +1943,7 @@ clocks {
 		intel,block-divider-activate = <131372 4 1>;
 	};
 	clk_ms_i2s1:clk_ms_i2s1 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_ms_i2s1";
 		clocks = <&MUX_FIX1>;
@@ -1958,7 +1958,7 @@ clocks {
 		intel,block-divider-activate = <131364 0 1>;
 	};
 	clk_ms_i2s2:clk_ms_i2s2 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_ms_i2s2";
 		clocks = <&MUX_FIX1>;
@@ -1973,7 +1973,7 @@ clocks {
 		intel,block-divider-activate = <131364 1 1>;
 	};
 	clk_ms_i2s3:clk_ms_i2s3 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_ms_i2s3";
 		clocks = <&MUX_FIX1>;
@@ -2002,7 +2002,7 @@ clocks {
 		intel,block-divider-activate = <131368 14 1>;
 	};
 	clk_usif1:clk_usif1 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_usif1";
 		clocks = <&MUX_FIX1>;
@@ -2017,7 +2017,7 @@ clocks {
 		intel,block-divider-activate = <131360 28 1>;
 	};
 	clk_usif2:clk_usif2 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_usif2";
 		clocks = <&MUX_FIX1>;
@@ -2062,7 +2062,7 @@ clocks {
 		intel,block-divider-activate = <131360 31 1>;
 	};
 	clk_usif7:clk_usif7 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_usif7";
 		clocks = <&MUX_FIX1>;
@@ -2076,7 +2076,7 @@ clocks {
 		intel,block-divider-activate = <131372 14 1>;
 	};
 	clk_ahb_lte:clk_ahb_lte {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_ahb_lte";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2091,7 +2091,7 @@ clocks {
 		intel,block-divider-activate = <131360 7 1>;
 	};
 	clk_macphy_tile0:clk_macphy_tile0 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_macphy_tile0";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2106,7 +2106,7 @@ clocks {
 		intel,block-divider-activate = <131360 17 1>;
 	};
 	clk_macphy_tile1:clk_macphy_tile1 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_macphy_tile1";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2121,7 +2121,7 @@ clocks {
 		intel,block-divider-activate = <131360 18 1>;
 	};
 	clk_macphy_tile2:clk_macphy_tile2 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_macphy_tile2";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2136,7 +2136,7 @@ clocks {
 		intel,block-divider-activate = <131360 19 1>;
 	};
 	clk_macphy_tile3:clk_macphy_tile3 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_macphy_tile3";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2151,7 +2151,7 @@ clocks {
 		intel,block-divider-activate = <131360 20 1>;
 	};
 	clk_macphy_tile4:clk_macphy_tile4 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_macphy_tile4";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2166,7 +2166,7 @@ clocks {
 		intel,block-divider-activate = <131360 21 1>;
 	};
 	clk_macphy_tile5:clk_macphy_tile5 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_macphy_tile5";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2181,7 +2181,7 @@ clocks {
 		intel,block-divider-activate = <131360 22 1>;
 	};
 	clk_macphy_tile6:clk_macphy_tile6 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_macphy_tile6";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2196,7 +2196,7 @@ clocks {
 		intel,block-divider-activate = <131360 16 1>;
 	};
 	clk_macphy_trc_sub_arbiter:clk_macphy_trc_sub_arbiter {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_macphy_trc_sub_arbiter";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2211,7 +2211,7 @@ clocks {
 		intel,block-divider-activate = <131368 6 1>;
 	};
 	clk_MODEM_NoC:clk_MODEM_NoC {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_MODEM_NoC";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2226,7 +2226,7 @@ clocks {
 		intel,block-divider-activate = <131360 13 1>;
 	};
 	clk_MODEM_NoC_ltel1ctrl:clk_MODEM_NoC_ltel1ctrl {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_MODEM_NoC_ltel1ctrl";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2241,7 +2241,7 @@ clocks {
 		intel,block-divider-activate = <131360 12 1>;
 	};
 	clk_mc2:clk_mc2 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_mc2";
 		clocks = <&MUX_MC2>;
@@ -2306,7 +2306,7 @@ clocks {
 		intel,block-disable = <131344 1 1>;
 	};
 	clk_systrace:clk_systrace {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_systrace";
 		clocks = <&MUX_SYSTRACE>;
@@ -2321,7 +2321,7 @@ clocks {
 		intel,block-divider-activate = <131364 4 1>;
 	};
 	clk_tpiu_out:clk_tpiu_out {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_tpiu_out";
 		clocks = <&MUX_TPIU_OUT>;
@@ -2336,7 +2336,7 @@ clocks {
 		intel,block-divider-activate = <131364 11 1>;
 	};
 	clk_mtm1:clk_mtm1 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_mtm1";
 		clocks = <&MUX_TRACEOUT1>;
@@ -2351,7 +2351,7 @@ clocks {
 		intel,block-divider-activate = <131364 2 1>;
 	};
 	clk_mtm2:clk_mtm2 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_mtm2";
 		clocks = <&MUX_TRACEOUT2>;
@@ -2381,7 +2381,7 @@ clocks {
 		intel,block-divider-activate = <131364 13 1>;
 	};
 	clk_usim:clk_usim {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_usim";
 		clocks = <&MUX_USIM>;
@@ -2396,7 +2396,7 @@ clocks {
 		intel,block-divider-activate = <131276 30 1>;
 	};
 	clk_usim2:clk_usim2 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_usim2";
 		clocks = <&MUX_USIM>;
@@ -2411,7 +2411,7 @@ clocks {
 		intel,block-divider-activate = <131276 30 1>;
 	};
 	clk_ahb_per4:clk_ahb_per4 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_ahb_per4";
 		clocks = <&MUX_USPC>;
@@ -2423,7 +2423,7 @@ clocks {
 		intel,block-divider-activate = <131360 4 1>;
 	};
 	clk_ahb_per5:clk_ahb_per5 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_ahb_per5";
 		clocks = <&MUX_USPC>;
@@ -2438,7 +2438,7 @@ clocks {
 		intel,block-divider-activate = <131360 5 1>;
 	};
 	clk_dma2ch:clk_dma2ch {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_dma2ch";
 		clocks = <&MUX_USPC>;
@@ -2453,7 +2453,7 @@ clocks {
 		intel,block-divider-activate = <131360 8 1>;
 	};
 	clk_dma2ch_2:clk_dma2ch_2 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_dma2ch_2";
 		clocks = <&MUX_L1L2NOC>;
@@ -2468,7 +2468,7 @@ clocks {
 		intel,block-divider-activate = <131360 24 1>;
 	};
 	clk_swtrace0:clk_swtrace0 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_swtrace0";
 		clocks = <&MUX_L1L2NOC>;
@@ -2483,7 +2483,7 @@ clocks {
 		intel,block-divider-activate = <131364 30 1>;
 	};
 	clk_uspc_NoC:clk_uspc_NoC {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_uspc_NoC";
 		clocks = <&MUX_USPC>;
@@ -2557,7 +2557,7 @@ clocks {
 		intel,block-disable = <131356 16 1>;
 	};
 	clk_ahb_per3:clk_ahb_per3 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_ahb_per3";
 		clocks = <&MUX_VSCALE>;
@@ -2572,7 +2572,7 @@ clocks {
 		intel,block-divider-activate = <131360 3 1>;
 	};
 	clk_ahb_per3_usbfs:clk_ahb_per3_usbfs {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_ahb_per3_usbfs";
 		clocks = <&MUX_VSCALE>;
@@ -2582,7 +2582,7 @@ clocks {
 		intel,block-disable = <131340 11 1>;
 	};
 	clk_ceu:clk_ceu {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_ceu";
 		clocks = <&MUX_USPC>;
@@ -2597,7 +2597,7 @@ clocks {
 		intel,block-divider-activate = <131364 21 1>;
 	};
 	clk_guciph:clk_guciph {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_guciph";
 		clocks = <&MUX_VSCALE>;
@@ -2612,7 +2612,7 @@ clocks {
 		intel,block-divider-activate = <131364 31 1>;
 	};
 	clk_tds_ahb:clk_tds_ahb {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_tds_ahb";
 		clocks = <&MUX_MACPHY_TILE>;
@@ -2627,7 +2627,7 @@ clocks {
 		intel,block-divider-activate = <131360 26 1>;
 	};
 	clk_out_0:clk_out_0 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_out_0";
 		clocks = <&MUX_OUT_0>;
@@ -2639,7 +2639,7 @@ clocks {
 		intel,block-divider-activate = <131276 30 1>;
 	};
 	clk_out_1:clk_out_1 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_out_1";
 		clocks = <&MUX_OUT_1>;
@@ -2651,7 +2651,7 @@ clocks {
 		intel,block-divider-activate = <131276 30 1>;
 	};
 	clk_out_2:clk_out_2 {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "clk_out_2";
 		clocks = <&MUX_OUT_2>;
@@ -2663,7 +2663,7 @@ clocks {
 		intel,block-divider-activate = <131276 30 1>;
 	};
 	pmu_clk_32k:pmu_clk_32k {
-		compatible = "DUMMYintel,xgold-block-clock";
+/*		compatible = "intel,xgold-block-clock";*/
 		#clock-cells = <0>;
 		clock-output-names = "pmu_clk_32k";
 		clocks = <&RTC_0_1>;
