@@ -280,7 +280,7 @@ static int reg_device_pm_remove(struct platform_device *pdev)
 
 #if defined(CONFIG_OF)
 static const struct of_device_id regulator_device_pm_of_match[] = {
-	{ .compatible = "regulator-device-pm", },
+	{ .compatible = "intel,regulator-device-pm", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, regulator_device_of_match);

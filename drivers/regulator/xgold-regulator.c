@@ -137,7 +137,7 @@ static int xgold_reg_generic_probe(struct device *dev, void __iomem
 	unsigned ret = 0;
 
 
-	if (of_device_is_compatible(np, "xgold-reg")) {
+	if (of_device_is_compatible(np, "intel,xgold-reg")) {
 		struct device_node *reg_node = NULL;
 
 		np_regs = of_parse_phandle(np, "intel,regulators", 0);
@@ -234,7 +234,7 @@ static int xgoldreg_platform_probe(struct platform_device *pdev)
 	int i = 0;
 
 	/* Parse regulator node and register regulators */
-	if (of_device_is_compatible(np, "xgold-reg")) {
+	if (of_device_is_compatible(np, "intel,xgold-reg")) {
 		void __iomem *spcu_hw_base;
 		void __iomem *pmu_hw_base;
 		struct resource *res;
@@ -465,7 +465,7 @@ static const struct of_device_id xgold_reg_of_match[] = {
 	 .compatible = "intel,ldo",
 	 },
 	{
-	 .compatible = "xgold-reg",
+	 .compatible = "intel,xgold-reg",
 	 },
 	{}
 };
@@ -484,7 +484,7 @@ static struct platform_driver xgoldreg_driver = {
 
 #ifdef CONFIG_I2C
 static const struct i2c_device_id xgold_reg_i2c_id[] = {
-	{"xgold-reg", 0},
+	{"intel,xgold-reg", 0},
 	{}
 };
 
