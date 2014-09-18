@@ -412,6 +412,16 @@ int dcc_core_remove(struct platform_device *pdev)
 	if (!pdata)
 		return -EINVAL;
 
+	/* Destroy workqueues */
+	flush_workqueue(pdata->vsync_wq);
+	destroy_workqueue(pdata->vsync_wq);
+
+	flush_workqueue(pdata->acq_wq);
+	destroy_workqueue(pdata->acq_wq);
+
+	flush_workqueue(pdata->eof_wq);
+	destroy_workqueue(pdata->eof_wq);
+
 	ret = dcc_core_hwstop(pdata);
 	if (ret != 0)
 		dcc_err("Error during HAL initialization\n");
@@ -425,16 +435,6 @@ int dcc_core_remove(struct platform_device *pdev)
 #ifdef CONFIG_XGOLD_DCC_SYSFS
 	dcc_sysfs_delete(&pdev->dev);
 #endif
-
-	/* Destroy workqueues */
-	flush_workqueue(pdata->vsync_wq);
-	destroy_workqueue(pdata->vsync_wq);
-
-	flush_workqueue(pdata->acq_wq);
-	destroy_workqueue(pdata->acq_wq);
-
-	flush_workqueue(pdata->eof_wq);
-	destroy_workqueue(pdata->eof_wq);
 
 	/* release registers memory */
 	iounmap(pdata->reg.vbase);
@@ -457,6 +457,10 @@ int dcc_core_suspend(struct platform_device *pdev)
 	struct dcc_drvdata *pdata =
 		(struct dcc_drvdata *)platform_get_drvdata(pdev);
 
+	flush_workqueue(pdata->acq_wq);
+	flush_workqueue(pdata->vsync_wq);
+	flush_workqueue(pdata->eof_wq);
+
 	/* suspend display */
 	ret = dcc_display_suspend(pdata);
 	if (ret != 0)
@@ -465,10 +469,6 @@ int dcc_core_suspend(struct platform_device *pdev)
 	ret = dcc_core_hwstop(pdata);
 
 	dcc_set_pinctrl_state(&pdev->dev, pdata->pins_sleep);
-
-	flush_workqueue(pdata->vsync_wq);
-	flush_workqueue(pdata->acq_wq);
-	flush_workqueue(pdata->eof_wq);
 
 	return ret;
 }
