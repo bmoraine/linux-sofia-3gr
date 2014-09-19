@@ -36,6 +36,17 @@
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
 #include <linux/fs.h>
+#ifdef CONFIG_CIF_ISP20_REG_TRACE
+#include <stdarg.h>
+
+static struct {
+	char *reg_trace;
+	loff_t reg_trace_read_pos;
+	loff_t reg_trace_write_pos;
+	size_t reg_trace_max_size;
+	void __iomem *base_addr;
+} cif_isp20_reg_trace;
+#endif
 #endif
 
 struct cif_isp20_pltfrm_csi_config {
@@ -61,6 +72,9 @@ struct cif_isp20_pltfrm_data {
 		struct dentry *dir;
 		struct dentry *csi0_file;
 		struct dentry *csi1_file;
+#ifdef CONFIG_CIF_ISP20_REG_TRACE
+		struct dentry *reg_trace_file;
+#endif
 	} dbgfs;
 #endif
 };
@@ -320,7 +334,8 @@ err:
 
 
 #ifdef CONFIG_DEBUG_FS
-static char kbuf[256];
+#define CIF_ISP20_DBGFS_BUF_SIZE 256
+static char cif_isp20_dbgfs_buf[CIF_ISP20_DBGFS_BUF_SIZE];
 
 static int cif_isp20_dbgfs_fill_csi_config_from_string(
 	struct device *dev,
@@ -476,7 +491,7 @@ static ssize_t cif_isp20_dbgfs_read(
 	list_for_each(list_pos, csi_configs) {
 		cfg = list_entry(list_pos,
 			struct cif_isp20_pltfrm_csi_config, list);
-		sprintf(kbuf,
+		sprintf(cif_isp20_dbgfs_buf,
 			"csi-config-%d:\n"
 			"   pps = %d\n"
 			"   vc = %d\n"
@@ -489,7 +504,8 @@ static ssize_t cif_isp20_dbgfs_read(
 			cfg->csi_config.dphy1, cfg->csi_config.dphy2,
 			cfg->csi_config.ana_bandgab_bias);
 		index++;
-		str_len = strnlen(kbuf, 256);
+		str_len = strnlen(cif_isp20_dbgfs_buf,
+			CIF_ISP20_DBGFS_BUF_SIZE);
 		if (str_len > count) {
 			*pos += out_size;
 			return 0;
@@ -497,9 +513,10 @@ static ssize_t cif_isp20_dbgfs_read(
 		*pos = 0;
 		if (IS_ERR_VALUE(simple_read_from_buffer(
 			out + out_size, str_len, pos,
-			kbuf, str_len)))
+			cif_isp20_dbgfs_buf, str_len)))
 			break;
-		out_size += strnlen(kbuf, 256);
+		out_size += strnlen(cif_isp20_dbgfs_buf,
+			CIF_ISP20_DBGFS_BUF_SIZE);
 		count -= str_len;
 	}
 
@@ -514,14 +531,14 @@ static ssize_t cif_isp20_dbgfs_write(
 	loff_t *pos)
 {
 	ssize_t ret;
-	char *strp = kbuf;
+	char *strp = cif_isp20_dbgfs_buf;
 	char *token;
 	struct device *dev = f->f_inode->i_private;
 	struct cif_isp20_pltfrm_data *pdata = dev->platform_data;
 	struct list_head *csi_configs;
 	enum cif_isp20_inp inp;
 
-	if (count > 128) {
+	if (count > CIF_ISP20_DBGFS_BUF_SIZE) {
 		cif_isp20_pltfrm_pr_err(dev, "command line too large\n");
 		return -EINVAL;
 	}
@@ -542,8 +559,9 @@ static ssize_t cif_isp20_dbgfs_write(
 				dev, inp, csi_configs)))
 				return -EFAULT;
 
-	memset(kbuf, 0, 256);
-	ret = simple_write_to_buffer(strp, 256, pos, in, count);
+	memset(cif_isp20_dbgfs_buf, 0, CIF_ISP20_DBGFS_BUF_SIZE);
+	ret = simple_write_to_buffer(strp,
+		CIF_ISP20_DBGFS_BUF_SIZE, pos, in, count);
 	if (IS_ERR_VALUE(ret))
 		return ret;
 
@@ -582,9 +600,136 @@ static ssize_t cif_isp20_dbgfs_write(
 
 static const struct file_operations cif_isp20_dbgfs_fops = {
 	.read = cif_isp20_dbgfs_read,
-	.write = cif_isp20_dbgfs_write,
+	.write = cif_isp20_dbgfs_write
 };
 
+#ifdef CONFIG_CIF_ISP20_REG_TRACE
+
+int
+cif_isp20_pltfrm_reg_trace_printf(
+	struct device *dev,
+	const char *fmt,
+	...)
+{
+	va_list args;
+	int i;
+	u32 rem_size;
+
+	rem_size = cif_isp20_reg_trace.reg_trace_max_size -
+		cif_isp20_reg_trace.reg_trace_write_pos - 1;
+
+	va_start(args, fmt);
+	i = vsnprintf(cif_isp20_reg_trace.reg_trace +
+		cif_isp20_reg_trace.reg_trace_write_pos,
+		rem_size,
+		fmt, args);
+	va_end(args);
+	if (i == rem_size) /* buffer full */
+		return 0;
+	cif_isp20_reg_trace.reg_trace_write_pos += i;
+	return i;
+}
+
+static void cif_isp20_dbgfs_reg_trace_clear(
+	struct device *dev)
+{
+	cif_isp20_reg_trace.reg_trace_write_pos = 0;
+	cif_isp20_reg_trace.reg_trace_read_pos = 0;
+}
+
+static ssize_t cif_isp20_dbgfs_reg_trace_read(
+	struct file *f,
+	char __user *out,
+	size_t count,
+	loff_t *pos)
+{
+	ssize_t bytes;
+
+	bytes = simple_read_from_buffer(
+		out, count, &cif_isp20_reg_trace.reg_trace_read_pos,
+		cif_isp20_reg_trace.reg_trace,
+		cif_isp20_reg_trace.reg_trace_write_pos -
+		cif_isp20_reg_trace.reg_trace_read_pos);
+
+	if (!bytes)
+		cif_isp20_reg_trace.reg_trace_read_pos = 0;
+
+	return bytes;
+}
+
+static ssize_t cif_isp20_dbgfs_reg_trace_write(
+	struct file *f,
+	const char __user *in,
+	size_t count,
+	loff_t *pos)
+{
+	ssize_t ret;
+	char *strp = cif_isp20_dbgfs_buf;
+	char *token;
+	struct device *dev = f->f_inode->i_private;
+	u32 max_size;
+
+	if (count > CIF_ISP20_DBGFS_BUF_SIZE) {
+		cif_isp20_pltfrm_pr_err(dev, "command line too long\n");
+		return -EINVAL;
+	}
+
+	memset(cif_isp20_dbgfs_buf, 0, CIF_ISP20_DBGFS_BUF_SIZE);
+	ret = simple_write_to_buffer(strp,
+		CIF_ISP20_DBGFS_BUF_SIZE, pos, in, count);
+	if (IS_ERR_VALUE(ret))
+		return ret;
+
+	token = strsep(&strp, " ");
+	if (!strncmp(token, "clear", 5)) {
+		cif_isp20_dbgfs_reg_trace_clear(dev);
+		cif_isp20_pltfrm_pr_info(dev,
+			"register trace buffer cleared\n");
+	} else if (!strcmp(token, "size")) {
+		token = strsep(&strp, " ");
+		if (IS_ERR_OR_NULL(token)) {
+			cif_isp20_pltfrm_pr_err(dev,
+				"missing token, command format is 'size <num entries>'\n");
+			return -EINVAL;
+		}
+		if (IS_ERR_VALUE(kstrtou32(token, 10,
+				&max_size))) {
+			cif_isp20_pltfrm_pr_err(dev,
+				"wrong token format, <num entries> must be positive integer>'\n");
+			return -EINVAL;
+		}
+		if (cif_isp20_reg_trace.reg_trace) {
+			devm_kfree(dev, cif_isp20_reg_trace.reg_trace);
+			cif_isp20_reg_trace.reg_trace = NULL;
+		}
+		cif_isp20_dbgfs_reg_trace_clear(dev);
+		if (max_size > 0) {
+			cif_isp20_reg_trace.reg_trace = devm_kzalloc(dev,
+				max_size, GFP_KERNEL);
+			if (!cif_isp20_reg_trace.reg_trace) {
+				cif_isp20_pltfrm_pr_err(dev,
+					"memory allocation failed\n");
+				return -ENOMEM;
+			}
+			cif_isp20_reg_trace.reg_trace_max_size = max_size;
+			cif_isp20_pltfrm_pr_info(dev,
+				"register trace buffer size set to %d Byte\n",
+				max_size);
+		}
+	} else {
+		cif_isp20_pltfrm_pr_err(dev, "unkown command %s\n", token);
+		return -EINVAL;
+	}
+	return count;
+}
+
+static const struct file_operations
+cif_isp20_dbgfs_reg_trace_fops = {
+	.read = cif_isp20_dbgfs_reg_trace_read,
+	.write = cif_isp20_dbgfs_reg_trace_write
+};
+
+#endif
 #endif
 
 static irqreturn_t cif_isp20_pltfrm_irq_handler(int irq, void *cntxt)
@@ -645,6 +790,49 @@ const char *cif_isp20_pltfrm_pm_state_string(
 	default:
 		return "PM_STATE_UNKNOWN";
 	}
+}
+
+void cif_isp20_pltfrm_write_reg(
+	struct device *dev,
+	u32 data,
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr)
+{
+	iowrite32(data, addr);
+#ifdef CONFIG_CIF_ISP20_REG_TRACE
+	if ((cif_isp20_reg_trace.reg_trace_write_pos + (24 * sizeof(char))) <
+		cif_isp20_reg_trace.reg_trace_max_size)
+		cif_isp20_reg_trace.reg_trace_write_pos +=
+			sprintf(cif_isp20_reg_trace.reg_trace +
+				cif_isp20_reg_trace.reg_trace_write_pos,
+				"%08x %08x\n",
+				addr - cif_isp20_reg_trace.base_addr,
+				data);
+#endif
+}
+
+void cif_isp20_pltfrm_write_reg_OR(
+	struct device *dev,
+	u32 data,
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr)
+{
+	cif_isp20_pltfrm_write_reg(dev,
+		(ioread32(addr) | data), addr);
+}
+
+void cif_isp20_pltfrm_write_reg_AND(
+	struct device *dev,
+	u32 data,
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr)
+{
+	cif_isp20_pltfrm_write_reg(dev,
+		(ioread32(addr) & data), addr);
+}
+
+u32 cif_isp20_pltfrm_read_reg(
+	struct device *dev,
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr)
+{
+	return ioread32(addr);
 }
 
 int cif_isp20_pltfrm_dev_init(
@@ -768,6 +956,18 @@ int cif_isp20_pltfrm_dev_init(
 		pdata->dbgfs.dir,
 		dev,
 		&cif_isp20_dbgfs_fops);
+#ifdef CONFIG_CIF_ISP20_REG_TRACE
+	pdata->dbgfs.reg_trace_file = debugfs_create_file(
+		"reg_trace",
+		0644,
+		pdata->dbgfs.dir,
+		dev,
+		&cif_isp20_dbgfs_reg_trace_fops);
+	cif_isp20_reg_trace.reg_trace = NULL;
+	cif_isp20_dbgfs_reg_trace_clear(dev);
+	cif_isp20_reg_trace.reg_trace_max_size = 0;
+	cif_isp20_reg_trace.base_addr = base_addr;
+#endif
 #endif
 
 	return 0;

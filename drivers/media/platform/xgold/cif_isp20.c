@@ -405,9 +405,11 @@ static struct smarvin_hw_errors marvin_hw_errors[] = {
 /**Defines********************************************************************/
 
 #define CIF_ISP20_INVALID_BUFF_ADDR ((u32)~0)
+
 #ifndef DIV_ROUND_UP
 #define DIV_ROUND_UP(x, y) (((x) + (y) - 1) / (y))
 #endif
+
 #ifndef DIV_TRUNCATE
 #define DIV_TRUNCATE(x, y) ((x) / (y))
 #endif
@@ -708,27 +710,18 @@ static void cif_isp20_save_mi_sp(
 	state_storage->y_size =
 		cif_ioread32(base_addr +
 			CIF_MI_SP_Y_SIZE_INIT);
-	state_storage->y_offs_cnt =
-		cif_ioread32(base_addr +
-			CIF_MI_SP_Y_OFFS_CNT_INIT);
 	state_storage->cb_base_ad =
 		cif_ioread32(base_addr +
 			CIF_MI_SP_CB_BASE_AD_INIT);
 	state_storage->cb_size =
 		cif_ioread32(base_addr +
 			CIF_MI_SP_CB_SIZE_INIT);
-	state_storage->cb_offs_cnt =
-		cif_ioread32(base_addr +
-			CIF_MI_SP_CB_OFFS_CNT_INIT);
 	state_storage->cr_base_ad =
 		cif_ioread32(base_addr +
 			CIF_MI_SP_CR_BASE_AD_INIT);
 	state_storage->cr_size =
 		cif_ioread32(base_addr +
 			CIF_MI_SP_CR_SIZE_INIT);
-	state_storage->cr_offs_cnt =
-		cif_ioread32(base_addr +
-			CIF_MI_SP_CR_OFFS_CNT_INIT);
 
 	/* write the values of the shadow (active) registers
 		into the non-shadow registers, so that they are
@@ -741,26 +734,17 @@ static void cif_isp20_save_mi_sp(
 		CIF_MI_SP_Y_SIZE_SHD),
 		base_addr + CIF_MI_SP_Y_SIZE_INIT);
 	cif_iowrite32(cif_ioread32(base_addr +
-		CIF_MI_SP_Y_OFFS_CNT_SHD),
-		base_addr + CIF_MI_SP_Y_OFFS_CNT_INIT);
-	cif_iowrite32(cif_ioread32(base_addr +
 		CIF_MI_SP_CB_BASE_AD_SHD),
 		base_addr + CIF_MI_SP_CB_BASE_AD_INIT);
 	cif_iowrite32(cif_ioread32(base_addr +
 		CIF_MI_SP_CB_SIZE_SHD),
 		base_addr + CIF_MI_SP_CB_SIZE_INIT);
 	cif_iowrite32(cif_ioread32(base_addr +
-		CIF_MI_SP_CB_OFFS_CNT_SHD),
-		base_addr + CIF_MI_SP_CB_OFFS_CNT_INIT);
-	cif_iowrite32(cif_ioread32(base_addr +
 		CIF_MI_SP_CR_BASE_AD_SHD),
 		base_addr + CIF_MI_SP_CR_BASE_AD_INIT);
 	cif_iowrite32(cif_ioread32(base_addr +
 		CIF_MI_SP_CR_SIZE_SHD),
 		base_addr + CIF_MI_SP_CR_SIZE_INIT);
-	cif_iowrite32(cif_ioread32(base_addr +
-		CIF_MI_SP_CR_OFFS_CNT_INIT),
-		base_addr + CIF_MI_SP_CR_OFFS_CNT_INIT);
 }
 
 /* make static once the mainpath code has been moved here */
@@ -787,27 +771,18 @@ static void cif_isp20_save_mi_mp(
 	state_storage->y_size =
 		cif_ioread32(base_addr +
 			CIF_MI_MP_Y_SIZE_INIT);
-	state_storage->y_offs_cnt =
-		cif_ioread32(base_addr +
-			CIF_MI_MP_Y_OFFS_CNT_INIT);
 	state_storage->cb_base_ad =
 		cif_ioread32(base_addr +
 			CIF_MI_MP_CB_BASE_AD_INIT);
 	state_storage->cb_size =
 		cif_ioread32(base_addr +
 			CIF_MI_MP_CB_SIZE_INIT);
-	state_storage->cb_offs_cnt =
-		cif_ioread32(base_addr +
-			CIF_MI_MP_CB_OFFS_CNT_INIT);
 	state_storage->cr_base_ad =
 		cif_ioread32(base_addr +
 			CIF_MI_MP_CR_BASE_AD_INIT);
 	state_storage->cr_size =
 		cif_ioread32(base_addr +
 			CIF_MI_MP_CR_SIZE_INIT);
-	state_storage->cr_offs_cnt =
-		cif_ioread32(base_addr +
-			CIF_MI_MP_CR_OFFS_CNT_INIT);
 
 	/* write the values of the shadow (active) registers
 		into the non-shadow registers, so that they are
@@ -820,26 +795,17 @@ static void cif_isp20_save_mi_mp(
 		CIF_MI_MP_Y_SIZE_SHD),
 		base_addr + CIF_MI_MP_Y_SIZE_INIT);
 	cif_iowrite32(cif_ioread32(base_addr +
-		CIF_MI_MP_Y_OFFS_CNT_SHD),
-		base_addr + CIF_MI_MP_Y_OFFS_CNT_INIT);
-	cif_iowrite32(cif_ioread32(base_addr +
 		CIF_MI_MP_CB_BASE_AD_SHD),
 		base_addr + CIF_MI_MP_CB_BASE_AD_INIT);
 	cif_iowrite32(cif_ioread32(base_addr +
 		CIF_MI_MP_CB_SIZE_SHD),
 		base_addr + CIF_MI_MP_CB_SIZE_INIT);
 	cif_iowrite32(cif_ioread32(base_addr +
-		CIF_MI_MP_CB_OFFS_CNT_SHD),
-		base_addr + CIF_MI_MP_CB_OFFS_CNT_INIT);
-	cif_iowrite32(cif_ioread32(base_addr +
 		CIF_MI_MP_CR_BASE_AD_SHD),
 		base_addr + CIF_MI_MP_CR_BASE_AD_INIT);
 	cif_iowrite32(cif_ioread32(base_addr +
 		CIF_MI_MP_CR_SIZE_SHD),
 		base_addr + CIF_MI_MP_CR_SIZE_INIT);
-	cif_iowrite32(cif_ioread32(base_addr +
-		CIF_MI_MP_CR_OFFS_CNT_INIT),
-		base_addr + CIF_MI_MP_CR_OFFS_CNT_INIT);
 }
 
 static void cif_isp20_restore_mi_sp(
@@ -853,20 +819,14 @@ static void cif_isp20_restore_mi_sp(
 		base_addr + CIF_MI_SP_Y_BASE_AD_INIT);
 	cif_iowrite32(state_storage->y_size,
 		base_addr + CIF_MI_SP_Y_SIZE_INIT);
-	cif_iowrite32(state_storage->y_offs_cnt,
-		base_addr + CIF_MI_SP_Y_OFFS_CNT_INIT);
 	cif_iowrite32(state_storage->cb_base_ad,
 		base_addr + CIF_MI_SP_CB_BASE_AD_INIT);
 	cif_iowrite32(state_storage->cb_size,
 		base_addr + CIF_MI_SP_CB_SIZE_INIT);
-	cif_iowrite32(state_storage->cb_offs_cnt,
-		base_addr + CIF_MI_SP_CB_OFFS_CNT_INIT);
 	cif_iowrite32(state_storage->cr_base_ad,
 		base_addr + CIF_MI_SP_CR_BASE_AD_INIT);
 	cif_iowrite32(state_storage->cr_size,
 		base_addr + CIF_MI_SP_CR_SIZE_INIT);
-	cif_iowrite32(state_storage->cr_offs_cnt,
-		base_addr + CIF_MI_SP_CR_OFFS_CNT_INIT);
 
 	cif_iowrite32(
 		state_storage->isp_ctrl, base_addr + CIF_ISP_CTRL);
@@ -886,20 +846,14 @@ static void cif_isp20_restore_mi_mp(
 		base_addr + CIF_MI_MP_Y_BASE_AD_INIT);
 	cif_iowrite32(state_storage->y_size,
 		base_addr + CIF_MI_MP_Y_SIZE_INIT);
-	cif_iowrite32(state_storage->y_offs_cnt,
-		base_addr + CIF_MI_MP_Y_OFFS_CNT_INIT);
 	cif_iowrite32(state_storage->cb_base_ad,
 		base_addr + CIF_MI_MP_CB_BASE_AD_INIT);
 	cif_iowrite32(state_storage->cb_size,
 		base_addr + CIF_MI_MP_CB_SIZE_INIT);
-	cif_iowrite32(state_storage->cb_offs_cnt,
-		base_addr + CIF_MI_MP_CB_OFFS_CNT_INIT);
 	cif_iowrite32(state_storage->cr_base_ad,
 		base_addr + CIF_MI_MP_CR_BASE_AD_INIT);
 	cif_iowrite32(state_storage->cr_size,
 		base_addr + CIF_MI_MP_CR_SIZE_INIT);
-	cif_iowrite32(state_storage->cr_offs_cnt,
-		base_addr + CIF_MI_MP_CR_OFFS_CNT_INIT);
 
 	cif_iowrite32(
 		state_storage->isp_ctrl, base_addr + CIF_ISP_CTRL);
@@ -1203,8 +1157,8 @@ static int cif_isp20_config_img_src(
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
-	if (!dev->config.sp_config.updt_cfg &&
-		!dev->config.mp_config.updt_cfg)
+	if (!dev->sp_stream.updt_cfg &&
+		!dev->mp_stream.updt_cfg)
 		return 0;
 
 	ret = cif_isp20_pltfrm_g_csi_config(dev->dev,
@@ -1297,8 +1251,13 @@ static int cif_isp20_config_isp(
 	} else if (CIF_ISP20_PIX_FMT_IS_YUV(in_pix_fmt)) {
 		acq_mult = 2;
 		isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_12b;
-		if (CIF_ISP20_PIX_FMT_YUV_IS_YC_SWAPPED(in_pix_fmt))
+		if (CIF_ISP20_PIX_FMT_YUV_IS_YC_SWAPPED(in_pix_fmt)) {
 			yuv_seq = CIF_ISP_ACQ_PROP_CBYCRY;
+			cif_isp20_pix_fmt_set_yc_swapped(
+				dev->config.isp_config.output.pix_fmt,
+				0);
+		} else if (CIF_ISP20_PIX_FMT_YUV_IS_UV_SWAPPED(in_pix_fmt))
+			yuv_seq = CIF_ISP_ACQ_PROP_YCRYCB;
 		else
 			yuv_seq = CIF_ISP_ACQ_PROP_YCBYCR;
 		cif_iowrite32(CIF_ISP_CTRL_ISP_MODE_ITU601,
@@ -2432,6 +2391,9 @@ static int cif_isp20_config_rsz(
 	cif_iowrite32(rsz_ctrl, rsz_ctrl_addr);
 
 	if (stream_id == CIF_ISP20_STREAM_MP) {
+		/* SW update MRSZ */
+		cif_iowrite32OR(CIF_SRSZ_CTRL_CFG_UPD,
+			dev->config.base_addr + CIF_MRSZ_CTRL);
 		cif_isp20_pltfrm_pr_dbg(dev->dev,
 			"\n  MRSZ_CTRL 0x%08x/0x%08x\n"
 			"  MRSZ_SCALE_HY %d/%d\n"
@@ -2484,6 +2446,8 @@ static int cif_isp20_config_rsz(
 			cif_ioread32(dev->config.base_addr +
 				CIF_MRSZ_PHASE_VC_SHD));
 	} else {
+		cif_iowrite32OR(CIF_SRSZ_CTRL_CFG_UPD,
+			dev->config.base_addr + CIF_SRSZ_CTRL);
 		cif_isp20_pltfrm_pr_dbg(dev->dev,
 			"\n  SRSZ_CTRL 0x%08x/0x%08x\n"
 			"  SRSZ_SCALE_HY %d/%d\n"
@@ -2566,7 +2530,7 @@ static int cif_isp20_config_sp(
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
-	dev->config.sp_config.updt_cfg = false;
+	dev->sp_stream.updt_cfg = false;
 
 	return 0;
 err:
@@ -2609,7 +2573,7 @@ static int cif_isp20_config_mp(
 		dev->config.jpeg_config.busy = false;
 	}
 
-	dev->config.mp_config.updt_cfg = false;
+	dev->mp_stream.updt_cfg = false;
 
 	return 0;
 err:
@@ -2624,15 +2588,15 @@ static int cif_isp20_config_cif(struct cif_isp20_device *dev)
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
 		"config MP = %d, config SP = %d, img_src state = %s, PM state = %s, SP state = %s, MP state = %s\n",
-		dev->config.mp_config.updt_cfg,
-		dev->config.sp_config.updt_cfg,
+		dev->mp_stream.updt_cfg,
+		dev->sp_stream.updt_cfg,
 		cif_isp20_img_src_state_string(dev->img_src_state),
 		cif_isp20_pm_state_string(dev->pm_state),
 		cif_isp20_state_string(dev->sp_stream.state),
 		cif_isp20_state_string(dev->mp_stream.state));
 
-	if (!dev->config.mp_config.updt_cfg &&
-		!dev->config.sp_config.updt_cfg)
+	if (!dev->mp_stream.updt_cfg &&
+		!dev->sp_stream.updt_cfg)
 		return 0;
 
 	if ((dev->config.input_sel & ~CIF_ISP20_INP_SI) <=
@@ -2672,24 +2636,21 @@ static int cif_isp20_config_cif(struct cif_isp20_device *dev)
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
-	if (dev->config.dma_config.updt_cfg) {
+	if (dev->dma_stream.updt_cfg) {
 		ret = cif_isp20_config_mi_dma(dev);
 		if (IS_ERR_VALUE(ret))
 			goto err;
 	}
-	if (dev->config.sp_config.updt_cfg) {
+	if (dev->sp_stream.updt_cfg) {
 		ret = cif_isp20_config_sp(dev);
 		if (IS_ERR_VALUE(ret))
 			goto err;
 	}
-	if (dev->config.mp_config.updt_cfg) {
+	if (dev->mp_stream.updt_cfg) {
 		ret = cif_isp20_config_mp(dev);
 		if (IS_ERR_VALUE(ret))
 			goto err;
 	}
-
-	cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
-		dev->config.base_addr + CIF_ISP_CTRL);
 
 	return 0;
 err:
@@ -2698,10 +2659,44 @@ err:
 	return ret;
 }
 
+static void cif_isp20_init_stream(
+	struct cif_isp20_device *dev,
+	enum cif_isp20_stream_id stream_id)
+{
+	struct cif_isp20_stream *stream;
+
+	switch (stream_id) {
+	case CIF_ISP20_STREAM_SP:
+		stream = &dev->sp_stream;
+		break;
+	case CIF_ISP20_STREAM_MP:
+		stream = &dev->mp_stream;
+		dev->config.jpeg_config.ratio = 50;
+		dev->config.jpeg_config.header =
+			CIF_ISP20_JPEG_HEADER_JFIF;
+		dev->config.jpeg_config.enable = false;
+		dev->config.mi_config.raw_enable = false;
+		break;
+	case CIF_ISP20_STREAM_DMA:
+		stream = &dev->dma_stream;
+		break;
+	default:
+		cif_isp20_pltfrm_pr_err(NULL,
+			"unknown/unsupported stream ID %d\n", stream_id);
+		BUG();
+		break;
+	}
+
+	INIT_LIST_HEAD(&stream->buf_queue);
+	stream->next_buf = NULL;
+	stream->curr_buf = NULL;
+	stream->updt_cfg = false;
+	stream->state = CIF_ISP20_STATE_INACTIVE;
+}
+
 static int cif_isp20_jpeg_gen_header(
 	struct cif_isp20_device *dev)
 {
-
 	unsigned int timeout = 10000;
 
 	cif_isp20_pltfrm_pr_dbg(NULL, "\n");
@@ -2748,7 +2743,23 @@ static void cif_isp20_mi_update_buff_addr(
 			dev->config.mi_config.sp.cr_offs,
 			dev->config.base_addr +
 			CIF_MI_SP_CR_BASE_AD_INIT);
-	} else {
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"\n  MI_SP_Y_BASE_AD 0x%08x/0x%08x\n"
+			"  MI_SP_CB_BASE_AD 0x%08x/0x%08x\n"
+			"  MI_MP_CR_BASE_AD 0x%08x/0x%08x\n",
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_SP_Y_BASE_AD_INIT),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_SP_Y_BASE_AD_SHD),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_SP_CB_BASE_AD_INIT),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_SP_CB_BASE_AD_SHD),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_SP_CR_BASE_AD_INIT),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_SP_CR_BASE_AD_SHD));
+	} else if (strm_id == CIF_ISP20_STREAM_MP) {
 		cif_iowrite32(dev->config.mi_config.mp.curr_buff_addr,
 			dev->config.base_addr +
 			CIF_MI_MP_Y_BASE_AD_INIT);
@@ -2760,6 +2771,44 @@ static void cif_isp20_mi_update_buff_addr(
 			dev->config.mi_config.mp.cr_offs,
 			dev->config.base_addr +
 			CIF_MI_MP_CR_BASE_AD_INIT);
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"\n  MI_MP_Y_BASE_AD 0x%08x/0x%08x\n"
+			"  MI_MP_CB_BASE_AD 0x%08x/0x%08x\n"
+			"  MI_MP_CR_BASE_AD 0x%08x/0x%08x\n",
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_MP_Y_BASE_AD_INIT),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_MP_Y_BASE_AD_SHD),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_MP_CB_BASE_AD_INIT),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_MP_CB_BASE_AD_SHD),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_MP_CR_BASE_AD_INIT),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_MP_CR_BASE_AD_SHD));
+	} else { /* DMA */
+		cif_iowrite32(dev->config.mi_config.dma.curr_buff_addr,
+			dev->config.base_addr +
+			CIF_MI_DMA_Y_PIC_START_AD);
+		cif_iowrite32(dev->config.mi_config.dma.curr_buff_addr +
+			dev->config.mi_config.dma.cb_offs,
+			dev->config.base_addr +
+			CIF_MI_DMA_CB_PIC_START_AD);
+		cif_iowrite32(dev->config.mi_config.dma.curr_buff_addr +
+			dev->config.mi_config.dma.cr_offs,
+			dev->config.base_addr +
+			CIF_MI_DMA_CR_PIC_START_AD);
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"\n  MI_DMA_Y_PIC_START_AD 0x%08x\n"
+			"  MI_DMA_CB_PIC_START_AD 0x%08x\n"
+			"  MI_DMA_CR_PIC_START_AD 0x%08x\n",
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_DMA_Y_PIC_START_AD),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_DMA_CB_PIC_START_AD),
+			cif_ioread32(dev->config.base_addr +
+				CIF_MI_DMA_CR_PIC_START_AD));
 	}
 }
 
@@ -2878,11 +2927,200 @@ static int cif_isp20_update_mi_sp(
 	return 0;
 }
 
+static int cif_isp20_s_fmt_mp(
+	struct cif_isp20_device *dev,
+	struct cif_isp20_strm_fmt *strm_fmt,
+	u32 stride)
+{
+	int ret = 0;
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"%s %dx%d@%d/%dfps, stride = %d\n",
+		cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
+		strm_fmt->frm_fmt.width,
+		strm_fmt->frm_fmt.height,
+		strm_fmt->frm_intrvl.numerator,
+		strm_fmt->frm_intrvl.denominator,
+		stride);
+
+	/* TBD: check whether format is a valid format for MP */
+
+	if (CIF_ISP20_PIX_FMT_IS_JPEG(strm_fmt->frm_fmt.pix_fmt))
+		dev->config.jpeg_config.enable = true;
+	else if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(strm_fmt->frm_fmt.pix_fmt)) {
+		if ((dev->sp_stream.state == CIF_ISP20_STATE_READY) ||
+			(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING))
+			cif_isp20_pltfrm_pr_warn(dev->dev,
+				"cannot output RAW data when SP is active, you will not be able to (re-)start streaming\n");
+		dev->config.mi_config.raw_enable = true;
+	}
+
+	dev->config.mi_config.mp.output = strm_fmt->frm_fmt;
+
+	dev->config.mi_config.mp.llength =
+		cif_isp20_calc_llength(
+			strm_fmt->frm_fmt.width,
+			stride,
+			strm_fmt->frm_fmt.pix_fmt);
+
+	dev->mp_stream.updt_cfg = true;
+	dev->mp_stream.state = CIF_ISP20_STATE_READY;
+
+	ret = cif_isp20_img_src_select_strm_fmt(dev);
+	if (IS_ERR_VALUE(ret)) {
+		dev->mp_stream.updt_cfg = false;
+		dev->mp_stream.state = CIF_ISP20_STATE_INACTIVE;
+		goto err;
+	}
+
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(dev->dev,
+		"failed with error %d\n", ret);
+	return ret;
+}
+
+static int cif_isp20_s_fmt_sp(
+	struct cif_isp20_device *dev,
+	struct cif_isp20_strm_fmt *strm_fmt,
+	u32 stride)
+{
+	int ret = 0;
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"%s %dx%d@%d/%dfps, stride = %d\n",
+		cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
+		strm_fmt->frm_fmt.width,
+		strm_fmt->frm_fmt.height,
+		strm_fmt->frm_intrvl.numerator,
+		strm_fmt->frm_intrvl.denominator,
+		stride);
+
+	if (dev->config.mi_config.raw_enable)
+		cif_isp20_pltfrm_pr_warn(dev->dev,
+			"cannot activate SP when MP is set to RAW data output, you will not be able to (re-)start streaming\n");
+
+	/* TBD: more detailed check whether format is a valid format for SP */
+	/* TBD: remove the mode stuff */
+	if (!CIF_ISP20_PIX_FMT_IS_YUV(strm_fmt->frm_fmt.pix_fmt) &&
+		!CIF_ISP20_PIX_FMT_IS_RGB(strm_fmt->frm_fmt.pix_fmt)) {
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"format %s %dx%d@%d/%dfps, stride = %d not supported on SP\n",
+			cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
+			strm_fmt->frm_fmt.width,
+			strm_fmt->frm_fmt.height,
+			strm_fmt->frm_intrvl.numerator,
+			strm_fmt->frm_intrvl.denominator,
+			stride);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	dev->config.mi_config.sp.output = strm_fmt->frm_fmt;
+	dev->config.mi_config.sp.llength =
+		cif_isp20_calc_llength(
+		strm_fmt->frm_fmt.width,
+		stride,
+		strm_fmt->frm_fmt.pix_fmt);
+
+	dev->sp_stream.updt_cfg = true;
+	dev->sp_stream.state = CIF_ISP20_STATE_READY;
+
+	ret = cif_isp20_img_src_select_strm_fmt(dev);
+	if (IS_ERR_VALUE(ret)) {
+		dev->sp_stream.updt_cfg = false;
+		dev->sp_stream.state = CIF_ISP20_STATE_INACTIVE;
+		goto err;
+	}
+
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(dev->dev,
+		"failed with error %d\n", ret);
+	return ret;
+}
+
+static int cif_isp20_s_fmt_dma(
+	struct cif_isp20_device *dev,
+	struct cif_isp20_strm_fmt *strm_fmt,
+	u32 stride)
+{
+	int ret = 0;
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"%s %dx%d@%d/%dfps, stride = %d\n",
+		cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
+		strm_fmt->frm_fmt.width,
+		strm_fmt->frm_fmt.height,
+		strm_fmt->frm_intrvl.numerator,
+		strm_fmt->frm_intrvl.denominator,
+		stride);
+
+	if ((!CIF_ISP20_PIX_FMT_IS_YUV(strm_fmt->frm_fmt.pix_fmt) &&
+		!CIF_ISP20_PIX_FMT_IS_RAW_BAYER(strm_fmt->frm_fmt.pix_fmt)) ||
+		(CIF_ISP20_PIX_FMT_IS_YUV(strm_fmt->frm_fmt.pix_fmt) &&
+		CIF_ISP20_PIX_FMT_YUV_IS_UV_SWAPPED(
+			strm_fmt->frm_fmt.pix_fmt))) {
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"format %s %dx%d@%d/%dfps, stride = %d not supported for DMA\n",
+			cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
+			strm_fmt->frm_fmt.width,
+			strm_fmt->frm_fmt.height,
+			strm_fmt->frm_intrvl.numerator,
+			strm_fmt->frm_intrvl.denominator,
+			stride);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	dev->config.mi_config.dma.output = strm_fmt->frm_fmt;
+	dev->config.mi_config.dma.llength =
+		cif_isp20_calc_llength(
+		strm_fmt->frm_fmt.width,
+		stride,
+		strm_fmt->frm_fmt.pix_fmt);
+
+	dev->dma_stream.updt_cfg = true;
+	dev->dma_stream.state = CIF_ISP20_STATE_READY;
+
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(dev->dev,
+		"failed with error %d\n", ret);
+	return ret;
+}
+
+static void cif_isp20_dma_next_buff(
+	struct cif_isp20_device *dev)
+{
+	if (!list_empty(&dev->dma_stream.buf_queue)) {
+		dev->dma_stream.curr_buf =
+			list_first_entry(&dev->dma_stream.buf_queue,
+				struct videobuf_buffer, queue);
+		list_del(&dev->dma_stream.next_buf->queue);
+		dev->dma_stream.curr_buf->state = VIDEOBUF_ACTIVE;
+		dev->config.mi_config.dma.curr_buff_addr =
+			videobuf_to_dma_contig(
+				dev->dma_stream.next_buf);
+		cif_isp20_mi_update_buff_addr(dev,
+			CIF_ISP20_STREAM_DMA);
+	}
+	cif_iowrite32(CIF_MI_DMA_START_ENABLE,
+		dev->config.base_addr + CIF_MI_DMA_START);
+}
+
+static void cif_isp20_dma_ready(
+	struct cif_isp20_device *dev)
+{
+	dev->dma_stream.curr_buf->state = VIDEOBUF_DONE;
+	wake_up(&dev->dma_stream.curr_buf->done);
+	dev->dma_stream.curr_buf = NULL;
+}
+
 static int cif_isp20_mi_frame_end(
 	struct cif_isp20_device *dev,
 	enum cif_isp20_stream_id stream_id)
 {
-	int ret = 0;
 	struct cif_isp20_stream *stream;
 	bool frame_done = true;
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR y_base_addr;
@@ -2997,7 +3235,7 @@ static int cif_isp20_mi_frame_end(
 		dev->config.mi_config.mp.next_buff_addr,
 		dev->config.mi_config.sp.next_buff_addr);
 
-	return ret;
+	return 0;
 }
 
 #ifdef NOT_YET
@@ -3036,8 +3274,12 @@ static void cif_isp20_start_mi(
 		spin_lock(&dev->vbq_lock);
 		cif_isp20_mi_frame_end(dev, CIF_ISP20_STREAM_SP);
 		spin_unlock(&dev->vbq_lock);
+		if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)
+			cif_isp20_save_mi_mp(dev, &saved_mi_state);
 		cif_isp20_update_mi_sp(dev);
 		dev->sp_stream.stall = false;
+		cif_iowrite32OR(CIF_MI_CTRL_SP_ENABLE,
+			dev->config.base_addr + CIF_MI_CTRL);
 	}
 
 	if (start_mi_mp) {
@@ -3048,29 +3290,36 @@ static void cif_isp20_start_mi(
 		spin_lock(&dev->vbq_lock);
 		cif_isp20_mi_frame_end(dev, CIF_ISP20_STREAM_MP);
 		spin_unlock(&dev->vbq_lock);
-		/* because of a HW bug we have to use the forced update in case
-			of JPEG encoding, because the shadow registers
-			are not properly updated in this case. */
-		if ((dev->sp_stream.state == CIF_ISP20_STATE_STREAMING) &&
-			dev->config.jpeg_config.enable)
+		if (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)
 			cif_isp20_save_mi_sp(dev, &saved_mi_state);
 		cif_isp20_update_mi_mp(dev);
 		dev->mp_stream.stall = false;
-		if (dev->config.jpeg_config.enable) {
+		if (dev->config.jpeg_config.enable)
 			cif_iowrite32OR(CIF_MI_CTRL_JPEG_ENABLE,
-				dev->config.base_addr + CIF_MI_CTRL);
-			cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
-				dev->config.base_addr + CIF_MI_INIT);
-			if (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)
-				cif_isp20_restore_mi_sp(dev, &saved_mi_state);
-			/* start JPEG encoding as early as possible: */
-			cif_iowrite32OR(CIF_MI_MP_FRAME,
-				dev->config.base_addr + CIF_MI_IMSC);
-			spin_lock(&dev->vbq_lock);
-			cif_isp20_mi_frame_end(dev, CIF_ISP20_STREAM_MP);
-			cif_isp20_update_mi_mp(dev);
-			spin_unlock(&dev->vbq_lock);
-		}
+				dev->config.base_addr +
+				CIF_MI_CTRL);
+		else
+			cif_iowrite32OR(CIF_MI_CTRL_MP_ENABLE,
+				(dev->config.base_addr) +
+				CIF_MI_CTRL);
+	}
+
+	cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
+		dev->config.base_addr + CIF_MI_INIT);
+
+	if (start_mi_sp && (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING))
+		cif_isp20_restore_mi_mp(dev, &saved_mi_state);
+	if (start_mi_mp && (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING))
+		cif_isp20_restore_mi_sp(dev, &saved_mi_state);
+
+	/* this will start the JPEG encoding as early as possible: */
+	if (start_mi_mp && dev->config.jpeg_config.enable) {
+		cif_iowrite32OR(CIF_MI_MP_FRAME,
+			dev->config.base_addr + CIF_MI_IMSC);
+		spin_lock(&dev->vbq_lock);
+		cif_isp20_mi_frame_end(dev, CIF_ISP20_STREAM_MP);
+		cif_isp20_update_mi_mp(dev);
+		spin_unlock(&dev->vbq_lock);
 	}
 }
 
@@ -3306,6 +3555,8 @@ static int cif_isp20_start(
 			sensor output. */
 		mdelay(1);
 		/* start sensor output! */
+		cif_isp20_pltfrm_reg_trace_printf(dev->dev,
+			"starting image source...\n");
 		ret = cif_isp20_img_src_set_state(dev,
 			CIF_ISP20_IMG_SRC_STATE_STREAMING);
 	}
@@ -3345,6 +3596,9 @@ static int cif_isp20_mi_isr(void *cntxt)
 		cif_ioread32(dev->config.base_addr + CIF_MI_IMSC),
 		mi_mis);
 
+	cif_isp20_pltfrm_reg_trace_printf(dev->dev,
+		"MI_MIS %08x\n", mi_mis);
+
 	if (mi_mis & CIF_MI_AHB_ERROR) {
 		cif_isp20_pltfrm_pr_warn(dev->dev, "AHB error\n");
 		cif_iowrite32(CIF_MI_AHB_ERROR,
@@ -3352,24 +3606,27 @@ static int cif_isp20_mi_isr(void *cntxt)
 	}
 
 	if (mi_mis & CIF_MI_SP_FRAME) {
-		cif_isp20_mi_frame_end(dev, CIF_ISP20_STREAM_SP);
-		cif_isp20_update_mi_sp(dev);
+		if (!IS_ERR_VALUE(cif_isp20_mi_frame_end(dev,
+			CIF_ISP20_STREAM_SP)))
+			(void)cif_isp20_update_mi_sp(dev);
 		cif_iowrite32(CIF_MI_SP_FRAME,
 			(dev->config.base_addr) + CIF_MI_ICR);
 	}
 	if (mi_mis & CIF_MI_MP_FRAME) {
-		cif_isp20_mi_frame_end(dev, CIF_ISP20_STREAM_MP);
-		cif_isp20_update_mi_mp(dev);
+		if (!IS_ERR_VALUE(cif_isp20_mi_frame_end(dev,
+			CIF_ISP20_STREAM_MP)))
+			cif_isp20_update_mi_mp(dev);
 		cif_iowrite32(CIF_MI_MP_FRAME,
 			(dev->config.base_addr) + CIF_MI_ICR);
 	}
 	if (mi_mis & CIF_MI_DMA_READY) {
-		cif_isp20_mi_frame_end(dev, CIF_ISP20_STREAM_DMA);
+		(void)cif_isp20_dma_ready(dev);
 		cif_iowrite32(CIF_MI_DMA_READY,
 			(dev->config.base_addr) + CIF_MI_ICR);
 	}
 
-	cif_iowrite32(~(CIF_MI_MP_FRAME | CIF_MI_SP_FRAME),
+	cif_iowrite32(~(CIF_MI_MP_FRAME |
+		CIF_MI_SP_FRAME | CIF_MI_DMA_READY),
 		(dev->config.base_addr) + CIF_MI_ICR);
 
 	return 0;
@@ -3419,17 +3676,19 @@ err:
 
 int cif_isp20_streamon(
 	struct cif_isp20_device *dev,
-	bool streamon_sp,
-	bool streamon_mp)
+	u32 stream_ids)
 {
 	int ret = 0;
+	bool streamon_sp = stream_ids & CIF_ISP20_STREAM_SP;
+	bool streamon_mp = stream_ids & CIF_ISP20_STREAM_MP;
+	bool streamon_dma = stream_ids & CIF_ISP20_STREAM_DMA;
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"SP state = %s, MP state = %s, streamon SP = %d, streamon MP = %d\n",
+		"SP state = %s, MP state = %s, DMA state = %s, streamon SP = %d, streamon MP = %d, streamon DMA = %d\n",
 		cif_isp20_state_string(dev->sp_stream.state),
 		cif_isp20_state_string(dev->mp_stream.state),
-		streamon_sp,
-		streamon_mp);
+		cif_isp20_state_string(dev->dma_stream.state),
+		streamon_sp, streamon_mp, streamon_dma);
 
 	if (!((streamon_sp &&
 		(dev->sp_stream.state != CIF_ISP20_STATE_STREAMING)) ||
@@ -3467,23 +3726,23 @@ int cif_isp20_streamon(
 		register will be corrupted. */
 	if (dev->config.jpeg_config.enable && streamon_mp &&
 		(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING))
-		dev->config.mp_config.updt_cfg = true;
+		dev->mp_stream.updt_cfg = true;
 
-	if (streamon_sp && dev->config.sp_config.updt_cfg &&
+	if (streamon_sp && dev->sp_stream.updt_cfg &&
 		(dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)) {
 		ret = cif_isp20_stop(dev, false, true);
 		if (IS_ERR_VALUE(ret))
 			goto err;
 		streamon_mp = true;
-		dev->config.mp_config.updt_cfg = true;
+		dev->mp_stream.updt_cfg = true;
 	}
-	if (streamon_mp && dev->config.mp_config.updt_cfg &&
+	if (streamon_mp && dev->mp_stream.updt_cfg &&
 		(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)) {
 		ret = cif_isp20_stop(dev, true, false);
 		if (IS_ERR_VALUE(ret))
 			goto err;
 		streamon_sp = true;
-		dev->config.sp_config.updt_cfg = true;
+		dev->sp_stream.updt_cfg = true;
 	}
 
 	ret = cif_isp20_config_cif(dev);
@@ -3572,8 +3831,7 @@ err:
 int cif_isp20_resume(
 	struct cif_isp20_device *dev)
 {
-	bool streamon_sp = false;
-	bool streamon_mp = false;
+	u32 stream_ids = 0;
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
 		"SP state = %s, MP state = %s\n",
@@ -3582,38 +3840,112 @@ int cif_isp20_resume(
 
 	if ((dev->sp_stream.saved_state == CIF_ISP20_STATE_READY) ||
 		(dev->sp_stream.saved_state == CIF_ISP20_STATE_STREAMING)) {
-		dev->config.sp_config.updt_cfg = true;
+		dev->sp_stream.updt_cfg = true;
 		dev->sp_stream.state = CIF_ISP20_STATE_READY;
 		if (dev->sp_stream.saved_state == CIF_ISP20_STATE_STREAMING)
-			streamon_sp = true;
+			stream_ids |= CIF_ISP20_STREAM_SP;
 	}
 	if ((dev->mp_stream.saved_state == CIF_ISP20_STATE_READY) ||
 		(dev->mp_stream.saved_state == CIF_ISP20_STATE_STREAMING)) {
-		dev->config.mp_config.updt_cfg = true;
+		dev->mp_stream.updt_cfg = true;
 		dev->mp_stream.state = CIF_ISP20_STATE_READY;
 		if (dev->mp_stream.saved_state == CIF_ISP20_STATE_STREAMING)
-			streamon_mp = true;
+			stream_ids |= CIF_ISP20_STREAM_MP;
 	}
 
-	return cif_isp20_streamon(dev, streamon_sp, streamon_mp);
+	if ((dev->dma_stream.saved_state == CIF_ISP20_STATE_READY) ||
+		(dev->dma_stream.saved_state == CIF_ISP20_STATE_STREAMING)) {
+		dev->dma_stream.state = CIF_ISP20_STATE_READY;
+		if (dev->dma_stream.saved_state == CIF_ISP20_STATE_STREAMING)
+			stream_ids |= CIF_ISP20_STREAM_DMA;
+	}
+
+	return cif_isp20_streamon(dev, stream_ids);
+}
+
+int cif_isp20_s_fmt(
+	struct cif_isp20_device *dev,
+	enum cif_isp20_stream_id stream_id,
+	struct cif_isp20_strm_fmt *strm_fmt,
+	u32 stride)
+{
+	int ret;
+	cif_isp20_pltfrm_pr_dbg(NULL, "%s\n",
+		cif_isp20_stream_id_string(stream_id));
+
+	switch (stream_id) {
+	case CIF_ISP20_STREAM_SP:
+		return cif_isp20_s_fmt_sp(dev, strm_fmt, stride);
+	case CIF_ISP20_STREAM_MP:
+		return cif_isp20_s_fmt_mp(dev, strm_fmt, stride);
+	case CIF_ISP20_STREAM_DMA:
+		return cif_isp20_s_fmt_dma(dev, strm_fmt, stride);
+	default:
+		cif_isp20_pltfrm_pr_err(NULL,
+			"unknown/unsupported stream ID %d\n", stream_id);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(NULL,
+		"failed with error %d\n", ret);
+	return ret;
+}
+
+int cif_isp20_init(
+	struct cif_isp20_device *dev,
+	u32 stream_ids)
+{
+	int ret;
+
+	cif_isp20_pltfrm_pr_dbg(NULL, "0x%08x\n", stream_ids);
+
+	if (stream_ids & ~(CIF_ISP20_ALL_STREAMS)) {
+		cif_isp20_pltfrm_pr_err(NULL,
+			"unknown/unsupported stream IDs 0x%08x\n",
+			stream_ids);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	if (stream_ids & CIF_ISP20_STREAM_SP)
+		cif_isp20_init_stream(dev, CIF_ISP20_STREAM_SP);
+	if (stream_ids & CIF_ISP20_STREAM_MP)
+		cif_isp20_init_stream(dev, CIF_ISP20_STREAM_MP);
+	if (stream_ids & CIF_ISP20_STREAM_DMA)
+		cif_isp20_init_stream(dev, CIF_ISP20_STREAM_DMA);
+
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(NULL,
+		"failed with error %d\n", ret);
+	return ret;
 }
 
 int cif_isp20_release(
 	struct cif_isp20_device *dev,
-	bool release_sp,
-	bool release_mp)
+	int stream_ids)
 {
-	int ret = 0;
+	int ret;
 
-	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"release_sp = %d, release_mp = %d\n",
-		release_sp, release_mp);
+	cif_isp20_pltfrm_pr_dbg(NULL, "0x%08x\n", stream_ids);
 
 	if ((dev->sp_stream.state == CIF_ISP20_STATE_DISABLED) &&
-		(dev->mp_stream.state == CIF_ISP20_STATE_DISABLED))
+		(dev->mp_stream.state == CIF_ISP20_STATE_DISABLED) &&
+		(dev->dma_stream.state == CIF_ISP20_STATE_DISABLED))
 		return 0;
 
-	if (release_sp) {
+	if (stream_ids & ~(CIF_ISP20_ALL_STREAMS)) {
+		cif_isp20_pltfrm_pr_err(NULL,
+			"unknown/unsupported stream IDs 0x%08x\n",
+			stream_ids);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	if (stream_ids & CIF_ISP20_STREAM_SP) {
 		if (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING) {
 			cif_isp20_pltfrm_pr_warn(dev->dev,
 			"CIF SP in streaming state, should be stopped before release, trying to stop it\n");
@@ -3623,7 +3955,7 @@ int cif_isp20_release(
 		}
 		dev->sp_stream.state = CIF_ISP20_STATE_DISABLED;
 	}
-	if (release_mp) {
+	if (stream_ids & CIF_ISP20_STREAM_MP) {
 		if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) {
 			cif_isp20_pltfrm_pr_warn(dev->dev,
 			"CIF MP in streaming state, should be stopped before release, trying to stop it\n");
@@ -3652,203 +3984,6 @@ err:
 	cif_isp20_pltfrm_pr_err(dev->dev,
 		"failed with error %d\n", ret);
 	return ret;
-}
-
-int cif_isp20_s_fmt_mp(
-	struct cif_isp20_device *dev,
-	struct cif_isp20_strm_fmt *strm_fmt,
-	u32 stride)
-{
-	int ret = 0;
-
-	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"%s %dx%d@%d/%dfps, stride = %d\n",
-		cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
-		strm_fmt->frm_fmt.width,
-		strm_fmt->frm_fmt.height,
-		strm_fmt->frm_intrvl.numerator,
-		strm_fmt->frm_intrvl.denominator,
-		stride);
-
-	/* TBD: check whether format is a valid format for MP */
-
-	if (CIF_ISP20_PIX_FMT_IS_JPEG(strm_fmt->frm_fmt.pix_fmt))
-		dev->config.jpeg_config.enable = true;
-	else if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(strm_fmt->frm_fmt.pix_fmt)) {
-		if ((dev->sp_stream.state == CIF_ISP20_STATE_READY) ||
-			(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING))
-			cif_isp20_pltfrm_pr_warn(dev->dev,
-				"cannot output RAW data when SP is active, you will not be able to (re-)start streaming\n");
-		dev->config.mi_config.raw_enable = true;
-	}
-
-	dev->config.mi_config.mp.output = strm_fmt->frm_fmt;
-
-	dev->config.mi_config.mp.llength =
-		cif_isp20_calc_llength(
-			strm_fmt->frm_fmt.width,
-			stride,
-			strm_fmt->frm_fmt.pix_fmt);
-
-	dev->config.mp_config.updt_cfg = true;
-	dev->mp_stream.state = CIF_ISP20_STATE_READY;
-
-	ret = cif_isp20_img_src_select_strm_fmt(dev);
-	if (IS_ERR_VALUE(ret)) {
-		dev->config.mp_config.updt_cfg = false;
-		dev->mp_stream.state = CIF_ISP20_STATE_INACTIVE;
-		goto err;
-	}
-
-	return 0;
-err:
-	cif_isp20_pltfrm_pr_err(dev->dev,
-		"failed with error %d\n", ret);
-	return ret;
-}
-
-int cif_isp20_s_fmt_sp(
-	struct cif_isp20_device *dev,
-	struct cif_isp20_strm_fmt *strm_fmt,
-	u32 stride)
-{
-	int ret = 0;
-
-	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"%s %dx%d@%d/%dfps, stride = %d\n",
-		cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
-		strm_fmt->frm_fmt.width,
-		strm_fmt->frm_fmt.height,
-		strm_fmt->frm_intrvl.numerator,
-		strm_fmt->frm_intrvl.denominator,
-		stride);
-
-	if (dev->config.mi_config.raw_enable)
-		cif_isp20_pltfrm_pr_warn(dev->dev,
-			"cannot activate SP when MP is set to RAW data output, you will not be able to (re-)start streaming\n");
-
-	/* TBD: more detailed check whether format is a valid format for SP */
-	/* TBD: remove the mode stuff */
-	if (!CIF_ISP20_PIX_FMT_IS_YUV(strm_fmt->frm_fmt.pix_fmt) &&
-		!CIF_ISP20_PIX_FMT_IS_RGB(strm_fmt->frm_fmt.pix_fmt)) {
-		cif_isp20_pltfrm_pr_err(dev->dev,
-			"format %s %dx%d@%d/%dfps, stride = %d not supported on SP\n",
-			cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
-			strm_fmt->frm_fmt.width,
-			strm_fmt->frm_fmt.height,
-			strm_fmt->frm_intrvl.numerator,
-			strm_fmt->frm_intrvl.denominator,
-			stride);
-		ret = -EINVAL;
-		goto err;
-	}
-
-	dev->config.mi_config.sp.output = strm_fmt->frm_fmt;
-	dev->config.mi_config.sp.llength =
-		cif_isp20_calc_llength(
-		strm_fmt->frm_fmt.width,
-		stride,
-		strm_fmt->frm_fmt.pix_fmt);
-
-	dev->config.sp_config.updt_cfg = true;
-	dev->sp_stream.state = CIF_ISP20_STATE_READY;
-
-	ret = cif_isp20_img_src_select_strm_fmt(dev);
-	if (IS_ERR_VALUE(ret)) {
-		dev->config.sp_config.updt_cfg = false;
-		dev->sp_stream.state = CIF_ISP20_STATE_INACTIVE;
-		goto err;
-	}
-
-	return 0;
-err:
-	cif_isp20_pltfrm_pr_err(dev->dev,
-		"failed with error %d\n", ret);
-	return ret;
-}
-
-int cif_isp20_s_fmt_dma(
-	struct cif_isp20_device *dev,
-	struct cif_isp20_strm_fmt *strm_fmt,
-	u32 stride)
-{
-	int ret = 0;
-
-	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"%s %dx%d@%d/%dfps, stride = %d\n",
-		cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
-		strm_fmt->frm_fmt.width,
-		strm_fmt->frm_fmt.height,
-		strm_fmt->frm_intrvl.numerator,
-		strm_fmt->frm_intrvl.denominator,
-		stride);
-
-	if ((!CIF_ISP20_PIX_FMT_IS_YUV(strm_fmt->frm_fmt.pix_fmt) &&
-		!CIF_ISP20_PIX_FMT_IS_RAW_BAYER(strm_fmt->frm_fmt.pix_fmt)) ||
-		(CIF_ISP20_PIX_FMT_IS_YUV(strm_fmt->frm_fmt.pix_fmt) &&
-		CIF_ISP20_PIX_FMT_YUV_IS_UV_SWAPPED(
-			strm_fmt->frm_fmt.pix_fmt))) {
-		cif_isp20_pltfrm_pr_err(dev->dev,
-			"format %s %dx%d@%d/%dfps, stride = %d not supported for DMA\n",
-			cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
-			strm_fmt->frm_fmt.width,
-			strm_fmt->frm_fmt.height,
-			strm_fmt->frm_intrvl.numerator,
-			strm_fmt->frm_intrvl.denominator,
-			stride);
-		ret = -EINVAL;
-		goto err;
-	}
-
-	dev->config.mi_config.dma.output = strm_fmt->frm_fmt;
-	dev->config.mi_config.dma.llength =
-		cif_isp20_calc_llength(
-		strm_fmt->frm_fmt.width,
-		stride,
-		strm_fmt->frm_fmt.pix_fmt);
-
-	dev->config.dma_config.updt_cfg = true;
-	dev->dma_stream.state = CIF_ISP20_STATE_READY;
-
-	return 0;
-err:
-	cif_isp20_pltfrm_pr_err(dev->dev,
-		"failed with error %d\n", ret);
-	return ret;
-}
-
-void cif_isp20_init_sp(struct cif_isp20_device *dev)
-{
-	dev->config.sp_config.updt_cfg = false;
-	INIT_LIST_HEAD(&dev->sp_stream.buf_queue);
-	dev->sp_stream.next_buf = NULL;
-	dev->sp_stream.curr_buf = NULL;
-
-	/* default */
-	if (dev->img_src == NULL)
-		cif_isp20_s_input(dev, CIF_ISP20_INP_CSI_0);
-
-	dev->sp_stream.state = CIF_ISP20_STATE_INACTIVE;
-}
-
-void cif_isp20_init_mp(
-	struct cif_isp20_device *dev)
-{
-	dev->config.jpeg_config.ratio = 50;
-	dev->config.jpeg_config.header =
-		CIF_ISP20_JPEG_HEADER_JFIF;
-	dev->config.jpeg_config.enable = false;
-	dev->config.mi_config.raw_enable = false;
-	dev->config.mp_config.updt_cfg = false;
-	INIT_LIST_HEAD(&dev->mp_stream.buf_queue);
-	dev->mp_stream.next_buf = NULL;
-	dev->mp_stream.curr_buf = NULL;
-
-	/* default */
-	if (dev->img_src == NULL)
-		cif_isp20_s_input(dev, CIF_ISP20_INP_CSI_0);
-
-	dev->mp_stream.state = CIF_ISP20_STATE_INACTIVE;
 }
 
 struct cif_isp20_device *cif_isp20_create(
@@ -3881,11 +4016,11 @@ struct cif_isp20_device *cif_isp20_create(
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
-	cif_isp20_init_sp(dev);
-	cif_isp20_init_mp(dev);
+	(void)cif_isp20_init(dev, CIF_ISP20_ALL_STREAMS);
 	dev->pm_state = CIF_ISP20_PM_STATE_OFF;
 	dev->sp_stream.state = CIF_ISP20_STATE_DISABLED;
 	dev->mp_stream.state = CIF_ISP20_STATE_DISABLED;
+	dev->dma_stream.state = CIF_ISP20_STATE_DISABLED;
 
 	/* TBD: clean this up */
 	init_output_formats();
@@ -4013,6 +4148,9 @@ int cif_isp20_qbuf(
 		break;
 	case CIF_ISP20_STREAM_DMA:
 		list_add_tail(&buf->queue, &dev->dma_stream.buf_queue);
+		if ((dev->dma_stream.state == CIF_ISP20_STATE_STREAMING) &&
+			(dev->dma_stream.curr_buf == NULL))
+			cif_isp20_dma_next_buff(dev);
 		break;
 	case CIF_ISP20_STREAM_ISP:
 		BUG();
@@ -4557,6 +4695,9 @@ int marvin_mipi_isr(void *cntxt)
 	mipi_mis =
 	    cif_ioread32((dev->config.base_addr) + CIF_MIPI_MIS);
 
+	cif_isp20_pltfrm_reg_trace_printf(dev->dev,
+		"MIPI_MIS %08x\n", mipi_mis);
+
 	if (mipi_mis & CIF_MIPI_ERR_DPHY) {
 		/* clear_mipi_dphy_error*/
 		cif_iowrite32(CIF_MIPI_ERR_DPHY,
@@ -4661,6 +4802,9 @@ int marvin_isp_isr(void *cntxt)
 	cif_isp20_pltfrm_pr_dbg(NULL, "\n");
 
 	isp_mis = cif_ioread32((dev->config.base_addr) + CIF_ISP_MIS);
+
+	cif_isp20_pltfrm_reg_trace_printf(dev->dev,
+		"ISP_MIS %08x\n", isp_mis);
 
 #ifdef MEASURE_VERTICAL_BLANKING
 	if (isp_mis & CIF_ISP_V_START) {

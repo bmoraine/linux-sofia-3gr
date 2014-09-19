@@ -143,6 +143,7 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_ISP_ACQ_PROP_BAYER_PAT_GBRG        (2<<3)
 #define CIF_ISP_ACQ_PROP_BAYER_PAT_BGGR        (3<<3)
 #define CIF_ISP_ACQ_PROP_YCBYCR                (0<<7)
+#define CIF_ISP_ACQ_PROP_YCRYCB                (1<<7)
 #define CIF_ISP_ACQ_PROP_CBYCRY                (2<<7)
 #define CIF_ISP_ACQ_PROP_FIELD_SEL_ALL         (0<<9)
 #define CIF_ISP_ACQ_PROP_FIELD_SEL_EVEN        (1<<9)

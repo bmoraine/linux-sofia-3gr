@@ -33,6 +33,7 @@
 #include <linux/workqueue.h>
 #include "cif_isp20_regs.h"
 #include "cif_isp20_isp.h"
+#include "cif_isp20_pltfrm.h"
 
 #define _GET_ 0
 #define _SET_ 1
@@ -212,14 +213,16 @@ static int cifisp_dbg_level = CIFISP_DEBUG_ERROR;
 
 #define CIFISP_DPRINT(level, fmt, arg...) { if (cifisp_dbg_level & level)\
 						pr_info(fmt, ##arg); }
-#define cifisp_iowrite32(d, a)      iowrite32(d, isp_dev->base_addr + (a))
-#define cifisp_ioread32(a)         ioread32(isp_dev->base_addr + (a))
-#define cifisp_iowrite32OR(d, a)    iowrite32(\
-	(ioread32(isp_dev->base_addr + (a))|d),\
-	isp_dev->base_addr + (a))
-#define cifisp_iowrite32AND(d, a)    iowrite32(\
-	(ioread32(isp_dev->base_addr + (a))&d),\
-	isp_dev->base_addr + (a))
+
+#define cifisp_iowrite32(d, a) \
+	cif_isp20_pltfrm_write_reg(NULL, (d), isp_dev->base_addr + (a))
+#define cifisp_ioread32(a) \
+	cif_isp20_pltfrm_read_reg(NULL, isp_dev->base_addr + (a))
+#define cifisp_iowrite32OR(d, a) \
+	cif_isp20_pltfrm_write_reg_OR(NULL, (d), isp_dev->base_addr + (a))
+#define cifisp_iowrite32AND(d, a) \
+	cif_isp20_pltfrm_write_reg_AND(NULL, (d), isp_dev->base_addr + (a))
+
 
 /* Set this flag to enable CIF ISP Register debug
 #define CIFISP_DEBUG_REG*/

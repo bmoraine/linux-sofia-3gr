@@ -37,13 +37,6 @@ static int rbpath_nr = -1;
 #define CIF_RBPATH_DPRINT(level, fmt, arg...) { if (rbpath_dbg_level&level)\
 	pr_debug(fmt, ##arg); }
 
-#define cif_iowrite32(d, a)      iowrite32(d, a)
-#define cif_ioread32(a)         ioread32(a)
-#define cif_iowrite32OR(d, a)        iowrite32((ioread32(a)|d), a)
-#define cif_iowrite32AND(d, a)       iowrite32((ioread32(a)&d), a)
-#define cif_iowrite32FIELD(d, p, m, a)     iowrite32((d << p) |\
-	(ioread32(a) & (~m)), a)
-
 /*
  * Fun name : rbpath_get_set_rb_mode
  *

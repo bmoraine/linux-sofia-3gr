@@ -52,6 +52,44 @@ enum cif_isp20_irq;
 	pr_err("CIF ISP2.0 %s(%d) ERR: " fmt, \
 		__func__, __LINE__, ## arg)
 
+inline void cif_isp20_pltfrm_write_reg(
+	struct device *dev,
+	u32 data,
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr);
+
+inline void cif_isp20_pltfrm_write_reg_OR(
+	struct device *dev,
+	u32 data,
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr);
+
+inline void cif_isp20_pltfrm_write_reg_AND(
+	struct device *dev,
+	u32 data,
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr);
+
+inline u32 cif_isp20_pltfrm_read_reg(
+	struct device *dev,
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr);
+
+#define cif_iowrite32(d, a) \
+	cif_isp20_pltfrm_write_reg(NULL, d, a)
+#define cif_ioread32(a) \
+	cif_isp20_pltfrm_read_reg(NULL, a)
+#define cif_iowrite32OR(d, a) \
+	cif_isp20_pltfrm_write_reg_OR(NULL, d, a)
+#define cif_iowrite32AND(d, a) \
+	cif_isp20_pltfrm_write_reg_AND(NULL, d, a)
+
+#ifdef CONFIG_CIF_ISP20_REG_TRACE
+int
+cif_isp20_pltfrm_reg_trace_printf(
+	struct device *dev,
+	const char *fmt,
+	...);
+#else
+#define cif_isp20_pltfrm_reg_trace_printf(dev, str, ...)
+#endif
+
 int cif_isp20_pltfrm_dev_init(
 	struct cif_isp20_device *cif_isp_dev,
 	struct device **dev,

@@ -35,10 +35,6 @@
 
 /*****************************************************************************/
 
-
-#define CONFIG_SENSOR_IF_MIPI
-#define CONFIG_XGOLD_ISP
-
 #define CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG
 #if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
 #endif
@@ -50,13 +46,6 @@
 	struct isp_supplemental_sensor_mode_data)
 
 #define CIF_ISP20_NUM_CSI_INPUTS 2
-
-#define cif_iowrite32(d, a)	iowrite32(d, a)
-#define cif_ioread32(a)	ioread32(a)
-#define cif_iowrite32OR(d, a)	iowrite32((ioread32(a)|d), a)
-#define cif_iowrite32AND(d, a)	iowrite32((ioread32(a)&d), a)
-#define cif_iowrite32FIELD(d, p, m, a)	\
-	iowrite32((d << p) | (ioread32(a) & (~m)), a)
 
 #define DRIVER_NAME "cif_isp20"
 
@@ -185,9 +174,9 @@ struct marvin_control {
 #define CIF_ISP20_PIX_FMT_GET_BPP(pix_fmt) \
 	((pix_fmt & CIF_ISP20_PIX_FMT_MASK_BPP) >> 12)
 #define cif_isp20_pix_fmt_set_bpp(pix_fmt, bpp) \
-	{\
-		pix_fmt = ((pix_fmt & ~CIF_ISP20_PIX_FMT_MASK_BPP) |\
-			((bpp << 12) & CIF_ISP20_PIX_FMT_MASK_BPP));\
+	{ \
+		pix_fmt = ((pix_fmt & ~CIF_ISP20_PIX_FMT_MASK_BPP) | \
+			((bpp << 12) & CIF_ISP20_PIX_FMT_MASK_BPP)); \
 	}
 
 #define CIF_ISP20_PIX_FMT_YUV_GET_NUM_CPLANES(pix_fmt) \
@@ -201,14 +190,20 @@ struct marvin_control {
 #define CIF_ISP20_PIX_FMT_YUV_GET_Y_SUBS(pix_fmt) \
 	((pix_fmt & CIF_ISP20_PIX_FMT_YUV_MASK_Y) >> 4)
 #define cif_isp20_pix_fmt_set_y_subs(pix_fmt, y_subs) \
-	{\
-		pix_fmt = ((pix_fmt & ~CIF_ISP20_PIX_FMT_YUV_MASK_Y) |\
-			((y_subs << 4) & CIF_ISP20_PIX_FMT_YUV_MASK_Y));\
+	{ \
+		pix_fmt = ((pix_fmt & ~CIF_ISP20_PIX_FMT_YUV_MASK_Y) | \
+			((y_subs << 4) & CIF_ISP20_PIX_FMT_YUV_MASK_Y)); \
 	}
 #define cif_isp20_pix_fmt_set_x_subs(pix_fmt, x_subs) \
-	{\
-		pix_fmt = ((pix_fmt & ~CIF_ISP20_PIX_FMT_YUV_MASK_X) |\
-			((x_subs << 8) & CIF_ISP20_PIX_FMT_YUV_MASK_X));\
+	{ \
+		pix_fmt = ((pix_fmt & ~CIF_ISP20_PIX_FMT_YUV_MASK_X) | \
+			((x_subs << 8) & CIF_ISP20_PIX_FMT_YUV_MASK_X)); \
+	}
+#define cif_isp20_pix_fmt_set_yc_swapped(pix_fmt, yc_swapped) \
+	{ \
+		pix_fmt = ((pix_fmt & ~CIF_ISP20_PIX_FMT_YUV_MASK_YCSWAP) | \
+			((yc_swapped << 3) & \
+			CIF_ISP20_PIX_FMT_YUV_MASK_YCSWAP)); \
 	}
 
 #define CIF_ISP20_PIX_FMT_BAYER_PAT_IS_BGGR(pix_fmt) \
@@ -316,6 +311,11 @@ enum cif_isp20_stream_id {
 	CIF_ISP20_STREAM_ISP	= 0x8
 };
 
+#define CIF_ISP20_ALL_STREAMS \
+	(CIF_ISP20_STREAM_SP | \
+	CIF_ISP20_STREAM_MP | \
+	CIF_ISP20_STREAM_DMA)
+
 enum cif_isp20_buff_fmt {
 	/* values correspond to bitfield values */
 	CIF_ISP20_BUFF_FMT_PLANAR = 0,
@@ -370,16 +370,10 @@ struct cif_isp20_rsz_config {
 
 struct cif_isp20_sp_config {
 	struct cif_isp20_rsz_config rsz_config;
-	bool updt_cfg;
 };
 
 struct cif_isp20_mp_config {
 	struct cif_isp20_rsz_config rsz_config;
-	bool updt_cfg;
-};
-
-struct cif_isp20_dma_config {
-	bool updt_cfg;
 };
 
 struct cif_isp20_mi_path_config {
@@ -423,6 +417,7 @@ struct cif_isp20_stream {
 	struct list_head buf_queue;
 	struct videobuf_buffer *curr_buf;
 	struct videobuf_buffer *next_buf;
+	bool updt_cfg;
 	bool stall;
 };
 
@@ -495,7 +490,6 @@ struct cif_isp20_config {
 	struct cif_isp20_mipi_config mipi_config;
 	struct cif_isp20_sp_config sp_config;
 	struct cif_isp20_mp_config mp_config;
-	struct cif_isp20_dma_config dma_config;
 	struct cif_isp20_strm_fmt img_src_output;
 	struct marvin_control control;	/* control */
 	struct marvin_isp isp_config;	/* isp configuration */
@@ -509,13 +503,10 @@ struct cif_isp20_mi_state {
 	unsigned int isp_ctrl;
 	unsigned int y_base_ad;
 	unsigned int y_size;
-	unsigned int y_offs_cnt;
 	unsigned int cb_base_ad;
 	unsigned int cb_size;
-	unsigned int cb_offs_cnt;
 	unsigned int cr_base_ad;
 	unsigned int cr_size;
-	unsigned int cr_offs_cnt;
 };
 
 /* Sensor resolution specific data for AE calculation.*/
@@ -560,15 +551,10 @@ struct xgold_fmt {
 struct cif_isp20_device {
 	CIF_ISP20_PLTFRM_DEVICE dev;
 	struct v4l2_device v4l2_dev;
-	int mp_minor;
-	int mp_major;
-	int sp_major;
-	int sp_minor;
 	enum cif_isp20_pm_state pm_state;
 	enum cif_isp20_img_src_state img_src_state;
 
 	spinlock_t vbq_lock;	/* spinlock for videobuf queues */
-	spinlock_t img_lock;	/* spinlock for image parameters */
 
 	struct cif_isp20_img_src *img_src;
 	struct cif_isp20_img_src *img_src_array[CIF_ISP20_NUM_CSI_INPUTS];
@@ -618,21 +604,17 @@ struct cif_isp20_device *cif_isp20_create(
 void cif_isp20_destroy(
 	struct cif_isp20_device *dev);
 
+int cif_isp20_init(
+	struct cif_isp20_device *dev,
+	u32 stream_ids);
+
 int cif_isp20_release(
 	struct cif_isp20_device *dev,
-	bool release_sp,
-	bool release_mp);
-
-void cif_isp20_init_sp(
-	struct cif_isp20_device *dev);
-
-void cif_isp20_init_mp(
-	struct cif_isp20_device *dev);
+	int stream_ids);
 
 int cif_isp20_streamon(
 	struct cif_isp20_device *dev,
-	bool streamon_sp,
-	bool streamon_mp);
+	u32 stream_ids);
 
 int cif_isp20_streamoff(
 	struct cif_isp20_device *dev,
@@ -643,18 +625,9 @@ int cif_isp20_s_input(
 	struct cif_isp20_device *dev,
 	enum cif_isp20_inp inp);
 
-int cif_isp20_s_fmt_mp(
+int cif_isp20_s_fmt(
 	struct cif_isp20_device *dev,
-	struct cif_isp20_strm_fmt *strm_fmt,
-	u32 stride);
-
-int cif_isp20_s_fmt_sp(
-	struct cif_isp20_device *dev,
-	struct cif_isp20_strm_fmt *strm_fmt,
-	u32 stride);
-
-int cif_isp20_s_fmt_dma(
-	struct cif_isp20_device *dev,
+	enum cif_isp20_stream_id stream_id,
 	struct cif_isp20_strm_fmt *strm_fmt,
 	u32 stride);
 
