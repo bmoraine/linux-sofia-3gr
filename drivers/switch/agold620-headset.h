@@ -19,7 +19,7 @@
 /* FIXME */
 #include <../../sound/soc/codecs/agold_acc_det.h>
 
-#define AHJ_TYPE_MIN_MV 1000
+#define AHJ_TYPE_MIN_MV 475
 #define AHJ_TYPE_MAX_MV 1700
 
 #define HEADPHONE_MIN_MV 0
