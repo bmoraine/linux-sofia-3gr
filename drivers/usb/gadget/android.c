@@ -655,8 +655,9 @@ static struct android_usb_function ptp_function = {
 
 
 struct rndis_function_config {
+	char	manufacturer[256];
 	/* "Wireless" RNDIS; auto-detected by Windows */
-	bool   wceis;
+	bool	wceis;
 	struct eth_dev *dev;
 	struct usb_function *f_rndis;
 	struct usb_function_instance *f_rndis_inst;
@@ -706,9 +707,11 @@ static int
 rndis_function_bind_config(struct android_usb_function *f,
 		struct usb_configuration *c)
 {
+	struct rndis_function_config *rndis = f->config;
+	struct f_rndis *rndis_func = func_to_rndis(rndis->f_rndis);
+	struct f_rndis_opts *rndis_opts;
+	struct eth_dev *dev;
 	int ret;
-	struct rndis_function_config *rndis_func = f->config;
-	struct f_rndis *rndis = func_to_rndis(rndis_func->f_rndis);
 
 	if (!rndis) {
 		pr_err("%s: rndis_pdata\n", __func__);
@@ -716,10 +719,23 @@ rndis_function_bind_config(struct android_usb_function *f,
 	}
 
 	pr_info("%s MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
-		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
-		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
+		rndis_func->ethaddr[0], rndis_func->ethaddr[1],
+		rndis_func->ethaddr[2], rndis_func->ethaddr[3],
+		rndis_func->ethaddr[4], rndis_func->ethaddr[5]);
 
-	if (rndis_func->wceis) {
+	rndis_opts = container_of(rndis->f_rndis_inst,
+			struct f_rndis_opts, func_inst);
+
+	dev = gether_setup_name(c->cdev->gadget, dev_addr, host_addr,
+			NULL, QMULT_DEFAULT, "rndis");
+	if (IS_ERR(dev)) {
+		ret = PTR_ERR(dev);
+		pr_err("%s: gether_setup failed\n", __func__);
+		return ret;
+	}
+	rndis->dev = dev;
+
+	if (rndis->wceis) {
 		/* "Wireless" RNDIS; auto-detected by Windows */
 		rndis_iad_descriptor.bFunctionClass =
 						USB_CLASS_WIRELESS_CONTROLLER;
@@ -731,13 +747,36 @@ rndis_function_bind_config(struct android_usb_function *f,
 		rndis_control_intf.bInterfaceProtocol =	 0x03;
 	}
 
-	ret = usb_add_function(c, rndis_func->f_rndis);
+	/*
+	 * RNDIS function registers a net dev during the alloc_inst callback,
+	 * Android gadget defines its own net dev and borrow it.
+	 * This must be done only if rndis is not bound.
+	 */
+	if (!rndis_opts->bound)
+		rndis_borrow_net(rndis->f_rndis_inst, dev->net);
+
+	/*
+	 * After net dev is borrowed, rndis function doesn't update ioport
+	 * handle to point to the new net dev.
+	 * Do it here.
+	 */
+	rndis_func->port.ioport = dev;
+
+
+	ret = usb_add_function(c, rndis->f_rndis);
 	if (ret) {
 		pr_err("Could not bind rndis config\n");
 		return ret;
 	}
 
 	return 0;
+}
+
+static void rndis_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	struct rndis_function_config *rndis = f->config;
+	gether_cleanup(rndis->dev);
 }
 
 static ssize_t rndis_manufacturer_show(struct device *dev,
@@ -756,10 +795,12 @@ static ssize_t rndis_manufacturer_store(struct device *dev,
 	struct rndis_function_config *rndis_func = f->config;
 	struct f_rndis *rndis = func_to_rndis(rndis_func->f_rndis);
 
-	if (size >= sizeof(rndis->manufacturer))
+	if (size >= sizeof(rndis_func->manufacturer))
 		return -EINVAL;
-	if (sscanf(buf, "%s", rndis->manufacturer) == 1)
+	if (sscanf(buf, "%s", rndis_func->manufacturer) == 1) {
+		rndis->manufacturer = rndis_func->manufacturer;
 		return size;
+	}
 	return -1;
 }
 
@@ -860,6 +901,7 @@ static struct android_usb_function rndis_function = {
 	.init		= rndis_function_init,
 	.cleanup	= rndis_function_cleanup,
 	.bind_config	= rndis_function_bind_config,
+	.unbind_config	= rndis_function_unbind_config,
 	.attributes	= rndis_function_attributes,
 };
 
