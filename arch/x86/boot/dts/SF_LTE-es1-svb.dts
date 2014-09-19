@@ -65,14 +65,16 @@
 		intel,dcc-debug-level = <1>;
 #ifdef RECOVERY_KERNEL
 		intel,fb-api = <1>;
+		intel,dcc-mem = < 0x00800000 >;
 #else
 		intel,dcc-use-fences = <0>;
+		intel,dcc-mem = < 0x00400000 >;
 #endif
 		intel,display-fps = <60>;
 		intel,display-ramless = <1>;
 		intel,display-preinit = <0>;
 		intel,display-if = <&mipi_dsi>;
-		intel,display-if-rate = <450000000>;
+		intel,display-if-rate = <390000000>;
 		/include/ "xgold/display/OTM1283.dtsi"
 		mipi_dsi:mipi-dsi {
 				intel,display-if-min = <104000000>;
