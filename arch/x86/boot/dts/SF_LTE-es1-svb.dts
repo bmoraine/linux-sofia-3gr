@@ -67,7 +67,7 @@
 		intel,fb-api = <1>;
 		intel,dcc-mem = < 0x00800000 >;
 #else
-		intel,dcc-use-fences = <0>;
+		intel,dcc-use-fences = <1>;
 		intel,dcc-mem = < 0x00400000 >;
 #endif
 		intel,display-fps = <60>;
