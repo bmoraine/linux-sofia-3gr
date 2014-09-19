@@ -11,7 +11,7 @@
 		intel,display-vid-vbp-lines = <12>;
 		intel,display-vid-vsa-lines = <5>;
 
-		intel,display-vid-mode = "burst";
+		intel,display-vid-mode = "pulses";
 		intel,display-vid-id = <0>;
 		intel,display-vid-pixel = "24packed";
 		intel,display-vid-fill_buf_to = <0x1F>;
