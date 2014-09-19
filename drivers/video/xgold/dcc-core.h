@@ -223,6 +223,7 @@ struct dcc_drvdata {
 	struct semaphore sem;
 	struct dcc_rect_t lastupdate;
 	unsigned int overlay_nbr;
+	unsigned int overlay_updt_cnt;
 	unsigned int clk_rate;
 	int gpio_lcd_bias;
 	int gpio_reset;

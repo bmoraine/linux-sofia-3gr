@@ -278,8 +278,9 @@ static void dcc_getcbcr_offsets(int *cb_off, int *cr_off, int fmt, int w, int h)
 	BITFLDS(INR_DIF_SPRITE_SIZE0_ALPHA, _a_) | \
 	BITFLDS(INR_DIF_SPRITE_SIZE0_GLOBAL, _g_))
 
-#define DIF_OVERLAY_CONF_SET(_a_, _t_, _b_, _c_) (\
+#define DIF_OVERLAY_CONF_SET(_a_, _t_, _b_, _c_, _r_) (\
 	BITFLDS(INR_DIF_SPRITE_CONF2_ACT, _a_) | \
+	BITFLDS(INR_DIF_SPRITE_CONF2_BGR, _r_) | \
 	BITFLDS(INR_DIF_SPRITE_CONF2_TYP, _t_) | \
 	BITFLDS(INR_DIF_SPRITE_CONF2_BLEND, _b_) | \
 	BITFLDS(INR_DIF_SPRITE_CONF2_CHROMA, _c_))
@@ -380,6 +381,19 @@ static inline int dcc_sprite_fmt2bpp(unsigned int fmt)
 	}
 }
 
+static int dcc_sprite_needs_rgb_bgr(struct dcc_sprite_t *spr)
+{
+	unsigned int spr_is_bgr = 0;
+	/* check if RGB to BGR conversion is needed */
+	switch (spr->fmt) {
+	case DCC_FMT_ABGR8888:
+	case DCC_FMT_BGR888:
+	case DCC_FMT_RGB565:
+		spr_is_bgr = 1;
+		break;
+	}
+	return spr_is_bgr;
+}
 /**
  * Configure a sprite
  */
@@ -390,6 +404,7 @@ static int dcc_sprite_conf(struct dcc_drvdata *p, struct dcc_sprite_t *spr)
 	unsigned int base_reg;
 	unsigned int size_reg = 0, size_val;
 	unsigned int conf_reg, conf_val;
+	static unsigned int last_conf_vals[DCC_OVERLAY_NUM] = {0, 0, 0, 0};
 
 	/* Check sprite id number */
 	switch (spr->id) {
@@ -420,7 +435,30 @@ static int dcc_sprite_conf(struct dcc_drvdata *p, struct dcc_sprite_t *spr)
 	}
 
 	if (spr->phys == 0) {
-		gra_write_field(p, conf_reg, ((!!spr->phys) << 5));
+		conf_val = last_conf_vals[spr->id];
+		/* deactivate sprite and exit, do not modify any
+		 * other field of the sprite as it may be on screen */
+		switch (spr->id) {
+		case 0:
+			conf_val &= ~(BITFLDS(INR_DIF_SPRITE_CONF0_ACT, 1));
+			break;
+		case 1:
+			conf_val &= ~(BITFLDS(INR_DIF_SPRITE_CONF1_ACT, 1));
+			break;
+		case 2:
+			conf_val &= ~(BITFLDS(INR_DIF_SPRITE_CONF2_ACT, 1));
+			break;
+		case 3:
+			conf_val &= ~(BITFLDS(INR_DIF_SPRITE_CONF3_ACT, 1));
+			break;
+		default:
+			err = -1;
+			dcc_err("wrong sprite id %d\n", spr->id);
+			goto out;
+			break;
+		}
+		gra_write_field(p, conf_reg, conf_val);
+		last_conf_vals[spr->id] = conf_val;
 		goto out;
 	}
 
@@ -441,6 +479,7 @@ static int dcc_sprite_conf(struct dcc_drvdata *p, struct dcc_sprite_t *spr)
 	}
 
 	if (spr->id == 2) {
+		unsigned int spr_is_bgr = dcc_sprite_needs_rgb_bgr(spr);
 		if (type == 0x4) {
 			dcc_warn("Wrong sprite format(%d) for layer(%d) !\n",
 				 spr->fmt, spr->id);
@@ -462,16 +501,14 @@ static int dcc_sprite_conf(struct dcc_drvdata *p, struct dcc_sprite_t *spr)
 
 		conf_val =
 		    DIF_OVERLAY_CONF_SET((!!spr->phys), type, spr->global,
-					 spr->chromakey);
+					 spr->chromakey, spr_is_bgr);
 	} else {
-		unsigned int spr_is_rgb = 0;
-		/* check if RGB to BGR conversion is needed */
-		if (spr->fmt == DCC_FMT_ARGB8888 || spr->fmt == DCC_FMT_RGB888)
-			spr_is_rgb = 1;
+		unsigned int spr_is_bgr = dcc_sprite_needs_rgb_bgr(spr);
 		conf_val = DIF_SPRITE_CONF_SET((!!spr->phys), type,
-			spr->x, spr->y,	spr_is_rgb);
+			spr->x, spr->y,	spr_is_bgr);
 	}
 	gra_write_field(p, conf_reg, conf_val);
+	last_conf_vals[spr->id] = conf_val;
 
 	/**
 	 * Set DIF_SPRITE_SIZEx value
@@ -1222,35 +1259,102 @@ int dcc_rq_update(struct dcc_drvdata *p, struct dcc_rect_t *ru)
 	return 0;
 }
 
+/*
+Check if a sprite can be used for the current update, rules are:
 
-static int dcc_rq_compose(struct dcc_drvdata *p, struct dcc_update_layers *updt)
+ - max 2 overlays enabled
+ - do not use the same ones that were used in previous update
+ - two sets are allowed: (0,1) or (2,3)
+
+note: the first overlay must be full screen (limitation from sprite 2).
+*/
+static int dcc_ovl_en(int spr_id, int ovl_upd_id)
+{
+	static const int ovl_enabled[2][DCC_OVERLAY_NUM] = {
+		{ 1, 1, 0, 0 },
+		{ 0, 0, 1, 1 }
+	};
+	if (spr_id < DCC_OVERLAY_NUM)
+		return ovl_enabled[ovl_upd_id & 0x01][spr_id];
+	else
+		return 0;
+}
+
+static void dcc_set_overlay(struct dcc_sprite_t *spr, struct dcc_layer_ovl *l,
+		int ovl_id, int l_id)
+{
+
+	DCC_DBG2("  spr[%d]<-ov[%d], @0x%x\n", ovl_id, l_id, l->phys);
+
+	/* YUV formats offset not supported! */
+	if (!l->phys)
+		BUG();
+
+	l->phys += dcc_sprite_fmt2bpp(l->fmt) *
+		(l->src.y * l->src.w + l->src.x);
+
+	DCC_SPRITE_INIT((*spr),
+		1,
+		ovl_id,
+		l->phys,
+		l->dst.x, l->dst.y, l->dst.w, l->dst.h,
+		l->alpha, l->global, l->fmt, l->chromakey);
+}
+
+static void dcc_clr_overlay(struct dcc_sprite_t *spr, int spr_id)
+{
+	DCC_SPRITE_INIT((*spr), 0, spr_id, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+}
+
+static int dcc_rq_compose(struct dcc_drvdata *p,
+		struct dcc_update_layers *updt, int update_pt)
 {
 	struct dcc_rect_t ru;
+	struct dcc_sprite_t spr;
 	unsigned int global_ovl_status = 0;
-	int ovl_id, ret = 0, ovl_draw = -1;
+	int ret = 0, ovl_draw = -1, l_id = 0, ovl_id;
+	struct dcc_layer_ovl *l = &updt->ovls[l_id];
 
 	DCC_DBG2("compose --> BACK @ 0x%x %s\n",
 		updt->back.phys, dcc_format_name(updt->back.fmt));
+	DCC_DBG2("dcc[ ]: compose bg @0x%x ,ov_up_cnt=%d updt_pt=%d\n",
+			updt->back.phys, p->overlay_updt_cnt, update_pt);
 	for (ovl_id = 0; ovl_id < DCC_OVERLAY_NUM; ovl_id++) {
-		struct dcc_sprite_t spr;
-		struct dcc_layer_ovl *l = &updt->ovls[ovl_id];
+		/* skip update layers with a null pointer */
+		while (!l->phys && l_id < DCC_OVERLAY_NUM) {
+			l = &updt->ovls[l_id];
+			l_id++;
+		}
 
-		global_ovl_status |= l->phys;
-
-		/* YUV formats offset not suppported! */
-		if (l->phys)
-			l->phys += dcc_sprite_fmt2bpp(l->fmt) *
-				(l->src.y * l->src.w + l->src.x);
-
-		DCC_SPRITE_INIT(spr,
-			(l->phys ? 1 : 0), /* enabled only if address != 0 */
-			ovl_id,
-			l->phys,
-			l->dst.x, l->dst.y, l->dst.w, l->dst.h,
-			l->alpha, l->global, l->fmt, l->chromakey);
+		if (!dcc_ovl_en(ovl_id, p->overlay_updt_cnt) ||
+			l_id >= DCC_OVERLAY_NUM) {
+			/* this overlay cannot be used this time, skip it and
+			 * disable for next update */
+			dcc_clr_overlay(&spr, ovl_id);
+		} else {
+			/* use this overlay for current layer
+			 * and go to next one */
+			dcc_set_overlay(&spr, l, ovl_id, l_id);
+			l_id++;
+			l = &updt->ovls[l_id];
+			global_ovl_status = 1;
+		}
 		dcc_sprite_conf(p, &spr);
 	}
 	dcc_sprite_global(p, (!!global_ovl_status));
+
+	/* if any overlay is enabled toggle configuration for next time */
+	if (global_ovl_status)
+		p->overlay_updt_cnt++;
+
+	/* check if all update layers could be rendered */
+	while (l_id < DCC_OVERLAY_NUM) {
+		l = &updt->ovls[l_id];
+		if (l->phys)
+			dcc_warn("too many overlays: ov[%d] @0x%x not rendered",
+				l_id, l->phys);
+		l_id++;
+	}
 
 	if (ovl_draw >= 0) {
 		struct x_rect_t dr, swin;
@@ -1284,6 +1388,9 @@ static int dcc_rq_compose(struct dcc_drvdata *p, struct dcc_update_layers *updt)
 
 		ret = dcc_rq_update(p, &ru);
 	}
+	down(&p->update_sem);
+	p->update_pt_curr = update_pt;
+	up(&p->update_sem);
 
 	return ret;
 }
@@ -1294,10 +1401,11 @@ static void acq_fence_wq(struct work_struct *ws)
 	struct dcc_acq_fence_work *w;
 	w = container_of(ws, struct dcc_acq_fence_work, work);
 
+	DCC_DBG2("acq start, updt_pt=%d\n", w->update_pt);
 #if defined(CONFIG_SYNC)
 	if (w->drv->use_fences) {
 		/* Wait for acquire fence to signal if we got one */
-		for (i = 0 ; i < DCC_OVERLAY_NUM + 1; i++) {
+		for (i = 0 ; i < DCC_OVERLAY_NUM + 2; i++) {
 			struct sync_fence *fence;
 			fence = w->acquire_fence[i];
 			if (fence != NULL) {
@@ -1307,13 +1415,42 @@ static void acq_fence_wq(struct work_struct *ws)
 		}
 	}
 #endif
-	dcc_rq_compose(w->drv, &w->update);
-
+	dcc_rq_compose(w->drv, &w->update, w->update_pt);
 	kfree(ws);
 }
 
+#ifdef CONFIG_SW_SYNC_USER
+static struct sync_fence *dcc_update_queue_fence_create(
+		struct dcc_drvdata *pdata, unsigned int timeline_value)
+{
+	struct sync_pt *point;
+	struct sync_fence *fence = 0;
+
+	if (!pdata->updt_done_tl)
+		goto leave_err;
+
+	/* Create sync point */
+	point = sw_sync_pt_create(pdata->updt_done_tl,
+			timeline_value);
+	if (point == NULL)
+		goto leave_err;
+
+	/* Create fence */
+	fence = sync_fence_create("dcc-fence", point);
+	if (fence == NULL)
+		goto leave_err;
+	return fence;
+
+leave_err:
+	if (point != NULL)
+		sync_pt_free(point);
+	return fence;
+}
+#endif
+
+
 int dcc_rq_acquire_and_compose(struct dcc_drvdata *p,
-		struct dcc_update_layers *updt)
+		struct dcc_update_layers *updt, int updt_pt)
 {
 	struct dcc_acq_fence_work *work;
 	unsigned int i;
@@ -1321,6 +1458,7 @@ int dcc_rq_acquire_and_compose(struct dcc_drvdata *p,
 	unsigned int fence;
 #endif
 
+	DCC_DBG2("rq updt_pt=%d\n", updt_pt);
 	work = kzalloc(sizeof(*work), GFP_KERNEL);
 	if (!work) {
 		dcc_err("allocation of fence acquire item failed\n");
@@ -1329,6 +1467,7 @@ int dcc_rq_acquire_and_compose(struct dcc_drvdata *p,
 	INIT_WORK(&work->work, acq_fence_wq);
 	work->drv = p;
 	work->update = *updt;
+	work->update_pt = updt_pt;
 #if defined(CONFIG_SYNC)
 	if (p->use_fences) {
 		fence = updt->back.fence_acquire;
@@ -1341,8 +1480,17 @@ int dcc_rq_acquire_and_compose(struct dcc_drvdata *p,
 					sync_fence_fdget(fence);
 		}
 	}
+#ifdef CONFIG_SW_SYNC_USER
+	if (updt_pt > 0) {
+		struct sync_fence *f;
+		/* add a fence on the previous update */
+		f = dcc_update_queue_fence_create(p, updt_pt - 1);
+		work->acquire_fence[DCC_OVERLAY_NUM + 1] = f;
+		if (!f)
+			dcc_err("prev_update fence creation failed\n");
+	}
 #endif
-
+#endif
 	queue_work(p->acq_wq, &work->work);
 	return 0;
 }
