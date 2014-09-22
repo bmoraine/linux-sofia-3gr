@@ -684,5 +684,11 @@ struct cifisp_afc_config {
 #define V4L2_CID_CIFISP_YCFLT    (V4L2_CID_PRIVATE_BASE + 15)
 #define V4L2_CID_CIFISP_AFC    (V4L2_CID_PRIVATE_BASE + 16)
 
+/* Camera Sensors' running modes */
+#define CI_MODE_PREVIEW	0x8000
+#define CI_MODE_VIDEO	0x4000
+#define CI_MODE_STILL_CAPTURE	0x2000
+#define CI_MODE_CONTINUOUS	0x1000
+#define CI_MODE_NONE	0x0000
 
 #endif
