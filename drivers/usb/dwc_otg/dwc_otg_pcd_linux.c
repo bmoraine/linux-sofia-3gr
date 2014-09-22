@@ -993,6 +993,10 @@ static int dwc_pullup(struct usb_gadget *gadget, int is_on)
 		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl,
 								0, dctl.d32);
 		pcd->soft_disconnected = 0;
+		DWC_SPINUNLOCK(pcd->lock);
+		/* Stop USB transfers */
+		cil_pcd_stop(d->pcd->core_if);
+		DWC_SPINLOCK(pcd->lock);
 		core_if->enumdone = 0;
 	} else {
 		/* Disable Soft Disconnect */
