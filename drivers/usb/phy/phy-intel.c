@@ -753,7 +753,8 @@ static void intel_otg_sm_work(struct work_struct *w)
 					pm_runtime_suspend(otg->phy->dev);
 					break;
 				case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
-					intel_otg_notify_charger(iphy, IUNIT);
+					intel_otg_notify_charger(iphy,
+								IDEV_CHG_MAX);
 					intel_otg_start_peripheral(otg, 1);
 					otg->phy->state
 						= OTG_STATE_B_PERIPHERAL;
