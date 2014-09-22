@@ -1055,6 +1055,11 @@ static int dwc_vbus_session(struct usb_gadget *gadget, int is_active)
 		}
 
 	} else if (!is_active) {
+		/*
+		 * Disable interrupt to avoid unwanted interrupt when
+		 * disconnecting usb cable. (like otg interrupt)
+		 */
+		dwc_otg_disable_global_interrupts(core_if);
 		DWC_SPINUNLOCK(pcd->lock);
 		/* Stop USB transfers */
 		cil_pcd_stop(d->pcd->core_if);
