@@ -37,11 +37,13 @@
 #define OF_OV_GPIO_DVDD "intel,pd-gpio_1v2"
 #define OF_OV_GPIO_FLASH "intel,flash-gpio"
 #define OF_OV_GPIO_TORCH "intel,torch-gpio"
+#define OF_OV_GPIO_RESET "intel,rst-gpio"
 
 const char *PLTFRM_CAMERA_MODULE_PIN_PD = OF_OV_GPIO_PD;
 const char *PLTFRM_CAMERA_MODULE_PIN_DVDD = OF_OV_GPIO_DVDD;
 const char *PLTFRM_CAMERA_MODULE_PIN_FLASH = OF_OV_GPIO_FLASH;
 const char *PLTFRM_CAMERA_MODULE_PIN_TORCH = OF_OV_GPIO_TORCH;
+const char *PLTFRM_CAMERA_MODULE_PIN_RESET = OF_OV_GPIO_RESET;
 
 #define I2C_M_WR 0
 #define I2C_MSG_MAX 300
@@ -54,7 +56,7 @@ struct pltfrm_camera_module_gpio {
 };
 
 struct pltfrm_camera_module_data {
-	struct pltfrm_camera_module_gpio gpios[4];
+	struct pltfrm_camera_module_gpio gpios[5];
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
@@ -220,6 +222,12 @@ static struct pltfrm_camera_module_data *pltfrm_camera_module_get_data(
 		of_get_named_gpio_flags(np, pdata->gpios[3].label, 0, NULL);
 	pdata->gpios[3].active_low =
 		of_property_read_bool(np, OF_OV_GPIO_TORCH "-is_active_low");
+
+	pdata->gpios[4].label = PLTFRM_CAMERA_MODULE_PIN_RESET;
+	pdata->gpios[4].pltfrm_gpio =
+		of_get_named_gpio_flags(np, pdata->gpios[4].label, 0, NULL);
+	pdata->gpios[4].active_low =
+		of_property_read_bool(np, OF_OV_GPIO_RESET "-is_active_low");
 
 	pdata->pm_platdata = of_device_state_pm_setup(np);
 	if (IS_ERR(pdata->pm_platdata)) {
@@ -925,6 +933,7 @@ int pltfrm_camera_module_init(
 		else
 			return (int)pdata;
 	}
+
 	ret = pltfrm_camera_module_init_pm(sd);
 	if (IS_ERR_VALUE(ret)) {
 		pltfrm_camera_module_pr_err(sd,
@@ -936,6 +945,7 @@ int pltfrm_camera_module_init(
 				"GPIO initialization failed (%d)\n", ret);
 		}
 	}
+
 	if (IS_ERR_VALUE(ret))
 		devm_kfree(&client->dev, pdata);
 	else

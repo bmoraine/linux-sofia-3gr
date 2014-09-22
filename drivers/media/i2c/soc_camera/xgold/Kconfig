@@ -26,3 +26,22 @@ config VIDEO_OV13850
 	---help---
 	Say Y here to enable OV13850.
 
+config VIDEO_GC2155
+	tristate "GC2155"
+	depends on I2C && VIDEO_V4L2
+	default n
+	help
+	  Say Y here to enable GC2155.
+	  GC2155 is a 2MP Camera Sensor.
+	  The supported max resolution is 1600x1200.
+	  It is a SOC Camera Sensor.
+
+config VIDEO_GC0310
+	tristate "GC0310"
+	depends on I2C && VIDEO_V4L2
+	default n
+	help
+	  Say Y here to enable GC0310.
+	  GC0310 is a VGA Camera Sensor.
+	  The supported max resolution is 640x480.
+	  It is a SOC Camera Sensor.
