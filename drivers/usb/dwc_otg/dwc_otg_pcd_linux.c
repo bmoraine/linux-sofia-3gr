@@ -1018,6 +1018,7 @@ static int dwc_vbus_session(struct usb_gadget *gadget, int is_active)
 	dwc_otg_core_if_t *core_if;
 	dwc_otg_pcd_t *pcd;
 	pcgcctl_data_t power = {.d32 = 0 };
+	dctl_data_t dctl = { 0 };
 	d = container_of(gadget, struct gadget_wrapper, gadget);
 	pcd = d->pcd;
 	core_if = d->pcd->core_if;
@@ -1042,12 +1043,15 @@ static int dwc_vbus_session(struct usb_gadget *gadget, int is_active)
 		 */
 		dwc_otg_core_init(d->pcd->core_if);
 		dwc_otg_enable_global_interrupts(d->pcd->core_if);
-		cil_pcd_start(d->pcd->core_if);
 		core_if->lx_state = DWC_OTG_L0;
 		if (pcd->soft_disconnected) {
-			DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
-			dwc_pullup(gadget, 1);
-			return 0;
+			/* Disable Soft Disconnect */
+			dctl.d32 =
+				DWC_READ_REG32(&core_if->dev_if
+						->dev_global_regs->dctl);
+			dctl.b.sftdiscon = 0;
+			DWC_WRITE_REG32(&core_if->dev_if->dev_global_regs->dctl,
+					dctl.d32);
 		}
 
 	} else if (!is_active) {
