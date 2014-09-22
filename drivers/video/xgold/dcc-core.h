@@ -254,13 +254,11 @@ struct dcc_drvdata {
 	struct pinctrl_state *pins_inactive;
 
 	int fence_fd;
-#ifdef CONFIG_SW_SYNC_USER
 	struct sw_sync_timeline *timeline;
-#endif
+	struct sw_sync_timeline *updt_done_tl;
 	int timeline_current;
-	struct dcc_update update_head;
-	struct dcc_update *update_xfer;
-	struct dcc_update *update_last;
+	int update_pt_last; /* update point that was on display */
+	int update_pt_curr; /* update point currently on display */
 	struct semaphore update_sem;
 	struct kobject *kobj_mipidsi_phy;
 	int(*drv_suspend)(struct device *dev);
@@ -318,8 +316,9 @@ struct dcc_acq_fence_work {
 	struct work_struct work;
 	struct dcc_update_layers update;
 	struct dcc_drvdata *drv;
+	int update_pt;
 #if defined(CONFIG_SYNC)
-	struct sync_fence *acquire_fence[DCC_OVERLAY_NUM + 1];
+	struct sync_fence *acquire_fence[DCC_OVERLAY_NUM + 2];
 #endif
 };
 

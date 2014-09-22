@@ -106,79 +106,6 @@ static int dcc_core_hwsetup(struct dcc_drvdata *pdata)
 	return ret;
 }
 
-int dcc_update_queue(struct dcc_drvdata *pdata, struct dcc_update *head,
-			struct dcc_update_layers *updt, unsigned int tline)
-{
-	int ret = 0, new_entry = 0;
-	struct dcc_update *update = list_first_entry_or_null(&head->list,
-				struct dcc_update, list);
-
-	if (!update) {
-		update = (struct dcc_update *)
-			devm_kzalloc(pdata->dev,
-					sizeof(struct dcc_update), GFP_KERNEL);
-		if (!update) {
-			dcc_err("allocation of update item failed\n");
-			return -EINVAL;
-		}
-		new_entry = 1;
-	}
-
-	/* if !autorefresh, try to manually fill xfer, else queue */
-	if (!pdata->display_autorefresh) {
-		if (!new_entry) {
-			dcc_warn("update OFL: already queued ! --> framedrop\n");
-			return -EBUSY;
-		}
-		if (!pdata->update_xfer) {
-			update->timeline_expiracy = tline;
-			pdata->timeline_current++;
-			pdata->update_xfer = update;
-			return 0;
-		} else {
-			dcc_warn("update OFL: queueing ! --> framedrop\n");
-			return -EBUSY;
-		}
-	}
-
-	/* fill update struct */
-	memcpy(&update->updt, updt, sizeof(update->updt));
-	update->timeline_expiracy = tline;
-	DCC_DBG2("update queue tline:%d 0x%x --> %dx%d f:0x%x\n",
-			update->timeline_expiracy, update->updt.back.phys,
-			update->updt.back.src.w, update->updt.back.src.h,
-			update->updt.flags);
-
-	if (new_entry)
-		list_add_tail(&update->list, &head->list);
-
-	return ret;
-}
-
-int dcc_update_items(struct dcc_update *update)
-{
-	int i = 0;
-	struct list_head *pos;
-	struct list_head *n;
-	list_for_each_safe(pos, n, &update->list)
-		i++;
-
-	return i;
-}
-
-struct dcc_update *dcc_update_dequeue(struct dcc_update *head)
-{
-	struct dcc_update *update = list_first_entry_or_null(&head->list,
-				struct dcc_update, list);
-
-	if (!update)
-		return update;
-
-	list_del(&update->list);
-	return update;
-}
-
-
 static void vsync_wq(struct work_struct *ws)
 {
 	struct dcc_drvdata *p = m_to_dccdata(ws, vsync_work);
@@ -188,65 +115,45 @@ static void vsync_wq(struct work_struct *ws)
 #ifdef CONFIG_XGOLD_DCC_SYSFS
 	sysfs_notify(&(p->dev->kobj), NULL, "vsyncts0");
 #endif
-
-
 }
-
-#ifdef CONFIG_SW_SYNC_USER
-int dcc_fence_update_timeline(struct sw_sync_timeline *timeline,
-		int tcur, int texp)
-{
-	int delta = tcur - texp;
-	if (delta != 1) {
-		dcc_warn("update posted too fast texp:%d (cur:%d)\n",
-				texp, tcur);
-	}
-
-	DCC_DBG2("FENCE: signal tline:%d\n", texp);
-	if (timeline)
-		sw_sync_timeline_inc(timeline, 1);
-	return delta;
-}
-#endif
 
 static void end_of_frame_wq(struct work_struct *ws)
 {
-	int i = 0;
-	struct dcc_update *updt = NULL;
 	struct dcc_drvdata *pdata = m_to_dccdata(ws, eof_work);
 
 	down(&pdata->update_sem);
 
-	/* XFER --> LAST */
-	if (pdata->update_xfer) {
-
-		/* release LAST */
-		if (pdata->update_last) {
-#ifdef CONFIG_SW_SYNC_USER
-			dcc_fence_update_timeline(
-					pdata->timeline,
-					pdata->timeline_current,
-					pdata->update_last->timeline_expiracy);
-#endif
-			devm_kfree(pdata->dev, pdata->update_last);
-		}
-		pdata->update_last = pdata->update_xfer;
-		pdata->update_xfer = NULL;
+	/* sanity check and debug tracing */
+	if (!(pdata->timeline->value <= pdata->update_pt_last &&
+		pdata->update_pt_last <= pdata->update_pt_curr)) {
+		dcc_err("wrong timeline: v=%d, l=%d, c=%d\n",
+			pdata->timeline->value,
+			pdata->update_pt_last,
+			pdata->update_pt_curr);
 	}
 
-	i = dcc_update_items(&pdata->update_head);
-	if (i > 1)
-		dcc_warn("update queue = %d items\n", i);
-
-	/* QUEUED --> XFER */
-	updt = dcc_update_dequeue(&pdata->update_head);
-	if (updt) {
-		pdata->update_xfer = updt;
-		pdata->timeline_current++;
-
-		DCC_DBG2("update dequeue t:%d 0x%x\n",
-				updt->timeline_expiracy,
-				updt->updt.back.phys);
+#ifdef CONFIG_SW_SYNC_USER
+	if (pdata->update_pt_curr > pdata->updt_done_tl->value) {
+		int delta;
+		/* signal we can accept a further update */
+		delta = pdata->update_pt_curr - pdata->updt_done_tl->value;
+		sw_sync_timeline_inc(pdata->updt_done_tl, delta);
+	}
+#endif
+	/* Update the update points */
+	if (pdata->update_pt_last < pdata->update_pt_curr) {
+#ifdef CONFIG_SW_SYNC_USER
+		int delta;
+		/* new frame being displayed */
+		/* the last frame can be released by updating the
+		 * timeline up "last" value */
+		DCC_DBG2("signal %d (cur=%d)\n",
+			pdata->update_pt_last,
+			pdata->update_pt_curr);
+		delta = pdata->update_pt_last - (int) pdata->timeline->value;
+		sw_sync_timeline_inc(pdata->timeline, delta);
+#endif
+		pdata->update_pt_last = pdata->update_pt_curr;
 	}
 
 	up(&pdata->update_sem);

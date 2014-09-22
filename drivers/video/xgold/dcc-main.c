@@ -589,6 +589,13 @@ static int dcc_fence_init(struct dcc_drvdata *pdata)
 		}
 		pdata->timeline_current = 0;
 	}
+	if (!pdata->updt_done_tl) {
+		pdata->updt_done_tl = sw_sync_timeline_create("dcc-upd-queue");
+		if (!pdata->updt_done_tl) {
+			dcc_err("%s: cannot create time line", __func__);
+			return -ENOMEM;
+		}
+	}
 	return 0;
 }
 
@@ -628,7 +635,6 @@ static int dcc_fence_create(struct dcc_drvdata *pdata,
 	return fd;
 }
 #endif
-
 
 /*
  * This is called whenever a process attempts to open the device file
@@ -802,21 +808,16 @@ long dcc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		for (ovl_id = 0; ovl_id < DCC_OVERLAY_NUM; ovl_id++)
 			updt.ovls[ovl_id].fence_release = -1;
 
-		down(&pdata->update_sem);
-
-		err = dcc_update_queue(pdata,
-				&pdata->update_head, &updt,
-				pdata->timeline_current + 1);
 		if (err == 0) {
 #ifdef CONFIG_SW_SYNC_USER
 			if (pdata->use_fences) {
 				updt.fence_retire =
 					dcc_fence_create(pdata,
-						pdata->timeline_current + 1);
+						pdata->timeline_current);
 				if (updt.back.phys)
 					updt.back.fence_release =
 						dcc_fence_create(pdata,
-						pdata->timeline_current + 1);
+						pdata->timeline_current);
 				for (ovl_id = 0;
 					ovl_id < DCC_OVERLAY_NUM; ovl_id++) {
 					struct dcc_layer_ovl *l =
@@ -824,15 +825,17 @@ long dcc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					if (l->phys)
 						l->fence_release =
 							dcc_fence_create(pdata,
-						pdata->timeline_current + 1);
+						pdata->timeline_current);
 				}
 			}
 #endif
-			err = dcc_rq_acquire_and_compose(pdata, &updt);
+			err = dcc_rq_acquire_and_compose(pdata, &updt,
+				pdata->timeline_current);
+			if (err == 0)
+				pdata->timeline_current++;
 		} else
 			err = 0;
 
-		up(&pdata->update_sem);
 		/* return to user space */
 		if (copy_to_user((void __user *)arg, &updt, sizeof(updt)))
 			return -EFAULT;
@@ -943,9 +946,6 @@ int dcc_main_probe(struct platform_device *pdev)
 	/* Initialize ioctl semaphore */
 	sema_init(&pdata->sem, 1);
 	sema_init(&pdata->update_sem, 1);
-	INIT_LIST_HEAD(&pdata->update_head.list);
-	pdata->update_xfer = NULL;
-	pdata->update_last = NULL;
 #ifdef CONFIG_SW_SYNC_USER
 	dcc_fence_init(pdata);
 #endif
@@ -1019,8 +1019,10 @@ static int dcc_main_remove(struct platform_device *pdev)
 	if (pdata->timeline != NULL)
 		sync_timeline_destroy((struct sync_timeline *)
 				pdata->timeline);
+	if (pdata->updt_done_tl != NULL)
+		sync_timeline_destroy((struct sync_timeline *)
+				pdata->updt_done_tl);
 #endif
-
 	devm_kfree(&pdev->dev, pdata);
 
 	dcc_info("Device driver removed\n");
@@ -1065,7 +1067,7 @@ static int dcc_main_suspend(struct device *dev)
 
 	reset_control_assert(pdata->reset);
 	diffus = measdelay_stop(NULL, &begin);
-	DCC_DBG1("suspended (%lli usec)\n", diffus);
+	DCC_DBG2("suspended (%lli usec)\n", diffus);
 	up(&pdata->sem);
 	return ret;
 }
@@ -1117,7 +1119,7 @@ static int dcc_main_resume(struct device *dev)
 	up(&pdata->sem);
 
 	diffus = measdelay_stop(NULL, &begin);
-	DCC_DBG1("resumed (%lli usec)\n", diffus);
+	DCC_DBG2("resumed (%lli usec)\n", diffus);
 	pdata->drv_state = DRV_DCC_ENABLED;
 	return ret;
 }
