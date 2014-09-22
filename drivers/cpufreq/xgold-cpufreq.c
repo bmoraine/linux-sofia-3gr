@@ -70,19 +70,17 @@ static void vcpufreq_notify(struct work_struct *work)
 	notif_freqs.new = cpufreq_new;
 	notif_freqs.flags = 0;
 	notif_freqs.cpu = 0;
-/*	cpufreq_notify_transition(
+	cpufreq_notify_transition(stat_policy,
 				&notif_freqs,
 				CPUFREQ_PRECHANGE);
-
-*/	cpufreq_notify_transition(stat_policy,
+	cpufreq_notify_transition(stat_policy,
 				&notif_freqs,
 				CPUFREQ_POSTCHANGE);
 
 	notif_freqs.cpu = 1;
-/*	cpufreq_notify_transition(
+	cpufreq_notify_transition(stat_policy,
 				&notif_freqs,
 				CPUFREQ_PRECHANGE);
-*/
 	cpufreq_notify_transition(stat_policy,
 				&notif_freqs,
 				CPUFREQ_POSTCHANGE);
@@ -93,7 +91,8 @@ static irqreturn_t process_cpufreq(int irq, void *dev)
 {
 	struct cpufreq_policy *policy = dev;
 	cpufreq_old = cpufreq_new;
-	cpufreq_new = vpower_system_get_cpu_freq();
+	cpufreq_new = vpower_system_get_cpu_freq() * 1000;
+	pr_debug("cpufreq: hirq, new freq is %d \n", cpufreq_new);
 	stat_policy = policy;
 	queue_work(system_nrt_wq, &vcpufreq_pre);
 	return IRQ_HANDLED;
@@ -108,6 +107,7 @@ static int xgold_cpufreq_verify(struct cpufreq_policy *policy)
 
 static unsigned int xgold_cpufreq_get(unsigned int cpu)
 {
+	pr_debug("cpufreq: get cpufre: %d\n", vpower_system_get_cpu_freq());
 #ifdef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	return vpower_system_get_cpu_freq() * 1000;
 
@@ -209,6 +209,7 @@ static int xgold_cpufreq_target(struct cpufreq_policy *policy,
 	freqs->new = freq_table[index].frequency;
 	freqs->cpu = policy->cpu;
 
+	pr_debug("cpufreq: intarget freqs->new %d freqs->old %d\n", freqs->new, freqs->old);
 	if (freqs->new == freqs->old)
 		goto out;
 
@@ -217,6 +218,7 @@ static int xgold_cpufreq_target(struct cpufreq_policy *policy,
 	clk_set_rate(xgold_cpu_info->pll_clk, (freqs->new * 1000));
 	cpufreq_notify_transition(policy, freqs, CPUFREQ_POSTCHANGE);
 #else
+	pr_debug("cpufreq: ask vmm for %d frequency\n", freqs->new / 1000);
 	vpower_set_cpu_target_frequency(freqs->new / 1000);
 #endif
 out:
@@ -402,9 +404,8 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	xgold_cpu_info->freq_table = cpufreq_table;
-	for (i = 0; i < nr_freq; i++) {
+	for (i = 0; i < nr_freq; i++)
 		cpufreq_table[i].frequency = freq_table[i];
-	}
 
 	cpufreq_table[nr_freq].frequency = CPUFREQ_TABLE_END;
 
