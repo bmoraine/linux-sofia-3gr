@@ -116,7 +116,7 @@
 			};
 			panel-setting-16 {
 				intel,cmd-type = <0x15>;
-				intel,cmd-data = <0x36 0x00>;
+				intel,cmd-data = <0x36 0x08>;
 				intel,cmd-lp = <1>;
 			};
 			power-setting-1 {
