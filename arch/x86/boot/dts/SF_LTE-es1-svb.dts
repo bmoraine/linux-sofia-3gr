@@ -59,7 +59,6 @@
 
 	graphics {
 		compatible = "intel,graphics";
-		intel,dcc-mem = < 0x00200000 >;
 		intel,gpu-shared-mem = <0x20000000>;
 		intel,dcc-fbpixelformat= "RGB888";
 		intel,dcc-debug-level = <1>;
