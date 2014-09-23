@@ -60,7 +60,6 @@ struct xgold_isp_dev {
 	struct cifisp_bls_config bls_config;
 	struct cifisp_sdg_config sdg_config;
 	struct cifisp_lsc_config lsc_config;
-	struct cifisp_lsc_config lsc_config_converted;
 	struct cifisp_awb_meas_config awb_meas_config;
 	struct cifisp_awb_gain_config awb_gain_config;
 	struct cifisp_flt_config flt_config;

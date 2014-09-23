@@ -232,6 +232,9 @@ static int cifisp_dbg_level = CIFISP_DEBUG_ERROR;
 #define LOG_CAPTURE_PARAMS*/
 /* Set this flag to trace the isr execution time
 #define LOG_ISR_EXE_TIME*/
+/* Set this flag to exclude everything except
+measurements
+#define CIFISP_DEBUG_DISABLE_BLOCKS*/
 
 #ifdef LOG_CAPTURE_PARAMS
 static struct cifisp_last_capture_config g_last_capture_config;
@@ -257,234 +260,6 @@ static void cifisp_reg_dump(const struct xgold_isp_dev *isp_dev,
 #endif
 static void cifisp_reg_dump_capture(const struct xgold_isp_dev *isp_dev);
 
-static unsigned int x1size_fix[32], y1size_fix[32];
-static unsigned int x1grad_fix[32], y1grad_fix[32];
-
-static void dist_diff(unsigned int table[32], int diff)
-{
-	int i;
-
-	if (diff == 0 || diff == 1)
-		return;
-
-	for (i = 1; i < diff; i++)
-		table[i * 32 / diff]++;
-
-	table[31] -= (diff - 1);
-}
-
-
-static void cifisp_lsc_size_gradient_fix(unsigned int width,
-			unsigned int height,
-			unsigned int out_x_size[],
-			unsigned int out_y_size[],
-			unsigned int out_x_grad[],
-			unsigned int out_y_grad[])
-{
-	int step_x, step_y;
-
-	int i, num;
-
-	/*32 sectors both x and y*/
-	step_x = width / 32;
-	step_y = height / 32;
-
-	for (i = 0; i < 32; i++) {
-		x1size_fix[i] = step_x;
-		y1size_fix[i] = step_y;
-	}
-
-	x1size_fix[31] = width - 31 * step_x;
-	y1size_fix[31] = height - 31 * step_y;
-
-	dist_diff(x1size_fix, x1size_fix[31] - x1size_fix[30]);
-	dist_diff(y1size_fix, y1size_fix[31] - y1size_fix[30]);
-
-    /*gradientN = INT(2^15/sizeN +1/2) */
-
-	for (i = 0; i < 32; i++) {
-		x1grad_fix[i] = (1<<(15+10))/x1size_fix[i] + (1<<9);
-		y1grad_fix[i] = (1<<(15+10))/y1size_fix[i] + (1<<9);
-
-		x1grad_fix[i] >>= 10;
-		y1grad_fix[i] >>= 10;
-	}
-
-	num = 0;
-	for (i = 0; i < 31; i += 2) {
-		out_x_size[num] = x1size_fix[i]|(x1size_fix[i+1]<<16);
-		out_y_size[num] = y1size_fix[i]|(y1size_fix[i+1]<<16);
-		out_x_grad[num] = x1grad_fix[i]|(x1grad_fix[i+1]<<16);
-		out_y_grad[num] = y1grad_fix[i]|(y1grad_fix[i+1]<<16);
-		num = num+1;
-	}
-}
-
-static unsigned int xdiv[33], ydiv[33];
-static unsigned int xrem[33], yrem[33];
-static unsigned int middle1, middle2;
-static int x[33], y[33], sum_x[33], sum_y[33];
-
-static unsigned short middle_r[33][33];
-static unsigned short middle_g[33][33];
-static unsigned short middle_b[33][33];
-static unsigned short middle_x_size[32];
-static unsigned short middle_y_size[32];
-static unsigned short middle_2x_size[32];
-static unsigned short middle_2y_size[32];
-static unsigned short middle_2r[33][33];
-static unsigned short middle_2g[33][33];
-static unsigned short middle_2b[33][33];
-
-static void cifisp_lsc_transform(const unsigned int in_r[],
-				   const unsigned int in_g[],
-				   const unsigned int in_b[],
-				   const unsigned int in_x_size[],
-				   const unsigned int in_y_size[],
-				   unsigned short offset_in_x,
-				   unsigned short offset_in_y,
-				   unsigned short scale_x,
-				   unsigned short scale_y,
-				   unsigned int out_r[],
-				   unsigned int out_g[],
-				   unsigned int out_b[],
-				   const unsigned int out_x_size[],
-				   const unsigned int out_y_size[],
-				   unsigned short offset_out_x,
-				   unsigned short offset_out_y)
-{
-
-	int i, j, num = 0;
-
-	for (i = 0; i < 33; i++) {
-		for (j = 0; j < 16; j++) {
-			middle_r[i][2*j]  = in_r[i*17+j]&0xffff;
-			middle_r[i][2*j+1] = (in_r[i*17+j]>>16)&0xffff;
-
-			middle_g[i][2*j]  = in_g[i*17+j]&0xffff;
-			middle_g[i][2*j+1] = (in_g[i*17+j]>>16)&0xffff;
-
-			middle_b[i][2*j]  = in_b[i*17+j]&0xffff;
-			middle_b[i][2*j+1] = (in_b[i*17+j]>>16)&0xffff;
-		}
-		middle_r[i][32] = in_r[i*17+16]&0xffff;
-		middle_g[i][32] = in_g[i*17+16]&0xffff;
-		middle_b[i][32] = in_b[i*17+16]&0xffff;
-	}
-
-
-	for (i = 0; i < 16; i++) {
-		middle_x_size[2*i] = in_x_size[i]&0xffff;
-		middle_x_size[2*i+1] = (in_x_size[i]>>16)&0xffff;
-
-		middle_y_size[2*i] = in_y_size[i]&0xffff;
-		middle_y_size[2*i+1] = (in_y_size[i]>>16)&0xffff;
-
-		middle_2x_size[2*i] = out_x_size[i]&0xffff;
-		middle_2x_size[2*i+1] = (out_x_size[i]>>16)&0xffff;
-
-		middle_2y_size[2*i] = out_y_size[i]&0xffff;
-		middle_2y_size[2*i+1] = (out_y_size[i]>>16)&0xffff;
-	}
-
-	for (i = 0; i < 33; i++) {
-		x[i] = 0;
-		y[i] = 0;
-		sum_x[i] = 0;
-		sum_y[i] = 0;
-		for (j = 0; j < i; j++)	{
-			x[i] = x[i] + middle_2x_size[j]*scale_x;
-			y[i] = y[i] + middle_2y_size[j]*scale_y;
-			sum_x[i] = sum_x[i] + middle_x_size[j];
-			sum_y[i] = sum_y[i] + middle_y_size[j];
-		}
-		x[i] = x[i]>>10;
-		y[i] = y[i]>>10;
-		/* scale_x and scale_y are Q(6.10) fixed point float number
-		. hence results should shift right 10 bits. */
-
-		x[i] = x[i] + offset_in_x + ((offset_out_x*scale_x)>>10);
-		y[i] = y[i] + offset_in_y + ((offset_out_y*scale_y)>>10);
-	}
-
-	for (i = 0; i < 33; i++) {
-		for (j = 0; j < 33; j++) {
-			if ((x[i]-sum_x[j]) < 0) {
-					xdiv[i] = j-1;/* module divide */
-					break;
-			}
-		}
-		for (j = 0; j < 33; j++) {
-			if ((y[i]-sum_y[j]) < 0) {
-					ydiv[i] = j-1;/* module divide */
-					break;
-			}
-		}
-
-		xrem[i] = x[i]-sum_x[xdiv[i]];/* remainder */
-		yrem[i] = y[i]-sum_y[ydiv[i]];
-	}
-
-	for (i = 0; i < 33; i++)
-		for (j = 0; j < 33; j++) {
-			middle1 =
-				middle_r[ydiv[i]][xdiv[j]] *
-				(middle_x_size[xdiv[j]]-xrem[j]) +
-				middle_r[ydiv[i]][xdiv[j]+1]*xrem[j];
-			middle2 =
-				middle_r[ydiv[i]+1][xdiv[j]] *
-				(middle_x_size[xdiv[j]]-xrem[j]) +
-				middle_r[ydiv[i]+1][xdiv[j]+1]*xrem[j];
-			middle_2r[i][j] =
-				(middle1*(middle_y_size[ydiv[i]]-yrem[i]) +
-				middle2*yrem[i])/(middle_x_size[xdiv[j]] *
-				middle_y_size[ydiv[i]]);
-			/* red table */
-
-			middle1 =
-				middle_g[ydiv[i]][xdiv[j]] *
-				(middle_x_size[xdiv[j]]-xrem[j]) +
-				middle_g[ydiv[i]][xdiv[j]+1]*xrem[j];
-			middle2 =
-				middle_g[ydiv[i]+1][xdiv[j]] *
-				(middle_x_size[xdiv[j]]-xrem[j]) +
-				middle_g[ydiv[i]+1][xdiv[j]+1]*xrem[j];
-			middle_2g[i][j] =
-				(middle1*(middle_y_size[ydiv[i]]-yrem[i]) +
-				middle2*yrem[i])/(middle_x_size[xdiv[j]] *
-				middle_y_size[ydiv[i]]);
-			/* green table */
-
-			middle1 =
-				middle_b[ydiv[i]][xdiv[j]] *
-				(middle_x_size[xdiv[j]]-xrem[j]) +
-				middle_b[ydiv[i]][xdiv[j]+1]*xrem[j];
-			middle2 =
-				middle_b[ydiv[i]+1][xdiv[j]] *
-				(middle_x_size[xdiv[j]]-xrem[j]) +
-				middle_b[ydiv[i]+1][xdiv[j]+1]*xrem[j];
-			middle_2b[i][j] =
-				(middle1*(middle_y_size[ydiv[i]]-yrem[i]) +
-				middle2*yrem[i])/(middle_x_size[xdiv[j]] *
-				middle_y_size[ydiv[i]]);
-			/* blue table */
-		}
-
-
-	for (i = 0; i < 33; i++) {
-		for (j = 0; j < 32; j += 2) {
-			out_r[num] = middle_2r[i][j] + (middle_2r[i][j+1]<<16);
-			out_g[num] = middle_2g[i][j] + (middle_2g[i][j+1]<<16);
-			out_b[num] = middle_2b[i][j] + (middle_2b[i][j+1]<<16);
-			num = num+1;
-		}
-	    out_r[num] = middle_2r[i][32];
-	    out_g[num] = middle_2g[i][32];
-	    out_b[num] = middle_2b[i][32];
-	    num = num+1;
-	}
-}
-
 static int cifisp_bpc_enable(struct xgold_isp_dev *isp_dev,
 			     bool flag, __s32 *value)
 {
@@ -492,6 +267,9 @@ static int cifisp_bpc_enable(struct xgold_isp_dev *isp_dev,
 		*value = isp_dev->bpc_en;
 		return 0;
 	}
+
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
 
 	if (isp_dev->bpc_en != *value) {
 		unsigned long lock_flags = 0;
@@ -513,6 +291,9 @@ static int cifisp_bls_enable(struct xgold_isp_dev *isp_dev,
 		return 0;
 	}
 
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
+
 	if (isp_dev->bls_en != *value) {
 		unsigned long lock_flags = 0;
 
@@ -532,6 +313,9 @@ static int cifisp_lsc_enable(struct xgold_isp_dev *isp_dev,
 		*value = isp_dev->lsc_en;
 		return 0;
 	}
+
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
 
 	if (isp_dev->lsc_en != *value) {
 		unsigned long lock_flags = 0;
@@ -553,6 +337,9 @@ static int cifisp_flt_enable(struct xgold_isp_dev *isp_dev,
 		return 0;
 	}
 
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
+
 	if (isp_dev->flt_en != *value) {
 		unsigned long lock_flags = 0;
 
@@ -572,6 +359,9 @@ static int cifisp_bdm_enable(struct xgold_isp_dev *isp_dev,
 		*value = isp_dev->bdm_en;
 		return 0;
 	}
+
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
 
 	if (isp_dev->bdm_en != *value) {
 		unsigned long lock_flags = 0;
@@ -593,6 +383,9 @@ static int cifisp_sdg_enable(struct xgold_isp_dev *isp_dev,
 		return 0;
 	}
 
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
+
 	if (isp_dev->sdg_en != *value) {
 		unsigned long lock_flags = 0;
 
@@ -612,6 +405,9 @@ static int cifisp_goc_enable(struct xgold_isp_dev *isp_dev,
 		*value = isp_dev->goc_en;
 		return 0;
 	}
+
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
 
 	if (isp_dev->goc_en != *value) {
 		unsigned long lock_flags = 0;
@@ -633,6 +429,9 @@ static int cifisp_ctk_enable(struct xgold_isp_dev *isp_dev,
 		return 0;
 	}
 
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
+
 	if (isp_dev->ctk_en != *value) {
 		unsigned long lock_flags = 0;
 
@@ -652,6 +451,9 @@ static int cifisp_awb_meas_enable(struct xgold_isp_dev *isp_dev,
 		*value = isp_dev->awb_meas_en;
 		return 0;
 	}
+
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
 
 	if (isp_dev->awb_meas_en != *value) {
 		unsigned long lock_flags = 0;
@@ -673,6 +475,9 @@ static int cifisp_awb_gain_enable(struct xgold_isp_dev *isp_dev,
 		return 0;
 	}
 
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
+
 	if (isp_dev->awb_gain_en != *value) {
 		unsigned long lock_flags = 0;
 
@@ -692,6 +497,9 @@ static int cifisp_cproc_enable(struct xgold_isp_dev *isp_dev,
 		*value = isp_dev->cproc_en;
 		return 0;
 	}
+
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
 
 	if (isp_dev->cproc_en != *value) {
 		unsigned long lock_flags = 0;
@@ -713,6 +521,9 @@ static int cifisp_macc_enable(struct xgold_isp_dev *isp_dev,
 		return 0;
 	}
 
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
+
 	if (isp_dev->macc_en != *value) {
 		unsigned long lock_flags = 0;
 
@@ -732,6 +543,9 @@ static int cifisp_tmap_enable(struct xgold_isp_dev *isp_dev,
 		*value = isp_dev->tmap_en;
 		return 0;
 	}
+
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
 
 	if (isp_dev->tmap_en != *value) {
 		unsigned long lock_flags = 0;
@@ -753,6 +567,9 @@ static int cifisp_hst_enable(struct xgold_isp_dev *isp_dev,
 		return 0;
 	}
 
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
+
 	if (isp_dev->tmap_en != *value) {
 		unsigned long lock_flags = 0;
 
@@ -772,6 +589,9 @@ static int cifisp_aec_enable(struct xgold_isp_dev *isp_dev,
 		*value = isp_dev->aec_en;
 		return 0;
 	}
+
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
 
 	if (isp_dev->aec_en != *value) {
 		unsigned long lock_flags = 0;
@@ -793,6 +613,9 @@ static int cifisp_ycflt_enable(struct xgold_isp_dev *isp_dev,
 		return 0;
 	}
 
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
+
 	if (isp_dev->ycflt_en != *value) {
 		unsigned long lock_flags = 0;
 
@@ -812,6 +635,9 @@ static int cifisp_afc_enable(struct xgold_isp_dev *isp_dev,
 		*value = isp_dev->afc_en;
 		return 0;
 	}
+
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			  "%s %d\n", __func__, *value);
 
 	if (isp_dev->afc_en != *value) {
 		unsigned long lock_flags = 0;
@@ -929,85 +755,6 @@ static int cifisp_bls_param(struct xgold_isp_dev *isp_dev,
 	return 0;
 }
 
-static int cifisp_lsc_convert(struct xgold_isp_dev *isp_dev,
-	const struct cifisp_lsc_config *in_conf)
-{
-	unsigned short offset_in_x = 0, offset_in_y = 0;
-	unsigned short scale_x, scale_y;
-	unsigned int cropped_width = 0, cropped_height = 0;
-
-	struct cifisp_lsc_config *pconfig_converted =
-		&(isp_dev->lsc_config_converted);
-
-	if (isp_dev->input_width == in_conf->config_width &&
-		isp_dev->input_height == in_conf->config_height) {
-		pconfig_converted->config_width = 0;
-		pconfig_converted->config_height = 0;
-		return 0;
-	}
-
-	if (isp_dev->input_width == 0 ||
-		isp_dev->input_height == 0 ||
-		in_conf->config_width < isp_dev->input_width ||
-		in_conf->config_height < isp_dev->input_height)
-		return -1;
-
-	cifisp_lsc_size_gradient_fix(isp_dev->input_width,
-		isp_dev->input_height,
-		pconfig_converted->x_size_tbl,
-		pconfig_converted->y_size_tbl,
-		pconfig_converted->x_grad_tbl,
-		pconfig_converted->y_grad_tbl);
-
-	scale_x = (in_conf->config_width << 10) / isp_dev->input_width;
-	scale_y = (in_conf->config_height << 10) / isp_dev->input_height;
-
-	if (scale_x != scale_y) {
-			/* Do some cropping in order to keep aspect ratio.
-			Find common factor to scale
-			both first, then scale, and remove what is left over.*/
-		if (scale_x > scale_y) {
-			cropped_width =
-				(scale_y * isp_dev->input_width) >> 10;
-			offset_in_x =
-				(in_conf->config_width - cropped_width)/2;
-			scale_x =
-				((in_conf->config_width - 2*offset_in_x) << 10)
-				/ isp_dev->input_width;
-		} else {
-			cropped_height =
-				(scale_x * isp_dev->input_height) >> 10;
-			offset_in_y =
-				(in_conf->config_height - cropped_height)/2;
-			scale_y =
-				((in_conf->config_height - 2*offset_in_y) << 10)
-				/ isp_dev->input_height;
-		}
-	}
-
-	cifisp_lsc_transform(in_conf->r_data_tbl,
-		in_conf->g_data_tbl,
-		in_conf->b_data_tbl,
-		in_conf->x_size_tbl,
-		in_conf->y_size_tbl,
-		offset_in_x,
-		offset_in_y,
-		scale_x,
-		scale_y,
-		pconfig_converted->r_data_tbl,
-		pconfig_converted->g_data_tbl,
-		pconfig_converted->b_data_tbl,
-		pconfig_converted->x_size_tbl,
-		pconfig_converted->y_size_tbl,
-		0,
-		0);
-
-	pconfig_converted->config_width = isp_dev->input_width;
-	pconfig_converted->config_height = isp_dev->input_height;
-
-	return 0;
-}
-
 /* ISP LS correction interface function */
 static int cifisp_lsc_param(struct xgold_isp_dev *isp_dev,
 			    bool flag, struct cifisp_lsc_config *arg)
@@ -1065,9 +812,6 @@ static int cifisp_lsc_param(struct xgold_isp_dev *isp_dev,
 			return -EINVAL;
 		}
 	}
-
-	if (cifisp_lsc_convert(isp_dev, arg) < 0)
-		return -EINVAL;
 
 	spin_lock_irqsave(&isp_dev->config_lock, lock_flags);
 	memcpy(&isp_dev->lsc_config, arg, sizeof(struct cifisp_lsc_config));
@@ -1885,26 +1629,27 @@ static void cifisp_lsc_end(const struct xgold_isp_dev *isp_dev)
 }
 
 /*****************************************************************************/
-static void cifisp_lsc_config(struct xgold_isp_dev *isp_dev)
+static bool cifisp_lsc_config(struct xgold_isp_dev *isp_dev)
 {
 	int i;
-	struct cifisp_lsc_config *pconfig = &(isp_dev->lsc_config);
 
 	/*To config must be off */
 	cifisp_iowrite32(0, CIF_ISP_LSC_CTRL);
 
-	if (isp_dev->lsc_config.config_width == isp_dev->input_width &&
-		isp_dev->lsc_config.config_height == isp_dev->input_height)
-		pconfig = &(isp_dev->lsc_config);
-	else if (isp_dev->lsc_config_converted.config_width ==
-		 isp_dev->input_width
-		 && isp_dev->lsc_config_converted.config_height ==
-		 isp_dev->input_height)
-		pconfig = &(isp_dev->lsc_config_converted);
-	else {
-		CIFISP_DPRINT(CIFISP_DEBUG_ERROR, "failed to configure LSC\n");
-		return;
-	}
+	if (isp_dev->lsc_config.config_width != isp_dev->input_width ||
+		isp_dev->lsc_config.config_height != isp_dev->input_height) {
+		CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			"LSC config: lsc_w %d lsc_h %d act_w %d act_h %d\n",
+			isp_dev->lsc_config.config_width,
+			isp_dev->lsc_config.config_height,
+			isp_dev->input_width,
+			isp_dev->input_height);
+		return false;
+	} else
+		CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+			"LSC config: lsc_w %d lsc_h %d\n",
+			isp_dev->lsc_config.config_width,
+			isp_dev->lsc_config.config_height);
 
 	/* As defined in the header, the order and format of the
 	   correction values must match the Table 11, cif 4.2.0.
@@ -1915,16 +1660,18 @@ static void cifisp_lsc_config(struct xgold_isp_dev *isp_dev)
 	cifisp_iowrite32(0, CIF_ISP_LSC_B_TABLE_ADDR);
 
 	for (i = 0; i < CIFISP_LSC_DATA_TBL_SIZE; i++) {
-		cifisp_iowrite32(pconfig->r_data_tbl[i],
+		cifisp_iowrite32(isp_dev->lsc_config.r_data_tbl[i],
 			CIF_ISP_LSC_R_TABLE_DATA);
-		cifisp_iowrite32(pconfig->g_data_tbl[i],
+		cifisp_iowrite32(isp_dev->lsc_config.g_data_tbl[i],
 			CIF_ISP_LSC_G_TABLE_DATA);
-		cifisp_iowrite32(pconfig->b_data_tbl[i],
+		cifisp_iowrite32(isp_dev->lsc_config.b_data_tbl[i],
 			CIF_ISP_LSC_B_TABLE_DATA);
 	}
 
-	if (isp_dev->active_lsc_width != pconfig->config_width ||
-		isp_dev->active_lsc_height != pconfig->config_height) {
+	if (isp_dev->active_lsc_width !=
+		isp_dev->lsc_config.config_width ||
+		isp_dev->active_lsc_height !=
+		isp_dev->lsc_config.config_height) {
 		/* Reset the address counters */
 		cifisp_iowrite32(0, CIF_ISP_LSC_XGRAD_RAM_ADDR);
 		cifisp_iowrite32(0, CIF_ISP_LSC_YGRAD_RAM_ADDR);
@@ -1932,24 +1679,26 @@ static void cifisp_lsc_config(struct xgold_isp_dev *isp_dev)
 		cifisp_iowrite32(0, CIF_ISP_LSC_YSIZE_RAM_ADDR);
 
 		for (i = 0; i < CIFISP_LSC_SIZE_TBL_SIZE; i++) {
-			cifisp_iowrite32(pconfig->y_size_tbl[i],
+			cifisp_iowrite32(isp_dev->lsc_config.y_size_tbl[i],
 			CIF_ISP_LSC_YSIZE_RAM_DATA);
-			cifisp_iowrite32(pconfig->x_size_tbl[i],
+			cifisp_iowrite32(isp_dev->lsc_config.x_size_tbl[i],
 			CIF_ISP_LSC_XSIZE_RAM_DATA);
 		}
 
 		for (i = 0; i < CIFISP_LSC_GRAD_TBL_SIZE; i++) {
-			cifisp_iowrite32(pconfig->y_grad_tbl[i],
+			cifisp_iowrite32(isp_dev->lsc_config.y_grad_tbl[i],
 			CIF_ISP_LSC_YGRAD_RAM_DATA);
-			cifisp_iowrite32(pconfig->x_grad_tbl[i],
+			cifisp_iowrite32(isp_dev->lsc_config.x_grad_tbl[i],
 			CIF_ISP_LSC_XGRAD_RAM_DATA);
 		}
 
-		isp_dev->active_lsc_width = pconfig->config_width;
-		isp_dev->active_lsc_height = pconfig->config_height;
+		isp_dev->active_lsc_width = isp_dev->lsc_config.config_width;
+		isp_dev->active_lsc_height = isp_dev->lsc_config.config_height;
 	}
 
 	cifisp_iowrite32(1, CIF_ISP_LSC_CTRL);
+
+	return true;
 }
 
 #ifdef LOG_CAPTURE_PARAMS
@@ -3652,6 +3401,7 @@ void cifisp_configure_isp(struct xgold_isp_dev *isp_dev, unsigned int capture)
 
 	mutex_lock(&isp_dev->mutex);
 
+#ifndef CIFISP_DEBUG_DISABLE_BLOCKS
 	if (isp_dev->bpc_en) {
 		cifisp_bp_config(isp_dev);
 		cifisp_bp_en(isp_dev);
@@ -3659,8 +3409,8 @@ void cifisp_configure_isp(struct xgold_isp_dev *isp_dev, unsigned int capture)
 	}
 
 	if (isp_dev->lsc_en) {
-		cifisp_lsc_config(isp_dev);
-		isp_dev->isp_param_lsc_update_needed = false;
+		if (cifisp_lsc_config(isp_dev))
+			isp_dev->isp_param_lsc_update_needed = false;
 	}
 
 	if (isp_dev->bls_en) {
@@ -3693,22 +3443,10 @@ void cifisp_configure_isp(struct xgold_isp_dev *isp_dev, unsigned int capture)
 		isp_dev->isp_param_flt_update_needed = false;
 	}
 
-	if (isp_dev->awb_meas_en) {
-		cifisp_awb_meas_config(isp_dev);
-		cifisp_awb_meas_en(isp_dev);
-		isp_dev->isp_param_awb_meas_update_needed = false;
-	}
-
 	if (isp_dev->awb_gain_en) {
 		cifisp_awb_gain_config(isp_dev);
 		cifisp_awb_gain_en(isp_dev);
 		isp_dev->isp_param_awb_gain_update_needed = false;
-	}
-
-	if (isp_dev->aec_en) {
-		cifisp_aec_config(isp_dev);
-		cifisp_aec_en(isp_dev);
-		isp_dev->isp_param_aec_update_needed = false;
 	}
 
 	if (isp_dev->ctk_en) {
@@ -3727,12 +3465,6 @@ void cifisp_configure_isp(struct xgold_isp_dev *isp_dev, unsigned int capture)
 		cifisp_ycflt_config(isp_dev);
 		cifisp_ycflt_en(isp_dev);
 		isp_dev->isp_param_ycflt_update_needed = false;
-	}
-
-	if (isp_dev->hst_en) {
-		cifisp_hst_config(isp_dev);
-		cifisp_hst_en(isp_dev);
-		isp_dev->isp_param_hst_update_needed = false;
 	}
 
 #if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
@@ -3765,10 +3497,30 @@ void cifisp_configure_isp(struct xgold_isp_dev *isp_dev, unsigned int capture)
 		isp_dev->isp_param_tmap_update_needed = false;
 	}
 #endif
+#endif
+
 	if (isp_dev->afc_en) {
 		cifisp_afc_config(isp_dev);
 		cifisp_afc_en(isp_dev);
 		isp_dev->isp_param_afc_update_needed = false;
+	}
+
+	if (isp_dev->awb_meas_en) {
+		cifisp_awb_meas_config(isp_dev);
+		cifisp_awb_meas_en(isp_dev);
+		isp_dev->isp_param_awb_meas_update_needed = false;
+	}
+
+	if (isp_dev->aec_en) {
+		cifisp_aec_config(isp_dev);
+		cifisp_aec_en(isp_dev);
+		isp_dev->isp_param_aec_update_needed = false;
+	}
+
+	if (isp_dev->hst_en) {
+		cifisp_hst_config(isp_dev);
+		cifisp_hst_en(isp_dev);
+		isp_dev->isp_param_hst_update_needed = false;
 	}
 
 	if (capture)
@@ -3990,7 +3742,7 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 		   lot of register writes. Do those only one per frame.
 
 		   Do the updates in the order of the processing flow.*/
-
+#ifndef CIFISP_DEBUG_DISABLE_BLOCKS
 		if (isp_dev->isp_param_bpc_update_needed) {
 			/*update bpc config */
 			cifisp_bp_config(isp_dev);
@@ -4023,12 +3775,15 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 			isp_dev->isp_param_sdg_update_needed = false;
 		} else if (isp_dev->isp_param_lsc_update_needed) {
 			/*update lsc config */
-			if (isp_dev->lsc_en)
-				cifisp_lsc_config(isp_dev);
-			else
+			bool res = true;
+			if (isp_dev->lsc_en) {
+				if (!cifisp_lsc_config(isp_dev))
+					res = false;
+			} else
 				cifisp_lsc_end(isp_dev);
 
-			isp_dev->isp_param_lsc_update_needed = false;
+			if (res)
+				isp_dev->isp_param_lsc_update_needed = false;
 		} else if (isp_dev->isp_param_awb_gain_update_needed) {
 			/*update awb gains */
 			cifisp_awb_gain_config(isp_dev);
@@ -4123,6 +3878,7 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 		}
 #endif
 		else {
+#endif
 			if (isp_dev->isp_param_awb_meas_update_needed ||
 			isp_dev->isp_param_awb_meas_update_fast_needed) {
 				/*update awb config */
@@ -4182,7 +3938,9 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 				isp_dev->isp_param_aec_update_fast_needed =
 					false;
 			}
+#ifndef CIFISP_DEBUG_DISABLE_BLOCKS
 		}
+#endif
 
 		cifisp_dump_reg(isp_dev, CIFISP_DEBUG_ISR);
 	}
