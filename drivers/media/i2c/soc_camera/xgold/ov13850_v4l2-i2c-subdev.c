@@ -72,6 +72,10 @@
 #define OV13850_PLL2_MUL_HIGH_REG 0x3615
 #define OV13850_PLL2_MUL_LOW_REG 0x3614
 #define OV13850_PLL2_DIVSYS_REG 0x3612
+#define OV13850_H_WIN_OFF_HIGH_REG 0x3810
+#define OV13850_H_WIN_OFF_LOW_REG 0x3811
+#define OV13850_V_WIN_OFF_HIGH_REG 0x3812
+#define OV13850_V_WIN_OFF_LOW_REG 0x3813
 
 /* High byte of product ID */
 #define OV13850_PIDH_MAGIC 0xD8
@@ -281,11 +285,20 @@ ov13850_init_tab_2112_1568_30fps[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5b09, 0x02},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5e00, 0x00},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5e10, 0x1c},
-	/* Convert_to 2112x1568 26MHz 572Mbps/lane 2lane */
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3509, 0x10},
+	/* Convert_to 2112x1568 26MHz 572Mbps/lane 2lane*/
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3614, 0x25},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x0302, 0x33},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x4837, 0x1C},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3509, 0x10}
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x4837, 0x1C}
+	/*Convert_to_2112x1568_26MHz_572Mbps/lane_2lane
+	3.4ms_blanking
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3612, 0x47},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3613, 0x22},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3614, 0x1D},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380e, 0x06},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380f, 0xD1},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x0302, 0x21},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x4837, 0x1C}*/
 };
 
 static const struct ov_camera_module_reg
@@ -1187,6 +1200,7 @@ static int ov13850_g_timings(struct ov_camera_module *cam_mod,
 	u32 pll2_multiplier;
 	u32 pll2_sys_prediv;
 	u32 pll2_sys_div_x2;
+	u32 win_off;
 
 	if (IS_ERR_OR_NULL(cam_mod->active_config))
 		goto err;
@@ -1339,10 +1353,7 @@ static int ov13850_g_timings(struct ov_camera_module *cam_mod,
 		&reg_val)))
 		goto err;
 
-	timings->binning_factor_x = ((ret >> 4) + 1) / 2;
-
-	if (timings->binning_factor_x == 0)
-		timings->binning_factor_x = 1;
+	timings->binning_factor_x = ((reg_val >> 4) + 1) / 2;
 
 	if (IS_ERR_VALUE(ov_camera_module_read_reg_table(
 		cam_mod,
@@ -1350,10 +1361,7 @@ static int ov13850_g_timings(struct ov_camera_module *cam_mod,
 		&reg_val)))
 		goto err;
 
-	timings->binning_factor_y = ((ret >> 4) + 1) / 2;
-
-	if (timings->binning_factor_y == 0)
-		timings->binning_factor_y = 1;
+	timings->binning_factor_y = ((reg_val >> 4) + 1) / 2;
 
 	/* Get the cropping and output resolution to ISP for this mode. */
 	if (IS_ERR_VALUE(ov_camera_module_read_reg_table(
@@ -1419,6 +1427,46 @@ static int ov13850_g_timings(struct ov_camera_module *cam_mod,
 		goto err;
 
 	timings->crop_vertical_end |= reg_val;
+
+	/* The sensor can do windowing within the cropped array.
+	Take this into the cropping size reported. */
+	if (IS_ERR_VALUE(ov_camera_module_read_reg_table(
+		cam_mod,
+		OV13850_H_WIN_OFF_HIGH_REG,
+		&reg_val)))
+		goto err;
+
+	win_off = (reg_val & 0xf) << 8;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg_table(
+		cam_mod,
+		OV13850_H_WIN_OFF_LOW_REG,
+		&reg_val)))
+		goto err;
+
+	win_off |= (reg_val & 0xff);
+
+	timings->crop_horizontal_start += win_off;
+	timings->crop_horizontal_end -= win_off;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg_table(
+		cam_mod,
+		OV13850_V_WIN_OFF_HIGH_REG,
+		&reg_val)))
+		goto err;
+
+	win_off = (reg_val & 0xf) << 8;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg_table(
+		cam_mod,
+		OV13850_V_WIN_OFF_LOW_REG,
+		&reg_val)))
+		goto err;
+
+	win_off |= (reg_val & 0xff);
+
+	timings->crop_vertical_start += win_off;
+	timings->crop_vertical_end -= win_off;
 
 	if (IS_ERR_VALUE(ov_camera_module_read_reg_table(
 		cam_mod,

@@ -51,8 +51,8 @@
 #define OV9760_TIMING_LINE_LENGTH_PCKL_HIGH_REG 0x342
 #define OV9760_TIMING_LINE_LENGTH_PCKL_LOW_REG 0x343
 #define OV9760_INTEGRATION_TIME_MARGIN 0
-#define OV9760_TIMING_X_INC		0x3814
-#define OV9760_TIMING_Y_INC		0x3815
+#define OV9760_TIMING_X_INC		0x3820
+#define OV9760_TIMING_Y_INC		0x3821
 
 #define OV9760_HORIZONTAL_START_HIGH_REG 0x344
 #define OV9760_HORIZONTAL_START_LOW_REG 0x345
@@ -558,9 +558,9 @@ static int ov9760_g_timings(struct ov_camera_module *cam_mod,
 		&reg_val)))
 		goto err;
 
-	timings->binning_factor_x = ((ret >> 4) + 1) / 2;
-
-	if (timings->binning_factor_x == 0)
+	if (reg_val & 0x1)
+		timings->binning_factor_x = 2;
+	else
 		timings->binning_factor_x = 1;
 
 	if (IS_ERR_VALUE(ov_camera_module_read_reg_table(
@@ -569,9 +569,9 @@ static int ov9760_g_timings(struct ov_camera_module *cam_mod,
 		&reg_val)))
 		goto err;
 
-	timings->binning_factor_y = ((ret >> 4) + 1) / 2;
-
-	if (timings->binning_factor_y == 0)
+	if (reg_val & 0x1)
+		timings->binning_factor_y = 2;
+	else
 		timings->binning_factor_y = 1;
 
 	/* Get the cropping and output resolution to ISP for this mode. */
