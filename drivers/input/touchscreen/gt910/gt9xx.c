@@ -165,8 +165,11 @@ static int gtp_ts_power_off(struct i2c_client *client)
 	GTP_INFO("System suspend.");
 	if (mutex_lock_interruptible(&ts->en_mutex))
 		goto out;
-	if (!ts->enable)
+
+	if (!ts->enable) {
+		ret = 0;
 		goto out;
+	}
 
 	gt9xx_pdata = client->dev.platform_data;
 
@@ -229,8 +232,11 @@ static int gtp_ts_power_on(struct i2c_client *client)
 	GTP_INFO("System resume.");
 	if (mutex_lock_interruptible(&ts->en_mutex))
 		goto out;
-	if (ts->enable)
+
+	if (ts->enable) {
+		ret = 0;
 		goto out;
+	}
 
 	gt9xx_pdata = client->dev.platform_data;
 #if 0
