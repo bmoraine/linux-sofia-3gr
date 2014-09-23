@@ -210,7 +210,6 @@ struct dcc_drvdata {
 	struct clk *clk_ahb;
 	struct clk *clk_master;
 	struct clk *clk_pll;
-	dev_t devno;
 	unsigned int id;	/* DCC module id number */
 	struct dcc_resource reg;	/* register memory desc */
 	struct dcc_resource mem;	/* dedicated memory desc */
@@ -221,7 +220,6 @@ struct dcc_drvdata {
 	struct dcc_debug_t debug; /* debug configuration */
 	struct dcc_meas_t meas;
 	struct semaphore sem;
-	struct dcc_rect_t lastupdate;
 	unsigned int overlay_nbr;
 	unsigned int overlay_updt_cnt;
 	unsigned int clk_rate;
@@ -231,9 +229,9 @@ struct dcc_drvdata {
 	int gpio_reset_delay;
 	struct dcc_fb *fb;
 	struct dcc_sync_obj_s sync;
-	/* feature flags */
 	int use_fences;
 	int use_fbapi;
+	int fbapi_nr_buffers;
 	int display_preinit;
 	int display_autorefresh;
 	struct dcc_test_t test;	/* tests configuration */

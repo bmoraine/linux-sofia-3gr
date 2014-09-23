@@ -289,9 +289,6 @@ static int dcc_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-/* Android will use double buffer in video if there is enough */
-#define DCC_NUMBER_OF_BUFFERS 1
-
 static inline u32 convert_bitfield(int val, struct fb_bitfield *bf)
 {
 	unsigned int mask = (1 << bf->length) - 1;
@@ -416,7 +413,6 @@ dcc_fb_read(struct fb_info *info, char __user *buf, size_t count, loff_t *ppos)
 	u32 __iomem *src;
 	int c, i, cnt = 0, err = 0;
 	unsigned long total_size;
-	unsigned long delta;
 
 	total_size = info->screen_size;
 
@@ -437,8 +433,7 @@ dcc_fb_read(struct fb_info *info, char __user *buf, size_t count, loff_t *ppos)
 	if (!buffer)
 		return -ENOMEM;
 
-	delta = gradata->lastupdate.phys - gradata->mem.pbase;
-	src = (u32 __iomem *) (gradata->mem.vbase + delta + p);
+	src = (u32 __iomem *) (gradata->mem.vbase + p);
 
 	if (info->fbops->fb_sync)
 		info->fbops->fb_sync(info);
@@ -522,7 +517,7 @@ static int dcc_fb_init(struct platform_device *pdev)
 	fb->info->var.xres = width;
 	fb->info->var.yres = height;
 	fb->info->var.xres_virtual = width;
-	fb->info->var.yres_virtual = height * DCC_NUMBER_OF_BUFFERS;
+	fb->info->var.yres_virtual = height * pdata->fbapi_nr_buffers;
 	fb->info->var.bits_per_pixel = pdata->bytesppix*8;
 	fb->info->var.activate = FB_ACTIVATE_NOW;
 	fb->info->var.width = 47;
@@ -545,7 +540,7 @@ static int dcc_fb_init(struct platform_device *pdev)
 	}
 
 	framesize =
-	    width * height * pdata->bytesppix * DCC_NUMBER_OF_BUFFERS;
+	    width * height * pdata->bytesppix * pdata->fbapi_nr_buffers;
 
 	fb->info->screen_base = pdata->mem.vbase;
 	fb->info->screen_size = framesize;
@@ -562,7 +557,8 @@ static int dcc_fb_init(struct platform_device *pdev)
 	if (ret)
 		goto err_register_framebuffer_failed;
 
-	dcc_info("Framebuffer API registered map mem %dMB [0x%08x->%p]\n",
+	dcc_info("FB API registered %d buffers map mem %dMB [0x%08x->%p]\n",
+			pdata->fbapi_nr_buffers,
 			framesize/1024/1024,
 			pdata->mem.pbase,
 			fb->info->screen_base);

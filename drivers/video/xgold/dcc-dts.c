@@ -210,6 +210,12 @@ int dcc_of_parse_graphics(struct platform_device *pdev,
 	/* enable / disable fb API */
 	OF_GET_U32(ngraphics, "intel,fb-api", &pdata->use_fbapi, ret);
 
+	/* enable / disable fb API */
+	ret = of_property_read_u32(ngraphics, "intel,fb-nr-buffers",
+			&pdata->fbapi_nr_buffers);
+	if ((ret < 0) && (pdata->use_fbapi))
+		pdata->fbapi_nr_buffers = 1;
+
 	/* interface */
 	nif = of_parse_phandle(ngraphics, PROP_DISPLAY_INTERFACE, 0);
 	if (!nif) {
