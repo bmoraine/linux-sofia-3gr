@@ -81,7 +81,7 @@
 #define OCT_CLR_OCT_OFF	SET_OCT_OCT_CNF_CLR_OCTM(oct_trform, 0)
 
 /* Global variables */
-unsigned int oct_base;
+void * __iomem oct_base;
 unsigned int oct_int;
 static int major;
 static int minor;
@@ -98,7 +98,7 @@ static unsigned int oct_trig_level1 = DEFAULT_OCT_TRIG_LEVEL;
 static unsigned int oct_out_path = DEFAULT_OCT_PATH;
 static unsigned int debug_on;
 
-#define oct_trform ((void __iomem *)oct_base)
+#define oct_trform oct_base
 static void *oct_ext_rbuff_ptr;
 static unsigned int oct_ext_mem_full;
 static unsigned int oct_irq;
@@ -915,8 +915,8 @@ static int oct_driver_probe(struct platform_device *pdev)
 		return -1;
 	}
 	size = (mem->end - mem->start) + 1;
-	oct_base = (unsigned int)ioremap(mem->start, size);
-	OCT_DBG("ioremap oct-regs: size=%d, start=%x, oct_base=%x\n",
+	oct_base = ioremap(mem->start, size);
+	OCT_DBG("ioremap oct-regs: size=%d, start=%x, oct_base=%p\n",
 			size, mem->start, oct_base);
 	if (!oct_base) {
 		pr_err("%s: unable to remap memory region\n", __func__);
