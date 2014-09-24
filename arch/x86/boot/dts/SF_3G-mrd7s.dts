@@ -173,8 +173,8 @@
 	};
 
 	camera0: camera-module@0 {
-		compatible = "omnivision,ov13850-v4l2-i2c-subdev";
-		reg = < 0x36 >;
+		compatible = "galaxycore,gc2155-v4l2-i2c-subdev";
+		reg = < 0x3c >;
 		device_type = "v4l2-i2c-subdev";
 
 		pinctrl-names = "default", "sleep", "inactive";
@@ -183,10 +183,8 @@
 		pinctrl-2 = <&cam1_inactive_pins>;
 
 		intel,pd-gpio = <&xgold_pmx_gpio 39>;
-		intel,pd-gpio_1v2 = <&xgold_pmx_gpio 68>;
-		intel,pd-gpio-is_active_low;
-		intel,flash-gpio = <&xgold_pmx_gpio 37>;
-		intel,torch-gpio = <&xgold_pmx_gpio 38>;
+		intel,rst-gpio = <&xgold_pmx_gpio 35>;
+		intel,rst-gpio-is_active_low;
 
 		pm,class-name = "generic_class";
 		pm,user-name = "primcam";
@@ -197,24 +195,12 @@
 		intel,camera-module-facing = "back";
 		/* ["landscape","landscape-flipped","portrait","portrait-flipped"] */
 		intel,camera-module-mounting = "landscape";
-		intel,camera-module-flash-support = <1>;
-		intel,camera-module-flash-exp-time = <5000>;
-
-		intel,af-ctrl = <&afc0>;
 
 		intel,camera-module-csi-config-0 {
 			intel,csi-pixels-per-second = <0>;
 			intel,csi-vc = <0>;
 			intel,csi-lanes = <2>;
-			intel,csi-dphy1 = <0x2014183>;
-			intel,csi-dphy2 = <0x00>;
-			intel,csi-ana-bandgap-bias = <3>;
-		};
-		intel,camera-module-csi-config-1 {
-			intel,csi-pixels-per-second = <100000000>;
-			intel,csi-vc = <0>;
-			intel,csi-lanes = <4>;
-			intel,csi-dphy1 = <0x600E1C1>;
+			intel,csi-dphy1 = <0x6092183>;
 			intel,csi-dphy2 = <0x00>;
 			intel,csi-ana-bandgap-bias = <3>;
 		};
@@ -222,8 +208,8 @@
 #endif
 #ifndef RECOVERY_KERNEL
 	camera1: camera-module@1 {
-		compatible = "omnivision,ov9760-v4l2-i2c-subdev";
-		reg = < 0x10 >;
+		compatible = "galaxycore,gc0310-v4l2-i2c-subdev";
+		reg = < 0x21 >;
 		device_type = "v4l2-i2c-subdev";
 
 		pinctrl-names = "default", "sleep", "inactive";
@@ -232,7 +218,6 @@
 		pinctrl-2 = <&cam2_inactive_pins>;
 
 		intel,pd-gpio = <&xgold_pmx_gpio 40>;
-		intel,pd-gpio-is_active_low;
 
 		pm,class-name = "generic_class";
 		pm,user-name = "seccam";
@@ -242,14 +227,12 @@
 		intel,camera-module-facing = "front";
 		/* ["landscape","landscape-flipped","portrait","portrait-flipped"] */
 		intel,camera-module-mounting = "landscape";
-		intel,camera-module-flash-support = <1>;
-		intel,camera-module-flash-exp-time = <5000>;
 
 		intel,camera-module-csi-config-0 {
 			intel,csi-pixels-per-second = <0>;
 			intel,csi-vc = <0>;
 			intel,csi-lanes = <1>;
-			intel,csi-dphy1 = <0x60121A9>;
+			intel,csi-dphy1 = <0x608C1C1>;
 			intel,csi-dphy2 = <0x00>;
 			intel,csi-ana-bandgap-bias = <3>;
 		};
