@@ -763,10 +763,10 @@ static void lbf_ldisc_receive(struct tty_struct *tty, const u8 *cp, char *fp,
 	unsigned char *plen;
 	int st_ret = 0;
 	struct lbf_uart *lbf_uart = (struct lbf_uart *) tty->disc_data;
-	unsigned long flags;
+	/*unsigned long flags;*/
 
 	pr_debug("-> %s\n", __func__);
-	print_hex_dump(KERN_DEBUG, ">in>", DUMP_PREFIX_NONE, 16, 1, cp, count,
+	print_hex_dump_debug(">in>", DUMP_PREFIX_NONE, 16, 1, cp, count,
 			0);
 	ptr = (unsigned char *) cp;
 	if (unlikely(ptr == NULL) || unlikely(lbf_uart == NULL)) {
@@ -1116,7 +1116,7 @@ static ssize_t lbf_ldisc_write(struct tty_struct *tty, struct file *file,
 
 	pr_debug("-> %s\n", __func__);
 
-	print_hex_dump(KERN_DEBUG, "<BT<", DUMP_PREFIX_NONE, 16, 1, data,
+	print_hex_dump_debug("<BT<", DUMP_PREFIX_NONE, 16, 1, data,
 			count, 0);
 
 	if (!skb)
