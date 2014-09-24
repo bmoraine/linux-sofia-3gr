@@ -23,8 +23,8 @@
 
 struct xgold_ion_get_params_data {
 	int handle;
-	size_t size;
-	unsigned long addr;
+	unsigned int size;
+	unsigned int addr;
 };
 
 enum {
@@ -48,6 +48,8 @@ static int xgold_ion_get_param(struct ion_client *client,
 {
 	struct xgold_ion_get_params_data data;
 	struct ion_handle *handle;
+	ion_phys_addr_t paddr;
+	size_t size;
 	struct xgold_ion_get_params_data *user_data =
 				(struct xgold_ion_get_params_data *)arg;
 	struct ion_buffer *buffer;
@@ -56,8 +58,10 @@ static int xgold_ion_get_param(struct ion_client *client,
 		return -EFAULT;
 	handle = ion_handle_get_by_id(client, data.handle);
 	buffer = ion_handle_buffer(handle);
-	ion_phys(client, handle, &data.addr, &data.size);
+	ion_phys(client, handle, &paddr, &size);
 	ion_free(client, handle);
+	data.addr = (unsigned int) paddr;
+	data.size = (unsigned int) size;
 
 	if (copy_to_user(user_data, &data, sizeof(data)))
 		return -EFAULT;
@@ -197,7 +201,7 @@ int xgold_ion_probe(struct platform_device *pdev)
 	for (i = 0; i < pdata->nr; i++) {
 		struct ion_platform_heap *heap_data =  &pdata->heaps[i];
 
-		pr_err("xg_ion add heap %s @0x%08lx l:0x%x id:0x%x\n",
+		pr_err("xg_ion add heap %s @0x%08lx l:0x%lx id:0x%x\n",
 				heap_data->name, heap_data->base,
 				heap_data->size+1, heap_data->id);
 		heaps[i] = ion_heap_create(heap_data);
