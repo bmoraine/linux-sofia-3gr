@@ -19,8 +19,8 @@ lemmc:pm@1 {
 	regulator-name = "lemmc";
 	regulator-min-microvolt = < 1200000 >;
 	regulator-max-microvolt = < 2900000 >;
-	intel,class_name = "emmc_class";
-	intel,user_name = "emmc_card";
+	intel,class_name = "mmcsd_volt_class";
+	intel,user_name = "vemmc_volt";
 	intel,states = "disable", "mid_perf", "high_perf";
 	intel,voltages = <0 1800000 2900000>;
 

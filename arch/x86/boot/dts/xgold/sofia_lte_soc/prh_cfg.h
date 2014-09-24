@@ -656,10 +656,8 @@ performance support */
 #define PRH_PER_EXT_TP (PRH_PER_VIDEO_ENC + 1)
 /**< PRH peripheral identifier for accelerometer */
 #define PRH_PER_EXT_ACCELEROMETER (PRH_PER_EXT_TP + 1)
-/**< PRH peripheral identifier for magnetometer */
-#define PRH_PER_EXT_MAGNETOMETER (PRH_PER_EXT_ACCELEROMETER + 1)
 /**< PRH peripheral identifier for proximity_sensor */
-#define PRH_PER_EXT_PROXIMITY_SENSOR (PRH_PER_EXT_MAGNETOMETER + 1)
+#define PRH_PER_EXT_PROXIMITY_SENSOR (PRH_PER_EXT_ACCELEROMETER + 1)
 /**< PRH peripheral identifier for gyroscope */
 #define PRH_PER_EXT_GYROSCOPE (PRH_PER_EXT_PROXIMITY_SENSOR + 1)
 /**< PRH peripheral identifier for external display */
@@ -676,8 +674,10 @@ performance support */
 #define PRH_PER_EXT_PRIM_CAM (PRH_PER_EMMC_PSV + 1)
 /**< PRH peripheral identifier for external secondary camera */
 #define PRH_PER_EXT_SEC_CAM (PRH_PER_EXT_PRIM_CAM + 1)
+/**< PRH peripheral identifier for magnetometer */
+#define PRH_PER_EXT_MAGNETOMETER (PRH_PER_EXT_SEC_CAM + 1)
 /**< PRH peripheral dummy identifier  */
-#define PRH_PER_DUMMY (PRH_PER_EXT_SEC_CAM + 1)
+#define PRH_PER_DUMMY (PRH_PER_EXT_MAGNETOMETER + 1)
 /**< End indicator */
 #define PRH_PER_NOF_ID (PRH_PER_DUMMY + 1)
 
