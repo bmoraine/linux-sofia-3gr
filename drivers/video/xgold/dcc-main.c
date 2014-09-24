@@ -862,6 +862,9 @@ const struct file_operations dcc_ops = {
 	.read = NULL,
 	.write = NULL,
 	.poll = dcc_poll,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = dcc_ioctl,
+#endif
 	.unlocked_ioctl = dcc_ioctl,
 	.open = dcc_open,
 	.release = dcc_close,
