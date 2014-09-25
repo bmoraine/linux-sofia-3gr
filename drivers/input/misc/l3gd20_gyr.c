@@ -1581,8 +1581,7 @@ static const struct i2c_device_id l3gd20_gyr_id[] = {
 MODULE_DEVICE_TABLE(i2c, l3gd20_gyr_id);
 
 static const struct dev_pm_ops l3gd20_gyr_pm = {
-	.suspend = l3gd20_gyr_suspend,
-	.resume = l3gd20_gyr_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(l3gd20_gyr_suspend, l3gd20_gyr_resume)
 };
 
 static struct i2c_driver l3gd20_gyr_driver = {
