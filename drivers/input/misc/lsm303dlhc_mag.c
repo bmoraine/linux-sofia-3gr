@@ -1046,17 +1046,16 @@ static const struct i2c_device_id lsm303dlhc_mag_id[] = {
 
 MODULE_DEVICE_TABLE(i2c, lsm303dlhc_mag_id);
 
-static const struct dev_pm_ops lsm303dlhc_pm = {
-	.suspend = lsm303dlhc_mag_suspend,
-	.resume = lsm303dlhc_mag_resume,
+static const struct dev_pm_ops lsm303dlhc_mag_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(lsm303dlhc_mag_suspend, lsm303dlhc_mag_resume)
 };
 
 static struct i2c_driver lsm303dlhc_mag_driver = {
 	.driver = {
-			.owner = THIS_MODULE,
-			.name = LSM303DLHC_MAG_DEV_NAME,
-			.pm = &lsm303dlhc_pm,
-		   },
+		.owner = THIS_MODULE,
+		.name = LSM303DLHC_MAG_DEV_NAME,
+		.pm = &lsm303dlhc_mag_pm,
+	},
 	.probe = lsm303dlhc_mag_probe,
 	.remove = lsm303dlhc_mag_remove,
 	.id_table = lsm303dlhc_mag_id,
