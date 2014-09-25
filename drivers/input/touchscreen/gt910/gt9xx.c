@@ -103,9 +103,8 @@ static const struct file_operations config_proc_ops = {
 	.write = gt91xx_config_write_proc,
 };
 
-static int goodix_ts_suspend(struct i2c_client *client,
-	pm_message_t mesg);
-static int goodix_ts_resume(struct i2c_client *client);
+static int goodix_ts_suspend(struct device *dev);
+static int goodix_ts_resume(struct device *dev);
 static s8 gtp_enter_sleep(struct goodix_ts_data *ts);
 static s8 gtp_wakeup_sleep(struct goodix_ts_data *ts);
 
@@ -255,6 +254,7 @@ static int gtp_ts_power_on(struct i2c_client *client)
 	}
 #endif
 	ret = gtp_wakeup_sleep(ts);
+	gtp_reset_guitar(client, 50);
 
 #if GTP_GESTURE_WAKEUP
 	doze_status = DOZE_DISABLED;
@@ -262,6 +262,8 @@ static int gtp_ts_power_on(struct i2c_client *client)
 
 	if (ret < 0)
 		GTP_ERROR("GTP later resume failed.");
+	else
+		ret = 0;
 
 #if (GTP_COMPATIBLE_MODE)
 	if (CHIP_TYPE_GT9F == ts->chip_type) {
@@ -1260,7 +1262,7 @@ void gtp_reset_guitar(struct i2c_client *client, s32 ms)
 	/* here before GTP_INT_PORT gpio ops, we must
 	 * use pin_config_set change int function to gpio
 	 * otherwise error like Pin is not configured as GPIO
-	 * TODO in the Future，need PAT headfiles update(2014.4.20) */
+	 * TODO in the Future, need PAT headfiles update(2014.4.20) */
 
 	ret = GTP_GPIO_REQUEST(GTP_INT_PORT, "GTP_INT_IRQ");
 	if (ret < 0) {
@@ -2871,9 +2873,10 @@ Input:
 Output:
     None.
 *******************************************************/
-static int goodix_ts_suspend(struct i2c_client *client,
-	pm_message_t mesg)
+static int goodix_ts_suspend(struct device *dev)
 {
+	struct i2c_client *client = to_i2c_client(dev);
+
 	return gtp_ts_power_off(client);
 }
 
@@ -2885,8 +2888,10 @@ Input:
 Output:
     None.
 *******************************************************/
-static int goodix_ts_resume(struct i2c_client *client)
+static int goodix_ts_resume(struct device *dev)
 {
+	struct i2c_client *client = to_i2c_client(dev);
+
 	return gtp_ts_power_on(client);
 }
 #endif
@@ -3117,15 +3122,18 @@ static const struct i2c_device_id goodix_ts_id[] = {
 	{ }
 };
 
+static const struct dev_pm_ops goodix_ts_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(goodix_ts_suspend, goodix_ts_resume)
+};
+
 static struct i2c_driver goodix_ts_driver = {
 	.probe      = goodix_ts_probe,
 	.remove     = goodix_ts_remove,
-	.suspend    = goodix_ts_suspend,
-	.resume     = goodix_ts_resume,
 	.id_table   = goodix_ts_id,
 	.driver = {
 		.name     = GTP_I2C_NAME,
 		.owner    = THIS_MODULE,
+		.pm       = &goodix_ts_pm,
 	},
 };
 
