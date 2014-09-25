@@ -539,8 +539,8 @@ static int lsm303dlhc_acc_hw_init(struct lsm303dlhc_acc_status *stat)
 
 	if (buf[0] != WHOAMI_LSM303DLHC_ACC) {
 		dev_err(&stat->client->dev,
-			"device unknown. Expected: 0x%02x,"
-			" Replies: 0x%02x\n", WHOAMI_LSM303DLHC_ACC, buf[0]);
+			"device unknown. Expected: 0x%02x, Replies: 0x%02x\n",
+			WHOAMI_LSM303DLHC_ACC, buf[0]);
 		err = -1; /* choose the right coded error */
 		goto err_unknown_device;
 	}
@@ -1646,8 +1646,9 @@ static int lsm303dlhc_acc_remove(struct i2c_client *client)
 }
 
 #ifdef CONFIG_PM
-static int lsm303dlhc_acc_resume(struct i2c_client *client)
+static int lsm303dlhc_acc_resume(struct device *dev)
 {
+	struct i2c_client *client = to_i2c_client(dev);
 	struct lsm303dlhc_acc_status *stat = i2c_get_clientdata(client);
 
 	lsm303dlhc_acc_set_pinctrl_state(&client->dev,
@@ -1658,8 +1659,9 @@ static int lsm303dlhc_acc_resume(struct i2c_client *client)
 	return 0;
 }
 
-static int lsm303dlhc_acc_suspend(struct i2c_client *client, pm_message_t mesg)
+static int lsm303dlhc_acc_suspend(struct device *dev)
 {
+	struct i2c_client *client = to_i2c_client(dev);
 	struct lsm303dlhc_acc_status *stat = i2c_get_clientdata(client);
 
 	lsm303dlhc_acc_set_pinctrl_state(&client->dev,
@@ -1680,15 +1682,18 @@ static const struct i2c_device_id lsm303dlhc_acc_id[] = {
 
 MODULE_DEVICE_TABLE(i2c, lsm303dlhc_acc_id);
 
+static const struct dev_pm_ops lsm303dlhc_acc_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(lsm303dlhc_acc_suspend, lsm303dlhc_acc_resume)
+};
+
 static struct i2c_driver lsm303dlhc_acc_driver = {
 	.driver = {
-			.owner = THIS_MODULE,
-			.name = LSM303DLHC_ACC_DEV_NAME,
-		  },
+		.owner = THIS_MODULE,
+		.name = LSM303DLHC_ACC_DEV_NAME,
+		.pm = &lsm303dlhc_acc_pm,
+	},
 	.probe = lsm303dlhc_acc_probe,
 	.remove = lsm303dlhc_acc_remove,
-	.suspend = lsm303dlhc_acc_suspend,
-	.resume = lsm303dlhc_acc_resume,
 	.id_table = lsm303dlhc_acc_id,
 };
 
