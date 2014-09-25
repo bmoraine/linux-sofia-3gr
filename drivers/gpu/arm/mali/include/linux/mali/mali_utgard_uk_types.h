@@ -274,8 +274,8 @@ typedef struct {
 	u32 perf_counter_src1;              /**< [in] source id for performance counter 1 (see ARM DDI0415A, Table 3-60) */
 	u32 frame_builder_id;               /**< [in] id of the originating frame builder */
 	u32 flush_id;                       /**< [in] flush id within the originating frame builder */
-	_mali_uk_fence_t fence;             /**< [in] fence this job must wait on */
-	u64 timeline_point_ptr;            /**< [in,out] pointer to u32: location where point on gp timeline for this job will be written */
+	_mali_uk_fence_t __attribute__((aligned(8))) fence;           /**< [in] fence this job must wait on */
+	u64  __attribute__((aligned(8))) timeline_point_ptr;            /**< [in,out] pointer to u32: location where point on gp timeline for this job will be written */
 } __attribute__((aligned(8))) _mali_uk_gp_start_job_s;
 
 #define _MALI_PERFORMANCE_COUNTER_FLAG_SRC0_ENABLE (1<<0) /**< Enable performance counter SRC0 for a job */
@@ -381,9 +381,9 @@ typedef struct {
 	u32 tilesy;                         /**< [in] number of tiles in y direction (needed for reading the heatmap memory) */
 	u32 heatmap_mem;                    /**< [in] memory address to store counter values per tile (aka heatmap) */
 	u32 num_memory_cookies;             /**< [in] number of memory cookies attached to job */
-	u64 memory_cookies;               /**< [in] pointer to array of u32 memory cookies attached to job */
+	u64 __attribute__((aligned(8))) memory_cookies;            /**< [in] pointer to array of u32 memory cookies attached to job */
 	_mali_uk_fence_t fence;             /**< [in] fence this job must wait on */
-	u64 timeline_point_ptr;           /**< [in,out] pointer to location of u32 where point on pp timeline for this job will be written */
+	u64  __attribute__((aligned(8))) timeline_point_ptr;           /**< [in,out] pointer to location of u32 where point on pp timeline for this job will be written */
 } __attribute__((aligned(8))) _mali_uk_pp_start_job_s;
 
 typedef struct {
@@ -590,7 +590,7 @@ typedef struct {
 		_mali_uk_pp_job_finished_s  pp_job_finished; /**< [out] Notification data for _MALI_NOTIFICATION_PP_FINISHED notification type */
 		_mali_uk_settings_changed_s setting_changed;/**< [out] Notification data for _MALI_NOTIFICAATION_SETTINGS_CHANGED notification type */
 		_mali_uk_soft_job_activated_s soft_job_activated; /**< [out] Notification data for _MALI_NOTIFICATION_SOFT_ACTIVATED notification type */
-	} data;
+	}  __attribute__((aligned(8)))data;
 } __attribute__((aligned(8))) _mali_uk_wait_for_notification_s;
 
 /** @brief Arguments for _mali_ukk_post_notification()
