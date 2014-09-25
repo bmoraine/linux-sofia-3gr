@@ -1621,8 +1621,9 @@ static int apds990x_remove(struct i2c_client *client)
 }
 
 #ifdef CONFIG_PM
-static int apds990x_suspend(struct i2c_client *client, pm_message_t mesg)
+static int apds990x_suspend(struct device *dev)
 {
+	struct i2c_client *client = to_i2c_client(dev);
 	struct apds990x_data *data = i2c_get_clientdata(client);
 
 	apds990x_set_pinctrl_state(&client->dev, data->pdata->pins_sleep);
@@ -1633,8 +1634,9 @@ static int apds990x_suspend(struct i2c_client *client, pm_message_t mesg)
 	return 0;
 }
 
-static int apds990x_resume(struct i2c_client *client)
+static int apds990x_resume(struct device *dev)
 {
+	struct i2c_client *client = to_i2c_client(dev);
 	int err = 0;
 	struct apds990x_data *data = i2c_get_clientdata(client);
 
@@ -1670,13 +1672,16 @@ static const struct i2c_device_id apds990x_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, apds990x_id);
 
+static const struct dev_pm_ops apds990x_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(apds990x_suspend, apds990x_resume)
+};
+
 static struct i2c_driver apds990x_driver = {
 	.driver = {
 		.name	= APDS990x_DRV_NAME,
 		.owner	= THIS_MODULE,
+		.pm = &apds990x_pm,
 	},
-	.suspend = apds990x_suspend,
-	.resume	= apds990x_resume,
 	.probe	= apds990x_probe,
 	.remove	= apds990x_remove,
 	.id_table = apds990x_id,
