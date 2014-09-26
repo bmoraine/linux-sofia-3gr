@@ -241,8 +241,8 @@ static const struct v4l2_subdev_core_ops gc_core_ops = {
 	.s_power = gc_s_power,
 	.ioctl = gc_ioctl,
 	.queryctrl = v4l2_subdev_queryctrl,
-	.g_ctrl = gc_s_ctrl,
-	.s_ctrl = gc_g_ctrl,
+	.s_ctrl = gc_s_ctrl,
+	.g_ctrl = gc_g_ctrl,
 };
 
 static const struct v4l2_subdev_pad_ops gc_pad_ops = {
@@ -307,6 +307,14 @@ static int gc_probe(struct i2c_client *client,
 		i2c_adapter_id(client->adapter), client->addr);
 
 	gc_s_power(&dev->sd, 1);
+
+	/* Query device specifics */
+	ret = query_device_specifics(dev);
+	if (ret != 0) {
+		pltfrm_camera_module_pr_err(&(dev->sd),
+				"failed with error %d\n", ret);
+		goto out_pltfrm_data_free;
+	}
 
 #if 0
 	/* Initialize v4l2 control handler */

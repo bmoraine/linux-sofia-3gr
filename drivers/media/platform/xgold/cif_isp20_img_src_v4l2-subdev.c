@@ -187,6 +187,10 @@ static int cif_isp20_v4l2_cid2v4l2_cid(u32 cif_isp20_cid)
 		return V4L2_CID_GAIN;
 	case CIF_ISP20_CID_FOCUS_ABSOLUTE:
 		return V4L2_CID_FOCUS_ABSOLUTE;
+	case CIF_ISP20_CID_AUTO_N_PRESET_WHITE_BALANCE:
+		return V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE;
+	case CIF_ISP20_CID_SCENE_MODE:
+		return V4L2_CID_SCENE_MODE;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
 			"unknown/unsupported CIF ISP20 ID %d\n",

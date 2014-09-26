@@ -29,10 +29,35 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <media/v4l2-common.h>
 #include <media/v4l2-device.h>
 #include <media/xgold-isp-ioctl.h>
 #include <linux/platform_data/platform_camera_module.h>
 #include "gc.h"
+
+#define GC_BIN_FACTOR_MAX	4
+#define GC_MAX_FOCUS_POS	1023
+#define GC_MAX_FOCUS_NEG	(-1023)
+#define GC_VCM_SLEW_STEP_MAX	0x3f
+#define GC_VCM_SLEW_TIME_MAX	0x1f
+#define GC_EXPOSURE_MIN		-4
+#define GC_EXPOSURE_MAX		4
+
+#ifdef CONFIG_VIDEO_GC0310
+/*
+ * focal length bits definition:
+ * bits 31-16: numerator, bits 15-0: denominator
+ */
+#define GC_FOCAL_LENGTH_DEFAULT 0x1710064
+#endif
+
+#ifdef CONFIG_VIDEO_GC2155
+/*
+ * focal length bits definition:
+ * bits 31-16: numerator, bits 15-0: denominator
+ */
+#define GC_FOCAL_LENGTH_DEFAULT 0x1710064
+#endif
 
 /* I2C functions */
 int gc_read_reg(struct i2c_client *client, u8 len, u8 reg, u8 *val)
@@ -266,6 +291,480 @@ int __gc_program_ctrl_table(struct v4l2_subdev *sd,
 
 	return 0;
 }
+
+int __gc_set_vflip(struct v4l2_subdev *sd, s32 value)
+{
+	return __gc_program_ctrl_table(sd, GC_SETTING_VFLIP, value);
+}
+
+int __gc_set_hflip(struct v4l2_subdev *sd, s32 value)
+{
+	return __gc_program_ctrl_table(sd, GC_SETTING_HFLIP, value);
+}
+
+int __gc_s_exposure(struct v4l2_subdev *sd, s32 value)
+{
+	return __gc_program_ctrl_table(sd, GC_SETTING_EXPOSURE, value);
+}
+
+int __gc_set_scene_mode(struct v4l2_subdev *sd, s32 value)
+{
+	return __gc_program_ctrl_table(sd, GC_SETTING_SCENE_MODE, value);
+}
+
+int __gc_set_color(struct v4l2_subdev *sd, s32 value)
+{
+	return __gc_program_ctrl_table(sd, GC_SETTING_COLOR_EFFECT, value);
+}
+
+int __gc_set_wb(struct v4l2_subdev *sd, s32 value)
+{
+	return __gc_program_ctrl_table(sd, GC_SETTING_AWB_MODE, value);
+}
+
+int __gc_g_vflip(struct v4l2_subdev *sd, s32 *val)
+{
+	return 0;
+}
+int __gc_g_hflip(struct v4l2_subdev *sd, s32 *val)
+{
+	return 0;
+}
+
+int __gc_g_wb(struct v4l2_subdev *sd, s32 *val)
+{
+	return 0;
+}
+int __gc_g_color(struct v4l2_subdev *sd, s32 *val)
+{
+		return 0;
+}
+int __gc_g_scene_mode(struct v4l2_subdev *sd, s32 *val)
+{
+		return 0;
+}
+
+
+int __gc_g_focal_absolute(struct v4l2_subdev *sd, s32 *val)
+{
+	struct gc_device *dev = to_gc_sensor(sd);
+
+	*val = dev->product_info->focal;
+
+	return 0;
+}
+
+int __gc_g_fnumber(struct v4l2_subdev *sd, s32 *val)
+{
+	struct gc_device *dev = to_gc_sensor(sd);
+
+	*val = dev->product_info->f_number;
+	return 0;
+}
+
+int __gc_g_fnumber_range(struct v4l2_subdev *sd, s32 *val)
+{
+	struct gc_device *dev = to_gc_sensor(sd);
+
+	*val = dev->product_info->f_number_range;
+	return 0;
+}
+
+
+
+/* This returns the exposure time being used. This should only be used
+   for filling in EXIF data, not for actual image processing. */
+int __gc_g_exposure(struct v4l2_subdev *sd, s32 *value)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct gc_device *dev = to_gc_sensor(sd);
+	u16 coarse;
+	u8 reg_val_h, reg_val_l;
+	int ret;
+
+	/* the fine integration time is currently not calculated */
+	ret = gc_read_reg(client, GC_8BIT,
+			dev->product_info->reg_expo_coarse, &reg_val_h);
+	if (ret)
+		return ret;
+
+	coarse = ((u16)(reg_val_h & 0x1f)) << 8;
+
+	ret = gc_read_reg(client, GC_8BIT,
+			dev->product_info->reg_expo_coarse + 1, &reg_val_l);
+	if (ret)
+		return ret;
+
+	coarse |= reg_val_l;
+
+	*value = coarse;
+	return 0;
+}
+
+int __gc_g_bin_factor_x(struct v4l2_subdev *sd, s32 *val)
+{
+	/* fill in */
+	return 0;
+}
+
+int __gc_g_bin_factor_y(struct v4l2_subdev *sd, s32 *val)
+{
+	/* fill in*/
+	return 0;
+}
+
+int __gc_test_pattern(struct v4l2_subdev *sd, s32 val)
+{
+	/* fill in */
+	return 0;
+}
+
+
+
+/* TODO: fill in with actual menu if needed */
+static const char * const ctrl_power_line_frequency_menu[] = {
+	NULL,
+	"50 Hz",
+	"60 Hz",
+};
+/* TODO: fill in with actual menu if needed */
+static const char * const ctrl_exposure_metering_menu[] = {
+	NULL,
+	"Average",
+	"Center Weighted",
+	"Spot",
+	"Matrix",
+};
+
+/* V4L2 control configuration below this line */
+static struct gc_ctrl_config __gc_default_ctrls[] = {
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_EXPOSURE_ABSOLUTE,
+			.name = "Absolute exposure",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = GC_EXPOSURE_MIN,
+			.max = GC_EXPOSURE_MAX,
+			.step = 1,
+			.def = -2,
+		},
+		.s_ctrl = __gc_s_exposure,
+		.g_ctrl = __gc_g_exposure,
+	},
+
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_VFLIP,
+			.name = "Vertical flip",
+			.type = V4L2_CTRL_TYPE_BOOLEAN,
+			.min = 0,
+			.max = 1,
+			.step = 1,
+			.def = 0,
+		},
+		.s_ctrl = __gc_set_vflip,
+		.g_ctrl = __gc_g_vflip,
+
+	},
+
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_HFLIP,
+			.name = "Horizontal flip",
+			.type = V4L2_CTRL_TYPE_BOOLEAN,
+			.min = 0,
+			.max = 1,
+			.step = 1,
+			.def = 0,
+		},
+		.s_ctrl = __gc_set_hflip,
+		.g_ctrl = __gc_g_hflip,
+	},
+
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_FOCUS_ABSOLUTE,
+			.name = "Focal length",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = GC_FOCAL_LENGTH_DEFAULT,
+			.max = GC_FOCAL_LENGTH_DEFAULT,
+			.step = 1,
+			.def = GC_FOCAL_LENGTH_DEFAULT,
+		},
+		.s_ctrl = NULL,
+		.g_ctrl = __gc_g_focal_absolute,
+	},
+#if 0
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_FNUMBER_ABSOLUTE,
+			.name = "F-number",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = 1,
+			.max = GC_F_NUMBER_DEFAULT,
+			.step = 1,
+			.def = 1,
+		},
+		.s_ctrl = NULL,
+		.g_ctrl = __gc_g_fnumber,
+	},
+
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_FNUMBER_RANGE,
+			.name = "F-number range",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = 1,
+			.max = GC_F_NUMBER_RANGE,
+			.step = 1,
+			.def = 1,
+		},
+		.s_ctrl = NULL,
+		.g_ctrl = __gc_g_fnumber_range,
+	},
+
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_BIN_FACTOR_HORZ,
+			.name = "Horizontal binning factor",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = 0,
+			.max = GC_BIN_FACTOR_MAX,
+			.step = 1,
+			.def = 0,
+		},
+		.s_ctrl = NULL,
+		.g_ctrl = __gc_g_bin_factor_x,
+	},
+
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_BIN_FACTOR_VERT,
+			.name = "Vertical binning factor",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = 0,
+			.max = GC_BIN_FACTOR_MAX,
+			.step = 1,
+			.def = 0,
+		},
+		.s_ctrl = NULL,
+		.g_ctrl = __gc_g_bin_factor_y,
+	},
+#endif
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_TEST_PATTERN,
+			.name = "Test pattern",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = 0,
+			.max = 0xffff,
+			.step = 1,
+			.def = 0,
+		},
+		.s_ctrl = __gc_test_pattern,
+		.g_ctrl = NULL,
+	},
+
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_FOCUS_RELATIVE,
+			.name = "Focus move relative",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = GC_MAX_FOCUS_NEG,
+			.max = GC_MAX_FOCUS_POS,
+			.step = 1,
+			.def = 0,
+		},
+		.s_ctrl = NULL,
+		.g_ctrl = NULL,
+	},
+#if 0
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_FOCUS_STATUS,
+			.name = "Focus status",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = 0,
+			.max = 100, /* allow enum to grow in future */
+			.step = 1,
+			.def = 0,
+		},
+		.s_ctrl = NULL,
+		.g_ctrl = NULL,
+	},
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_VCM_SLEW,
+			.name = "Vcm slew",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = 0,
+			.max = GC_VCM_SLEW_STEP_MAX,
+			.step = 1,
+			.def = 0,
+		},
+		.s_ctrl = NULL,
+		.g_ctrl = NULL,
+	},
+
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_VCM_TIMEING,
+			.name = "Vcm step time",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = 0,
+			.max = GC_VCM_SLEW_TIME_MAX,
+			.step = 1,
+			.def = 0,
+		},
+	},
+#endif
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_3A_LOCK,
+			.name = "Pause focus",
+			.type = V4L2_CTRL_TYPE_BITMASK,
+			.min = 0,
+			.max = 1 << 2,
+			.step = 0, /* set it to 0 always */
+			.def = 0,
+		},
+	},
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_COLORFX,
+			.name = "Color effect",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = 0,
+			.max = 9,
+			.step = 1,
+			.def = 1,
+		},
+/*
+		.s_ctrl = __gc_set_color,
+*/
+		.g_ctrl = __gc_g_color,
+	},
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_POWER_LINE_FREQUENCY,
+			.name = "Power line frquency",
+			.type = V4L2_CTRL_TYPE_MENU,   /* ????? */
+			.min = 1,
+			.max = 2,  /* 1: 50 Hz, 2: 60Hz*/
+			.def = 2,
+			.qmenu = ctrl_power_line_frequency_menu,
+		},
+	},
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE,
+			.name = "White balance",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = 0,
+			.max = 9,
+			.step = 1,
+			.def = 1,
+		},
+		.s_ctrl = __gc_set_wb,
+		.g_ctrl = __gc_g_wb,
+	},
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_EXPOSURE,
+			.name = "Exposure",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = GC_EXPOSURE_MIN,
+			.max = GC_EXPOSURE_MAX,
+			.step = 1,
+			.def = -2,
+		},
+		.s_ctrl = __gc_s_exposure,
+		.g_ctrl = NULL,
+	},
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_EXPOSURE_METERING,
+			.name = "Exposure metering",
+			.type = V4L2_CTRL_TYPE_MENU,
+			.min = 1,
+			.max = 4,
+			.def = 4,
+			.qmenu = ctrl_exposure_metering_menu,
+		},
+	},
+	{
+		.config = {
+			.ops = NULL,
+			.id = V4L2_CID_SCENE_MODE,
+			.name = "Scene mode",
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.min = 0,
+			.max = 9,
+			.step = 1,
+			.def = 0,
+		},
+		.s_ctrl = __gc_set_scene_mode,
+		.g_ctrl = __gc_g_scene_mode,
+	},
+
+};
+
+/*******************************************************/
+#if 0
+static void reset_v4l2_ctrl_value(struct v4l2_ctrl_handler *hdl)
+{
+	struct v4l2_ctrl *ctrl;
+
+	if (hdl == NULL)
+		return;
+
+	mutex_lock(hdl->lock);
+
+	list_for_each_entry(ctrl, &hdl->ctrls, node)
+		ctrl->done = false;
+
+	list_for_each_entry(ctrl, &hdl->ctrls, node) {
+		struct v4l2_ctrl *master = ctrl->cluster[0];
+		int i;
+
+		/* Skip if this control was already handled by a cluster. */
+		/* Skip button controls and read-only controls. */
+		if (ctrl->done || ctrl->type == V4L2_CTRL_TYPE_BUTTON ||
+		    (ctrl->flags & V4L2_CTRL_FLAG_READ_ONLY))
+			continue;
+
+		for (i = 0; i < master->ncontrols; i++) {
+			if (master->cluster[i]) {
+				master->cluster[i]->is_new = 1;
+				master->cluster[i]->done = true;
+			}
+		}
+		master->cur.val = master->val = master->default_value;
+	}
+
+	mutex_unlock(hdl->lock);
+
+}
+#endif
 
 long gc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
@@ -762,14 +1261,63 @@ int gc_g_skip_frames(struct v4l2_subdev *sd, u32 *frames)
 	return 0;
 }
 
-int gc_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *control)
+int query_device_specifics(struct gc_device *dev)
 {
-	pltfrm_camera_module_pr_info(sd, "\n");
+
+	/* If product specific does not need to override any configs
+	   use default ones; otherwise override those that are specified */
+	if (!dev->product_info->ctrl_config) {
+		dev->product_info->ctrl_config = __gc_default_ctrls;
+		dev->product_info->num_ctrls = ARRAY_SIZE(__gc_default_ctrls);
+	} else {
+		/* TODO: */
+	}
+
 	return 0;
 }
 
-int gc_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *control)
+int gc_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 {
-	pltfrm_camera_module_pr_info(sd, "\n");
-	return 0;
+	struct gc_device *dev = to_gc_sensor(sd);
+	int i;
+	int ret = 0;
+
+	pltfrm_camera_module_pr_info(sd,
+			"id:%x val:%x\n", ctrl->id, ctrl->value);
+
+	for (i = 0; i < dev->product_info->num_ctrls; i++) {
+		if (dev->product_info->ctrl_config[i].config.id == ctrl->id) {
+			if (dev->product_info->ctrl_config[i].s_ctrl) {
+				ret = dev->product_info->ctrl_config[i].s_ctrl(
+						&dev->sd,
+						ctrl->value);
+			}
+			break;
+		}
+	}
+
+	return ret;
+}
+
+int gc_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
+{
+	struct gc_device *dev = to_gc_sensor(sd);
+	int i;
+	int ret = 0;
+
+	pltfrm_camera_module_pr_info(sd,
+			"id:%x val:%x", ctrl->id, ctrl->value);
+
+	for (i = 0; i < dev->product_info->num_ctrls; i++) {
+		if (dev->product_info->ctrl_config[i].config.id == ctrl->id) {
+			if (dev->product_info->ctrl_config[i].g_ctrl) {
+				ret = dev->product_info->ctrl_config[i].g_ctrl(
+						&dev->sd,
+						&ctrl->value);
+			}
+			break;
+		}
+	}
+
+	return ret;
 }

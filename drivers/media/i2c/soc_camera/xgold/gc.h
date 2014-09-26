@@ -25,7 +25,6 @@
 #include <linux/videodev2.h>
 #include <linux/v4l2-mediabus.h>
 #include <media/media-entity.h>
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-ctrls.h>
@@ -278,44 +277,45 @@ struct gc_device {
 	}
 
 /* GC common functions */
-extern int gc_read_reg(struct i2c_client *client, u8 len, u8 reg, u8 *val);
-extern int gc_i2c_write(struct i2c_client *client, u16 len, u8 *data);
-extern int gc_write_reg(struct i2c_client *client, u16 data_length,
-			u16 reg, u16 val);
-extern int gc_write_reg_array(struct i2c_client *client,
-			const struct gc_register *reglist);
-extern long gc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg);
-extern int gc_detect(struct i2c_client *client, u16 *id);
-extern int gc_set_streaming(struct v4l2_subdev *sd, int enable);
-extern int gc_init_common(struct v4l2_subdev *sd);
-extern int get_resolution_index(struct v4l2_subdev *sd, int w, int h);
-extern int gc_s_frame_interval(struct v4l2_subdev *sd,
-			struct v4l2_subdev_frame_interval *interval);
-extern int gc_try_mbus_fmt(struct v4l2_subdev *sd,
-			struct v4l2_mbus_framefmt *fmt);
-extern int gc_find_mbus_fmt_index(struct v4l2_subdev *sd,
-			struct v4l2_mbus_framefmt *fmt);
-extern int gc_s_mbus_fmt(struct v4l2_subdev *sd,
-			struct v4l2_mbus_framefmt *fmt);
-extern int gc_g_mbus_fmt(struct v4l2_subdev *sd,
-			struct v4l2_mbus_framefmt *fmt);
-extern int gc_s_stream(struct v4l2_subdev *sd, int enable);
-extern int gc_enum_framesizes(struct v4l2_subdev *sd,
-			struct v4l2_frmsizeenum *fsize);
-extern int gc_enum_frameintervals(struct v4l2_subdev *sd,
-			struct v4l2_frmivalenum *fival);
-extern int gc_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
-			struct v4l2_subdev_mbus_code_enum *code);
-extern int gc_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
-			struct v4l2_subdev_frame_size_enum *fse);
-extern int gc_get_pad_format(struct v4l2_subdev *sd,
-			struct v4l2_subdev_fh *fh,
-			struct v4l2_subdev_format *fmt);
-extern int gc_g_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *param);
-extern int gc_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *param);
-extern int gc_g_skip_frames(struct v4l2_subdev *sd, u32 *frames);
-extern int gc_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *control);
-extern int gc_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *control);
-extern int gc_set_pad_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
-			struct v4l2_subdev_format *fmt);
+int gc_read_reg(struct i2c_client *client, u8 len, u8 reg, u8 *val);
+int gc_i2c_write(struct i2c_client *client, u16 len, u8 *data);
+int gc_write_reg(struct i2c_client *client, u16 data_length,
+		u16 reg, u16 val);
+int gc_write_reg_array(struct i2c_client *client,
+		const struct gc_register *reglist);
+long gc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg);
+int gc_detect(struct i2c_client *client, u16 *id);
+int gc_set_streaming(struct v4l2_subdev *sd, int enable);
+int gc_init_common(struct v4l2_subdev *sd);
+int get_resolution_index(struct v4l2_subdev *sd, int w, int h);
+int gc_s_frame_interval(struct v4l2_subdev *sd,
+		struct v4l2_subdev_frame_interval *interval);
+int gc_try_mbus_fmt(struct v4l2_subdev *sd,
+		struct v4l2_mbus_framefmt *fmt);
+int gc_find_mbus_fmt_index(struct v4l2_subdev *sd,
+		struct v4l2_mbus_framefmt *fmt);
+int gc_s_mbus_fmt(struct v4l2_subdev *sd,
+		struct v4l2_mbus_framefmt *fmt);
+int gc_g_mbus_fmt(struct v4l2_subdev *sd,
+		struct v4l2_mbus_framefmt *fmt);
+int gc_s_stream(struct v4l2_subdev *sd, int enable);
+int gc_enum_framesizes(struct v4l2_subdev *sd,
+		struct v4l2_frmsizeenum *fsize);
+int gc_enum_frameintervals(struct v4l2_subdev *sd,
+		struct v4l2_frmivalenum *fival);
+int gc_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+		struct v4l2_subdev_mbus_code_enum *code);
+int gc_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+		struct v4l2_subdev_frame_size_enum *fse);
+int gc_get_pad_format(struct v4l2_subdev *sd,
+		struct v4l2_subdev_fh *fh,
+		struct v4l2_subdev_format *fmt);
+int gc_g_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *param);
+int gc_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *param);
+int gc_g_skip_frames(struct v4l2_subdev *sd, u32 *frames);
+int gc_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *control);
+int gc_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *control);
+int gc_set_pad_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+		struct v4l2_subdev_format *fmt);
+int query_device_specifics(struct gc_device *dev);
 #endif /* __GC_H__ */
