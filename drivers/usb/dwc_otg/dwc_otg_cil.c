@@ -1427,12 +1427,12 @@ void dwc_otg_core_init(dwc_otg_core_if_t *core_if)
 	}
 	if (core_if->dma_enable) {
 		if (core_if->dma_desc_enable) {
-			DWC_PRINTF("Using Descriptor DMA mode\n");
+			DWC_DEBUGPL(DBG_CIL, "Using Descriptor DMA Mode\n");
 		} else {
-			DWC_PRINTF("Using Buffer DMA mode\n");
+			DWC_DEBUGPL(DBG_CIL, "Using Buffer DMA Mode\n");
 		}
 	} else {
-		DWC_PRINTF("Using Slave mode\n");
+		DWC_DEBUGPL(DBG_CIL, "Using Slave Mode\n");
 		core_if->dma_desc_enable = 0;
 	}
 
@@ -1447,9 +1447,9 @@ void dwc_otg_core_init(dwc_otg_core_if_t *core_if)
 
 	core_if->pti_enh_enable = core_if->core_params->pti_enable != 0;
 	core_if->multiproc_int_enable = core_if->core_params->mpi_enable;
-	DWC_PRINTF("Periodic Transfer Interrupt Enhancement - %s\n",
+	DWC_DEBUGPL(DBG_CIL, "Periodic Transfer Interrupt Enhancement - %s\n",
 		   ((core_if->pti_enh_enable) ? "enabled" : "disabled"));
-	DWC_PRINTF("Multiprocessor Interrupt Enhancement - %s\n",
+	DWC_DEBUGPL(DBG_CIL, "Multiprocessor Interrupt Enhancement - %s\n",
 		   ((core_if->multiproc_int_enable) ? "enabled" : "disabled"));
 
 	/*
@@ -1532,7 +1532,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t *core_if)
 				 gotgctl.d32);
 		/* Set OTG version supported */
 		core_if->otg_ver = core_if->core_params->otg_ver;
-		DWC_PRINTF("OTG VER PARAM: %d, OTG VER FLAG: %d\n",
+		DWC_DEBUGPL(DBG_CIL, "OTG VER PARAM: %d, OTG VER FLAG: %d\n",
 			   core_if->core_params->otg_ver, core_if->otg_ver);
 	}
 
@@ -5259,7 +5259,7 @@ void dwc_otg_core_reset(dwc_otg_core_if_t * core_if)
 	while (greset.b.csftrst == 1);
 
 	/* Wait for 3 PHY Clocks */
-	dwc_mdelay(100);
+	dwc_udelay(1);
 }
 
 uint8_t dwc_otg_is_device_mode(dwc_otg_core_if_t * _core_if)
