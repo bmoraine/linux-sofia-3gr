@@ -114,28 +114,28 @@ struct charger_cable *get_cable(unsigned long usb_chrgr_type)
 
 	switch (usb_chrgr_type) {
 	case POWER_SUPPLY_CHARGER_TYPE_USB_SDP:
-		pr_info("%s:%d SDP\n", __FILE__, __LINE__);
+		pr_debug("%s:%d SDP\n", __FILE__, __LINE__);
 		return &cable_list[0];
 	case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
-		pr_info("%s:%d CDP\n", __FILE__, __LINE__);
+		pr_debug("%s:%d CDP\n", __FILE__, __LINE__);
 		return &cable_list[1];
 	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
-		pr_info("%s:%d DCP\n", __FILE__, __LINE__);
+		pr_debug("%s:%d DCP\n", __FILE__, __LINE__);
 		return &cable_list[2];
 	case POWER_SUPPLY_CHARGER_TYPE_USB_ACA:
-		pr_info("%s:%d ACA\n", __FILE__, __LINE__);
+		pr_debug("%s:%d ACA\n", __FILE__, __LINE__);
 		return &cable_list[3];
 	case POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK:
-		pr_info("%s:%d ACA DOCK\n", __FILE__, __LINE__);
+		pr_debug("%s:%d ACA DOCK\n", __FILE__, __LINE__);
 		return &cable_list[4];
 	case POWER_SUPPLY_CHARGER_TYPE_AC:
-		pr_info("%s:%d AC\n", __FILE__, __LINE__);
+		pr_debug("%s:%d AC\n", __FILE__, __LINE__);
 		return &cable_list[5];
 	case POWER_SUPPLY_CHARGER_TYPE_USB_FLOATING:
-		pr_info("%s:%d USB FLOATING\n", __FILE__, __LINE__);
+		pr_debug("%s:%d USB FLOATING\n", __FILE__, __LINE__);
 		return &cable_list[6];
 	case POWER_SUPPLY_CHARGER_TYPE_NONE:
-		pr_info("%s:%d USB NONE\n", __FILE__, __LINE__);
+		pr_debug("%s:%d USB NONE\n", __FILE__, __LINE__);
 		return &cable_list[7];
 
 	}
@@ -172,22 +172,22 @@ static int otg_handle_notification(struct notifier_block *nb,
 
 	switch (cap->chrg_evt) {
 	case POWER_SUPPLY_CHARGER_EVENT_CONNECT:
-		pr_err("%s:%d Connected inlmt=%d\n",
+		pr_debug("%s:%d Connected inlmt=%d\n",
 				__FILE__, __LINE__, cap->ma);
 		break;
 	case POWER_SUPPLY_CHARGER_EVENT_UPDATE:
-		pr_err("%s:%d Connected\n", __FILE__, __LINE__);
+		pr_debug("%s:%d Connected\n", __FILE__, __LINE__);
 		break;
 	case POWER_SUPPLY_CHARGER_EVENT_DISCONNECT:
-		pr_err("%s:%d Disconnected inlmt=%d\n",
+		pr_debug("%s:%d Disconnected inlmt=%d\n",
 			__FILE__, __LINE__, cap->ma);
 		break;
 	case POWER_SUPPLY_CHARGER_EVENT_SUSPEND:
-		pr_err("%s:%d Suspended inlmt=%d\n",
+		pr_debug("%s:%d Suspended inlmt=%d\n",
 			__FILE__, __LINE__, cap->ma);
 		break;
 	case POWER_SUPPLY_CHARGER_EVENT_RESUME:
-		pr_err("%s:%d Resumed inlmt=%d\n",
+		pr_debug("%s:%d Resumed inlmt=%d\n",
 			__FILE__, __LINE__, cap->ma);
 		break;
 	default:
