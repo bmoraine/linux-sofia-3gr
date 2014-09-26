@@ -686,7 +686,7 @@ static const struct file_operations fan54020_evt_dbg_fops = {
 
 static int fan54020_dbg_regs_show(struct seq_file *m, void *data)
 {
-	int i, ret;
+	int i, ret = 0;
 	struct fan54020_charger *chrgr = (struct fan54020_charger *) m->private;
 	u8 charge_ctrl1_reg, tmr_rst_reg, safety_reg, monitor_reg,
 						state_reg, tmr_ctrl_reg;
@@ -703,7 +703,7 @@ static int fan54020_dbg_regs_show(struct seq_file *m, void *data)
 	ret = fan54020_i2c_read_reg(chrgr->client, REG_CHARGE_CTRL1,
 							&charge_ctrl1_reg);
 	if (ret != 0)
-		return ret;
+		goto out;
 
 	shadow_registers[REG_CHARGE_CTRL1].value = charge_ctrl1_reg;
 
@@ -714,23 +714,23 @@ static int fan54020_dbg_regs_show(struct seq_file *m, void *data)
 
 	ret = fan54020_i2c_read_reg(chrgr->client, REG_TMR_RST, &tmr_rst_reg);
 	if (ret != 0)
-		return ret;
+		goto out;
 
 	ret = fan54020_i2c_read_reg(chrgr->client, REG_SAFETY, &safety_reg);
 	if (ret != 0)
-		return ret;
+		goto out;
 
 	ret = fan54020_i2c_read_reg(chrgr->client, REG_MONITOR, &monitor_reg);
 	if (ret != 0)
-		return ret;
+		goto out;
 
 	ret = fan54020_i2c_read_reg(chrgr->client, REG_STATE, &state_reg);
 	if (ret != 0)
-		return ret;
+		goto out;
 
 	ret = fan54020_i2c_read_reg(chrgr->client, REG_TMR_CTRL, &tmr_ctrl_reg);
 	if (ret != 0)
-		return ret;
+		goto out;
 
 	seq_printf(m, "tmr_rst = 0x%x\n", tmr_rst_reg);
 	seq_printf(m, "safety = 0x%x\n", safety_reg);
@@ -738,9 +738,10 @@ static int fan54020_dbg_regs_show(struct seq_file *m, void *data)
 	seq_printf(m, "state = 0x%x\n", state_reg);
 	seq_printf(m, "tmr_ctrl = 0x%x\n\n\n", tmr_ctrl_reg);
 
+out:
 	up(&chrgr->prop_lock);
 
-	return 0;
+	return ret;
 }
 
 static int fan54020_dbg_regs_open(struct inode *inode, struct file *file)
