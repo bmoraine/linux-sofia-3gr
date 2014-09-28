@@ -25,15 +25,16 @@
 #include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 
 #define lvds_debug(fmt, arg...) \
-	pr_debug("LVDS: " fmt, ##arg);
+	pr_debug("LVDS: " fmt, ##arg)
 
 #define lvds_err(fmt, arg...) \
-	pr_err("LVDS: " fmt, ##arg);
+	pr_err("LVDS: " fmt, ##arg)
 
 #define lvds_warning(fmt, arg...) \
-	pr_warn("LVDS: " fmt, ##arg);
+	pr_warn("LVDS: " fmt, ##arg)
 
 #define PROP_LVDS_GPIO_EN         "intel,lvds-gpio-en"
 #define PROP_LVDS_GIOP_EN_HIGH    "intel,lvds-gpio-en-high"
@@ -214,6 +215,7 @@ static int lvds_of_parse_platdata(struct device *dev,
 	if (IS_ERR(p_data->pinctrl)) {
 		lvds_err("Can not get pinctrl.\n");
 		p_data->pinctrl = NULL;
+		goto out;
 	}
 
 	p_data->pins_default = pinctrl_lookup_state(
