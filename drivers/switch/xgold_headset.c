@@ -469,15 +469,14 @@ static int accessory_probe(struct platform_device *pdev)
 		goto failed_platform_resource;
 	}
 
-	dev_dbg(headset_device_data->sdev.dev,
-			"res->start %x\n", res->start);
+	dev_dbg(headset_device_data->sdev.dev, "%pR\n", res);
 
 	headset_device_data->mmio_base =
 			ioremap(res->start, resource_size(res));
 
 	dev_dbg(headset_device_data->sdev.dev,
-			" ioremap %x\n",
-		  (u32)headset_device_data->mmio_base);
+			" ioremap %p\n",
+		  headset_device_data->mmio_base);
 
 	if (headset_device_data->mmio_base == NULL) {
 		dev_err(headset_device_data->sdev.dev,
