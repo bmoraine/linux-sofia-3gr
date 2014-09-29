@@ -48,9 +48,9 @@ static struct xgold_irq_wake_data {
 	/* Table of wake enable registers */
 	uint32_t wake_regs[NR_OF_CORES][NR_OF_REGS];
 	/* SPCU Virtual address (ioremapped) */
-	void __iomem *spcu_virt;
+	void __iomem *base_virt;
 	/* SPCU Physical address */
-	uint32_t spcu_phys;
+	uint32_t base_phys;
 	/* to defined who is doing the final io access */
 	bool io_master;
 	/* number of cores supporting the hw_wake */
@@ -69,37 +69,57 @@ struct xgold_irq_wake_data *get_irq_wake_data(uint32_t id)
 {
 	return &wake_pdata[id];
 }
-
+/*
+ * xgold irq wake write accessor done by VMM
+ */
+int32_t _xgold_irq_wake_write_vmm(uint32_t addr, uint32_t val)
+{
+	if (vmm_reg_write(addr, val, -1)) {
+		pr_err("%s: vmm_reg_write_service fails @%#x\n",
+				__func__, addr);
+		return -1;
+	}
+	return 0;
+}
+/*
+ * xgold irq wake read accessor done by VMM
+ */
+int32_t _xgold_irq_wake_read_vmm(uint32_t addr)
+{
+	uint32_t val;
+	if (vmm_reg_read(addr, &val, -1)) {
+		pr_err("%s: vmm_reg_read_service fails @%#x\n",
+				__func__, addr);
+		return -1;
+	}
+	return val;
+}
 /*
  * Write accessor function
  */
-static void xgold_irq_wake_write(uint32_t addr, uint32_t val, bool io)
+static int32_t xgold_irq_wake_write(struct xgold_irq_wake_data *data,
+		uint32_t offset, uint32_t val)
 {
-#ifdef CONFIG_X86_INTEL_SOFIA
-	if (io == IRQ_IO_ACCESS_BY_VMM) {
-		if (vmm_reg_write(addr, val, -1))
-			pr_err("%s: vmm_reg_write_service fails @%#x\n",
-					__func__, addr);
+	if (data->io_master == IRQ_IO_ACCESS_BY_VMM)
+		return _xgold_irq_wake_write_vmm(data->base_phys + offset, val);
+	else if (data->io_master == IRQ_IO_ACCESS_BY_LNX) {
+		iowrite32(val, data->base_virt + offset);
+		return 0;
 	} else
-#endif
-		iowrite32(val, (void __iomem *)addr);
-	pr_debug("%s: Writing %#x @ %#x\n", __func__, val, addr);
+		return -1;
 }
-
 /*
  * Read accessor function
  */
-static void xgold_irq_wake_read(uint32_t addr, uint32_t *val, bool io)
+static int32_t xgold_irq_wake_read(struct xgold_irq_wake_data *data,
+		uint32_t offset)
 {
-#ifdef CONFIG_X86_INTEL_SOFIA
-	if (io == IRQ_IO_ACCESS_BY_VMM) {
-		if (vmm_reg_read(addr, val, -1))
-			pr_err("%s: vmm_reg_read_service fails @%#x\n",
-					__func__, addr);
-	} else
-#endif
-		*val = ioread32((void __iomem *)addr);
-	pr_debug("%s: Reading %#x @ %#x\n", __func__, *val, addr);
+	if (data->io_master == IRQ_IO_ACCESS_BY_VMM)
+		return _xgold_irq_wake_read_vmm(data->base_phys + offset);
+	else if (data->io_master == IRQ_IO_ACCESS_BY_LNX)
+		return ioread32(data->base_virt + offset);
+	else
+		return -1;
 }
 
 /*
@@ -268,39 +288,27 @@ int32_t xgold_irq_set_wake(struct irq_data *data, uint32_t irq, uint32_t on,
 	struct xgold_irq_wake_data *pdata = get_irq_wake_data(wake_id);
 	struct irq_domain *domain = data->domain;
 	struct xgold_irq_wake_table irq_wake;
-	int32_t i, temp, ret = 0;
+	int32_t i, val, ret = 0;
 	uint32_t loop, addr;
-	bool io;
 
 	if (!pdata) {
-		pr_info("%s: no wake data available for wake_id:%d\n",
+		pr_debug("%s: no wake data available for wake_id:%d\n",
 				__func__, wake_id);
 		return 0;
 	}
-
-	io = pdata->io_master;
 	loop = pdata->only_cpu0 ? 1 : pdata->nr_cores;
-	addr = io == IRQ_IO_ACCESS_BY_VMM ? pdata->spcu_phys :
-		(uint32_t)pdata->spcu_virt;
 	if (xgold_irq_is_wake_capable(domain, pdata, irq, &irq_wake)) {
 		for (i = 0; i < loop; i++) {
-			addr += pdata->wake_regs[i][irq_wake.reg_id];
-			if (addr)
-				xgold_irq_wake_read(addr, &temp, io);
-			else {
-				pr_err("%s: addr is NULL, exit...\n", __func__);
-				return -1;
-			}
-			pr_info("%s: wake capability %s for irq %d (%s)\n",
+			addr = pdata->wake_regs[i][irq_wake.reg_id];
+			val = xgold_irq_wake_read(pdata, addr);
+			pr_debug("%s: wake capability %s for irq %d (%s)\n",
 					__func__, on ? "enabled" : "disabled",
 					irq, irq_wake.parent->full_name);
 			if (on)
-				set_bit(irq_wake.offset,
-					(ulong *)&temp);
+				set_bit(irq_wake.offset, (ulong *)&val);
 			else
-				clear_bit(irq_wake.offset,
-					(ulong *)&temp);
-			xgold_irq_wake_write(addr, temp, io);
+				clear_bit(irq_wake.offset, (ulong *)&val);
+			xgold_irq_wake_write(pdata, addr, val);
 		}
 		ret = xgold_irq_xgold_set_enable(data, irq, on);
 	} else
@@ -345,7 +353,6 @@ static inline struct xgold_irq_wake_data *xgold_irq_wake_get_driver_data(
 				pdev->dev.of_node);
 		return (struct xgold_irq_wake_data *)match->data;
 	}
-		pr_info("there??\n");
 	return NULL;
 }
 
@@ -365,7 +372,7 @@ static int32_t xgold_irq_wake_probe(struct platform_device *pdev)
 {
 	struct device *_dev = &pdev->dev;
 	struct device_node *np = _dev->of_node;
-	struct resource *spcu_res;
+	struct resource *mem_res;
 	struct resource *res[NR_OF_CORES][NR_OF_REGS];
 	struct xgold_irq_wake_data *data;
 	char comp[20];
@@ -390,11 +397,11 @@ static int32_t xgold_irq_wake_probe(struct platform_device *pdev)
 		data->io_master == IRQ_IO_ACCESS_BY_VMM ? "VMM" : "LINUX");
 
 	/* Get io resources */
-	spcu_res = platform_get_resource_byname(pdev,
+	mem_res = platform_get_resource_byname(pdev,
 			IORESOURCE_MEM, "spcu");
-	if (!spcu_res)
+	if (!mem_res)
 		return -EINVAL;
-	data->spcu_phys = spcu_res->start;
+	data->base_phys = mem_res->start;
 
 	/* Get pcl resources */
 	data->pinctrl = devm_pinctrl_get(_dev);
@@ -441,7 +448,7 @@ static int32_t xgold_irq_wake_probe(struct platform_device *pdev)
 			if (!res[i][j])
 				dev_dbg(_dev, "No wake resource for %s\n",
 						comp);
-			dev_dbg(_dev, "%s: %#x\n", comp, res[i][j]->start);
+			dev_dbg(_dev, "%s: %pR\n", comp, res[i][j]);
 		}
 	}
 
@@ -455,8 +462,8 @@ static int32_t xgold_irq_wake_probe(struct platform_device *pdev)
 	dev_dbg(_dev, "HW Wake resources: core:%d - regs:%d\n",
 			data->nr_cores, data->nr_regs);
 
-	data->spcu_virt = ioremap(spcu_res->start, resource_size(spcu_res));
-	if (!data->spcu_virt) {
+	data->base_virt = ioremap(mem_res->start, resource_size(mem_res));
+	if (!data->base_virt) {
 		dev_err(_dev, "SPCU IO remap operation failed\n");
 		if (data->irq)
 			free_irq(data->irq, data);
@@ -466,11 +473,10 @@ static int32_t xgold_irq_wake_probe(struct platform_device *pdev)
 	for (i = 0; i < data->nr_cores; i++)
 		for (j = 0; j < data->nr_regs; j++) {
 			data->wake_regs[i][j] = res[i][j]->start;
-			dev_dbg(_dev, "virt: wake_regs[%d:%d]:%#x\n",
-				i, j, (uint32_t)data->spcu_virt +
-				data->wake_regs[i][j]);
+			dev_dbg(_dev, "virt: wake_regs[%d:%d]:%p\n",
+				i, j, data->base_virt + data->wake_regs[i][j]);
 			dev_dbg(_dev, "phys: wake_regs[%d:%d]:%#x\n",
-				i, j, data->spcu_phys + data->wake_regs[i][j]);
+				i, j, data->base_phys + data->wake_regs[i][j]);
 		}
 
 	for (i = 0; i < data->nr_regs; i++) {
@@ -497,7 +503,7 @@ static int32_t xgold_irq_wake_remove(struct platform_device *pdev)
 	if (data) {
 		for (j = 0; j < data->nr_regs; j++)
 			kfree(data->wake_table[j]);
-		iounmap(data->spcu_virt);
+		iounmap(data->base_virt);
 		if (data->irq)
 			free_irq(data->irq, data);
 	} else
