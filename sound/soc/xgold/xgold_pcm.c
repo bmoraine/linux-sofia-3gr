@@ -74,6 +74,7 @@ struct xgold_dma_pcm_stream {
 	struct scatterlist *dma_sgl;
 	struct dma_chan *dmach;
 	dma_cookie_t dma_cookie;
+	spinlock_t lock;
 };
 
 struct xgold_audio_stream {
@@ -405,7 +406,7 @@ void xgold_dsp_pcm_rec_handler(void *dev)
 	snd_pcm_period_elapsed(xgold_stream->stream);
 }
 
-static void xgold_pcm_dma_submit(void *dev, dma_addr_t dma_addr);
+static void xgold_pcm_dma_submit(struct xgold_audio *, dma_addr_t);
 
 void xgold_dsp_pcm_play_handler(void *dev)
 {
@@ -494,6 +495,7 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 {
 	struct xgold_audio *xgold_ptr = (struct xgold_audio *)dev;
 	struct xgold_audio_stream *xgold_stream;
+	struct xgold_dma_pcm_stream *pcm_dma_stream;
 	dma_addr_t dma_addr;
 
 	xgold_debug("%s\n", __func__);
@@ -503,11 +505,21 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 		return;
 	}
 
-	xgold_stream = &(xgold_ptr->audio_stream[STREAM_PLAY]);
+	xgold_stream = &xgold_ptr->audio_stream[STREAM_PLAY];
+	pcm_dma_stream = &xgold_ptr->audio_dma_stream[STREAM_PLAY];
+
+	spin_lock(&pcm_dma_stream->lock);
 
 	if (!xgold_stream->stream || !xgold_stream->stream->runtime ||
 			!xgold_stream->stream->runtime->dma_area) {
-		xgold_err("%s: stream data is NULL!!\n", __func__);
+		spin_unlock(&pcm_dma_stream->lock);
+		xgold_debug("%s: stream data is NULL!!\n", __func__);
+		return;
+	}
+
+	if (!pcm_dma_stream->dmach) {
+		spin_unlock(&pcm_dma_stream->lock);
+		xgold_debug("%s: dma stream is NULL\n", __func__);
 		return;
 	}
 
@@ -525,22 +537,21 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 	snd_pcm_period_elapsed(xgold_stream->stream);
 
 	/* Reload scatter list and submit DMA request */
-	xgold_pcm_dma_submit((void *)xgold_ptr, dma_addr);
+	xgold_pcm_dma_submit(xgold_ptr, dma_addr);
 
 	/* Restart the DMA tx for next data transfer i.e. after 20 ms */
-	dma_async_issue_pending(xgold_ptr->audio_dma_stream[STREAM_PLAY].dmach);
+	dma_async_issue_pending(pcm_dma_stream->dmach);
+	spin_unlock(&pcm_dma_stream->lock);
 
 	xgold_debug("dma tx started\n");
 }
 
-static void xgold_pcm_dma_submit(void *dev,
+static void xgold_pcm_dma_submit(struct xgold_audio *xgold_ptr,
 		dma_addr_t dma_addr)
 {
-	struct xgold_audio *xgold_ptr = (struct xgold_audio *)dev;
 	struct dma_async_tx_descriptor *desc;
 	dma_cookie_t dma_cookie_tx;
 	int i = 0;
-
 	struct xgold_dma_pcm_stream *pcm_dma_stream =
 			&(xgold_ptr->audio_dma_stream[STREAM_PLAY]);
 	struct xgold_audio_stream *xgold_stream =
@@ -557,7 +568,7 @@ static void xgold_pcm_dma_submit(void *dev,
 
 	/* Prepare the scatter list */
 	while (i != XGOLD_MAX_SG_LIST) {
-		sg_set_buf(pcm_dma_stream->dma_sgl+i,
+		sg_set_buf(pcm_dma_stream->dma_sgl + i,
 			(void *)phys_to_virt(dma_addr),
 			xgold_stream->period_size_bytes);
 		i++;
@@ -583,6 +594,8 @@ static void xgold_pcm_dma_submit(void *dev,
 
 	/* Submit DMA request */
 	dma_cookie_tx = dmaengine_submit(desc);
+
+	xgold_debug("<-- %s\n", __func__);
 }
 
 int register_audio_dsp(struct dsp_audio_device *dsp)
@@ -853,11 +866,13 @@ static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 	struct xgold_audio *xgold_ptr =
 		snd_soc_platform_get_drvdata(rtd->platform);
 	struct xgold_dma_pcm_stream *pcm_dma_stream;
+	unsigned long flags;
 
 	xgold_debug("%s\n", __func__);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK && dma_mode) {
 		pcm_dma_stream = &xgold_ptr->audio_dma_stream[STREAM_PLAY];
+		spin_lock_irqsave(&pcm_dma_stream->lock, flags);
 
 		/* Release the DMA channel */
 		if (pcm_dma_stream->dmach) {
@@ -867,6 +882,7 @@ static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 
 		/* Free scatter list memory*/
 		kfree(pcm_dma_stream->dma_sgl);
+		spin_unlock_irqrestore(&pcm_dma_stream->lock, flags);
 	}
 
 	/* Free DMA buffer */
@@ -1155,7 +1171,6 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			(void)p_dsp_audio_dev->p_dsp_common_data->
 				ops->set_controls(DSP_AUDIO_CONTROL_SEND_CMD,
 					(void *)&cmd_data);
-			xgold_debug("DSP stopped\n");
 
 		} else if (xgold_ptr->stream_type == STREAM_REC) {
 			pcm_rec_par.setting = 0;
@@ -1183,7 +1198,6 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 				ops->irq_deactivate(DSP_IRQ_3);
 
 		} else {
-
 			hw_probe_par.setting = 0x0;
 			cmd_data.command_id = DSP_AUD_HW_PROBE;
 			cmd_data.command_len = sizeof(
@@ -1373,6 +1387,7 @@ static int xgold_pcm_probe(struct platform_device *pdev)
 	int res = 0;
 	struct xgold_audio *pcm_data_ptr = NULL;
 	struct device_node *np = pdev->dev.of_node;
+	int i;
 
 	xgold_debug("%s\n", __func__);
 
@@ -1419,6 +1434,10 @@ static int xgold_pcm_probe(struct platform_device *pdev)
 		return ret;
 	}
 	pcm_data_ptr->plat_dev = pdev;
+
+	for (i = 0; i < NR_STREAM; i++)
+		spin_lock_init(&pcm_data_ptr->audio_dma_stream[i].lock);
+
 	/* pinctrl */
 	pcm_data_ptr->pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(pcm_data_ptr->pinctrl)) {
