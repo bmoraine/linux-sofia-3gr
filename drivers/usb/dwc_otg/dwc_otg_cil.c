@@ -7520,131 +7520,143 @@ static struct dwc_otg_dev_out_ep_regs out_ep_regs_backup[MAX_EPS_CHANNELS];
 
 void cil_pcd_restore(dwc_otg_core_if_t *core_if)
 {
-	dwc_otg_core_global_regs_t *global_regs;
-	dwc_otg_device_global_regs_t *device_regs;
-	dwc_otg_dev_in_ep_regs_t *in_ep_regs;
-	dwc_otg_dev_out_ep_regs_t *out_ep_regs;
+	dwc_otg_core_global_regs_t *global_regs = core_if->core_global_regs;
+	dwc_otg_device_global_regs_t *device_regs =
+		core_if->dev_if->dev_global_regs;
 	int i;
+	dctl_data_t dctl;
 
-	global_regs = core_if->core_global_regs;
-	device_regs =
-	    (dwc_otg_device_global_regs_t *) ((int)global_regs +
-					      DWC_DEV_GLOBAL_REG_OFFSET);
-	in_ep_regs =
-	    (dwc_otg_dev_in_ep_regs_t *) ((int)global_regs +
-					  DWC_DEV_IN_EP_REG_OFFSET);
-	out_ep_regs =
-	    (dwc_otg_dev_out_ep_regs_t *) ((int)global_regs +
-					   DWC_DEV_OUT_EP_REG_OFFSET);
-	global_regs->gusbcfg = dwc_otg_core_global_regs_backup.gusbcfg;
-	device_regs->dcfg = dwc_otg_device_global_regs_backup.dcfg;
+	DWC_WRITE_REG32(&global_regs->gusbcfg,
+			dwc_otg_core_global_regs_backup.gusbcfg);
+	DWC_WRITE_REG32(&device_regs->dcfg,
+			dwc_otg_device_global_regs_backup.dcfg);
 
 	/*
 	 * Set programming done, this bit indicates
 	 * that register programming is completed
 	 */
-	device_regs->dctl |= 0x800;
+	dctl.d32 = DWC_READ_REG32(&core_if->dev_if->dev_global_regs->dctl);
+	dctl.b.pwronprgdone = 0x1;
+	DWC_WRITE_REG32(&core_if->dev_if->dev_global_regs->dctl, dctl.d32);
 
 	/* Clear interrupts */
+	DWC_WRITE_REG32(&global_regs->gintsts, 0xFFFFFFFF);
 	global_regs->gintsts = 0xFFFFFFFF;
 
-	global_regs->glpmcfg = dwc_otg_core_global_regs_backup.glpmcfg;
-	global_regs->gahbcfg = dwc_otg_core_global_regs_backup.gahbcfg;
-	global_regs->gotgctl = dwc_otg_core_global_regs_backup.gotgctl;
-	global_regs->grxfsiz = dwc_otg_core_global_regs_backup.grxfsiz;
-	global_regs->gnptxfsiz = dwc_otg_core_global_regs_backup.gnptxfsiz;
-	global_regs->hptxfsiz = dwc_otg_core_global_regs_backup.hptxfsiz;
-	device_regs->dctl = dwc_otg_device_global_regs_backup.dctl;
-	device_regs->diepmsk = dwc_otg_device_global_regs_backup.diepmsk;
-	device_regs->doepmsk = dwc_otg_device_global_regs_backup.doepmsk;
-	device_regs->daintmsk = dwc_otg_device_global_regs_backup.daintmsk;
-	global_regs->gintmsk = dwc_otg_core_global_regs_backup.gintmsk;
+	DWC_WRITE_REG32(&global_regs->glpmcfg,
+			dwc_otg_core_global_regs_backup.glpmcfg);
+	DWC_WRITE_REG32(&global_regs->gahbcfg,
+			dwc_otg_core_global_regs_backup.gahbcfg);
+	DWC_WRITE_REG32(&global_regs->gotgctl,
+			dwc_otg_core_global_regs_backup.gotgctl);
+	DWC_WRITE_REG32(&global_regs->grxfsiz,
+			dwc_otg_core_global_regs_backup.grxfsiz);
+	DWC_WRITE_REG32(&global_regs->gnptxfsiz,
+			dwc_otg_core_global_regs_backup.gnptxfsiz);
+	DWC_WRITE_REG32(&global_regs->hptxfsiz,
+			dwc_otg_core_global_regs_backup.hptxfsiz);
+	DWC_WRITE_REG32(&device_regs->dctl,
+			dwc_otg_device_global_regs_backup.dctl);
+	DWC_WRITE_REG32(&device_regs->diepmsk,
+			dwc_otg_device_global_regs_backup.diepmsk);
+	DWC_WRITE_REG32(&device_regs->doepmsk,
+			dwc_otg_device_global_regs_backup.doepmsk);
+	DWC_WRITE_REG32(&device_regs->daintmsk,
+			dwc_otg_device_global_regs_backup.daintmsk);
+	DWC_WRITE_REG32(&global_regs->gintmsk,
+			dwc_otg_core_global_regs_backup.gintmsk);
 
 	for (i = 0; i < MAX_EPS_CHANNELS; i++) {
-		in_ep_regs->dieptsiz = in_ep_regs_backup[i].dieptsiz;
-		in_ep_regs->diepdma =
-		    core_if->dev_if->in_ep_regs_shadow[i].diepdma;
-		in_ep_regs->diepctl = in_ep_regs_backup[i].diepctl;
-		in_ep_regs =
-		    (dwc_otg_dev_in_ep_regs_t *) ((int)in_ep_regs +
-						  DWC_EP_REG_OFFSET);
+		DWC_WRITE_REG32(&core_if->dev_if->in_ep_regs[i]->dieptsiz,
+				in_ep_regs_backup[i].dieptsiz);
+		DWC_WRITE_REG32(&core_if->dev_if->in_ep_regs[i]->diepdma,
+				core_if->dev_if->in_ep_regs_shadow[i].diepdma);
+		DWC_WRITE_REG32(&core_if->dev_if->in_ep_regs[i]->diepctl,
+				in_ep_regs_backup[i].diepctl);
 	}
 
 	for (i = 0; i < MAX_EPS_CHANNELS; i++) {
-		out_ep_regs->doeptsiz = out_ep_regs_backup[i].doeptsiz;
-		out_ep_regs->doepdma =
-		    core_if->dev_if->out_ep_regs_shadow[i].doepdma;
-		out_ep_regs->doepctl = out_ep_regs_backup[i].doepctl;
-		out_ep_regs =
-		    (dwc_otg_dev_out_ep_regs_t *) ((int)out_ep_regs +
-						   DWC_EP_REG_OFFSET);
+		DWC_WRITE_REG32(&core_if->dev_if->out_ep_regs[i]->doeptsiz,
+				out_ep_regs_backup[i].doeptsiz);
+		DWC_WRITE_REG32(&core_if->dev_if->out_ep_regs[i]->doepdma,
+				core_if->dev_if->out_ep_regs_shadow[i].doepdma);
+		DWC_WRITE_REG32(&core_if->dev_if->out_ep_regs[i]->doepctl,
+				out_ep_regs_backup[i].doepctl);
 	}
 
 	for (i = 0; i < (MAX_EPS_CHANNELS - 1); i++)
-		global_regs->dtxfsiz[i] =
-		    dwc_otg_core_global_regs_backup.dtxfsiz[i];
+		DWC_WRITE_REG32(&global_regs->dtxfsiz[i],
+		    dwc_otg_core_global_regs_backup.dtxfsiz[i]);
 
 }
 
 void cil_pcd_backup(dwc_otg_core_if_t *core_if)
 {
-	dwc_otg_core_global_regs_t *global_regs;
-	dwc_otg_device_global_regs_t *device_regs;
-	dwc_otg_dev_in_ep_regs_t *in_ep_regs;
-	dwc_otg_dev_out_ep_regs_t *out_ep_regs;
+	dwc_otg_device_global_regs_t *device_regs =
+		core_if->dev_if->dev_global_regs;
+	dwc_otg_core_global_regs_t *global_regs = core_if->core_global_regs;
 	int i;
 
-	global_regs = core_if->core_global_regs;
-	device_regs =
-	    (dwc_otg_device_global_regs_t *) ((int)global_regs +
-					      DWC_DEV_GLOBAL_REG_OFFSET);
-	in_ep_regs =
-	    (dwc_otg_dev_in_ep_regs_t *) ((int)global_regs +
-					  DWC_DEV_IN_EP_REG_OFFSET);
-	out_ep_regs =
-	    (dwc_otg_dev_out_ep_regs_t *) ((int)global_regs +
-					   DWC_DEV_OUT_EP_REG_OFFSET);
-	dwc_otg_core_global_regs_backup.gotgctl = global_regs->gotgctl;
-	dwc_otg_core_global_regs_backup.gahbcfg = global_regs->gahbcfg;
-	dwc_otg_core_global_regs_backup.gintmsk = global_regs->gintmsk;
-	dwc_otg_core_global_regs_backup.grxfsiz = global_regs->grxfsiz;
-	dwc_otg_core_global_regs_backup.gnptxfsiz = global_regs->gnptxfsiz;
-	dwc_otg_core_global_regs_backup.gusbcfg = global_regs->gusbcfg;
-	dwc_otg_core_global_regs_backup.glpmcfg = global_regs->glpmcfg;
-	dwc_otg_core_global_regs_backup.hptxfsiz = global_regs->hptxfsiz;
-	dwc_otg_device_global_regs_backup.dcfg = device_regs->dcfg;
-	dwc_otg_device_global_regs_backup.dctl = device_regs->dctl;
-	dwc_otg_device_global_regs_backup.daintmsk = device_regs->daintmsk;
-	dwc_otg_device_global_regs_backup.diepmsk = device_regs->diepmsk;
-	dwc_otg_device_global_regs_backup.doepmsk = device_regs->doepmsk;
+	dwc_otg_core_global_regs_backup.gotgctl =
+		DWC_READ_REG32(&global_regs->gotgctl);
+	dwc_otg_core_global_regs_backup.gahbcfg =
+		DWC_READ_REG32(&global_regs->gahbcfg);
+	dwc_otg_core_global_regs_backup.gintmsk =
+		DWC_READ_REG32(&global_regs->gintmsk);
+	dwc_otg_core_global_regs_backup.grxfsiz =
+		DWC_READ_REG32(&global_regs->grxfsiz);
+	dwc_otg_core_global_regs_backup.gnptxfsiz =
+		DWC_READ_REG32(&global_regs->gnptxfsiz);
+	dwc_otg_core_global_regs_backup.gusbcfg =
+		DWC_READ_REG32(&global_regs->gusbcfg);
+	dwc_otg_core_global_regs_backup.glpmcfg =
+		DWC_READ_REG32(&global_regs->glpmcfg);
+	dwc_otg_core_global_regs_backup.hptxfsiz =
+		DWC_READ_REG32(&global_regs->hptxfsiz);
+	dwc_otg_device_global_regs_backup.dcfg =
+		DWC_READ_REG32(&device_regs->dcfg);
+	dwc_otg_device_global_regs_backup.dctl =
+		DWC_READ_REG32(&device_regs->dctl);
+	dwc_otg_device_global_regs_backup.daintmsk =
+		DWC_READ_REG32(&device_regs->daintmsk);
+	dwc_otg_device_global_regs_backup.diepmsk =
+		DWC_READ_REG32(&device_regs->diepmsk);
+	dwc_otg_device_global_regs_backup.doepmsk =
+		DWC_READ_REG32(&device_regs->doepmsk);
 	for (i = 0; i < MAX_EPS_CHANNELS; i++) {
-		in_ep_regs_backup[i].diepctl = in_ep_regs->diepctl;
-		/*
-		 * Check the PID of the packet to be received or tranmistted
-		 * Set Data1 or Data0 according to the PID
-		 */
+		in_ep_regs_backup[i].diepctl =
+			DWC_READ_REG32(&core_if->dev_if->
+					in_ep_regs[i]->diepctl);
 		if (in_ep_regs_backup[i].diepctl & 0x010000)
 			in_ep_regs_backup[i].diepctl |= 0x20000000;
 		else
 			in_ep_regs_backup[i].diepctl |= 0x10000000;
-		in_ep_regs_backup[i].dieptsiz = in_ep_regs->dieptsiz;
-		in_ep_regs_backup[i].diepdma = in_ep_regs->diepdma;
-		in_ep_regs =
-		    (dwc_otg_dev_in_ep_regs_t *) ((int)in_ep_regs +
-						  DWC_EP_REG_OFFSET);
+
+		in_ep_regs_backup[i].dieptsiz =
+			DWC_READ_REG32(&core_if->dev_if->
+					in_ep_regs[i]->dieptsiz);
+		in_ep_regs_backup[i].diepdma =
+			DWC_READ_REG32(&core_if->dev_if->
+					in_ep_regs[i]->diepdma);
 	}
+
 	for (i = 0; i < MAX_EPS_CHANNELS; i++) {
-		out_ep_regs_backup[i].doepctl = out_ep_regs->doepctl;
+		out_ep_regs_backup[i].doepctl =
+			DWC_READ_REG32(&core_if->dev_if->
+					out_ep_regs[i]->doepctl);
 		if (out_ep_regs_backup[i].doepctl & 0x010000)
 			out_ep_regs_backup[i].doepctl |= 0x20000000;
 		else
 			out_ep_regs_backup[i].doepctl |= 0x10000000;
-		out_ep_regs_backup[i].doeptsiz = out_ep_regs->doeptsiz;
-		out_ep_regs_backup[i].doepdma = out_ep_regs->doepdma;
-		out_ep_regs =
-		    (dwc_otg_dev_out_ep_regs_t *) ((int)out_ep_regs +
-						   DWC_EP_REG_OFFSET);
+
+		out_ep_regs_backup[i].doeptsiz =
+			DWC_READ_REG32(&core_if->dev_if->
+					out_ep_regs[i]->doeptsiz);
+		out_ep_regs_backup[i].doepdma =
+			DWC_READ_REG32(&core_if->dev_if->
+					out_ep_regs[i]->doepdma);
 	}
+
 	/*
 	 * Tx FIFOs These FIFOs are numbered from 1 to 15.
 	 * Indexes of the FIFO size module parameters in the
@@ -7653,6 +7665,6 @@ void cil_pcd_backup(dwc_otg_core_if_t *core_if)
 	 */
 	for (i = 0; i < (MAX_EPS_CHANNELS - 1); i++)
 		dwc_otg_core_global_regs_backup.dtxfsiz[i] =
-		    global_regs->dtxfsiz[i];
+			DWC_READ_REG32(&core_if->core_global_regs->dtxfsiz[i]);
 }
 #endif

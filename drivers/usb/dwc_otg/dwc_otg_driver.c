@@ -628,8 +628,8 @@ static int dwc_otg_driver_probe(struct platform_device *_dev)
 		dev_err(dev, "ioremap() failed\n");
 		return -EADDRNOTAVAIL;
 	}
-	dev_dbg(dev, "base=0x%08x\n",
-		(unsigned)dwc_otg_device->os_dep.base);
+	dev_info(dev, "base=0x%p\n",
+		dwc_otg_device->os_dep.base);
 	uphy = devm_usb_get_phy(&_dev->dev,
 			USB_PHY_TYPE_USB2);
 	if (!IS_ERR_OR_NULL(uphy))
