@@ -2,6 +2,7 @@
 menuconfig X86_INTEL_SOFIA
 	bool "Intel SoFIA virtualization"
 	select X86_INTEL_XGOLD_VPIC
+	select HAVE_DMA_CONTIGUOUS
 	select NKERNEL_DDI
 	    help
 	Select this options if the kernel is running on top of
