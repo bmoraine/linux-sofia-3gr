@@ -35,13 +35,13 @@ int32_t _xgold_irq_write(void __iomem *base, struct irq_reg *reg,
 
 	if (wr == XGOLD_RW) {
 		tmp = (ioread32(base + reg->base));
-		pr_debug("%s: read %#x @ %#x\n", __func__, tmp,
-				(uint32_t)(base + reg->base));
+		pr_debug("%s: read %#x @ %p\n", __func__, tmp,
+				base + reg->base);
 		tmp &= ~(reg->mask);
 	}
 	tmp |= (value << reg->offset);
-	pr_debug("%s: write %#x (%#x) @ %#x\n", __func__, tmp,
-		value << reg->offset, (uint32_t)(base + reg->base));
+	pr_debug("%s: write %#x (%#x) @ %p\n", __func__, tmp,
+		value << reg->offset, base + reg->base);
 	iowrite32(tmp, base + reg->base);
 	return 0;
 };
@@ -55,8 +55,8 @@ int32_t _xgold_irq_read(void __iomem *base, struct irq_reg *reg)
 		return -1;
 	tmp = (ioread32(base + reg->base));
 	tmp2 = tmp & (reg->mask);
-	pr_debug("%s: read %#x (%#x) @ %#x\n", __func__, tmp, tmp2,
-				(uint32_t)(base + reg->base));
+	pr_debug("%s: read %#x (%#x) @ %p\n", __func__, tmp, tmp2,
+				base + reg->base);
 	return tmp2;
 }
 /*
