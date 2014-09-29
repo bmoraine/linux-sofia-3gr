@@ -207,6 +207,11 @@ static int __init xgold_cpuidle_init(void)
 	on_each_cpu(__setup_broadcast_timer, (void *)true, 1);
 	xgold_cpuidle_parse_dt();
 	xgold_cpuidle_print_states(&xgold_cpuidle_driver);
+	/* We want to boot a UP configuration,
+	 * even with SMP kernel configuration
+	 *  if cpumask is not defined, this will be initialized
+	 *  with cpu_possible_mask that we don't want for UP */
+	xgold_cpuidle_driver.cpumask = cpu_online_mask;
 	return cpuidle_register(&xgold_cpuidle_driver, NULL);
 }
 
