@@ -3530,6 +3530,9 @@ static int cifisp_close(struct file *file)
 struct v4l2_file_operations cifisp_fops = {
 	.mmap = cifisp_mmap,
 	.ioctl = video_ioctl2,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = video_ioctl2,
+#endif
 	.poll = cifisp_poll,
 	.open = cifisp_open,
 	.release = cifisp_close
