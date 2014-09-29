@@ -116,6 +116,69 @@
 	};
 };
 
+&pmic_bat {
+	#define BAT_TYPE_LC 0
+	#define POWER_SUPPLY_TECHNOLOGY_LION 2
+
+	pmic_bat,supp_batids =  < 0     BAT_TYPE_LC
+				  4700  BAT_TYPE_LC
+				  12000 BAT_TYPE_LC
+				  15000 BAT_TYPE_LC
+				  20000 BAT_TYPE_LC
+				  27000 BAT_TYPE_LC >;
+
+	pmic_bat,supp_batids-map = "standrd",
+				   "dummy",
+				   "standrd",
+				   "standrd",
+				   "standrd",
+				   "standrd";
+
+	pmic_bat,prof-standrd = < POWER_SUPPLY_TECHNOLOGY_LION /*battery_type*/
+				  1630 /*capacity*/
+				  4250 /*voltage_max*/
+				  82 /*chrg_term_ma*/
+				  3200 /*low_batt_mv*/
+				  60 /*disch_tmp_ul*/
+				  0xffffffec /*disch_tmp_ll (-20)*/
+				  0 /*min_temp*/
+				  3 /*min_temp_restart*/
+				  42 /*max_temp_restart*/ >;
+
+	pmic_bat,prof-standrd-ntemp_ranges = <1>;
+
+	pmic_bat,prof-standrd-temp_range0 = < 45 /*max_temp*/
+					     4160 /*full_chrg_vol*/
+					     850 /*full_chrg_cur*/
+					     98 /*charging_res_cap*/
+					     4160 /*maint_chrg_vol_ul*/
+					     850 /*maint_chrg_cur*/ >;
+
+
+
+	pmic_bat,prof-dummy = <   POWER_SUPPLY_TECHNOLOGY_LION /*battery_type*/
+				  0xFFFF /*capacity*/
+				  4250 /*voltage_max*/
+				  82 /*chrg_term_ma*/
+				  3200 /*low_batt_mv*/
+				  60 /*disch_tmp_ul*/
+				  0xffffffec /*disch_tmp_ll (-20)*/
+				  0xfffffeef /*min_temp (-273)*/
+				  0xfffffef0 /*min_temp_restart (-272)*/
+				  0xfffffef1 /*max_temp_restart (-271)*/ >;
+
+	pmic_bat,prof-dummy-ntemp_ranges = <1>;
+
+	pmic_bat,prof-dummy-temp_range0 = < 0xfffffef2 /*max_temp (-270)*/
+					   4160 /*full_chrg_vol*/
+					   850 /*full_chrg_cur*/
+					   98 /*charging_res_cap*/
+					   4160 /*maint_chrg_vol_ul*/
+					   850 /*maint_chrg_cur*/ >;
+
+	pmic_bat,nprofiles = <2>;
+};
+
 &dcc {
 	/* FIXME: Add dcc desc */
 };

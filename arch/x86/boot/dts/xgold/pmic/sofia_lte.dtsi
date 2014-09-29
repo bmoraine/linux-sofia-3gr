@@ -63,6 +63,19 @@ pmic {
 			interrupt-names = "on_button0";
 			linux,keymap = <0x00000074>; /* KEY_POWER */
 		};
+
+		pmic_bat:pmic_bat {
+			/* battery */
+			compatible = "intel,pmic_bat";
+			#address-cells = < 0 >;
+			interrupts = < 0 >;
+			interrupt-parent = <&pmic_bat>;
+			#interrupt-cells = < 1 >;
+			interrupt-map = <
+				0 &hirq HIRQ_PMIC_CHARGER IRQ_TYPE_DEFAULT
+			>;
+			interrupt-names = "PMIC_CHARGER_HIRQ";
+		};
 	};
 
 	dev@2 {
