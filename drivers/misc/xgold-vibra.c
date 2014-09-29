@@ -247,7 +247,7 @@ static int xgold_vibra_probe(struct platform_device *pdev)
 			"no I/O memory defined in platform data\n");
 		return -EINVAL;
 	}
-	dev_info(&pdev->dev, "res-start %#x\n", res->start);
+	dev_dbg(&pdev->dev, "%pR\n", res);
 
 	vib = kzalloc(sizeof(struct xgold_vibra_device), GFP_KERNEL);
 	if (!vib) {
