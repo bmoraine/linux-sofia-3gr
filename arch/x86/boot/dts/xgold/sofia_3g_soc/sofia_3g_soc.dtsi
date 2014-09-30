@@ -255,6 +255,11 @@
 						pm,state-D3 = "disable";
 					};
 
+					/*
+					 * WARNING:
+					 * rtc node name must be "rtc" as it used to
+					 * register wallclock callbacks during early boot
+					 */
 					rtc:rtc {
 						compatible = "intel,rtc";
 						#address-cells = <0>;
