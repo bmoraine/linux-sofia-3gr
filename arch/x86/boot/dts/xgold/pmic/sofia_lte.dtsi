@@ -108,6 +108,38 @@ pmic {
 		/* Vibrator */
 	};
 
+	adc:adc {
+		compatible = "intel,adc";
+	};
+
+	meas_pmic:meas_pmic {
+		compatible = "intel,meas_pmic";
+		#io-channel-cells = <1>;
+		io-channel-ranges;
+		#address-cells = < 0 >;
+		interrupts = < 0 >;
+		interrupt-parent = <&meas_pmic>;
+		#interrupt-cells = < 1 >;
+		#size-cells = <1>;
+		interrupt-map = < 0 &hirq HIRQ_PMIC_ADC IRQ_TYPE_DEFAULT >;
+		interrupt-names = "PMIC_ADC_HIRQ";
+	};
+
+	adc_sensors:adc_sensors {
+		compatible = "intel,adc_sensors";
+		intel,platform_name = "pmic";
+		io-channel-names = "VBAT_ADC",     "VBAT_MIN_ADC",
+						"VBAT_OCV_ADC", "BATTEMP0_ADC",
+						"BATID_ADC",    "PMICTEMP_ADC",
+						"ANAMON_ADC",   "SYSTEMP0_ADC",
+						"SYSTEMP1_ADC", "SYSTEMP2_ADC";
+		io-channels = < &meas_pmic 0 &meas_pmic 1
+					&meas_pmic 2 &meas_pmic 3
+					&meas_pmic 4 &meas_pmic 5
+					&meas_pmic 6 &meas_pmic 7
+					&meas_pmic 8 &meas_pmic 9>;
+	};
+
 	vmm_pmic-ext {
 
 		#include "vmm_pmic-ext_regs.h"
@@ -244,5 +276,4 @@ pmic {
 
 				I2S_CTRL_LOW_REG >;
 	};
-
 };

@@ -442,6 +442,7 @@ agold {
 				adc,adc-bias-na = <4500>;
 				adc,max-signal-settling-time-ms = <500>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+				adc,iio-type = <IIO_RESISTANCE>;
 			};
 			hal-channel1 {
 			        adc,consumer-channel = "BATTEMP0_ADC";
@@ -452,6 +453,7 @@ agold {
 				adc,adc-bias-na = <4500>;
 				adc,max-signal-settling-time-ms = <0>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+				adc,iio-type = <IIO_TEMP>;
 			};
 			hal-channel2 {
 			        adc,consumer-channel = "SYSTEMP0_ADC";
@@ -462,6 +464,7 @@ agold {
 				adc,adc-bias-na = <4500>;
 				adc,max-signal-settling-time-ms = <0>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+				adc,iio-type = <IIO_TEMP>;
 			};
 			hal-channel3 {
 			        adc,consumer-channel = "HWID_ADC";
@@ -472,6 +475,7 @@ agold {
 				adc,adc-bias-na = <0>;
 				adc,max-signal-settling-time-ms = <0>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+				adc,iio-type = <IIO_RESISTANCE>;
 			};
 			hal-channel4 {
 			        adc,consumer-channel = "ACCID_ADC";
@@ -481,6 +485,7 @@ agold {
 				adc,adc-bias-na = <0>;
 				adc,max-signal-settling-time-ms = <0>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+				adc,iio-type = <IIO_VOLTAGE>;
 			};
 			hal-channel5 {
 			        adc,consumer-channel = "ANAMON_ADC";
@@ -490,6 +495,7 @@ agold {
 				adc,adc-bias-na = <0>;
 				adc,max-signal-settling-time-ms = <0>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+				adc,iio-type = <IIO_VOLTAGE>;
 			};
 			hal-channel6 {
 			        adc,consumer-channel = "VBAT_ADC";
@@ -499,6 +505,7 @@ agold {
 				adc,adc-bias-na = <0>;
 				adc,max-signal-settling-time-ms = <0>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+				adc,iio-type = <IIO_VOLTAGE>;
 			};
 			hal-channel7 {
 			        adc,consumer-channel = "VBAT_MIN_ADC";
@@ -508,6 +515,7 @@ agold {
 				adc,adc-bias-na = <0>;
 				adc,max-signal-settling-time-ms = <0>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+				adc,iio-type = <IIO_VOLTAGE>;
 			};
 			hal-channel8 {
 			        adc,consumer-channel = "VBAT_OCV_ADC";
@@ -518,6 +526,7 @@ agold {
 				adc,adc-bias-na = <0>;
 				adc,max-signal-settling-time-ms = <0>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_HIGH>;
+				adc,iio-type = <IIO_VOLTAGE>;
 			};
 			hal-channel9 {
 			        adc,consumer-channel = "PMICTEMP_ADC";
@@ -528,11 +537,13 @@ agold {
 				adc,adc-bias-na = <0>;
 				adc,max-signal-settling-time-ms = <0>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
+				adc,iio-type = <IIO_TEMP>;
 			};
 		};
 
 		adc_sensors {
 			compatible = "intel,adc_sensors";
+			intel,platform_name = "ag620";
 			reg = <0xE6B00000 0x663>;
 			reg-names = "register";
 			#interrupt-cells = <1>;

@@ -49,4 +49,26 @@
 #define ADC_PHY_M13 14
 #define ADC_PHY_M15 15
 
+#define IIO_VOLTAGE     0
+#define IIO_CURRENT     1
+#define IIO_POWER       2
+#define IIO_ACCEL       3
+#define IIO_ANGL_VEL    4
+#define IIO_MAGN        5
+#define IIO_LIGHT       6
+#define IIO_INTENSITY   7
+#define IIO_PROXIMITY   8
+#define IIO_TEMP        9
+#define IIO_INCLI       10
+#define IIO_ROT         11
+#define IIO_ANGL        12
+#define IIO_TIMESTAMP   13
+#define IIO_CAPACITANCE 14
+#define IIO_ALTVOLTAGE  15
+#define IIO_CCT         16
+#define IIO_PRESSURE    17
+#define IIO_HUMIDITYRELATIVE 18
+#define IIO_RESISTANCE       19
+#define IIO_COMPOSITE        20
+
 #endif
