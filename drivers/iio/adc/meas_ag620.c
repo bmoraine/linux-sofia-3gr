@@ -1079,7 +1079,10 @@ meas_ag620_get_of_channel_data(struct device_node *np)
 				 &ch_data[index].max_signal_settling_time_ms) ||
 			 of_property_read_u32(
 				 child, "adc,average-sample",
-				 &ch_data[index].average_sample))
+				 &ch_data[index].average_sample) ||
+			 of_property_read_u32(
+				child, "adc,iio-type",
+				&ch_data[index].iio_type))
 			goto err_exit;
 	}
 	return ch_data;
@@ -1092,34 +1095,36 @@ err_exit:
 static struct intel_adc_hal_channel_data channel_data[] = {
 	{"intel_adc_sensors", "VBAT_ADC", "AG620_M11_TYP", ADC_V_BAT_TYP,
 	ADC_PHY_M11, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
-	ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM},
+	ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_VOLTAGE},
 
 	{"intel_adc_sensors", "VBAT_MIN_ADC", "AG620_M11_MIN", ADC_V_BAT_MIN,
 	ADC_PHY_M11, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
-	ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM},
+	ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_VOLTAGE},
 
 	{"intel_adc_sensors", "VBAT_OCV_ADC", "AG620_M11_OCV", ADC_V_BAT_OCV,
 	ADC_PHY_M11, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
-	ADC_HAL_AVG_SAMPLE_LEVEL_HIGH},
+	ADC_HAL_AVG_SAMPLE_LEVEL_HIGH, IIO_VOLTAGE},
 
 	{"intel_adc_sensors", "BATTEMP0_ADC", "AG620_M1", ADC_T_BAT_0,
 	ADC_PHY_M1, true, 4500, ADC_HAL_SIGNAL_SETTLING_DISABLED,
-	ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM},
+	ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_TEMP},
 
 	{"intel_adc_sensors", "BATID_ADC", "AG620_M0", ADC_ID_BAT, ADC_PHY_M0,
-	true, 4500, 500, ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM},
+	true, 4500, 500, ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM,
+	IIO_RESISTANCE},
 
 	{"intel_adc_sensors", "PMICTEMP_ADC", "AG620_M13",
 	ADC_T_PMIC_IC_0, ADC_PHY_M13, false, 0,
-	ADC_HAL_SIGNAL_SETTLING_DISABLED, ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM},
+	ADC_HAL_SIGNAL_SETTLING_DISABLED, ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM,
+	IIO_TEMP},
 
 	{"intel_adc_sensors", "ANAMON_ADC", "AG620_M6", ADC_ANAMON, ADC_PHY_M6,
 	false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
-	ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM},
+	ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_VOLTAGE},
 
 	{"intel_adc_sensors", "ACCID_ADC", "AG620_M4", ADC_ID_ACC, ADC_PHY_M4,
 	false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
-	ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM},
+	ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_VOLTAGE},
 };
 #endif	/* CONFIG_OF */
 

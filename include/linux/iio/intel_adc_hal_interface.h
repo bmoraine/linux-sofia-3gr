@@ -24,6 +24,9 @@
 
 #include "linux/types.h"
 #include <linux/device.h>
+#include <linux/iio/types.h>
+#include <linux/ctype.h>
+
 
 /*---------------------------- Defines: ----------------------------------*/
 
@@ -117,8 +120,8 @@ struct intel_adc_hal_channel_data {
 	int				adc_bias_na;
 	uint				max_signal_settling_time_ms;
 	enum adc_hal_avg_sample_level	average_sample;
+	enum iio_chan_type		iio_type;
 };
-
 
 /**
  * adc_hal_channel_info -	Supported ADC channel information.

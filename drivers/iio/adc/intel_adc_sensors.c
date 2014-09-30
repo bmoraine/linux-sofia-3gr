@@ -30,7 +30,7 @@
 #include <linux/iio/consumer.h>
 #include <linux/iio/intel_adc_hal_interface.h>
 #include "intel_adc_sensors.h"
-#include "xmm6321_intel_adc_sensors.h"
+#include "intel_adc_sensors_config.h"
 
 #undef pr_fmt
 #define pr_fmt(fmt) ADC_SENSORS_DRIVER_NAME": "fmt
@@ -226,6 +226,31 @@ static struct adc_sensors_data adc_sensors = {
 static struct adc_sensors_debug_data adc_sensors_debug_info = {
 	.printk_logs_en = 0,
 };
+
+/**
+ * convert_to_iio_node_name() - Extract extended name of ADC.
+ * e.g. ADC NAME - "VBAT_ADC", Extended name - "vbat"
+ * @src:	Name of the ADC.
+ * @return:	Extended name of ADC.
+ */
+static const char *convert_to_iio_node_name(const char *src)
+{
+	char *p, *dst;
+	int i, len = 0;
+
+	len	= strlen(src);
+	p = kmalloc(len, GFP_KERNEL);
+	strcpy(p, src);
+	dst = p;
+	len = len - strlen("_ADC");
+	for (i = 0; i < len; i++) {
+		*p = tolower(*p);
+		p++;
+	}
+	*p = '\0';
+	return dst;
+}
+
 
 /**
  * adc_sensor_convert_linear_uv_mv - Convert uV to mV with linear transform
@@ -711,7 +736,9 @@ static int adc_sensor_read_raw(struct iio_dev *p_iiodev,
 		apply_calibration = false;
 		/* Fall throught to chanel read is intentional */
 
-	case 0:{
+
+	case IIO_CHAN_INFO_RAW:
+	case IIO_CHAN_INFO_PROCESSED:{
 			/* Read raw value from the ADC driver */
 			int adc_voltage_uv;
 			int adc_current_na;
@@ -722,11 +749,11 @@ static int adc_sensor_read_raw(struct iio_dev *p_iiodev,
 				adc_sensors_info[p_channel->adc_log_chan].
 				adc_sensor_name);
 
-			adc_ret =
-				iio_read_channel_composite_raw(
-					p_config->p_adc_iio_chan,
-					&adc_voltage_uv,
-					&adc_current_na);
+		adc_ret =
+			iio_read_channel_composite_raw(
+				p_config->p_adc_iio_chan,
+				&adc_voltage_uv,
+				&adc_current_na);
 
 			/* If the read was successful, convert the received
 			values */
@@ -750,12 +777,12 @@ static int adc_sensor_read_raw(struct iio_dev *p_iiodev,
 							(*p_val +
 							p_cal->offset) *
 							p_cal->gain;
-						if (cal_val >= 0) {
+					if (cal_val >= 0) {
 							*p_val =
 								((cal_val >>
 								(p_cal->shift -
 								1)) + 1) >> 1;
-						} else {
+					} else {
 							*p_val =
 								-((-cal_val >>
 								(p_cal->shift -
@@ -935,17 +962,38 @@ static void adc_sens_setup_sysfs_attr(struct device *dev)
  */
 static int adc_sensors_probe(struct platform_device *p_platform_dev)
 {
-	struct adc_sensors_platform_data *p_platform_data =
-				&xgold_intel_adc_sensors_platform_data;
+	struct adc_sensors_platform_data *p_platform_data;
 	struct adc_sensors_channel *p_channels;
 	struct adc_sensors_channel
 			*p_chan_map[ADC_SENSORS_CHANNEL_MAX] = { NULL, };
-	int i;
+	struct device_node *np = p_platform_dev->dev.of_node;
+	int i, ret;
 	int adc_chan;
 	int sensor_chan = 0;
 	int iio_map_entries;
+	const char *platform_name;
 
 	ADC_SENSORS_DEBUG_NO_PARAM(ADC_SENSORS_DEBUG_EVENT_PROBE);
+
+#ifdef CONFIG_OF
+	ret = of_property_read_string(np,
+			"intel,platform_name",
+			&platform_name);
+	if (ret) {
+		pr_err("%s platform configuration not found\n", __func__);
+		BUG_ON(1);
+	}
+	pr_err("platform_name = %s\n", platform_name);
+
+	if (!strcmp(platform_name, "ag620"))
+		p_platform_data = &xgold_intel_adc_sensors_ag620_data;
+	else if (!strcmp(platform_name, "pmic"))
+		p_platform_data = &xgold_intel_adc_sensors_pmic_data;
+	else
+		BUG_ON(1);
+#else
+	p_platform_data = &xgold_intel_adc_sensors_ag620_data;
+#endif
 
 	/* Platform data is required */
 	BUG_ON(NULL == p_platform_data);
@@ -1053,10 +1101,14 @@ static int adc_sensors_probe(struct platform_device *p_platform_dev)
 			/* Fill in the necessary IIO fields */
 			p_spec->datasheet_name =
 				adc_sensors_info[adc_chan].adc_sensor_name;
+			p_spec->extend_name = convert_to_iio_node_name(
+				adc_sensors_info[adc_chan].adc_name);
 			p_spec->type = adc_sensors_info[adc_chan].iio_type;
 			p_spec->channel = sensor_chan;
-			p_spec->indexed = 1;
-			p_spec->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
+			p_spec->indexed = false;
+			p_spec->output  = true;
+			p_spec->info_mask_separate =
+					BIT(IIO_CHAN_INFO_PROCESSED);
 			sensor_chan++;
 		}
 	}

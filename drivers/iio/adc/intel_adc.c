@@ -33,10 +33,10 @@
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
-#include <linux/iio/intel_adc_hal_interface.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/machine.h>
 #include <linux/iio/consumer.h>
+#include <linux/iio/intel_adc_hal_interface.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/debugfs.h>
@@ -382,6 +382,30 @@ static void intel_adc_tick_stm(enum adc_stm_events event,
 /*---------------------------- Local Functions: --------------------------*/
 
 /**
+ * convert_to_iio_node_name() - Extract extended name of ADC.
+ * e.g. ADC NAME - "VBAT_ADC", Extended name - "vbat"
+ * @src:	Name of the ADC.
+ * @return:	Extended name of ADC.
+ */
+static const char *convert_to_iio_node_name(const char *src)
+{
+	char *p, *dst;
+	int i, len = 0;
+
+	len	= strlen(src);
+	p = kmalloc(len, GFP_KERNEL);
+	strcpy(p, src);
+	dst = p;
+	len = len - strlen("_ADC");
+	for (i = 0; i < len; i++) {
+		*p = tolower(*p);
+		p++;
+	}
+	*p = '\0';
+	return dst;
+}
+
+/**
  * intel_adc_add_mess() - Add a message to the ADC STM FIFO.
  * @p_payload:	Pointer to message payload.
  * @payload_size:	Message payload size.
@@ -601,7 +625,7 @@ static int intel_adc_set_power_mode(struct adc_hal_interface *p_hal_if,
  */
 static bool intel_adc_step_up_meas(struct adc_meas_instance *p_meas)
 {
-	int ret;
+	int ret = false;
 
 	/* Do debug data logging only if Set up is required */
 	ADC_DEBUG_DATA_LOG(ADC_START_SET_UP,
@@ -630,9 +654,10 @@ static bool intel_adc_step_up_meas(struct adc_meas_instance *p_meas)
 				p_meas->latest_result.na,
 				p_meas->settling.max_signal_settling_time_ms,
 				p_meas->autoscaling_on);
+		ret = true;
 	}
 
-	return (WNOTREQ == ret);
+	return ret;
 }
 
 /**
@@ -1553,9 +1578,12 @@ static int intel_adc_iio_registration(struct device *pdev)
 	p_channel_data = &p_channel_info->p_data[0];
 	for (chan = 0; chan < p_channel_info->nchan; chan++) {
 		/* Initialise channel specs */
-		p_adc_chan_spec->type = IIO_COMPOSITE;
-		p_adc_chan_spec->indexed = true;
+		p_adc_chan_spec->type = p_channel_data->iio_type;
+		p_adc_chan_spec->indexed = false;
+		p_adc_chan_spec->output  = true;
 		p_adc_chan_spec->channel = p_channel_data->log_channel_id;
+		p_adc_chan_spec->extend_name = convert_to_iio_node_name(
+				p_channel_data->consumer_channel);
 		p_adc_chan_spec->datasheet_name	=
 					p_channel_data->datasheet_name;
 		p_adc_chan_spec->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);

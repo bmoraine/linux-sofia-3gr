@@ -15,6 +15,7 @@ obj-$(CONFIG_AT91_ADC) += at91_adc.o
 obj-$(CONFIG_EXYNOS_ADC) += exynos_adc.o
 obj-$(CONFIG_INTEL_GENERIC_ADC)	+= intel_adc.o
 obj-$(CONFIG_INTEL_ADC_SENSORS)	+= meas_ag620.o
+obj-$(CONFIG_INTEL_ADC_SENSORS)	+= meas_pmic.o
 obj-$(CONFIG_INTEL_ADC_SENSORS)	+= intel_adc_sensors.o
 obj-$(CONFIG_LP8788_ADC) += lp8788_adc.o
 obj-$(CONFIG_MAX1363) += max1363.o
