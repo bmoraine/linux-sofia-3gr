@@ -123,7 +123,10 @@
 
 #define THERMAL_APIC_VECTOR		0xfa
 #define THRESHOLD_APIC_VECTOR		0xf9
+
+#ifndef REBOOT_VECTOR
 #define REBOOT_VECTOR			0xf8
+#endif
 
 /*
  * Generic system vector for platform specific use
