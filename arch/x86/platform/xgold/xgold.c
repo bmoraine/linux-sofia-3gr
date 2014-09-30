@@ -290,7 +290,7 @@ static int xgold_i8042_init(void)
 {
 	return 0;
 }
-#ifdef CONFIG_X86_INTEL_XGOLD_EXPERIMENTAL
+
 static void xgold_rtc_get_time(struct timespec *ts)
 {
 	unsigned long long time_us = 0;
@@ -324,22 +324,28 @@ static int xgold_rtc_set_time(const struct timespec *ts)
 	}
 	return 0;
 }
-#else
 
-static void xgold_rtc_get_time(struct timespec *ts)
+static void xgold_rtc_get_time_stub(struct timespec *ts)
 {
 }
 
-static int xgold_rtc_set_time(const struct timespec *ts)
+static int xgold_rtc_set_time_stub(const struct timespec *ts)
 {
 	return 0;
 }
-#endif
 
 static void __init xgold_rtc_init(void)
 {
-	x86_platform.get_wallclock = xgold_rtc_get_time;
-	x86_platform.set_wallclock = xgold_rtc_set_time;
+	struct device_node *np = of_find_node_by_path("/xgold");
+	struct device_node *np_rtc = of_find_node_by_name(np, "rtc");
+	if (np_rtc) {
+		x86_platform.get_wallclock = xgold_rtc_get_time;
+		x86_platform.set_wallclock = xgold_rtc_set_time;
+		of_node_put(np_rtc);
+	} else {
+		x86_platform.get_wallclock = xgold_rtc_get_time_stub;
+		x86_platform.set_wallclock = xgold_rtc_set_time_stub;
+	}
 }
 
 #ifdef CONFIG_X86_INTEL_SOFIA
