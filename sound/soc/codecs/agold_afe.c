@@ -1876,7 +1876,7 @@ static int agold_afe_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_codec *codec = rtd->codec;
-	int audio_native = (int)snd_soc_card_get_drvdata(codec->card);
+	int *audio_native = snd_soc_card_get_drvdata(codec->card);
 	u32 reg = 0;
 
 	unsigned int rate, format;
@@ -1894,7 +1894,7 @@ static int agold_afe_hw_params(struct snd_pcm_substream *substream,
 		reg &= 0xFFFFFF3F;
 		reg |= (0x3 << AFE_BCON_AUD_INRATE_POS);
 
-		if (audio_native)
+		if (*audio_native)
 			reg |= BIT(5); /* INSTART */
 
 		snd_soc_write(codec, AGOLD_AFE_BCON, reg);
@@ -1907,7 +1907,7 @@ static int agold_afe_hw_params(struct snd_pcm_substream *substream,
 	/* Enable BCON mode */
 	reg |= AFE_BCON_MODE;
 
-	if (audio_native)
+	if (*audio_native)
 		reg |= AFE_BCON_AFE_PWR | AFE_BCON_AUDOUTSTRT;
 
 	snd_soc_write(codec, AGOLD_AFE_BCON, reg);
@@ -1918,7 +1918,7 @@ static int agold_afe_hw_params(struct snd_pcm_substream *substream,
 
 static int agold_afe_codec_probe(struct snd_soc_codec *codec)
 {
-	int audio_native = (int)snd_soc_card_get_drvdata(codec->card);
+	int *audio_native = snd_soc_card_get_drvdata(codec->card);
 	struct agold_afe_data *agold_afe = NULL;
 	unsigned int i = 0;
 	int ret = 0;
@@ -1934,7 +1934,7 @@ static int agold_afe_codec_probe(struct snd_soc_codec *codec)
 		agold_afe_set_private_data(agold_afe);
 	}
 
-	if (audio_native) {
+	if (*audio_native) {
 		if (agold_afe->dev->controller->send_break)
 			agold_afe->dev->controller->send_break(
 				agold_afe->dev->controller, 3);
@@ -2381,7 +2381,7 @@ static int agold_afe_device_probe(struct idi_peripheral_device *pdev,
 	}
 	agold_afe->membase = devm_ioremap(&pdev->device, regres->start,
 			resource_size(regres));
-	afe_debug("Register base @ 0x%x\n", (unsigned int)agold_afe->membase);
+	afe_debug("Register base @ %p\n", agold_afe->membase);
 
 	/*
 	 * Prepare IDI RX channel : ABB->DBB
@@ -2449,7 +2449,7 @@ static int agold_afe_device_probe(struct idi_peripheral_device *pdev,
 	agold_afe->fifobase = devm_ioremap(&pdev->device, fifores->start, 4);
 	agold_afe->fifosize = resource_size(fifores);
 
-	afe_debug("Fifo base @ 0x%x\n", (unsigned int)agold_afe->fifobase);
+	afe_debug("Fifo base @ 0x%p\n", agold_afe->fifobase);
 
 	/* clock */
 	agold_afe->clk = of_clk_get_by_name(np, "clk_afe");
