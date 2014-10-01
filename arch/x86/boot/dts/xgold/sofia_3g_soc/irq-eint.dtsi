@@ -48,6 +48,8 @@ eint:eint-interrupt-controller {
 	intel,virq,13 = <1>; /* EXT_INT13 */
 	intel,virq,14 = <1>; /* EXT_INT14 */
 	intel,virq,15 = <1>; /* EXT_INT15 */
+	intel,virq,18 = <1>; /* SDIO_DAT3 */
+	intel,virq,19 = <1>; /* SDIO_DAT1 */
 	intel,virq,21 = <1>; /* USIF2_WK */
 	intel,virq,23 = <1>; /* U2H */
 	intel,virq,24 = <1>; /* G3FP */
