@@ -8,6 +8,9 @@ obj-y				+= hw_nmi.o
 obj-$(CONFIG_X86_IO_APIC)	+= io_apic.o
 obj-$(CONFIG_SMP)		+= ipi.o
 
+# For 32bit, probe_32 need to be listed last
+obj-$(CONFIG_X86_LOCAL_APIC)	+=  apic_sofia.o probe_$(BITS).o
+
 ifeq ($(CONFIG_X86_64),y)
 # APIC probe will depend on the listing order here
 obj-$(CONFIG_X86_NUMACHIP)	+= apic_numachip.o
@@ -23,5 +26,3 @@ obj-$(CONFIG_X86_SUMMIT)	+= summit_32.o
 obj-$(CONFIG_X86_BIGSMP)	+= bigsmp_32.o
 obj-$(CONFIG_X86_ES7000)	+= es7000_32.o
 
-# For 32bit, probe_32 need to be listed last
-obj-$(CONFIG_X86_LOCAL_APIC)	+=  apic_sofia.o probe_$(BITS).o
