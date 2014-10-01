@@ -201,7 +201,7 @@ int xgold_ion_probe(struct platform_device *pdev)
 	for (i = 0; i < pdata->nr; i++) {
 		struct ion_platform_heap *heap_data =  &pdata->heaps[i];
 
-		pr_err("xg_ion add heap %s @0x%08lx l:0x%lx id:0x%x\n",
+		pr_err("xg_ion add heap %s @0x%08lx l:0x%zu id:0x%x\n",
 				heap_data->name, heap_data->base,
 				heap_data->size+1, heap_data->id);
 		heaps[i] = ion_heap_create(heap_data);
