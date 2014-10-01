@@ -188,7 +188,7 @@ static int xgold_mc_probe(struct platform_device *pdev)
 	xgold_debug("%s:\n", __func__);
 
 	xgold_snd_card.dev = &pdev->dev;
-	snd_soc_card_set_drvdata(&xgold_snd_card, (void *)audio_native_mode);
+	snd_soc_card_set_drvdata(&xgold_snd_card, &audio_native_mode);
 
 #ifdef CONFIG_OF
 	codec_of_node = of_parse_phandle(np,

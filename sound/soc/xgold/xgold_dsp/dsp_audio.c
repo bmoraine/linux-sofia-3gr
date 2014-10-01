@@ -251,7 +251,7 @@ EXPORT_SYMBOL(dsp_audio_write_shm);
 * Returns:.... Base address of DSP shared memory
 * Description: This function returns the dsp shmem base address to the client.
 ******************************************************************************/
-U32 dsp_get_audio_shmem_base_addr(void)
+dma_addr_t dsp_get_audio_shmem_base_addr(void)
 {
 	return (2 == dsp.num_dsp) ? dsp.dsp_sba->shm_mem_phys
 		: dsp.dsp_fba->shm_mem_phys;

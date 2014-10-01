@@ -322,7 +322,7 @@ enum dsp_err_code dsp_audio_read_shm(
   @return base address of DSP shmem
 
  */
-U32 dsp_get_audio_shmem_base_addr(void);
+dma_addr_t dsp_get_audio_shmem_base_addr(void);
 
 
 /**

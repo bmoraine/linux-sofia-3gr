@@ -451,7 +451,7 @@ void xgold_dsp_pcm_play_handler(void *dev)
 		length = xgold_stream->stream->runtime->period_size *
 			xgold_stream->stream->runtime->channels;
 		rw_shm_data.word_offset =
-			p_dsp_audio_dev->p_dsp_common_data->buf_size_dl_offset;
+			p_dsp_audio_dev->p_dsp_common_data->buf_sm_dl_offset;
 		rw_shm_data.len_in_bytes = length * 2;
 		rw_shm_data.p_data = xgold_stream->hwptr;
 		(void)p_dsp_audio_dev->p_dsp_common_data->
@@ -899,9 +899,8 @@ static int xgold_pcm_play_dma_prepare(struct snd_pcm_substream *substream)
 	dma_addr_t dma_addr;
 	int ret = 0;
 	dma_cap_mask_t tx_mask;
-	unsigned short *shm_base =
-		(unsigned short *)dsp_get_audio_shmem_base_addr() +
-		p_dsp_audio_dev->p_dsp_common_data->buf_size_dl_offset;
+	dma_addr_t shm_base = dsp_get_audio_shmem_base_addr() +
+		p_dsp_audio_dev->p_dsp_common_data->buf_sm_dl_offset * 2;
 
 	xgold_ptr = snd_soc_platform_get_drvdata(rtd->platform);
 
@@ -926,7 +925,7 @@ static int xgold_pcm_play_dma_prepare(struct snd_pcm_substream *substream)
 
 	/* Config DMA slave parameters */
 	pcm_dma_config.direction = DMA_TO_DEVICE;
-	pcm_dma_config.dst_addr = (dma_addr_t)shm_base;
+	pcm_dma_config.dst_addr = shm_base;
 	pcm_dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 	pcm_dma_config.dst_maxburst = DMA_BURST_SIZE;
 	pcm_dma_config.device_fc = false;
