@@ -1339,6 +1339,9 @@ static int ov13850_g_timings(struct ov_camera_module *cam_mod,
 
 	timings->line_length_pck |= reg_val;
 
+	/* line_time = HTS / (sclk * 4) */
+	timings->line_length_pck /= 4;
+
 	timings->coarse_integration_time_min = 0;
 	timings->coarse_integration_time_max_margin =
 		OV13850_INTEGRATION_TIME_MARGIN;
