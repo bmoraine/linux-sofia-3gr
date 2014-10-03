@@ -642,7 +642,7 @@ static ssize_t attr_set_polling_rate(struct device *dev,
 	mutex_lock(&stat->lock);
 	stat->pdata->poll_interval = interval_ms;
 	lsm303dlhc_mag_update_odr(stat, interval_ms);
-	dev_info(&stat->client->dev, " interval_ms = %ld\n", interval_ms);
+	dev_dbg(&stat->client->dev, " interval_ms = %ld\n", interval_ms);
 	mutex_unlock(&stat->lock);
 	return size;
 }
@@ -669,6 +669,8 @@ static ssize_t attr_set_enable(struct device *dev,
 		lsm303dlhc_mag_enable(stat);
 	else
 		lsm303dlhc_mag_disable(stat);
+
+	dev_dbg(dev, "sensor %s\n", val ? "enable" : "disable");
 
 	return size;
 }
@@ -858,8 +860,6 @@ static int lsm303dlhc_mag_probe(struct i2c_client *client,
 
 	int err = -1;
 
-	dev_info(&client->dev, "probe start.\n");
-
 	stat = kzalloc(sizeof(struct lsm303dlhc_mag_status), GFP_KERNEL);
 	if (stat == NULL) {
 		err = -ENOMEM;
@@ -903,7 +903,7 @@ static int lsm303dlhc_mag_probe(struct i2c_client *client,
 	if (client->dev.platform_data == NULL) {
 		memcpy(stat->pdata, &default_lsm303dlhc_mag_pdata,
 							sizeof(*stat->pdata));
-		dev_info(&client->dev, "using default plaform_data\n");
+		dev_err(&client->dev, "using default plaform_data\n");
 	} else {
 		memcpy(stat->pdata, client->dev.platform_data,
 							sizeof(*stat->pdata));
@@ -970,7 +970,7 @@ static int lsm303dlhc_mag_probe(struct i2c_client *client,
 
 	mutex_unlock(&stat->lock);
 
-	dev_info(&client->dev, "lsm303dlh_mag probed\n");
+	dev_info(&client->dev, "probed successfully\n");
 
 	return 0;
 
@@ -995,9 +995,9 @@ err0:
 static int lsm303dlhc_mag_remove(struct i2c_client *client)
 {
 	struct lsm303dlhc_mag_status *stat = i2c_get_clientdata(client);
-#ifdef DEBUG
-	pr_info("LSM303DLHC driver removing\n");
-#endif /* DEBUG */
+
+	dev_dbg(&client->dev, "%s\n", __func__);
+
 	lsm303dlhc_mag_disable(stat);
 	lsm303dlhc_mag_input_cleanup(stat);
 	remove_sysfs_interfaces(&client->dev);
@@ -1016,8 +1016,7 @@ static int lsm303dlhc_mag_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct lsm303dlhc_mag_status *stat = i2c_get_clientdata(client);
 
-	dev_info(&stat->client->dev, "%s: suspend\n",
-			LSM303DLHC_MAG_DEV_NAME);
+	dev_dbg(dev, "%s: suspend\n", LSM303DLHC_MAG_DEV_NAME);
 	stat->on_before_suspend = atomic_read(&stat->enabled);
 	return lsm303dlhc_mag_disable(stat);
 }
@@ -1027,8 +1026,8 @@ static int lsm303dlhc_mag_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct lsm303dlhc_mag_status *stat = i2c_get_clientdata(client);
 
-	dev_info(&stat->client->dev, "%s: resume\n",
-			LSM303DLHC_MAG_DEV_NAME);
+	dev_dbg(dev, "%s: resume\n", LSM303DLHC_MAG_DEV_NAME);
+
 	if (stat->on_before_suspend)
 		return lsm303dlhc_mag_enable(stat);
 
@@ -1072,7 +1071,7 @@ static int __init lsm303dlhc_mag_init(void)
 		return ret;
 	}
 #endif
-	pr_info("lsm303dlhc magnetometer driver\n");
+	pr_info("%s magnetometer driver init\n", LSM303DLHC_MAG_DEV_NAME);
 	return i2c_add_driver(&lsm303dlhc_mag_driver);
 }
 
