@@ -526,7 +526,7 @@ static int lsm303dlhc_acc_hw_init(struct lsm303dlhc_acc_status *stat)
 	int err = -1;
 	u8 buf[7];
 
-	pr_info("%s: hw init start\n", LSM303DLHC_ACC_DEV_NAME);
+	dev_dbg(&stat->client->dev, "%s: hw init start\n", __func__);
 
 	buf[0] = WHO_AM_I;
 	err = lsm303dlhc_acc_i2c_read(stat, buf, 1);
@@ -604,8 +604,8 @@ static int lsm303dlhc_acc_hw_init(struct lsm303dlhc_acc_status *stat)
 	stat->prev_xyz[2] = 0;
 	stat->poll_count = 0;
 	stat->hw_initialized = 1;
-	pr_info("%s: hw init done %x\n", LSM303DLHC_ACC_DEV_NAME,
-				stat->resume_state[RES_CTRL_REG1]);
+	dev_dbg(&stat->client->dev, "%s: hw init done %x\n", __func__,
+			stat->resume_state[RES_CTRL_REG1]);
 	return 0;
 
 err_firstread:
@@ -761,7 +761,7 @@ static int lsm303dlhc_acc_update_fs_range(struct lsm303dlhc_acc_status *stat,
 	stat->resume_state[RES_CTRL_REG4] = updated_val;
 	stat->sensitivity = sensitivity;
 
-	dev_info(&stat->client->dev, "%s, %d\n", __func__, stat->sensitivity);
+	dev_dbg(&stat->client->dev, "%s, %d\n", __func__, stat->sensitivity);
 	return err;
 error:
 	dev_err(&stat->client->dev,
@@ -1020,9 +1020,9 @@ static int lsm303dlhc_acc_enable(struct lsm303dlhc_acc_status *stat)
 			if (err < 0)
 				return err;
 
-			dev_info(&stat->client->dev, "Interrupt mode enabled\n");
+			dev_dbg(&stat->client->dev, "Interrupt mode enabled\n");
 		} else {
-			dev_info(&stat->client->dev, "Polling mode enabled\n");
+			dev_dbg(&stat->client->dev, "Polling mode enabled\n");
 			hrtimer_start(&stat->timer,
 					MS_TO_NS(stat->pdata->poll_interval),
 					HRTIMER_MODE_REL);
@@ -1069,7 +1069,7 @@ static ssize_t attr_set_polling_rate(struct device *dev,
 			stat->pdata->min_interval);
 	mutex_lock(&stat->lock);
 	stat->pdata->poll_interval = interval_ms;
-	dev_info(&stat->client->dev, "interval_ms %ld\n", interval_ms);
+	dev_dbg(&stat->client->dev, "interval_ms %ld\n", interval_ms);
 	lsm303dlhc_acc_update_odr(stat, interval_ms);
 	mutex_unlock(&stat->lock);
 	return size;
@@ -1097,6 +1097,8 @@ static ssize_t attr_set_enable(struct device *dev,
 		lsm303dlhc_acc_enable(stat);
 	else
 		lsm303dlhc_acc_disable(stat);
+
+	dev_dbg(dev, "sensor %s\n", val ? "enable" : "disable");
 
 	return size;
 }
@@ -1194,7 +1196,7 @@ static ssize_t attr_show_registers(struct device *dev,
 		i2c_buf[i] = (0x20+i);
 		err = lsm303dlhc_acc_i2c_read(stat, &i2c_buf[i], 1);
 		if (err < 0) {
-			dev_info(dev, "Error while reading registers!\n");
+			dev_err(dev, "Error while reading registers!\n");
 			return -EINVAL;
 		}
 	}
@@ -1398,14 +1400,10 @@ static int lsm303dlhc_acc_probe(struct i2c_client *client,
 {
 
 	struct lsm303dlhc_acc_status *stat;
-
 	u32 smbus_func = I2C_FUNC_SMBUS_BYTE_DATA |
 			I2C_FUNC_SMBUS_WORD_DATA |
 			I2C_FUNC_SMBUS_I2C_BLOCK;
-
 	int err = -1;
-
-	dev_info(&client->dev, "probe start.\n");
 
 	stat = kzalloc(sizeof(struct lsm303dlhc_acc_status), GFP_KERNEL);
 	if (stat == NULL) {
@@ -1457,7 +1455,7 @@ static int lsm303dlhc_acc_probe(struct i2c_client *client,
 		default_lsm303dlhc_acc_pdata.gpio_int2 = int2_gpio;
 		memcpy(stat->pdata, &default_lsm303dlhc_acc_pdata,
 							sizeof(*stat->pdata));
-		dev_info(&client->dev, "using default plaform_data\n");
+		dev_err(&client->dev, "using default plaform_data\n");
 	} else {
 		memcpy(stat->pdata, client->dev.platform_data,
 							sizeof(*stat->pdata));
@@ -1587,7 +1585,7 @@ static int lsm303dlhc_acc_probe(struct i2c_client *client,
 
 	mutex_unlock(&stat->lock);
 
-	dev_info(&client->dev, "%s: probed\n", LSM303DLHC_ACC_DEV_NAME);
+	dev_info(&client->dev, "probed successfully\n");
 
 	return 0;
 
@@ -1620,6 +1618,8 @@ static int lsm303dlhc_acc_remove(struct i2c_client *client)
 
 	struct lsm303dlhc_acc_status *stat = i2c_get_clientdata(client);
 
+	dev_dbg(&client->dev, "%s\n", __func__);
+
 	lsm303dlhc_acc_set_pinctrl_state(&client->dev,
 			stat->pdata->pins_inactive);
 	lsm303dlhc_acc_disable(stat);
@@ -1651,11 +1651,12 @@ static int lsm303dlhc_acc_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct lsm303dlhc_acc_status *stat = i2c_get_clientdata(client);
 
-	lsm303dlhc_acc_set_pinctrl_state(&client->dev,
-			stat->pdata->pins_default);
+	dev_dbg(dev, "%s: resume\n", LSM303DLHC_ACC_DEV_NAME);
+	lsm303dlhc_acc_set_pinctrl_state(dev,	stat->pdata->pins_default);
 
 	if (stat->on_before_suspend)
 		return lsm303dlhc_acc_enable(stat);
+
 	return 0;
 }
 
@@ -1664,10 +1665,10 @@ static int lsm303dlhc_acc_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct lsm303dlhc_acc_status *stat = i2c_get_clientdata(client);
 
-	lsm303dlhc_acc_set_pinctrl_state(&client->dev,
-			stat->pdata->pins_sleep);
-
+	dev_dbg(dev, "%s: suspend\n", LSM303DLHC_ACC_DEV_NAME);
+	lsm303dlhc_acc_set_pinctrl_state(dev, stat->pdata->pins_sleep);
 	stat->on_before_suspend = atomic_read(&stat->enabled);
+
 	return lsm303dlhc_acc_disable(stat);
 }
 #else
@@ -1708,7 +1709,7 @@ static int __init lsm303dlhc_acc_init(void)
 		return ret;
 	}
 #endif
-	pr_info("%s accelerometer driver: init\n", LSM303DLHC_ACC_DEV_NAME);
+	pr_info("%s accelerometer driver init\n", LSM303DLHC_ACC_DEV_NAME);
 	return i2c_add_driver(&lsm303dlhc_acc_driver);
 }
 
