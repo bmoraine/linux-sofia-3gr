@@ -1,18 +1,15 @@
-/* ----------------------------------------------------------------------------
-   Copyright (C) 2014 Intel Mobile Communications GmbH
-
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License Version 2
- *  as published by the Free Software Foundation.
+/*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
  *
- *  You should have received a copy of the GNU General Public License Version 2
- *  along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-  ---------------------------------------------------------------------------*/
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 /*
  * NOTES:
  * 1) This source file is included in guests including Linux and purposely
@@ -29,8 +26,8 @@
  * variable size based on 32/64bit toolchain used.
 */
 
-#ifndef _VMM_GUEST_IPC_H
-#define _VMM_GUEST_IPC_H
+#ifndef _MV_IPC_H
+#define _MV_IPC_H
 
 #ifdef __KERNEL__
 #include "linux/types.h"
@@ -51,8 +48,8 @@ enum vmm_vlink_state {
 
 /** @brief Vlink structure
  *
- *  Used to store information of a vlink between
- *  server(destination) and client(caller, source) OS
+ *  Used to store information of a vlink between 
+ *  server(destination) and client(caller, source) OS 
  */
 struct vmm_vlink {
 	/** unique name identifier */
@@ -75,4 +72,4 @@ struct vmm_vlink {
 	vmm_paddr_t   next;
 };
 
-#endif /* _VMM_GUEST_IPC_H */
+#endif /* _MV_IPC_H */

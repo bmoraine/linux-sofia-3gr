@@ -31,8 +31,8 @@
 
 /* For inclusion by Guest VMs only! */
 
-#ifndef _VMM_PLATFORM_SERVICE_H
-#define _VMM_PLATFORM_SERVICE_H
+#ifndef _MV_SVC_HYPERCALLS_H
+#define _MV_SVC_HYPERCALLS_H
 
 #include "pal_shared_data.h"
 
@@ -48,7 +48,7 @@
  *  @brief enumeration platform dependent service type
  *  which is used in vmcall handlers
 */
-enum vmm_platform_service_type {
+enum mv_service_type {
 	DUMMY_SERIVCE   = 0,
 	PINCTRL_SERVICE,
 	PM_SERVICE,
@@ -247,12 +247,12 @@ Data structure for keeping date and time\n
 */
 typedef struct rtc_datetime_shared_data pal_rtc_datetime;
 
-uint32_t vmm_rtc_set_datetime(pal_rtc_datetime *rtc_datetime);
-uint32_t vmm_rtc_get_datetime(pal_rtc_datetime *rtc_datetime);
-uint32_t vmm_rtc_get_time_us(uint64_t *rtc_us_time);
-uint32_t vmm_rtc_clear_alarm(void);
-uint32_t vmm_rtc_set_alarm(pal_rtc_datetime *rtc_datetime);
-uint32_t vmm_rtc_get_alarm(pal_rtc_datetime *rtc_datetime);
+uint32_t mv_svc_rtc_set_datetime(pal_rtc_datetime *rtc_datetime);
+uint32_t mv_svc_rtc_get_datetime(pal_rtc_datetime *rtc_datetime);
+uint32_t mv_svc_rtc_get_time_us(uint64_t *rtc_us_time);
+uint32_t mv_svc_rtc_clear_alarm(void);
+uint32_t mv_svc_rtc_set_alarm(pal_rtc_datetime *rtc_datetime);
+uint32_t mv_svc_rtc_get_alarm(pal_rtc_datetime *rtc_datetime);
 
 /**
   @typedef vmm_pinctrl_result
@@ -326,33 +326,33 @@ enum pwm_op_code {
  @param  arg3  return register value read (GET)
  @return Return 0 if success, -1 otherwise
 **/
-uint32_t vmm_pinctrl_service(
+uint32_t mv_svc_pinctrl_service(
 			uint32_t pinctrl_opcode,
 			uint32_t arg1, uint32_t arg2, uint32_t *arg3);
 
 /** @brief PM control
  *
  */
-uint32_t vmm_pm_control(uint32_t pm_opcode, uint32_t arg1,
+uint32_t mv_svc_pm_control(uint32_t pm_opcode, uint32_t arg1,
 			uint32_t arg2, uint32_t arg3);
-void vmm_modem_2g_sleep_time(uint32_t *pal_shared_mem_p, uint32_t duration);
-void vmm_modem_3g_sleep_time(uint32_t *pal_shared_mem_p, uint32_t duration);
-void vmm_modem_next_timeout(uint32_t *pal_shared_mem_p, uint32_t duration);
-void vm_enter_idle(uint32_t *pal_shared_mem_p, uint32_t target_power_state);
+void mv_svc_modem_2g_sleep_time(uint32_t *pal_shared_mem_p, uint32_t duration);
+void mv_svc_modem_3g_sleep_time(uint32_t *pal_shared_mem_p, uint32_t duration);
+void mv_svc_modem_next_timeout(uint32_t *pal_shared_mem_p, uint32_t duration);
+void mv_svc_vm_enter_idle(uint32_t *pal_shared_mem_p, uint32_t target_power_state);
 
 /**
  @brief  MobileVisor    core dump service
  @param  cd_opcode core dump operation code
  @param  cd_data        physical address of share data
 **/
-void vmm_cd_service(uint32_t cd_opcode, void *cd_data);
+void mv_svc_cd_service(uint32_t cd_opcode, void *cd_data);
 
 /**
  @brief  MobileVisor system exception service
  @param  opcode  system exception operation code
  @param  trap_data      share data
 **/
-void vmm_sys_exception(uint32_t opcode, void *trap_data);
+void mv_svc_sys_exception(uint32_t opcode, void *trap_data);
 
 /**
  @brief  MobileVisor socwatch configuration
@@ -360,7 +360,7 @@ void vmm_sys_exception(uint32_t opcode, void *trap_data);
  @param  buffer_info phy address to buffer information
  @return 0 if success
 **/
-uint32_t vmm_socwatch_config(uint32_t events,
+uint32_t mv_svc_socwatch_config(uint32_t events,
 			struct socwatch_buffer_info *buffer_info);
 
 /**
@@ -368,14 +368,14 @@ uint32_t vmm_socwatch_config(uint32_t events,
  @param  run_control 0 to stop, 1 to start
  @return for start, 0 if success. For stop, returns number of dropped packets
 **/
-uint32_t vmm_socwatch_run_control(uint32_t run_control);
+uint32_t mv_svc_socwatch_run_control(uint32_t run_control);
 
 /**
  @brief  MobileVisor sep configuration
  @param  p_packet
  @return 0 if success
 **/
-uint32_t vmm_sep_config(struct sep_packet *p_packet);
+uint32_t mv_svc_sep_config(struct sep_packet *p_packet);
 
 /**
  @brief  MobileVisor sep config guest context
@@ -383,7 +383,7 @@ uint32_t vmm_sep_config(struct sep_packet *p_packet);
  @param  task_name_offset offset of the current task name from the task pointer
  @return 0 if success.
 **/
-uint32_t vmm_sep_guest_context(uint32_t task_pointer,
+uint32_t mv_svc_sep_guest_context(uint32_t task_pointer,
 				uint32_t task_name_offset);
 
 /**
@@ -391,7 +391,7 @@ uint32_t vmm_sep_guest_context(uint32_t task_pointer,
  @param  run_control 0 to stop, 1 to start
  @return 0 if success.
 **/
-uint32_t vmm_sep_run_control(uint32_t run_control);
+uint32_t mv_svc_sep_run_control(uint32_t run_control);
 
 /**
  @brief  MobileVisor sep read counter control
@@ -399,7 +399,7 @@ uint32_t vmm_sep_run_control(uint32_t run_control);
 			counters to read
  @return 0 if success.
 **/
-uint32_t vmm_sep_read_counters(struct sep_counter *buffer_pointer);
+uint32_t mv_svc_sep_read_counters(struct sep_counter *buffer_pointer);
 
 /**
  @brief  MobileVisor sep write counter control
@@ -407,26 +407,26 @@ uint32_t vmm_sep_read_counters(struct sep_counter *buffer_pointer);
 			counters and values to write
  @return 0 if success.
 **/
-uint32_t vmm_sep_write_counters(struct sep_counter *buffer_pointer);
+uint32_t mv_svc_sep_write_counters(struct sep_counter *buffer_pointer);
 
 /**
  @brief  Enable watchdog with the timeout specified
  @param  timeout period (in seconds) that the watchdog must be serviced
  @return 0 if success.
 **/
-uint32_t vmm_watchdog_enable(uint32_t timeout);
+uint32_t mv_svc_watchdog_enable(uint32_t timeout);
 
 /**
  @brief  Pet the watchdog
  @return 0 if success.
 **/
-uint32_t vmm_watchdog_pet(void);
+uint32_t mv_svc_watchdog_pet(void);
 
 /**
  @brief  Disable the watchdog
  @return 0 if success.
 **/
-uint32_t vmm_watchdog_disable(void);
+uint32_t mv_svc_watchdog_disable(void);
 
 /**
  @brief  MobileVisor System Profiling service
@@ -435,7 +435,7 @@ uint32_t vmm_watchdog_disable(void);
 			(one per physical core)
  @param  mask		mask for the classes of events
 **/
-void vmm_sysprof_service(uint32_t opcode, uint32_t *swt_paddr,
+void mv_svc_sysprof_service(uint32_t opcode, uint32_t *swt_paddr,
 			uint32_t mask);
 
 /**
@@ -444,18 +444,18 @@ void vmm_sysprof_service(uint32_t opcode, uint32_t *swt_paddr,
 			(one per physical core)
  @param  mask		mask for the classes of events
 **/
-void vmm_sysprof_start_trace(uint32_t *swt_paddr, uint32_t mask);
+void mv_svc_sysprof_start_trace(uint32_t *swt_paddr, uint32_t mask);
 
 /**
  @brief  MobileVisor System Profiling service to stop trace
 **/
-void vmm_sysprof_stop_trace(void);
+void mv_svc_sysprof_stop_trace(void);
 
 /**
  @return struct pal_shared_data * physical address to per VCPU-Mobilevisor
 				  platform shared data structure
 **/
-struct pal_shared_data *vmm_platform_get_shared_data(void);
+struct pal_shared_data *mv_svc_get_shared_data(void);
 
 /**
  @brief  MobileVisor platform 32bit register access service
@@ -464,7 +464,7 @@ struct pal_shared_data *vmm_platform_get_shared_data(void);
  @param  mask bit to modify
  @return 0 if success, -1 if access disallowed
 **/
-int32_t vmm_reg_read(uint32_t address, uint32_t *p_reg_val, uint32_t mask);
+int32_t mv_svc_reg_read(uint32_t address, uint32_t *p_reg_val, uint32_t mask);
 
 /**
  @brief  MobileVisor platform 32bit register access service
@@ -473,7 +473,7 @@ int32_t vmm_reg_read(uint32_t address, uint32_t *p_reg_val, uint32_t mask);
  @param  mask bit to modify
  @return 0 if success, -1 if access disallowed
 **/
-int32_t vmm_reg_write(uint32_t address, uint32_t reg_val, uint32_t mask);
+int32_t mv_svc_reg_write(uint32_t address, uint32_t reg_val, uint32_t mask);
 
 /**
  @brief  MobileVisor platform 32bit register access service
@@ -482,7 +482,7 @@ int32_t vmm_reg_write(uint32_t address, uint32_t reg_val, uint32_t mask);
  @param  mask bit to modify
  @return 0 if success, -1 if access disallowed
 **/
-int32_t vmm_reg_write_only(uint32_t address, uint32_t reg_val, uint32_t mask);
+int32_t mv_svc_reg_write_only(uint32_t address, uint32_t reg_val, uint32_t mask);
 
 
 /**
@@ -492,7 +492,7 @@ int32_t vmm_reg_write_only(uint32_t address, uint32_t reg_val, uint32_t mask);
  @param  size to read/write in bytes
  @return 0 if success, -1 if access disallowed
 **/
-int32_t vmm_pmic_reg_access(enum pmic_reg_access_op_code op,
+int32_t mv_svc_pmic_reg_access(enum pmic_reg_access_op_code op,
 			uint32_t reg_address, uint32_t size_in_byte);
 
 
@@ -501,19 +501,19 @@ int32_t vmm_pmic_reg_access(enum pmic_reg_access_op_code op,
  @param  num_of_vcycles
  @return 0 if success, -1 if access disallowed
 **/
-int32_t vmm_vtimer_start(uint32_t num_of_vcycles);
+int32_t mv_svc_vtimer_start(uint32_t num_of_vcycles);
 
 /**
  @brief  Vtimer stop service
  @return 0 if success, -1 if access disallowed
 **/
-int32_t vmm_vtimer_stop(void);
+int32_t mv_svc_vtimer_stop(void);
 
 /**
  @brief  Vtimer get frequency service
  @return virtual frequency value
 **/
-int32_t vmm_vtimer_get_freq(void);
+int32_t mv_svc_vtimer_get_freq(void);
 
 /**
  @brief  MobileVisor platform spcu thermal service
@@ -522,7 +522,7 @@ int32_t vmm_vtimer_get_freq(void);
  @param  which threshold are you operating, low or high
  @return 0 if success, -1 if access disallowed
 **/
-int32_t vmm_spcu_thermal_service(uint32_t opcode, uint32_t dev_id,
+int32_t mv_svc_spcu_thermal_service(uint32_t opcode, uint32_t dev_id,
 			 uint32_t thres);
 /**
  @brief  VMM PWM access service
@@ -531,7 +531,7 @@ int32_t vmm_spcu_thermal_service(uint32_t opcode, uint32_t dev_id,
  @param  period_ns total period time in ns
  @return 0 if success, -1 if access disallowed
 **/
-int32_t vmm_pwm_access(enum pwm_op_code op,
+int32_t mv_svc_pwm_access(enum pwm_op_code op,
 			uint32_t duty_ns, uint32_t period_ns);
 
 #endif /* _VMM_PLATFORM_SERVICE_H */

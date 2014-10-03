@@ -32,11 +32,11 @@
 
 #ifdef __KERNEL__
 #include <linux/module.h>
-#include <sofia/vmm_guest_api.h>
+#include <sofia/mv_hypercalls.h>
 #include <sofia/vmcalls.h>
 #include <linux/sysprofile.h>
 #else
-#include "vmm_guest_api.h"
+#include "mv_hypercalls.h"
 #include "vmcalls.h"
 #endif
 
@@ -44,7 +44,7 @@
 
 #define UNUSED_ARG	0
 
-static inline int32_t vmm_call(uint32_t nr, uint32_t arg0,
+static inline int32_t mv_call(uint32_t nr, uint32_t arg0,
 			   uint32_t arg1, uint32_t arg2,
 			   uint32_t arg3)
 {
@@ -57,7 +57,7 @@ static inline int32_t vmm_call(uint32_t nr, uint32_t arg0,
 	return ret;
 }
 
-static inline int vmm_call_5(uint32_t nr, uint32_t arg0,
+static inline int mv_call_5(uint32_t nr, uint32_t arg0,
 			     uint32_t arg1, uint32_t arg2,
 			     uint32_t arg3, uint32_t *ret0,
 			     uint32_t *ret1, uint32_t *ret2,
@@ -84,168 +84,152 @@ static inline int vmm_call_5(uint32_t nr, uint32_t arg0,
 	return results[0];
 }
 
-void vmm_guest_idle(void)
+void mv_idle(void)
 {
-	vmm_call(VMCALL_IDLE, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+	mv_call(VMCALL_IDLE, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
-uint32_t vmm_vcpu_id(void)
+uint32_t mv_vcpu_id(void)
 {
-	return vmm_call(VMCALL_VCPU_ID, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG,
+	return mv_call(VMCALL_VCPU_ID, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG,
 			UNUSED_ARG);
 }
 
-void vmm_guest_log(void)
+void mv_log(void)
 {
-	vmm_call(VMCALL_VM_LOG, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+	mv_call(VMCALL_VM_LOG, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
-void vmm_guest_request_virq(uint32_t virq, uint32_t vaffinity)
+void mv_virq_request(uint32_t virq, uint32_t vaffinity)
 {
-	vmm_call(VMCALL_GUEST_REQUEST_VIRQ, virq, vaffinity, UNUSED_ARG,
+	mv_call(VMCALL_GUEST_REQUEST_VIRQ, virq, vaffinity, UNUSED_ARG,
 		 UNUSED_ARG);
 }
 #ifdef __KERNEL__
-EXPORT_SYMBOL(vmm_guest_request_virq);
+EXPORT_SYMBOL(mv_virq_request);
 #endif
 
-void vmm_virq_eoi(uint32_t virq)
+void mv_virq_eoi(uint32_t virq)
 {
-	vmm_call(VMCALL_VIRQ_EOI, virq, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+	mv_call(VMCALL_VIRQ_EOI, virq, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 #ifdef __KERNEL__
-EXPORT_SYMBOL(vmm_virq_eoi);
+EXPORT_SYMBOL(mv_virq_eoi);
 #endif
 
-void vmm_virq_mask(uint32_t virq)
+void mv_virq_mask(uint32_t virq)
 {
-	vmm_call(VMCALL_VIRQ_MASK, virq, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+	mv_call(VMCALL_VIRQ_MASK, virq, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 #ifdef __KERNEL__
-EXPORT_SYMBOL(vmm_virq_mask);
+EXPORT_SYMBOL(mv_virq_mask);
 #endif
 
-void vmm_virq_unmask(uint32_t virq)
+void mv_virq_unmask(uint32_t virq)
 {
-	vmm_call(VMCALL_VIRQ_UNMASK, virq, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+	mv_call(VMCALL_VIRQ_UNMASK, virq, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 #ifdef __KERNEL__
-EXPORT_SYMBOL(vmm_virq_unmask);
+EXPORT_SYMBOL(mv_virq_unmask);
 #endif
 
-void vmm_set_vaffinity(uint32_t virq, uint32_t vaffinity)
+void mv_virq_set_affinity(uint32_t virq, uint32_t vaffinity)
 {
-	vmm_call(VMCALL_SET_VAFFINITY, virq, vaffinity, UNUSED_ARG, UNUSED_ARG);
+	mv_call(VMCALL_SET_VAFFINITY, virq, vaffinity, UNUSED_ARG, UNUSED_ARG);
 }
 
-/* Lookup vlink by name */
-/*
-vmm_paddr_t vmm_vlink_lookup(vmm_paddr_t name, vmm_paddr_t vlink)
-{
-	return (vmm_paddr_t)vmm_call(VMCALL_VLINK_LOOKUP, (uint32_t)name,
-				(uint32_t)vlink, UNUSED_ARG, UNUSED_ARG);
-}
-*/
 /* retreives vlink db physical address */
-vmm_paddr_t vmm_get_vlink_db()
+vmm_paddr_t mv_get_vlink_db()
 {
-	return (vmm_paddr_t) vmm_call(VMCALL_GET_VLINK_DB, UNUSED_ARG,
+	return (vmm_paddr_t) mv_call(VMCALL_GET_VLINK_DB, UNUSED_ARG,
 				      UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
 /* Request virtual interrupt as per vlink & resource id combo <vlink, id> */
-uint32_t vmm_xirq_alloc(vmm_paddr_t vlink, uint32_t resource_id,
+uint32_t mv_xirq_alloc(vmm_paddr_t vlink, uint32_t resource_id,
 			    uint32_t os_id, int32_t num_int)
 {
-	return vmm_call(VMCALL_XIRQ_ALLOC, (uint32_t)vlink, resource_id,
+	return mv_call(VMCALL_XIRQ_ALLOC, (uint32_t)vlink, resource_id,
 			os_id, num_int);
 }
 
 /* Trigger a virtual interrupt */
-void vmm_xirq_post(uint32_t xirq, uint32_t os_id)
+void mv_xirq_post(uint32_t xirq, uint32_t os_id)
 {
-	sysprof_xirq_to_mex(xirq);
-	vmm_call(VMCALL_XIRQ_POST, xirq, os_id, UNUSED_ARG, UNUSED_ARG);
+	mv_call(VMCALL_XIRQ_POST, xirq, os_id, UNUSED_ARG, UNUSED_ARG);
 }
 
 /* Trigger an IPI to the specified vcpus bitmap */
-void vmm_ipi_post(uint32_t virq, uint32_t vcpus)
+void mv_ipi_post(uint32_t virq, uint32_t vcpus)
 {
-	sysprof_xirq_to_linux(virq);
-	vmm_call(VMCALL_IPI_POST, virq, vcpus, UNUSED_ARG, UNUSED_ARG);
+	mv_call(VMCALL_IPI_POST, virq, vcpus, UNUSED_ARG, UNUSED_ARG);
 }
 
-vmm_paddr_t vmm_shared_mem_alloc(vmm_paddr_t vlink, uint32_t resource_id,
+vmm_paddr_t mv_shared_mem_alloc(vmm_paddr_t vlink, uint32_t resource_id,
 				 uint32_t size)
 {
-	return (vmm_paddr_t) vmm_call(VMCALL_SHARED_MEM_ALLOC,
+	return (vmm_paddr_t) mv_call(VMCALL_SHARED_MEM_ALLOC,
 				      (uint32_t)vlink, resource_id, size,
 				      UNUSED_ARG);
 }
 
-void vmm_start_vcpu(uint32_t vcpu_id, uint32_t entry_addr)
+void mv_start_vcpu(uint32_t vcpu_id, uint32_t entry_addr)
 {
-	vmm_call(VMCALL_START_VCPU, vcpu_id, entry_addr, UNUSED_ARG,
+	mv_call(VMCALL_START_VCPU, vcpu_id, entry_addr, UNUSED_ARG,
 		 UNUSED_ARG);
 }
 
-void vmm_stop_vcpu(uint32_t vcpu_id)
+void mv_stop_vcpu(uint32_t vcpu_id)
 {
-	vmm_call(VMCALL_STOP_VCPU, vcpu_id, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+	mv_call(VMCALL_STOP_VCPU, vcpu_id, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
-void vmm_guest_dummy_test(unsigned char *ptr)
+struct vmm_shared_data *mv_get_vcpu_data(void)
 {
-	vmm_call(VMCALL_VM_DUMMY, (uint32_t)ptr, UNUSED_ARG, UNUSED_ARG,
-		 UNUSED_ARG);
-}
-
-struct vmm_shared_data *vmm_get_vcpu_data(void)
-{
-	return (struct vmm_shared_data *) vmm_call(VMCALL_GET_VCPU_DATA,
+	return (struct vmm_shared_data *) mv_call(VMCALL_GET_VCPU_DATA,
 						UNUSED_ARG, UNUSED_ARG,
 						UNUSED_ARG, UNUSED_ARG);
 }
 
-int vmm_vcpu_has_irq_pending(void)
+int mv_vcpu_has_irq_pending(void)
 {
-	return (int)vmm_call(VMCALL_VCPU_HAS_IRQ_PENDING, UNUSED_ARG,
+	return (int)mv_call(VMCALL_VCPU_HAS_IRQ_PENDING, UNUSED_ARG,
 			     UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
-void vmm_call_multiple_return(uint32_t *ret0, uint32_t *ret1,
+void mv_call_multiple_return(uint32_t *ret0, uint32_t *ret1,
 			      uint32_t *ret2, uint32_t *ret3,
 			      uint32_t *ret4)
 {
-	vmm_call_5(VMCALL_VM_DUMMY, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG,
+	mv_call_5(VMCALL_VM_DUMMY, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG,
 		   UNUSED_ARG, ret0, ret1, ret2, ret3, ret4);
 }
 
-uint32_t vmm_platform_service(uint32_t service_type, uint32_t arg2,
+uint32_t mv_platform_service(uint32_t service_type, uint32_t arg2,
 			uint32_t arg3, uint32_t arg4,
 			uint32_t *ret0, uint32_t *ret1,
 			uint32_t *ret2, uint32_t *ret3,
 			uint32_t *ret4)
 {
-	return vmm_call_5(VMCALL_PLATFORM_SERVICE, service_type, arg2,
+	return mv_call_5(VMCALL_PLATFORM_SERVICE, service_type, arg2,
 			arg3, arg4, ret0, ret1, ret2, ret3, ret4);
 }
 
-uint32_t vmm_get_running_guests(void)
+uint32_t mv_get_running_guests(void)
 {
-	return (uint32_t)vmm_call(VMCALL_GET_RUNNING_GUESTS, UNUSED_ARG,
+	return (uint32_t)mv_call(VMCALL_GET_RUNNING_GUESTS, UNUSED_ARG,
 			     UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
-int vmm_initiate_reboot(uint32_t reboot_action)
+int mv_initiate_reboot(uint32_t reboot_action)
 {
-	return (int)vmm_call(VMCALL_INITIATE_REBOOT, reboot_action,
+	return (int)mv_call(VMCALL_INITIATE_REBOOT, reboot_action,
 			     UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
-void vmm_virq_spurious(uint32_t virq)
+void mv_virq_spurious(uint32_t virq)
 {
-	vmm_call(VMCALL_VIRQ_SPURIOUS, virq,
+	mv_call(VMCALL_VIRQ_SPURIOUS, virq,
 			UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 	return;
 }

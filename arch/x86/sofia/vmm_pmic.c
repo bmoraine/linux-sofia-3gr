@@ -25,8 +25,8 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
-#include <sofia/vmm_platform_service.h>
-#include <sofia/vmm_al.h>
+#include <sofia/mv_svc_hypercalls.h>
+#include <sofia/mv_gal.h>
 #include <sofia/pal_shared_data.h>
 #include <sofia/vmm_pmic.h>
 
@@ -39,7 +39,7 @@ static struct pmic_access_shared_data *vmm_pmic_get_shared_data(void)
 {
 	struct vmm_shared_data *vmm_shared_data;
 	struct pal_shared_data *pal_shared_data;
-	vmm_shared_data = get_vmm_shared_data();
+	vmm_shared_data = mv_gal_get_shared_data();
 	pal_shared_data = (struct pal_shared_data *)
 			(&vmm_shared_data->pal_shared_mem_data);
 	return &(pal_shared_data->pmic_access_shared_data);
@@ -62,7 +62,7 @@ int32_t vmm_pmic_reg_write_by_range(uint32_t reg_address,
 	pmic_access_shared_data->data[0] = (uint8_t)(reg_address & 0xFF);
 	memcpy(&(pmic_access_shared_data->data[1]), data, size_in_byte);
 	vmm_pmic_reg_access_done = 0;
-	if (0 != vmm_pmic_reg_access(PMIC_REG_WRITE, reg_address,
+	if (0 != mv_svc_pmic_reg_access(PMIC_REG_WRITE, reg_address,
 						size_in_byte + 1)) {
 		result = -1;
 		goto pmic_write_end;
@@ -100,7 +100,7 @@ int32_t vmm_pmic_reg_read_by_range(uint32_t reg_address,
 	pmic_access_shared_data = vmm_pmic_get_shared_data();
 	pmic_access_shared_data->data[0] = (uint8_t)(reg_address & 0xFF);
 	vmm_pmic_reg_access_done = 0;
-	if (0 != vmm_pmic_reg_access(PMIC_REG_READ, reg_address,
+	if (0 != mv_svc_pmic_reg_access(PMIC_REG_READ, reg_address,
 				size_in_byte)) {
 		result = -1;
 		goto pmic_read_end;

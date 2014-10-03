@@ -34,12 +34,13 @@
 #include <linux/smp.h>
 #include <linux/sysprofile.h>
 #include <linux/memblock.h>
-#include <sofia/vmm_al.h>
+#include <sofia/mv_hypercalls.h>
+#include <sofia/mv_gal.h>
 #include <asm/pat.h>
 #else
 #include "common.h"
 #include "isr.h"
-#include "vmm_al.h"
+#include "mv_gal.h"
 #endif
 
 /* define VM_MULTIPLE_VCPUS if guest VM has more than 1 VCPU */
@@ -62,21 +63,21 @@
 struct vmm_shared_data *vmm_shared_data[CONFIG_MAX_VCPUS_PER_VM];
 const char *vm_command_line;
 
-struct vmm_shared_data *get_vmm_shared_data(void)
+struct vmm_shared_data *mv_gal_get_shared_data(void)
 {
 #ifdef VM_MULTIPLE_VCPUS
-	return vmm_shared_data[vmm_vcpu_id()];
+	return vmm_shared_data[mv_vcpu_id()];
 #else
 	return vmm_shared_data[0];
 #endif
 }
 
-void vmm_panic(char *panic_msg)
+void mv_gal_panic(char *panic_msg)
 {
 	if (panic_msg)
-		vmm_printk("PANIC: %s\n", panic_msg);
+		mv_gal_printk("PANIC: %s\n", panic_msg);
 	else
-		vmm_printk("PANIC\n");
+		mv_gal_printk("PANIC\n");
 
 	while (1)
 		;
@@ -85,14 +86,14 @@ void vmm_panic(char *panic_msg)
 #if defined(__KERNEL__)
 void *pmem_vbase;
 #endif
-void *vmm_ptov(vmm_paddr_t paddr)
+void *mv_gal_ptov(vmm_paddr_t paddr)
 {
 #if !defined(__KERNEL__)
 	return (void *)paddr;
 #else
 	if (pmem_vbase) {
 		void *ptr;
-		struct vmm_shared_data *p_shared_data = get_vmm_shared_data();
+		struct vmm_shared_data *p_shared_data = mv_gal_get_shared_data();
 		if (paddr >= p_shared_data->pmem_paddr &&
 		    paddr <= p_shared_data->pmem_paddr +
 		    p_shared_data->pmem_size) {
@@ -107,14 +108,14 @@ void *vmm_ptov(vmm_paddr_t paddr)
 #endif
 }
 
-vmm_paddr_t vmm_vtop(void *vaddr)
+vmm_paddr_t mv_gal_vtop(void *vaddr)
 {
 #if !defined(__KERNEL__)
 	return (vmm_paddr_t) vaddr;
 #else
 	if (pmem_vbase) {
 		vmm_paddr_t ptr;
-		struct vmm_shared_data *p_shared_data = get_vmm_shared_data();
+		struct vmm_shared_data *p_shared_data = mv_gal_get_shared_data();
 		if (vaddr >= pmem_vbase &&
 			vaddr <= pmem_vbase + p_shared_data->pmem_size) {
 			ptr =
@@ -148,14 +149,14 @@ static unsigned int used_entries;
 #endif
 
 #ifdef __KERNEL__
-static irqreturn_t vmm_al_xirq_handler(int irq, void *data)
+static irqreturn_t mv_gal_xirq_handler(int irq, void *data)
 #else
-static void vmm_al_xirq_handler(registers_t *regs)
+static void mv_gal_xirq_handler(registers_t *regs)
 #endif
 {
 	struct vmm_xirq_callback_entry *entry;
 	unsigned int idx;
-	struct vmm_shared_data *p_shared_data = get_vmm_shared_data();
+	struct vmm_shared_data *p_shared_data = mv_gal_get_shared_data();
 
 	idx = XIRQ_NUM2INDX(p_shared_data->triggering_xirq);
 	entry = xirq_callbacks[idx];
@@ -175,30 +176,30 @@ static void vmm_al_xirq_handler(registers_t *regs)
 #endif
 }
 
-void vmm_al_init(struct vmm_shared_data *data)
+void mv_gal_init(struct vmm_shared_data *data)
 {
 	memset(xirq_callbacks, 0, sizeof(xirq_callbacks));
 #if !defined(__KERNEL__)
-	vmm_printk("used_entries=0x%x\n", used_entries);
+	mv_gal_printk("used_entries=0x%x\n", used_entries);
 	memset(available_entries, 0, sizeof(available_entries));
-	vmm_printk("VM cmdline: %s\n", get_vmm_shared_data()->vm_cmdline);
+	mv_gal_printk("VM cmdline: %s\n", get_vmm_shared_data()->vm_cmdline);
 #endif
 
 	myid = data->os_id;
-	vm_command_line = vmm_ptov((vmm_paddr_t) data->vm_cmdline);
+	vm_command_line = mv_gal_ptov((vmm_paddr_t) data->vm_cmdline);
 
 	/* register XIRQ handler */
 #ifdef __KERNEL__
 	if (request_irq
-		(VECT_XIRQ, vmm_al_xirq_handler, 0, "xirq_handers", NULL)) {
+		(VECT_XIRQ, mv_gal_xirq_handler, 0, "xirq_handers", NULL)) {
 		pr_err("Reqest IRQ VECT_XIRQ failed!\n");
 	}
 #else
-	register_interrupt_handler(VECT_XIRQ, &vmm_al_xirq_handler);
+	register_interrupt_handler(VECT_XIRQ, &mv_gal_xirq_handler);
 	/* inform vmm that we want to handle VMM_XIRQ_VECTOR
 	 * sincecos register_interrupt does not do it */
-	vmm_guest_request_virq(VECT_XIRQ, 1);
-	vmm_virq_unmask(VECT_XIRQ);
+	mv_virq_request(VECT_XIRQ, 1);
+	mv_virq_unmask(VECT_XIRQ);
 #endif
 }
 
@@ -206,19 +207,19 @@ static int sofia_vmm_map_vcpu_shmem(void)
 {
 	void *ptr;
 
-	if (get_vmm_shared_data())
+	if (mv_gal_get_shared_data())
 		return 0;
 
-	ptr = vmm_get_vcpu_data();
+	ptr = mv_get_vcpu_data();
 	if (memblock_reserve((resource_size_t)ptr, (resource_size_t)(ptr +
 		sizeof(struct vmm_shared_data)))) {
 		pr_err("Unable to map VMM shared data\n");
 		return -EINVAL;
 	}
 
-	vmm_shared_data[vmm_vcpu_id()] = phys_to_virt((phys_addr_t)ptr);
+	vmm_shared_data[mv_vcpu_id()] = phys_to_virt((phys_addr_t)ptr);
 	pr_debug("ptr=0x%08X vmm_shared_data=0x%08X\n",
-	       (unsigned int)ptr, (unsigned int)get_vmm_shared_data());
+	       (unsigned int)ptr, (unsigned int)mv_gal_get_shared_data());
 
 	return 0;
 }
@@ -228,14 +229,14 @@ int sofia_vmm_init_secondary(void)
 {
 
 	pr_debug("In sofia_vmm_init_secondary\n");
-	vmm_guest_request_virq(LOCAL_TIMER_VECTOR, 1);
-	vmm_virq_unmask(LOCAL_TIMER_VECTOR);
-	vmm_guest_request_virq(RESCHEDULE_VECTOR, 1);
-	vmm_virq_unmask(RESCHEDULE_VECTOR);
-	vmm_guest_request_virq(CALL_FUNCTION_VECTOR, 1);
-	vmm_virq_unmask(CALL_FUNCTION_VECTOR);
-	vmm_guest_request_virq(CALL_FUNCTION_SINGLE_VECTOR, 1);
-	vmm_virq_unmask(CALL_FUNCTION_SINGLE_VECTOR);
+	mv_virq_request(LOCAL_TIMER_VECTOR, 1);
+	mv_virq_unmask(LOCAL_TIMER_VECTOR);
+	mv_virq_request(RESCHEDULE_VECTOR, 1);
+	mv_virq_unmask(RESCHEDULE_VECTOR);
+	mv_virq_request(CALL_FUNCTION_VECTOR, 1);
+	mv_virq_unmask(CALL_FUNCTION_VECTOR);
+	mv_virq_request(CALL_FUNCTION_SINGLE_VECTOR, 1);
+	mv_virq_unmask(CALL_FUNCTION_SINGLE_VECTOR);
 
 	return sofia_vmm_map_vcpu_shmem();
 }
@@ -248,19 +249,19 @@ static int __init sofia_vmm_init(void)
 		panic("Unable to map vcpu shared mem\n");
 
 	pmem_vbase =
-	    ioremap_cache(get_vmm_shared_data()->pmem_paddr,
-			  get_vmm_shared_data()->pmem_size);
+	    ioremap_cache(mv_gal_get_shared_data()->pmem_paddr,
+			  mv_gal_get_shared_data()->pmem_size);
 	pr_debug(
 	       "pmem_paddr=0x%08X pmem_size=0x%08X pmem_vbase=0x%08X\n",
-	       get_vmm_shared_data()->pmem_paddr,
-	       get_vmm_shared_data()->pmem_size,
+	       mv_gal_get_shared_data()->pmem_paddr,
+	       mv_gal_get_shared_data()->pmem_size,
 	       (unsigned int)pmem_vbase);
 	if (!pmem_vbase)
 		panic("Unable to map PMEM\n");
 
 	pr_debug("Calling vmm_al_init. os_id=%d\n",
-	       get_vmm_shared_data()->os_id);
-	vmm_al_init(get_vmm_shared_data());
+	       mv_gal_get_shared_data()->os_id);
+	mv_gal_init(mv_gal_get_shared_data());
 
 	return 0;
 }
@@ -268,12 +269,12 @@ static int __init sofia_vmm_init(void)
 early_initcall(sofia_vmm_init);
 #endif
 
-inline unsigned int vmm_myid(void)
+inline unsigned int mv_gal_os_id(void)
 {
 	return myid;
 }
 
-void *vmm_register_xirq_callback(uint32_t xirq,
+void *mv_gal_register_xirq_callback(uint32_t xirq,
 				void (*cb)(void *, uint32_t), void *cookie)
 {
 	struct vmm_xirq_callback_entry *newentry;
@@ -289,7 +290,7 @@ void *vmm_register_xirq_callback(uint32_t xirq,
 		return NULL;
 #else /* test vm */
 	if (used_entries > MAX_XIRQ_CALLBACK_ENTRIES) {
-		vmm_printk("Not enough xirq_callback_entries!\n");
+		mv_gal_printk("Not enough xirq_callback_entries!\n");
 		return NULL;
 	}
 	newentry = &available_entries[used_entries];
@@ -315,7 +316,7 @@ void *vmm_register_xirq_callback(uint32_t xirq,
 	return newentry;
 }
 
-void vmm_xirq_detach(void *id)
+void mv_gal_xirq_detach(void *id)
 {
 	struct vmm_xirq_callback_entry *entry;
 	struct vmm_xirq_callback_entry *old;
@@ -345,34 +346,34 @@ void vmm_xirq_detach(void *id)
 	}
 }
 
-vmm_paddr_t vmm_vlink_lookup(const char *name, vmm_paddr_t plnk)
+vmm_paddr_t mv_gal_vlink_lookup(const char *name, vmm_paddr_t plnk)
 {
 	struct vmm_vlink *vlink;
-	vmm_paddr_t paddr = vmm_get_vlink_db();
+	vmm_paddr_t paddr = mv_get_vlink_db();
 
 	if (!name)
 		return 0;
 
-	vlink = (struct vmm_vlink *) vmm_ptov(paddr);
+	vlink = (struct vmm_vlink *) mv_gal_ptov(paddr);
 
 	if (plnk) {
 		while (paddr && paddr != plnk) {
 			paddr = vlink->next;
-			vlink = (struct vmm_vlink *) vmm_ptov(paddr);
+			vlink = (struct vmm_vlink *) mv_gal_ptov(paddr);
 			if (!vlink)
 				return 0;
 		}
 
 		paddr = vlink->next;
-		vlink = (struct vmm_vlink *) vmm_ptov(paddr);
+		vlink = (struct vmm_vlink *) mv_gal_ptov(paddr);
 	}
 
 	while (paddr && vlink) {
 		if (vlink->name &&
-		strcmp(vmm_ptov((vmm_paddr_t) vlink->name), name) == 0)
+		strcmp(mv_gal_ptov((vmm_paddr_t) vlink->name), name) == 0)
 			return paddr;
 		paddr = vlink->next;
-		vlink = (struct vmm_vlink *) vmm_ptov(paddr);
+		vlink = (struct vmm_vlink *) mv_gal_ptov(paddr);
 	}
 
 	/* not found */

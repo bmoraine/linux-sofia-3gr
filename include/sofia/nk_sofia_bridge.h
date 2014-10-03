@@ -33,13 +33,13 @@
 #define _D_NK_SOFIA_BRIDGE_H
 
 #ifdef __KERNEL__
-#include <sofia/vmm_guest_ipc.h>
-#include <sofia/vmm_al.h>
+#include <sofia/mv_ipc.h>
+#include <sofia/mv_gal.h>
 #include <linux/smp.h>
 #include <linux/percpu.h>
 #else
-#include "vmm_guest_ipc.h"
-#include "vmm_al.h"
+#include "mv_ipc.h"
+#include "mv_gal.h"
 #endif
 
 /* Use C99 portable fixed width types */

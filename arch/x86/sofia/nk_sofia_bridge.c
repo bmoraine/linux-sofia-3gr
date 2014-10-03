@@ -32,12 +32,12 @@
 #include <linux/atomic.h>
 #include <linux/gfp.h>
 #include <sofia/nk_sofia_bridge.h>
-#include <sofia/vmm_al.h>
+#include <sofia/mv_gal.h>
 #include <asm/mpspec.h>
 #include <asm/irq_vectors.h>
 #else
 #include "nk_sofia_bridge.h"
-#include "vmm_al.h"
+#include "mv_gal.h"
 #endif
 
 
@@ -117,10 +117,10 @@ static inline void _intr_unmask(void)
 /*
  * Find the first bit set in the given mask
  */
-static nku32_f vmm_ffs(nku32_f mask)
+static nku32_f mv_ffs(nku32_f mask)
 {
 	if (mask == 0)
-		vmm_panic("vmm_ffs called with mask equal to 0\n");
+		mv_gal_panic("vmm_ffs called with mask equal to 0\n");
 
 	return __ffs(mask);
 }
@@ -128,7 +128,7 @@ static nku32_f vmm_ffs(nku32_f mask)
 /*
  * Insert a bit of given priority into a mask.
  */
-static inline nku32_f vmm_bit_mask(nku32_f _bit)
+static inline nku32_f mv_bit_mask(nku32_f _bit)
 {
 	return 1 << _bit;
 }
@@ -136,7 +136,7 @@ static inline nku32_f vmm_bit_mask(nku32_f _bit)
 /*
  * Atomic operation to clear bits within a bit field.
  */
-static void vmm_atomic_clear(volatile nku32_f *addr, nku32_f data)
+static void mv_atomic_clear(volatile nku32_f *addr, nku32_f data)
 {
 	if (!addr)
 		return;
@@ -158,7 +158,7 @@ static void vmm_atomic_clear(volatile nku32_f *addr, nku32_f data)
  * Atomic operation to clear bits within a bit field.
  * Returns 0 if and only if the result is 0.
  */
-static nku32_f vmm_clear_and_test(volatile nku32_f *addr, nku32_f data)
+static nku32_f mv_clear_and_test(volatile nku32_f *addr, nku32_f data)
 {
 #ifndef ASM_ATOMIC_OPERATIONS
 	/*TODO: locks needed.
@@ -189,7 +189,7 @@ static nku32_f vmm_clear_and_test(volatile nku32_f *addr, nku32_f data)
 /*
  * Atomic operation to set bits within a bit field.
  */
-static void vmm_atomic_set(volatile nku32_f *addr, nku32_f data)
+static void mv_atomic_set(volatile nku32_f *addr, nku32_f data)
 {
 	if (!addr)
 		return;
@@ -210,7 +210,7 @@ static void vmm_atomic_set(volatile nku32_f *addr, nku32_f data)
 /*
  * Atomic operation to subtract value to a given memory location.
  */
-static void vmm_atomic_sub(volatile nku32_f *addr, nku32_f data)
+static void mv_atomic_sub(volatile nku32_f *addr, nku32_f data)
 {
 	if (!addr)
 		return;
@@ -232,7 +232,7 @@ static void vmm_atomic_sub(volatile nku32_f *addr, nku32_f data)
  * Atomic operation to subtract value to a given memory location.
  * Returns 0 if and only if the result is 0.
  */
-static nku32_f vmm_sub_and_test(volatile nku32_f *addr, nku32_f data)
+static nku32_f mv_sub_and_test(volatile nku32_f *addr, nku32_f data)
 {
 #ifndef ASM_ATOMIC_OPERATIONS
 	/* TODO: locks needed.
@@ -262,7 +262,7 @@ static nku32_f vmm_sub_and_test(volatile nku32_f *addr, nku32_f data)
 /*
  * Atomic operation to add value to a given memory location.
  */
-void vmm_atomic_add(volatile nku32_f *addr, nku32_f data)
+void mv_atomic_add(volatile nku32_f *addr, nku32_f data)
 {
 	if (!addr)
 		return;
@@ -281,40 +281,40 @@ void vmm_atomic_add(volatile nku32_f *addr, nku32_f data)
 #endif
 }
 
-static void *vmm_mem_map(NkPhAddr paddr, NkPhSize size)
+static void *mv_mem_map(NkPhAddr paddr, NkPhSize size)
 {
-	return vmm_ptov(paddr);
+	return mv_gal_ptov(paddr);
 }
 
-static void vmm_mem_unmap(void *vaddr, NkPhAddr paddr, NkPhSize size)
+static void mv_mem_unmap(void *vaddr, NkPhAddr paddr, NkPhSize size)
 {
 }
 
 NkDevOps nkops = {		/* NKDDI operations */
 	NK_VERSION_8,
-	vmm_myid,
-	vmm_ptov,
-	vmm_vtop,
-	vmm_register_xirq_callback,
-	vmm_virq_mask,
-	vmm_virq_unmask,
-	vmm_xirq_detach,
-	vmm_xirq_post,
-	vmm_ffs,
-	vmm_bit_mask,
-	vmm_atomic_clear,
-	vmm_clear_and_test,
-	vmm_atomic_set,
-	vmm_atomic_sub,
-	vmm_sub_and_test,
-	vmm_atomic_add,
-	vmm_mem_map,
-	vmm_mem_unmap,
-	vmm_vlink_lookup,
-	vmm_shared_mem_alloc,
-	vmm_xirq_alloc,
-	vmm_set_vaffinity,
-	vmm_shared_mem_alloc,
+	mv_gal_os_id,
+	mv_gal_ptov,
+	mv_gal_vtop,
+	mv_gal_register_xirq_callback,
+	mv_virq_mask,
+	mv_virq_unmask,
+	mv_gal_xirq_detach,
+	mv_xirq_post,
+	mv_ffs,
+	mv_bit_mask,
+	mv_atomic_clear,
+	mv_clear_and_test,
+	mv_atomic_set,
+	mv_atomic_sub,
+	mv_sub_and_test,
+	mv_atomic_add,
+	mv_mem_map,
+	mv_mem_unmap,
+	mv_gal_vlink_lookup,
+	mv_shared_mem_alloc,
+	mv_xirq_alloc,
+	mv_virq_set_affinity,
+	mv_shared_mem_alloc,
 };
 
 #ifdef __KERNEL__

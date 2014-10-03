@@ -20,7 +20,7 @@
 #include <linux/io.h>
 #include <asm/reboot.h>
 #include <sofia/nk_sofia_bridge.h>
-#include <sofia/vmm_al.h>
+#include <sofia/mv_gal.h>
 #include <sofia/pal_shared_data.h>
 
 
@@ -63,7 +63,7 @@ static void next_mode_transition(enum boot_mode *next_mode, char *reason)
 static void reboot_sysconf_hdl(void *dev, NkXIrq xirq)
 {
 	struct vmm_shared_data *data;
-	data = get_vmm_shared_data();
+	data = mv_gal_get_shared_data();
 	/* TRACE("system_reboot_action: %d\n", data->system_reboot_action); */
 	if (data->system_reboot_action > 0) {
 		if (!is_blocking) {
@@ -86,14 +86,14 @@ static int reboot(struct notifier_block *notifier,
 		next_mode_transition(&next_mode, (char *)data);
 	is_blocking = true;
 	if (is_linux_reboot)
-		vmm_initiate_reboot(next_mode);
+		mv_initiate_reboot(next_mode);
 	/*
 	 * Block reboot process and waiting for other os finish the reboot
 	 * since we have NVM depency
 	 */
 	while (1) {
-		share_data = get_vmm_shared_data();
-		running_guest = vmm_get_running_guests();
+		share_data = mv_gal_get_shared_data();
+		running_guest = mv_get_running_guests();
 		if (running_guest == (1 << share_data->os_id))
 			break;
 	}
@@ -107,32 +107,32 @@ static struct notifier_block reboot_notifier = {
 
 void vmm_machine_crash_shutdown(struct pt_regs *regs)
 {
-	vmm_stop_vcpu(vmm_vcpu_id());
+	mv_stop_vcpu(mv_vcpu_id());
 }
 
 static void vmm_machine_emergency_restart(void)
 {
-	vmm_stop_vcpu(vmm_vcpu_id());
+	mv_stop_vcpu(mv_vcpu_id());
 }
 
 void vmm_machine_shutdown(void)
 {
-	vmm_stop_vcpu(vmm_vcpu_id());
+	mv_stop_vcpu(mv_vcpu_id());
 }
 
 static void vmm_machine_restart(char *__unused)
 {
-	vmm_stop_vcpu(vmm_vcpu_id());
+	mv_stop_vcpu(mv_vcpu_id());
 }
 
 static void vmm_machine_halt(void)
 {
-	vmm_stop_vcpu(vmm_vcpu_id());
+	mv_stop_vcpu(mv_vcpu_id());
 }
 
 static void vmm_machine_power_off(void)
 {
-	vmm_stop_vcpu(vmm_vcpu_id());
+	mv_stop_vcpu(mv_vcpu_id());
 }
 
 #ifdef CONFIG_KEXEC
@@ -154,7 +154,7 @@ struct machine_ops vmm_machine_ops = {
 
 static int __init reboot_init(void)
 {
-	running_guest = vmm_get_running_guests();
+	running_guest = mv_get_running_guests();
 	reboot_sysconf_id =
 		nkops.nk_xirq_attach(NK_XIRQ_SYSCONF, reboot_sysconf_hdl, 0);
 	/* vmm_register_xirq_callback(VMM_XIRQ_SYSCONF,
