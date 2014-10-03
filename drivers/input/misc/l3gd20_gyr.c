@@ -468,7 +468,7 @@ static int l3gd20_gyr_update_fs_range(struct l3gd20_gyr_status *stat,
 
 	stat->sensitivity_numerator = sensitivity_numerator;
 	stat->sensitivity_denominator = sensitivity_denominator;
-	dev_info(&stat->client->dev, "Sensitivity: %d/%d\n",
+	dev_dbg(&stat->client->dev, "Sensitivity: %d/%d\n",
 		sensitivity_numerator, sensitivity_denominator);
 
 	return res;
@@ -501,7 +501,7 @@ static int l3gd20_gyr_update_odr(struct l3gd20_gyr_status *stat,
 		stat->resume_state[RES_CTRL_REG1] = config[1];
 		stat->ktime = ktime_set(0, MS_TO_NS(poll_interval_ms));
 	}
-	dev_info(&stat->client->dev, "ODR %x\n", config[1]);
+	dev_dbg(&stat->client->dev, "ODR %x\n", config[1]);
 
 	return err;
 }
@@ -561,7 +561,7 @@ static int l3gd20_gyr_hw_init(struct l3gd20_gyr_status *stat)
 	int err;
 	u8 buf[6];
 
-	dev_info(&stat->client->dev, "hw init\n");
+	dev_dbg(&stat->client->dev, "hw init\n");
 
 	buf[0] = (CTRL_REG1);
 	buf[1] = stat->resume_state[RES_CTRL_REG1];
@@ -590,7 +590,7 @@ static void l3gd20_gyr_device_power_off(struct l3gd20_gyr_status *stat)
 	int err;
 	u8 buf[2];
 
-	dev_info(&stat->client->dev, "power off\n");
+	dev_dbg(&stat->client->dev, "power off\n");
 
 	buf[0] = (CTRL_REG1);
 	buf[1] = (PM_OFF);
@@ -704,7 +704,7 @@ static ssize_t attr_polling_rate_store(struct device *dev,
 	err = l3gd20_gyr_update_odr(stat, interval_ms);
 	if (err >= 0)
 		stat->pdata->poll_interval = interval_ms;
-	dev_info(&stat->client->dev, "interval_ms %ld\n", interval_ms);
+	dev_dbg(&stat->client->dev, "interval_ms %ld\n", interval_ms);
 	mutex_unlock(&stat->lock);
 	return size;
 }
@@ -731,6 +731,8 @@ static ssize_t attr_enable_store(struct device *dev,
 		l3gd20_gyr_enable(stat);
 	else
 		l3gd20_gyr_disable(stat);
+
+	dev_dbg(dev, "sensor %s\n", val ? "enable" : "disable");
 
 	return size;
 }
@@ -1226,9 +1228,9 @@ skip_pinctrl:
 		gyro_pdata->fs_range = L3GD20_GYR_FS_250DPS;
 		break;
 	default:
-		dev_info(dev, "Error parsing %s property of node %s\n",
+		dev_dbg(dev, "Error parsing %s property of node %s\n",
 			OF_FS_RANGE, np->name);
-		dev_info(dev, "Use default value %d\n", L3GD20_GYR_FS_250DPS);
+		dev_dbg(dev, "Use default value %d\n", L3GD20_GYR_FS_250DPS);
 		break;
 	}
 
@@ -1288,8 +1290,6 @@ static int l3gd20_gyr_probe(struct i2c_client *client,
 			I2C_FUNC_SMBUS_WORD_DATA | I2C_FUNC_SMBUS_I2C_BLOCK;
 
 	int err = -1;
-
-	dev_info(&client->dev, "%s\n", __func__);
 
 	stat = kzalloc(sizeof(*stat), GFP_KERNEL);
 	if (stat == NULL) {
@@ -1351,7 +1351,7 @@ static int l3gd20_gyr_probe(struct i2c_client *client,
 		default_l3gd20_gyr_pdata.gpio_int2 = int2_gpio;
 		memcpy(stat->pdata, &default_l3gd20_gyr_pdata,
 							sizeof(*stat->pdata));
-		dev_info(&client->dev, "using default plaform_data\n");
+		dev_dbg(&client->dev, "using default plaform_data\n");
 	} else {
 		memcpy(stat->pdata, client->dev.platform_data,
 						sizeof(*stat->pdata));
@@ -1474,7 +1474,7 @@ static int l3gd20_gyr_probe(struct i2c_client *client,
 #ifdef POLLING
 	INIT_WORK(&stat->polling_task, poll_function_work);
 #endif
-	dev_info(&client->dev, "%s probed: device created successfully\n",
+	dev_info(&client->dev, "%s probed successfully\n",
 			L3GD20_GYR_DEV_NAME);
 
 	return 0;
@@ -1516,8 +1516,7 @@ static int l3gd20_gyr_remove(struct i2c_client *client)
 {
 	struct l3gd20_gyr_status *stat = i2c_get_clientdata(client);
 
-	dev_info(&stat->client->dev, "driver removing\n");
-
+	dev_dbg(&client->dev, "%s\n", __func__);
 	l3gd20_set_pinctrl_state(&client->dev, stat->pdata->pins_inactive);
 	l3gd20_gyr_disable(stat);
 	cancel_work_sync(&stat->polling_task);
