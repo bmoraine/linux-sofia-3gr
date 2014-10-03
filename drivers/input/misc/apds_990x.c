@@ -594,7 +594,7 @@ static void apds990x_work_handler(struct work_struct *work)
 	struct apds990x_data *data = container_of(work,
 					struct apds990x_data, dwork.work);
 	struct i2c_client *client = data->client;
-	int	status;
+	int status;
 	int cdata;
 
 	status = apds990x_read_byte(client, CMD_BYTE | APDS990x_STATUS_REG);
@@ -611,7 +611,7 @@ static void apds990x_work_handler(struct work_struct *work)
 		if (cdata < (75 * (1024 * (256 - data->atime))) / 100)
 			apds990x_change_ps_threshold(client);
 		else
-			dev_info(&client->dev,
+			dev_dbg(&client->dev,
 				"%s Triggered by background ambient noise\n",
 				APDS_990X_DEV_NAME);
 
@@ -626,7 +626,7 @@ static void apds990x_work_handler(struct work_struct *work)
 		if (cdata < (75 * (1024 * (256 - data->atime))) / 100)
 			apds990x_change_ps_threshold(client);
 		else
-			dev_info(&client->dev,
+			dev_dbg(&client->dev,
 				"%s Triggered by background ambient noise\n",
 				APDS_990X_DEV_NAME);
 
@@ -736,7 +736,7 @@ static ssize_t apds990x_store_enable_ps_sensor(struct device *dev,
 		return count;
 	}
 
-	dev_info(&client->dev,
+	dev_dbg(&client->dev,
 		"%s ps sensor\n", (val == 1) ? "enable" : "disable");
 
 	if (val == 1) {
@@ -829,13 +829,14 @@ static ssize_t apds990x_store_enable_als_sensor(struct device *dev,
 	if (kstrtoul(buf, 10, &val))
 		return -EINVAL;
 
-	dev_info(&client->dev, "%s enable als sensor\n",
-			APDS_990X_DEV_NAME);
 	if ((val != 0) && (val != 1)) {
 		dev_err(&client->dev, "%s: enable als sensor=%ld\n",
 				__func__, val);
 		return count;
 	}
+
+	dev_dbg(&client->dev,
+		"%s als sensor\n", (val == 1) ? "enable" : "disable");
 
 	if (val == 1) {
 		/* turn on light  sensor */
@@ -1166,24 +1167,21 @@ static int apds990x_init_client(struct i2c_client *client)
 
 	id = apds990x_read_byte(client, CMD_BYTE|APDS990x_ID_REG);
 	if (id == 0x20) {
-		dev_info(&client->dev,
-		"%s APDS-9901\n", APDS_990X_DEV_NAME);
+		dev_info(&client->dev, "%s APDS-9901\n", APDS_990X_DEV_NAME);
 		data->part_id = 0x20;
 		data->control_default = VAL_CONTROL_REG_APDS990x;
 	} else if (id == 0x29) {
-		dev_info(&client->dev,
-		"%s APDS-990x\n", APDS_990X_DEV_NAME);
+		dev_info(&client->dev, "%s APDS-990x\n", APDS_990X_DEV_NAME);
 		data->part_id = 0x29;
 		data->control_default = VAL_CONTROL_REG_APDS990x;
 	} else if (id == 0x39) {
-		dev_info(&client->dev,
-		"%s APDS-9930\n", APDS_990X_DEV_NAME);
+		dev_info(&client->dev, "%s APDS-9930\n", APDS_990X_DEV_NAME);
 		data->part_id = 0x39;
 		data->control_default = VAL_CONTROL_REG_APDS9930;
 	} else {
-		dev_info(&client->dev,
-		"%s Neither APDS-9901 nor APDS-9901 or ADPS-9930\n",
-		APDS_990X_DEV_NAME);
+		dev_err(&client->dev,
+			"%s Neither APDS-9901 nor APDS-990x nor ADPS-9930\n",
+			APDS_990X_DEV_NAME);
 		return -EIO;
 	}
 
@@ -1451,9 +1449,6 @@ static int __init apds990x_probe(struct i2c_client *client,
 	/* work in conjuction with als_poll_delay */
 	data->als_atime	= 0xdb;
 
-	dev_info(&client->dev, "enable = %s\n",
-			data->enable ? "1" : "0");
-
 	mutex_init(&data->update_lock);
 	spin_lock_init(&data->lock);
 
@@ -1480,7 +1475,7 @@ static int __init apds990x_probe(struct i2c_client *client,
 
 	if (request_irq(client->irq, apds990x_interrupt, IRQF_TRIGGER_FALLING,
 		APDS990x_DRV_NAME, (void *)client)) {
-		dev_info(&client->dev,
+		dev_err(&client->dev,
 			"apds990x.c: Could not allocate APDS990x_INT !\n");
 
 		goto exit_free_gpio;
@@ -1626,7 +1621,9 @@ static int apds990x_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct apds990x_data *data = i2c_get_clientdata(client);
 
-	apds990x_set_pinctrl_state(&client->dev, data->pdata->pins_sleep);
+	dev_dbg(dev, "%s: suspend\n", APDS_990X_DEV_NAME);
+
+	apds990x_set_pinctrl_state(dev, data->pdata->pins_sleep);
 	if (data->enable_als_sensor == 1  || data->enable_ps_sensor == 1) {
 		apds990x_set_enable(client, 0);
 		apds990x_power_off(data);
@@ -1640,7 +1637,9 @@ static int apds990x_resume(struct device *dev)
 	int err = 0;
 	struct apds990x_data *data = i2c_get_clientdata(client);
 
-	apds990x_set_pinctrl_state(&client->dev, data->pdata->pins_default);
+	dev_dbg(dev, "%s: resume\n", APDS_990X_DEV_NAME);
+
+	apds990x_set_pinctrl_state(dev, data->pdata->pins_default);
 	if (data->enable_als_sensor == 1 || data->enable_ps_sensor == 1) {
 		err = apds990x_power_on(data);
 		if (err) {
