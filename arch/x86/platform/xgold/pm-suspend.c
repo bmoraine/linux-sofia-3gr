@@ -15,6 +15,7 @@
 #include <linux/suspend.h>
 #include <linux/module.h>
 #include <linux/err.h>
+#include <asm/x86_init.h>
 #ifdef CONFIG_PLATFORM_DEVICE_PM_VIRT
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <linux/vpower.h>
@@ -30,6 +31,8 @@ int xgold_suspend_enter(suspend_state_t suspend_state)
 
 	switch (suspend_state) {
 	case PM_SUSPEND_MEM:
+		if (x86_platform.save_sched_clock_state)
+			x86_platform.save_sched_clock_state();
 		vm_enter_idle(data->pal_shared_mem_data,
 					PM_S3);
 		native_halt();
@@ -40,8 +43,15 @@ int xgold_suspend_enter(suspend_state_t suspend_state)
 	return 0;
 }
 
+void xgold_suspend_finish(void)
+{
+	if (x86_platform.restore_sched_clock_state)
+		x86_platform.restore_sched_clock_state();
+}
+
 static const struct platform_suspend_ops xgold_suspend_ops = {
 	.enter		= xgold_suspend_enter,
+	.finish		= xgold_suspend_finish,
 	.valid		= suspend_valid_only_mem,
 };
 

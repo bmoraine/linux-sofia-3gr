@@ -16,6 +16,7 @@
 #include <linux/sizes.h>
 #include <linux/bootmem.h>
 #include <linux/slab.h>
+#include <linux/sched.h>
 
 #include <linux/clk-provider.h>
 #include <linux/clk/xgold.h>
@@ -189,6 +190,7 @@ static int __init xgold_init_machine(void)
 	int ret = 0;
 	XGOLD_ENTER;
 	xgold_soc_init();
+	set_sched_clock_stable();
 	XGOLD_EXIT;
 	return ret;
 }
@@ -272,6 +274,16 @@ static unsigned long __init xgold_calibrate_tsc(void)
 	lapic_timer_frequency /= HZ;
 #endif
 	return 0;
+}
+
+void xgold_save_clock_state(void)
+{
+	tsc_save_sched_clock_state();
+}
+
+void xgold_restore_clock_state(void)
+{
+	tsc_restore_sched_clock_state();
 }
 
 static int xgold_i8042_init(void)
@@ -371,6 +383,8 @@ void __init x86_xgold_early_setup(void)
 	/* Not needed for PC */
 	x86_init.timers.timer_init = x86_xgold_time_init,
 	x86_platform.calibrate_tsc = xgold_calibrate_tsc;
+	x86_platform.save_sched_clock_state = xgold_save_clock_state;
+	x86_platform.restore_sched_clock_state = xgold_restore_clock_state;
 	x86_platform.i8042_detect = xgold_i8042_init;
 
 #ifdef CONFIG_X86_INTEL_SOFIA
