@@ -254,6 +254,7 @@ static int dsp_audio_dev_close(void)
 static void dsp_audio_mark_scheduler_status(struct dsp_aud_cmd_data *p_cmd_data)
 {
 	#define PARM_ON 1
+	#define PARM_UPDATE 2
 	#define PARM_ON_UPDATE 3
 
 	unsigned short *data_trace_ptr;
@@ -264,6 +265,7 @@ static void dsp_audio_mark_scheduler_status(struct dsp_aud_cmd_data *p_cmd_data)
 		/* Check if the command is to start dsp scheduler */
 		if (DSP_AUDIO_CMD_VB_HW_AFE == p_cmd_data->command_id) {
 			if ((PARM_ON == data_trace_ptr[0]) ||
+				(PARM_UPDATE == data_trace_ptr[0]) ||
 				(PARM_ON_UPDATE == data_trace_ptr[0])) {
 				g_dsp_audio_dev->dsp_sched_start = 1;
 				xgold_debug("dsp scheduler marked as started\n");
