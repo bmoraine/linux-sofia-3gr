@@ -16,7 +16,9 @@
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 #include <linux/usb/gadget.h>
+#include <linux/usb/of.h>
 #include <linux/usb/otg.h>
+#include <linux/usb/phy-intel.h>
 #include <linux/wakelock.h>
 #include "phy-intel.h"
 
@@ -181,9 +183,65 @@ DECLARE_USB_ENABLE(dcdenb)
 DECLARE_USB_ENABLE(chrgsel)
 DECLARE_USB_STATUS(drvvbus)
 DECLARE_USB_STATUS(ridgnd)
+DECLARE_USB_STATUS(iddig0)
 DECLARE_USB_STATUS(fsvplus)
 DECLARE_USB_STATUS(chrgdet)
 DECLARE_USB_STATUS(hsrs)
+
+static const char *timer_string(int bit)
+{
+	switch (bit) {
+	case A_WAIT_VRISE:		return "a_wait_vrise";
+	case A_WAIT_VFALL:		return "a_wait_vfall";
+	case A_WAIT_BCON:		return "a_wait_bcon";
+	default:			return "UNDEFINED";
+	}
+}
+
+static enum hrtimer_restart intel_otg_timer_func(struct hrtimer *hrtimer)
+{
+	struct intel_usbphy *iphy =
+		container_of(hrtimer, struct intel_usbphy, timer);
+	switch (iphy->active_tmout) {
+	case A_WAIT_VRISE:
+		set_bit(A_VBUS_VLD, &iphy->inputs);
+		break;
+	default:
+		set_bit(iphy->active_tmout, &iphy->tmouts);
+	}
+	dev_dbg(iphy->dev, "expired %s timer\n",
+			timer_string(iphy->active_tmout));
+	schedule_work(&iphy->sm_work);
+	return HRTIMER_NORESTART;
+}
+
+static void intel_otg_del_timer(struct intel_usbphy *iphy)
+{
+	int bit = iphy->active_tmout;
+
+	dev_dbg(iphy->dev, "deleting %s timer. remaining %lld msec\n",
+			timer_string(bit),
+			div_s64(ktime_to_us(
+				hrtimer_get_remaining(&iphy->timer)), 1000));
+	hrtimer_cancel(&iphy->timer);
+	clear_bit(bit, &iphy->tmouts);
+}
+
+static void intel_otg_start_timer(struct intel_usbphy *iphy, int time, int bit)
+{
+	clear_bit(bit, &iphy->tmouts);
+	iphy->active_tmout = bit;
+	dev_dbg(iphy->dev, "starting %s timer\n", timer_string(bit));
+	hrtimer_start(&iphy->timer,
+			ktime_set(time / 1000, (time % 1000) * 1000000),
+			HRTIMER_MODE_REL);
+}
+
+static void intel_otg_init_timer(struct intel_usbphy *iphy)
+{
+	hrtimer_init(&iphy->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	iphy->timer.function = intel_otg_timer_func;
+}
 
 int usb_enable_reset(struct intel_usbphy *iphy, bool reset, char *name)
 {
@@ -204,7 +262,7 @@ int usb_enable_reset(struct intel_usbphy *iphy, bool reset, char *name)
 #ifdef CONFIG_PM_SLEEP
 static int intel_otg_suspend(struct intel_usbphy *iphy)
 {
-	bool device_bus_suspend;
+	bool device_bus_suspend, host_bus_suspend;
 	struct usb_phy *phy = &iphy->phy;
 	int ret = 0;
 	void __iomem *pcgctlregs = phy->io_priv;
@@ -214,7 +272,8 @@ static int intel_otg_suspend(struct intel_usbphy *iphy)
 
 	device_bus_suspend = phy->otg->gadget && test_bit(ID, &iphy->inputs) &&
 		test_bit(A_BUS_SUSPEND, &iphy->inputs);
-	if (device_bus_suspend) {
+	host_bus_suspend = phy->otg->host && !test_bit(ID, &iphy->inputs);
+	if (device_bus_suspend || host_bus_suspend) {
 		/* power off USB core, restore isolation */
 		ret = device_state_pm_set_state(iphy->dev,
 				iphy->pm_states[USB_PMS_SUSPEND]);
@@ -261,6 +320,8 @@ static int intel_otg_suspend(struct intel_usbphy *iphy)
 		dev_err(iphy->dev, "pm set state disable failed: %d", ret);
 		return -EINVAL;
 	}
+	if (device_may_wakeup(iphy->dev))
+		enable_irq_wake(iphy->id_irq);
 
 	atomic_set(&iphy->in_lpm, 1);
 	wake_unlock(&iphy->wlock);
@@ -320,6 +381,8 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 		return -EINVAL;
 	}
 
+	if (device_may_wakeup(iphy->dev))
+		disable_irq_wake(iphy->id_irq);
 
 	/* reset USB core and PHY */
 	usb_enable_reset(iphy, true, "usb");
@@ -353,10 +416,43 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 }
 #endif
 
+static int intel_usb2phy_set_vbus(struct usb_phy *phy, int on)
+{
+	struct intel_usbphy *iphy = container_of(phy, struct intel_usbphy, phy);
+	atomic_notifier_call_chain(&iphy->phy.notifier,
+			INTEL_USB_DRV_VBUS, &on);
+	return 0;
+}
+
+static int intel_usb2phy_connect(struct usb_phy *phy,
+		enum usb_device_speed speed)
+{
+	struct intel_usbphy *iphy = container_of(phy, struct intel_usbphy, phy);
+	if (phy->state == OTG_STATE_A_WAIT_BCON) {
+		dev_dbg(iphy->dev, "B_CONN set\n");
+		set_bit(B_CONN, &iphy->inputs);
+		intel_otg_del_timer(iphy);
+		phy->state = OTG_STATE_A_HOST;
+	}
+	return 0;
+}
+
+static int intel_usb2phy_disconnect(struct usb_phy *phy,
+		enum usb_device_speed speed)
+{
+	struct intel_usbphy *iphy = container_of(phy, struct intel_usbphy, phy);
+	if ((phy->state == OTG_STATE_A_HOST) ||
+			(phy->state == OTG_STATE_A_SUSPEND)) {
+		dev_dbg(iphy->dev, "B_CONN clear\n");
+		clear_bit(B_CONN, &iphy->inputs);
+		schedule_work(&iphy->sm_work);
+	}
+	return 0;
+}
+
 static int intel_usb2phy_set_suspend(struct usb_phy *phy, int suspend)
 {
 	struct intel_usbphy *iphy = container_of(phy, struct intel_usbphy, phy);
-	/* TODO: add suspend in case of A_HOST.. */
 	if (suspend) {
 		switch (phy->state) {
 		case OTG_STATE_B_PERIPHERAL:
@@ -365,7 +461,16 @@ static int intel_usb2phy_set_suspend(struct usb_phy *phy, int suspend)
 			if (!atomic_read(&iphy->in_lpm))
 				schedule_work(&iphy->sm_work);
 			break;
-
+		case OTG_STATE_A_WAIT_BCON:
+			if (TA_WAIT_BCON > 0)
+				break;
+			/* fall through */
+		case OTG_STATE_A_HOST:
+			dev_dbg(phy->dev, "host bus suspend\n");
+			clear_bit(A_BUS_REQ, &iphy->inputs);
+			if (!atomic_read(&iphy->in_lpm))
+				schedule_work(&iphy->sm_work);
+			break;
 		default:
 			break;
 		}
@@ -376,6 +481,18 @@ static int intel_usb2phy_set_suspend(struct usb_phy *phy, int suspend)
 			clear_bit(A_BUS_SUSPEND, &iphy->inputs);
 			 if (atomic_read(&iphy->in_lpm))
 				schedule_work(&iphy->sm_work);
+			break;
+		case OTG_STATE_A_WAIT_BCON:
+			set_bit(A_BUS_REQ, &iphy->inputs);
+			 if (atomic_read(&iphy->in_lpm))
+				pm_runtime_resume(phy->dev);
+			 break;
+		case OTG_STATE_A_SUSPEND:
+			dev_dbg(phy->dev, "host bus resume\n");
+			set_bit(A_BUS_REQ, &iphy->inputs);
+			phy->state = OTG_STATE_A_HOST;
+			if (atomic_read(&iphy->in_lpm))
+				pm_runtime_resume(phy->dev);
 			break;
 		default:
 			break;
@@ -388,6 +505,28 @@ static irqreturn_t intel_usb2phy_resume(int irq, void *dev)
 {
 	struct intel_usbphy *iphy = (struct intel_usbphy *) dev;
 	intel_usb2phy_set_suspend(&iphy->phy, 0);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t intel_usb2phy_id(int irq, void *dev)
+{
+	struct intel_usbphy *iphy = (struct intel_usbphy *) dev;
+	int id_status;
+	id_status = usb_iddig0_status(iphy);
+	if (id_status) {
+		dev_dbg(iphy->phy.dev, "ID set\n");
+		set_bit(ID, &iphy->inputs);
+		irq_set_irq_type(iphy->id_irq, IRQ_TYPE_EDGE_FALLING);
+	} else {
+		dev_dbg(iphy->phy.dev, "ID clear\n");
+		set_bit(A_BUS_REQ, &iphy->inputs);
+		clear_bit(ID, &iphy->inputs);
+		irq_set_irq_type(iphy->id_irq, IRQ_TYPE_EDGE_RISING);
+	}
+	if (atomic_read(&iphy->pm_suspended))
+		iphy->sm_work_pending = true;
+	else
+		schedule_work(&iphy->sm_work);
 	return IRQ_HANDLED;
 }
 
@@ -449,6 +588,17 @@ static int intel_usb2phy_set_peripheral(struct usb_otg *otg,
 {
 	struct intel_usbphy *iphy = container_of(otg->phy,
 			struct intel_usbphy, phy);
+
+	/*
+	 * Fail peripheral registration if this board can support
+	 * only host configuration.
+	 */
+
+	if (iphy->mode == USB_DR_MODE_HOST) {
+		dev_err(iphy->dev, "Peripheral mode is not supported\n");
+		return -ENODEV;
+	}
+
 	if (!otg)
 		return -ENODEV;
 
@@ -467,8 +617,10 @@ static int intel_usb2phy_set_peripheral(struct usb_otg *otg,
 
 	otg->gadget = gadget;
 
-	pm_runtime_get_sync(otg->phy->dev);
-	schedule_work(&iphy->sm_work);
+	if (iphy->mode == USB_DR_MODE_PERIPHERAL || otg->host) {
+		pm_runtime_get_sync(otg->phy->dev);
+		schedule_work(&iphy->sm_work);
+	}
 
 	return 0;
 }
@@ -502,15 +654,45 @@ static void intel_otg_start_host(struct usb_otg *otg, int on)
 static int intel_usb2phy_set_host(struct usb_otg *otg,
 		struct usb_bus *host)
 {
+	struct intel_usbphy *iphy = container_of(otg->phy,
+			struct intel_usbphy, phy);
+	struct usb_hcd *hcd;
+
+	/*
+	 * Fail host registration if this board can support
+	 * only peripheral configuration.
+	 */
+	if (iphy->mode == USB_DR_MODE_PERIPHERAL) {
+		dev_err(iphy->dev, "Host mode is not supported\n");
+		return -ENODEV;
+	}
+
 	if (!otg)
 		return -ENODEV;
 
 	if (!host) {
-		otg->host = NULL;
-		return -ENODEV;
+		if (otg->phy->state == OTG_STATE_A_HOST) {
+			pm_runtime_get_sync(otg->phy->dev);
+			intel_otg_start_host(otg, 0);
+			usb_phy_vbus_off(otg->phy);
+			otg->host = NULL;
+			otg->phy->state = OTG_STATE_UNDEFINED;
+			schedule_work(&iphy->sm_work);
+		} else {
+			otg->host = NULL;
+		}
+		return 0;
 	}
 
+	hcd = bus_to_hcd(host);
+	hcd->power_budget = iphy->power_budget;
+	hcd->phy = &iphy->phy;
 	otg->host = host;
+
+	if (iphy->mode == USB_DR_MODE_HOST || otg->gadget) {
+		pm_runtime_get_sync(otg->phy->dev);
+		schedule_work(&iphy->sm_work);
+	}
 	return 0;
 }
 
@@ -522,7 +704,6 @@ static int intel_usb2phy_notifier(struct notifier_block *nb,
 			struct intel_usbphy, usb_nb);
 	int *vbus;
 
-	/*TODO: What if LPM ? */
 	switch (event) {
 	case USB_EVENT_VBUS:
 		vbus = (int *) priv;
@@ -541,6 +722,15 @@ static int intel_usb2phy_notifier(struct notifier_block *nb,
 			dev_dbg(iphy->dev, "BMS VBUS init complete\n");
 			return NOTIFY_OK;
 		}
+		if (atomic_read(&iphy->pm_suspended))
+			iphy->sm_work_pending = true;
+		else
+			schedule_work(&iphy->sm_work);
+		break;
+
+	case INTEL_USB_DRV_VBUS_ERR:
+		dev_dbg(iphy->dev, "!a_vbus_vld\n");
+		clear_bit(A_VBUS_VLD, &iphy->inputs);
 		if (atomic_read(&iphy->pm_suspended))
 			iphy->sm_work_pending = true;
 		else
@@ -699,10 +889,34 @@ static void intel_chg_detect_work(struct work_struct *w)
 
 static void intel_otg_init_sm(struct intel_usbphy *iphy)
 {
-	/*TODO: host mode*/
-	set_bit(ID, &iphy->inputs);
-	/* Wait for charger IC input */
-	wait_for_completion(&iphy->bms_vbus_init);
+	switch (iphy->mode) {
+	case USB_DR_MODE_OTG:
+		if (usb_iddig0_status(iphy)) {
+			dev_dbg(iphy->phy.dev, "ID set\n");
+			set_bit(ID, &iphy->inputs);
+			irq_set_irq_type(iphy->id_irq, IRQ_TYPE_EDGE_FALLING);
+		} else {
+			dev_dbg(iphy->phy.dev, "ID clear\n");
+			set_bit(A_BUS_REQ, &iphy->inputs);
+			clear_bit(ID, &iphy->inputs);
+			irq_set_irq_type(iphy->id_irq, IRQ_TYPE_EDGE_RISING);
+		}
+
+		/* Wait for charger IC input */
+		wait_for_completion(&iphy->bms_vbus_init);
+		break;
+	case USB_DR_MODE_HOST:
+		clear_bit(ID, &iphy->inputs);
+		break;
+	case USB_DR_MODE_PERIPHERAL:
+		set_bit(ID, &iphy->inputs);
+		/* Wait for charger IC input */
+		wait_for_completion(&iphy->bms_vbus_init);
+		break;
+	default:
+		break;
+	}
+
 }
 
 static void intel_otg_sm_work(struct work_struct *w)
@@ -733,13 +947,28 @@ static void intel_otg_sm_work(struct work_struct *w)
 			pm_runtime_put_noidle(otg->phy->dev);
 			pm_runtime_suspend(otg->phy->dev);
 			break;
+		} else if (!test_bit(ID, &iphy->inputs)) {
+			/*
+			 * FIXME: Charger IC driver is waiting for
+			 * POWER_SUPPLY_CHARGER_EVENT_DISCONNECT to
+			 * stop charging if cable is disconnected.
+			 * HACK: intel_otg_notify_charger check that cur_power
+			 * is different from requested value.
+			 * This is why cur_power is set to 1 prior calling it.
+			 */
+			iphy->cur_power =  1;
+			intel_otg_notify_charger(iphy, 0);
 		}
 		/* FALL THROUGH */
 	case OTG_STATE_B_IDLE:
 		if (!test_bit(ID, &iphy->inputs) && otg->host) {
+			dev_dbg(iphy->dev, "!id\n");
+			clear_bit(B_BUS_REQ, &iphy->inputs);
+			set_bit(A_BUS_REQ, &iphy->inputs);
 			otg->phy->state = OTG_STATE_A_IDLE;
 			work = 1;
 		} else if (test_bit(B_SESS_VLD, &iphy->inputs)) {
+			dev_dbg(iphy->dev, "b_sess_vld\n");
 			switch (iphy->chg_state) {
 			case USB_CHG_STATE_UNDEFINED:
 				intel_chg_detect_work(&iphy->chg_work.work);
@@ -796,6 +1025,7 @@ static void intel_otg_sm_work(struct work_struct *w)
 	case OTG_STATE_B_PERIPHERAL:
 		if (!test_bit(B_SESS_VLD, &iphy->inputs) ||
 				!test_bit(ID, &iphy->inputs)) {
+			dev_dbg(iphy->dev, "!id || !b_sess_vld\n");
 			iphy->chg_state = USB_CHG_STATE_UNDEFINED;
 			intel_otg_notify_charger(iphy, 0);
 			iphy->chg_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
@@ -811,13 +1041,161 @@ static void intel_otg_sm_work(struct work_struct *w)
 			pm_runtime_suspend(otg->phy->dev);
 		}
 		break;
-	case OTG_STATE_A_HOST:
+	case OTG_STATE_A_IDLE:
 		if (test_bit(ID, &iphy->inputs)) {
-			intel_otg_start_host(otg, 0);
+			dev_dbg(iphy->dev, "id\n");
+			clear_bit(A_BUS_DROP, &iphy->inputs);
 			otg->phy->state = OTG_STATE_B_IDLE;
+			work = 1;
+		} else if (!test_bit(A_BUS_DROP, &iphy->inputs) &&
+				(test_bit(A_BUS_REQ, &iphy->inputs) ||
+				 test_bit(A_SRP_DET, &iphy->inputs))) {
+			dev_dbg(iphy->dev,
+				"!a_bus_drop && (a_srp_det || a_bus_req)\n");
+			clear_bit(A_SRP_DET, &iphy->inputs);
+			otg->phy->state = OTG_STATE_A_WAIT_VRISE;
+			/* Enable VBUS */
+			usb_phy_vbus_on(otg->phy);
+
+			/* Wait for VBUS to be enabled */
+			intel_otg_start_timer(iphy,
+					TA_WAIT_VRISE, A_WAIT_VRISE);
+		}
+		break;
+	case OTG_STATE_A_WAIT_VRISE:
+		if ((test_bit(ID, &iphy->inputs) ||
+				test_bit(A_WAIT_VRISE, &iphy->tmouts) ||
+				test_bit(A_BUS_DROP, &iphy->inputs))) {
+			dev_dbg(iphy->dev, "id || a_bus_drop || a_wait_vrise_tmout\n");
+			clear_bit(A_BUS_REQ, &iphy->inputs);
+			intel_otg_del_timer(iphy);
+			usb_phy_vbus_off(otg->phy);
+			otg->phy->state = OTG_STATE_A_WAIT_VFALL;
+			intel_otg_start_timer(iphy, TA_WAIT_VFALL,
+					A_WAIT_VFALL);
+		} else if (test_bit(A_VBUS_VLD, &iphy->inputs)) {
+			dev_dbg(iphy->dev, "a_vbus_vld\n");
+			usb_enable_avalid(iphy, 1);
+			usb_enable_bvalid(iphy, 1);
+			usb_enable_vbusvalid(iphy, 1);
+			usb_enable_sessend(iphy, 0);
+			otg->phy->state = OTG_STATE_A_WAIT_BCON;
+			if (TA_WAIT_BCON > 0)
+				intel_otg_start_timer(iphy, TA_WAIT_BCON,
+					A_WAIT_BCON);
+			intel_otg_start_host(otg, 1);
+		}
+		break;
+	case OTG_STATE_A_WAIT_BCON:
+		if ((test_bit(ID, &iphy->inputs) ||
+					test_bit(A_WAIT_BCON, &iphy->tmouts) ||
+					test_bit(A_BUS_DROP, &iphy->inputs))) {
+
+			dev_dbg(iphy->dev,
+				"id || a_bus_drop || a_wait_bcon_tmout\n");
+			if (test_bit(A_WAIT_BCON, &iphy->tmouts))
+				dev_dbg(iphy->dev, "No response from Device\n");
+
+			intel_otg_del_timer(iphy);
+			clear_bit(A_BUS_REQ, &iphy->inputs);
+			clear_bit(B_CONN, &iphy->inputs);
+			intel_otg_start_host(otg, 0);
+			usb_phy_vbus_off(otg->phy);
+			otg->phy->state = OTG_STATE_A_WAIT_VFALL;
+			intel_otg_start_timer(iphy,
+					TA_WAIT_VFALL, A_WAIT_VFALL);
+		} else if (!test_bit(A_VBUS_VLD, &iphy->inputs)) {
+			dev_dbg(iphy->dev, "!a_vbus_vld\n");
+			clear_bit(B_CONN, &iphy->inputs);
+			intel_otg_del_timer(iphy);
+			intel_otg_start_host(otg, 0);
+			otg->phy->state = OTG_STATE_A_VBUS_ERR;
+		}
+		break;
+	case OTG_STATE_A_HOST:
+		if (test_bit(ID, &iphy->inputs) || test_bit(A_BUS_DROP,
+					&iphy->inputs)) {
+			dev_dbg(iphy->dev, "id || a_bus_drop\n");
+			clear_bit(B_CONN, &iphy->inputs);
+			clear_bit(A_BUS_REQ, &iphy->inputs);
+			intel_otg_del_timer(iphy);
+			otg->phy->state = OTG_STATE_A_WAIT_VFALL;
+			intel_otg_start_host(otg, 0);
+			usb_phy_vbus_off(otg->phy);
+			intel_otg_start_timer(iphy,
+					TA_WAIT_VFALL, A_WAIT_VFALL);
+		} else if (!test_bit(A_VBUS_VLD, &iphy->inputs)) {
+			dev_dbg(iphy->dev, "!a_vbus_vld\n");
+			clear_bit(B_CONN, &iphy->inputs);
+			intel_otg_del_timer(iphy);
+			otg->phy->state = OTG_STATE_A_VBUS_ERR;
+			intel_otg_start_host(otg, 0);
+		} else if (!test_bit(A_BUS_REQ, &iphy->inputs)) {
+			dev_dbg(iphy->dev, "!a_bus_req\n");
+			intel_otg_del_timer(iphy);
+			otg->phy->state = OTG_STATE_A_SUSPEND;
+			pm_runtime_put_sync(otg->phy->dev);
+		} else if (!test_bit(B_CONN, &iphy->inputs)) {
+			dev_dbg(iphy->dev, "!b_conn\n");
+			intel_otg_del_timer(iphy);
+			otg->phy->state = OTG_STATE_A_WAIT_BCON;
+			if (TA_WAIT_BCON > 0)
+				intel_otg_start_timer(iphy, TA_WAIT_BCON,
+					A_WAIT_BCON);
+		}
+		break;
+	case OTG_STATE_A_SUSPEND:
+		if (test_bit(ID, &iphy->inputs) || test_bit(A_BUS_DROP,
+					&iphy->inputs)) {
+			dev_dbg(iphy->dev,  "id || a_bus_drop\n");
+			intel_otg_del_timer(iphy);
+			clear_bit(B_CONN, &iphy->inputs);
+			otg->phy->state = OTG_STATE_A_WAIT_VFALL;
+			intel_otg_start_host(otg, 0);
+			usb_phy_vbus_off(otg->phy);
+			intel_otg_start_timer(iphy,
+					TA_WAIT_VFALL, A_WAIT_VFALL);
+		} else if (!test_bit(A_VBUS_VLD, &iphy->inputs)) {
+			dev_dbg(iphy->dev, "!a_vbus_vld\n");
+			usb_enable_avalid(iphy, 0);
+			usb_enable_bvalid(iphy, 0);
+			usb_enable_vbusvalid(iphy, 0);
+			usb_enable_sessend(iphy, 1);
+			intel_otg_del_timer(iphy);
+			clear_bit(B_CONN, &iphy->inputs);
+			otg->phy->state = OTG_STATE_A_VBUS_ERR;
+			intel_otg_start_host(otg, 0);
+		} else if (!test_bit(B_CONN, &iphy->inputs)) {
+			dev_dbg(iphy->dev, "!b_conn\n");
+			/*
+			 * bus request is dropped during suspend.
+			 * acquire again for next device.
+			 */
+			set_bit(A_BUS_REQ, &iphy->inputs);
+			otg->phy->state = OTG_STATE_A_WAIT_BCON;
+			if (TA_WAIT_BCON > 0)
+				intel_otg_start_timer(iphy, TA_WAIT_BCON,
+					A_WAIT_BCON);
+		}
+		break;
+	case OTG_STATE_A_WAIT_VFALL:
+		if (test_bit(A_WAIT_VFALL, &iphy->tmouts)) {
+			clear_bit(A_VBUS_VLD, &iphy->inputs);
+			otg->phy->state = OTG_STATE_A_IDLE;
 			work = 1;
 		}
 		break;
+	case OTG_STATE_A_VBUS_ERR:
+		if (test_bit(ID, &iphy->inputs) ||
+				test_bit(A_BUS_DROP, &iphy->inputs) ||
+				test_bit(A_CLR_ERR, &iphy->inputs)) {
+			otg->phy->state = OTG_STATE_A_WAIT_VFALL;
+			usb_phy_vbus_off(otg->phy);
+			intel_otg_start_timer(iphy,
+					TA_WAIT_VFALL, A_WAIT_VFALL);
+		}
+		break;
+
 	default:
 		break;
 	}
@@ -1087,6 +1465,7 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 
 	PARSE_USB_STATUS(drvvbus);
 	PARSE_USB_STATUS(ridgnd);
+	PARSE_USB_STATUS(iddig0);
 	PARSE_USB_STATUS(fsvplus);
 	PARSE_USB_STATUS(chrgdet);
 	PARSE_USB_STATUS(hsrs);
@@ -1120,6 +1499,22 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 		dev_info(dev, "resume irq not found\n");
 	}
 
+	/* Register ID pin interrupt used to detect device connection */
+	iphy->id_irq = platform_get_irq_byname(pdev, "id");
+	if (!IS_ERR_VALUE(iphy->id_irq)) {
+		ret = devm_request_irq(dev, iphy->id_irq,
+				intel_usb2phy_id,
+				IRQF_SHARED | IRQF_NO_SUSPEND, "usb_id", iphy);
+		if (ret != 0) {
+			dev_err(dev,
+				"setup irq%d failed with ret = %d\n",
+				iphy->id_irq, ret);
+			return -EINVAL;
+		}
+	} else {
+		dev_info(dev, "id irq not found\n");
+	}
+
 	/* Register reset controllers */
 	if (of_find_property(np, "reset-names", NULL)) {
 		len = of_property_count_strings(np, "reset-names");
@@ -1149,8 +1544,25 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 				reset->res_name);
 		}
 	}
+	/* Get requested mode */
+	iphy->mode = of_usb_get_dr_mode(np);
+	if (iphy->mode == USB_DR_MODE_UNKNOWN) {
+		dev_err(iphy->dev, "invalid mode\n");
+		return -EINVAL;
+	}
+
+	/* Get power budget for host mode */
+	ret = of_property_read_u32(np, "intel,power_budget",
+			&iphy->power_budget);
+	if (ret) {
+		dev_dbg(dev, "can't find powerbudget, default to 500mA\n");
+		iphy->power_budget = 500;
+	}
+
+	dev_info(dev, "power budget set to %d mA\n", iphy->power_budget);
 
 	wake_lock_init(&iphy->wlock, WAKE_LOCK_SUSPEND, "intel_otg");
+	intel_otg_init_timer(iphy);
 	INIT_WORK(&iphy->sm_work, intel_otg_sm_work);
 	INIT_DELAYED_WORK(&iphy->chg_work, intel_chg_detect_work);
 	init_completion(&iphy->bms_vbus_init);
@@ -1160,6 +1572,9 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 	iphy->phy.label		= "intel-phy";
 	iphy->phy.set_power	= intel_usb2phy_set_power;
 	iphy->phy.set_suspend	= intel_usb2phy_set_suspend;
+	iphy->phy.notify_connect = intel_usb2phy_connect;
+	iphy->phy.notify_disconnect = intel_usb2phy_disconnect;
+	iphy->phy.set_vbus	= intel_usb2phy_set_vbus;
 	iphy->phy.state		= OTG_STATE_UNDEFINED;
 	iphy->phy.type		= USB_PHY_TYPE_USB2;
 
@@ -1209,7 +1624,7 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 	while (usb_hsrs_status(iphy) && i++ < 500)
 		udelay(1);
 
-	pr_info("got usb reset in %d us\n", i);
+	dev_dbg(dev, "got usb reset in %d us\n", i);
 
 	iphy->usb_nb.notifier_call = intel_usb2phy_notifier;
 	usb_register_notifier(&iphy->phy, &iphy->usb_nb);
