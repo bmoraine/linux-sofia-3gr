@@ -142,7 +142,7 @@ again:
 			if (!strcmp(ion_heap_type_name[itype].name,
 							child->name)) {
 				myheap = &pdata->heaps[iheap];
-				pr_err("%s: heap %p\n", __func__, myheap);
+				pr_debug("%s: heap %p\n", __func__, myheap);
 				myheap->name = child->name;
 				myheap->type = ion_heap_type_name[itype].type;
 				myheap->align = 0x100000;
@@ -187,8 +187,6 @@ int xgold_ion_probe(struct platform_device *pdev)
 		pdev->dev.platform_data = pdata;
 	}
 
-	ion_reserve(pdata);
-
 	heaps = kzalloc(sizeof(struct ion_heap *) * pdata->nr, GFP_KERNEL);
 
 	idev = ion_device_create(xgold_ion_ioctl);
@@ -201,9 +199,6 @@ int xgold_ion_probe(struct platform_device *pdev)
 	for (i = 0; i < pdata->nr; i++) {
 		struct ion_platform_heap *heap_data =  &pdata->heaps[i];
 
-		pr_err("xg_ion add heap %s @0x%08lx l:0x%zu id:0x%x\n",
-				heap_data->name, heap_data->base,
-				heap_data->size+1, heap_data->id);
 		heaps[i] = ion_heap_create(heap_data);
 		if (IS_ERR_OR_NULL(heaps[i])) {
 			err = PTR_ERR(heaps[i]);
