@@ -54,11 +54,11 @@
 #include <asm/io.h>
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
+#include <linux/usb/otg.h>
 
 #include "dwc_otg_hcd_if.h"
 #include "dwc_otg_dbg.h"
 #include "dwc_otg_driver.h"
-#include "dwc_otg_xgold.h"
 #include "dwc_otg_hcd.h"
 
 static u64 usb_dmamask = DMA_BIT_MASK(32);
@@ -73,8 +73,8 @@ static const char dwc_otg_hcd_name[] = "dwc_otg_hcd";
 
 /** @name Linux HC Driver API Functions */
 /** @{ */
-static int hub_suspend(struct usb_hcd *hcd);
-static int hub_resume(struct usb_hcd *hcd);
+/*static int hub_suspend(struct usb_hcd *hcd);
+static int hub_resume(struct usb_hcd *hcd);*/
 static int urb_enqueue(struct usb_hcd *hcd,
 		       struct urb *urb, gfp_t mem_flags);
 static int urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status);
@@ -112,8 +112,8 @@ static struct hc_driver dwc_otg_hc_driver = {
 	.get_frame_number = get_frame_number,
 	.hub_status_data = hub_status_data,
 	.hub_control = hub_control,
-	.bus_suspend = hub_suspend,
-	.bus_resume = hub_resume,
+	/*.bus_suspend = hub_suspend,
+	.bus_resume = hub_resume,*/
 };
 
 /** Gets the dwc_otg_hcd from a struct usb_hcd */
@@ -319,7 +319,7 @@ int hcd_init(struct platform_device *_dev)
 	struct usb_hcd *hcd = NULL;
 	dwc_otg_hcd_t *dwc_otg_hcd = NULL;
 	dwc_otg_device_t *otg_dev = (dwc_otg_device_t *) dev_get_platdata(&_dev->dev);
-	unsigned int irq_node = 0;
+	dwc_otg_core_if_t *core_if = otg_dev->core_if;
 	int retval = 0;
 
 	DWC_DEBUGPL(DBG_HCD, "DWC OTG HCD INIT\n");
@@ -337,10 +337,9 @@ int hcd_init(struct platform_device *_dev)
 	 * Allocate memory for the base HCD plus the DWC OTG HCD.
 	 * Initialize the base HCD.
 	 */
-	hcd = usb_create_hcd(&dwc_otg_hc_driver, &_dev->dev, dev_name(&_dev->dev));
+	hcd = usb_create_hcd(&dwc_otg_hc_driver,
+			&_dev->dev, dev_name(&_dev->dev));
 	hcd->has_tt = 1;
-//      hcd->uses_new_polling = 1;
-//      hcd->poll_rh = 0;
 	if (!hcd) {
 		retval = -ENOMEM;
 		goto error1;
@@ -350,16 +349,15 @@ int hcd_init(struct platform_device *_dev)
 
 	/* Initialize the DWC OTG HCD. */
 	dwc_otg_hcd = dwc_otg_hcd_alloc_hcd();
-	if (!dwc_otg_hcd) {
+	if (!dwc_otg_hcd)
 		goto error2;
-	}
+
 	((struct wrapper_priv_data *)(hcd->hcd_priv))->dwc_otg_hcd =
 	    dwc_otg_hcd;
 	otg_dev->hcd = dwc_otg_hcd;
 
-	if (dwc_otg_hcd_init(dwc_otg_hcd, otg_dev->core_if)) {
+	if (dwc_otg_hcd_init(dwc_otg_hcd, otg_dev->core_if))
 		goto error2;
-	}
 
 	otg_dev->hcd->otg_dev = otg_dev;
 	hcd->self.otg_port = dwc_otg_hcd_otg_port(dwc_otg_hcd);
@@ -371,14 +369,14 @@ int hcd_init(struct platform_device *_dev)
 	 * allocates the DMA buffer pool, registers the USB bus, requests the
 	 * IRQ line, and calls hcd_start method.
 	 */
-	irq_node = platform_get_irq_byname(_dev, "core");
-	retval = usb_add_hcd(hcd, irq_node, IRQF_SHARED | IRQF_DISABLED);
-	if (retval < 0) {
-		goto error2;
-	}
+	hcd->irq = platform_get_irq_byname(_dev, "core");
 
 	dwc_otg_hcd_set_priv_data(dwc_otg_hcd, hcd);
-	xgold_register_hcd(otg_dev->core_if->data, hcd);
+	if (!IS_ERR_OR_NULL(core_if->uphy)) {
+		retval = otg_set_host(core_if->uphy->otg, &hcd->self);
+		if (retval)
+			goto error2;
+	}
 	return 0;
 
 error2:
@@ -786,7 +784,7 @@ int hub_control(struct usb_hcd *hcd,
 
 	return retval;
 }
-
+#if 0
 static int hub_suspend(struct usb_hcd *hcd)
 {
 #ifdef PARTIAL_POWER_DOWN
@@ -817,7 +815,7 @@ static int hub_suspend(struct usb_hcd *hcd)
 		DWC_MODIFY_REG32(core_if->pcgcctl, 0, pcgcctl.d32);
 		udelay(100);
 
-		usb_hw_suspend(core_if->data, true);
+		usb_phy_set_suspend(core_if->uphy, true);
 		hcd->state = HC_STATE_SUSPENDED;
 		core_if->op_state = A_SUSPEND;
 		core_if->lx_state = DWC_OTG_L2;
@@ -834,7 +832,7 @@ static int hub_resume(struct usb_hcd *hcd)
 	pcgcctl_data_t pcgcctl = {.d32 = 0 };
 
 	if (core_if->op_state == A_SUSPEND) {
-		usb_hw_suspend(core_if->data, false);
+		usb_phy_set_suspend(core_if->uphy, false);
 		pcgcctl.d32 = 0;
 		pcgcctl.b.stoppclk = 1;
 		DWC_MODIFY_REG32(core_if->pcgcctl, pcgcctl.d32, 0);
@@ -871,5 +869,5 @@ static int hub_resume(struct usb_hcd *hcd)
 #endif
 	return 0;
 }
-
+#endif
 #endif

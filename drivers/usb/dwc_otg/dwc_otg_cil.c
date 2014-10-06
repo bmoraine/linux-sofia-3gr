@@ -384,8 +384,8 @@ static void dwc_otg_enable_common_interrupts(dwc_otg_core_if_t * core_if)
 	if (!core_if->dma_enable) {
 		intr_mask.b.rxstsqlvl = 1;
 	}
-
-	intr_mask.b.conidstschng = 1;
+	/* Disable id pin detection as it is handled by phy driver */
+	/*intr_mask.b.conidstschng = 1;*/
 	intr_mask.b.wkupintr = 1;
 	intr_mask.b.disconnect = 0;
 	intr_mask.b.usbsuspend = 1;

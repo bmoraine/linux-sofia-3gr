@@ -988,7 +988,7 @@ static int dwc_pullup(struct usb_gadget *gadget, int is_on)
 	/*
 	 * Don't try to enable/disable pullup while core is off
 	 */
-	if (core_if->lx_state == DWC_OTG_L3) {
+	if (core_if->lx_state == DWC_OTG_L3 || core_if->op_state == A_HOST) {
 		if (!is_on)
 			pcd->soft_disconnected = 0;
 		else
@@ -1053,6 +1053,7 @@ static int dwc_vbus_session(struct usb_gadget *gadget, int is_active)
 		 */
 		dwc_otg_core_init(d->pcd->core_if);
 		dwc_otg_enable_global_interrupts(d->pcd->core_if);
+		cil_pcd_start(d->pcd->core_if);
 		core_if->lx_state = DWC_OTG_L0;
 		if (pcd->soft_disconnected) {
 			/* Disable Soft Disconnect */
