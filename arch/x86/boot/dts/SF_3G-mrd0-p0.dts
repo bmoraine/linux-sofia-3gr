@@ -88,8 +88,8 @@
 		intel,gpu-shared-mem = <0x20000000>;
 		intel,dcc-fbpixelformat= "RGB888";
 		intel,dcc-debug-level = <1>;
-#ifdef RECOVERY_KERNEL
 		intel,fb-api = <1>;
+#ifdef RECOVERY_KERNEL
 		intel,dcc-mem = < 0x00800000 >;
 #else
 		intel,dcc-use-fences = <1>;
