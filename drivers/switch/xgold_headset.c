@@ -259,10 +259,10 @@ static struct irqaction hook_irq = {
 **/
 static void headset_switch_work(struct work_struct *work)
 {
-	u32 state, old_state;
+	u32 state, old_state, previous_state;
 	int ret, volt;
 	enum xgold_headset_config val;
-	bool hook_enable;
+	int hook_enable = -1;
 
 	struct xgold_headset_device_data *data =
 		container_of(to_delayed_work(work),
@@ -314,6 +314,14 @@ read_iio_volt:
 		wake_unlock(&data->acc_lock);
 		return;
 	}
+
+	previous_state = switch_get_state(&data->sdev);
+	dev_dbg(data->sdev.dev, "state = %d previous_state = %d\n",
+			(u32)state, previous_state);
+
+	if (previous_state == state)
+		goto skip_set_state;
+
 	/* Report to switch class */
 	switch_set_state(&data->sdev, state);
 
@@ -324,7 +332,6 @@ read_iio_volt:
 		/* Ask AFE to change the VBIAS settings */
 
 		if (state == XGOLD_HEAD_PHONE) {
-			hook_enable = 0;
 			val = XGOLD_DET_HEADSET_REM;
 			data->pdata->xgold_configure_vbias(data,
 						XGOLD_VBIAS_ULP_ON);
@@ -335,13 +342,15 @@ read_iio_volt:
 						XGOLD_VBIAS_ENABLE);
 		}
 	} else {
-		/* If Removed, confgure to detect Insertion */
+		/* If Removed, configure to detect Insertion */
 		dev_dbg(data->sdev.dev, "REMOVED\n");
 
 		/* Ask AFE to change the VBIAS settings */
 		data->pdata->xgold_configure_vbias(data, XGOLD_VBIAS_ULP_ON);
-		hook_enable = 0;
 		val = XGOLD_DET_HEADSET_INS;
+
+		if (previous_state == XGOLD_HEAD_SET)
+			hook_enable = 0;
 	}
 
 	/* Delay for the Biasing to stabilise */
@@ -352,10 +361,11 @@ read_iio_volt:
 	  */
 	data->pdata->xgold_configure_headset(val, data);
 
+skip_set_state:
 	/* Configure Hook interrupts accordingly */
-	if (hook_enable)
+	if (hook_enable > 0)
 		enable_irq(data->irq_hook);
-	else
+	else if (hook_enable == 0)
 		disable_irq_nosync(data->irq_hook);
 
 	/* Enable Accessory interrupts */
@@ -428,7 +438,7 @@ static int accessory_probe(struct platform_device *pdev)
 	headset_device_data->sdev.print_state = headset_print_state;
 	headset_device_data->input_dev = input_dev;
 
-	input_dev->name = pdev->name;
+	input_dev->name = "headset-xgold";
 	input_dev->id.bustype = BUS_VIRTUAL;
 	input_dev->dev.parent = &pdev->dev;
 	input_dev->evbit[0] = BIT_MASK(EV_KEY);
@@ -519,6 +529,10 @@ static int accessory_probe(struct platform_device *pdev)
 				"IRQ registration failed\n");
 		goto failed_pmu_irq;
 	}
+
+	/* Disable the Hook IRQ here */
+	disable_irq_nosync(headset_device_data->irq_hook);
+
 	headset_device_data->iio_client = iio_channel_get(NULL,
 							"ACCID_SENSOR");
 	if (IS_ERR(headset_device_data->iio_client)) {
