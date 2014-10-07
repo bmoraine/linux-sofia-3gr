@@ -23,7 +23,7 @@ source "drivers/gpu/host1x/Kconfig"
 
 source "drivers/gpu/drm/Kconfig"
 
-source "drivers/gpu/arm/mali/Kconfig"
+source "drivers/gpu/arm/Kconfig"
 
 config VGASTATE
        tristate
