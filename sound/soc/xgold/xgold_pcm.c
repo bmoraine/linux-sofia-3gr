@@ -59,6 +59,7 @@
 #define ON 1
 #define OFF 0
 
+#define SYSFS_INPUT_VAL_LEN (1)
 
 static unsigned int dma_mode;
 static unsigned int bt_init_en;
@@ -95,6 +96,11 @@ struct xgold_audio {
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
 	struct device_pm_platdata *pm_platdata;
+};
+
+enum xgold_pcm_attribute {
+	XGOLD_PCM_ATTR_SEND_DSP_CMD = 1,
+	XGOLD_PCM_ATTR_END,
 };
 
 static const struct snd_pcm_hardware xgold_pcm_play_cfg = {
@@ -144,6 +150,8 @@ struct dsp_audio_device *p_dsp_audio_dev;
 static struct T_AUD_DSP_CMD_PCM_PLAY_PAR pcm_par = { 0 };
 static struct T_AUD_DSP_CMD_PCM_REC_PAR pcm_rec_par = { 0 };
 static struct T_AUD_DSP_CMD_HW_PROBE hw_probe_par = { 0 };
+static u16 xgold_pcm_sysfs_attribute_value;
+
 static inline int i2s_set_pinctrl_state(struct device *dev,
 		struct pinctrl_state *state)
 {
@@ -205,22 +213,33 @@ int get_dsp_pcm_channels(unsigned int channels)
 /* FIX ME use DAPM to setup DSP path */
 void setup_pcm_record_path(void)
 {
+	switch (xgold_pcm_sysfs_attribute_value) {
+	case XGOLD_PCM_ATTR_SEND_DSP_CMD:
 	xgold_debug("Setup PCM path\n");
 	(void)p_dsp_audio_dev->p_dsp_common_data->
 		ops->set_controls(DSP_AUDIO_CONTROL_SET_REC_PATH,
 						NULL);
-
+		break;
+	default:
+		break;
+	}
 }
 
 /* FIX ME use DAPM to setup DSP path */
 void setup_pcm_play_path(void)
 {
+	switch (xgold_pcm_sysfs_attribute_value) {
+	case XGOLD_PCM_ATTR_SEND_DSP_CMD:
 	xgold_debug("Setup PCM path\n");
 	(void)p_dsp_audio_dev->p_dsp_common_data->
 		ops->set_controls(DSP_AUDIO_CONTROL_SET_PLAY_PATH,
 						NULL);
-
+		break;
+	default:
+		break;
+	}
 }
+
 void xgold_dsp_hw_probe_a_handler(void *dev)
 {
 	struct dsp_rw_shm_data rw_shm_data;
@@ -1266,6 +1285,59 @@ static void xgold_pcm_free_dma_buffers(struct snd_pcm *pcm)
 	snd_pcm_lib_preallocate_free_for_all(pcm);
 }
 
+static ssize_t xgold_pcm_attribute_show(struct device *dev,
+	struct device_attribute *attr,
+	char *buf)
+{
+	size_t size_copied;
+	u16 value;
+	value = xgold_pcm_sysfs_attribute_value;
+	size_copied = sprintf(buf, "%d\n", value);
+	return size_copied;
+}
+
+static ssize_t xgold_pcm_attribute_store(struct device *dev,
+	struct device_attribute *attr,
+	const char *buf,
+	size_t count)
+{
+	int sysfs_val;
+	int ret;
+	size_t size_to_cpy;
+	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
+	size_to_cpy = (count > SYSFS_INPUT_VAL_LEN)
+		? SYSFS_INPUT_VAL_LEN : count;
+	strncpy(strvalue, buf, size_to_cpy);
+	strvalue[size_to_cpy] = '\0';
+	ret = kstrtoint(strvalue, 10, &sysfs_val);
+	if (ret != 0)
+		return ret;
+	xgold_pcm_sysfs_attribute_value = sysfs_val;
+	xgold_debug("sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
+	return count;
+}
+
+static DEVICE_ATTR(xgold_pcm_sysfs_attribute, S_IRUSR | S_IWUSR,
+		xgold_pcm_attribute_show,
+		xgold_pcm_attribute_store);
+
+static struct attribute *xgold_pcm_attributes[] = {
+	&dev_attr_xgold_pcm_sysfs_attribute.attr,
+	NULL,
+};
+
+static const struct attribute_group xgold_pcm_attr_group = {
+	.attrs = xgold_pcm_attributes,
+};
+
+static void xgold_pcm_register_sysfs_attr(struct device *dev)
+{
+	int err = sysfs_create_group(&dev->kobj, &xgold_pcm_attr_group);
+	if (err)
+		pr_err("Unable to create sysfs entry: '%s'\n",
+			dev_attr_xgold_pcm_sysfs_attribute.attr.name);
+}
+
 static int xgold_pcm_soc_probe(struct snd_soc_platform *platform)
 {
 	int ret = 0;
@@ -1402,6 +1474,7 @@ skip_pinctrl:
 	/* Disable I2S2 pins at init */
 	res = i2s_set_pinctrl_state(&pcm_data_ptr->plat_dev->dev,
 				pcm_data_ptr->pins_inactive);
+	xgold_pcm_register_sysfs_attr(&pdev->dev);
 	return ret;
 }
 
