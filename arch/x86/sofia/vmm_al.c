@@ -33,6 +33,7 @@
 #include <linux/io.h>
 #include <linux/smp.h>
 #include <linux/sysprofile.h>
+#include <linux/memblock.h>
 #include <sofia/vmm_al.h>
 #include <asm/pat.h>
 #else
@@ -201,11 +202,30 @@ void vmm_al_init(struct vmm_shared_data *data)
 #endif
 }
 
+static int sofia_vmm_map_vcpu_shmem(void)
+{
+	void *ptr;
+	/* unsigned long flag = _PAGE_CACHE_WB; */
+	if (get_vmm_shared_data())
+		return 0;
+
+	ptr = vmm_get_vcpu_data();
+	if (memblock_reserve((resource_size_t)ptr, (resource_size_t)(ptr +
+		sizeof(struct vmm_shared_data)))) {
+		pr_err("Unable to map VMM shared data\n");
+		return -EINVAL;
+	}
+
+	vmm_shared_data[vmm_vcpu_id()] = phys_to_virt((phys_addr_t)ptr);
+	pr_debug("ptr=0x%08X vmm_shared_data=0x%08X\n",
+	       (unsigned int)ptr, (unsigned int)get_vmm_shared_data());
+
+	return 0;
+}
+
 #if defined(__KERNEL__)
 int sofia_vmm_init_secondary(void)
 {
-	void *ptr;
-	unsigned long flag = _PAGE_CACHE_WB;
 
 	pr_debug("In sofia_vmm_init_secondary\n");
 	vmm_guest_request_virq(LOCAL_TIMER_VECTOR, 1);
@@ -217,32 +237,17 @@ int sofia_vmm_init_secondary(void)
 	vmm_guest_request_virq(CALL_FUNCTION_SINGLE_VECTOR, 1);
 	vmm_virq_unmask(CALL_FUNCTION_SINGLE_VECTOR);
 
-	ptr = vmm_get_vcpu_data();
-	if (io_reserve_memtype((resource_size_t)ptr, (resource_size_t)(ptr +
-		sizeof(struct vmm_shared_data)), &flag))
-		pr_err("Unable to map VMM shared data\n");
-	vmm_shared_data[vmm_vcpu_id()] = phys_to_virt((phys_addr_t)ptr);
-	pr_debug("ptr=0x%08X vmm_shared_data=0x%08X\n",
-	       (unsigned int)ptr, (unsigned int)get_vmm_shared_data());
-
-	return 0;
+	return sofia_vmm_map_vcpu_shmem();
 }
 
 static int __init sofia_vmm_init(void)
 {
-	void *ptr;
 	unsigned long flag = _PAGE_CACHE_WB;
 
 	pr_debug("In sofia_vmm_init\n");
-	ptr = vmm_get_vcpu_data();
-	if (io_reserve_memtype((resource_size_t)ptr, (resource_size_t)(ptr +
-		sizeof(struct vmm_shared_data)), &flag))
-		pr_err("Unable to map VMM shared data\n");
-	vmm_shared_data[vmm_vcpu_id()] = phys_to_virt((phys_addr_t)ptr);
-	pr_debug("ptr=0x%08X vmm_shared_data=0x%08X\n",
-	       (unsigned int)ptr, (unsigned int)get_vmm_shared_data());
-	if (!get_vmm_shared_data())
-		panic("Unable to map VMM shared data!\n");
+
+	if (sofia_vmm_map_vcpu_shmem())
+		panic("Unable to map vcpu shared mem\n");
 
 	pmem_vbase =
 	    ioremap_cache(get_vmm_shared_data()->pmem_paddr,
@@ -253,7 +258,7 @@ static int __init sofia_vmm_init(void)
 	       get_vmm_shared_data()->pmem_size,
 	       (unsigned int)pmem_vbase);
 	if (!pmem_vbase)
-		pr_err("Unable to map PMEM\n");
+		panic("Unable to map PMEM\n");
 
 	pr_debug("Calling vmm_al_init. os_id=%d\n",
 	       get_vmm_shared_data()->os_id);
