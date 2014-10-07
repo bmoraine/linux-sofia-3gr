@@ -21,7 +21,7 @@
 /*              Include files.                 */
 /*---------------------------------------------*/
 #include <linux/string.h>
-#include <linux/mutex.h>
+#include <linux/spinlock.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <sound/soc.h>
@@ -47,7 +47,7 @@
 /*!< Pointer to access command pipes for FBA audio in shared memory */
 static struct dsp_aud_cmd_pipes *p_sm_aud_cmd_data;
 /*!< Mutex to serialize one command at a time in the command pipe */
-static struct mutex dsp_audio_cmd_pipe_lock;
+static spinlock_t dsp_audio_cmd_pipe_lock;
 
 /*===========================================================================
 **
@@ -80,7 +80,7 @@ static struct mutex dsp_audio_cmd_pipe_lock;
 void dsp_audio_communication_init(void)
 {
 	/* Initialize the mutex for command pipe */
-	mutex_init(&dsp_audio_cmd_pipe_lock);
+	spin_lock_init(&dsp_audio_cmd_pipe_lock);
 }
 
 /*****************************************************************************
@@ -189,7 +189,7 @@ void dsp_add_audio_msg_2_dsp(
 	}
 
 /* lock the pipe 2 */
-	mutex_lock(&dsp_audio_cmd_pipe_lock);
+	spin_lock(&dsp_audio_cmd_pipe_lock);
 	p_sm_aud_cmd_data = dsp->shm_mem +
 				DSP_AUDIO_COMMAND_PIPE_SM_OFFSET * 2;
 
@@ -213,5 +213,5 @@ void dsp_add_audio_msg_2_dsp(
 	dsp_cmd_int_2_audio_dsp(dsp, DSP_IRQ_2, msg_id);
 
 /* unlock the pipe 2 */
-	mutex_unlock(&dsp_audio_cmd_pipe_lock);
+	spin_unlock(&dsp_audio_cmd_pipe_lock);
 }
