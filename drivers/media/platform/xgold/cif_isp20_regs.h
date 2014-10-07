@@ -86,27 +86,16 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_MI_INIT_SKIP                   (1<<2)
 #define CIF_MI_INIT_SOFT_UPD               (1<<4)
 
-/* MRSZ_CTRL */
-#define CIF_MRSZ_CTRL_SCALE_HY_ENABLE      (1<<0)
-#define CIF_MRSZ_CTRL_SCALE_HC_ENABLE      (1<<1)
-#define CIF_MRSZ_CTRL_SCALE_VY_ENABLE      (1<<2)
-#define CIF_MRSZ_CTRL_SCALE_VC_ENABLE      (1<<3)
-#define CIF_MRSZ_CTRL_SCALE_HY_UP          (1<<4)
-#define CIF_MRSZ_CTRL_SCALE_HC_UP          (1<<5)
-#define CIF_MRSZ_CTRL_SCALE_VY_UP          (1<<6)
-#define CIF_MRSZ_CTRL_SCALE_VC_UP          (1<<7)
-#define CIF_MRSZ_CTRL_CFG_UPD              (1<<8)
-
-/* SRSZ_CTRL */
-#define CIF_SRSZ_CTRL_SCALE_HY_ENABLE      (1<<0)
-#define CIF_SRSZ_CTRL_SCALE_HC_ENABLE      (1<<1)
-#define CIF_SRSZ_CTRL_SCALE_VY_ENABLE      (1<<2)
-#define CIF_SRSZ_CTRL_SCALE_VC_ENABLE      (1<<3)
-#define CIF_SRSZ_CTRL_SCALE_HY_UP          (1<<4)
-#define CIF_SRSZ_CTRL_SCALE_HC_UP          (1<<5)
-#define CIF_SRSZ_CTRL_SCALE_VY_UP          (1<<6)
-#define CIF_SRSZ_CTRL_SCALE_VC_UP          (1<<7)
-#define CIF_SRSZ_CTRL_CFG_UPD              (1<<8)
+/* RSZ_CTRL */
+#define CIF_RSZ_CTRL_SCALE_HY_ENABLE      (1<<0)
+#define CIF_RSZ_CTRL_SCALE_HC_ENABLE      (1<<1)
+#define CIF_RSZ_CTRL_SCALE_VY_ENABLE      (1<<2)
+#define CIF_RSZ_CTRL_SCALE_VC_ENABLE      (1<<3)
+#define CIF_RSZ_CTRL_SCALE_HY_UP          (1<<4)
+#define CIF_RSZ_CTRL_SCALE_HC_UP          (1<<5)
+#define CIF_RSZ_CTRL_SCALE_VY_UP          (1<<6)
+#define CIF_RSZ_CTRL_SCALE_VC_UP          (1<<7)
+#define CIF_RSZ_CTRL_CFG_UPD              (1<<8)
 
 /* ISP_CTRL */
 #define CIF_ISP_CTRL_ISP_ENABLE                (1<<0)

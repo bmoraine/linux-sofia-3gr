@@ -96,6 +96,8 @@ struct xgold_isp_dev {
 	bool isp_param_afc_update_fast_needed;
 	bool isp_param_aec_update_fast_needed;
 
+	bool ycflt_update;
+
 	/* input resolution needed for LSC param check */
 	unsigned int input_width;
 	unsigned int input_height;
@@ -118,5 +120,7 @@ int register_cifisp_device(
 void cifisp_configure_isp(struct xgold_isp_dev *isp_dev, unsigned int capture);
 void cifisp_disable_isp(struct xgold_isp_dev *isp_dev);
 int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis);
+void cifisp_ycflt_config(const struct xgold_isp_dev *isp_dev);
+
 
 #endif

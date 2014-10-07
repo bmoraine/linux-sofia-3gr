@@ -45,6 +45,7 @@ static struct {
 	loff_t reg_trace_write_pos;
 	size_t reg_trace_max_size;
 	void __iomem *base_addr;
+	spinlock_t lock;
 } cif_isp20_reg_trace;
 #endif
 #endif
@@ -605,8 +606,7 @@ static const struct file_operations cif_isp20_dbgfs_fops = {
 
 #ifdef CONFIG_CIF_ISP20_REG_TRACE
 
-int
-cif_isp20_pltfrm_reg_trace_printf(
+int cif_isp20_pltfrm_reg_trace_printf(
 	struct device *dev,
 	const char *fmt,
 	...)
@@ -614,9 +614,20 @@ cif_isp20_pltfrm_reg_trace_printf(
 	va_list args;
 	int i;
 	u32 rem_size;
+	unsigned long flags = 0;
+
+	if (!in_irq())
+		spin_lock_irqsave(&cif_isp20_reg_trace.lock, flags);
 
 	rem_size = cif_isp20_reg_trace.reg_trace_max_size -
-		cif_isp20_reg_trace.reg_trace_write_pos - 1;
+		cif_isp20_reg_trace.reg_trace_write_pos;
+
+	if (rem_size == 0) {
+		if (!in_irq())
+			spin_unlock_irqrestore(
+				&cif_isp20_reg_trace.lock, flags);
+		return 0;
+	}
 
 	va_start(args, fmt);
 	i = vsnprintf(cif_isp20_reg_trace.reg_trace +
@@ -624,15 +635,23 @@ cif_isp20_pltfrm_reg_trace_printf(
 		rem_size,
 		fmt, args);
 	va_end(args);
-	if (i == rem_size) /* buffer full */
+	if (i == rem_size) {/* buffer full */
+		if (!in_irq())
+			spin_unlock_irqrestore(
+				&cif_isp20_reg_trace.lock, flags);
 		return 0;
+	}
 	cif_isp20_reg_trace.reg_trace_write_pos += i;
+	if (!in_irq())
+		spin_unlock_irqrestore(&cif_isp20_reg_trace.lock, flags);
 	return i;
 }
 
 static void cif_isp20_dbgfs_reg_trace_clear(
 	struct device *dev)
 {
+	unsigned long flags = 0;
+
 	cif_isp20_reg_trace.reg_trace_write_pos = 0;
 	cif_isp20_reg_trace.reg_trace_read_pos = 0;
 }
@@ -644,6 +663,10 @@ static ssize_t cif_isp20_dbgfs_reg_trace_read(
 	loff_t *pos)
 {
 	ssize_t bytes;
+	unsigned long flags = 0;
+
+	if (!in_irq())
+		spin_lock_irqsave(&cif_isp20_reg_trace.lock, flags);
 
 	bytes = simple_read_from_buffer(
 		out, count, &cif_isp20_reg_trace.reg_trace_read_pos,
@@ -654,6 +677,8 @@ static ssize_t cif_isp20_dbgfs_reg_trace_read(
 	if (!bytes)
 		cif_isp20_reg_trace.reg_trace_read_pos = 0;
 
+	if (!in_irq())
+		spin_unlock_irqrestore(&cif_isp20_reg_trace.lock, flags);
 	return bytes;
 }
 
@@ -668,6 +693,10 @@ static ssize_t cif_isp20_dbgfs_reg_trace_write(
 	char *token;
 	struct device *dev = f->f_inode->i_private;
 	u32 max_size;
+	unsigned long flags = 0;
+
+	if (!in_irq())
+		spin_lock_irqsave(&cif_isp20_reg_trace.lock, flags);
 
 	if (count > CIF_ISP20_DBGFS_BUF_SIZE) {
 		cif_isp20_pltfrm_pr_err(dev, "command line too long\n");
@@ -678,7 +707,7 @@ static ssize_t cif_isp20_dbgfs_reg_trace_write(
 	ret = simple_write_to_buffer(strp,
 		CIF_ISP20_DBGFS_BUF_SIZE, pos, in, count);
 	if (IS_ERR_VALUE(ret))
-		return ret;
+		goto err;
 
 	token = strsep(&strp, " ");
 	if (!strncmp(token, "clear", 5)) {
@@ -690,13 +719,15 @@ static ssize_t cif_isp20_dbgfs_reg_trace_write(
 		if (IS_ERR_OR_NULL(token)) {
 			cif_isp20_pltfrm_pr_err(dev,
 				"missing token, command format is 'size <num entries>'\n");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err;
 		}
 		if (IS_ERR_VALUE(kstrtou32(token, 10,
 				&max_size))) {
 			cif_isp20_pltfrm_pr_err(dev,
 				"wrong token format, <num entries> must be positive integer>'\n");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err;
 		}
 		if (cif_isp20_reg_trace.reg_trace) {
 			devm_kfree(dev, cif_isp20_reg_trace.reg_trace);
@@ -709,7 +740,8 @@ static ssize_t cif_isp20_dbgfs_reg_trace_write(
 			if (!cif_isp20_reg_trace.reg_trace) {
 				cif_isp20_pltfrm_pr_err(dev,
 					"memory allocation failed\n");
-				return -ENOMEM;
+				ret = -ENOMEM;
+				goto err;
 			}
 			cif_isp20_reg_trace.reg_trace_max_size = max_size;
 			cif_isp20_pltfrm_pr_info(dev,
@@ -718,9 +750,16 @@ static ssize_t cif_isp20_dbgfs_reg_trace_write(
 		}
 	} else {
 		cif_isp20_pltfrm_pr_err(dev, "unkown command %s\n", token);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err;
 	}
+	if (!in_irq())
+		spin_unlock_irqrestore(&cif_isp20_reg_trace.lock, flags);
 	return count;
+err:
+	if (!in_irq())
+		spin_unlock_irqrestore(&cif_isp20_reg_trace.lock, flags);
+	return ret;
 }
 
 static const struct file_operations
@@ -799,14 +838,23 @@ void cif_isp20_pltfrm_write_reg(
 {
 	iowrite32(data, addr);
 #ifdef CONFIG_CIF_ISP20_REG_TRACE
-	if ((cif_isp20_reg_trace.reg_trace_write_pos + (24 * sizeof(char))) <
-		cif_isp20_reg_trace.reg_trace_max_size)
-		cif_isp20_reg_trace.reg_trace_write_pos +=
-			sprintf(cif_isp20_reg_trace.reg_trace +
-				cif_isp20_reg_trace.reg_trace_write_pos,
-				"%08x %08x\n",
-				addr - cif_isp20_reg_trace.base_addr,
-				data);
+	{
+		unsigned long flags = 0;
+		if (!in_irq())
+			spin_lock_irqsave(&cif_isp20_reg_trace.lock, flags);
+		if ((cif_isp20_reg_trace.reg_trace_write_pos +
+			(20 * sizeof(char))) <
+			cif_isp20_reg_trace.reg_trace_max_size)
+			cif_isp20_reg_trace.reg_trace_write_pos +=
+				sprintf(cif_isp20_reg_trace.reg_trace +
+					cif_isp20_reg_trace.reg_trace_write_pos,
+					"%04x %08x\n",
+					addr - cif_isp20_reg_trace.base_addr,
+					data);
+		if (!in_irq())
+			spin_unlock_irqrestore(
+				&cif_isp20_reg_trace.lock, flags);
+	}
 #endif
 }
 
@@ -963,6 +1011,7 @@ int cif_isp20_pltfrm_dev_init(
 		pdata->dbgfs.dir,
 		dev,
 		&cif_isp20_dbgfs_reg_trace_fops);
+	spin_lock_init(&cif_isp20_reg_trace.lock);
 	cif_isp20_reg_trace.reg_trace = NULL;
 	cif_isp20_dbgfs_reg_trace_clear(dev);
 	cif_isp20_reg_trace.reg_trace_max_size = 0;

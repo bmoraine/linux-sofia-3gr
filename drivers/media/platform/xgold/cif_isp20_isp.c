@@ -605,7 +605,7 @@ static int cifisp_aec_enable(struct xgold_isp_dev *isp_dev,
 	return 0;
 }
 
-static int cifisp_ycflt_enable(struct xgold_isp_dev *isp_dev,
+int cifisp_ycflt_enable(struct xgold_isp_dev *isp_dev,
 			       bool flag, __s32 *value)
 {
 	if (flag == _GET_) {
@@ -620,9 +620,12 @@ static int cifisp_ycflt_enable(struct xgold_isp_dev *isp_dev,
 		unsigned long lock_flags = 0;
 
 		isp_dev->ycflt_en = *value;
-		spin_lock_irqsave(&isp_dev->config_lock, lock_flags);
+		if (!in_interrupt())
+			spin_lock_irqsave(&isp_dev->config_lock, lock_flags);
 		isp_dev->isp_param_ycflt_update_needed = true;
-		spin_unlock_irqrestore(&isp_dev->config_lock, lock_flags);
+		if (!in_interrupt())
+			spin_unlock_irqrestore(&isp_dev->config_lock,
+				lock_flags);
 	}
 
 	return 0;
@@ -2695,7 +2698,7 @@ static void cifisp_tmap_end(const struct xgold_isp_dev *isp_dev)
 		cifisp_iowrite32AND(~CIFISP_CPROC_EN, CIF_C_PROC_CTRL);
 }
 
-static void cifisp_ycflt_config(const struct xgold_isp_dev *isp_dev)
+void cifisp_ycflt_config(const struct xgold_isp_dev *isp_dev)
 {
 	const struct cifisp_ycflt_config *pconfig = &(isp_dev->ycflt_config);
 
@@ -2741,7 +2744,7 @@ static void cifisp_ycflt_config_read(const struct xgold_isp_dev *isp_dev,
 #endif
 
 /*****************************************************************************/
-static void cifisp_ycflt_en(const struct xgold_isp_dev *isp_dev)
+static void cifisp_ycflt_en(struct xgold_isp_dev *isp_dev)
 {
 	const struct cifisp_ycflt_config *pconfig = &(isp_dev->ycflt_config);
 
@@ -2749,7 +2752,7 @@ static void cifisp_ycflt_en(const struct xgold_isp_dev *isp_dev)
 }
 
 /*****************************************************************************/
-static void cifisp_ycflt_end(const struct xgold_isp_dev *isp_dev)
+static void cifisp_ycflt_end(struct xgold_isp_dev *isp_dev)
 {
 	cifisp_iowrite32(0, CIF_YC_FLT_CTRL);
 }
@@ -3466,6 +3469,7 @@ void cifisp_configure_isp(struct xgold_isp_dev *isp_dev, unsigned int capture)
 		cifisp_ycflt_en(isp_dev);
 		isp_dev->isp_param_ycflt_update_needed = false;
 	}
+	isp_dev->ycflt_update = false;
 
 #if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
 	if (capture) {
@@ -3583,6 +3587,7 @@ void cifisp_disable_isp(struct xgold_isp_dev *isp_dev)
 
 	cifisp_ycflt_end(isp_dev);
 	isp_dev->ycflt_en = false;
+	isp_dev->ycflt_update = false;
 
 	cifisp_hst_end(isp_dev);
 	isp_dev->hst_en = false;
@@ -3815,12 +3820,21 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 
 			isp_dev->isp_param_flt_update_needed = false;
 		} else if (isp_dev->isp_param_ycflt_update_needed) {
+			/* TODO: currently changing the YC flt dynamically
+				only works reliable if we do YC filt and scaler
+				reconfiguration together
+				in the MI frame end interrupt. This has to be
+				investigated further */
+			/*
 			cifisp_ycflt_config(isp_dev);
 
 			if (isp_dev->ycflt_en)
 				cifisp_ycflt_en(isp_dev);
 			else
 				cifisp_ycflt_end(isp_dev);
+
+			*/
+			isp_dev->ycflt_update = true;
 
 			isp_dev->isp_param_ycflt_update_needed = false;
 		} else if (isp_dev->isp_param_ctk_update_needed) {

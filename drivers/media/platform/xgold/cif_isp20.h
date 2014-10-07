@@ -368,10 +368,12 @@ struct cif_isp20_strm_fmt_desc {
 struct cif_isp20_rsz_config {
 	struct cif_isp20_frm_fmt *input;
 	struct cif_isp20_frm_fmt output;
+	bool ycflt_adjust;
 };
 
 struct cif_isp20_sp_config {
 	struct cif_isp20_rsz_config rsz_config;
+	bool inp_yc_filt;
 };
 
 struct cif_isp20_mp_config {
@@ -393,6 +395,7 @@ struct cif_isp20_mi_path_config {
 
 struct cif_isp20_mi_config {
 	bool raw_enable;
+	bool async_updt;
 	struct cif_isp20_mi_path_config mp;
 	struct cif_isp20_mi_path_config sp;
 	struct cif_isp20_mi_path_config dma;
@@ -421,6 +424,7 @@ struct cif_isp20_stream {
 	struct videobuf_buffer *next_buf;
 	bool updt_cfg;
 	bool stall;
+	bool first_frame;
 };
 
 enum cif_isp20_jpeg_header {
