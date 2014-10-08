@@ -429,7 +429,7 @@ static struct smarvin_hw_errors marvin_hw_errors[] = {
 /**Defines********************************************************************/
 
 #define CIF_ISP20_INVALID_BUFF_ADDR ((u32)~0)
-#define CIF_ISP20_SP_YCFLT_INP (false)
+#define CIF_ISP20_SP_YCFLT_INP (true)
 
 #ifndef DIV_ROUND_UP
 #define DIV_ROUND_UP(x, y) (((x) + (y) - 1) / (y))
@@ -2886,6 +2886,13 @@ static int cif_isp20_config_cif(
 #ifdef CONFIG_CIF_ISP20_TEST_YC_FLT
 		cif_isp20_enable_yc_flt(dev);
 #endif
+		/* TEMPORARY: only keep this until we get the
+			HW with the fixed scalers. */
+		if (dev->isp_dev.ycflt_en) {
+			dev->config.mi_config.async_updt = true;
+			cif_isp20_pltfrm_pr_warn(NULL,
+				"YC filter enabled, switching to asynchronous mode\n");
+		}
 
 		ret = cif_isp20_config_mipi(dev);
 		if (IS_ERR_VALUE(ret))
