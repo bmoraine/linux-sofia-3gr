@@ -214,7 +214,7 @@ int32_t xgold_irq_is_wake_capable(struct irq_domain *domain,
 	for (j = 0; j < data->nr_regs; j++) {
 		struct xgold_irq_wake_table *t = data->wake_table[i];
 		if (!t) {
-			pr_err("%s: No wake-table available\n", __func__);
+			pr_debug("%s: No wake-table available\n", __func__);
 			return false;
 		}
 		while (t[i].reg_id != -1) {
@@ -311,9 +311,15 @@ int32_t xgold_irq_set_wake(struct irq_data *data, uint32_t irq, uint32_t on,
 			xgold_irq_wake_write(pdata, addr, val);
 		}
 		ret = xgold_irq_xgold_set_enable(data, irq, on);
-	} else
-		pr_err("%s: %d is not known wake-up capable IRQ\n",
+	} else {
+		/* A driver is enabling its interrupt as wake-up source.
+		 * This interrupt is not defined as wake-capable
+		 *  in irq-wake tables. Return the function with no error
+		 * */
+		pr_debug("%s: %d is not a known wake-up capable IRQ\n",
 				__func__, irq);
+		return 0;
+	}
 	return ret;
 }
 EXPORT_SYMBOL(xgold_irq_set_wake);
@@ -361,7 +367,7 @@ static inline struct xgold_irq_wake_data *xgold_irq_wake_get_driver_data(
  */
 static irqreturn_t wup_dbb(int irq, void *dev_id)
 {
-	pr_info("%s(%d)\n", __func__, irq);
+	pr_debug("%s(%d)\n", __func__, irq);
 	return IRQ_HANDLED;
 }
 
@@ -378,7 +384,7 @@ static int32_t xgold_irq_wake_probe(struct platform_device *pdev)
 	char comp[20];
 	uint32_t i, j;
 	int32_t ret;
-	dev_info(_dev, "Probe\n");
+	dev_dbg(_dev, "Probe\n");
 
 	data = xgold_irq_wake_get_driver_data(pdev);
 	if (!data)
@@ -499,7 +505,7 @@ static int32_t xgold_irq_wake_remove(struct platform_device *pdev)
 	uint32_t j;
 	struct xgold_irq_wake_data *data = platform_get_drvdata(pdev);
 	struct device *_dev = &pdev->dev;
-	dev_info(_dev, "suspend\n");
+	dev_dbg(_dev, "remove\n");
 	if (data) {
 		for (j = 0; j < data->nr_regs; j++)
 			kfree(data->wake_table[j]);
@@ -521,7 +527,7 @@ static int32_t xgold_irq_wake_suspend(struct platform_device *pdev,
 	int32_t ret = 0;
 	struct xgold_irq_wake_data *data = platform_get_drvdata(pdev);
 	struct device *_dev = &pdev->dev;
-	dev_info(_dev, "suspend\n");
+	dev_dbg(_dev, "suspend\n");
 
 	if (!data) {
 		dev_err(_dev, "data is %p ..return\n", data);
@@ -549,7 +555,7 @@ static int32_t xgold_irq_wake_resume(struct platform_device *pdev)
 	int32_t ret = 0;
 	struct xgold_irq_wake_data *data = platform_get_drvdata(pdev);
 	struct device *_dev = &pdev->dev;
-	dev_info(_dev, "resume\n");
+	dev_dbg(_dev, "resume\n");
 
 	if (!data) {
 		dev_err(_dev, "data is %p ..return\n", data);
@@ -589,14 +595,14 @@ static int32_t __init xgold_irq_wake_init(void)
 		pr_err("%s: Unable to register platform driver\n", __func__);
 		return ret;
 	}
-	pr_info("%s: Platform driver registration ok...\n", __func__);
+	pr_debug("%s: Platform driver registration ok...\n", __func__);
 	return 0;
 }
 
 static void __exit xgold_irq_wake_exit(void)
 {
 	platform_driver_unregister(&xgold_irq_wake_driver);
-	pr_info("%s: Platform driver unregistration ok...\n", __func__);
+	pr_debug("%s: Platform driver unregistration ok...\n", __func__);
 }
 
 module_init(xgold_irq_wake_init);
