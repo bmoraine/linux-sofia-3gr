@@ -982,7 +982,7 @@ static struct gc_register gc2155_720x480[] = {
 	{GC_TOK_TERM, 0, 0},
 };
 
-
+#if 0
 static struct gc_register gc2155_1280x720[] = {
 	{ GC_8BIT, 0xfe, 0x00 },
 
@@ -1049,6 +1049,7 @@ static struct gc_register gc2155_1280x720[] = {
 
 	{GC_TOK_TERM, 0, 0},
 };
+#endif
 
 #if 0
 static struct gc_register gc2155_1280x960[] = {
