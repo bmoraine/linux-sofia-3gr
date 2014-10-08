@@ -205,7 +205,7 @@ void vmm_al_init(struct vmm_shared_data *data)
 static int sofia_vmm_map_vcpu_shmem(void)
 {
 	void *ptr;
-	/* unsigned long flag = _PAGE_CACHE_WB; */
+
 	if (get_vmm_shared_data())
 		return 0;
 
@@ -242,8 +242,6 @@ int sofia_vmm_init_secondary(void)
 
 static int __init sofia_vmm_init(void)
 {
-	unsigned long flag = _PAGE_CACHE_WB;
-
 	pr_debug("In sofia_vmm_init\n");
 
 	if (sofia_vmm_map_vcpu_shmem())
