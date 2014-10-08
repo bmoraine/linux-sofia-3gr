@@ -10,6 +10,8 @@ dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G_tablet.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_LTE-es1-svb.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G-mrd7s.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G-mrd7s-recovery.dtb
+dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G-mrd5s.dtb
+dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G-mrd5s-recovery.dtb
 
 targets += dtbs
 targets += $(dtb-y)
