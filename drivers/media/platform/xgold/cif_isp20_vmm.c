@@ -31,6 +31,10 @@
 #include <linux/platform_device_pm.h>
 #include <linux/interrupt.h>
 #include <sofia/mv_svc_hypercalls.h>
+#include <linux/kernel.h>
+#include <linux/i2c.h>
+#include <linux/io.h>
+#include <linux/jiffies.h>
 #include "cif_isp20.h"
 #include <linux/list.h>
 #ifdef CONFIG_DEBUG_FS
@@ -650,8 +654,6 @@ int cif_isp20_pltfrm_reg_trace_printf(
 static void cif_isp20_dbgfs_reg_trace_clear(
 	struct device *dev)
 {
-	unsigned long flags = 0;
-
 	cif_isp20_reg_trace.reg_trace_write_pos = 0;
 	cif_isp20_reg_trace.reg_trace_read_pos = 0;
 }
@@ -1417,6 +1419,36 @@ const char *cif_isp20_pltfrm_dev_string(
 	return dev_driver_string(dev);
 }
 
+void cif_isp20_pltfrm_event_init(
+	struct device *dev,
+	wait_queue_head_t *event)
+{
+	init_waitqueue_head(event);
+}
+
+void cif_isp20_pltfrm_event_clear(
+	struct device *dev,
+	wait_queue_head_t *event)
+{
+}
+
+void cif_isp20_pltfrm_event_signal(
+	struct device *dev,
+	wait_queue_head_t *event)
+{
+	wake_up_interruptible(event);
+}
+
+int cif_isp20_pltfrm_event_wait_timeout(
+	struct device *dev,
+	wait_queue_head_t *event,
+	bool condition,
+	unsigned long timeout_us)
+{
+	return wait_event_interruptible_timeout(
+		*event, condition, (timeout_us * HZ) / 1000000);
+}
+
 struct device *cif_isp20_pltfrm_get_img_src_device(
 	struct device *dev,
 	enum cif_isp20_inp inp)
@@ -1488,7 +1520,6 @@ err:
 		of_node_put(camera_list_node);
 	return ERR_PTR(ret);
 }
-
 
 void cif_isp20_pltfrm_dev_release(
 	struct device *dev)

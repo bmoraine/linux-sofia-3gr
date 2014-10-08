@@ -27,6 +27,9 @@
 
 #include <linux/kernel.h>
 #include <linux/device.h>
+#include <linux/delay.h>
+#include <linux/wait.h>
+#include <linux/string.h>
 
 struct cif_isp20_strm_fmt;
 struct cif_isp20_csi_config;
@@ -38,6 +41,7 @@ enum cif_isp20_irq;
 
 #define CIF_ISP20_PLTFRM_DEVICE struct device *
 #define CIF_ISP20_PLTFRM_MEM_IO_ADDR void __iomem *
+#define CIF_ISP20_PLTFRM_EVENT wait_queue_head_t
 
 #define cif_isp20_pltfrm_pr_dbg(dev, fmt, arg...) \
 	pr_debug("CIF ISP2.0 %s: " fmt, \
@@ -146,5 +150,23 @@ const char *cif_isp20_pltfrm_get_device_type(
 
 const char *cif_isp20_pltfrm_dev_string(
 	struct device *dev);
+
+void cif_isp20_pltfrm_event_init(
+	struct device *dev,
+	wait_queue_head_t *event);
+
+void cif_isp20_pltfrm_event_clear(
+	struct device *dev,
+	wait_queue_head_t *event);
+
+void cif_isp20_pltfrm_event_signal(
+	struct device *dev,
+	wait_queue_head_t *event);
+
+int cif_isp20_pltfrm_event_wait_timeout(
+	struct device *dev,
+	wait_queue_head_t *event,
+	bool condition,
+	unsigned long timeout_us);
 
 #endif

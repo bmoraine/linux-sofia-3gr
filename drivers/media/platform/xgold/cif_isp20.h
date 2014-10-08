@@ -29,7 +29,6 @@
 #include "cif_isp20_pltfrm.h"
 #include "cif_isp20_img_src.h"
 #include "cif_isp20_isp.h"
-#include "cif_isp20_dma.h"
 
 #include <media/v4l2-device.h>
 
@@ -55,8 +54,6 @@
 #define CONTRAST_DEF	0x80
 #define BRIGHTNESS_DEF	0x0
 #define HUE_DEF	0x0
-
-#define MARVIN_HW_MAX_ERRORS 50
 
 /*
 	MIPI CSI2.0
@@ -97,13 +94,12 @@ enum cif_isp20_pm_state {
 };
 
 enum cif_isp20_inp {
-	CIF_ISP20_INP_CSI_0 = (1 << 1),
-	CIF_ISP20_INP_CSI_1 = (1 << 2),
-	CIF_ISP20_INP_CPI = (1 << 3),
-	CIF_ISP20_INP_DMA = (1 << 4), /* DMA -> ISP */
-	CIF_ISP20_INP_DMA_IE = (1 << 5), /* DMA -> IE */
-	CIF_ISP20_INP_DMA_SP = (1 << 6), /* DMA -> SP */
-	CIF_ISP20_INP_SI = (1 << 15) /* can be combined with some others */
+	CIF_ISP20_INP_CSI_0 = 0,
+	CIF_ISP20_INP_CSI_1,
+	CIF_ISP20_INP_CPI,
+	CIF_ISP20_INP_DMA, /* DMA -> ISP */
+	CIF_ISP20_INP_DMA_IE, /* DMA -> IE */
+	CIF_ISP20_INP_DMA_SP /* DMA -> SP */
 };
 
 enum cif_isp20_irq {
@@ -129,35 +125,32 @@ enum cif_isp20_flash_mode {
 
 enum cif_isp20_cid {
 	CIF_ISP20_CID_FLASH_MODE = 0,
-	CIF_ISP20_CID_EXPOSURE_TIME,
-	CIF_ISP20_CID_ANALOG_GAIN,
-	CIF_ISP20_CID_WB_TEMPERATURE,
-	CIF_ISP20_CID_BLACK_LEVEL,
-	CIF_ISP20_CID_AUTO_GAIN,
-	CIF_ISP20_CID_AUTO_EXPOSURE,
-	CIF_ISP20_CID_AUTO_WHITE_BALANCE,
-	CIF_ISP20_CID_FOCUS_ABSOLUTE,
-	CIF_ISP20_CID_AUTO_N_PRESET_WHITE_BALANCE,
-	CIF_ISP20_CID_SCENE_MODE,
+	CIF_ISP20_CID_EXPOSURE_TIME = 1,
+	CIF_ISP20_CID_ANALOG_GAIN = 2,
+	CIF_ISP20_CID_WB_TEMPERATURE = 3,
+	CIF_ISP20_CID_BLACK_LEVEL = 4,
+	CIF_ISP20_CID_AUTO_GAIN = 5,
+	CIF_ISP20_CID_AUTO_EXPOSURE = 6,
+	CIF_ISP20_CID_AUTO_WHITE_BALANCE = 7,
+	CIF_ISP20_CID_FOCUS_ABSOLUTE = 8,
+	CIF_ISP20_CID_AUTO_N_PRESET_WHITE_BALANCE = 9,
+	CIF_ISP20_CID_SCENE_MODE = 10,
+	CIF_ISP20_CID_SUPER_IMPOSE = 11,
+	CIF_ISP20_CID_JPEG_QUALITY = 12,
+	CIF_ISP20_CID_IMAGE_EFFECT = 13,
+	CIF_ISP20_CID_HFLIP = 14,
+	CIF_ISP20_CID_VFLIP = 15,
 };
 
-enum marvin_control_id {
-	marvin_hflip,		/* SelfPicture SubModule */
-	marvin_vflip,		/* SelfPicture SubModule */
-	marvin_rotate,		/* SelfPicture SubModule */
-	marvin_sepia,		/* ImageEffects SubModule */
-	marvin_black_and_white,	/* ImageEffects SubModule */
-	marvin_negative,	/* ImageEffects SubModule */
-	marvin_color_selection,	/* ImageEffects SubModule */
-	marvin_emboss,		/* ImageEffects SubModule */
-	marvin_sketch,		/* ImageEffects SubModule */
-	marvin_jpeg_quality,
-	marvin_none_ie		/*ImageEffects SubModule */
-};
-
-struct marvin_control {
-	enum marvin_control_id id;
-	signed int val;		/* Note signedness */
+/* correspond to bit field values */
+enum cif_isp20_image_effect {
+	CIF_ISP20_IE_BW = 0,
+	CIF_ISP20_IE_NEGATIVE = 1,
+	CIF_ISP20_IE_SEPIA = 2,
+	CIF_ISP20_IE_C_SEL = 3,
+	CIF_ISP20_IE_EMBOSS = 4,
+	CIF_ISP20_IE_SKETCH = 5,
+	CIF_ISP20_IE_NONE /* not a bit field value */
 };
 
 #define CIF_ISP20_PIX_FMT_MASK					0xf0000000
@@ -325,6 +318,11 @@ enum cif_isp20_buff_fmt {
 	CIF_ISP20_BUFF_FMT_INTERLEAVED = 2
 };
 
+enum cif_isp20_jpeg_header {
+	CIF_ISP20_JPEG_HEADER_JFIF,
+	CIF_ISP20_JPEG_HEADER_NONE
+};
+
 struct cif_isp20_csi_config {
 	u32 vc;
 	u32 nb_lanes;
@@ -391,6 +389,7 @@ struct cif_isp20_mi_path_config {
 	u32 y_size;
 	u32 cb_size;
 	u32 cr_size;
+	bool busy;
 };
 
 struct cif_isp20_mi_config {
@@ -427,11 +426,6 @@ struct cif_isp20_stream {
 	bool first_frame;
 };
 
-enum cif_isp20_jpeg_header {
-	CIF_ISP20_JPEG_HEADER_JFIF,
-	CIF_ISP20_JPEG_HEADER_NONE
-};
-
 struct cif_isp20_jpeg_config {
 	bool enable;
 	bool busy;
@@ -440,55 +434,19 @@ struct cif_isp20_jpeg_config {
 	enum cif_isp20_jpeg_header header;
 };
 
-struct marvin_isp {
-	unsigned int in_sel;
-	unsigned int vsync;
-	unsigned int hsync;
-	unsigned int sample_edge;
-	unsigned field_sel;
+struct cif_isp20_ie_config {
+	enum cif_isp20_image_effect effect;
+};
+
+struct cif_isp20_isp_config {
+	bool si_enable;
+	struct cif_isp20_ie_config ie_config;
 	struct cif_isp20_frm_fmt *input;
 	struct cif_isp20_frm_fmt output;
 };
 
-enum marvin_dmaport_fmt {
-	DMAPORT_YUV400 = 0,	/* corresponds to bitfield value !!! */
-	DMAPORT_YUV420 = 1,	/* corresponds to bitfield value !!! */
-	DMAPORT_YUV422 = 2,	/* corresponds to bitfield value !!! */
-	DMAPORT_YUV444 = 3,	/* corresponds to bitfield value !!! */
-};
-
-struct marvin_dmaport {
-	bool enable;
-	unsigned int y_pic;
-	unsigned int width;
-	unsigned int llength;
-	unsigned int size;
-	unsigned int cb_pic;
-	unsigned int cr_pic;
-	enum marvin_dmaport_fmt format;
-};
-
-enum marvin_si_mode {
-	si_bypass,
-	si_overlay,
-	si_color_keying
-};
-
-struct marvin_si {
-	enum marvin_si_mode mode;
-	unsigned int x;
-	unsigned int y;
-	unsigned int y_comp;
-	unsigned int cb_comp;
-	unsigned int cr_comp;
-};
-
-struct marvin_ei {
-	unsigned int image_effect;
-};
-
 struct cif_isp20_config {
-	CIF_ISP20_PLTFRM_MEM_IO_ADDR base_addr;	/* registers base address */
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR base_addr;
 	enum cif_isp20_flash_mode flash_mode;
 	enum cif_isp20_inp input_sel;
 	struct cif_isp20_jpeg_config jpeg_config;
@@ -497,11 +455,7 @@ struct cif_isp20_config {
 	struct cif_isp20_sp_config sp_config;
 	struct cif_isp20_mp_config mp_config;
 	struct cif_isp20_strm_fmt img_src_output;
-	struct marvin_control control;	/* control */
-	struct marvin_isp isp_config;	/* isp configuration */
-	struct marvin_dmaport dmaport_config;	/* DMA Port configuration */
-	struct marvin_si si_config;	/* superimopse configuration */
-	struct marvin_ei ei_config;	/* image_effect configuration */
+	struct cif_isp20_isp_config isp_config;
 };
 
 struct cif_isp20_mi_state {
@@ -566,10 +520,11 @@ struct cif_isp20_device {
 	struct cif_isp20_img_src *img_src_array[CIF_ISP20_NUM_CSI_INPUTS];
 	struct cif_isp20_config config;
 	struct xgold_isp_dev isp_dev;
-	struct xgold_readback_path_dev rb_dev;
 	struct cif_isp20_stream sp_stream;
 	struct cif_isp20_stream mp_stream;
 	struct cif_isp20_stream dma_stream;
+	bool stop_dma;
+	CIF_ISP20_PLTFRM_EVENT dma_done;
 #ifdef SOFIA_ES1_BU_PM_NATIVE
 	struct clk *clk_kernel;
 	struct clk *clk_slave;
@@ -584,17 +539,6 @@ struct cif_isp20_device {
 	struct regulator *regulator_lcsi2;
 #endif
 };
-
-int marvin_lib_mi_sp(struct cif_isp20_device *dev);
-unsigned int marvin_lib_start(struct cif_isp20_device *dev);
-unsigned int marvin_lib_mi_address(struct cif_isp20_device *dev,
-				   int write_sp);
-unsigned int marvin_lib_s_control(struct cif_isp20_device *dev);
-int marvin_s_ctrl(struct cif_isp20_device *dev,
-	struct v4l2_control *vc);
-int register_rbpath_device(
-	struct xgold_readback_path_dev *rbpath_dev,
-	void __iomem *cif_reg_baseaddress);
 
 struct xgold_fmt *get_xgold_output_format(int index);
 int get_xgold_output_format_size(void);
@@ -624,8 +568,7 @@ int cif_isp20_streamon(
 
 int cif_isp20_streamoff(
 	struct cif_isp20_device *dev,
-	bool streamoff_sp,
-	bool streamoff_mp);
+	u32 stream_ids);
 
 int cif_isp20_s_input(
 	struct cif_isp20_device *dev,
@@ -661,7 +604,12 @@ const char *cif_isp20_g_input_name(
 
 int cif_isp20_calc_min_out_buff_size(
 	struct cif_isp20_device *dev,
-	enum cif_isp20_stream_id stream,
+	enum cif_isp20_stream_id stream_id,
 	u32 *size);
+
+int cif_isp20_s_ctrl(
+	struct cif_isp20_device *dev,
+	const enum cif_isp20_cid id,
+	int val);
 
 #endif

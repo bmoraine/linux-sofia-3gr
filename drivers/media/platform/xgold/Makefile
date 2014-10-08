@@ -22,5 +22,5 @@ obj-y += video_xgold.o
 ifeq ($(CONFIG_PLATFORM_DEVICE_PM_VIRT),y)
   video_xgold-y += cif_isp20_vmm.o
 endif
-video_xgold-y += cif_isp20_img_src_v4l2-subdev.o cif_isp20_img_src.o cif_isp20_isp.o cif_isp20_dma.o cif_isp20_v4l2.o cif_isp20.o
+video_xgold-y += cif_isp20_img_src_v4l2-subdev.o cif_isp20_img_src.o cif_isp20_isp.o cif_isp20_v4l2.o cif_isp20.o
 video_xgold-objs := $(video_xgold-y)

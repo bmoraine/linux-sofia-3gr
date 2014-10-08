@@ -22,37 +22,8 @@
  ****************************************************************
  */
 
-#include <linux/module.h>
-#include <linux/slab.h>
-#include <linux/init.h>
-#include <linux/kernel.h>
-#include <linux/platform_device.h>
-#include <linux/fs.h>
-#include <linux/interrupt.h>
-#include <linux/mm.h>
-#include <linux/dma-mapping.h>
-#include <linux/delay.h>
-#include <linux/workqueue.h>
 #include <linux/videodev2.h>
-#include <linux/of.h>
-#include <linux/clk.h>
-#include <linux/gpio.h>
-#include <linux/regulator/consumer.h>
-#include <asm/irq.h>
-#include <linux/io.h>
-#include <media/v4l2-common.h>
-#include <media/v4l2-ioctl.h>
-#include <media/v4l2-subdev.h>
 #include <media/videobuf-dma-contig.h>
-#include <linux/mm.h>
-#include <linux/irq.h>
-#include <linux/i2c.h>
-#include <linux/proc_fs.h>
-#include <linux/vmalloc.h>
-#include <linux/string.h>
-#include <linux/gpio.h>
-#include <linux/of_gpio.h>
-
 #include "cif_isp20_regs.h"
 #include "cif_isp20.h"
 
@@ -65,8 +36,6 @@ static int marvin_mipi_isr(
 static int marvin_isp_isr(
 	void *cntxt);
 static void init_output_formats(void);
-static int ie_configure(
-	struct cif_isp20_device *dev);
 
 struct v4l2_fmtdesc output_formats[MAX_NB_FORMATS];
 
@@ -439,10 +408,6 @@ static struct smarvin_hw_errors marvin_hw_errors[] = {
 #define DIV_TRUNCATE(x, y) ((x) / (y))
 #endif
 
-#define CIF_ISP20_INPUT_IS_DMA(input_sel) \
-	(((input_sel) & ~CIF_ISP20_INP_SI) > \
-			CIF_ISP20_INP_CPI)
-
 /**Structures and Types*******************************************************/
 
 
@@ -517,22 +482,13 @@ static const char *cif_isp20_stream_id_string(
 static const char *cif_isp20_inp_string(
 	enum cif_isp20_inp inp)
 {
-	switch (inp & ~CIF_ISP20_INP_SI) {
+	switch (inp) {
 	case CIF_ISP20_INP_CSI_0:
-		if (inp & CIF_ISP20_INP_SI)
-			return "CSI-0 + Superimpose";
-		else
-			return "CSI-0";
+		return "CSI-0";
 	case CIF_ISP20_INP_CSI_1:
-		if (inp & CIF_ISP20_INP_SI)
-			return "CSI-1 + Superimpose";
-		else
-			return "CSI-1";
+		return "CSI-1";
 	case CIF_ISP20_INP_CPI:
-		if (inp & CIF_ISP20_INP_SI)
-			return "CPI + Superimpose";
-		else
-			return "CPI";
+		return "CPI";
 	case CIF_ISP20_INP_DMA:
 		return "DMA";
 	case CIF_ISP20_INP_DMA_IE:
@@ -1435,8 +1391,20 @@ static int cif_isp20_config_isp(
 	u32 isp_bayer_pat = 0;
 	u32 acq_mult = 1;
 	enum cif_isp20_pix_fmt in_pix_fmt;
-	struct cif_isp20_frm_fmt *output =
-		&dev->config.isp_config.output;
+	struct cif_isp20_frm_fmt *output;
+
+	if (dev->config.input_sel == CIF_ISP20_INP_DMA_IE)
+		dev->config.isp_config.output =
+			dev->config.mi_config.dma.output;
+	else if (dev->config.input_sel == CIF_ISP20_INP_DMA_SP) {
+		cif_iowrite32AND(~CIF_ICCL_ISP_CLK,
+			dev->config.base_addr + CIF_ICCL);
+		cif_isp20_pltfrm_pr_dbg(NULL,
+			"ISP disabled\n");
+		return 0;
+	}
+	cif_iowrite32OR(CIF_ICCL_ISP_CLK,
+		dev->config.base_addr + CIF_ICCL);
 
 	in_pix_fmt = dev->config.isp_config.input->pix_fmt;
 	input_width = dev->config.isp_config.input->width;
@@ -1445,6 +1413,8 @@ static int cif_isp20_config_isp(
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "%s %dx%d\n",
 		cif_isp20_pix_fmt_string(in_pix_fmt),
 		input_width, input_height);
+
+	output = &dev->config.isp_config.output;
 
 	if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(in_pix_fmt)) {
 		if (!dev->config.mi_config.raw_enable) {
@@ -1601,8 +1571,19 @@ static int cif_isp20_config_mipi(
 	u32 mipi_ctrl;
 	u32 shutdown_lanes;
 	u32 i;
-	enum cif_isp20_pix_fmt in_pix_fmt =
-		dev->config.img_src_output.frm_fmt.pix_fmt;
+	enum cif_isp20_pix_fmt in_pix_fmt;
+
+	if (dev->config.input_sel > CIF_ISP20_INP_CSI_1) {
+		cif_iowrite32AND(~CIF_ICCL_MIPI_CLK,
+			dev->config.base_addr + CIF_ICCL);
+		cif_isp20_pltfrm_pr_dbg(NULL,
+			"MIPI disabled\n");
+		return 0;
+	}
+	cif_iowrite32OR(CIF_ICCL_MIPI_CLK,
+		dev->config.base_addr + CIF_ICCL);
+
+	in_pix_fmt = dev->config.img_src_output.frm_fmt.pix_fmt;
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
 		"input %d, vc = %d, nb_lanes = %d, dphy1 = 0x%08x, dphy2 = 0x%02x, ana_bandgap_bias = %d\n",
@@ -2190,6 +2171,9 @@ static int cif_isp20_config_mi_dma(
 		CIF_MI_DMA_CTRL_BURST_LEN_CHROM_64,
 		dev->config.base_addr + CIF_MI_DMA_CTRL);
 
+	cif_iowrite32OR(CIF_MI_DMA_READY,
+		dev->config.base_addr + CIF_MI_IMSC);
+
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
 		"\n  MI_DMA_CTRL 0x%08x\n"
 		"  MI_DMA_STATUS 0x%08x\n"
@@ -2361,19 +2345,18 @@ static int cif_isp20_config_path(
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "\n");
 
 	/* if_sel */
-	if (dev->config.input_sel & CIF_ISP20_INP_DMA)
-		dpcl |= CIF_VI_DPCL_IF_SEL_DMA;
-	else if (dev->config.input_sel & CIF_ISP20_INP_DMA_IE)
+	if (dev->config.input_sel == CIF_ISP20_INP_DMA)
+		dpcl |= CIF_VI_DPCL_IF_SEL_DMA | CIF_VI_DPCL_DMA_SW_ISP;
+	else if (dev->config.input_sel == CIF_ISP20_INP_DMA_IE)
 		dpcl |= CIF_VI_DPCL_DMA_IE_MUX_DMA | CIF_VI_DPCL_DMA_SW_IE;
-	else if (dev->config.input_sel & CIF_ISP20_INP_DMA_SP)
+	else if (dev->config.input_sel == CIF_ISP20_INP_DMA_SP)
 		dpcl |= CIF_VI_DPCL_DMA_SP_MUX_DMA;
 	else {
-		if ((dev->config.input_sel & CIF_ISP20_INP_CSI_0) ||
-			(dev->config.input_sel & CIF_ISP20_INP_CSI_1)) {
+		if (dev->config.input_sel < CIF_ISP20_INP_CPI)
 			dpcl |= CIF_VI_DPCL_IF_SEL_MIPI;
-		} else
+		else
 			dpcl |= CIF_VI_DPCL_IF_SEL_PARALLEL;
-		if (dev->config.input_sel & CIF_ISP20_INP_SI)
+		if (dev->config.isp_config.si_enable)
 			dpcl |= CIF_VI_DPCL_DMA_SW_SI;
 	}
 
@@ -2385,7 +2368,7 @@ static int cif_isp20_config_path(
 	}
 
 	if ((stream_ids & CIF_ISP20_STREAM_MP) &&
-		!(dev->config.input_sel & CIF_ISP20_INP_DMA_SP)) {
+		!(dev->config.input_sel == CIF_ISP20_INP_DMA_SP)) {
 			dpcl |= CIF_VI_DPCL_CHAN_MODE_MP;
 		/* mp_dmux */
 		if (dev->config.jpeg_config.enable == true)
@@ -2474,8 +2457,12 @@ int cif_isp20_config_rsz(
 		scale_h_cb_addr += CIF_SRSZ_SCALE_HCB;
 		scale_h_cr_addr += CIF_SRSZ_SCALE_HCR;
 		scale_v_c_addr += CIF_SRSZ_SCALE_VC;
-		dev->config.sp_config.rsz_config.input =
-			&dev->config.isp_config.output;
+		if (dev->config.input_sel == CIF_ISP20_INP_DMA_SP)
+			dev->config.sp_config.rsz_config.input =
+				&dev->config.mi_config.dma.output;
+		else
+			dev->config.sp_config.rsz_config.input =
+				&dev->config.isp_config.output;
 		inp_yc_filt = inp_yc_filt &&
 			dev->config.sp_config.inp_yc_filt;
 		rsz_input = dev->config.sp_config.rsz_config.input;
@@ -2828,8 +2815,6 @@ err:
 static void cif_isp20_config_clk(
 	struct cif_isp20_device *dev)
 {
-	cif_isp20_pltfrm_pr_dbg(dev->dev, "\n");
-
 	cif_iowrite32(CIF_CCL_CIF_CLK_ENA,
 		dev->config.base_addr + CIF_CCL);
 	cif_iowrite32(0x0000187B, dev->config.base_addr + CIF_ICCL);
@@ -2839,6 +2824,41 @@ static void cif_isp20_config_clk(
 		"  CIF_ICCL 0x%08x\n",
 		cif_ioread32(dev->config.base_addr + CIF_CCL),
 		cif_ioread32(dev->config.base_addr + CIF_ICCL));
+}
+
+static void cif_isp20_config_ie(
+	struct cif_isp20_device *dev)
+{
+	cif_isp20_pltfrm_pr_dbg(NULL,
+		"image effect %d\n",
+		dev->config.isp_config.ie_config.effect);
+
+	if ((dev->config.input_sel < CIF_ISP20_INP_DMA_SP) &&
+		(dev->config.isp_config.ie_config.effect !=
+		CIF_ISP20_IE_NONE)) {
+		if (dev->config.isp_config.ie_config.effect <
+			CIF_ISP20_IE_NONE) {
+			cif_iowrite32OR(CIF_ICCL_IE_CLK,
+				dev->config.base_addr + CIF_ICCL);
+			cif_iowrite32(CIF_IMG_EFF_CTRL_ENABLE |
+				dev->config.isp_config.ie_config.effect << 1,
+				dev->config.base_addr + CIF_IMG_EFF_CTRL);
+			cif_iowrite32OR(CIF_IMG_EFF_CTRL_CFG_UPD,
+				dev->config.base_addr + CIF_IMG_EFF_CTRL);
+		} else {
+			cif_isp20_pltfrm_pr_warn(NULL,
+				"unknown/unsupported image effect %d ignored\n",
+				dev->config.isp_config.ie_config.effect);
+		}
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"\n  IMG_EFF_CTRL 0x%08x\n",
+			cif_ioread32(dev->config.base_addr + CIF_IMG_EFF_CTRL));
+	} else {
+		cif_iowrite32AND(~CIF_ICCL_IE_CLK,
+			dev->config.base_addr + CIF_ICCL);
+		cif_isp20_pltfrm_pr_dbg(NULL,
+			"image effects disabled\n");
+	}
 }
 
 static int cif_isp20_config_cif(
@@ -2862,7 +2882,7 @@ static int cif_isp20_config_cif(
 
 	if ((stream_ids & CIF_ISP20_STREAM_MP) ||
 		(stream_ids & CIF_ISP20_STREAM_SP)) {
-		if (!CIF_ISP20_INPUT_IS_DMA(dev->config.input_sel)) {
+		if (dev->config.input_sel < CIF_ISP20_INP_DMA) {
 			/* configure sensor */
 			ret = cif_isp20_config_img_src(dev);
 			if (IS_ERR_VALUE(ret))
@@ -2886,39 +2906,44 @@ static int cif_isp20_config_cif(
 #ifdef CONFIG_CIF_ISP20_TEST_YC_FLT
 		cif_isp20_enable_yc_flt(dev);
 #endif
-		/* TEMPORARY: only keep this until we get the
-			HW with the fixed scalers. */
-		if (dev->isp_dev.ycflt_en) {
+		/* TODO: remove dev->isp_dev.ycflt_en check for
+			HW with the scaler fix. */
+		if ((dev->config.input_sel > CIF_ISP20_INP_CPI) ||
+			(dev->isp_dev.ycflt_en &&
+			(dev->isp_dev.ycflt_config.chr_ss_ctrl & 0x3))) {
 			dev->config.mi_config.async_updt = true;
-			cif_isp20_pltfrm_pr_warn(NULL,
-				"YC filter enabled, switching to asynchronous mode\n");
-		}
+			if (dev->isp_dev.ycflt_en &&
+				(dev->isp_dev.ycflt_config.chr_ss_ctrl & 0x3))
+				cif_isp20_pltfrm_pr_warn(NULL,
+					"YC filter enabled, switching to asynchronous mode\n");
+			if (dev->config.input_sel > CIF_ISP20_INP_CPI) {
+				ret = cif_isp20_config_mi_dma(dev);
+				if (IS_ERR_VALUE(ret))
+					goto err;
+			}
+		} else
+			dev->config.mi_config.async_updt = false;
 
 		ret = cif_isp20_config_mipi(dev);
 		if (IS_ERR_VALUE(ret))
 			goto err;
 
-		ret = ie_configure(dev);
-		if (IS_ERR_VALUE(ret))
-			goto err;
 		ret = cif_isp20_config_isp(dev);
 		if (IS_ERR_VALUE(ret))
 			goto err;
 
+		cif_isp20_config_ie(dev);
+
 		/* YC filter enabled in secondary path causes sync fifo
 			overflows in capture use case. */
-		if ((stream_ids & CIF_ISP20_STREAM_MP) &&
-			dev->config.jpeg_config.enable)
+		if (((stream_ids & CIF_ISP20_STREAM_MP) &&
+			dev->config.jpeg_config.enable) ||
+			(dev->config.input_sel == CIF_ISP20_INP_DMA_SP))
 			dev->config.sp_config.inp_yc_filt = false;
 		else
 			dev->config.sp_config.inp_yc_filt =
 				CIF_ISP20_SP_YCFLT_INP;
 
-		if (stream_ids & CIF_ISP20_STREAM_DMA) {
-			ret = cif_isp20_config_mi_dma(dev);
-			if (IS_ERR_VALUE(ret))
-				goto err;
-		}
 		if (stream_ids & CIF_ISP20_STREAM_SP) {
 			ret = cif_isp20_config_sp(dev);
 			if (IS_ERR_VALUE(ret))
@@ -2998,6 +3023,9 @@ static void cif_isp20_init_stream(
 		break;
 	case CIF_ISP20_STREAM_DMA:
 		stream = &dev->dma_stream;
+		dev->stop_dma = false;
+		dev->config.mi_config.dma.busy = false;
+		cif_isp20_pltfrm_event_clear(dev->dev, &dev->dma_done);
 		break;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
@@ -3320,11 +3348,13 @@ static int cif_isp20_s_fmt_mp(
 	dev->mp_stream.updt_cfg = true;
 	dev->mp_stream.state = CIF_ISP20_STATE_READY;
 
-	ret = cif_isp20_img_src_select_strm_fmt(dev);
-	if (IS_ERR_VALUE(ret)) {
-		dev->mp_stream.updt_cfg = false;
-		dev->mp_stream.state = CIF_ISP20_STATE_INACTIVE;
-		goto err;
+	if (dev->config.input_sel < CIF_ISP20_INP_DMA) {
+		ret = cif_isp20_img_src_select_strm_fmt(dev);
+		if (IS_ERR_VALUE(ret)) {
+			dev->mp_stream.updt_cfg = false;
+			dev->mp_stream.state = CIF_ISP20_STATE_INACTIVE;
+			goto err;
+		}
 	}
 
 	return 0;
@@ -3380,11 +3410,13 @@ static int cif_isp20_s_fmt_sp(
 	dev->sp_stream.updt_cfg = true;
 	dev->sp_stream.state = CIF_ISP20_STATE_READY;
 
-	ret = cif_isp20_img_src_select_strm_fmt(dev);
-	if (IS_ERR_VALUE(ret)) {
-		dev->sp_stream.updt_cfg = false;
-		dev->sp_stream.state = CIF_ISP20_STATE_INACTIVE;
-		goto err;
+	if (dev->config.input_sel < CIF_ISP20_INP_DMA) {
+		ret = cif_isp20_img_src_select_strm_fmt(dev);
+		if (IS_ERR_VALUE(ret)) {
+			dev->sp_stream.updt_cfg = false;
+			dev->sp_stream.state = CIF_ISP20_STATE_INACTIVE;
+			goto err;
+		}
 	}
 
 	return 0;
@@ -3410,11 +3442,8 @@ static int cif_isp20_s_fmt_dma(
 		strm_fmt->frm_intrvl.denominator,
 		stride);
 
-	if ((!CIF_ISP20_PIX_FMT_IS_YUV(strm_fmt->frm_fmt.pix_fmt) &&
-		!CIF_ISP20_PIX_FMT_IS_RAW_BAYER(strm_fmt->frm_fmt.pix_fmt)) ||
-		(CIF_ISP20_PIX_FMT_IS_YUV(strm_fmt->frm_fmt.pix_fmt) &&
-		CIF_ISP20_PIX_FMT_YUV_IS_UV_SWAPPED(
-			strm_fmt->frm_fmt.pix_fmt))) {
+	if (!CIF_ISP20_PIX_FMT_IS_YUV(strm_fmt->frm_fmt.pix_fmt) &&
+		!CIF_ISP20_PIX_FMT_IS_RAW_BAYER(strm_fmt->frm_fmt.pix_fmt)) {
 		cif_isp20_pltfrm_pr_err(dev->dev,
 			"format %s %dx%d@%d/%dfps, stride = %d not supported for DMA\n",
 			cif_isp20_pix_fmt_string(strm_fmt->frm_fmt.pix_fmt),
@@ -3447,20 +3476,35 @@ err:
 static void cif_isp20_dma_next_buff(
 	struct cif_isp20_device *dev)
 {
-	if (!list_empty(&dev->dma_stream.buf_queue)) {
+	cif_isp20_pltfrm_pr_dbg(NULL, "\n");
+
+	if (dev->stop_dma)
+		cif_isp20_pltfrm_event_signal(dev->dev, &dev->dma_done);
+	else if (!list_empty(&dev->dma_stream.buf_queue)) {
+		if (dev->dma_stream.curr_buf != NULL)
+			BUG();
 		dev->dma_stream.curr_buf =
 			list_first_entry(&dev->dma_stream.buf_queue,
 				struct videobuf_buffer, queue);
-		list_del(&dev->dma_stream.next_buf->queue);
+		list_del(&dev->dma_stream.curr_buf->queue);
 		dev->dma_stream.curr_buf->state = VIDEOBUF_ACTIVE;
-		dev->config.mi_config.dma.curr_buff_addr =
+		dev->config.mi_config.dma.next_buff_addr =
 			videobuf_to_dma_contig(
-				dev->dma_stream.next_buf);
+				dev->dma_stream.curr_buf);
 		cif_isp20_mi_update_buff_addr(dev,
 			CIF_ISP20_STREAM_DMA);
+		dev->config.mi_config.dma.busy = true;
+		cif_iowrite32(CIF_MI_DMA_START_ENABLE,
+			dev->config.base_addr + CIF_MI_DMA_START);
 	}
-	cif_iowrite32(CIF_MI_DMA_START_ENABLE,
-		dev->config.base_addr + CIF_MI_DMA_START);
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"\n  MI_DMA_CTRL 0x%08x\n"
+		"  MI_DMA_STATUS 0x%08x\n",
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_DMA_CTRL),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_DMA_STATUS));
 }
 
 static void cif_isp20_dma_ready(
@@ -3469,6 +3513,7 @@ static void cif_isp20_dma_ready(
 	dev->dma_stream.curr_buf->state = VIDEOBUF_DONE;
 	wake_up(&dev->dma_stream.curr_buf->done);
 	dev->dma_stream.curr_buf = NULL;
+	dev->config.mi_config.dma.busy = false;
 }
 
 static int cif_isp20_mi_frame_end(
@@ -3593,16 +3638,6 @@ static int cif_isp20_mi_frame_end(
 
 	return 0;
 }
-
-#ifdef NOT_YET
-static int cif_isp20_mi_dma_start(
-	struct cif_isp20_device *dev)
-{
-	/* program next buffer address */
-	/* start next dma transfer */
-	return 0;
-}
-#endif
 
 static void cif_isp20_start_mi(
 	struct cif_isp20_device *dev,
@@ -3772,6 +3807,23 @@ static int cif_isp20_stop(
 		(dev->mp_stream.state != CIF_ISP20_STATE_STREAMING)) ||
 		(stop_mp &&
 		(dev->sp_stream.state != CIF_ISP20_STATE_STREAMING))) {
+
+		if ((dev->config.input_sel > CIF_ISP20_INP_CPI) &&
+			(dev->dma_stream.state ==
+				CIF_ISP20_STATE_STREAMING)) {
+			/* we should not stop during an active DMA transfer */
+			dev->stop_dma = true;
+			(void)cif_isp20_pltfrm_event_wait_timeout(dev->dev,
+				&dev->dma_done,
+				!dev->config.mi_config.dma.busy,
+				50000);
+			/* intentionally NOT checking dma.busy again */
+			if (dev->config.mi_config.dma.busy)
+				cif_isp20_pltfrm_pr_warn(NULL,
+					"DMA transfer still active while stopping it\n");
+			dev->dma_stream.state = CIF_ISP20_STATE_READY;
+		}
+
 		/* stop and clear MI, MIPI, and ISP interrupts */
 		cif_iowrite32(0, dev->config.base_addr + CIF_MIPI_IMSC);
 		cif_iowrite32(~0, dev->config.base_addr + CIF_MIPI_ICR);
@@ -3794,10 +3846,12 @@ static int cif_isp20_stop(
 
 		cif_isp20_stop_mi(dev, stop_sp, stop_mp);
 
-		if (IS_ERR_VALUE(cif_isp20_img_src_set_state(dev,
-			CIF_ISP20_IMG_SRC_STATE_SW_STNDBY)))
-			cif_isp20_pltfrm_pr_dbg(dev->dev,
-			"unable to put image source into standby\n");
+		if (dev->config.input_sel < CIF_ISP20_INP_DMA) {
+			if (IS_ERR_VALUE(cif_isp20_img_src_set_state(dev,
+				CIF_ISP20_IMG_SRC_STATE_SW_STNDBY)))
+				cif_isp20_pltfrm_pr_dbg(dev->dev,
+					"unable to put image source into standby\n");
+		}
 		if (IS_ERR_VALUE(cif_isp20_set_pm_state(dev,
 			CIF_ISP20_PM_STATE_SW_STNDBY)))
 			cif_isp20_pltfrm_pr_dbg(dev->dev,
@@ -3843,15 +3897,22 @@ static int cif_isp20_stop(
 			dev->mp_stream.curr_buf = NULL;
 		}
 	}
+	if (dev->stop_dma && (dev->dma_stream.curr_buf != NULL)) {
+		list_add(&dev->dma_stream.curr_buf->queue,
+			&dev->dma_stream.buf_queue);
+		dev->dma_stream.curr_buf->state = VIDEOBUF_QUEUED;
+		dev->sp_stream.curr_buf = NULL;
+	}
 	spin_unlock_irqrestore(&dev->vbq_lock, flags);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"SP state = %s, MP state = %s, img_src state = %s\n"
+		"SP state = %s, MP state = %s, DMA state = %s, img_src state = %s\n"
 		"  MI_CTRL 0x%08x\n"
 		"  ISP_CTRL 0x%08x\n"
 		"  MIPI_CTRL 0x%08x\n",
 		cif_isp20_state_string(dev->sp_stream.state),
 		cif_isp20_state_string(dev->mp_stream.state),
+		cif_isp20_state_string(dev->dma_stream.state),
 		cif_isp20_img_src_state_string(dev->img_src_state),
 		cif_ioread32(dev->config.base_addr + CIF_MI_CTRL),
 		cif_ioread32(dev->config.base_addr + CIF_ISP_CTRL),
@@ -3865,12 +3926,13 @@ static int cif_isp20_start(
 	bool start_sp,
 	bool start_mp)
 {
-	unsigned int ret = 0;
+	unsigned int ret;
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"SP state = %s, MP state = %s, img_src state = %s, start_sp = %d, start_mp = %d\n",
+		"SP state = %s, MP state = %s, DMA state = %s, img_src state = %s, start_sp = %d, start_mp = %d\n",
 		cif_isp20_state_string(dev->sp_stream.state),
 		cif_isp20_state_string(dev->mp_stream.state),
+		cif_isp20_state_string(dev->dma_stream.state),
 		cif_isp20_img_src_state_string(dev->img_src_state),
 		start_sp,
 		start_mp);
@@ -3881,20 +3943,30 @@ static int cif_isp20_start(
 		(dev->sp_stream.state != CIF_ISP20_STATE_STREAMING))))
 		return 0;
 
+	if ((dev->config.input_sel > CIF_ISP20_INP_CPI) &&
+		(dev->dma_stream.state < CIF_ISP20_STATE_READY)) {
+		cif_isp20_pltfrm_pr_err(NULL,
+			"cannot start streaming, input source (DMA) not ready\n");
+		ret = -EFAULT;
+		goto err;
+	}
+
 	/* Activate MI */
 	cif_isp20_start_mi(dev, start_sp, start_mp);
 
 	if ((dev->sp_stream.state != CIF_ISP20_STATE_STREAMING) &&
 		(dev->mp_stream.state != CIF_ISP20_STATE_STREAMING)) {
 		/* Activate MIPI */
-		cif_iowrite32OR(CIF_MIPI_CTRL_OUTPUT_ENA,
-			dev->config.base_addr + CIF_MIPI_CTRL);
+		if (dev->config.input_sel < CIF_ISP20_INP_DMA)
+			cif_iowrite32OR(CIF_MIPI_CTRL_OUTPUT_ENA,
+				dev->config.base_addr + CIF_MIPI_CTRL);
 
 		/* Activate ISP ! */
-		cif_iowrite32OR(CIF_ISP_CTRL_ISP_CFG_UPD |
-			CIF_ISP_CTRL_ISP_INFORM_ENABLE |
-			CIF_ISP_CTRL_ISP_ENABLE,
-			dev->config.base_addr + CIF_ISP_CTRL);
+		if (dev->config.input_sel < CIF_ISP20_INP_DMA_IE)
+			cif_iowrite32OR(CIF_ISP_CTRL_ISP_CFG_UPD |
+				CIF_ISP_CTRL_ISP_INFORM_ENABLE |
+				CIF_ISP_CTRL_ISP_ENABLE,
+				dev->config.base_addr + CIF_ISP_CTRL);
 	}
 
 	if (start_sp &&
@@ -3909,7 +3981,10 @@ static int cif_isp20_start(
 	}
 	ret = cif_isp20_set_pm_state(dev,
 		CIF_ISP20_PM_STATE_STREAMING);
-	if (!IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	if (dev->config.input_sel < CIF_ISP20_INP_DMA) {
 		/* CIF spec says to wait for sufficient time after enabling
 			the MIPI interface and before starting the
 			sensor output. */
@@ -3919,25 +3994,33 @@ static int cif_isp20_start(
 			"starting image source...\n");
 		ret = cif_isp20_img_src_set_state(dev,
 			CIF_ISP20_IMG_SRC_STATE_STREAMING);
+		if (IS_ERR_VALUE(ret))
+			goto err;
+	} else {
+		cif_isp20_pltfrm_reg_trace_printf(dev->dev,
+			"starting DMA...\n");
+		dev->dma_stream.state = CIF_ISP20_STATE_STREAMING;
+		dev->stop_dma = false;
+		cif_isp20_dma_next_buff(dev);
 	}
 
-	if (IS_ERR_VALUE(ret))
-		cif_isp20_pltfrm_pr_err(dev->dev,
-			"image source start streaming failed with %d\n",
-			ret);
-	else
-		cif_isp20_pltfrm_pr_dbg(dev->dev,
-			"SP state = %s, MP state = %s, img_src state = %s\n"
-			"  MI_CTRL 0x%08x\n"
-			"  ISP_CTRL 0x%08x\n"
-			"  MIPI_CTRL 0x%08x\n",
-			cif_isp20_state_string(dev->sp_stream.state),
-			cif_isp20_state_string(dev->mp_stream.state),
-			cif_isp20_img_src_state_string(dev->img_src_state),
-			cif_ioread32(dev->config.base_addr + CIF_MI_CTRL),
-			cif_ioread32(dev->config.base_addr + CIF_ISP_CTRL),
-			cif_ioread32(dev->config.base_addr + CIF_MIPI_CTRL));
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"SP state = %s, MP state = %s, DMA state = %s, img_src state = %s\n"
+		"  MI_CTRL 0x%08x\n"
+		"  ISP_CTRL 0x%08x\n"
+		"  MIPI_CTRL 0x%08x\n",
+		cif_isp20_state_string(dev->sp_stream.state),
+		cif_isp20_state_string(dev->mp_stream.state),
+		cif_isp20_state_string(dev->dma_stream.state),
+		cif_isp20_img_src_state_string(dev->img_src_state),
+		cif_ioread32(dev->config.base_addr + CIF_MI_CTRL),
+		cif_ioread32(dev->config.base_addr + CIF_ISP_CTRL),
+		cif_ioread32(dev->config.base_addr + CIF_MIPI_CTRL));
 
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(dev->dev,
+		"failed with err %d\n", ret);
 	return ret;
 }
 
@@ -4025,6 +4108,9 @@ static int cif_isp20_mi_isr(void *cntxt)
 		cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
 			dev->config.base_addr + CIF_MI_INIT);
 	}
+
+	if (mi_mis & (CIF_MI_SP_FRAME | CIF_MI_MP_FRAME))
+		cif_isp20_dma_next_buff(dev);
 
 	cif_iowrite32(~(CIF_MI_MP_FRAME |
 		CIF_MI_SP_FRAME | CIF_MI_DMA_READY),
@@ -4174,31 +4260,37 @@ err:
 
 int cif_isp20_streamoff(
 	struct cif_isp20_device *dev,
-	bool streamoff_sp,
-	bool streamoff_mp)
+	u32 stream_ids)
 {
 	int ret = 0;
+	bool streamoff_sp = stream_ids & CIF_ISP20_STREAM_SP;
+	bool streamoff_mp = stream_ids & CIF_ISP20_STREAM_MP;
+	bool streamoff_dma = stream_ids & CIF_ISP20_STREAM_DMA;
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"SP state = %s, MP state = %s, streamoff SP = %d, streamoff MP = %d\n",
+		"SP state = %s, MP state = %s, DMA state = %s, streamoff SP = %d, streamoff MP = %d, streamoff DMA = %d\n",
 		cif_isp20_state_string(dev->sp_stream.state),
 		cif_isp20_state_string(dev->mp_stream.state),
+		cif_isp20_state_string(dev->dma_stream.state),
 		streamoff_sp,
-		streamoff_mp);
+		streamoff_mp,
+		streamoff_dma);
 
 	ret = cif_isp20_stop(dev, streamoff_sp, streamoff_mp);
 	if (IS_ERR_VALUE(ret))
 		goto err;
-	if (streamoff_sp) {
-		if (dev->sp_stream.state == CIF_ISP20_STATE_READY)
-			dev->sp_stream.state = CIF_ISP20_STATE_INACTIVE;
-	}
+	if ((streamoff_sp) &&
+		(dev->sp_stream.state == CIF_ISP20_STATE_READY))
+		dev->sp_stream.state = CIF_ISP20_STATE_INACTIVE;
 	if (streamoff_mp) {
 		dev->config.jpeg_config.enable = false;
 		dev->config.mi_config.raw_enable = false;
 		if (dev->mp_stream.state == CIF_ISP20_STATE_READY)
 			dev->mp_stream.state = CIF_ISP20_STATE_INACTIVE;
 	}
+	if ((streamoff_dma) &&
+		(dev->dma_stream.state == CIF_ISP20_STATE_READY))
+		dev->dma_stream.state = CIF_ISP20_STATE_INACTIVE;
 
 	return 0;
 err:
@@ -4324,8 +4416,12 @@ int cif_isp20_init(
 
 	/* set default input, failure is not fatal here */
 	if ((dev->sp_stream.state == CIF_ISP20_STATE_DISABLED) &&
-		(dev->mp_stream.state == CIF_ISP20_STATE_DISABLED))
+		(dev->mp_stream.state == CIF_ISP20_STATE_DISABLED)) {
 		(void)cif_isp20_s_input(dev, CIF_ISP20_INP_CSI_0);
+		dev->config.isp_config.si_enable = false;
+		dev->config.isp_config.ie_config.effect =
+			CIF_ISP20_IE_NONE;
+	}
 
 	if (stream_ids & CIF_ISP20_STREAM_SP)
 		cif_isp20_init_stream(dev, CIF_ISP20_STREAM_SP);
@@ -4389,11 +4485,13 @@ int cif_isp20_release(
 			CIF_ISP20_PM_STATE_OFF)))
 			cif_isp20_pltfrm_pr_warn(dev->dev,
 			"CIF power off failed\n");
-		if (IS_ERR_VALUE(cif_isp20_img_src_set_state(dev,
-			CIF_ISP20_IMG_SRC_STATE_OFF)))
-			cif_isp20_pltfrm_pr_warn(dev->dev,
-				"image source power off failed\n");
-		dev->img_src = NULL;
+		if (dev->img_src != NULL) {
+			if (IS_ERR_VALUE(cif_isp20_img_src_set_state(dev,
+				CIF_ISP20_IMG_SRC_STATE_OFF)))
+				cif_isp20_pltfrm_pr_warn(dev->dev,
+					"image source power off failed\n");
+			dev->img_src = NULL;
+		}
 	}
 
 	return 0;
@@ -4439,6 +4537,7 @@ struct cif_isp20_device *cif_isp20_create(
 	dev->mp_stream.state = CIF_ISP20_STATE_DISABLED;
 	dev->dma_stream.state = CIF_ISP20_STATE_DISABLED;
 	dev->config.mi_config.async_updt = false;
+	cif_isp20_pltfrm_event_init(dev->dev, &dev->dma_done);
 
 	/* TBD: clean this up */
 	init_output_formats();
@@ -4470,42 +4569,50 @@ int cif_isp20_s_input(
 		"setting input to %s(0x%08x)\n",
 		cif_isp20_inp_string(inp), inp);
 
-	if (inp & CIF_ISP20_INP_CSI_0) {
-		if (NULL == dev->img_src_array[0]) {
-			cif_isp20_pltfrm_pr_err(dev->dev,
-				"no image source connected to CSI-0\n");
-			ret = -EINVAL;
-			goto err;
-		}
-		dev->img_src = dev->img_src_array[0];
-		dev->config.mipi_config.input_sel = 0;
-	} else if (inp & CIF_ISP20_INP_CSI_1) {
-		if (NULL == dev->img_src_array[1]) {
-			cif_isp20_pltfrm_pr_err(dev->dev,
-				"no image source connected to CSI-1\n");
-			ret = -EINVAL;
-			goto err;
-		}
-		dev->img_src = dev->img_src_array[1];
-		dev->config.mipi_config.input_sel = 1;
-	} else if (inp & CIF_ISP20_INP_CPI) {
-		cif_isp20_pltfrm_pr_err(dev->dev,
-			"parallel input currently not supported\n");
+	if (inp > CIF_ISP20_INP_DMA_SP) {
+		cif_isp20_pltfrm_pr_err(NULL,
+			"invalid input %d\n", inp);
 		ret = -EINVAL;
 		goto err;
-	} else /* DMA */ {
-		if (inp & CIF_ISP20_INP_SI) {
+	}
+
+	dev->img_src = NULL;
+	if (inp == CIF_ISP20_INP_DMA) /* DMA -> ISP*/
+		dev->config.isp_config.input =
+			&dev->config.mi_config.dma.output;
+	else {
+		if (inp == CIF_ISP20_INP_CSI_0) {
+			if (NULL == dev->img_src_array[0]) {
+				cif_isp20_pltfrm_pr_err(dev->dev,
+					"no image source connected to CSI-0\n");
+				ret = -EINVAL;
+				goto err;
+			}
+			dev->img_src = dev->img_src_array[0];
+			dev->config.mipi_config.input_sel = 0;
+		} else if (inp == CIF_ISP20_INP_CSI_1) {
+			if (NULL == dev->img_src_array[1]) {
+				cif_isp20_pltfrm_pr_err(dev->dev,
+					"no image source connected to CSI-1\n");
+				ret = -EINVAL;
+				goto err;
+			}
+			dev->img_src = dev->img_src_array[1];
+			dev->config.mipi_config.input_sel = 1;
+		} else if (inp == CIF_ISP20_INP_CPI) {
 			cif_isp20_pltfrm_pr_err(dev->dev,
-				"cannot do super impose on DMA input\n");
+				"parallel input currently not supported\n");
+			ret = -EINVAL;
+			goto err;
+		} else if (inp == CIF_ISP20_INP_CPI) {
+			cif_isp20_pltfrm_pr_err(dev->dev,
+				"parallel input currently not supported\n");
 			ret = -EINVAL;
 			goto err;
 		}
-		dev->img_src = NULL;
+		dev->config.isp_config.input =
+			&dev->config.img_src_output.frm_fmt;
 	}
-
-	/* TODO: handle other possible input sources, e.g. readback path */
-	dev->config.isp_config.input =
-		&dev->config.img_src_output.frm_fmt;
 	dev->config.input_sel = inp;
 
 	return 0;
@@ -4523,8 +4630,8 @@ const char *cif_isp20_g_input_name(
 		"get name of input source %s(0x%08x)\n",
 		cif_isp20_inp_string(inp), inp);
 
-	if ((inp & ~CIF_ISP20_INP_SI) < CIF_ISP20_INP_CPI) {
-		if ((inp & ~CIF_ISP20_INP_SI) == CIF_ISP20_INP_CSI_0)
+	if (inp < CIF_ISP20_INP_CPI) {
+		if (inp == CIF_ISP20_INP_CSI_0)
 			return cif_isp20_img_src_g_name(dev->img_src_array[0]);
 		else
 			return cif_isp20_img_src_g_name(dev->img_src_array[1]);
@@ -4639,7 +4746,7 @@ err:
 
 int cif_isp20_calc_min_out_buff_size(
 	struct cif_isp20_device *dev,
-	enum cif_isp20_stream_id stream,
+	enum cif_isp20_stream_id stream_id,
 	u32 *size)
 {
 	int ret = 0;
@@ -4647,34 +4754,40 @@ int cif_isp20_calc_min_out_buff_size(
 	u32 llength;
 	u32 height;
 	u32 bpp;
+	struct cif_isp20_mi_path_config *mi_path;
+	struct cif_isp20_stream *stream;
 
-	if (stream == CIF_ISP20_STREAM_SP) {
-		if (dev->sp_stream.state < CIF_ISP20_STATE_READY) {
-			cif_isp20_pltfrm_pr_err(dev->dev,
-				"cannot calculate buffer size, SP stream not ready\n");
-			ret = -EINVAL;
-			goto err;
-		}
-		pix_fmt = dev->config.mi_config.sp.output.pix_fmt;
-		llength = dev->config.mi_config.sp.llength;
-		height = dev->config.mi_config.sp.output.height;
-	} else if (stream == CIF_ISP20_STREAM_MP) {
-		if (dev->mp_stream.state < CIF_ISP20_STATE_READY) {
-			cif_isp20_pltfrm_pr_err(dev->dev,
-				"cannot calculate buffer size, MP stream not ready\n");
-			ret = -EINVAL;
-			goto err;
-		}
-		pix_fmt = dev->config.mi_config.mp.output.pix_fmt;
-		llength = dev->config.mi_config.mp.llength;
-		height = dev->config.mi_config.mp.output.height;
+	cif_isp20_pltfrm_pr_dbg(NULL,
+		"%s\n",
+		cif_isp20_stream_id_string(stream_id));
+
+	if (stream_id == CIF_ISP20_STREAM_SP) {
+		mi_path = &dev->config.mi_config.sp;
+		stream = &dev->sp_stream;
+	} else if (stream_id == CIF_ISP20_STREAM_MP) {
+		mi_path = &dev->config.mi_config.mp;
+		stream = &dev->mp_stream;
+	} else if (stream_id == CIF_ISP20_STREAM_DMA) {
+		mi_path = &dev->config.mi_config.dma;
+		stream = &dev->dma_stream;
 	} else {
 		cif_isp20_pltfrm_pr_err(dev->dev,
-			"cannot calculate buffer size for this stream (%d)\n",
-			stream);
+			"cannot calculate buffer size for this stream (%s)\n",
+			cif_isp20_stream_id_string(stream_id));
 		ret = -EINVAL;
 		goto err;
 	}
+
+	if (stream->state < CIF_ISP20_STATE_READY) {
+		cif_isp20_pltfrm_pr_err(NULL,
+			"cannot calculate buffer size, %s stream not ready\n",
+			cif_isp20_stream_id_string(stream_id));
+		ret = -EINVAL;
+		goto err;
+	}
+	pix_fmt = mi_path->output.pix_fmt;
+	llength = mi_path->llength;
+	height = mi_path->output.height;
 
 	if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(pix_fmt) &&
 		CIF_ISP20_PIX_FMT_GET_BPP(pix_fmt) > 8)
@@ -4684,6 +4797,10 @@ int cif_isp20_calc_min_out_buff_size(
 		bpp = CIF_ISP20_PIX_FMT_GET_BPP(pix_fmt);
 	*size = llength * height * bpp / 8;
 
+	cif_isp20_pltfrm_pr_dbg(NULL,
+		"calculated buffer size: %d\n",
+		*size);
+
 	return 0;
 err:
 	cif_isp20_pltfrm_pr_err(dev->dev,
@@ -4691,19 +4808,66 @@ err:
 	return ret;
 }
 
-/*****************************************************************************/
-
-static int ie_configure(struct cif_isp20_device *dev)
+int cif_isp20_s_ctrl(
+	struct cif_isp20_device *dev,
+	const enum cif_isp20_cid id,
+	int val)
 {
-/*set image effect*/
-	cif_iowrite32OR(0x00000100, dev->config.base_addr + CIF_ICCL);
-	dev->config.control.val = 1;
-	dev->config.control.id = dev->config.ei_config.image_effect;
-	marvin_lib_s_control(dev);
+	cif_isp20_pltfrm_pr_dbg(NULL,
+		"id %d, val %d\n",
+		id, val);
+
+	switch (id) {
+	case CIF_ISP20_CID_SUPER_IMPOSE:
+		dev->config.isp_config.si_enable = val;
+		break;
+	case CIF_ISP20_CID_IMAGE_EFFECT:
+		if ((u32)val > CIF_ISP20_IE_NONE) {
+			cif_isp20_pltfrm_pr_err(NULL,
+				"unknown/unsupported image effect %d\n", val);
+			return -EINVAL;
+		}
+		dev->config.isp_config.ie_config.effect = val;
+		break;
+	case CIF_ISP20_CID_JPEG_QUALITY:
+		if ((u32)val > 100) {
+			cif_isp20_pltfrm_pr_err(NULL,
+				"JPEG quality (%d) must be in [1..100]\n", val);
+			return -EINVAL;
+		}
+		dev->config.jpeg_config.ratio = val;
+		break;
+	case CIF_ISP20_CID_FLASH_MODE:
+		if ((u32)val > CIF_ISP20_FLASH_MODE_TORCH) {
+			cif_isp20_pltfrm_pr_err(NULL,
+				"unknown/unsupported flash mode (%d)\n", val);
+			return -EINVAL;
+		}
+		dev->config.flash_mode = val;
+		if (dev->img_src_state == CIF_ISP20_IMG_SRC_STATE_STREAMING)
+			cif_isp20_img_src_s_ctrl(dev->img_src,
+				CIF_ISP20_CID_FLASH_MODE,
+				dev->config.flash_mode);
+		break;
+	case CIF_ISP20_CID_WB_TEMPERATURE:
+	case CIF_ISP20_CID_ANALOG_GAIN:
+	case CIF_ISP20_CID_EXPOSURE_TIME:
+	case CIF_ISP20_CID_BLACK_LEVEL:
+	case CIF_ISP20_CID_FOCUS_ABSOLUTE:
+	case CIF_ISP20_CID_AUTO_N_PRESET_WHITE_BALANCE:
+	case CIF_ISP20_CID_SCENE_MODE:
+		return cif_isp20_img_src_s_ctrl(dev->img_src,
+			id, val);
+	default:
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"unknown/unsupported control %d\n", id);
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
-/* ==================================================== */
+/* ======================================================================== */
 
 enum {
 	isp_data_loss = 0,
@@ -4719,183 +4883,6 @@ enum {
 	csi_cs_err,
 };
 
-/***************************************************************************/
-/********************************************************************
-*\function:  marvin_lib_control\n
-*
-*	\par Description: marvin_lib_s_control
-*
-*	\param   none\n
-*
-*	\return Status\n
-*
-*	\par HISTORY (ascending):
-*
-*********************************************************************/
-unsigned int marvin_lib_s_control(struct cif_isp20_device *dev)
-{
-	unsigned int id = dev->config.control.id;
-	unsigned int val = dev->config.control.val;
-	unsigned int ret = 0;
-
-   /* these controls do not need the CIF powered up */
-	if (id == marvin_jpeg_quality) {
-		dev->config.jpeg_config.ratio = val;
-		return ret;
-	}
-
-	if ((dev->pm_state != CIF_ISP20_PM_STATE_SW_STNDBY) &&
-		(dev->pm_state != CIF_ISP20_PM_STATE_STREAMING))
-		return 0;
-
-	switch (id) {
-
-	case marvin_hflip:
-		if (val) {
-			/* hflip was enabled so disabled it */
-			cif_iowrite32AND(~CIF_MI_CTRL_HFLIP,
-					 dev->config.base_addr +
-					 CIF_MI_CTRL);
-		} else {
-			/* hflip was disabled so enabled it */
-			cif_iowrite32OR(CIF_MI_CTRL_HFLIP,
-					dev->config.base_addr +
-					CIF_MI_CTRL);
-		}
-		break;
-	case marvin_vflip:
-		if (val) {
-			/* hflip was enabled so disabled it */
-			cif_iowrite32AND(~CIF_MI_CTRL_VFLIP,
-					 dev->config.base_addr +
-					 CIF_MI_CTRL);
-		} else {
-			/* hflip was disabled so enabled it */
-			cif_iowrite32OR(CIF_MI_CTRL_VFLIP,
-					dev->config.base_addr +
-					CIF_MI_CTRL);
-		}
-		break;
-
-	case marvin_rotate:
-		/* NOTE: Is it realistic to handle rotation as v4l2 control? */
-		BUG();
-		break;
-	case marvin_sepia:
-		if (val) {
-			cif_iowrite32(CIF_IMG_EFF_CTRL_ENABLE |
-				      CIF_IMG_EFF_CTRL_MODE_SEPIA,
-				      dev->config.base_addr +
-				      CIF_IMG_EFF_CTRL);
-		} else {
-			cif_iowrite32AND(~(CIF_IMG_EFF_CTRL_ENABLE |
-					   CIF_IMG_EFF_CTRL_MODE_SEPIA),
-					 dev->config.base_addr +
-					 CIF_IMG_EFF_CTRL);
-		}
-		cif_iowrite32OR(CIF_IMG_EFF_CTRL_CFG_UPD,
-				dev->config.base_addr +
-				CIF_IMG_EFF_CTRL);
-		break;
-	case marvin_black_and_white:
-		if (val) {
-			cif_iowrite32(CIF_IMG_EFF_CTRL_ENABLE |
-				      CIF_IMG_EFF_CTRL_MODE_BLACKWHITE,
-				      dev->config.base_addr +
-				      CIF_IMG_EFF_CTRL);
-		} else {
-			cif_iowrite32AND(~(CIF_IMG_EFF_CTRL_ENABLE |
-					   CIF_IMG_EFF_CTRL_MODE_BLACKWHITE),
-					 dev->config.base_addr +
-					 CIF_IMG_EFF_CTRL);
-		}
-		cif_iowrite32OR(CIF_IMG_EFF_CTRL_CFG_UPD,
-				dev->config.base_addr +
-				CIF_IMG_EFF_CTRL);
-		break;
-	case marvin_negative:
-		if (val) {
-			cif_iowrite32(CIF_IMG_EFF_CTRL_ENABLE |
-				      CIF_IMG_EFF_CTRL_MODE_NEGATIVE,
-				      dev->config.base_addr +
-				      CIF_IMG_EFF_CTRL);
-		} else {
-			cif_iowrite32AND(~(CIF_IMG_EFF_CTRL_ENABLE |
-					   CIF_IMG_EFF_CTRL_MODE_NEGATIVE),
-					 dev->config.base_addr +
-					 CIF_IMG_EFF_CTRL);
-		}
-		cif_iowrite32OR(CIF_IMG_EFF_CTRL_CFG_UPD,
-				dev->config.base_addr +
-				CIF_IMG_EFF_CTRL);
-		break;
-	case marvin_none_ie:
-		cif_iowrite32AND(~(CIF_IMG_EFF_CTRL_ENABLE),
-				 dev->config.base_addr +
-				 CIF_IMG_EFF_CTRL);
-		cif_iowrite32OR(CIF_IMG_EFF_CTRL_CFG_UPD,
-				dev->config.base_addr +
-				CIF_IMG_EFF_CTRL);
-		break;
-	case marvin_color_selection:
-		if (val) {
-			cif_iowrite32(CIF_IMG_EFF_CTRL_ENABLE |
-				      CIF_IMG_EFF_CTRL_MODE_COLOR_SEL,
-				      dev->config.base_addr +
-				      CIF_IMG_EFF_CTRL);
-		} else {
-			cif_iowrite32AND(~(CIF_IMG_EFF_CTRL_ENABLE |
-					   CIF_IMG_EFF_CTRL_MODE_COLOR_SEL),
-					 dev->config.base_addr +
-					 CIF_IMG_EFF_CTRL);
-		}
-		cif_iowrite32(0x4004,
-			      dev->config.base_addr +
-			      CIF_IMG_EFF_COLOR_SEL);
-		cif_iowrite32OR(CIF_IMG_EFF_CTRL_CFG_UPD,
-				dev->config.base_addr +
-				CIF_IMG_EFF_CTRL);
-		break;
-	case marvin_emboss:
-		if (val) {
-			cif_iowrite32(CIF_IMG_EFF_CTRL_ENABLE |
-				      CIF_IMG_EFF_CTRL_MODE_EMBOSS,
-				      dev->config.base_addr +
-				      CIF_IMG_EFF_CTRL);
-		} else {
-			cif_iowrite32AND(~(CIF_IMG_EFF_CTRL_ENABLE |
-					   CIF_IMG_EFF_CTRL_MODE_EMBOSS),
-					 dev->config.base_addr +
-					 CIF_IMG_EFF_CTRL);
-		}
-		cif_iowrite32OR(CIF_IMG_EFF_CTRL_CFG_UPD,
-				dev->config.base_addr +
-				CIF_IMG_EFF_CTRL);
-		break;
-	case marvin_sketch:
-		if (val) {
-			cif_iowrite32(CIF_IMG_EFF_CTRL_ENABLE |
-				      CIF_IMG_EFF_CTRL_MODE_SKETCH,
-				      dev->config.base_addr +
-				      CIF_IMG_EFF_CTRL);
-		} else {
-			cif_iowrite32AND(~(CIF_IMG_EFF_CTRL_ENABLE |
-					   CIF_IMG_EFF_CTRL_MODE_SKETCH),
-					 dev->config.base_addr +
-					 CIF_IMG_EFF_CTRL);
-		}
-		cif_iowrite32OR(CIF_IMG_EFF_CTRL_CFG_UPD,
-				dev->config.base_addr +
-				CIF_IMG_EFF_CTRL);
-		break;
-	default:
-		BUG();
-		break;
-	}
-	return ret;
-}
-
-/* ======================================================================== */
 static void marvin_hw_restart(struct cif_isp20_device *dev)
 {
 	cif_isp20_pltfrm_pr_dbg(NULL, "\n");
@@ -5149,85 +5136,6 @@ int marvin_isp_isr(void *cntxt)
 
 /* ======================================================================== */
 
-int marvin_s_ctrl(struct cif_isp20_device *dev, struct v4l2_control *vc)
-{
-	int ret = 0;
-
-	cif_isp20_pltfrm_pr_dbg(NULL, "\n");
-
-	switch (vc->id) {
-		/* MEMORY INTERFACE FEATURES */
-	case V4L2_CID_HFLIP:
-		dev->config.control.val = vc->value;
-		dev->config.control.id = marvin_hflip;
-		ret = marvin_lib_s_control(dev);
-		break;
-
-	case V4L2_CID_VFLIP:
-		dev->config.control.val = vc->value;
-		dev->config.control.id = marvin_vflip;
-		ret = marvin_lib_s_control(dev);
-		break;
-		/* END OF MEMORY INTERFACE FEATURES */
-
-		/* IMAGE EFFECTS */
-	case V4L2_CID_COLORFX:
-		dev->config.control.val = 1;
-	if (vc->value == V4L2_COLORFX_SEPIA) {
-		dev->config.control.id = marvin_sepia;
-		dev->config.ei_config.image_effect = marvin_sepia;
-	} else if (vc->value == V4L2_COLORFX_BW) {
-		dev->config.control.id = marvin_black_and_white;
-		dev->config.ei_config.image_effect = marvin_black_and_white;
-	} else if (vc->value == V4L2_COLORFX_NEGATIVE) {
-		dev->config.control.id = marvin_negative;
-		dev->config.ei_config.image_effect = marvin_negative;
-	} else if (vc->value == V4L2_COLORFX_NONE) {
-		dev->config.control.id = marvin_none_ie;
-		dev->config.ei_config.image_effect = marvin_none_ie;
-	} else if (vc->value == V4L2_COLORFX_EMBOSS) {
-		dev->config.control.id = marvin_emboss;
-		dev->config.ei_config.image_effect = marvin_emboss;
-	} else if (vc->value == V4L2_COLORFX_SKETCH) {
-		dev->config.control.id = marvin_sketch;
-		dev->config.ei_config.image_effect = marvin_sketch;
-	} else {
-	    ret = -EINVAL;
-	    break;
-	}
-	/* Color selection not implemented */
-	ret = marvin_lib_s_control(dev);
-		break;
-	case V4L2_CID_JPEG_COMPRESSION_QUALITY:
-		dev->config.control.val = vc->value;
-		dev->config.control.id = marvin_jpeg_quality;
-		ret += marvin_lib_s_control(dev);
-		break;
-	case V4L2_CID_FLASH_LED_MODE:
-		if (vc->value == V4L2_FLASH_LED_MODE_NONE)
-			dev->config.flash_mode = CIF_ISP20_FLASH_MODE_OFF;
-		else if (vc->value == V4L2_FLASH_LED_MODE_FLASH)
-			dev->config.flash_mode = CIF_ISP20_FLASH_MODE_FLASH;
-		else if (vc->value == V4L2_FLASH_LED_MODE_TORCH)
-			dev->config.flash_mode = CIF_ISP20_FLASH_MODE_TORCH;
-		else
-			ret = -EINVAL;
-		if (dev->img_src_state == CIF_ISP20_IMG_SRC_STATE_STREAMING)
-			cif_isp20_img_src_s_ctrl(dev->img_src,
-				CIF_ISP20_CID_FLASH_MODE,
-				dev->config.flash_mode);
-		break;
-	default:
-		/* not supported !! */
-		BUG();
-		break;
-	}
-
-	return ret;
-}
-
-/* ======================================================================== */
-
 void init_output_formats(void)
 {
 	unsigned int i = 0;
@@ -5291,6 +5199,9 @@ int get_xgold_output_format_desc_size(void)
 /* TODO: add support for native PM, but not in this file */
 #ifdef PM_LEGACY_TO_BE_CLEANED_UP
 
+#include <linux/of.h>
+#include <linux/clk.h>
+#include <linux/regulator/consumer.h>
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 #include <linux/platform_device_pm.h>
 #endif
