@@ -1,7 +1,7 @@
 	otm1283 {
 		compatible = "intel,display";
 		intel,display-resolution= <720 1280>;
-		intel,display-dpi= <244 244>;
+		intel,display-dpi= <240 240>;
 
 		/* MIPI-DSI video mode settings */
 		intel,display-vid-hfp-hs-bytes = <92>;
