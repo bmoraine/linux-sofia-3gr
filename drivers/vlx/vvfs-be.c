@@ -43,6 +43,7 @@
 #endif
 #include <linux/init.h>        /* module_init() in 2.6.0 and before */
 #include <linux/major.h>
+#include <linux/wakelock.h>
 #include <linux/seq_file.h>
 
 
@@ -132,6 +133,7 @@ typedef struct {
 static vvfs_be_t    vvfs_vfs_be;
 static const char*  vvfs_op_names[] = {NKDEV_VFS_OP_NAMES};
 static char         vvfs_erase_buf[32*1024];  /* 32kb */
+static struct wake_lock vvfs_be_suspend_lock;
 
 /* Local Defines */
 
@@ -613,14 +615,16 @@ vvfs_exit_device (vvfs_be_t* vvfs_be)
 vvfs_init_device (vvfs_be_t* vvfs_be, _Bool is_retry)
 {
     signed diag;
-    char dev_name[50];
+	char dev_name[75];
     loff_t pos;
     struct file *fd;
     mm_segment_t old_fs = get_fs();
 
     XTRACE ("\n");
     snprintf(dev_name, sizeof dev_name, "/dev/block/%s", vvfs_be->devname);
-    snprintf(dev_name, sizeof dev_name, "/dev/block/mmcblk0p3");
+    /*snprintf(dev_name, sizeof dev_name, "/dev/block/mmcblk0p3");*/
+	snprintf(dev_name, sizeof(dev_name),
+				"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022");
     if(vvfs_be->dev_active == true) {
       TRACE ("device %s size %u bytes already opened\n", dev_name, vvfs_be->devsize);
       if((diag = vvfs_set_devinfo(vvfs_be)) != 0) {
@@ -826,7 +830,8 @@ vvfs_receive_link (vmq_link_t* link, void* cookie)
 
     (void) cookie;
     while (!vmq_msg_receive (link, &msg)) {
-    vvfs_process_msg (link, (nkdev_vfs_msg*) msg, data_area, osid);
+	vvfs_process_msg(link, (nkdev_vfs_msg *) msg, data_area, osid);
+	wake_unlock(&vvfs_be_suspend_lock);
     }
     return false;
 }
@@ -873,7 +878,8 @@ vvfs_receive_notify (vmq_link_t* link)
 {
     vvfs_be_t* vvfs_be = VVFS_LINK (link)->vvfs;
 
-    XTRACE ("\n");
+	XTRACE("\n");
+	wake_lock(&vvfs_be_suspend_lock);
     vvfs_be->is_receive = true;
     up (&vvfs_be->thread_sem);
 }
@@ -1112,6 +1118,7 @@ vvfs_exit (void)
     if (be->fe_proc) {
     remove_proc_entry ("nk/vvfs-fe", NULL);
     }
+	wake_lock_destroy(&vvfs_be_suspend_lock);
 }
 
     /* NOTE:
@@ -1179,6 +1186,9 @@ vvfs_init (void)
     be->fe_proc = proc_create_data ("nk/vvfs-fe", 0, NULL,
                        &vvfs_fe_proc_fops, be);
     sema_init (&be->thread_sem, 0);    /* Before it is signaled */
+	wake_lock_init(&vvfs_be_suspend_lock,
+					WAKE_LOCK_SUSPEND,
+					"VVFS_BE_EMMC_ACCESS_WAKE_LOCK");
     diag = vmq_links_init_ex (&be->links, "vvfs", &vvfs_callbacks,
                   &vvfs_tx_config, &vvfs_rx_config, be, false);
     if (diag) goto error;
