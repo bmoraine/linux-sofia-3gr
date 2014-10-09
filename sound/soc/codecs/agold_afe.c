@@ -243,9 +243,14 @@ static int agold_afe_handle_codec_power(struct snd_soc_codec *codec,
 		|| agold_afe->afe_pow.direct_dac_on)
 		ret = idi_set_power_state_by_name(agold_afe->dev,
 				(char *)agold_afe_power_state, false);
-	else
+	else {
+		int i;
 		ret = idi_set_power_state_by_name(agold_afe->dev,
 				(char *)agold_afe_power_state, true);
+		/* Clear the AFE internal FIFO after power on */
+		for (i = 0; i < agold_afe->fifosize; i++)
+			iowrite32(0, agold_afe->fifobase);
+	}
 
 	agold_afe->afe_pow.current_bias = request_level;
 	if (ret)
@@ -1761,21 +1766,8 @@ static int agold_afe_suspend(struct snd_soc_codec *codec)
 
 static int agold_afe_resume(struct snd_soc_codec *codec)
 {
-	struct agold_afe_data *agold_afe = snd_soc_codec_get_drvdata(codec);
-	int i;
-
 	afe_debug("%s\n", __func__);
-
 	agold_afe_configure_idi_channel(codec);
-
-	if (!agold_afe)
-		return 0;
-
-	/* Clear the AFE internal FIFO after resume */
-	for (i = 0; i < agold_afe->fifosize; i++)
-		writel(0, agold_afe->fifobase);
-
-	afe_debug("%s: in-fifo reset done\n", __func__);
 
 	return 0;
 }
@@ -1854,7 +1846,6 @@ static int agold_afe_device_probe(struct idi_peripheral_device *pdev,
 	struct agold_afe_data *agold_afe;
 	struct resource *aferes, *dspres, *regres, *fifores;
 	struct idi_resource *idi_res = &pdev->resources;
-	int i;
 
 	afe_debug("%s\n", __func__);
 
@@ -1958,7 +1949,7 @@ static int agold_afe_device_probe(struct idi_peripheral_device *pdev,
 	agold_afe->fifobase = devm_ioremap(&pdev->device, fifores->start, 4);
 	agold_afe->fifosize = resource_size(fifores);
 
-	afe_debug("Register base @ 0x%x\n", (unsigned int)agold_afe->membase);
+	afe_debug("Fifo base @ 0x%x\n", (unsigned int)agold_afe->fifobase);
 
 	/* clock */
 	agold_afe->clk = of_clk_get_by_name(np, "clk_afe");
@@ -2014,11 +2005,6 @@ static int agold_afe_device_probe(struct idi_peripheral_device *pdev,
 		afe_err("could not get inactive pinstate\n");
 
 skip_pinctrl:
-
-	/* Clear the AFE internal FIFO after bootup*/
-	for (i = 0; i < agold_afe->fifosize; i++)
-		writel(0, agold_afe->fifobase);
-
 	ret = dev_set_drvdata(&pdev->device, agold_afe);
 
 	agold_afe_set_pinctrl_state(&pdev->device, agold_afe->pins_inactive);
