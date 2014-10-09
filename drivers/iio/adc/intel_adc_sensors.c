@@ -799,7 +799,7 @@ static int adc_sensor_read_raw(struct iio_dev *p_iiodev,
 									ret);
 				}
 			} else {
-				ret = -EINVAL;
+				ret = adc_ret;
 				ADC_SENSORS_DEBUG_PARAM
 					(ADC_SENSORS_DEBUG_EVENT_READ_RAW_ERROR,
 					ret);
