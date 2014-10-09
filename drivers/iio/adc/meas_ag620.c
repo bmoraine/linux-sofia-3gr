@@ -100,6 +100,13 @@
 						(unsigned int)_context4); \
 }
 
+#define meas_dbg_printk(fmt, ...)\
+do {\
+	if (meas_ag620_debug_data.printk_logs_en)\
+		pr_debug(fmt, ##__VA_ARGS__);\
+} while (0)
+
+
 /**
  * meas_ag620_calibration - A structure that contains internal calibration
  *			related information.
@@ -674,6 +681,7 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 	operation is allowed on a suspended device */
 	if (meas_ag620_state.suspended) {
 		spin_unlock(&meas_ag620_state.lock);
+		meas_dbg_printk("%s Meas in suspend\n", __func__);
 		return -EIO;
 	}
 
@@ -834,6 +842,9 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 			break;
 		};
 	} else {
+		pr_err(
+		 "%s Warning: power mode requested = current power mode (%d)\n",
+						__func__, new_power_mode);
 		/* End of critical section */
 		spin_unlock(&meas_ag620_state.lock);
 		ret = -EINVAL;
@@ -956,6 +967,7 @@ static int meas_ag620_set(enum adc_hal_set_key key,
 	case ADC_HAL_DUMP_REGISTER:
 		meas_ag620_dump_register();
 	default:
+		pr_err("%s Warning: Invalid request (%d)\n", __func__, key);
 		ret = -EINVAL;
 		break;
 	};
@@ -987,6 +999,7 @@ static int meas_ag620_get(enum adc_hal_get_key key,
 		}
 		break;
 	default:
+		pr_err("%s Warning: Invalid request (%d)\n", __func__, key);
 		ret = -EINVAL;
 		break;
 	};

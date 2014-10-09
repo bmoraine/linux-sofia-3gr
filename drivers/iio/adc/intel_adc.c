@@ -497,6 +497,7 @@ static void intel_adc_enqueue_meas(struct adc_meas_instance *p_meas)
 	/* Check whether queue is full  */
 	if (ADC_QFULL(p_queue->head, p_queue->tail, p_queue->size)) {
 		/* Report error */
+		pr_err("%s ADC Queue is full\n", __func__);
 		p_meas->latest_result.error = -EAGAIN;
 		/* Signal to release client waiting on completion */
 		complete(&p_meas->done);
@@ -993,6 +994,9 @@ static void intel_adc_tick_stm(enum adc_stm_events event,
 					p_hal_if->set) (ADC_HAL_STOP_MEAS,
 					((union adc_hal_set_params) {
 						.channel = hmeas->channel})));
+				intel_adc_dbg_printk(
+					"%s Info: OCV measurement preempted\n",
+								__func__);
 				/* Assign error and return 0uv */
 				hmeas->latest_result.error = -EAGAIN;
 				hmeas->latest_result.uv = 0;
@@ -1136,6 +1140,10 @@ static void intel_adc_tick_stm(enum adc_stm_events event,
 							elapsed_time_ms) {
 
 						/* Assign error and return 0uv*/
+						pr_err("%s ADC settling has failed for channel %d\n",
+							__func__,
+							(int) hmeas->channel);
+
 						hmeas->latest_result.error =
 									-EAGAIN;
 						hmeas->latest_result.uv = 0;
