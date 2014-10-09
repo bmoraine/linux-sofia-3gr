@@ -2258,6 +2258,7 @@ struct gc_resolution gc2155_res_video[] = {
 		.used = 0,
 		.skip_frames = 4,
 	},
+#if 0
 	{
 		.desc = "gc2155_1280x720",
 		.regs = gc2155_1280x720,
@@ -2271,6 +2272,7 @@ struct gc_resolution gc2155_res_video[] = {
 		.used = 0,
 		.skip_frames = 4,
 	},
+#endif
 	{
 		.desc = "gc2155_1600x1200",
 		.regs = gc2155_1600x1200,
