@@ -599,7 +599,7 @@ static int dcc_fence_create(struct dcc_drvdata *pdata,
 		unsigned int timeline_value)
 {
 	struct sync_pt *point;
-	struct sync_fence *fence;
+	struct sync_fence *fence = NULL;
 	int fd = -1;
 
 	if (!pdata->timeline)
@@ -623,6 +623,7 @@ static int dcc_fence_create(struct dcc_drvdata *pdata,
 	if (fd < 0) {
 		dcc_err("fence_fd not initialized\n");
 		sync_fence_put(fence);
+		sync_pt_free(point);
 		return -EINVAL;
 	}
 

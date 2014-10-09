@@ -1423,7 +1423,7 @@ static void acq_fence_wq(struct work_struct *ws)
 static struct sync_fence *dcc_update_queue_fence_create(
 		struct dcc_drvdata *pdata, unsigned int timeline_value)
 {
-	struct sync_pt *point;
+	struct sync_pt *point = NULL;
 	struct sync_fence *fence = 0;
 
 	if (!pdata->updt_done_tl)
