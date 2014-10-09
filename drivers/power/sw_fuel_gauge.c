@@ -123,19 +123,20 @@ available after startup. */
 
 /* Macro to trace and log debug event and data. */
 #define SW_FUEL_GAUGE_DEBUG_PARAM(_event, _param) \
-	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_debug, _event, _param)
+	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_debug.dbg_array, _event, _param)
 
 /* Macro to trace and log debug event without a parameter. */
 #define SW_FUEL_GAUGE_DEBUG_NO_PARAM(_event) \
-	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_debug, _event, 0)
+	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_debug.dbg_array, _event, 0)
 
 /* Macro to log debug event with a parameter but no printk. */
 #define SW_FUEL_GAUGE_DEBUG_NO_LOG_PARAM(_event, _param) \
-	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(sw_fuel_gauge_debug, _event, _param)
+	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(sw_fuel_gauge_debug.dbg_array, \
+							_event, _param)
 
 /* Macro to log debug event without a parameter or printk. */
 #define SW_FUEL_GAUGE_DEBUG_NO_LOG_NO_PARAM(_event) \
-	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(sw_fuel_gauge_debug, _event, 0)
+	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(sw_fuel_gauge_debug.dbg_array, _event, 0)
 
 #define SW_FUEL_GAUGE_ENQUEUE(p_func, param) \
 	sw_fuel_gauge_enqueue_function((fp_scheduled_function)(p_func), \
@@ -162,6 +163,10 @@ struct sw_fuel_gauge_work_fifo {
 	struct workqueue_struct	*p_work_queue;
 	struct work_struct	work;
 	bool			removal_pending;
+
+	struct mutex		deferred_exec_lock;
+	bool			pm_prepare;
+	bool			pending_dequeue;
 };
 
 /* Type of NVM write required. */
@@ -386,6 +391,18 @@ struct sw_fuel_gauge_data {
 	int				charger_target_mv;
 };
 
+struct sw_fuel_gauge_debug {
+	struct sw_fuel_gauge_debug_data dbg_array;
+	struct {
+		/* Nr of OCV measurements that ended up in EAGAIN error */
+		uint again_error_cnt;
+		/* Nr of OCV measurements that ended up in EIO error */
+		uint io_error_cnt;
+		/* kfifo queue high watermark */
+		uint kfifo_high_watermark;
+	} stats;
+};
+
 /*
  * Battery ID type strings
  */
@@ -496,11 +513,20 @@ static struct sw_fuel_gauge_data sw_fuel_gauge_instance = {
 /* Work and message queue for driver serialisation. */
 static struct sw_fuel_gauge_work_fifo sw_fuel_gauge_work = {
 	.removal_pending = false,
+	.pm_prepare = false,
+	.pending_dequeue = false,
 };
 
 /* Array to collect debug data */
-static struct sw_fuel_gauge_debug_data sw_fuel_gauge_debug = {
-	.printk_logs_en = 0,
+static struct sw_fuel_gauge_debug sw_fuel_gauge_debug = {
+	.dbg_array = {
+		.printk_logs_en = 0,
+	},
+	.stats = {
+		.again_error_cnt = 0,
+		.io_error_cnt = 0,
+		.kfifo_high_watermark = 0,
+	},
 };
 
 /**
@@ -573,6 +599,7 @@ static void sw_fuel_gauge_enqueue_function(
 			.p_func = p_function,
 			.param = param
 		};
+		uint fifo_length = 0;
 
 		spin_lock_irqsave(&sw_fuel_gauge_work.lock, flags);
 
@@ -584,6 +611,17 @@ static void sw_fuel_gauge_enqueue_function(
 		BUG_ON(0 == kfifo_in(&sw_fuel_gauge_work.fifo,
 						&payload,
 						1));
+
+		fifo_length = kfifo_len(&sw_fuel_gauge_work.fifo);
+
+		if (fifo_length > sw_fuel_gauge_debug.
+					stats.kfifo_high_watermark)
+			sw_fuel_gauge_debug.stats.kfifo_high_watermark =
+								fifo_length;
+
+		if (fifo_length >= WORK_FIFO_LENGTH)
+			SW_FUEL_GAUGE_DEBUG_NO_PARAM(
+				SW_FUEL_GAUGE_DEBUG_WARNING_FIFO_FULL);
 
 		SW_FUEL_GAUGE_DEBUG_PARAM(
 				SW_FUEL_GAUGE_DEBUG_ENQUEUE_FUNCTION,
@@ -617,12 +655,28 @@ static void sw_fuel_gauge_execute_function(struct work_struct *work)
 	/* Not used. */
 	(void)work;
 
+
 	/* Repeatedly fetch one entry from the fifo and process it until the
 	fifo is empty. */
-	while (0 != kfifo_out_spinlocked(&sw_fuel_gauge_work.fifo,
+	for (;;) {
+
+		mutex_lock(&sw_fuel_gauge_work.deferred_exec_lock);
+
+		if (sw_fuel_gauge_work.pm_prepare) {
+			sw_fuel_gauge_work.pending_dequeue = true;
+			SW_FUEL_GAUGE_DEBUG_NO_PARAM(
+				SW_FUEL_GAUGE_DEBUG_DEFER_FUNCTION);
+			mutex_unlock(&sw_fuel_gauge_work.deferred_exec_lock);
+			return;
+		}
+
+		if (0 == kfifo_out_spinlocked(&sw_fuel_gauge_work.fifo,
 					&payload,
 					1,
 					&sw_fuel_gauge_work.lock)) {
+			mutex_unlock(&sw_fuel_gauge_work.deferred_exec_lock);
+			return;
+		}
 
 		SW_FUEL_GAUGE_DEBUG_PARAM(SW_FUEL_GAUGE_DEBUG_EXECUTE_FUNCTION,
 								payload.p_func);
@@ -631,6 +685,8 @@ static void sw_fuel_gauge_execute_function(struct work_struct *work)
 								payload.param);
 		/* Execute the function. */
 		payload.p_func(payload.param);
+
+		mutex_unlock(&sw_fuel_gauge_work.deferred_exec_lock);
 
 		/* wakelock acquisition must be in sync with kfifo operation */
 		spin_lock_irqsave(&sw_fuel_gauge_work.lock, flags);
@@ -1996,10 +2052,28 @@ static void sw_fuel_gauge_stm_enter_ocv_received(void)
 		 * OCV measurement was not possible at this time.
 		 * Nothing to do here. Battery became not relaxed.
 		 */
+
+		/* increment -EAGAIN errors counter */
+		sw_fuel_gauge_debug.stats.again_error_cnt++;
+
 		SW_FUEL_GAUGE_DEBUG_NO_PARAM(
-				SW_FUEL_GAUGE_DEBUG_IBAT_SHORT_TOO_HIGH);
+				SW_FUEL_GAUGE_DEBUG_OCV_EAGAIN);
+	} else if (-EIO == sw_fuel_gauge_instance.vbat.error_code) {
+		/*
+		 * OCV measurement was not possible at this time.
+		 * Nothing to do here. Battery became not relaxed.
+		 */
+
+		/* increment -EIO errors counter */
+		sw_fuel_gauge_debug.stats.io_error_cnt++;
+
+		SW_FUEL_GAUGE_DEBUG_NO_PARAM(
+				SW_FUEL_GAUGE_DEBUG_OCV_EIO);
 	} else {
 		/* No other error is allowed. */
+
+		pr_err("%s() vbat.error_code = %d\n", __func__,
+				sw_fuel_gauge_instance.vbat.error_code);
 		BUG();
 	}
 
@@ -2907,7 +2981,7 @@ static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
 	size_t size_copied;
 	int value;
 
-	value = sw_fuel_gauge_debug.printk_logs_en;
+	value = sw_fuel_gauge_debug.dbg_array.printk_logs_en;
 	size_copied = sprintf(buf, "%d\n", value);
 
 	return size_copied;
@@ -2932,7 +3006,7 @@ static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
 
 	sysfs_val = (sysfs_val == 0) ? 0 : 1;
 
-	sw_fuel_gauge_debug.printk_logs_en = sysfs_val;
+	sw_fuel_gauge_debug.dbg_array.printk_logs_en = sysfs_val;
 
 	pr_info("sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
 
@@ -2975,6 +3049,7 @@ static int __init sw_fuel_gauge_probe(struct platform_device *p_platform_dev)
 
 	/* Initialise spinlock. */
 	spin_lock_init(&sw_fuel_gauge_work.lock);
+	mutex_init(&sw_fuel_gauge_work.deferred_exec_lock);
 
 	wake_lock_init(&sw_fuel_gauge_work.kfifo_wakelock,
 			WAKE_LOCK_SUSPEND,
@@ -3083,9 +3158,59 @@ static int sw_fuel_gauge_resume(struct device *dev)
 	return 0;
 }
 
+/**
+ * sw_fuel_gauge_prepare() - Called when the system is preparing for suspend.
+ * @dev		[in] Pointer to the device.(not used)
+ * returns	0
+ */
+int sw_fuel_gauge_prepare(struct device *dev)
+{
+	mutex_lock(&sw_fuel_gauge_work.deferred_exec_lock);
+
+	sw_fuel_gauge_work.pm_prepare = true;
+
+	mutex_unlock(&sw_fuel_gauge_work.deferred_exec_lock);
+
+	SW_FUEL_GAUGE_DEBUG_NO_PARAM(SW_FUEL_GAUGE_DEBUG_PREPARE_SUSPEND);
+
+	return 0;
+}
+
+/**
+ * sw_fuel_gauge_complete() - Called when the system is completing the resume.
+ * @dev		[in] Pointer to the device.(not used)
+ * returns	0
+ */
+void sw_fuel_gauge_complete(struct device *dev)
+{
+	mutex_lock(&sw_fuel_gauge_work.deferred_exec_lock);
+
+	sw_fuel_gauge_work.pm_prepare = false;
+
+	if (sw_fuel_gauge_work.pending_dequeue) {
+		sw_fuel_gauge_work.pending_dequeue = false;
+		mutex_unlock(&sw_fuel_gauge_work.deferred_exec_lock);
+
+		SW_FUEL_GAUGE_DEBUG_NO_PARAM(
+				SW_FUEL_GAUGE_DEBUG_SCHEDULE_DEFERRED_FUNCTION);
+
+		/* Schedule the work queue to process the message. */
+		(void)queue_work(sw_fuel_gauge_work.p_work_queue,
+						&sw_fuel_gauge_work.work);
+		return;
+	}
+
+	mutex_unlock(&sw_fuel_gauge_work.deferred_exec_lock);
+
+	return;
+}
+
+
 const struct dev_pm_ops sw_fuel_gauge_pm = {
 	.suspend = sw_fuel_gauge_suspend,
 	.resume = sw_fuel_gauge_resume,
+	.prepare = sw_fuel_gauge_prepare,
+	.complete = sw_fuel_gauge_complete,
 };
 
 static const struct of_device_id sw_fuel_gauge_of_match[] = {
@@ -3114,7 +3239,7 @@ static int __init sw_fuel_gauge_init(void)
 	 * Initialise spinlock.
 	 * NOTE: Must be done before debug data logging.
 	 */
-	spin_lock_init(&sw_fuel_gauge_debug.lock);
+	spin_lock_init(&sw_fuel_gauge_debug.dbg_array.lock);
 	SW_FUEL_GAUGE_DEBUG_NO_PARAM(SW_FUEL_GAUGE_DEBUG_INIT);
 	return platform_driver_register(&sw_fuel_gauge_driver);
 }
