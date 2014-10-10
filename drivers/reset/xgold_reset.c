@@ -70,8 +70,7 @@ static int xgold_rst_deassert(struct reset_controller_dev *rcdev,
 {
 	struct xgold_reset_ctrl *xgrc =
 			container_of(rcdev, struct xgold_reset_ctrl, rcdev);
-	int32_t ret = 0;
-	uint32_t reg, addr;
+	unsigned ret = 0, reg, addr, timeout;
 	unsigned long flags;
 
 	spin_lock_irqsave(&xgrc->lock, flags);
@@ -97,6 +96,25 @@ static int xgold_rst_deassert(struct reset_controller_dev *rcdev,
 		else
 			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_clear);
 	}
+
+	timeout = 50;
+	addr = xgrc->ctrl_io_phys + xgrc->reg_status;
+
+	do {
+		if (timeout-- == 0) {
+			ret = -ETIMEDOUT;
+			pr_err("%s: Time out while polling for %lu reset status bit\n",
+							__func__, BIT(id));
+			break;
+		}
+
+		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
+			ret |= vmm_reg_read(addr, &reg, -1);
+		else
+			reg = ioread32(xgrc->ctrl_io + xgrc->reg_status);
+
+		udelay(1);
+	} while ((reg & BIT(id)));
 #endif
 	spin_unlock_irqrestore(&xgrc->lock, flags);
 	return ret == 0 ? 0 : -EPERM;
