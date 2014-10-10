@@ -1397,19 +1397,20 @@ static int dcc_rq_compose(struct dcc_drvdata *p,
 
 static void acq_fence_wq(struct work_struct *ws)
 {
-	int i;
 	struct dcc_acq_fence_work *w;
 	w = container_of(ws, struct dcc_acq_fence_work, work);
 
 	DCC_DBG2("acq start, updt_pt=%d\n", w->update_pt);
 #if defined(CONFIG_SYNC)
 	if (w->drv->use_fences) {
+		int i;
 		/* Wait for acquire fence to signal if we got one */
 		for (i = 0 ; i < DCC_OVERLAY_NUM + 2; i++) {
 			struct sync_fence *fence;
 			fence = w->acquire_fence[i];
 			if (fence != NULL) {
-				sync_fence_wait(fence, -1);
+				if(sync_fence_wait(fence, 1000))
+					dcc_err("fence timedout\n");
 				sync_fence_put(fence);
 			}
 		}
