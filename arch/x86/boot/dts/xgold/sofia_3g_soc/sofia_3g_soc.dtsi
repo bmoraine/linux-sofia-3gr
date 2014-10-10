@@ -399,6 +399,9 @@
 						intel,dcc-clkrate = <312000000>;
 #endif
 						intel,dcc-gpio-reset = <&xgold_pmx_gpio 72>;
+#ifdef SOFIA3G_MRD7S
+						intel,lcd-bias-en = <&xgold_pmx_gpio 7>;
+#endif
 						resets = < &dbb_rst1 18 >;
 						reset-names = "dcc";
 					};

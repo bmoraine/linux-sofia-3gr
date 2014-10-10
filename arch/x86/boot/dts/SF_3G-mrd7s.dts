@@ -99,8 +99,13 @@
 		intel,display-ramless = <1>;
 		intel,display-preinit = <0>;
 		intel,display-if = <&mipi_dsi>;
+#ifdef SOFIA3G_MRD7S
+		intel,display-if-rate = <260000000>;
+		/include/ "xgold/display/HX8279.dtsi"
+#else
 		intel,display-if-rate = <390000000>;
 		/include/ "xgold/display/OTM1283.dtsi"
+#endif
 		mipi_dsi:mipi-dsi {
 				intel,display-if-min = <104000000>;
 				intel,display-if-max = <550000000>;
