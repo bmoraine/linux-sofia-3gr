@@ -1055,6 +1055,8 @@ static int dcc_main_suspend(struct device *dev)
 	if (ret)
 		dcc_err("Unable to suspend core\n");
 
+	reset_control_assert(pdata->reset);
+
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	ret = platform_device_pm_set_state_by_name(pdev,
 			pdata->pm_platdata->pm_state_D3_name);
@@ -1062,7 +1064,6 @@ static int dcc_main_suspend(struct device *dev)
 	if (ret)
 		dcc_err("Error during state transition to D3\n");
 
-	reset_control_assert(pdata->reset);
 	diffus = measdelay_stop(NULL, &begin);
 	DCC_DBG2("suspended (%lli usec)\n", diffus);
 	up(&pdata->sem);
@@ -1096,7 +1097,6 @@ static int dcc_main_resume(struct device *dev)
 		return -1;
 
 	measdelay_start(&begin);
-	reset_control_deassert(pdata->reset);
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	ret = platform_device_pm_set_state_by_name(pdev,
 			pdata->pm_platdata->pm_state_D0_name);
@@ -1104,6 +1104,7 @@ static int dcc_main_resume(struct device *dev)
 	if (ret)
 		dcc_err("Error during state transition to D0\n");
 
+	reset_control_deassert(pdata->reset);
 	/* resume IP */
 	ret = dcc_core_resume(pdev);
 	if (ret)
