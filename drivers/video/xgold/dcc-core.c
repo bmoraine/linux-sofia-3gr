@@ -282,11 +282,11 @@ int dcc_core_probe(struct platform_device *pdev)
 			pdata->display.xres, pdata->display.yres);
 	dcc_core_hwsetup(pdata);
 
-	dcc_boot_info("HWID 0x%x / DCC@%d MHz / %dMB RAM [0x%08x->0x%08x]\n",
+	dcc_boot_info("HWID 0x%x / DCC@%d MHz / %dMB RAM [0x%08x->0x%p]\n",
 			pdata->id, pdata->clk_rate/1000/1000,
 			pdata->mem.size/1024/1024,
 			pdata->mem.pbase,
-			(unsigned)pdata->mem.vbase);
+			pdata->mem.vbase);
 
 	pdata->overlay_nbr = 4;
 

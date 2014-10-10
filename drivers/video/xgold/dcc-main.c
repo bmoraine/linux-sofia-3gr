@@ -557,10 +557,10 @@ static int dcc_fb_init(struct platform_device *pdev)
 	if (ret)
 		goto err_register_framebuffer_failed;
 
-	dcc_info("FB API registered %d buffers map mem %dMB [0x%08x->%p]\n",
+	dcc_info("FB API registered %d buffers map mem %zuMB [0x%lx -> %p]\n",
 			pdata->fbapi_nr_buffers,
 			framesize/1024/1024,
-			pdata->mem.pbase,
+			(unsigned long)pdata->mem.pbase,
 			fb->info->screen_base);
 	pdata->fb = fb;
 	return 0;
@@ -916,8 +916,8 @@ int dcc_main_probe(struct platform_device *pdev)
 	if (!pdata->reg.vbase)
 		return -EBUSY;
 
-	dcc_boot_info("DCC registers remapped to 0x%08x\n",
-			(unsigned)pdata->reg.vbase);
+	dcc_boot_info("DCC registers remapped to 0x%p\n",
+			pdata->reg.vbase);
 
 	ret = dcc_of_parse(pdev);
 	if (ret) {
