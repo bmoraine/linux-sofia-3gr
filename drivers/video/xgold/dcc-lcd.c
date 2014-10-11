@@ -57,6 +57,7 @@ int dcc_display_setup(struct dcc_drvdata *pdata)
 			dcc_err("failed to request gpio bias set %d\n",
 					pdata->gpio_lcd_bias);
 		}
+		mdelay(pdata->gpio_lcd_bias_msdelay);
 	}
 
 	dcc_boot_dbg("Initializing display hardware\n");

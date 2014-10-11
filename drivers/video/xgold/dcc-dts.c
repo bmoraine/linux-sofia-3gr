@@ -342,6 +342,12 @@ int dcc_of_parse_graphics(struct platform_device *pdev,
 	if (ret < 0)
 		pdata->test.bootscreen_msdelay = 500;
 
+	ret = of_property_read_u32(ngraphics,
+			"intel,lcd-bias-en-msdelay",
+			&pdata->gpio_lcd_bias_msdelay);
+	if (ret < 0)
+		pdata->gpio_lcd_bias_msdelay = 10;
+
 	ret = of_property_read_u32(ngraphics, "intel,dcc-test-mipidsi_vsync",
 			&pdata->test.mipidsi_vsync);
 	if (ret < 0)

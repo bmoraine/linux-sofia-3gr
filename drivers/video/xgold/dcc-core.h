@@ -224,6 +224,7 @@ struct dcc_drvdata {
 	unsigned int overlay_updt_cnt;
 	unsigned int clk_rate;
 	int gpio_lcd_bias;
+	int gpio_lcd_bias_msdelay;
 	int gpio_reset;
 	int gpio_cd;
 	int gpio_reset_delay;
