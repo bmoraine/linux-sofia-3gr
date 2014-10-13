@@ -51,6 +51,7 @@ intercontrol	Inter Control Group
 isl	Intersil
 intel	Intel
 karo	Ka-Ro electronics GmbH
+kionix	Kionix Ltd.
 lg	LG Corporation
 linux	Linux-specific binding
 lsi	LSI Corp. (LSI Logic)
