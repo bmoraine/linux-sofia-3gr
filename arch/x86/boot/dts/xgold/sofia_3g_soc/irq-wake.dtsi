@@ -50,7 +50,7 @@ wake_irq:wake_irq {
 		31 &eint EINT_WUP_DBB
 	>;
 	intel,wake-map-1 = <
-		5 &pic USB_ID
+		5 &eint EINT_USB_ID
 	>;
 };
 

@@ -4,7 +4,7 @@
 */
 intel,dwc_params = <
 	0xffffffff	/* opt */
-	0xffffffff	/* otg_cap */
+	0x2		/* otg_cap */
 	0xffffffff	/* dma_enable */
 	0x0		/* dma_desc_enable */
 	0xffffffff	/* dma_burst_size */

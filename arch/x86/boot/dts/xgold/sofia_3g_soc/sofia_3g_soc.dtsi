@@ -483,7 +483,6 @@
 						reset-names = "vpu_enc";
 					};
 #endif
-
 					phy:phy {
 						compatible = "intel,usb2phy";
 						#address-cells = < 0 >;
@@ -495,9 +494,10 @@
 						interrupt-map = <
 							/* USB RSM  */  0 &eint EINT_USB_HS_RESUME XGOLD_IRQ_TYPE_EDGE_RISING
 							/* USB SRP */   1 &pic OTG_SRP_INT XGOLD_IRQ_TYPE_EDGE_RISING
-							/* USB ID */    2 &pic USB_ID XGOLD_IRQ_TYPE_EDGE_RISING
+							/* USB ID */    2 &eint EINT_USB_ID XGOLD_IRQ_TYPE_EDGE_FALLING
 							>;
 						interrupt-names = "resume", "srp", "id";
+						dr_mode = "otg";
 						io-supply = < &lusb >;
 						phy-supply = < &laif >;
 						core-supply = < &vdd_usb_hs >;
@@ -524,6 +524,8 @@
 						intel,vbusvalid-value = < 0 1 >;
 						intel,sessend = < 0x900 25 1 >;
 						intel,sessend-value = < 0 1 >;
+						intel,iddig0 = < 0x904 0 1 >;
+						intel,iddig0-value = < 0 1 >;
 						intel,ridgnd = < 0x904 8 1 >;
 						intel,ridgnd-value = < 0 1 >;
 						intel,drvvbus = < 0x904 13 1 >;
@@ -546,6 +548,7 @@
 						intel,chrgdet-value = < 0 1 >;
 						intel,trim = < 0x908 0 32 >;
 						intel,trim-value = < 0x900c0 0x900c0 >;
+						intel,power_budget = < 500 >;
 						resets = < &dbb_rst2 0x3 >, < &dbb_rst2 0x4 >;
 						reset-names = "usb", "bus";
 					};

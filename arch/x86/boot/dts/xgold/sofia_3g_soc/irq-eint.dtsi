@@ -184,6 +184,7 @@ eint:eint-interrupt-controller {
 	intel,edge,20 = < 0x1070 4 2 >; /* USIF1_WK */
 	intel,edge,21 = < 0x1074 4 2 >; /* USIF2_WK */
 	intel,edge,22 = < 0x1078 4 2 >; /* WUP_DBB */
+	intel,edge,29 = < 0x108C 4 2 >; /* USB_ID */
 	intel,level,0 = < 0x1020 2 2 >; /* EXT_INT0 */
 	intel,level,1 = < 0x1024 2 2 >; /* EXT_INT1 */
 	intel,level,2 = < 0x1028 2 2 >; /* EXT_INT2 */
@@ -207,4 +208,5 @@ eint:eint-interrupt-controller {
 	intel,level,20 = < 0x1070 2 2 >; /* USIF1_WK */
 	intel,level,21 = < 0x1074 2 2 >; /* USIF2_WK */
 	intel,level,22 = < 0x1078 2 2 >; /* WUP_DBB */
+	intel,level,29 = < 0x108C 2 2 >; /* USB_ID */
 };
