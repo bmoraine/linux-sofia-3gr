@@ -2345,8 +2345,9 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 	uint32_t max_transfer;
 
 	/* Queue only if core is powered */
-	if (pcd->core_if->lx_state != DWC_OTG_L0)
-		return 0;
+	if (pcd->core_if->lx_state != DWC_OTG_L0) {
+		return -DWC_E_SHUTDOWN;
+	}
 
 	ep = get_ep_from_handle(pcd, ep_handle);
 	if (!ep || (!ep->desc && ep->dwc_ep.num != 0)) {
@@ -2363,6 +2364,14 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 	if (!req) {
 		return -DWC_E_NO_MEMORY;
 	}
+	DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
+
+	if (pcd->core_if->lx_state != DWC_OTG_L0) {
+		DWC_FREE(req);
+		DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
+		return -DWC_E_SHUTDOWN;
+	}
+
 	DWC_CIRCLEQ_INIT_ENTRY(req, queue_entry);
 	if (!GET_CORE_IF(pcd)->core_params->opt) {
 		if (ep->dwc_ep.num != 0) {
@@ -2381,7 +2390,6 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 	    && !GET_CORE_IF(pcd)->dma_desc_enable && buflen != 0)
 		req->dw_align_buf = DWC_DMA_ALLOC_ATOMIC(buflen,
 						  &req->dw_align_buf_dma);
-	DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 
 	/*
 	 * After adding request to the queue for IN ISOC wait for In Token Received

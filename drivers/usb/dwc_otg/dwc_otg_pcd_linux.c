@@ -264,6 +264,7 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 	dwc_otg_pcd_t *pcd;
 	struct dwc_otg_pcd_ep *ep;
 	int retval, is_isoc_ep, is_in_ep;
+	bool dma_mapping = false;
 
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p,%p,%d)\n",
 		    __func__, usb_ep, usb_req, gfp_flags);
@@ -308,6 +309,7 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 				&& ep != NULL) {
 			usb_gadget_map_request(&gadget_wrapper->gadget,
 					usb_req, is_in_ep);
+			dma_mapping = true;
 		}
 	}
 
@@ -328,8 +330,16 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 	retval = dwc_otg_pcd_ep_queue(pcd, usb_ep, usb_req->buf, usb_req->dma,
 				      usb_req->length, usb_req->zero, usb_req,
 				      gfp_flags == GFP_ATOMIC ? 1 : 0);
-	if (retval)
+	if (retval) {
+		if (dma_mapping == true) {
+			usb_gadget_unmap_request(
+						&gadget_wrapper->gadget,
+						usb_req, is_in_ep);
+			usb_req->dma = DWC_DMA_ADDR_INVALID;
+
+		}
 		return -EINVAL;
+	}
 
 	return 0;
 }
