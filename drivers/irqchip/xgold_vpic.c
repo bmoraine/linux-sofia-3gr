@@ -13,7 +13,7 @@
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <asm/prom.h>
-#include <sofia/vmm_guest_api.h>
+#include <sofia/mv_hypercalls.h>
 
 #include "irqchip.h"
 #include "irq-xgold.h"
@@ -44,37 +44,37 @@ void sofia_vpic_irq_enable(struct irq_data *data)
 {
 	unsigned int irq = vpic_irq(data);
 	unsigned int vect = sofia_irq_to_vector(irq);
-	pr_debug("%s: vmm_guest_request_virq(%d, 1)\n", __func__, vect);
-	vmm_guest_request_virq(vect, 1);
-	vmm_virq_unmask(vect);
+	pr_debug("%s: mv_virq_request(%d, 1)\n", __func__, vect);
+	mv_virq_request(vect, 1);
+	mv_virq_unmask(vect);
 }
 
 void sofia_vpic_irq_disable(struct irq_data *data)
 {
 	unsigned int irq = vpic_irq(data);
 	unsigned int vect = sofia_irq_to_vector(irq);
-	vmm_virq_mask(vect);
+	mv_virq_mask(vect);
 }
 
 void sofia_vpic_irq_mask(struct irq_data *data)
 {
 	unsigned int irq = vpic_irq(data);
 	unsigned int vect = sofia_irq_to_vector(irq);
-	vmm_virq_mask(vect);
+	mv_virq_mask(vect);
 }
 
 void sofia_vpic_irq_unmask(struct irq_data *data)
 {
 	unsigned int irq = vpic_irq(data);
 	unsigned int vect = sofia_irq_to_vector(irq);
-	vmm_virq_unmask(vect);
+	mv_virq_unmask(vect);
 }
 
 void sofia_vpic_irq_eoi(struct irq_data *data)
 {
 	unsigned int irq =  vpic_irq(data);
 	unsigned int vect = sofia_irq_to_vector(irq);
-	vmm_virq_eoi(vect);
+	mv_virq_eoi(vect);
 }
 
 #ifdef CONFIG_PM
@@ -96,7 +96,7 @@ static int sofia_vpic_set_affinity(struct irq_data *data,
 	if (!config_enabled(CONFIG_SMP))
 		return -1;
 
-	vmm_set_vaffinity(vect, bit_mask);
+	mv_virq_set_affinity(vect, bit_mask);
 
 	return 0;
 }

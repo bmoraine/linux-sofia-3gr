@@ -15,9 +15,9 @@
 #include "irqchip.h"
 #include "irq-xgold.h"
 
-#include <sofia/vmm_al.h>
+#include <sofia/mv_gal.h>
 #include <sofia/pal_shared_data.h>
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 
 static DEFINE_SPINLOCK(hirq_lock);
 static uint32_t irq_hirq_offset;
@@ -36,10 +36,10 @@ static inline void xgold_irq_hirq_unmask(struct irq_data *data)
 {
 	uint32_t irq = vpic_irq(data);
 	uint32_t vect = sofia_irq_to_vector(irq);
-	pr_debug("%s: vmm_virq_unmask(%d) - hwirq=%d\n",
+	pr_debug("%s: mv_virq_unmask(%d) - hwirq=%d\n",
 			__func__, vect, irq);
 	spin_lock(&hirq_lock);
-	vmm_virq_unmask(vect);
+	mv_virq_unmask(vect);
 	spin_unlock(&hirq_lock);
 }
 
@@ -47,10 +47,10 @@ static inline void xgold_irq_hirq_mask(struct irq_data *data)
 {
 	uint32_t irq = vpic_irq(data);
 	uint32_t vect = sofia_irq_to_vector(irq);
-	pr_debug("%s: vmm_virq_mask(%d) - hwirq=%d\n",
+	pr_debug("%s: mv_virq_mask(%d) - hwirq=%d\n",
 			__func__, vect, irq);
 	spin_lock(&hirq_lock);
-	vmm_virq_mask(vect);
+	mv_virq_mask(vect);
 	spin_unlock(&hirq_lock);
 }
 
@@ -58,13 +58,13 @@ static void xgold_irq_hirq_enable(struct irq_data *data)
 {
 	uint32_t irq = vpic_irq(data);
 	uint32_t vect = sofia_irq_to_vector(irq);
-	pr_debug("%s: vmm_guest_request_virq(%d, 1) - hwirq=%d\n",
+	pr_debug("%s: mv_guest_request_virq(%d, 1) - hwirq=%d\n",
 			__func__, vect, irq);
 	spin_lock(&hirq_lock);
-	vmm_guest_request_virq(vect, 1);
-	pr_debug("%s: vmm_virq_unmask(%d) - hwirq=%d\n",
+	mv_virq_request(vect, 1);
+	pr_debug("%s: mv_virq_unmask(%d) - hwirq=%d\n",
 			__func__, vect, irq);
-	vmm_virq_unmask(vect);
+	mv_virq_unmask(vect);
 	spin_unlock(&hirq_lock);
 }
 
@@ -72,10 +72,10 @@ static void xgold_irq_hirq_disable(struct irq_data *data)
 {
 	uint32_t irq = vpic_irq(data);
 	uint32_t vect = sofia_irq_to_vector(irq);
-	pr_debug("%s: vmm_virq_mask(%d) - hwirq=%d\n",
+	pr_debug("%s: mv_virq_mask(%d) - hwirq=%d\n",
 			__func__, vect, irq);
 	spin_lock(&hirq_lock);
-	vmm_virq_mask(vect);
+	mv_virq_mask(vect);
 	spin_unlock(&hirq_lock);
 }
 
@@ -83,10 +83,10 @@ void xgold_irq_hirq_eoi(struct irq_data *data)
 {
 	uint32_t irq = vpic_irq(data);
 	uint32_t vect = sofia_irq_to_vector(irq);
-	pr_debug("%s: vmm_virq_eoi(%d) - hwirq=%d\n",
+	pr_debug("%s: mv_virq_eoi(%d) - hwirq=%d\n",
 			__func__, vect, irq);
 	spin_lock(&hirq_lock);
-	vmm_virq_eoi(vect);
+	mv_virq_eoi(vect);
 	spin_unlock(&hirq_lock);
 }
 
@@ -107,7 +107,7 @@ static struct irq_domain_ops xgold_irq_hirq_domain_ops = {
 static uint32_t xgold_irq_hirq_find_mapping(uint32_t irq)
 {
 	uint32_t virq, index = 0;
-	struct vmm_shared_data *pdata = get_vmm_shared_data();
+	struct vmm_shared_data *pdata = mv_gal_get_shared_data();
 	pr_debug("%s(%d)-->\n", __func__, irq);
 	if (pdata) {
 		virq = pdata->triggering_xirq;

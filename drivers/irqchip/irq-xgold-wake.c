@@ -22,7 +22,7 @@
 
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <sofia/pal_shared_data.h>
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 #endif
 
 #include "irq-xgold.h"
@@ -74,8 +74,8 @@ struct xgold_irq_wake_data *get_irq_wake_data(uint32_t id)
  */
 int32_t _xgold_irq_wake_write_vmm(uint32_t addr, uint32_t val)
 {
-	if (vmm_reg_write(addr, val, -1)) {
-		pr_err("%s: vmm_reg_write_service fails @%#x\n",
+	if (mv_svc_reg_write(addr, val, -1)) {
+		pr_err("%s: mv_svc_reg_write_service fails @%#x\n",
 				__func__, addr);
 		return -1;
 	}
@@ -87,8 +87,8 @@ int32_t _xgold_irq_wake_write_vmm(uint32_t addr, uint32_t val)
 int32_t _xgold_irq_wake_read_vmm(uint32_t addr)
 {
 	uint32_t val;
-	if (vmm_reg_read(addr, &val, -1)) {
-		pr_err("%s: vmm_reg_read_service fails @%#x\n",
+	if (mv_svc_reg_read(addr, &val, -1)) {
+		pr_err("%s: mv_svc_reg_read_service fails @%#x\n",
 				__func__, addr);
 		return -1;
 	}
@@ -272,9 +272,9 @@ int32_t xgold_irq_xgold_set_enable(struct irq_data *data,
 #ifdef CONFIG_X86_INTEL_SOFIA
 	pr_debug("%s: do vmm_pm_control(PM_WAKEUP_CONTROL, %d, %d)\n",
 			__func__, vmm_irq, on);
-	retval = vmm_pm_control(PM_WAKEUP_CONTROL, vmm_irq, on, 0);
+	retval = mv_svc_pm_control(PM_WAKEUP_CONTROL, vmm_irq, on, 0);
 	if (retval)
-		pr_err("%s: vmm_pm_control returns %d\n", __func__, retval);
+		pr_err("%s: mv_svc_pm_control returns %d\n", __func__, retval);
 #endif
 	return retval;
 }

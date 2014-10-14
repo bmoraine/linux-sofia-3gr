@@ -20,7 +20,7 @@
 
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <sofia/pal_shared_data.h>
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 #endif
 
 /*
@@ -70,8 +70,8 @@ int32_t _xgold_irq_write_vmm(uint32_t base, struct irq_reg *reg,
 	if (!reg)
 		return -1;
 	if (wr == XGOLD_RW) {
-		if (vmm_reg_read(base + reg->base, &tmp, -1)) {
-			pr_err("%s: vmm_reg_read_service fails @%#x\n",
+		if (mv_svc_reg_read(base + reg->base, &tmp, -1)) {
+			pr_err("%s: mv_svc_reg_read_service fails @%#x\n",
 					__func__, base + reg->base);
 			return -1;
 		} else {
@@ -83,8 +83,8 @@ int32_t _xgold_irq_write_vmm(uint32_t base, struct irq_reg *reg,
 	tmp |= (value << reg->offset);
 	pr_debug("%s: write %#x (%#x) @ %#x\n", __func__, tmp,
 			value << reg->offset, (uint32_t)(base + reg->base));
-	if (vmm_reg_write(base + reg->base, tmp, -1)) {
-		pr_err("%s: vmm_reg_write_service fails @%#x\n",
+	if (mv_svc_reg_write(base + reg->base, tmp, -1)) {
+		pr_err("%s: mv_svc_reg_write_service fails @%#x\n",
 					__func__, base + reg->base);
 		return -1;
 	}
@@ -101,8 +101,8 @@ int32_t _xgold_irq_read_vmm(uint32_t base, struct irq_reg *reg)
 	uint32_t tmp = 0;
 	if (!reg)
 		return -1;
-	if (vmm_reg_read(base + reg->base, &tmp, -1)) {
-		pr_err("%s: vmm_reg_read_service fails @%#x\n",
+	if (mv_svc_reg_read(base + reg->base, &tmp, -1)) {
+		pr_err("%s: mv_svc_reg_read_service fails @%#x\n",
 					__func__, base + reg->base);
 		return -1;
 	}
