@@ -20,7 +20,7 @@
 #include <linux/pwm.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 
 #define PWM_DUTY_WIDTH	31
 #define PWM_MAX_COUNTER ((1 << PWM_DUTY_WIDTH) - 1)
@@ -74,7 +74,7 @@ static int xgold_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			return err;
 	}
 
-	vmm_pwm_access(PWM_CONFIG, duty_ns, period_ns);
+	mv_svc_pwm_access(PWM_CONFIG, duty_ns, period_ns);
 	return 0;
 }
 
@@ -88,7 +88,7 @@ static int xgold_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	if (rc < 0)
 		return rc;
 
-	vmm_pwm_access(PWM_ENABLE, 0, 0);
+	mv_svc_pwm_access(PWM_ENABLE, 0, 0);
 	dev_info(chip->dev, "capcom enable");
 	return 0;
 }
@@ -97,7 +97,7 @@ static void xgold_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct xgold_pwm_chip *pc = to_xgold_pwm_chip(chip);
 
-	vmm_pwm_access(PWM_DISABLE, 0, 0);
+	mv_svc_pwm_access(PWM_DISABLE, 0, 0);
 
 	clk_disable_unprepare(pc->clk);
 	dev_info(chip->dev, "capcom disable");
