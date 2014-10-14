@@ -30,7 +30,7 @@
 #include <linux/platform_device.h>
 #include <linux/platform_device_pm.h>
 #include <linux/interrupt.h>
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 #include "cif_isp20.h"
 #include <linux/list.h>
 #ifdef CONFIG_DEBUG_FS
@@ -1114,7 +1114,7 @@ int cif_isp20_pltfrm_write_cif_ana_bandgap_bias(
 	for (shift = mask; !(shift & 0x1); val <<= 1, shift >>= 1)
 		;
 
-	ret = vmm_reg_write(scu_base_addr + offset, val, mask);
+	ret = mv_svc_reg_write(scu_base_addr + offset, val, mask);
 	if (IS_ERR_VALUE(ret)) {
 		cif_isp20_pltfrm_pr_err(dev,
 			"register write @0x%08x := 0x%08x (mask 0x%08x) failed\n",
