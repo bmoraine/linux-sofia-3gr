@@ -21,7 +21,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
 #ifdef CONFIG_X86_INTEL_SOFIA
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 #endif
 
 #define XGOLD_DEFAULT_QUIRKS  (SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK \
@@ -134,10 +134,10 @@ int xgold_sdhci_of_set_timing(struct sdhci_host *host, unsigned int uhs)
 		dev_dbg(&pdev->dev, "Set tap values to mode %d\n", mode);
 #ifdef CONFIG_X86_INTEL_SOFIA
 		if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_VMM) {
-			if (vmm_reg_write((uint32_t)mmc_pdata->tap_reg,
+			if (mv_svc_reg_write((uint32_t)mmc_pdata->tap_reg,
 						mmc_pdata->tap_values[tap_index],
 						-1))
-				dev_err(&pdev->dev, "vmm_reg_write_service fails @%#x\n",
+				dev_err(&pdev->dev, "mv_svc_reg_write_service fails @%#x\n",
 						(uint32_t)mmc_pdata->tap_reg);
 		} else
 #endif
@@ -147,10 +147,10 @@ int xgold_sdhci_of_set_timing(struct sdhci_host *host, unsigned int uhs)
 		if (mmc_pdata->tap_reg2) {
 #ifdef CONFIG_X86_INTEL_SOFIA
 			if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_VMM) {
-				if (vmm_reg_write((uint32_t)mmc_pdata->tap_reg2,
+				if (mv_svc_reg_write((uint32_t)mmc_pdata->tap_reg2,
 						mmc_pdata->tap_values2[tap_index],
 						-1))
-					dev_err(&pdev->dev, "vmm_reg_write_service fails @%#x\n",
+					dev_err(&pdev->dev, "mv_svc_reg_write_service fails @%#x\n",
 						(uint32_t)mmc_pdata->tap_reg2);
 			} else
 #endif
@@ -367,8 +367,8 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 					"intel,corecfg_val", i , &offset)) {
 #ifdef CONFIG_X86_INTEL_SOFIA
 				if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_VMM) {
-					if (vmm_reg_write((uint32_t)corereg, offset, -1))
-						dev_err(&pdev->dev, "vmm_reg_write_service fails @%#x\n", (uint32_t)corereg);
+					if (mv_svc_reg_write((uint32_t)corereg, offset, -1))
+						dev_err(&pdev->dev, "mv_svc_reg_write_service fails @%#x\n", (uint32_t)corereg);
 				} else
 #endif
 					writel(offset, corereg);
