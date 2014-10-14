@@ -36,7 +36,7 @@
 
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <sofia/nk_sofia_bridge.h>
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 #else
 #include <nk/nkern.h>
 #include <nk/nkdev.h>
