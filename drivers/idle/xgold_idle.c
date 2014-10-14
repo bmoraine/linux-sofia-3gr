@@ -29,7 +29,7 @@
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <linux/vpower.h>
 #include <sofia/pal_shared_data.h>
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 #else
 #include <vlx/vpower_common.h>
 #endif
@@ -56,12 +56,12 @@ static int xgold_enter_idle(struct cpuidle_device *dev,
 			struct cpuidle_driver *drv, int index)
 {
 	struct xgold_cpuidle_state *xg_idle = &xgold_cpuidle_states[index];
-	struct vmm_shared_data *data = get_vmm_shared_data();
+	struct vmm_shared_data *data = mv_gal_get_shared_data();
 
-	vm_enter_idle(data->pal_shared_mem_data, xg_idle->id);
+	mv_svc_vm_enter_idle(data->pal_shared_mem_data, xg_idle->id);
 	native_safe_halt();
 	/* back to active */
-	vm_enter_idle(data->pal_shared_mem_data, XGOLD_CPUIDLE_ACTIVE);
+	mv_svc_vm_enter_idle(data->pal_shared_mem_data, XGOLD_CPUIDLE_ACTIVE);
 
 	return index;
 }
