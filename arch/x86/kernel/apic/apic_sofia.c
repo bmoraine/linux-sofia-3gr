@@ -18,8 +18,8 @@
 #include <asm/apic.h>
 #include <asm/irq_vectors.h>
 
-#include <sofia/vmm_guest_api.h>
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_hypercalls.h>
+#include <sofia/mv_svc_hypercalls.h>
 
 #define LAPIC_PADDR_BASE   0xFEE00000
 
@@ -36,7 +36,7 @@ static void sofia_apic_send_ipi_mask(const struct cpumask *mask, int vector)
 		BUG();
 	}
 
-	vmm_ipi_post(vector, cpumask_bits(mask)[0]);
+	mv_ipi_post(vector, cpumask_bits(mask)[0]);
 }
 
 
@@ -49,7 +49,7 @@ static void sofia_send_ipi_allbutself(int vector)
 
 	vcpus = (1 << num_possible_cpus()) - 1;
 	vcpus &= ~(1 << smp_processor_id());
-	vmm_ipi_post(vector, vcpus);
+	mv_ipi_post(vector, vcpus);
 }
 
 static void sofia_send_IPI_all(int vector)
@@ -57,7 +57,7 @@ static void sofia_send_IPI_all(int vector)
 	unsigned int vcpus;
 
 	vcpus = (1 << num_possible_cpus()) - 1;
-	vmm_ipi_post(vector, vcpus);
+	mv_ipi_post(vector, vcpus);
 
 }
 
@@ -65,7 +65,7 @@ static int sofia_wakeup_secondary_cpu(int apicid, unsigned long start_ip)
 {
 	/* FIXME: Not so good to highjack the parameter.. */
 	unsigned long hack_start_ip = (unsigned long)__pa(startup_32_smp);
-	vmm_start_vcpu(apicid, hack_start_ip);
+	mv_start_vcpu(apicid, hack_start_ip);
 	return 0;
 }
 
@@ -121,7 +121,7 @@ static int sofia_apic_probe(void)
 
 static unsigned sofia_default_get_apic_id(unsigned long x)
 {
-	unsigned apic_id = vmm_vcpu_id();
+	unsigned apic_id = mv_vcpu_id();
 
 	return apic_id;
 }
@@ -133,7 +133,7 @@ static u32 sofia_apic_mem_read(u32 reg)
 	unsigned val;
 	unsigned ret;
 
-	ret = vmm_reg_read(addr, &val, mask);
+	ret = mv_svc_reg_read(addr, &val, mask);
 	if (ret) {
 		pr_err("%s: Read %x APIC register failed\n",
 				__func__, addr);
@@ -158,7 +158,7 @@ static void sofia_apic_mem_write(u32 reg, u32 v)
 	case APIC_TMICT:
 	case APIC_TDCR:
 	case APIC_TMCCT:
-		ret = vmm_reg_write(addr, v, mask);
+		ret = mv_svc_reg_write(addr, v, mask);
 		if (ret) {
 			pr_err("%s: Write %x APIC register failed\n",
 					__func__, addr);
@@ -178,7 +178,7 @@ static int sofia_early_logical_apicid(int cpu)
 
 static void sofia_apic_eoi_write(u32 reg, u32 value)
 {
-	vmm_virq_eoi(value);
+	mv_virq_eoi(value);
 }
 
 static int sofia_apic_id_registered(void)
