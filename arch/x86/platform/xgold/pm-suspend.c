@@ -20,23 +20,23 @@
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <linux/vpower.h>
 #include <sofia/pal_shared_data.h>
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 #endif
 #endif
 
 int xgold_suspend_enter(suspend_state_t suspend_state)
 {
 
-	struct vmm_shared_data *data = get_vmm_shared_data();
+	struct vmm_shared_data *data = mv_gal_get_shared_data();
 
 	switch (suspend_state) {
 	case PM_SUSPEND_MEM:
 		if (x86_platform.save_sched_clock_state)
 			x86_platform.save_sched_clock_state();
-		vm_enter_idle(data->pal_shared_mem_data,
+		mv_svc_vm_enter_idle(data->pal_shared_mem_data,
 					PM_S3);
 		native_halt();
-		vm_enter_idle(data->pal_shared_mem_data,
+		mv_svc_vm_enter_idle(data->pal_shared_mem_data,
 					PM_S0);
 		break;
 	}
