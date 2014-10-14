@@ -13,7 +13,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 #include "rtc-xgold.h"
 
 #define XGOLD_RTC_ENTER		pr_debug("rtc: %s\n", __func__)
@@ -43,7 +43,7 @@ static int xgold_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	unsigned long time_s = 0;
 
 	spin_lock(&rtcd->lock);
-	vmm_rtc_get_time_us(&time_us);
+	mv_svc_rtc_get_time_us(&time_us);
 	do_div(time_us, 1000000);
 	time_s = time_us;
 	rtc_time_to_tm(time_s, tm);
@@ -64,7 +64,7 @@ static int xgold_rtc_read_date(struct device *dev, struct rtc_time *tm)
 	struct rtc_datetime_shared_data rtc_data;
 
 	spin_lock(&rtcd->lock);
-	vmm_rtc_get_datetime(&rtc_data);
+	mv_svc_rtc_get_datetime(&rtc_data);
 	rtc_dbg("%s: hum time %4d-%2d-%2d %2d:%2d:%2d\n", __func__,
 			rtc_data.m_year, rtc_data.m_month, rtc_data.m_day,
 			rtc_data.m_hour, rtc_data.m_minute, rtc_data.m_second);
@@ -114,7 +114,7 @@ static int xgold_rtc_set_time(struct device *dev, struct rtc_time *tm)
 		rtc_dbg("%s: hum time %4d-%02d-%02d %02d:%02d:%02d\n", __func__,
 			rtc_data.m_year, rtc_data.m_month, rtc_data.m_day,
 			rtc_data.m_hour, rtc_data.m_minute, rtc_data.m_second);
-		vmm_rtc_set_datetime(&rtc_data);
+		mv_svc_rtc_set_datetime(&rtc_data);
 	} else {
 		pr_err("%s: Invalid RTC value !\n", __func__);
 	}
@@ -132,7 +132,7 @@ static int xgold_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
 
 	spin_lock(&rtcd->lock);
 	tm = &alm->time;
-	vmm_rtc_get_alarm(&rtc_data);
+	mv_svc_rtc_get_alarm(&rtc_data);
 	rtc_dbg("%s: hum time %4d-%02d-%02d %02d:%02d:%02d\n", __func__,
 		rtc_data.m_year, rtc_data.m_month, rtc_data.m_day,
 		rtc_data.m_hour, rtc_data.m_minute, rtc_data.m_second);
@@ -180,9 +180,9 @@ static int xgold_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 			tm->tm_hour, tm->tm_min, tm->tm_sec,
 			time);
 
-	vmm_rtc_get_alarm(&rtc_data2);
+	mv_svc_rtc_get_alarm(&rtc_data2);
 	if (rtc_data2.m_year != 0) {
-		vmm_rtc_clear_alarm();
+		mv_svc_rtc_clear_alarm();
 		rtc_dbg("%s: clear alarm\n", __func__);
 	}
 
@@ -201,7 +201,7 @@ static int xgold_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 			__func__,
 			rtc_data.m_year, rtc_data.m_month, rtc_data.m_day,
 			rtc_data.m_hour, rtc_data.m_minute, rtc_data.m_second);
-		vmm_rtc_set_alarm(&rtc_data);
+		mv_svc_rtc_set_alarm(&rtc_data);
 	}
 	spin_unlock(&rtcd->lock);
 
