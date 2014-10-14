@@ -36,8 +36,8 @@
 #include <linux/of_gpio.h>
 #include <linux/thermal.h>
 #include <linux/math64.h>
-#include <sofia/vmm_guest_api.h>
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_hypercalls.h>
+#include <sofia/mv_svc_hypercalls.h>
 
 #define DEFAULT_TEMP 40000		/* 40 degrees */
 #define MEAS_INTERVAL 3			/* 80 ms */
@@ -222,7 +222,7 @@ static inline u32 spcu_reg_read(struct spcu_thermal_device *dev,
 	u32 val;
 	int ret;
 
-	ret = vmm_reg_read(dev->phy_base + dev->reg_offset[attr->owner],
+	ret = mv_svc_reg_read(dev->phy_base + dev->reg_offset[attr->owner],
 		   &val, (u32)-1);
 
 	if (ret)
@@ -238,11 +238,11 @@ static int spcu_reg_write(struct spcu_thermal_device *dev,
 	int ret;
 
 	if (attr->af == AF_WRONLY)
-		ret = vmm_reg_write_only(
+		ret = mv_svc_reg_write_only(
 			dev->phy_base+dev->reg_offset[attr->owner],
 			attr->make(val), attr->mask);
 	else
-		ret = vmm_reg_write(
+		ret = mv_svc_reg_write(
 			dev->phy_base+dev->reg_offset[attr->owner],
 			attr->make(val), attr->mask);
 
@@ -273,7 +273,7 @@ static void set_intr_enable(struct threshold *threshold, u32 enable)
 	struct spcu_thermal_device *dev = threshold->tdev;
 	int type = threshold->type;
 
-	vmm_spcu_thermal_service(enable ?
+	mv_svc_spcu_thermal_service(enable ?
 		 SPCU_THERMAL_ENABLE_INTR : SPCU_THERMAL_DISABLE_INTR,
 		 dev->id, type);
 }
@@ -445,12 +445,12 @@ static ssize_t show_debug(struct device *dev,
 	int desc = 0;
 	u32 val;
 
-	vmm_reg_read(info->phy_base+info->reg_offset[CONFIG_REG], &val, -1);
+	mv_svc_reg_read(info->phy_base+info->reg_offset[CONFIG_REG], &val, -1);
 	desc += sprintf(buf + desc,
 				"config addr: 0x%x val: 0x%x\n",
 				info->reg_offset[CONFIG_REG], val);
 
-	vmm_reg_read(info->phy_base+info->reg_offset[STAT_REG], &val, -1);
+	mv_svc_reg_read(info->phy_base+info->reg_offset[STAT_REG], &val, -1);
 	desc += sprintf(buf + desc,
 				"stat addr: 0x%x val: 0x%x\n",
 				info->reg_offset[STAT_REG], val);
@@ -517,7 +517,7 @@ static void spcu_thermal_device_init(struct spcu_thermal_device *dev,
 
 	set_wakeup_en(dev, 1);
 	/* request service of interrupt config */
-	vmm_spcu_thermal_service(SPCU_THERMAL_REQUEST, dev->id, 0);
+	mv_svc_spcu_thermal_service(SPCU_THERMAL_REQUEST, dev->id, 0);
 
 	for (i = 0; i < THRESHOLD_COUNT; i++) {
 		threshold = &dev->threshold[i];
