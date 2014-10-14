@@ -624,7 +624,7 @@
 			0x2b8 0x4100	/* sdmmc_dat2 */
 			0x2bc 0x4100	/* sdmmc_dat3 */
 			0x2c0 0x4100	/* sdmmc_clk */
-			0x2c4 0x1	/* sdmmc_card_detect */
+			0x2c4 0x4100	/* sdmmc_card_detect */
 		>;
 	};
 	sdmmc_sleep_pins:sdmmc_sleep_pins {
