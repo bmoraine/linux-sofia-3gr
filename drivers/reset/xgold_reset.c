@@ -6,7 +6,7 @@
 #include <linux/reset-controller.h>
 
 #if defined(CONFIG_X86_INTEL_SOFIA)
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 #endif
 
 #define SCU_IO_ACCESS_BY_VMM 0
@@ -49,7 +49,7 @@ static int xgold_rst_assert(struct reset_controller_dev *rcdev,
 	addr = xgrc->ctrl_io_phys + xgrc->reg_set;
 	if (xgrc->write_mode == XGOLD_RESET_USE_RW_REG) {
 		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= vmm_reg_read(addr, &reg, -1);
+			ret |= mv_svc_reg_read(addr, &reg, -1);
 		else
 			reg = ioread32(xgrc->ctrl_io + xgrc->reg_set);
 		reg |= BIT(id);
@@ -57,7 +57,7 @@ static int xgold_rst_assert(struct reset_controller_dev *rcdev,
 		reg = BIT(id);
 	}
 	if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-		ret |= vmm_reg_write(addr, reg, -1);
+		ret |= mv_svc_reg_write(addr, reg, -1);
 	else
 		iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
 #endif
@@ -79,20 +79,20 @@ static int xgold_rst_deassert(struct reset_controller_dev *rcdev,
 	if (xgrc->write_mode == XGOLD_RESET_USE_RW_REG) {
 		addr = xgrc->ctrl_io_phys + xgrc->reg_set;
 		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= vmm_reg_read(addr, &reg, -1);
+			ret |= mv_svc_reg_read(addr, &reg, -1);
 		else
 			reg = ioread32(xgrc->ctrl_io + xgrc->reg_set);
 
 		reg &= ~BIT(id);
 		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= vmm_reg_write(addr, 0, reg);
+			ret |= mv_svc_reg_write(addr, 0, reg);
 		else
 			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
 	} else { /* XGOLD_RESET_USE_SET_CLEAR_REG */
 		addr = xgrc->ctrl_io_phys + xgrc->reg_clear;
 		reg = BIT(id);
 		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= vmm_reg_write(addr, reg, -1);
+			ret |= mv_svc_reg_write(addr, reg, -1);
 		else
 			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_clear);
 	}
@@ -109,7 +109,7 @@ static int xgold_rst_deassert(struct reset_controller_dev *rcdev,
 		}
 
 		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= vmm_reg_read(addr, &reg, -1);
+			ret |= mv_svc_reg_read(addr, &reg, -1);
 		else
 			reg = ioread32(xgrc->ctrl_io + xgrc->reg_status);
 
