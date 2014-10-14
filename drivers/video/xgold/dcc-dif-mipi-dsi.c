@@ -202,7 +202,7 @@ static void dcc_mipidsi_send_short_packet(struct dcc_display *lcd,
 		dsihead |= data_msg[0]<<16;
 	}
 
-	DCC_DBG2("dsi short pkt: (head:0x%08x cfg:0x%08x)\n",
+	DCC_DBG3("dsi short pkt: (head:0x%08x cfg:0x%08x)\n",
 			dsihead, dsicfg);
 
 	gra_write_field(pdata, EXR_DIF_CSREG, difcsreg);
@@ -260,7 +260,7 @@ static void dcc_mipidsi_send_long_packet_dma(struct dcc_display *lcd,
 	gra_write_field(pdata, INR_DIF_VIDEOBASE, pdata->mem.pbase);
 	gra_write_field(pdata, INR_DIF_VIDEOSIZE, i);
 
-	DCC_DBG2(
+	DCC_DBG3(
 		"dsi long dma pkt: wcnt:0x%04x (head:0x%08x cfg:0x%08x)\n",
 		msg->length+1, dsihead, dsicfg);
 	gra_write_field(pdata, INR_DIF_DSIVID1,
@@ -839,7 +839,7 @@ static void dcc_dsi_send_msglist(struct dcc_display *lcd,
 
 	list_for_each_entry(msg, &msgs->list, list) {
 		mdelay(1);
-		DCC_DBG2("Sending command 0x%02x 0x%02x of length %d\n",
+		DCC_DBG3("Sending command 0x%02x 0x%02x of length %d\n",
 		 msg->header, msg->type, msg->length);
 		dcc_dsi_send_cmd(lcd, msg);
 	}

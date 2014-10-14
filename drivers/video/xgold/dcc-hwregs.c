@@ -1247,7 +1247,10 @@ int gra_sendcmd(struct dcc_drvdata *p, unsigned int opcode,
 	}
 
 	{
-		unsigned txffs, tries = 0xFFFF;
+		struct timeval begin;
+		long long diffus = 0;
+		unsigned txffs, tries = 0xFFFFFF;
+		measdelay_start(&begin);
 		gra_read_field(p, EXR_DIF_TXFFS_STAT, &txffs);
 
 		while (txffs && tries) {
@@ -1256,7 +1259,9 @@ int gra_sendcmd(struct dcc_drvdata *p, unsigned int opcode,
 			tries--;
 		}
 		if (!tries) {
-			DCC_DBG1("fifo stucked(%d)\n", txffs);
+			diffus = measdelay_stop(NULL, &begin);
+			DCC_DBG1("fifo stucked for %lli usec (%d stages)\n",
+					diffus, txffs);
 			BUG();
 		}
 	}

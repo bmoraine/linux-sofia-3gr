@@ -256,6 +256,15 @@ static ssize_t dcc_sys_vsyncts0_show(struct device *dev,
 static DEVICE_ATTR(vsyncts0, 0444, dcc_sys_vsyncts0_show,
 			 NULL);
 
+static ssize_t dcc_sys_enable_show(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
+	return sprintf(buf, "%d\n",
+			(pdata->drv_state == DRV_DCC_SUSPENDED) ? 1 : 0);
+}
+
 static ssize_t dcc_sys_enable_store(struct device *dev,
 			       struct device_attribute *attr,
 			       const char *buf, size_t count)
@@ -272,7 +281,7 @@ static ssize_t dcc_sys_enable_store(struct device *dev,
 
 	return count;
 }
-static DEVICE_ATTR(enable, 0222, NULL, dcc_sys_enable_store);
+static DEVICE_ATTR(enable, 0666, dcc_sys_enable_show, dcc_sys_enable_store);
 
 
 static struct device_attribute *dcc_attrs[] = {
