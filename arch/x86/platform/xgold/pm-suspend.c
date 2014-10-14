@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/err.h>
 #include <asm/x86_init.h>
+#include <linux/of.h>
 #ifdef CONFIG_PLATFORM_DEVICE_PM_VIRT
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <linux/vpower.h>
@@ -57,7 +58,9 @@ static const struct platform_suspend_ops xgold_suspend_ops = {
 
 static int __init xgold_suspend_init(void)
 {
-	suspend_set_ops(&xgold_suspend_ops);
+	struct device_node *np = of_find_node_by_path("/xgold");
+	if (!of_find_property(np, "intel,nodeepsleep", NULL))
+			suspend_set_ops(&xgold_suspend_ops);
 	return 0;
 }
 late_initcall(xgold_suspend_init);
