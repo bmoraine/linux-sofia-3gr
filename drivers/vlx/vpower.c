@@ -39,9 +39,9 @@
 
 #include <sofia/nk_sofia_bridge.h>
 #include <linux/vpower.h>
-#include <sofia/vmm_guest_api.h>
+#include <sofia/mv_hypercalls.h>
 #include <sofia/pal_shared_data.h>
-#include <sofia/vmm_platform_service.h>
+#include <sofia/mv_svc_hypercalls.h>
 
 #include "vpower.h"
 
@@ -157,11 +157,11 @@ static ePRH_RETURN_T vpower_init_prh(void)
 	of_vpower_parse();
 	/* FIXME: We likely want to question VMM about the mode to be used
 	 * a simple 'prh_init' vmcall service should be enough */
-	retval = vmm_pm_control(PM_PRH_INIT_SET_MODE, 4, 8, 0);
+	retval = mv_svc_pm_control(PM_PRH_INIT_SET_MODE, 4, 8, 0);
 	if (retval != PRH_OK)
 		return retval;
 
-	retval = vmm_pm_control(PM_PRH_PRE_INIT_SET_MODE, 4, 8, 0);
+	retval = mv_svc_pm_control(PM_PRH_PRE_INIT_SET_MODE, 4, 8, 0);
 	if (retval != PRH_OK)
 		return retval;
 
@@ -206,7 +206,7 @@ ePRH_RETURN_T vpower_call_prh(uint32_t user_id,
 
 	reinit_completion(&prh_sync_complete);
 
-	retval = vmm_pm_control(pm_opcode , user_id, per_id, 0);
+	retval = mv_svc_pm_control(pm_opcode , user_id, per_id, 0);
 	if (retval)
 		pr_err("%s: Error(%i) arguments (%#x, %#x, %#x)\n",
 			__func__, retval, PM_PRH_SET_PER_MODE, user_id, per_id);
@@ -243,7 +243,7 @@ void vpower_get_C0(int cpu_id, uint64_t *timetotal_ptr, uint64_t *timeC0_ptr)
 	 *			u64 linux_c0[NOF_LINUX_VCPU];
 	 *			u64 secvm_c0;};  */
 
-	retval = vmm_pm_control(PM_GET_VCPU_C0, 0, 0, 0);
+	retval = mv_svc_pm_control(PM_GET_VCPU_C0, 0, 0, 0);
 
 	*timeC0_ptr = (uint64_t)
 		(vpower->shared_data->pm_control_shared_data.vcpu_c0[cpu_id*2]);
@@ -310,7 +310,7 @@ EXPORT_SYMBOL(xgold_cpu_load_get);
 void vpower_set_cpu_target_frequency(const int cpufreq)
 {
 	ePRH_RETURN_T retval;
-	retval = vmm_pm_control(PM_OMP_SET_POLICY, 1, cpufreq, 0);
+	retval = mv_svc_pm_control(PM_OMP_SET_POLICY, 1, cpufreq, 0);
 	DTRACE("======= ask vmm to change to %d, return = %x\n", cpufreq,
 			retval);
 
