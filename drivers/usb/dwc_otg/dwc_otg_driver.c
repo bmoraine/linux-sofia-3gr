@@ -180,6 +180,7 @@ static int set_parameters(dwc_otg_core_if_t * core_if)
 {
 	int retval = 0;
 	int i;
+	gintsts_data_t gintsts;
 
 	if (dwc_otg_module_params.otg_cap != -1) {
 		retval +=
@@ -335,6 +336,15 @@ static int set_parameters(dwc_otg_core_if_t * core_if)
 							  dwc_otg_module_params.
 							  en_multiple_tx_fifo);
 	}
+	gintsts.d32 = DWC_READ_REG32(&core_if->core_global_regs->gintsts);
+	if (gintsts.b.curmode) {
+		/* Force device mode to get power-on values of device FIFOs */
+		gusbcfg_data_t gusbcfg = {.d32 = 0 };
+		gusbcfg.d32 =  DWC_READ_REG32(&core_if->core_global_regs->gusbcfg);
+		gusbcfg.b.force_dev_mode = 1;
+		DWC_WRITE_REG32(&core_if->core_global_regs->gusbcfg, gusbcfg.d32);
+		dwc_mdelay(100);
+	}
 	for (i = 0; i < 15; i++) {
 		if (dwc_otg_module_params.dev_perio_tx_fifo_size[i] != -1) {
 			retval +=
@@ -353,6 +363,16 @@ static int set_parameters(dwc_otg_core_if_t * core_if)
 								     [i], i);
 		}
 	}
+	if (gintsts.b.curmode) {
+		gusbcfg_data_t gusbcfg = {.d32 = 0 };
+		gusbcfg.d32 =  DWC_READ_REG32(
+				&core_if->core_global_regs->gusbcfg);
+		gusbcfg.b.force_dev_mode = 0;
+		DWC_WRITE_REG32(&core_if->core_global_regs->gusbcfg,
+				gusbcfg.d32);
+		dwc_mdelay(100);
+	}
+
 	if (dwc_otg_module_params.thr_ctl != -1) {
 		retval +=
 		    dwc_otg_set_param_thr_ctl(core_if,
