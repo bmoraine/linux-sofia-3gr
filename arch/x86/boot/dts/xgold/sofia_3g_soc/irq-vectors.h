@@ -25,7 +25,6 @@
 #define EXI6 0
 #define EXI7 0
 #define EXI13 0
-#define EXI14 0
 #define EXI15 0
 #define AFE_LS_ALERT 0
 #define VM_ID_VIOLATION 0
@@ -46,7 +45,6 @@
 #define GT1_INT7 0
 #define CGU_INT 0
 #define OTG_SRP_INT 0
-#define EXI8 0
 #define EXI9 0
 #define ACI_INT 0
 #define DIF_TX_XREQ_INT 0
@@ -129,6 +127,8 @@
 #define AUDIODSP_INT0 107
 #define STM_INT1 108
 #define STM_INT0 109
+#define EXI8 115
+#define EXI14 116
 #define VID_HINT_ENC 126
 #define VID_HINT_DEC 127
 #define NSEC_CEU1_RX_IRQ 128

@@ -703,7 +703,7 @@
 						intel,gpio-direction = < 0x200 10 1>;
 						intel,gpio-direction-out = < 1 >;
 						intel,gpio-output = < 0x200 9 1 >;
-						intel,gpio-input = < 0x400 9 1 >;
+						intel,gpio-input = < 0x800 9 1 >;
 						intel,gpiochip-base = <0>;
 						intel,gpiochip-id = <0>;
 						intel,gpiochip-num = <93>;

@@ -42,11 +42,19 @@ eint:eint-interrupt-controller {
 	intel,virq,5 = <1>; /* EXT_INT5 */
 	intel,virq,6 = <1>; /* EXT_INT6 */
 	intel,virq,7 = <1>; /* EXT_INT7 */
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+	intel,virq,8 = <0>; /* EXT_INT8 */
+#else
 	intel,virq,8 = <1>; /* EXT_INT8 */
+#endif
 	intel,virq,9 = <1>; /* EXT_INT9 */
 	intel,virq,10 = <1>; /* EXT_INT10 */
 	intel,virq,13 = <1>; /* EXT_INT13 */
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+	intel,virq,14 = <0>; /* EXT_INT14 */
+#else
 	intel,virq,14 = <1>; /* EXT_INT14 */
+#endif
 	intel,virq,15 = <1>; /* EXT_INT15 */
 	intel,virq,18 = <1>; /* SDIO_DAT3 */
 	intel,virq,19 = <1>; /* SDIO_DAT1 */

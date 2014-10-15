@@ -9,9 +9,13 @@
 			27 EXI5
 			47 EXI6
 			45 EXI7
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+			53 EXI8
+#else
 			49 EXI8
+#endif
 			70 EXI9
-			16 EXI1
+			16 EXI10
 			17 EXI11
 			18 EXI12
 			19 EXI13
@@ -41,8 +45,15 @@
 #endif
 		<&range 39 1 0x01500>,	/* cam1_pd */
 		<&range 40 1 0x01500>,	/* cam2_pd */
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+		<&range 41 11 0x100>,
+		<&range 52 1 0x2004>,   /* gpio52 EINT_14 */
+		<&range 53 1 0x2005>,   /* gpio53 EINT_8 */
+		<&range 54 12 0x100>,
+#else
 		<&range 41 25 0x100>,
-		<&range 66 1 0x1500>,	/* touch_irq */
+#endif
+		<&range 66 1 0x1500>,   /* touch_irq */
 		<&range 67 1 0x100>,
 		<&range 68 1 0x1500>,
 		<&range 69 3 0x100>,
@@ -683,27 +694,43 @@
 	usif5_function_B_active_pins:usif5_function_B_active_pins {
 		pinctrl-single,pins = <
 			0x2c8 0x2006	/* usif5_rxd_mrst */
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+/* this pin is used as EINT_14 for MRD7S/5S* /
+#else
 			0x2d4 0x1060	/* usif5_txd_mtsr */
+#endif
 		>;
 	};
 	usif5_function_B_inactive_pins:usif5_function_B_inactive_pins {
 		pinctrl-single,pins = <
 			0x2c8 0x4100	/* usif5_rxd_mrst */
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+/* this pin is used as EINT_14 for MRD7S/5S* /
+#else
 			0x2d4 0x2100	/* usif5_txd_mtsr */
+#endif
 		>;
 	};
 	usif5_function_B_sleep_pins:usif5_function_B_sleep_pins {
 		pinctrl-single,pins = <
 			0x2c8 0x2006	/* usif5_rxd_mrst */
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+/* this pin is used as EINT_14 for MRD7S/5S* /
+#else
 			0x2d4 0x1060	/* usif5_txd_mtsr */
+#endif
 		>;
 	};
 	sdio_function_C_active_pins:sdio_function_C_active_pins {
 		pinctrl-single,pins = <
 			0x2c8 0x31011	/* sdio_cmd */
 			0x2cc 0x31011	/* sdio_dat0 */
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+/* this pin is used as EINT_14 & EINT_8 for MRD7S/5S* /
+#else
 			0x2d0 0x31011	/* sdio_dat1 */
 			0x2d4 0x31011	/* sdio_dat2 */
+#endif
 			0x2d8 0x31011	/* sdio_dat3 */
 			0x2dc 0x31011	/* sdio_clk */
 			0x2e0 0x11010	/* sdio_reset */
@@ -713,8 +740,12 @@
 		pinctrl-single,pins = <
 			0x2c8 0x4100	/* sdio_cmd */
 			0x2cc 0x4100	/* sdio_dat0 */
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+/* this pin is used as EINT_14 & EINT_8 for MRD7S/5S* /
+#else
 			0x2d0 0x4100	/* sdio_dat1 */
 			0x2d4 0x2100	/* sdio_dat2 */
+#endif
 			0x2d8 0x2100	/* sdio_dat3 */
 			0x2dc 0x4100	/* sdio_clk */
 			0x2e0 0x2100	/* sdio_reset */
@@ -724,8 +755,12 @@
 		pinctrl-single,pins = <
 			0x2c8 0x31011	/* sdio_cmd */
 			0x2cc 0x31011	/* sdio_dat0 */
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+/* this pin is used as EINT_14 & EINT_8 for MRD7S/5S* /
+#else
 			0x2d0 0x31011	/* sdio_dat1 */
 			0x2d4 0x31011	/* sdio_dat2 */
+#endif
 			0x2d8 0x31011	/* sdio_dat3 */
 			0x2dc 0x31011	/* sdio_clk */
 			0x2e0 0x11010	/* sdio_reset */
