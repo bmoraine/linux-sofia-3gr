@@ -1,0 +1,6 @@
+config TOUCHSCREEN_VTL_CT36X
+	tristate "VTL CT36x touchscreen"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you have a VTL CT36x touchscreen.

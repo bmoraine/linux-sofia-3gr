@@ -969,4 +969,5 @@ config TOUCHSCREEN_FOCALTECH_FT5X06
 	  module will be called ft5x06_ts.
 
 source "drivers/input/touchscreen/gt910/Kconfig"
+source "drivers/input/touchscreen/vtl_ts/Kconfig"
 endif
