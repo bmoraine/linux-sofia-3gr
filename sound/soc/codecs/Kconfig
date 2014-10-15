@@ -556,5 +556,10 @@ config SND_SOC_ML26124
 config SND_SOC_TPA6130A2
 	tristate
 
+#Intel
 config SND_SOC_AGOLD_AFE
+	tristate
+	select SND_SOC_AGOLD_HSOFC_SUPPORT
+
+config SND_SOC_AGOLD_HSOFC_SUPPORT
 	tristate

@@ -51,6 +51,103 @@
 
 #define AGOLD_AFE_NOF_BYTES_PER_REG 4
 
+#ifdef CONFIG_SND_SOC_AGOLD_HSOFC_SUPPORT
+#define LEFT_CHANNEL  0
+#define RIGHT_CHANNEL 1
+
+#define AFE_NOF_HSOSC_TRIM_VALUES 64
+/* Number of times AFE HSOSC comparator output has to be read for getting the
+   calibration result
+*/
+#define AFE_HSOSC_READ_COUNT 1500
+/* Confidence measure to declare a successful calibration */
+#define AFE_COMPARATOR_VALIDATE_COUNT 800
+/* Number of gain stages for offset calibration */
+#define AFE_NVM_NOF_HSOSC 8
+/* Cailbration result returned to user space */
+struct cal_result {
+	u8 hs_calib_done;
+	/* Container for final offset calibration values */
+	struct channels  hs_ofs_cal_val[AFE_NVM_NOF_HSOSC];
+	u32 timestamp_cal_left[AFE_NOF_EPHSLS_HW_GAIN_VALUES];
+	u32 timestamp_cal_right[AFE_NOF_EPHSLS_HW_GAIN_VALUES];
+};
+
+static struct cal_result hs_cal_result;
+
+/* Indicates values to be set in AFE registers according to corresponding
+   index
+*/
+static const u8 hs_ofs_conv[AFE_NOF_HSOSC_TRIM_VALUES] = {
+	63, 62, 61, 60, 59, 58, 57, 56, 55, 54,
+	53, 52, 51, 50, 49, 48, 47, 46, 45, 44,
+	43, 42, 41, 40, 39, 38, 37, 36, 35, 34,
+	33, 32, 0, 1, 2, 3, 4, 5, 6, 7,
+	8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+	18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+	28, 29, 30, 31
+};
+
+/* Container for offset calibration values for step1*/
+static struct channels  hs_ofs_cal_val_step1[AFE_NVM_NOF_HSOSC];
+
+/* It is observed that offset values obtained through calibration always show
+   a fixed deviation from the actual measured values. This array contains the
+   calculated deviation which has to be added/subtracted accordingly
+*/
+static struct channels hs_ofs_delta[AUD_ANALOG_GAIN_END+1] = {
+	{6, 18},     /* -9.1 dB  */
+	{6, 18},     /* -9.1 dB  */
+	{6, 15},     /* -6 dB    */
+	{5, 11},     /* -3.1 dB  */
+	{5,  6},     /*  0 -dB   */
+	{3,  4},     /*  6 dB  */
+	{3,  4},     /*  6 dB  */
+	{0,  0}      /*  Invalid */
+};
+static const u32 afe_hal_hs_gain[AFE_NOF_EPHSLS_HW_GAIN_VALUES] = {
+	AFE_GAIN_OUT_HSGAIN_HS_M9_1DB, /* Max-18 dB -9.1 dB */
+	AFE_GAIN_OUT_HSGAIN_HS_M9_1DB, /* Max-15 dB      -9.1 dB(In target) */
+	AFE_GAIN_OUT_HSGAIN_HS_M6_0DB, /* Max-12 dB      -6   dB(In target) */
+	AFE_GAIN_OUT_HSGAIN_HS_M3_1DB, /* Max-9  dB      -3.1 dB(In target) */
+	AFE_GAIN_OUT_HSGAIN_HS_P0_0DB, /* Max-6  dB       0   dB(In target) */
+	/* don't use step 5. For loudspeaker, the 'max-3dB' step does not exist,
+	  and since the digital part of the AFE destination volume is the same
+	  for all AFE modes, this analog step cannot be used in the
+	  gain calculation */
+	AFE_GAIN_OUT_HSGAIN_HS_P6_0DB, /* Max-3             6 dB(In target) */
+	AFE_GAIN_OUT_HSGAIN_HS_P6_0DB, /* Max               6 dB(In target) */
+	AFE_GAIN_OUT_HSGAIN_HS_OFF
+};
+
+static enum aud_analog_gain_value afe_hal_ana_gain =
+						AUD_ANALOG_GAIN_MAX_MINUS_12DB;
+
+/* Default register settings for headset offset calibration */
+static const u32 agold_afe_reg_cal_prepare[] = {
+	0x0076600,		/*AFE_AUDOUTCTRL1 */
+	0x28001000, /*AFE_AUDOUTCTRL2 */
+	0x0, /*AFE_AUDOUTCTRL3 */
+	0x0, /*AFE_AUDINCTRL */
+	0x0E000273, /*AFE_GAIN_OUT */
+	0x0, /*AFE_GAIN_IN */
+	0x0, /*IDI bridge register */
+	0x0,
+#ifdef CONFIG_SND_SOC_AGOLD_620
+	/****** DIGMIC_CONTROL1 Register ******/
+	/*	DIGMICON - 0 - off
+		DIGMICSEL - 00 - No selection
+		SMPLINDM - 00 - Mic1 at Digup2, mic2 at Digup1
+		SMPLDM2  - 0 - Mic2 sampled at Rising edge
+		SMPLDM1  - 0 - Mic1 sampled at falling edge
+	 */
+	0x00,
+#endif
+};
+
+static int agold_afe_perform_hsosc(void);
+#endif
+
 static int agold_afe_handle_codec_power(struct snd_soc_codec *codec,
 			enum snd_soc_bias_level request_level);
 
@@ -83,7 +180,8 @@ static /*const*/ u32 agold_afe_reg_cache[] = {
 	0xFFFFFFFF,	/* AFE_AUDOUTCTRL3 */
 	0x6080000,	/* AFE_AUDINCTRL */
 	0x0E030273,	/* AFE_GAIN_OUT */
-	0x24A,		/* AFE_GAIN_IN */
+	/* HSOCCALR - 0x10 (bits 31-26) - Best working value */
+	0x4000024A,		/* AFE_GAIN_IN */
 	0x0,		/* IDI bridge register */
 	0x0,
 #ifdef CONFIG_SND_SOC_AGOLD_620
@@ -338,6 +436,368 @@ static int agold_afe_get_reg_addr(unsigned int reg)
 	return -1;
 }
 
+#ifdef CONFIG_SND_SOC_AGOLD_HSOFC_SUPPORT
+
+/* Read AFE Power register */
+static u32 agold_afe_read_power_reg(struct snd_soc_codec *codec)
+{
+	struct agold_afe_data *agold_afe = snd_soc_codec_get_drvdata(codec);
+	u32 reg = 0;
+	unsigned int offset = 0;
+	offset = agold_afe_get_reg_addr(0);
+	mutex_lock(&codec->mutex);
+	reg = readl(agold_afe->membase + offset);
+	mutex_unlock(&codec->mutex);
+	return reg;
+}
+
+static int agold_afe_trigger_calibration_info(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_info *uinfo)
+{
+	pr_debug("%s :\n", __func__);
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = sizeof(struct cal_result);
+	return 0;
+}
+
+static int agold_afe_get_trigger_calibration(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *uinfo)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	mutex_lock(&codec->mutex);
+	memcpy(&uinfo->value.bytes.data, (void *)&hs_cal_result,
+		sizeof(struct cal_result));
+	mutex_unlock(&codec->mutex);
+	return 0;
+}
+
+static int agold_afe_set_trigger_calibration(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *uinfo)
+{
+	int ret;
+	ret = agold_afe_perform_hsosc();
+	return ret;
+}
+
+static int agold_afe_hs_calibration_event_handler(
+	struct snd_soc_codec *codec,
+	int event1)
+{
+	int ret = 0;
+	u32 reg = 0;
+	int i = 0;
+	unsigned int offset = 0;
+	struct resource *aferes;
+	struct agold_afe_data *agold_afe = agold_afe_get_private_data();
+	enum agold_afe_hs_calib_event event =
+			(enum agold_afe_hs_calib_event)event1;
+
+	switch (event) {
+	case AGOLD_AFE_PREPARE_CALIBRATION:
+		agold_afe->afe_pow.hs_on = 1;
+		agold_afe->afe_pow.cp_freq = 13000;
+		ret = agold_afe_handle_codec_power(codec, SND_SOC_BIAS_PREPARE);
+		if (ret < 0) {
+			afe_err("failed to enable AFE clks %d\n", ret);
+			break;
+		}
+		reg = snd_soc_read(codec, AGOLD_AFE_BCON);
+		/*Power on AFE */
+		reg |= AFE_BCON_AFE_PWR;
+		snd_soc_write(codec, AGOLD_AFE_BCON, reg);
+
+		/* Power on XBON central biasing */
+		reg |= AFE_BCON_XBON;
+		snd_soc_write(codec, AGOLD_AFE_BCON, reg);
+
+		/* Enable AUDOUTSTRT */
+		reg |= AFE_BCON_AUDOUTSTRT;
+		/*DSP always output 48KHz */
+		reg &= 0xFFFFFFE3;
+		reg |= (0x4 << AFE_BCON_AUD_OUTRATE_POS);
+		reg |= AFE_BCON_MODE;
+		reg &= ~AFE_BCON_FMR_DIRECT;
+		reg |= AFE_BCON_MUTE_DIS;
+		reg &= ~AFE_BCON_AUDINCLK;
+		snd_soc_write(codec, AGOLD_AFE_BCON, reg);
+		/* Read AFE Power register */
+		offset = agold_afe_get_reg_addr(0);
+		reg = readl(agold_afe->membase + offset);
+		snd_soc_write(codec, AGOLD_AFE_PWR, reg);
+		/* Initialize AFE registers with default values */
+		for (i = 0; i < ARRAY_SIZE(agold_afe_reg_cal_prepare); i++)
+			snd_soc_write(codec, i+2, agold_afe_reg_cal_prepare[i]);
+		aferes = idi_get_resource_byname(&agold_afe->dev->resources,
+					IORESOURCE_MEM, "afe-in-fifo");
+		if (!aferes) {
+			afe_err("AFE-IN fifo info missing\n");
+			kfree(agold_afe);
+			/* Initialize AFE registers back to default values */
+			for (i = 0; i < ARRAY_SIZE(agold_afe_reg_cache); i++)
+				snd_soc_write(codec, i, agold_afe_reg_cache[i]);
+			return -EINVAL;
+		}
+		/* Clear the AFE internal FIFO after bootup*/
+		for (i = 0; i < agold_afe->fifosize; i++)
+			writel(0, agold_afe->fifobase);
+
+		break;
+	case AGOLD_AFE_STOP_CALIBRATION:
+		/*disable AUDOUT STRT */
+		reg = snd_soc_read(codec, AGOLD_AFE_BCON);
+		reg &= ~AFE_BCON_AUDOUTSTRT;
+		snd_soc_write(codec, AGOLD_AFE_BCON, reg);
+		/* Initialize AFE registers with default values */
+		for (i = 0; i < ARRAY_SIZE(agold_afe_reg_cache); i++)
+			snd_soc_write(codec, i, agold_afe_reg_cache[i]);
+		/* Disable AFE power */
+		agold_afe->afe_pow.hs_on = 0;
+		ret = agold_afe_handle_codec_power(codec, SND_SOC_BIAS_OFF);
+		if (ret < 0) {
+			afe_err("failed to disable AFE %d\n", ret);
+			break;
+		}
+		break;
+	case AGOLD_AFE_CALIBRATE_LEFT_CH:
+		reg = snd_soc_read(codec, AGOLD_AFE_PWR);
+		reg &= ~AFE_PWR_HSR;
+		reg |= AFE_PWR_HSL;
+		snd_soc_write(codec, AGOLD_AFE_PWR, reg);
+		break;
+	case AGOLD_AFE_CALIBRATE_RIGHT_CH:
+		reg = snd_soc_read(codec, AGOLD_AFE_PWR);
+		reg &= ~AFE_PWR_HSL;
+		reg |= AFE_PWR_HSR;
+		snd_soc_write(codec, AGOLD_AFE_PWR, reg);
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
+
+static int agold_afe_hs_calr_set_value(struct snd_soc_codec *codec, u32 value)
+{
+	u32 reg = 0;
+	mutex_lock(&codec->mutex);
+	reg = snd_soc_read(codec, AGOLD_AFE_GAIN_IN);
+	reg &= ~(AFE_GAIN_IN_HSOCCALR_MASK);
+	reg |= value << AFE_GAIN_IN_HSOCCALR_OFFSET;
+	snd_soc_write(codec, AGOLD_AFE_GAIN_IN, reg);
+	mutex_unlock(&codec->mutex);
+	return 0;
+}
+
+static int agold_afe_hs_call_set_value(struct snd_soc_codec *codec, u32 value)
+{
+	u32 reg = 0;
+	mutex_lock(&codec->mutex);
+	reg = snd_soc_read(codec, AGOLD_AFE_GAIN_IN);
+	reg &= ~(AFE_GAIN_IN_HSOCCALL_MASK);
+	reg |= value << AFE_GAIN_IN_HSOCCALL_OFFSET;
+	snd_soc_write(codec, AGOLD_AFE_GAIN_IN, reg);
+	mutex_unlock(&codec->mutex);
+	return 0;
+}
+
+static int agold_afe_calibrate_hsosc_channel(
+	u8 *p_index, /* start index for calibration */
+	u8 channel)  /* channel to be calibrated */
+{
+	bool found = false; /* Flag to store the result */
+	u8 index = *p_index; /* index to be used for starting calibration */
+	u16 hsosc_comp_read_count = 0; /* comparator output read count */
+	u16 loop_count = 0; /* loop counter */
+	u32 reg = 0;
+	u32 hssoccalr, hssoccall;
+	struct agold_afe_data *agold_afe = agold_afe_get_private_data();
+	struct snd_soc_codec *codec = agold_afe->codec;
+	reg = snd_soc_read(codec, AGOLD_AFE_AUDOUTCTRL1);
+	reg |= 1 << AFE_AUDOUTCTRL1_HSOCSOC_OFFSET;
+	snd_soc_write(codec, AGOLD_AFE_AUDOUTCTRL1, reg);
+	while (true != found) {
+		if (RIGHT_CHANNEL == channel) {
+			/* Set calibratration index */
+			hssoccalr = hs_ofs_conv[index];
+			hssoccall = 0;
+			agold_afe_hs_calibration_event_handler(codec,
+						AGOLD_AFE_CALIBRATE_RIGHT_CH);
+		} else {
+			/* Set calibratration index */
+			hssoccall = hs_ofs_conv[index];
+			hssoccalr = 0;
+			agold_afe_hs_calibration_event_handler(codec,
+						AGOLD_AFE_CALIBRATE_LEFT_CH);
+		}
+		agold_afe_hs_calr_set_value(codec, hssoccalr);
+		agold_afe_hs_call_set_value(codec, hssoccall);
+		hsosc_comp_read_count = 0;
+		for (loop_count = 0; loop_count < AFE_HSOSC_READ_COUNT;
+				loop_count++) {
+			u32 afe_power = 0;
+			afe_power = (u32)agold_afe_read_power_reg(codec);
+			if (afe_power & AFE_POWER_HSOCCOMP_MASK)
+				hsosc_comp_read_count++;
+			udelay(2);
+		}
+		/* Choose the first value for which comparator output
+			is always +ve */
+		if (AFE_COMPARATOR_VALIDATE_COUNT <= hsosc_comp_read_count)
+			found = true;
+		else {
+			index++;
+			if (AFE_NOF_HSOSC_TRIM_VALUES == index)
+				/* Terminate the loop at max count */
+				found = true;
+		}
+	}
+
+	if (index < AFE_NOF_HSOSC_TRIM_VALUES) {
+		u16 delta_val = 0;
+		if (LEFT_CHANNEL == channel)
+			hs_ofs_cal_val_step1[afe_hal_ana_gain].left =
+							hs_ofs_conv[index];
+		else
+			hs_ofs_cal_val_step1[afe_hal_ana_gain].right =
+							hs_ofs_conv[index];
+
+		/* Step 2 - Add delta after step 1 */
+		if (LEFT_CHANNEL == channel) {
+			delta_val = hs_ofs_delta[afe_hal_ana_gain].left;
+			hs_cal_result.hs_ofs_cal_val[afe_hal_ana_gain].left =
+						hs_ofs_conv[index + delta_val];
+			hssoccall =
+			hs_cal_result.hs_ofs_cal_val[afe_hal_ana_gain].left;
+			hssoccalr = 0;
+			agold_afe_hs_calr_set_value(codec, hssoccalr);
+			agold_afe_hs_call_set_value(codec, hssoccall);
+		} else {
+			delta_val = hs_ofs_delta[afe_hal_ana_gain].right;
+			hs_cal_result.hs_ofs_cal_val[afe_hal_ana_gain].right =
+						hs_ofs_conv[index + delta_val];
+			hssoccall = 0;
+			hssoccalr =
+			hs_cal_result.hs_ofs_cal_val[afe_hal_ana_gain].right;
+			agold_afe_hs_calr_set_value(codec, hssoccalr);
+			agold_afe_hs_call_set_value(codec, hssoccall);
+		}
+	} else {
+		/* Default to an known calibration value if calibration fails
+			for some unknown reason */
+		if (LEFT_CHANNEL == channel)
+			hs_cal_result.hs_ofs_cal_val[afe_hal_ana_gain].left =
+				0x20;
+		else
+			hs_cal_result.hs_ofs_cal_val[afe_hal_ana_gain].right =
+				0x10;
+	}
+
+	/* Reset the trim values to zero at the end of calibration */
+	hssoccall = 0;
+	hssoccalr = 0;
+	agold_afe_hs_calr_set_value(codec, hssoccalr);
+	agold_afe_hs_call_set_value(codec, hssoccall);
+
+	return 0;
+}
+
+static int agold_afe_prepare_hsosc(void)
+{
+	int ret = 0;
+	struct agold_afe_data *agold_afe = agold_afe_get_private_data();
+	struct snd_soc_codec *codec = agold_afe->codec;
+	pr_debug("%s:\n", __func__);
+	ret = agold_afe_hs_calibration_event_handler(codec,
+				AGOLD_AFE_PREPARE_CALIBRATION);
+	return ret;
+}
+
+static int agold_afe_stop_hsosc(void)
+{
+	int ret = 0;
+	struct agold_afe_data *agold_afe = agold_afe_get_private_data();
+	struct snd_soc_codec *codec = agold_afe->codec;
+	pr_debug("%s:\n", __func__);
+	ret = agold_afe_hs_calibration_event_handler(codec,
+				AGOLD_AFE_STOP_CALIBRATION);
+	return ret;
+}
+
+static void afe_hal_set_analog_out_gain(
+	enum aud_analog_gain_value analog_gain)
+{
+	u32 reg = 0;
+	struct agold_afe_data *agold_afe = agold_afe_get_private_data();
+	struct snd_soc_codec *codec = agold_afe->codec;
+	pr_debug("%s:\n", __func__);
+	reg = snd_soc_read(codec, AGOLD_AFE_GAIN_OUT);
+	reg &= ~AFE_HS_GAIN_MASK;
+	reg |= afe_hal_hs_gain[analog_gain] << AFE_GAIN_OUT_HS_OFFSET;
+	snd_soc_write(codec, AGOLD_AFE_GAIN_OUT, reg);
+	afe_hal_ana_gain = analog_gain;
+}
+
+static int agold_afe_perform_hsosc(void)
+{
+	int result;
+	u8 gain_index = 0; /* Loop counter for gain steps */
+	u8 start_index = 0;
+	struct timeval time_us;
+	unsigned long time_before_cal_us, time_after_cal_us;
+	pr_debug("%s:\n", __func__);
+	/* Program AFE registers to start with a known configuration */
+	result = agold_afe_prepare_hsosc();
+	if (!result) {
+		for (gain_index = AUD_ANALOG_GAIN_MAX_MINUS_18DB;
+			gain_index < AFE_NOF_EPHSLS_HW_GAIN_VALUES-1;
+			gain_index++) {
+			start_index = 0;
+			afe_hal_set_analog_out_gain(
+				(enum aud_analog_gain_value)gain_index);
+			udelay(1);
+			/* Capture time stamp before calibrating left channel */
+			do_gettimeofday(&time_us);
+			time_before_cal_us =
+				1000000 * time_us.tv_sec + time_us.tv_usec;
+			result = agold_afe_calibrate_hsosc_channel(&start_index,
+				LEFT_CHANNEL);
+			do_gettimeofday(&time_us);
+			time_after_cal_us =
+				(1000000 * time_us.tv_sec + time_us.tv_usec);
+			hs_cal_result.timestamp_cal_left[gain_index] =
+				(u32)(time_after_cal_us - time_before_cal_us);
+		}
+		for (gain_index = AUD_ANALOG_GAIN_MAX_MINUS_18DB;
+			gain_index < AFE_NOF_EPHSLS_HW_GAIN_VALUES-1;
+			gain_index++) {
+			start_index = 0;
+			afe_hal_set_analog_out_gain(
+				(enum aud_analog_gain_value)gain_index);
+			udelay(1);
+			/* Capture time stamp before calibrating left channel */
+			do_gettimeofday(&time_us);
+			time_before_cal_us =
+				1000000 * time_us.tv_sec + time_us.tv_usec;
+			result = agold_afe_calibrate_hsosc_channel(&start_index,
+					RIGHT_CHANNEL);
+			do_gettimeofday(&time_us);
+			time_after_cal_us =
+				(1000000 * time_us.tv_sec + time_us.tv_usec);
+			hs_cal_result.timestamp_cal_right[gain_index] =
+				(u32)(time_after_cal_us - time_before_cal_us);
+		}
+		hs_cal_result.hs_calib_done = 1;
+	}
+	/* Clean up AFE registers configured for HSOSC */
+	result = agold_afe_stop_hsosc();
+	if (result) {
+		afe_err("%s:Failed to stop HS Offset Calibration\n", __func__);
+		return -EINVAL;
+	}
+
+	return result;
+}
+#endif
 
 static const char * const agold_afe_mic_mux_text[] = {
 	"AMIC1", "AMIC2"
@@ -493,6 +953,10 @@ static const struct snd_kcontrol_new agold_afe_snd_controls[] = {
 	SOC_ENUM("HS Pop Suppression Ramp", agold_afe_hsps_ramp_enum),
 	SOC_SINGLE("LS ClassD Frequency Divider", AGOLD_AFE_AUDOUTCTRL2, 24,
 		   255, 0),
+	SOC_SINGLE("HS Left offset calibration", AGOLD_AFE_GAIN_IN, 18,
+			 63, 0),
+	SOC_SINGLE("HS Right offset calibration", AGOLD_AFE_GAIN_IN, 26,
+			 63, 0),
 	/* Try to use SND_SOC_BYTES instead */
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
@@ -508,6 +972,15 @@ static const struct snd_kcontrol_new agold_afe_snd_controls[] = {
 		.get = agold_afe_get_reg_val,
 		.put = agold_afe_set_reg_val,
 	}
+#ifdef CONFIG_SND_SOC_AGOLD_HSOFC_SUPPORT
+	, {
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "AFE HS Offset Calibration Start",
+		.info = agold_afe_trigger_calibration_info,
+		.get = agold_afe_get_trigger_calibration,
+		.put = agold_afe_set_trigger_calibration,
+	}
+#endif
 };
 
 void afe_writel(struct snd_soc_codec *codec, unsigned int value, void *addr)
@@ -1181,6 +1654,7 @@ static const struct snd_soc_dapm_route agold_afe_audio_map[] = {
 	{"HSR", NULL, "Headset Right Amp"},
 	{"Headset Right Amp", NULL , "HSR Enable Switch"},
 	{"HSR Enable Switch", "ON", "DACR"},
+	{"HSR Enable Switch", "ON", "DACL"},
 
 	/* Earpiece Output Map */
 	{"EP Output Route", "RDAC", "DACR"},
@@ -1266,11 +1740,13 @@ static int agold_afe_startup(struct snd_pcm_substream *substream,
 					SND_SOC_BIAS_PREPARE);
 	}
 
-	if (!ret && !dai->playback_active &&
-			substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+	if (!ret &&
+		substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		reg = snd_soc_read(dai->codec, AGOLD_AFE_BCON);
+		afe_debug("%s : Enabling IDI HS bit\n",
+				__func__);
 		if (!(reg & AFE_BCON_FMR_DIRECT)) {
 			/* Enable AUDOUTSTRT */
-			reg = snd_soc_read(dai->codec, AGOLD_AFE_BCON);
 			reg |= AFE_BCON_AUDOUTSTRT;
 			snd_soc_write(dai->codec, AGOLD_AFE_BCON, reg);
 
@@ -1280,6 +1756,20 @@ static int agold_afe_startup(struct snd_pcm_substream *substream,
 			reg |= AFE_AUD2IDICTRL_IDI_EN |
 				AFE_AUD2IDICTRL_CNT_MAX |
 				AFE_AUD2IDICTRL_CNT_MIN;
+			snd_soc_write(dai->codec,
+					AGOLD_AFE_AUD2IDICTRL, reg);
+		} else {
+		/* While transitioning from DSP -> DAC FM mode disable IDI HS
+			and OUT_STRT bits */
+			afe_debug("%s : Disabling IDI HS bit\n",
+				__func__);
+			/*disable AUDOUT START */
+			reg &= ~AFE_BCON_AUDOUTSTRT;
+			snd_soc_write(dai->codec, AGOLD_AFE_BCON, reg);
+			/* disable IDI handshake */
+			reg = snd_soc_read(dai->codec,
+					AGOLD_AFE_AUD2IDICTRL);
+			reg &= ~AFE_AUD2IDICTRL_IDI_EN;
 			snd_soc_write(dai->codec,
 					AGOLD_AFE_AUD2IDICTRL, reg);
 		}
@@ -1313,19 +1803,29 @@ static void agold_afe_shutdown(struct snd_pcm_substream *substream,
 	} else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
 			!dai->playback_active) {
 		/* Disabling IDI HS bit in shutdown, when switching from
-		 * DAC/DSP mode BIAS_OFF may not be called, so disabling
-		 * HS bit, OUT_STRT in shutdown */
-		afe_debug("%s : Disabling IDI HS bit\n", __func__);
-		reg = snd_soc_read(dai->codec, AGOLD_AFE_BCON);
+			DAC/DSP mode as BIAS_OFF may not be always called,
+			so disabling HS bit, OUT_STRT in shutdown.
+			However, the DAC's are still powered on and only
+			powered down in the DAPM power down sequence.
+			This results in pop noise on LS randomly. Therefore
+			disable IDI HS & OUT_STRT only when shutdown is called
+			with SND_SOC_BIAS_OFF. */
 
-		/* Disable AUDOUTSTRT */
-		reg &= ~AFE_BCON_AUDOUTSTRT;
-		snd_soc_write(dai->codec, AGOLD_AFE_BCON, reg);
+		/* Pop noise on LS is heard randomly */
+		if (SND_SOC_BIAS_OFF == dai->codec->dapm.bias_level) {
 
-		/* Disable IDI handshake */
-		reg = snd_soc_read(dai->codec, AGOLD_AFE_AUD2IDICTRL);
-		reg &= ~AFE_AUD2IDICTRL_IDI_EN;
-		snd_soc_write(dai->codec, AGOLD_AFE_AUD2IDICTRL, reg);
+			afe_debug("%s : Disabling IDI HS bit\n", __func__);
+			reg = snd_soc_read(dai->codec, AGOLD_AFE_BCON);
+
+			/* Disable AUDOUTSTRT */
+			reg &= ~AFE_BCON_AUDOUTSTRT;
+			snd_soc_write(dai->codec, AGOLD_AFE_BCON, reg);
+
+			/* Disable IDI handshake */
+			reg = snd_soc_read(dai->codec, AGOLD_AFE_AUD2IDICTRL);
+			reg &= ~AFE_AUD2IDICTRL_IDI_EN;
+			snd_soc_write(dai->codec, AGOLD_AFE_AUD2IDICTRL, reg);
+		}
 	}
 
 	if ((0 == dai->active) &&

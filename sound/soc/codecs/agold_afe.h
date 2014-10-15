@@ -57,6 +57,15 @@ enum agold_afe_register {
 	AGOLD_AFE_CACHEREGNUM,
 };
 
+#define AFE_PWR_HSR 0x4
+#define AFE_PWR_HSL 0x2
+#define AFE_GAIN_IN_HSOCCALL_MASK 0x00FC0000
+#define AFE_GAIN_IN_HSOCCALR_MASK 0xFC000000
+#define AFE_GAIN_IN_HSOCCALL_OFFSET 18
+#define AFE_GAIN_IN_HSOCCALR_OFFSET 26
+#define AFE_AUDOUTCTRL1_HSOCSOC_OFFSET 21
+#define AFE_GAIN_OUT_HS_OFFSET 24
+
 /* AFE BCON Register */
 #define AFE_BCON_AUD_OUTRATE_POS 0x02
 #define AFE_BCON_AUD_INRATE_POS	0x06
@@ -68,6 +77,9 @@ enum agold_afe_register {
 #define AFE_BCON_AUDINSTRT	0x00000020
 #define AFE_BCON_AUDOUTSTRT	0x00000002
 #define AFE_BCON_MODE		0x00000001
+#define AFE_POWER_LSB_HSOCCOMP		(1 << 26)
+#define AFE_POWER_HSOCCOMP_MASK		0x4000000
+#define AFE_HS_GAIN_MASK 0x1F000000
 
 
 /* AFE AUD2IDI CTRL */
@@ -93,10 +105,70 @@ enum agold_afe_register {
 
 /* Default charge pump frequency in khz*/
 #define AGOLD_AFE_CP_DEFAULT_FREQ_KHZ 13000
+
+#define AGOLD_AFE_FIFO_MAX_SIZE_WORDS  32
 enum agold_afe_requester {
 	AGOLD_AFE_REQUESTER_ASOC, /* /< Request is from ASOC module */
 	AGOLD_AFE_REQUESTER_ACCESSORY_IDENTIFICATION /* /< Request is from
 					ACCESSORY identification module*/
+};
+
+enum agold_afe_hs_calib_event {
+	AGOLD_AFE_PREPARE_CALIBRATION,
+	AGOLD_AFE_STOP_CALIBRATION,
+	AGOLD_AFE_CALIBRATE_LEFT_CH,
+	AGOLD_AFE_CALIBRATE_RIGHT_CH
+};
+
+/* Enumeration for analog output gain applied in e.g. the AFE module  */
+enum aud_analog_gain_value {
+	AUD_ANALOG_GAIN_MAX_MINUS_18DB, /* Maximum analog gain minus 18 dB */
+	AUD_ANALOG_GAIN_MAX_MINUS_15DB, /* Maximum analog gain minus 15 dB */
+	AUD_ANALOG_GAIN_MAX_MINUS_12DB, /* Maximum analog gain minus 12 dB */
+	AUD_ANALOG_GAIN_MAX_MINUS_9DB,  /* Maximum analog gain minus 9 dB */
+	AUD_ANALOG_GAIN_MAX_MINUS_6DB,  /* Maximum analog gain minus 6 dB */
+	AUD_ANALOG_GAIN_MAX_MINUS_3DB,  /* Maximum analog gain minus 3 dB */
+	AUD_ANALOG_GAIN_MAX,            /* Maximum analog gain */
+	AUD_ANALOG_GAIN_END,            /* Invalid, only used internally */
+};
+
+enum eAFE_GAIN_OUT_HSGAIN {
+	AFE_GAIN_OUT_HSGAIN_HS_OFF = 0,
+	AFE_GAIN_OUT_HSGAIN_HS_M9_1DB = 1,
+	AFE_GAIN_OUT_HSGAIN_HS_M6_0DB = 4,
+	AFE_GAIN_OUT_HSGAIN_HS_M3_1DB = 8,
+	AFE_GAIN_OUT_HSGAIN_HS_P0_0DB = 14,
+	AFE_GAIN_OUT_HSGAIN_HS_P2_3DB = 20,
+	AFE_GAIN_OUT_HSGAIN_HS_P6_0DB = 28,
+	AFE_GAIN_OUT_HSGAIN_HS_M8_0DB = 2,
+	AFE_GAIN_OUT_HSGAIN_HS_M6_9DB = 3,
+	AFE_GAIN_OUT_HSGAIN_HS_M4_4DB = 6,
+	AFE_GAIN_OUT_HSGAIN_HS_M3_7DB = 7,
+	AFE_GAIN_OUT_HSGAIN_HS_M5_2DB = 5,
+	AFE_GAIN_OUT_HSGAIN_HS_M1_9DB = 10,
+	AFE_GAIN_OUT_HSGAIN_HS_M0_9DB = 12,
+	AFE_GAIN_OUT_HSGAIN_HS_M2_5DB = 9,
+	AFE_GAIN_OUT_HSGAIN_HS_M1_4DB = 11,
+	AFE_GAIN_OUT_HSGAIN_HS_M0_4DB = 13,
+	AFE_GAIN_OUT_HSGAIN_HS_P0_8DB = 16,
+	AFE_GAIN_OUT_HSGAIN_HS_P1_6DB = 18,
+	AFE_GAIN_OUT_HSGAIN_HS_P2_9DB = 22,
+	AFE_GAIN_OUT_HSGAIN_HS_P4_1DB = 24,
+	AFE_GAIN_OUT_HSGAIN_HS_P0_4DB = 15,
+	AFE_GAIN_OUT_HSGAIN_HS_P1_2DB = 17,
+	AFE_GAIN_OUT_HSGAIN_HS_P1_9DB = 19,
+	AFE_GAIN_OUT_HSGAIN_HS_P2_6DB = 21,
+	AFE_GAIN_OUT_HSGAIN_HS_P3_5DB = 23,
+	AFE_GAIN_OUT_HSGAIN_HS_P4_6DB = 25,
+	AFE_GAIN_OUT_HSGAIN_HS_P5_6DB = 27,
+	AFE_GAIN_OUT_HSGAIN_HS_P5_1DB = 26
+};
+
+#define AFE_NOF_EPHSLS_HW_GAIN_VALUES  (AUD_ANALOG_GAIN_END+1)
+
+struct channels {
+	u8 left; /* value to be programmed for left channel offset */
+	u8 right; /* value to be programmed right channel offset */
 };
 
 struct afe_power_state {
