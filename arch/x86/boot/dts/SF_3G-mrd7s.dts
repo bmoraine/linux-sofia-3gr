@@ -137,7 +137,28 @@
 		intel,speech = <&speech_probe>;
 	};
 #endif
-
+	gpio_keys:gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = < 0 >;
+		interrupt-parent = <&gpio_keys>;
+		interrupts = < 0 1 >;
+		#interrupt-cells = < 1 >;
+		interrupt-map = <
+			0 &eint EINT_EXI14 XGOLD_IRQ_TYPE_EDGE_BOTH
+			1 &eint EINT_EXI8 XGOLD_IRQ_TYPE_EDGE_BOTH
+		>;
+		autorepeat;
+		button@1 {
+			label = "volume up";
+			linux,code = <115>;
+			gpios = <&xgold_pmx_gpio 52 1>;
+		};
+		button@2 {
+			label = "volume down";
+			linux,code = <114>;
+			gpios = <&xgold_pmx_gpio 53 1>;
+		};
+	};
 };
 
 &idi_per {
