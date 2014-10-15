@@ -11,19 +11,15 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _PAL_SYS_EXCEPTION_H
-#define _PAL_SYS_EXCEPTION_H
+#ifndef _PAL_SYS_EXCEPTION_TYPES_H
+#define _PAL_SYS_EXCEPTION_TYPES_H
 
 #define TRAP_DUMP_DATE_SIZE      11
 #define TRAP_DUMP_TIME_SIZE      9
 #define TRAP_DUMP_FILENAME_SIZE  128
-#define TRAP_DUMP_TASKNAME_SIZE  8
 #define TRAP_MAX_LOG_DATA_SIZE   255
 
 #define TRAP_SW_GENERATED        0xDDDD
-
-#define MAX_VCPU_PER_VM    4
-#define MAX_VM  3
 
 enum sys_exception {
 	SYS_EXCEPTION_MEX = 0,
@@ -36,80 +32,80 @@ enum sys_exception {
  * Structure for holding internal X86 general purpose registers
  */
 struct x86_gp_regs {
-	unsigned int eax;
-	unsigned int ebx;
-	unsigned int ecx;
-	unsigned int edx;
-	unsigned int esi;
-	unsigned int edi;
-	unsigned int ebp;
-	unsigned int esp;
+	uint32_t eax;
+	uint32_t ebx;
+	uint32_t ecx;
+	uint32_t edx;
+	uint32_t esi;
+	uint32_t edi;
+	uint32_t ebp;
+	uint32_t esp;
 };
 
 /**
  * Structure for holding internal X86 control registers
  */
 struct x86_ctrl_regs {
-	unsigned int cr0;
-	unsigned int cr2;
-	unsigned int cr3;
-	unsigned int cr4;
+	uint32_t cr0;
+	uint32_t cr2;
+	uint32_t cr3;
+	uint32_t cr4;
 };
 
 /**
  * Structure for holding internal X86 EFLAGS register
  */
 struct x86_eflags_reg {
-	unsigned int eflags;
+	uint32_t eflags;
 };
 
 /**
  * Structure for holding internal X86 segment registers
  */
 struct x86_segment_regs {
-	unsigned short cs;
-	unsigned short ds;
-	unsigned short ss;
-	unsigned short es;
-	unsigned short fs;
-	unsigned short gs;
+	uint16_t cs;
+	uint16_t ds;
+	uint16_t ss;
+	uint16_t es;
+	uint16_t fs;
+	uint16_t gs;
 };
 
 /**
  * Structure for holding internal X86 debug registers
  */
 struct x86_debug_regs {
-	unsigned int dr0;
-	unsigned int dr1;
-	unsigned int dr2;
-	unsigned int dr3;
-	unsigned int dr4;
-	unsigned int dr5;
-	unsigned int dr6;
-	unsigned int dr7;
+	uint32_t dr0;
+	uint32_t dr1;
+	uint32_t dr2;
+	uint32_t dr3;
+	uint32_t dr4;
+	uint32_t dr5;
+	uint32_t dr6;
+	uint32_t dr7;
 };
 
 /**
  * Structure for holding internal X86 Memory manager registers
  */
 struct x86_mm_regs {
-	unsigned int gdtb;
-	unsigned int idtb;
-	unsigned int ldtb;
-	unsigned int tssb;
-	unsigned short gdtl;
-	unsigned short idtl;
-	unsigned short ldtl;
-	unsigned short tssl;
-	unsigned short tr;
-	unsigned short ldtr;
+	uint32_t gdtb;
+	uint32_t idtb;
+	uint32_t ldtb;
+	uint32_t tssb;
+	uint16_t gdtl;
+	uint16_t idtl;
+	uint16_t ldtl;
+	uint16_t tssl;
+	uint16_t tr;
+	uint16_t ldtr;
 };
 
 /**
  * Structure for holding internal X86 EIP register
  */
 struct x86_eip_reg {
-	unsigned int eip;
+	uint32_t eip;
 };
 
 struct x86_cpu_regs {
@@ -123,12 +119,12 @@ struct x86_cpu_regs {
 };
 
 struct sys_trap {
-	enum sys_exception exception_type;
-	unsigned short trap_vector;
+	uint32_t exception_type;
+	uint16_t trap_vector;
 	char date[TRAP_DUMP_DATE_SIZE];
 	char time[TRAP_DUMP_TIME_SIZE];
 	char filename[TRAP_DUMP_FILENAME_SIZE];
-	unsigned int line;
+	uint32_t line;
 	char log_data[TRAP_MAX_LOG_DATA_SIZE];
 	struct x86_cpu_regs regs;
 
@@ -136,30 +132,10 @@ struct sys_trap {
 	union {
 		struct {
 			char *kmsg;         /* kernel message */
-			unsigned long kmsg_len;  /* kernel message length */
+			uint32_t kmsg_len;  /* kernel message length */
 		} linux_log;
 		/* other OS dependent log structure to be added here */
 	} os;
 };
 
-struct sys_vm {
-	unsigned int os_id;
-	char no_of_vcpu;
-	struct x86_cpu_regs vcpu_reg[MAX_VCPU_PER_VM];
-};
-
-struct sys_vm_dump {
-	char no_of_vm;
-	struct sys_vm vm[MAX_VM];
-};
-
-/* FUNCTION PROTOTYPES */
-
-/*
-    PAL system exception initialization
-*/
-void pal_sys_exception_init(void);
-
-void pal_sys_trap(void *log_data, int log_size_bytes, int line, char *filename);
-
-#endif /* _PAL_SYS_EXCEPTION_H*/
+#endif /* _PAL_SYS_EXCEPTION_TYPES_H */

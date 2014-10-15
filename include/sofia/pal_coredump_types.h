@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _PAL_COREDUMP_H
-#define _PAL_COREDUMP_H
+#ifndef _PAL_COREDUMP_TYPES_H
+#define _PAL_COREDUMP_TYPES_H
 
 enum cd_dev {
 	CD_DEV_DISABLED  = 0,
@@ -25,31 +25,18 @@ enum cd_dev {
 };
 
 struct cd_config {
-	enum cd_dev device;
-	int device_baud;
-	enum cd_dev debug_device;
-	int debug_device_baud;
-	int usb_config;
+	uint32_t device;
+	uint32_t device_baud;
+	uint32_t debug_device;
+	uint32_t debug_device_baud;
+	uint32_t usb_config;
 	unsigned char failsafe_imei[8];
 };
 
 struct cd_ram {
-	void *logical_start;
-	void *physical_start;
-	unsigned int length;
+	uint32_t logical_start;
+	uint32_t physical_start;
+	uint32_t length;
 };
 
-/* FUNCTION PROTOTYPES */
-
-/*
-    PAL Coredump driver initialization
-*/
-void pal_cd_init(void);
-
-/*
-    Start coredump
-*/
-void pal_cd_start(struct sys_vm_dump *vm_dump, struct sys_trap *trap);
-
-
-#endif /* _PAL_COREDUMP_H*/
+#endif /* _PAL_COREDUMP_TYPES_H*/
