@@ -24,7 +24,7 @@
 
 #define RDS_MIN_FREE	4
 #define RDS_PI_MODE	RDS_NORMAL_PI
-#define NUM_INT_LINES	3
+#define NUM_INT_LINES	5
 
 enum fmdrv_event {
 	XGOLD_EVT_RADIO_READY,

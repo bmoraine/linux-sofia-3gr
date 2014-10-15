@@ -96,7 +96,7 @@ static struct xgold_fmdev *xgold_fmdev;
 
 #ifdef CONFIG_IDI
 /* Order does matter */
-static char *const xgold_fmr_irq_names[] = {
+static char *const xgold_fmr_irq_names[NUM_INT_LINES] = {
 	"fmr_int",
 	"fmrx_ev_oneshot",
 	"fmrx_ev_tune",
