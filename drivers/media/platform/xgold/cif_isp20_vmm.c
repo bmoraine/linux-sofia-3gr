@@ -1524,16 +1524,19 @@ err:
 void cif_isp20_pltfrm_dev_release(
 	struct device *dev)
 {
+	int ret;
 	struct cif_isp20_pltfrm_data *pdata = dev->platform_data;
 
 	cif_isp20_reset_csi_configs(dev, CIF_ISP20_INP_CSI_0);
 	cif_isp20_reset_csi_configs(dev, CIF_ISP20_INP_CSI_1);
 #ifdef CONFIG_DEBUG_FS
-	{
-		debugfs_remove(pdata->dbgfs.dir);
-		debugfs_remove(pdata->dbgfs.csi0_file);
-		debugfs_remove(pdata->dbgfs.csi1_file);
-	}
+	debugfs_remove(pdata->dbgfs.csi0_file);
+	debugfs_remove(pdata->dbgfs.csi1_file);
+	debugfs_remove_recursive(pdata->dbgfs.dir);
 #endif
+	ret = device_state_pm_remove_device(dev);
+	if (IS_ERR_VALUE(ret))
+		cif_isp20_pltfrm_pr_err(NULL,
+			"pm remove device failed with error %d\n", ret);
 }
 

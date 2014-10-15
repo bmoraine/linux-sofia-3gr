@@ -1,5 +1,5 @@
 config VIDEO_XGOLD
-	bool "Xgold camera sensors"
+	tristate "Xgold camera sensors"
 	depends on VIDEO_V4L2 && I2C
 	select VIDEOBUF_GEN
 	select VIDEOBUF_DMA_CONTIG
@@ -9,11 +9,3 @@ config VIDEO_XGOLD
 	---help---
 	Say Y here to enable selecting the
 	xgold supported camera sensors
-
-config VIDEO_XGOLD_FLASH
-	bool "Flash Support for Xgold Camera"
-	depends on VIDEO_XGOLD && LCD_LEDS_XGOLD
-	default n
-	---help---
-	Say Y here to enable Enable Flash For Xgold Camera Sensors.
-

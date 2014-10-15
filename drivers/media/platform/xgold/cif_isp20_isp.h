@@ -113,10 +113,11 @@ struct xgold_isp_dev {
 	bool streamon;
 };
 
-int register_cifisp_device(
+struct video_device *register_cifisp_device(
 	struct xgold_isp_dev *isp_dev,
 	struct v4l2_device *v4l2_dev,
 	void __iomem *cif_reg_baseaddress);
+void unregister_cifisp_device(struct video_device *vdev_cifisp);
 void cifisp_configure_isp(struct xgold_isp_dev *isp_dev, unsigned int capture);
 void cifisp_disable_isp(struct xgold_isp_dev *isp_dev);
 int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis);

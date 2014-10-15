@@ -26,6 +26,7 @@
 #include <media/v4l2-ioctl.h>
 #include <media/videobuf-dma-contig.h>
 #include "cif_isp20.h"
+#include <linux/module.h>
 
 #define CIIF_ISP20_V4L2_SP_DEV_MAJOR 0
 #define CIIF_ISP20_V4L2_ISP_DEV_MAJOR 1
@@ -38,6 +39,7 @@ struct cif_isp20_v4l2_device {
 	struct video_device *sp_dev;
 	struct video_device *mp_dev;
 	struct video_device *dma_dev;
+	struct video_device *isp_dev;
 };
 
 /* TODO: make this a dynamically allocated variable */
@@ -1328,11 +1330,14 @@ static int xgold_v4l2_drv_probe(struct platform_device *pdev)
 	}
 	cif_isp20_v4l2_dev.sp_dev = vdev;
 
-	ret = register_cifisp_device(&dev->isp_dev,
+	vdev = register_cifisp_device(&dev->isp_dev,
 		&dev->v4l2_dev,
 		dev->config.base_addr);
-	if (IS_ERR_VALUE(ret))
+	if (IS_ERR(vdev)) {
+		ret = PTR_ERR(vdev);
 		goto err;
+	}
+	cif_isp20_v4l2_dev.isp_dev = vdev;
 
 	vdev = cif_isp20_v4l2_register_video_device(
 		dev,
@@ -1370,7 +1375,6 @@ err:
 
 static int xgold_v4l2_drv_remove(struct platform_device *pdev)
 {
-	int ret = 0;
 	struct cif_isp20_device *cif_isp20_dev =
 		(struct cif_isp20_device *)platform_get_drvdata(pdev);
 
@@ -1378,7 +1382,16 @@ static int xgold_v4l2_drv_remove(struct platform_device *pdev)
 		CIF_ISP20_ALL_STREAMS)))
 		cif_isp20_pltfrm_pr_warn(cif_isp20_dev->dev,
 			"CIF power off failed\n");
-	return ret;
+
+	video_unregister_device(cif_isp20_v4l2_dev.sp_dev);
+	video_unregister_device(cif_isp20_v4l2_dev.mp_dev);
+	video_unregister_device(cif_isp20_v4l2_dev.dma_dev);
+	unregister_cifisp_device(cif_isp20_v4l2_dev.isp_dev);
+	v4l2_device_unregister(&cif_isp20_dev->v4l2_dev);
+	cif_isp20_pltfrm_dev_release(&pdev->dev);
+	cif_isp20_destroy(cif_isp20_dev);
+
+	return 0;
 }
 
 static int xgold_v4l2_drv_suspend(struct platform_device *pdev,
@@ -1459,10 +1472,12 @@ static int xgold_v4l2_init(void)
 /* ======================================================================== */
 static void __exit xgold_v4l2_exit(void)
 {
-	/* TO DO */
+	platform_driver_unregister(&xgold_v4l2_plat_drv);
 }
 
 late_initcall(xgold_v4l2_init);
 module_exit(xgold_v4l2_exit);
 
-
+MODULE_DESCRIPTION("V4L2 interface for CIF ISP20 driver");
+MODULE_AUTHOR("Eike Grimpe");
+MODULE_LICENSE("GPL");
