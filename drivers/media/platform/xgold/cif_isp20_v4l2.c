@@ -1027,14 +1027,6 @@ static long v4l2_default_ioctl(struct file *file, void *fh,
 		struct isp_supplemental_sensor_mode_data *p_mode_data =
 		(struct isp_supplemental_sensor_mode_data *)arg;
 
-		if (IS_ERR_VALUE(cif_isp20_img_src_g_ctrl(
-			dev->img_src, CIF_ISP20_CID_AUTO_GAIN, &has_auto_gain))
-			||
-			!has_auto_gain)
-			p_mode_data->sensor_type = 0;
-		else
-			p_mode_data->sensor_type = 1;
-
 		ret = (int)cif_isp20_img_src_ioctl(dev->img_src,
 			INTEL_VIDIOC_SENSOR_MODE_DATA, p_mode_data);
 

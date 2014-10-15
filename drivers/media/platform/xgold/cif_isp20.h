@@ -490,7 +490,6 @@ struct isp_supplemental_sensor_mode_data {
 	unsigned int isp_input_height;
 	unsigned char binning_factor_x; /* horizontal binning factor used */
 	unsigned char binning_factor_y; /* vertical binning factor used */
-	unsigned int sensor_type; /* 0 without ISP, 1 with ISP*/
 };
 
 /* ======================================================================== */
