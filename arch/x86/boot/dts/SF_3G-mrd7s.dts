@@ -301,6 +301,14 @@
 
 	};
 #endif
+};
+
+&i2c_2 {
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&i2c2_default_pins>;
+	pinctrl-1 = <&i2c2_sleep_pins>;
+	pinctrl-2 = <&i2c2_inactive_pins>;
+
 #ifndef RECOVERY_KERNEL
 	touchscreen {
 		compatible = "goodix,Goodix-TS";
@@ -320,13 +328,6 @@
 		pm,state-D3 = "disable";
 	};
 #endif
-};
-
-&i2c_2 {
-	pinctrl-names = "default", "sleep", "inactive";
-	pinctrl-0 = <&i2c2_default_pins>;
-	pinctrl-1 = <&i2c2_sleep_pins>;
-	pinctrl-2 = <&i2c2_inactive_pins>;
 
 #ifndef RECOVERY_KERNEL
 	acc_kxcjk1013 {
