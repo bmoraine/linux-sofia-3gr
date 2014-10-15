@@ -8,7 +8,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
  * GNU General Public License for more details.
  *
  */
@@ -41,6 +41,11 @@ struct ion_heap **heaps;
 
 extern struct ion_handle *ion_handle_get_by_id(struct ion_client *client,
 						int id);
+
+extern int xgold_ion_handler_init(struct device_node *node,
+	struct ion_device *idev);
+extern void xgold_ion_handler_exit(void);
+
 
 static int xgold_ion_get_param(struct ion_client *client,
 					unsigned int cmd,
@@ -207,6 +212,9 @@ int xgold_ion_probe(struct platform_device *pdev)
 		ion_device_add_heap(idev, heaps[i]);
 	}
 	platform_set_drvdata(pdev, idev);
+
+	xgold_ion_handler_init(pdev->dev.of_node, idev);
+
 	return 0;
 err:
 	for (i = 0; i < pdata->nr; i++) {
@@ -222,6 +230,8 @@ int xgold_ion_remove(struct platform_device *pdev)
 	struct ion_platform_data *pdata = pdev->dev.platform_data;
 	struct ion_device *idev = platform_get_drvdata(pdev);
 	int i;
+
+	xgold_ion_handler_exit();
 
 	ion_device_destroy(idev);
 	for (i = 0; i < pdata->nr; i++)
