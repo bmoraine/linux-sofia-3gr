@@ -310,6 +310,9 @@ int32_t mv_svc_reg_read(uint32_t address, uint32_t *p_reg_val, uint32_t mask)
 				0, 0, 0,
 				0, 0, p_reg_val);
 }
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_reg_read);
+#endif
 
 int32_t mv_svc_reg_write(uint32_t address, uint32_t reg_val, uint32_t mask)
 {
@@ -317,6 +320,9 @@ int32_t mv_svc_reg_write(uint32_t address, uint32_t reg_val, uint32_t mask)
 				0, 0, 0, 0,
 				0);
 }
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_reg_write);
+#endif
 
 int32_t mv_svc_reg_write_only(uint32_t address, uint32_t reg_val, uint32_t mask)
 {
@@ -325,7 +331,9 @@ int32_t mv_svc_reg_write_only(uint32_t address, uint32_t reg_val, uint32_t mask)
 				0, 0, 0, 0,
 				0);
 }
-
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_reg_write_only);
+#endif
 
 int32_t mv_svc_pmic_reg_access(enum pmic_reg_access_op_code op,
 		uint32_t reg_address, uint32_t size_in_byte)
@@ -334,6 +342,9 @@ int32_t mv_svc_pmic_reg_access(enum pmic_reg_access_op_code op,
 		op, reg_address, size_in_byte,
 		0, 0, 0, 0, 0);
 }
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_pmic_reg_access);
+#endif
 
 int32_t mv_svc_pwm_access(enum pwm_op_code op,
 		uint32_t duty_ns, uint32_t period_ns)
@@ -342,9 +353,8 @@ int32_t mv_svc_pwm_access(enum pwm_op_code op,
 		op, duty_ns, period_ns,
 		0, 0, 0, 0, 0);
 }
-
 #ifdef __KERNEL__
-EXPORT_SYMBOL(mv_svc_pmic_reg_access);
+EXPORT_SYMBOL(mv_svc_pwm_access);
 #endif
 
 int32_t mv_svc_vtimer_start(uint32_t num_of_vcycles)
