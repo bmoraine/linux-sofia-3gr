@@ -33,17 +33,20 @@
 /*		intel,cpufreq-table = <208000 312000 416000>;*/
 		#address-cells = < 0 >;
 		interrupts = < 0 >;
-	        interrupt-parent = <&cpufreq>;
-	        #interrupt-cells = < 1 >;
-	        interrupt-map = < 0 &hirq HIRQ_CPU_CLK_CHANGE IRQ_TYPE_DEFAULT>;
-	        interrupt-names = "CPU_CLK_CHANGE";
-
+		interrupt-parent = <&cpufreq>;
+		#interrupt-cells = < 1 >;
+		interrupt-map = < 0 &hirq HIRQ_CPU_CLK_CHANGE IRQ_TYPE_DEFAULT>;
+		interrupt-names = "CPU_CLK_CHANGE";
+		
 	};
 
 	ion {
 		compatible = "intel,ion";
+#ifndef RECOVERY_KERNEL
+		secvm-handler;
+#endif
 		cma-heap {
-			intel,heapmem = <   0x00000000 0x08000000 >;
+			intel,heapmem = < 0x00000000 0x08000000 >;
 		};
 	};
 
