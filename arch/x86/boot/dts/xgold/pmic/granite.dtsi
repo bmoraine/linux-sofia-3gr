@@ -1,0 +1,88 @@
+/* SOFIA LTE PMIC */
+
+/* See page 276-277 of SoFIA_LTE_PMIC_V1.0_PMUHW_PS_HWA\[1\].pdf
+
+/* I2C SoC devices */
+#define PMIC_SLAVE_DEVICE_1	0x4E
+#define PMIC_SLAVE_DEVICE_2	0x4F
+#define PMIC_SLAVE_DEVICE_3	0x5E
+#define PMIC_SLAVE_DEVICE_4	0x5F
+#define PMIC_SLAVE_DEVICE_5	0x6D
+#define PMIC_SLAVE_DEVICE_6	0x6E
+
+/* SVID SoC devices */
+#define PMIC_VCC_SVID_DEVICE	0x10
+#define PMIC_VNN_SVID_DEVICE	0x12
+#define PMIC_VSYS_SVID_DEVICE	0x16
+#define PMIC_VPA_SVID_DEVICE	0x18
+
+/* Non SoC devices */
+#define PMIC_VCC_DCDC_DEVICE	0x11
+#define PMIC_VNN_DCDC_DEVICE	0x13
+#define PMIC_VCC_PHS_DEVICE	0x15
+#define PMIC_VNN_PHS_DEVICE	0x17
+#define PMIC_VPA_DCDC_DEVICE	0x19
+#define PMIC_VDD1_DCDC_DEVICE	0x1B
+#define PMIC_VDD2_DCDC_DEVICE	0x1C
+#define PMIC_VPA_PHS_DEVICE	0x1D
+#define PMIC_VDD1_PHS_DEVICE	0x1E
+#define PMIC_VDD2_PHS_DEVICE	0x1F
+
+
+pmic {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
+	compatible = "intel,pmic", "intel,soc";
+	intel,platform-dev = "pmicper";
+
+	xgold_vmm_pmic:xgold_vmm_pmic {
+		compatible = "intel,xgold_vmm_pmic", "intel,pmicper";
+		#address-cells = < 0 >;
+		interrupts = < 1 >;
+		interrupt-parent = <&xgold_vmm_pmic>;
+		#interrupt-cells = < 1 >;
+		interrupt-map = <
+			1 &hirq HIRQ_PMIC_TEST IRQ_TYPE_DEFAULT
+		>;
+		interrupt-names = "PMIC_ACCESS_HIRQ";
+	};
+
+	dev@1 {
+		compatible = "intel,pmicper";
+		/* VREG */
+	};
+
+	dev@2 {
+		compatible = "intel,pmicper";
+		/* ADC */
+		/* Therm */
+	};
+
+	dev@3 {
+		compatible = "intel,pmicper";
+		/* USB */
+		/* Charger */
+	};
+
+	dev@4 {
+		compatible = "intel,pmicper";
+		/* NVM */
+	};
+
+	dev@5 {
+		compatible = "intel,pmicper";
+		/* LDO */
+		/* I2S */
+		/* AFE */
+	};
+
+	dev@6 {
+		compatible = "intel,pmicper";
+		/* LED */
+		/* Accessory Detection */
+		/* Vibrator */
+	};
+
+};
+

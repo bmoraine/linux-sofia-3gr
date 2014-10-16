@@ -289,6 +289,7 @@
 						pm,state-D0 = "enable";
 						pm,state-D3 = "disable";
 					};
+#ifndef SOFIA3G_ES2_TAB_SVB
 					i2c_2:i2c_2{
 						#size-cells = <1>;
 						#address-cells = <0>;
@@ -308,6 +309,7 @@
 						pm,state-D0 = "enable";
 						pm,state-D3 = "disable";
 					};
+#endif
 					emmc:emmc{
 					/* MMC: not a PER1 peripheral, but must be placed before to be enumerated first */
 						compatible = "intel,sdhci";

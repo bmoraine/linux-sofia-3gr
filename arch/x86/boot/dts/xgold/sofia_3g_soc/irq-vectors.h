@@ -22,7 +22,11 @@
 #define EXI3 0
 #define EXI4 0
 #define EXI5 0
+#ifdef SOFIA3G_ES2_TAB_SVB
+#define EXI6 59
+#else
 #define EXI6 0
+#endif
 #define EXI7 0
 #define EXI13 0
 #define EXI15 0
@@ -76,7 +80,11 @@
 #define EXI1 56
 #define EXI2 57
 #define I2C_RAWIRQ 58
+#ifdef SOFIA3G_ES2_TAB_SVB
+#define EXI11 0
+#else
 #define EXI11 59
+#endif
 #define EXI12 60
 #define USB_HS_RESUME 61
 #define SDMMC_DETECT 62

@@ -1,0 +1,19 @@
+	claa070wp03xg {
+		compatible = "intel,display";
+		intel,display-resolution= <800 1280>;
+		intel,display-dpi= <244 244>;
+		intel,display-reset = <1 1 0 2 1 10>;
+
+		/* MIPI-DSI video mode settings */
+		intel,display-vid-hfp-hs-bytes = <24>;
+		intel,display-vid-hbp-hs-bytes = <24>;
+		intel,display-vid-hsa-hs-bytes = <16>;
+		intel,display-vid-vfp-lines = <2>;
+		intel,display-vid-vbp-lines = <4>;
+		intel,display-vid-vsa-lines = <2>;
+
+		intel,display-vid-mode = "burst";
+		intel,display-vid-id = <0>;
+		intel,display-vid-pixel = "24packed";
+		intel,display-vid-fill_buf_to = <0x1F>;
+	};

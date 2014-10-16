@@ -682,7 +682,7 @@ tcxo_agold_sleep_pins:tcxo_agold_sleep_pins {
 };
 led_agold_default_pins:led_agold_default_pins {
 	pinctrl-single,pins = <
-		0x28c 0x500	/* led_en_agold */
+		0x28c 0x700	/* led_en_agold */
 	>;
 };
 led_agold_inactive_pins:led_agold_inactive_pins {
