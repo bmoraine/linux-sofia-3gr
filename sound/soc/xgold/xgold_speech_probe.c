@@ -48,20 +48,9 @@
 #define	xgold_debug(fmt, arg...) \
 		pr_debug("snd: speech: "fmt, ##arg)
 
-/* FIXME: Don't use extern */
-extern struct dsp_audio_device *p_dsp_audio_dev;
-
-struct xgold_audio_stream {
-	unsigned short *hwptr;
-	unsigned int hwptr_done;
-	unsigned int periods;
-	unsigned int period_size_bytes;
-	struct snd_pcm_substream *stream;
-
-};
-
 struct xgold_audio_speech_probe {
 	struct device *dev;
+	struct dsp_audio_device *dsp;
 	struct xgold_audio_stream
 		audio_stream[NR_STREAM * XGOLD_NOF_SPEECH_PROBES];
 };
@@ -240,25 +229,24 @@ void xgold_pcm_speech_io_point_a_interrupt_handler(void *dev)
 		(unsigned short *)(xgold_stream->stream->runtime->dma_area +
 		xgold_stream->period_size_bytes * xgold_stream->hwptr_done);
 
-	rw_shm_data.word_offset =
-		p_dsp_audio_dev->p_dsp_common_data
-		->buf_sm_speech_probe_a_offset;
+	rw_shm_data.word_offset = xgold_ptr->dsp->p_dsp_common_data->
+		buf_sm_speech_probe_a_offset;
 
 	rw_shm_data.len_in_bytes = 320; /* read the samples */
 	rw_shm_data.p_data = xgold_stream->hwptr;
 
-	p_dsp_audio_dev->p_dsp_common_data->ops->set_controls
-		(DSP_AUDIO_CONTROL_READ_SHM, (void *)&rw_shm_data);
+	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
+			xgold_ptr->dsp,
+			DSP_AUDIO_CONTROL_READ_SHM,
+			&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
-
 	xgold_stream->periods++;
 
 	xgold_stream->periods %= xgold_stream->stream->runtime->periods + 1;
 	xgold_stream->hwptr_done %= xgold_stream->stream->runtime->periods + 1;
 
 	snd_pcm_period_elapsed(xgold_stream->stream);
-
 }
 
 void xgold_pcm_speech_io_point_b_interrupt_handler(void *dev)
@@ -282,29 +270,27 @@ void xgold_pcm_speech_io_point_b_interrupt_handler(void *dev)
 	#endif
 
 	xgold_stream->hwptr =
-	(unsigned short *)(xgold_stream->stream->runtime->dma_area +
-	xgold_stream->period_size_bytes * xgold_stream->hwptr_done);
+		(unsigned short *)(xgold_stream->stream->runtime->dma_area +
+		xgold_stream->period_size_bytes * xgold_stream->hwptr_done);
 
-	rw_shm_data.word_offset =
-		p_dsp_audio_dev->p_dsp_common_data
-		->buf_sm_speech_probe_b_offset;
+	rw_shm_data.word_offset = xgold_ptr->dsp->p_dsp_common_data->
+		buf_sm_speech_probe_b_offset;
 
 	rw_shm_data.len_in_bytes = 320; /* read the samples */
 	rw_shm_data.p_data = xgold_stream->hwptr;
 
-	p_dsp_audio_dev->p_dsp_common_data->ops->set_controls
-		(DSP_AUDIO_CONTROL_READ_SHM, (void *)&rw_shm_data);
+	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
+			xgold_ptr->dsp,
+			DSP_AUDIO_CONTROL_READ_SHM,
+			&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
-
 	xgold_stream->periods++;
 
 	xgold_stream->periods %= xgold_stream->stream->runtime->periods + 1;
-
 	xgold_stream->hwptr_done %= xgold_stream->stream->runtime->periods + 1;
 
 	snd_pcm_period_elapsed(xgold_stream->stream);
-
 }
 
 void xgold_pcm_speech_io_point_c_interrupt_handler(void *dev)
@@ -317,41 +303,39 @@ void xgold_pcm_speech_io_point_c_interrupt_handler(void *dev)
 
 	struct dsp_rw_shm_data rw_shm_data;
 
-	#ifdef CONFIG_SPEECH_PROBE_DEBUG
+#ifdef CONFIG_SPEECH_PROBE_DEBUG
 	static int count;
 
 	if (count == 10) {
-		xgold_debug("%s:\n", __func__);
+		xgold_debug("%s\n", __func__);
 		count = 0;
 	} else
 		count++;
-	#endif
+#endif
 
 	xgold_stream->hwptr =
-	(unsigned short *)(xgold_stream->stream->runtime->dma_area +
-	xgold_stream->period_size_bytes * xgold_stream->hwptr_done);
+		(unsigned short *)(xgold_stream->stream->runtime->dma_area +
+		xgold_stream->period_size_bytes * xgold_stream->hwptr_done);
 
 	/* read the samples */
-	rw_shm_data.word_offset =
-		p_dsp_audio_dev->p_dsp_common_data
-		->buf_sm_speech_probe_c_offset;
+	rw_shm_data.word_offset = xgold_ptr->dsp->p_dsp_common_data->
+		buf_sm_speech_probe_c_offset;
 
 	rw_shm_data.len_in_bytes = 320;
 	rw_shm_data.p_data = xgold_stream->hwptr;
-	p_dsp_audio_dev->p_dsp_common_data->ops->set_controls(
-		DSP_AUDIO_CONTROL_READ_SHM,
-		(void *)&rw_shm_data);
+
+	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
+			xgold_ptr->dsp,
+			DSP_AUDIO_CONTROL_READ_SHM,
+			&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
-
 	xgold_stream->periods++;
 
 	xgold_stream->periods %= xgold_stream->stream->runtime->periods + 1;
-
 	xgold_stream->hwptr_done %= xgold_stream->stream->runtime->periods + 1;
 
 	snd_pcm_period_elapsed(xgold_stream->stream);
-
 }
 
 void xgold_pcm_speech_io_point_d_interrupt_handler(void *dev)
@@ -364,39 +348,38 @@ void xgold_pcm_speech_io_point_d_interrupt_handler(void *dev)
 
 	struct dsp_rw_shm_data rw_shm_data;
 
-	#ifdef CONFIG_SPEECH_PROBE_DEBUG
+#ifdef CONFIG_SPEECH_PROBE_DEBUG
 	static int count;
 
 	if (count == 10) {
-		xgold_debug("%s:\n", __func__);
+		xgold_debug("%s\n", __func__);
 		count = 0;
 	} else
 		count++;
-	#endif
+#endif
 
 	xgold_stream->hwptr =
-	(unsigned short *)(xgold_stream->stream->runtime->dma_area +
-	xgold_stream->period_size_bytes * xgold_stream->hwptr_done);
+		(unsigned short *)(xgold_stream->stream->runtime->dma_area +
+		xgold_stream->period_size_bytes * xgold_stream->hwptr_done);
 
-	rw_shm_data.word_offset =
-		p_dsp_audio_dev->p_dsp_common_data
-		->buf_sm_speech_probe_d_offset;
+	rw_shm_data.word_offset = xgold_ptr->dsp->p_dsp_common_data->
+		buf_sm_speech_probe_d_offset;
 
 	rw_shm_data.len_in_bytes = 320; /* read the samples */
 	rw_shm_data.p_data = xgold_stream->hwptr;
-	p_dsp_audio_dev->p_dsp_common_data->ops->set_controls
-		(DSP_AUDIO_CONTROL_READ_SHM, (void *)&rw_shm_data);
+
+	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
+			xgold_ptr->dsp,
+			DSP_AUDIO_CONTROL_READ_SHM,
+			&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
-
 	xgold_stream->periods++;
 
 	xgold_stream->periods %= xgold_stream->stream->runtime->periods + 1;
-
 	xgold_stream->hwptr_done %= xgold_stream->stream->runtime->periods + 1;
 
 	snd_pcm_period_elapsed(xgold_stream->stream);
-
 }
 
 void xgold_pcm_speech_io_point_e_interrupt_handler(void *dev)
@@ -409,40 +392,38 @@ void xgold_pcm_speech_io_point_e_interrupt_handler(void *dev)
 
 	struct dsp_rw_shm_data rw_shm_data;
 
-	#ifdef CONFIG_SPEECH_PROBE_DEBUG
+#ifdef CONFIG_SPEECH_PROBE_DEBUG
 	static int count;
 
 	if (count == 10) {
-		xgold_debug("%s:\n", __func__);
+		xgold_debug("%s\n", __func__);
 		count = 0;
 	} else
 		count++;
-	#endif
+#endif
 
 	xgold_stream->hwptr =
-	(unsigned short *)(xgold_stream->stream->runtime->dma_area +
-	xgold_stream->period_size_bytes * xgold_stream->hwptr_done);
+		(unsigned short *)(xgold_stream->stream->runtime->dma_area +
+		xgold_stream->period_size_bytes * xgold_stream->hwptr_done);
 
-	rw_shm_data.word_offset =
-		p_dsp_audio_dev->p_dsp_common_data
-		->buf_sm_speech_probe_e_offset;
+	rw_shm_data.word_offset = xgold_ptr->dsp->p_dsp_common_data->
+		buf_sm_speech_probe_e_offset;
 
 	rw_shm_data.len_in_bytes = 320; /* read the samples */
 	rw_shm_data.p_data = xgold_stream->hwptr;
 
-	p_dsp_audio_dev->p_dsp_common_data->ops->set_controls
-		(DSP_AUDIO_CONTROL_READ_SHM, (void *)&rw_shm_data);
+	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
+			xgold_ptr->dsp,
+			DSP_AUDIO_CONTROL_READ_SHM,
+			&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
-
 	xgold_stream->periods++;
 
 	xgold_stream->periods %= xgold_stream->stream->runtime->periods + 1;
-
 	xgold_stream->hwptr_done %= xgold_stream->stream->runtime->periods + 1;
 
 	snd_pcm_period_elapsed(xgold_stream->stream);
-
 }
 
 void xgold_pcm_speech_io_point_f_interrupt_handler(void *dev)
@@ -467,29 +448,27 @@ void xgold_pcm_speech_io_point_f_interrupt_handler(void *dev)
 
 
 	xgold_stream->hwptr =
-	(unsigned short *)(xgold_stream->stream->runtime->dma_area +
-	xgold_stream->period_size_bytes * xgold_stream->hwptr_done);
+		(unsigned short *)(xgold_stream->stream->runtime->dma_area +
+		xgold_stream->period_size_bytes * xgold_stream->hwptr_done);
 
-	rw_shm_data.word_offset =
-		p_dsp_audio_dev->p_dsp_common_data
-		->buf_sm_speech_probe_f_offset;
+	rw_shm_data.word_offset = xgold_ptr->dsp->p_dsp_common_data->
+		buf_sm_speech_probe_f_offset;
 
 	rw_shm_data.len_in_bytes = 320; /* read the samples */
 	rw_shm_data.p_data = xgold_stream->hwptr;
 
-	p_dsp_audio_dev->p_dsp_common_data->ops->set_controls
-		(DSP_AUDIO_CONTROL_READ_SHM, (void *)&rw_shm_data);
+	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
+			xgold_ptr->dsp,
+			DSP_AUDIO_CONTROL_READ_SHM,
+			&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
-
 	xgold_stream->periods++;
 
 	xgold_stream->periods %= xgold_stream->stream->runtime->periods + 1;
-
 	xgold_stream->hwptr_done %= xgold_stream->stream->runtime->periods + 1;
 
 	snd_pcm_period_elapsed(xgold_stream->stream);
-
 }
 
 static int xgold_speech_probe_open(struct snd_pcm_substream *substream)
@@ -906,31 +885,31 @@ static int xgold_speech_probe_trigger(struct snd_pcm_substream *substream,
 
 		xgold_debug("Speech command sent to dsp\n");
 
-		/* for SOFIA 3G IRQ 2 is mapped to speech probes */
-		if (p_dsp_audio_dev->id == XGOLD_DSP_XG642)
-			p_dsp_audio_dev->p_dsp_common_data->ops
-				->irq_activate(DSP_IRQ_2);
+		/* For SOFIA 3G IRQ 2 is mapped to speech probes */
+		if (xgold_ptr->dsp->id == XGOLD_DSP_XG642)
+			xgold_ptr->dsp->p_dsp_common_data->ops->
+				irq_activate(DSP_IRQ_2);
 		else
-			p_dsp_audio_dev->p_dsp_common_data->ops
-				->irq_activate(DSP_IRQ_6);
+			xgold_ptr->dsp->p_dsp_common_data->ops->
+				irq_activate(DSP_IRQ_6);
 
-		#ifdef CONFIG_SPEECH_PROBE_DEBUG
+#ifdef CONFIG_SPEECH_PROBE_DEBUG
 		speech_path_on.setting = 1;
 
-		/*Enable Speech path */
+		/* Enable Speech path */
 		dsp_audio_cmd(DSP_AUD_SPEECH_PATH,
 			sizeof(struct T_AUD_DSP_CMD_VB_SET_SPEECH_PATH_PAR),
 			(u16 *)&speech_path_on);
-		#endif
+#endif
 
-		/*Enable Speech probes */
+		/* Enable Speech probes */
 		dsp_audio_cmd(DSP_AUD_SPEECH_PROBE,
 			sizeof(struct T_AUD_DSP_CMD_SPEECH_PROBE_PAR),
 			(u16 *)&speech_probe_par);
 
-		#ifdef CONFIG_SPEECH_PROBE_DEBUG
+#ifdef CONFIG_SPEECH_PROBE_DEBUG
 		dsp_start_audio_hwafe();
-		#endif
+#endif
 
 		break;
 
@@ -1169,27 +1148,44 @@ struct snd_soc_platform_driver xgold_speech_probe_platform = {
 
 static int xgold_speech_probe(struct platform_device *pdev)
 {
+	struct xgold_audio_speech_probe *speech_probe_data_ptr;
+	struct device_node *np = pdev->dev.of_node;
+	struct device_node *dsp_of_node;
 	int ret = 0;
 
-	struct xgold_audio_speech_probe *speech_probe_data_ptr =
-		kzalloc((sizeof(struct xgold_audio_speech_probe)),
-		GFP_KERNEL);
+	xgold_debug("%s\n", __func__);
 
-	xgold_debug("%s :\n", __func__);
+	speech_probe_data_ptr =
+		kzalloc((sizeof(struct xgold_audio_speech_probe)), GFP_KERNEL);
 
 	if (speech_probe_data_ptr == NULL)
 		return -ENOMEM;
 
 	speech_probe_data_ptr->dev = &pdev->dev;
 
-	ret = snd_soc_register_platform(
-		&pdev->dev,
-		&xgold_speech_probe_platform);
+#ifdef CONFIG_OF
+	dsp_of_node = of_parse_phandle(np, "intel,dsp", 0);
+	if (!dsp_of_node) {
+		xgold_err("Unable to get dsp node\n");
+		return -EINVAL;
+	}
+
+	speech_probe_data_ptr->dsp =
+		of_dsp_register_client(&pdev->dev, dsp_of_node);
+#endif
+	if (!speech_probe_data_ptr->dsp) {
+		xgold_err("Cannot register as dsp client\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = snd_soc_register_platform(&pdev->dev,
+			&xgold_speech_probe_platform);
 	if (ret < 0) {
 		xgold_err("Failed to register XGOLD Speech platform driver\n");
 		kfree(speech_probe_data_ptr);
 		return ret;
 	}
+
 	ret = snd_soc_register_component(&pdev->dev,
 			&xgold_speech_probe_component,
 			xgold_dai_speech_probe,
@@ -1199,6 +1195,7 @@ static int xgold_speech_probe(struct platform_device *pdev)
 		kfree(speech_probe_data_ptr);
 		return ret;
 	}
+
 	platform_set_drvdata(pdev, speech_probe_data_ptr);
 
 	return ret;

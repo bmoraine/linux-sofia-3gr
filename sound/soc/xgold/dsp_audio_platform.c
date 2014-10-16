@@ -30,8 +30,6 @@
 #define	xgold_debug(fmt, arg...) \
 		pr_debug("snd: plf: "fmt, ##arg)
 
-extern struct dsp_audio_device *p_dsp_audio_dev;
-
 /* Info function for the controls */
 int dsp_audio_control_info(
 	struct snd_kcontrol *kcontrol,
@@ -47,11 +45,14 @@ static int dsp_audio_rw_shm_control_get(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_audio *pcm = snd_soc_dai_get_drvdata(cpu_dai);
+	struct dsp_audio_device *dsp = pcm->dsp;
 	int ret = 0;
 
-	xgold_debug("in %s\n", __func__);
+	xgold_debug("%s\n", __func__);
 
-	if (p_dsp_audio_dev != NULL) {
+	if (dsp) {
 		struct dsp_rw_shm_header *p_rw_shm_header =
 			(struct dsp_rw_shm_header *)ucontrol->value.bytes.data;
 
@@ -59,13 +60,11 @@ static int dsp_audio_rw_shm_control_get(
 		rw_shm_data.word_offset = p_rw_shm_header->word_offset;
 		rw_shm_data.len_in_bytes = p_rw_shm_header->len_in_bytes;
 		rw_shm_data.p_data = (U16 *) p_rw_shm_header->data;
-		ret =
-		    p_dsp_audio_dev->p_dsp_common_data->ops->
-		    set_controls(DSP_AUDIO_CONTROL_READ_SHM,
-				 (void *)&rw_shm_data);
-	} else {
+		ret = dsp->p_dsp_common_data->ops->set_controls(
+				dsp, DSP_AUDIO_CONTROL_READ_SHM,
+				&rw_shm_data);
+	} else
 		ret = -ENODEV;
-	}
 
 	return 0;
 }
@@ -75,10 +74,14 @@ static int dsp_audio_rw_shm_control_set(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_audio *pcm = snd_soc_dai_get_drvdata(cpu_dai);
+	struct dsp_audio_device *dsp = pcm->dsp;
 	int ret = 0;
 
-	xgold_debug("in %s\n", __func__);
-	if (p_dsp_audio_dev != NULL) {
+	pr_info("%s: dsp %p\n", __func__, dsp);
+	xgold_debug("%s\n", __func__);
+	if (dsp) {
 		struct dsp_rw_shm_header *p_rw_shm_header =
 			(struct dsp_rw_shm_header *)ucontrol->value.bytes.data;
 
@@ -87,11 +90,11 @@ static int dsp_audio_rw_shm_control_set(
 		rw_shm_data.len_in_bytes = p_rw_shm_header->len_in_bytes;
 		rw_shm_data.p_data = (U16 *) p_rw_shm_header->data;
 
-		ret = p_dsp_audio_dev->p_dsp_common_data->ops->set_controls(
-			DSP_AUDIO_CONTROL_WRITE_SHM, (void *)&rw_shm_data);
-	} else {
+		ret = dsp->p_dsp_common_data->ops->set_controls(
+				dsp, DSP_AUDIO_CONTROL_WRITE_SHM,
+				&rw_shm_data);
+	} else
 		ret = -ENODEV;
-	}
 
 	return ret;
 }
@@ -101,7 +104,7 @@ static int dsp_audio_send_cmd_control_get(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	xgold_debug("in %s\n", __func__);
+	xgold_debug("%s\n", __func__);
 	return 0;
 }
 
@@ -110,10 +113,13 @@ static int dsp_audio_send_cmd_control_set(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_audio *pcm = snd_soc_dai_get_drvdata(cpu_dai);
+	struct dsp_audio_device *dsp = pcm->dsp;
 	int ret = 0;
 
-	xgold_debug("in %s\n", __func__);
-	if (p_dsp_audio_dev != NULL) {
+	xgold_debug("%s\n", __func__);
+	if (dsp) {
 		struct dsp_aud_cmd_header *p_cmd_header =
 			(struct dsp_aud_cmd_header *)ucontrol->value.bytes.data;
 
@@ -123,8 +129,9 @@ static int dsp_audio_send_cmd_control_set(
 		cmd_data.command_len = p_cmd_header->command_len;
 		cmd_data.p_data = (U16 *) p_cmd_header->data;
 
-		ret = p_dsp_audio_dev->p_dsp_common_data->ops->set_controls(
-			DSP_AUDIO_CONTROL_SEND_CMD, (void *)&cmd_data);
+		ret = dsp->p_dsp_common_data->ops->set_controls(
+				dsp, DSP_AUDIO_CONTROL_SEND_CMD,
+				&cmd_data);
 	} else {
 		ret = -ENODEV;
 	}
@@ -135,19 +142,19 @@ static int dsp_audio_send_cmd_control_set(
 /* Soc platform controls */
 static const struct snd_kcontrol_new dsp_audio_controls[] = {
 	{
-	 .iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-	 .name = "DSP Audio send cmd",
-	 .info = dsp_audio_control_info,
-	 .get = dsp_audio_send_cmd_control_get,
-	 .put = dsp_audio_send_cmd_control_set,
-	 },
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "DSP Audio send cmd",
+		.info = dsp_audio_control_info,
+		.get = dsp_audio_send_cmd_control_get,
+		.put = dsp_audio_send_cmd_control_set,
+	},
 	{
-	 .iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-	 .name = "DSP Audio RW SHM",
-	 .info = dsp_audio_control_info,
-	 .get = dsp_audio_rw_shm_control_get,
-	 .put = dsp_audio_rw_shm_control_set,
-	 },
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "DSP Audio RW SHM",
+		.info = dsp_audio_control_info,
+		.get = dsp_audio_rw_shm_control_get,
+		.put = dsp_audio_rw_shm_control_set,
+	},
 };
 
 /* Initialize the dsp audio platform that adds soc platform controls */
@@ -157,8 +164,8 @@ int dsp_audio_platform_init(struct snd_soc_platform *platform)
 
 	xgold_debug("in %s\n", __func__);
 
-	ret = snd_soc_add_platform_controls(
-		platform, dsp_audio_controls, ARRAY_SIZE(dsp_audio_controls));
+	ret = snd_soc_add_platform_controls(platform, dsp_audio_controls,
+			ARRAY_SIZE(dsp_audio_controls));
 	if (ret != 0)
 		xgold_debug("dsp audio controls reg failed %d", ret);
 

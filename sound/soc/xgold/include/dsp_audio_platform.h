@@ -21,8 +21,11 @@
 #define __DSP_AUDIO_PLATFORM_H__
 
 #include <sound/soc.h>
+#include <linux/dmaengine.h>
+
 #include "bastypes.h"
 #include "dsp_audio_driverif.h"
+#include "xgold_pcm.h"
 
 /* List of the platform controls supported by the DSP driver */
 enum dsp_audio_controls {
@@ -44,7 +47,8 @@ enum i2s_devices {
 
 struct dsp_ops {
 	int (*open)(void);
-	int (*set_controls)(enum dsp_audio_controls cmd, void *arg);
+	int (*set_controls)(struct dsp_audio_device *dsp,
+			enum dsp_audio_controls cmd, void *arg);
 	int (*irq_activate)(enum dsp_irq_no);
 	int (*irq_deactivate)(enum dsp_irq_no);
 	int (*close)(void);
@@ -56,7 +60,7 @@ struct dsp_clk {
 };
 
 struct dsp_i2s_device {
-	struct platform_device *plat_dev;
+	struct device *dev;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
@@ -71,10 +75,7 @@ struct xgold_dsp_reg {
 };
 
 enum dsp_id {
-	XGOLD_DSP_XG223 = 0,
-	XGOLD_DSP_XG631,
-	XGOLD_DSP_XG632,
-	XGOLD_DSP_XG642,
+	XGOLD_DSP_XG642 = 0,
 	XGOLD_DSP_XG742_FBA,
 	XGOLD_DSP_XG742_SBA
 };
@@ -147,7 +148,15 @@ int dsp_audio_platform_init(struct snd_soc_platform *platform);
 int dsp_start_audio_hwafe(void);
 int dsp_stop_audio_hwafe(void);
 
-/* extern declarations */
-extern struct dsp_audio_device *p_dsp_audio_dev;
+/* DSP API */
+struct dsp_audio_device *of_dsp_register_client(
+		struct device *, struct device_node *);
+int dsp_pcm_play(struct dsp_audio_device *, enum xgold_pcm_stream_type,
+		unsigned int, unsigned int, bool);
+int dsp_pcm_rec(struct dsp_audio_device *, unsigned int, unsigned int, bool);
+int dsp_pcm_feed(struct dsp_audio_device *, enum xgold_pcm_stream_type,
+		unsigned int, unsigned int);
+int dsp_pcm_stop(struct dsp_audio_device *, enum xgold_pcm_stream_type);
+int dsp_cmd_hw_probe(struct dsp_audio_device *, enum xgold_pcm_stream_type);
 
 #endif /*__DSP_AUDIO_PLATFORM_H__ */
