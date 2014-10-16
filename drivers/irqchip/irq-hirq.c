@@ -11,9 +11,9 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/irqchip/irq_xgold.h>
 
 #include "irqchip.h"
-#include "irq-xgold.h"
 
 #include <sofia/mv_gal.h>
 #include <sofia/pal_shared_data.h>

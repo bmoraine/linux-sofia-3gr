@@ -9,9 +9,9 @@
 #include <linux/slab.h>
 #include <linux/cpu_pm.h>
 #include <linux/platform_device.h>
+#include <linux/irqchip/irq_xgold.h>
 
 #include "irqchip.h"
-#include "irq-xgold.h"
 
 static DEFINE_SPINLOCK(pmu_lock);
 

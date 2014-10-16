@@ -15,8 +15,8 @@
 #include <linux/err.h>
 #include <linux/of_irq.h>
 #include <linux/irqchip/chained_irq.h>
+#include <linux/irqchip/irq_xgold.h>
 #include "irqchip.h"
-#include "irq-xgold.h"
 
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <sofia/pal_shared_data.h>

@@ -14,9 +14,9 @@
 #include <linux/module.h>
 #include <asm/prom.h>
 #include <sofia/mv_hypercalls.h>
+#include <linux/irqchip/irq_xgold.h>
 
 #include "irqchip.h"
-#include "irq-xgold.h"
 
 static struct vpic_chip_data {
 	struct irq_domain *domain;

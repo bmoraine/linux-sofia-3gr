@@ -11,10 +11,9 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/of.h>
-
+#include <linux/irqchip/irq_xgold.h>
 
 #include "irqchip.h"
-#include "irq-xgold.h"
 
 /* Define this as static for syscore resume callback */
 static struct xgold_irq_chip_data *data;

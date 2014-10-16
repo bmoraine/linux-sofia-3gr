@@ -18,9 +18,9 @@
 #include <linux/of_address.h>
 
 #include <linux/irqchip/chained_irq.h>
+#include <linux/irqchip/irq_xgold.h>
 
 #include "irqchip.h"
-#include "irq-xgold.h"
 
 /* eint type */
 #define XGOLD_IRQ_TYPE_EDGE_DISABLED		0
@@ -30,6 +30,14 @@
 #define XGOLD_IRQ_TYPE_LEVEL_DISABLED		0
 #define XGOLD_IRQ_TYPE_LEVEL_LOW		2
 #define XGOLD_IRQ_TYPE_LEVEL_HIGH		3
+
+
+struct irq_domain *irq_eint_domain;
+struct irq_domain *xgold_irq_eint_get_domain(void)
+{
+	return irq_eint_domain;
+}
+EXPORT_SYMBOL(xgold_irq_eint_get_domain);
 
 static DEFINE_SPINLOCK(eint_lock);
 
@@ -177,6 +185,7 @@ static int __init xgold_irq_eint_of_init(struct device_node *np,
 	/* add linear domain */
 	ret |= xgold_irq_domain_add_linear(np,
 			data, &xgold_irq_eint_domain_ops);
+	irq_eint_domain = data->domain;
 
 	/* Parse, Map and Cascade */
 	if (parent)

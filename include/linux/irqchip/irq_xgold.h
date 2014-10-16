@@ -102,6 +102,8 @@ extern int xgold_irq_set_wake(struct irq_data *, uint32_t, uint32_t, uint32_t);
 #define XGOLD_RW 1
 #define XGOLD_WO 0
 
+extern struct irq_domain *xgold_irq_eint_get_domain(void);
+
 #endif /* _IRQCHIP_IRQ_XGOLD_H */
 
 /* EOF */

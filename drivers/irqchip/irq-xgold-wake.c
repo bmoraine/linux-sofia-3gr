@@ -25,7 +25,7 @@
 #include <sofia/mv_svc_hypercalls.h>
 #endif
 
-#include "irq-xgold.h"
+#include <linux/irqchip/irq_xgold.h>
 
 /* Max Number of SpcuCA5CwkupEn registers per core */
 #define NR_OF_REGS 2

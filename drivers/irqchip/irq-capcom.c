@@ -18,9 +18,9 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/of_address.h>
+#include <linux/irqchip/irq_xgold.h>
 
 #include "irqchip.h"
-#include "irq-xgold.h"
 
 /* Capcom Capture interrupt types */
 #define XGOLD_CC_IRQ_TYPE_EDGE_DISABLED	0

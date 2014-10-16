@@ -16,8 +16,9 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#include <linux/irqchip/irq_xgold.h>
+
 #include "irqchip.h"
-#include "irq-xgold.h"
 
 /*
  * Get intel,io-access property if any from dts

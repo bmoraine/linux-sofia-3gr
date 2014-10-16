@@ -9,9 +9,9 @@
 #include <linux/slab.h>
 #include <linux/cpu_pm.h>
 #include <linux/platform_device.h>
+#include <linux/irqchip/irq_xgold.h>
 
 #include "irqchip.h"
-#include "irq-xgold.h"
 
 static inline void xgold_irq_hirq_main_unmask(struct irq_data *data)
 {
