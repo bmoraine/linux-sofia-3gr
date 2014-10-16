@@ -40,10 +40,6 @@
 
 /* Definitions */
 
-#define INTEL_VIDIOC_SENSOR_MODE_DATA \
-	_IOR('v', BASE_VIDIOC_PRIVATE,\
-	struct isp_supplemental_sensor_mode_data)
-
 #define CIF_ISP20_NUM_CSI_INPUTS 2
 
 #define DRIVER_NAME "cif_isp20"
@@ -140,6 +136,7 @@ enum cif_isp20_cid {
 	CIF_ISP20_CID_IMAGE_EFFECT = 13,
 	CIF_ISP20_CID_HFLIP = 14,
 	CIF_ISP20_CID_VFLIP = 15,
+	CIF_ISP20_CID_AUTO_FPS = 16,
 };
 
 /* correspond to bit field values */

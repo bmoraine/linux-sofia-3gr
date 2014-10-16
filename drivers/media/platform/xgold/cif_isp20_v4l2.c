@@ -24,6 +24,7 @@
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
+#include <media/v4l2-controls_intel.h>
 #include <media/videobuf-dma-contig.h>
 #include "cif_isp20.h"
 #include <linux/module.h>
@@ -270,6 +271,8 @@ static int cif_isp20_v4l2_cid2cif_isp20_cid(u32 v4l2_cid)
 		return CIF_ISP20_CID_HFLIP;
 	case V4L2_CID_VFLIP:
 		return CIF_ISP20_CID_VFLIP;
+	case INTEL_V4L2_CID_AUTO_FPS:
+		return CIF_ISP20_CID_AUTO_FPS;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
 			"unknown/unsupported V4L2 CID 0x%x\n",
@@ -313,6 +316,8 @@ static int cif_isp20_v4l2_cid2v4l2_cid(u32 cif_isp20_cid)
 		return V4L2_CID_HFLIP;
 	case CIF_ISP20_CID_VFLIP:
 		return V4L2_CID_VFLIP;
+	case CIF_ISP20_CID_AUTO_FPS:
+		return INTEL_V4L2_CID_AUTO_FPS;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
 			"unknown/unsupported CIF ISP20 ID %d\n",

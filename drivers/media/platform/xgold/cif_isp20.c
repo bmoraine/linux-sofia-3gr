@@ -4856,6 +4856,7 @@ int cif_isp20_s_ctrl(
 	case CIF_ISP20_CID_FOCUS_ABSOLUTE:
 	case CIF_ISP20_CID_AUTO_N_PRESET_WHITE_BALANCE:
 	case CIF_ISP20_CID_SCENE_MODE:
+	case CIF_ISP20_CID_AUTO_FPS:
 		return cif_isp20_img_src_s_ctrl(dev->img_src,
 			id, val);
 	default:
@@ -5090,11 +5091,12 @@ int marvin_isp_isr(void *cntxt)
 				dev->config.base_addr +
 				CIF_ISP_ICR);
 			marvin_hw_errors[isp_pic_size_err].count++;
-			dev_err(dev->dev,
-				"CIF_ISP_PIC_SIZE_ERROR");
 			isp_err =
 			    cif_ioread32(dev->config.base_addr +
 					 CIF_ISP_ERR);
+			dev_err(dev->dev,
+				"CIF_ISP_PIC_SIZE_ERROR (0x%08x)",
+				isp_err);
 			cif_iowrite32(isp_err,
 				      dev->config.base_addr +
 				      CIF_ISP_ERR_CLR);

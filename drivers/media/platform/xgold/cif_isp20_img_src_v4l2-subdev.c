@@ -28,6 +28,7 @@
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
+#include <media/v4l2-controls_intel.h>
 #include "cif_isp20.h"
 
 #include <linux/platform_data/platform_camera_module.h>
@@ -191,6 +192,8 @@ static int cif_isp20_v4l2_cid2v4l2_cid(u32 cif_isp20_cid)
 		return V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE;
 	case CIF_ISP20_CID_SCENE_MODE:
 		return V4L2_CID_SCENE_MODE;
+	case CIF_ISP20_CID_AUTO_FPS:
+		return INTEL_V4L2_CID_AUTO_FPS;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
 			"unknown/unsupported CIF ISP20 ID %d\n",

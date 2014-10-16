@@ -16,6 +16,7 @@
 #include <linux/delay.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
+#include <media/v4l2-controls_intel.h>
 #include <media/videobuf-core.h>
 #include <linux/slab.h>
 #include <linux/gcd.h>
@@ -43,6 +44,7 @@ static void ov_camera_module_reset(
 	cam_mod->wb_config.auto_wb = false;
 	cam_mod->hflip = false;
 	cam_mod->vflip = false;
+	cam_mod->auto_adjust_fps = false;
 	cam_mod->rotation = 0;
 	cam_mod->ctrl_updt = 0;
 	cam_mod->state = OV_CAMERA_MODULE_POWER_OFF;
@@ -664,6 +666,12 @@ int ov_camera_module_s_ext_ctrls(
 			"V4L2_CID_AUTO_WHITE_BALANCE %d\n",
 			ctrl->value);
 			break;
+		case INTEL_V4L2_CID_AUTO_FPS:
+			cam_mod->auto_adjust_fps = ctrl->value;
+			pltfrm_camera_module_pr_debug(&cam_mod->sd,
+			"INTEL_V4L2_CID_AUTO_FPS %d\n",
+			ctrl->value);
+			break;
 		case V4L2_CID_FOCUS_ABSOLUTE:
 			{
 				struct v4l2_subdev *af_ctrl;
@@ -904,7 +912,6 @@ int ov_camera_module_init(struct ov_camera_module *cam_mod,
 	int ret = 0;
 
 	pltfrm_camera_module_pr_debug(&cam_mod->sd, "\n");
-
 
 	cam_mod->custom = *custom;
 	ov_camera_module_reset(cam_mod);
