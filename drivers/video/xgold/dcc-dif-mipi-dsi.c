@@ -206,6 +206,10 @@ static void dcc_mipidsi_send_short_packet(struct dcc_display *lcd,
 			dsihead, dsicfg);
 
 	gra_write_field(pdata, EXR_DIF_CSREG, difcsreg);
+
+	gra_write_field(pdata, INR_DIF_DSIVID6,
+		BITFLDS(INR_DIF_DSIVID6_LASTPIXEL, msg->length));
+
 	gra_write_field(pdata, INR_DIF_DSIHEAD, dsihead);
 	gra_write_field(pdata, INR_DIF_DSICFG, dsicfg);
 }
