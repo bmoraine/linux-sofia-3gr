@@ -1,5 +1,6 @@
 pcm_voice:pcm_voice {
 	compatible = "intel,xgold-snd-voice";
+	intel,dsp = < &dspaud_fb >;
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&i2s1_default_pins>;
 	pinctrl-1 = <&i2s1_sleep_pins>;
@@ -12,16 +13,16 @@ pcm_voice:pcm_voice {
 
 speech_probe:speech_probe {
 	compatible = "intel,xgold-snd-speech";
+	intel,dsp = < &dspaud_fb >;
 };
 
 pcm_music:pcm_music {
 	compatible = "intel,xgold-snd-pcm";
-	intel,pcm,dma_en = <0x0>;
-	intel,pcm,bt_init_en = <0x0>;
+	intel,dsp = < &dspaud_sb >;
 	pinctrl-names = "default", "sleep", "inactive";
-	pinctrl-0 = <&i2s2_default_pins>;
-	pinctrl-1 = <&i2s2_sleep_pins>;
-	pinctrl-2 = <&i2s2_inactive_pins>;
+	pinctrl-0 = < &i2s2_default_pins >;
+	pinctrl-1 = < &i2s2_sleep_pins >;
+	pinctrl-2 = < &i2s2_inactive_pins >;
 	pm,class-name = "generic_class";
     	pm,user-name = "i2s2";
     	pm,state-D0 = "enable";
