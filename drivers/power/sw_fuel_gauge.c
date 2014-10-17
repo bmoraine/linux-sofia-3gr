@@ -39,6 +39,7 @@
 #include <linux/power/battery_id.h>
 #include <linux/power/sw_fuel_gauge_debug.h>
 #include <linux/power/sw_fuel_gauge_hal.h>
+#include <linux/power/sw_fuel_gauge_nvs.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/consumer.h>
@@ -52,6 +53,7 @@
 #define BAT_CAP_TO_VBAT_TABLE_SIZE		(101)
 /* Percentage capacity for a full battery. */
 #define POWER_SUPPLY_CAPACITY_1000_PERMIL	(1000)
+
 /*
  * Maximum value for charge remaining (mAh).
  * Used when no battery is fitted to reduce.
@@ -142,6 +144,7 @@ available after startup. */
 	sw_fuel_gauge_enqueue_function((fp_scheduled_function)(p_func), \
 								(int)(param))
 
+
 /* Message payload for work scheduler queue. */
 struct sw_fuel_gauge_fifo_payload {
 	fp_scheduled_function	p_func;
@@ -167,12 +170,6 @@ struct sw_fuel_gauge_work_fifo {
 	struct mutex		deferred_exec_lock;
 	bool			pm_prepare;
 	bool			pending_dequeue;
-};
-
-/* Type of NVM write required. */
-enum sw_fuel_gauge_nvm_write_type {
-	SW_FUEL_GAUGE_NVM_WRITE_IMMEDIATE,
-	SW_FUEL_GAUGE_NVM_WRITE_DEFERRED,
 };
 
 /* State machine events. */
@@ -252,26 +249,6 @@ struct bat_voltage_data {
 	int	accuracy_mv;
 	struct iio_channel *p_iio_vbat_typ;
 	struct iio_channel *p_iio_vbat_ocv;
-};
-
-/* struct soc_cal_point - State of Charge (SoC) calibration point data.
- * @cc_up_mc			Coulomb counter UP register value (mC)
- * @c_down_mc			Coulomb counter DOWN register (mC)
- * @cc_balanced_mc		Coulomb counter balanced value (mC)
- * @rtc_time_sec		Monotonic RTC Timestamp for these
- *				values (Seconds)
- * @soc_permil			Battery state of charge (Permil)
- * @soc_error_permil		Battery state of charge error (Permil)
- * @full_battery_cap_mah	Battery capacity when fully charged (mAh)
- */
-struct soc_cal_point {
-	int	cc_up_mc;
-	int	cc_down_mc;
-	int	cc_balanced_mc;
-	time_t	rtc_time_sec;
-	int	soc_permil;
-	int	soc_error_permil;
-	u32	full_battery_cap_mah;
 };
 
 /* Values of properties registered with the power supply class. */
@@ -1155,11 +1132,11 @@ static int sw_fuel_gauge_cc_convert_to_bat_capacity_permil(int cc_balanced_mc)
 }
 
 /**
- * sw_fuel_gauge_configure_hal -Configures the coulomb counter driver.
- *				This can only be done after
- *				the battery model is known.
+ * sw_fuel_gauge_calc_battery_values	Calculates parameters relating to the
+ *					battery model data. This can only be
+ *					done after the battery model is known.
 */
-static void sw_fuel_gauge_cc_configure_hal(void)
+static void sw_fuel_gauge_calc_battery_values(void)
 {
 	/* Read the nominal battery capacity from the battery model. */
 	u32 nom_bat_capacity_mah =
@@ -1191,13 +1168,6 @@ static void sw_fuel_gauge_cc_configure_hal(void)
 	sw_fuel_gauge_instance.hal_set.delta_threshold_mc =
 				sw_fuel_gauge_instance.nom_bat_capacity_mc /
 							(SCALE_PERCENT * 2);
-
-	BUG_ON(0 != sw_fuel_gauge_instance.p_hal_interface->set(
-			SW_FUEL_GAUGE_HAL_SET_COULOMB_IND_DELTA_THRESHOLD,
-					sw_fuel_gauge_instance.hal_set));
-	/* Debug and trace information. */
-	SW_FUEL_GAUGE_DEBUG_PARAM(SW_FUEL_GAUGE_DEBUG_CONFIGURED_HAL,
-			sw_fuel_gauge_instance.hal_set.delta_threshold_mc);
 }
 
 /**
@@ -1250,113 +1220,6 @@ static void sw_fuel_gauge_cc_hal_callback(enum sw_fuel_gauge_hal_cb_event event,
 }
 
 /**
- * sw_fuel_gauge_nvm_read_group_if_valid -	Checks an NVM group and reads
- *						its contents if valid.
- *						TODO: This function is currently
- *						a stub until NVM storage is
- *						defined.
- * @group_id					[in] Which calibration point
- *						data to read.
- * @p_cal_data					[out] Coulomb counter data read.
- * Returns					true if the data is valid,
- *						otherwise false.
- */
-static bool sw_fuel_gauge_nvm_read_group_if_valid(
-				enum sw_fuel_gauge_nvm_write_type nvm_group_id,
-				struct soc_cal_point *p_cal_data)
-{
-	/* NVM data is currently not supported. */
-	(void) nvm_group_id;
-	(void) p_cal_data;
-	return false;
-}
-
-/**
- * sw_fuel_gauge_nvm_retrieve_latest_cal_data -	Retrieves the most recent NVM
- *						stored calibration data if it
- *						is valid.
- *						TODO: This function is currently
- *						a stub until NVM storage is
- *						defined.
- * Returns					true if valid data was found,
- *						otherwise false.
- */
-static bool sw_fuel_gauge_nvm_retrieve_latest_cal_data(void)
-{
-	/* Initial setting of NULL indicates no valid data */
-	struct soc_cal_point cal_data_immediate;
-	struct soc_cal_point cal_data_deferred;
-	struct soc_cal_point *p_cal_data = &sw_fuel_gauge_instance.last_soc_cal;
-
-	/* Check and read NVM data for valid data. */
-	bool immediate_valid =
-		sw_fuel_gauge_nvm_read_group_if_valid(
-			SW_FUEL_GAUGE_NVM_WRITE_IMMEDIATE, &cal_data_immediate);
-
-	bool deferred_valid =
-		sw_fuel_gauge_nvm_read_group_if_valid(
-			SW_FUEL_GAUGE_NVM_WRITE_DEFERRED, &cal_data_deferred);
-
-	if (immediate_valid && deferred_valid) {
-		/* Both data sets are valid in NVM. Use the newest for SoC. */
-		if (cal_data_deferred.rtc_time_sec >
-					cal_data_immediate.rtc_time_sec) {
-			/* Use data from deferred write. */
-			*p_cal_data = cal_data_deferred;
-			SW_FUEL_GAUGE_DEBUG_NO_PARAM(
-				SW_FUEL_GAUGE_DEBUG_NVM_DEFERRED_NEWER);
-		} else {
-			/* Use data from immediate write. */
-			*p_cal_data = cal_data_immediate;
-			SW_FUEL_GAUGE_DEBUG_NO_PARAM(
-				SW_FUEL_GAUGE_DEBUG_NVM_IMMEDIATE_NEWER);
-		}
-	} else if (immediate_valid) {
-		/* Only data from immediate write is valid in NVM. Use it for
-		initial SoC. */
-		*p_cal_data = cal_data_immediate;
-	} else if (deferred_valid) {
-		/* Only data from deferred write valid in NVM. Use it for
-		initial SoC. */
-		*p_cal_data = cal_data_deferred;
-	} else {
-		/* Nothing to do here - both NVM groups were invalid. */
-		return false;
-	}
-
-	/* At least one NVM group was found to be valid. */
-	return true;
-}
-
-/**
- * sw_fuel_gauge_nvm_store_last_calibration_point -Writes latets
- *						calibration point to NVM. If an
- *						immediate write is specified,
- *						then the data will be committed
- *						to NVM, otherwise the RAM copy
- *						only is changed.
- *						TODO: This function is currently
- *						a stub until NVM storage is
- *						defined.
- *
- * @nvm_group_id				[in] Which type of calibration
- *						point data to store.
- */
-static void sw_fuel_gauge_nvm_store_last_calibration_point(
-				enum sw_fuel_gauge_nvm_write_type nvm_group_id)
-{
-	switch (nvm_group_id) {
-	case SW_FUEL_GAUGE_NVM_WRITE_DEFERRED:
-	case SW_FUEL_GAUGE_NVM_WRITE_IMMEDIATE:
-		/* NVM operations are undefined. */
-		break;
-	default:
-		BUG();
-		break;
-	}
-}
-
-/**
  * sw_fuel_gauge_calc_ocv_capacity_and_error -	Converts the given VBAT
  *						(OCV or TYP) value into permil
  *						capacity and error values.
@@ -1403,17 +1266,162 @@ static void sw_fuel_gauge_calc_ocv_capacity_and_error(int vbat_mv,
 }
 
 /**
- * sw_fuel_gauge_calc_initial_capacity_and_error - Calculate the initial
- *						battery capacity and error then
- *						send an event to the state
- *						machine that inform clients that
- *						the SW Fuel Gauge is initialised
+ * sw_fuel_gauge_init_swfg - send an event to the state
+ *					machine that informs clients that
+ *					the SW Fuel Gauge is initialised
  */
-static void sw_fuel_gauge_calc_initial_capacity_and_error(void)
+static void sw_fuel_gauge_init_swfg(void)
+{
+	/* Initialise the coulomb counter accumulated error to the
+	 * mC equivalent of the calculated error.
+	 */
+	sw_fuel_gauge_instance.cc_acc_error_mc =
+			sw_fuel_gauge_instance.latest_calculated_error_permil
+			 * (sw_fuel_gauge_instance.nom_bat_capacity_mc /
+								SCALE_PERMIL);
+
+	SW_FUEL_GAUGE_DEBUG_PARAM(SW_FUEL_GAUGE_DEBUG_CALC_INITIAL_CAPACITY,
+		sw_fuel_gauge_instance.latest_calculated_capacity_permil);
+
+	/* Push new value to the power supply class. */
+	sw_fuel_gauge_set_capacity(
+		sw_fuel_gauge_instance.latest_calculated_capacity_permil);
+
+	/* Initialisation is done, so advance the state machine. */
+	sw_fuel_gauge_stm_process_event(
+			SW_FUEL_GAUGE_STM_EVENT_INITIAL_SOC_REPORT_DONE);
+
+	/* Once the cc delta threshold is set the cc indication also becomes
+	active. The statemachine must have sent its initial soc report before
+	such an event. */
+	BUG_ON(0 != sw_fuel_gauge_instance.p_hal_interface->set(
+		SW_FUEL_GAUGE_HAL_SET_COULOMB_IND_DELTA_THRESHOLD,
+			sw_fuel_gauge_instance.hal_set));
+
+	/* Debug and trace information. */
+	SW_FUEL_GAUGE_DEBUG_PARAM(SW_FUEL_GAUGE_DEBUG_CONFIGURED_HAL,
+			sw_fuel_gauge_instance.hal_set.delta_threshold_mc);
+}
+
+/**
+ * sw_fuel_gauge_estimate_initial_capacity_and_error - Estimate the initial
+ *					battery capacity and error based on
+ *					the initial VBAT_TYP measurement
+ *					then send an event to the state
+ *					machine that informs clients that
+ *					the SW Fuel Gauge is initialised.
+ *					To be used if no NVM calibration
+ *					data is present.
+ */
+static void sw_fuel_gauge_estimate_initial_capacity_and_error(void)
 {
 	struct soc_cal_point cc_data_now;
 	struct soc_cal_point *p_last_soc_cal =
 					&sw_fuel_gauge_instance.last_soc_cal;
+
+	SW_FUEL_GAUGE_DEBUG_NO_PARAM(
+		SW_FUEL_GAUGE_DEBUG_NVM_INVALID_ESTIMATE_CAPACITY_AND_ERROR);
+
+	/* Get timestamped coulomb counter values. */
+	sw_fuel_gauge_cc_read_current_data(&cc_data_now);
+
+	/* Calculate capacity based on the initial VBAT_TYP
+	measurement. */
+	sw_fuel_gauge_calc_ocv_capacity_and_error(
+	 sw_fuel_gauge_instance.vbat.vbat_typ_mv,
+	  &sw_fuel_gauge_instance.latest_calculated_capacity_permil,
+	   &sw_fuel_gauge_instance.latest_calculated_error_permil);
+	/* The initial VBAT_TYP measurement can potentially be very
+	inaccurate, so an OCV calibration measurement will be forced at
+	the first opportunity by setting a high initial accumulated
+	error. */
+	sw_fuel_gauge_instance.latest_calculated_error_permil =
+					INITIAL_VBAT_TYP_ERROR_PERMIL;
+
+	/* Update the latest calibration point data. */
+	p_last_soc_cal->cc_up_mc = cc_data_now.cc_up_mc;
+	p_last_soc_cal->cc_down_mc = cc_data_now.cc_down_mc;
+	p_last_soc_cal->cc_balanced_mc = cc_data_now.cc_balanced_mc;
+	p_last_soc_cal->rtc_time_sec = cc_data_now.rtc_time_sec;
+	p_last_soc_cal->soc_permil =
+		sw_fuel_gauge_instance.latest_calculated_capacity_permil;
+
+	p_last_soc_cal->soc_error_permil =
+			sw_fuel_gauge_instance.latest_calculated_error_permil;
+	p_last_soc_cal->full_battery_cap_mah =
+			sw_fuel_gauge_instance.bat.p_fitted_model->capacity;
+
+	/* Update the static IMMEDIATE data to match the last SOC
+	 * calibration point.
+	 * Setting the IMMEDIATE index to the last SOC index must
+	 * also be done to prevent the less accurate VBAT capacity
+	 * estimate from being flushed to NVM immediately. */
+	sw_fuel_gauge_instance.last_immediate_cal =
+			sw_fuel_gauge_instance.last_soc_cal;
+	sw_fuel_gauge_instance.nvm_immediate_last_cal_point_index =
+			sw_fuel_gauge_instance.last_soc_cal_index;
+
+}
+
+/**
+ * sw_fuel_gauge_hardcode_initial_capacity_and_error - Hardcode the initial
+ *					battery capacity to 50% and error to
+ *					2% then send an event to the
+ *					state machine that informs clients that
+ *					the SW Fuel Gauge is initialised.
+ *					To be used if we can access NVM
+ *					calibration data, the correct data will
+ *					then be read from NVM later.
+ */
+static void sw_fuel_gauge_hardcode_initial_capacity_and_error(void)
+{
+	struct soc_cal_point cc_data_now;
+	struct soc_cal_point *p_last_soc_cal =
+					&sw_fuel_gauge_instance.last_soc_cal;
+
+	SW_FUEL_GAUGE_DEBUG_NO_PARAM(
+			SW_FUEL_GAUGE_DEBUG_NVM_HARDCODE_CAPACITY_AND_ERROR);
+
+	/* Get timestamped coulomb counter values. */
+	sw_fuel_gauge_cc_read_current_data(&cc_data_now);
+
+	/* Set capacity high so that it can be overwritten when the
+	 * actual capacity is known. */
+	sw_fuel_gauge_instance.latest_calculated_capacity_permil =
+					POWER_SUPPLY_CAPACITY_1000_PERMIL;
+
+	sw_fuel_gauge_instance.latest_calculated_error_permil =
+					INITIAL_VBAT_TYP_ERROR_PERMIL;
+
+	/* Update the latest calibration point data. */
+	p_last_soc_cal->cc_up_mc = cc_data_now.cc_up_mc;
+	p_last_soc_cal->cc_down_mc = cc_data_now.cc_down_mc;
+	p_last_soc_cal->cc_balanced_mc = cc_data_now.cc_balanced_mc;
+	p_last_soc_cal->rtc_time_sec = cc_data_now.rtc_time_sec;
+	p_last_soc_cal->soc_permil =
+	 sw_fuel_gauge_instance.latest_calculated_capacity_permil;
+
+	p_last_soc_cal->soc_error_permil =
+		sw_fuel_gauge_instance.latest_calculated_error_permil;
+	p_last_soc_cal->full_battery_cap_mah =
+		sw_fuel_gauge_instance.bat.p_fitted_model->capacity;
+
+}
+
+/**
+ * sw_fuel_gauge_calculate_nvm_capacity_and_error - Calculate the initial
+ *					battery capacity and error then
+ *					send an event to the state
+ *					machine that informs clients that
+ *					the SW Fuel Gauge is initialised.
+ */
+static void sw_fuel_gauge_calculate_nvm_capacity_and_error(void)
+{
+	struct soc_cal_point cc_data_now;
+	struct soc_cal_point *p_last_soc_cal =
+					&sw_fuel_gauge_instance.last_soc_cal;
+	struct soc_cal_point *p_last_immediate_cal =
+				&sw_fuel_gauge_instance.last_immediate_cal;
 
 	/* Get timestamped coulomb counter values. */
 	sw_fuel_gauge_cc_read_current_data(&cc_data_now);
@@ -1422,8 +1430,10 @@ static void sw_fuel_gauge_calc_initial_capacity_and_error(void)
 	data cannot be used. */
 	if ((NVM_NO_VALUE != cc_data_now.cc_up_mc) && (NVM_NO_VALUE !=
 						cc_data_now.cc_down_mc)) {
-		/* Check whether the NVM contains a valid calibration point. */
-		if (sw_fuel_gauge_nvm_retrieve_latest_cal_data()) {
+		/* Check whether the NVS contains a valid calibration point. */
+		if (sw_fuel_gauge_nvs_retrieve_last_calibration_point(
+					p_last_soc_cal,
+					p_last_immediate_cal)) {
 			/* Compare the stored timestamp with the current time to
 			determine if the calibration data is too old. */
 			if ((cc_data_now.rtc_time_sec -
@@ -1452,13 +1462,16 @@ static void sw_fuel_gauge_calc_initial_capacity_and_error(void)
 				/* Log failure reason. */
 				SW_FUEL_GAUGE_DEBUG_PARAM(
 					SW_FUEL_GAUGE_DEBUG_NVM_OUT_OF_DATE,
-						cc_data_now.rtc_time_sec);
+						p_last_soc_cal->rtc_time_sec);
 			}
 		}
 	}
 	/* If NVM calibration point is valid, calculate capacity and error based
-	on stored SoC calibration point. */
+	 *  on stored SoC calibration point. */
 	if (sw_fuel_gauge_instance.coulomb_counter_valid_at_init) {
+		/* We have retrieved a valid calibration point from NVM. */
+		SW_FUEL_GAUGE_DEBUG_NO_PARAM(
+				SW_FUEL_GAUGE_DEBUG_NVM_CAL_POINT_RESTORED);
 		sw_fuel_gauge_instance.latest_calculated_capacity_permil =
 			sw_fuel_gauge_cc_convert_to_bat_capacity_permil(
 						cc_data_now.cc_balanced_mc);
@@ -1466,53 +1479,29 @@ static void sw_fuel_gauge_calc_initial_capacity_and_error(void)
 		sw_fuel_gauge_instance.latest_calculated_error_permil =
 					p_last_soc_cal->soc_error_permil;
 	} else {
-		/* Calculate capacity based on the initial VBAT_TYP
-		measurement. */
-		sw_fuel_gauge_calc_ocv_capacity_and_error(
-		 sw_fuel_gauge_instance.vbat.vbat_typ_mv,
-		  &sw_fuel_gauge_instance.latest_calculated_capacity_permil,
-		   &sw_fuel_gauge_instance.latest_calculated_error_permil);
-		/* The initial VBAT_TYP measurement can potentially be very
-		inaccurate, so an OCV calibration measurement will be forced at
-		the first opportunity by setting a high initial accumulated
-		error. */
-		sw_fuel_gauge_instance.latest_calculated_error_permil =
-						INITIAL_VBAT_TYP_ERROR_PERMIL;
-
-		/* Update the latest calibration point data. */
-		p_last_soc_cal->cc_up_mc = cc_data_now.cc_up_mc;
-		p_last_soc_cal->cc_down_mc = cc_data_now.cc_down_mc;
-		p_last_soc_cal->cc_balanced_mc = cc_data_now.cc_balanced_mc;
-		p_last_soc_cal->rtc_time_sec = cc_data_now.rtc_time_sec;
-		p_last_soc_cal->soc_permil =
-		 sw_fuel_gauge_instance.latest_calculated_capacity_permil;
-
-		p_last_soc_cal->soc_error_permil =
-			sw_fuel_gauge_instance.latest_calculated_error_permil;
-		p_last_soc_cal->full_battery_cap_mah =
-			sw_fuel_gauge_instance.bat.p_fitted_model->capacity;
-		/* Store in the NVM as an immediate calibration point, in case a
-		reboot occurs soon. */
-		sw_fuel_gauge_nvm_store_last_calibration_point(
-					SW_FUEL_GAUGE_NVM_WRITE_IMMEDIATE);
+		/* No valid data in NVM -> fall back to calculate capacity
+		 *  based on the initial VBAT_TYP measurement. */
+		sw_fuel_gauge_estimate_initial_capacity_and_error();
 	}
-	/* Initialise the coulomb counter accumulated error to the mC equivalent
-	of the calculated error. */
-	sw_fuel_gauge_instance.cc_acc_error_mc =
-			sw_fuel_gauge_instance.latest_calculated_error_permil
-			 * (sw_fuel_gauge_instance.nom_bat_capacity_mc /
-								SCALE_PERMIL);
 
-	SW_FUEL_GAUGE_DEBUG_PARAM(SW_FUEL_GAUGE_DEBUG_CALC_INITIAL_CAPACITY,
-		sw_fuel_gauge_instance.latest_calculated_capacity_permil);
+	/* Finish the initialization and advance the state machine. */
+	sw_fuel_gauge_init_swfg();
 
-	/* Push new value to the power supply class. */
-	sw_fuel_gauge_set_capacity(
-		sw_fuel_gauge_instance.latest_calculated_capacity_permil);
+}
 
-	/* Initialisation is done, so advance the state machine. */
-	sw_fuel_gauge_stm_process_event(
-			SW_FUEL_GAUGE_STM_EVENT_INITIAL_SOC_REPORT_DONE);
+/**
+ * sw_fuel_gauge_nvs_ready_cb -	Called by NVS when the NVS is initialized.
+ */
+static void sw_fuel_gauge_nvs_ready_cb(void)
+{
+	/* Double check that we only calculate the capacity from
+	 *	NVM in case that we are waiting for the initial SOC. */
+	if (SW_FUEL_GAUGE_STM_STATE_WAIT_FOR_INITIAL_SOC ==
+		sw_fuel_gauge_instance.stm.state)
+			sw_fuel_gauge_calculate_nvm_capacity_and_error();
+	else
+		pr_err("%s() called in invalid state %d\n", __func__,
+			sw_fuel_gauge_instance.stm.state);
 }
 
 /*
@@ -1531,8 +1520,26 @@ static void sw_fuel_gauge_check_hal_initialisation(void)
 			&& (NULL != sw_fuel_gauge_instance.p_hal_interface)
 			 && (sw_fuel_gauge_instance.bat.initialised)
 			  && (sw_fuel_gauge_instance.bat.fitted_state)) {
-				sw_fuel_gauge_cc_configure_hal();
-				sw_fuel_gauge_calc_initial_capacity_and_error();
+
+			/* Try and register with the NVS interface to
+			 * get notified when NVS is ready to be accessed.
+			 */
+			if (sw_fuel_gauge_register_nvs_ready_cb(
+					sw_fuel_gauge_nvs_ready_cb)) {
+				/* Temporarily set capacity above 0% to
+				 * prevent user space triggered shutdown
+				 * before the NVS is ready.
+				 */
+			sw_fuel_gauge_hardcode_initial_capacity_and_error();
+			} else {
+				/* We don't have persistent storage
+				 * -> estimate initial capacity. */
+			sw_fuel_gauge_estimate_initial_capacity_and_error();
+
+				/* Finish the initialization and advance
+				 * the state machine. */
+				sw_fuel_gauge_init_swfg();
+			}
 
 			/* Make initial TBAT measurements */
 			sw_fuel_gauge_tbat_monitor();
@@ -1651,6 +1658,8 @@ static void sw_fuel_gauge_bat_presence_report(
 		SW_FUEL_GAUGE_DEBUG_PARAM(SW_FUEL_GAUGE_DEBUG_BAT_ID_TYPE,
 							p_bat->bat_id_type);
 
+		sw_fuel_gauge_calc_battery_values();
+
 		/* When the battery is known, fill in the capacity to
 		VBAT table(s). */
 		sw_fuel_gauge_bat_set_capacity_table();
@@ -1728,8 +1737,11 @@ static void sw_fuel_gauge_stm_check_nvm_immediate_write_required(void)
 		if (sw_fg->nvm_immediate_last_cal_point_index !=
 						sw_fg->last_soc_cal_index) {
 
-			sw_fuel_gauge_nvm_store_last_calibration_point(
-					SW_FUEL_GAUGE_NVM_WRITE_IMMEDIATE);
+			sw_fuel_gauge_nvs_store_last_calibration_point(
+				SW_FUEL_GAUGE_NVS_WRITE_IMMEDIATE,
+				&sw_fuel_gauge_instance.last_soc_cal,
+				&sw_fuel_gauge_instance.last_immediate_cal);
+
 			/* Reset the NVM write request flag and coulomb counter
 			error accumulator. */
 			sw_fg->nvm_immediate_write_required = false;
@@ -1795,6 +1807,7 @@ static void sw_fuel_gauge_stm_check_nvm_immediate_error_threshold_and_age(void)
 	sw_fuel_gauge_instance.nvm_immediate_write_required =
 				(nvm_immediate_over_error_threshold ||
 						nvm_immediate_over_age_limit);
+
 }
 
 /*
@@ -1846,9 +1859,12 @@ static void sw_fuel_gauge_create_ocv_calibration_point(int ocv_bat_cap_permil,
 	/* Increase the number of calibration points which have been taken. */
 	sw_fuel_gauge_instance.last_soc_cal_index++;
 
+
 	/* Store the calibration point in the deferred write NVM group. */
-	sw_fuel_gauge_nvm_store_last_calibration_point(
-					SW_FUEL_GAUGE_NVM_WRITE_DEFERRED);
+	sw_fuel_gauge_nvs_store_last_calibration_point(
+			SW_FUEL_GAUGE_NVS_WRITE_DEFERRED,
+			&sw_fuel_gauge_instance.last_soc_cal,
+			&sw_fuel_gauge_instance.last_immediate_cal);
 
 	/* Push new capacity to power supply class. */
 	sw_fuel_gauge_set_capacity(ocv_bat_cap_permil);
@@ -1901,6 +1917,9 @@ static void sw_fuel_gauge_stm_check_ocv_calibration_point(void)
 						ocv_bat_cap_permil,
 						 ocv_error_permil,
 						  hal_get.cc_acc_error_mc);
+	} else {
+		SW_FUEL_GAUGE_DEBUG_NO_PARAM(
+				SW_FUEL_GAUGE_DEBUG_CAL_POINT_LESS_ACCURATE);
 	}
 }
 
@@ -1913,6 +1932,11 @@ static void sw_fuel_gauge_stm_check_battery_relaxed(void)
 {
 	struct timespec time_now;
 	union sw_fuel_gauge_hal_get_params hal_get;
+
+	/*Check whether the last immediate calibration point is out of date or
+	too inaccurate to use at the next boot time. NOTE: This is only a test
+	for an out of range calibration point.*/
+	sw_fuel_gauge_stm_check_nvm_immediate_error_threshold_and_age();
 
 	/* Use this opportunity to check the battery temperature, too. */
 	sw_fuel_gauge_tbat_monitor();
@@ -1959,6 +1983,12 @@ static void sw_fuel_gauge_stm_check_battery_relaxed(void)
 			SW_FUEL_GAUGE_DEBUG_PARAM(
 				SW_FUEL_GAUGE_DEBUG_BATTERY_NOT_RELAXED,
 				 hal_get.ibat_load_long_at_ocv_ma);
+
+			/* If the current immediate calibration point was found
+			to be outside the acceptable error range, flush any
+			previous deferred calibration point to NVM. */
+			sw_fuel_gauge_stm_check_nvm_immediate_write_required();
+
 			/* Clear latched values at OCV to start looking for
 			another OCV condition if supported in HW */
 			sw_fuel_gauge_instance.p_hal_interface->set(
@@ -1966,20 +1996,6 @@ static void sw_fuel_gauge_stm_check_battery_relaxed(void)
 									dummy);
 		}
 	}
-	/* Check whether the last immediate calibration point is out of date or
-	too inaccurate to use at the next boot time. NOTE: This is only a test
-	for an out of range calibration point. The write to NVM, if required,
-	will occur on the next STM state transition:
-
-	1. After it has been determined that the battery remained relaxed and a
-	new OCV calibration point made (SW_FUEL_GAUGE_STM_EVENT_OCV_DONE)
-
-	Or:
-
-	2. If the OCV calibration failed and the STM returns to waiting for
-	battery relaxation (SW_FUEL_GAUGE_STM_EVENT_BATTERY_NOLONGER_RELAXED) */
-	sw_fuel_gauge_stm_check_nvm_immediate_error_threshold_and_age();
-
 }
 
 /**
@@ -2155,18 +2171,13 @@ static void sw_fuel_gauge_stm_enter_wait_for_battery_relaxed(
 	case SW_FUEL_GAUGE_STM_EVENT_INITIAL_SOC_REPORT_DONE:
 		/* Check if battery is relaxed */
 		sw_fuel_gauge_stm_check_battery_relaxed();
-
-		/* If the current immediate calibration point was found to be
-		outside the acceptable error range, flush the previous deferred
-		calibration point to NVM. */
-		sw_fuel_gauge_stm_check_nvm_immediate_write_required();
-
 		break;
 
 	case SW_FUEL_GAUGE_STM_EVENT_BATTERY_NOLONGER_RELAXED:
-		/* A recent long term current based battery relaxed check
-		  indirectly triggered this event. Nothing to do.
-		*/
+		/* If the current immediate calibration point was found to be
+		 * outside the acceptable error range, flush any previous
+		 * deferred calibration point to NVM. */
+		sw_fuel_gauge_stm_check_nvm_immediate_write_required();
 		break;
 
 	case SW_FUEL_GAUGE_STM_EVENT_BATTERY_RELAXED:
@@ -3007,6 +3018,8 @@ static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
 	sysfs_val = (sysfs_val == 0) ? 0 : 1;
 
 	sw_fuel_gauge_debug.dbg_array.printk_logs_en = sysfs_val;
+
+	sw_fuel_gauge_nvs_dbg_set(sysfs_val);
 
 	pr_info("sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
 
