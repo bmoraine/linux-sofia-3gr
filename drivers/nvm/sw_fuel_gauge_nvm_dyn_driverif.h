@@ -77,6 +77,7 @@
 typedef struct {
   S32 cc_charge_mc;
   S32 cc_discharge_mc;
+  S32 cc_balanced_mc;
   S16 cc_error_mc;
   long long rtc_time_sec;
   S16 soc_permil;
