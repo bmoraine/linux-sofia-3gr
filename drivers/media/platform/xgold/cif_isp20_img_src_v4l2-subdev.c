@@ -30,8 +30,7 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-controls_intel.h>
 #include "cif_isp20.h"
-
-#include <linux/platform_data/platform_camera_module.h>
+#include <media/v4l2-controls_intel.h>
 
 /* ===================== */
 /* Image Source */
@@ -194,6 +193,8 @@ static int cif_isp20_v4l2_cid2v4l2_cid(u32 cif_isp20_cid)
 		return V4L2_CID_SCENE_MODE;
 	case CIF_ISP20_CID_AUTO_FPS:
 		return INTEL_V4L2_CID_AUTO_FPS;
+	case CIF_ISP20_CID_VBLANKING:
+		return INTEL_V4L2_CID_VBLANKING;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
 			"unknown/unsupported CIF ISP20 ID %d\n",
@@ -412,52 +413,16 @@ long cif_isp20_img_src_v4l2_subdev_ioctl(
 	struct v4l2_subdev *subdev = img_src;
 
 	if (cmd == INTEL_VIDIOC_SENSOR_MODE_DATA) {
-		struct pltfrm_camera_module_timings module_timings;
-		struct isp_supplemental_sensor_mode_data *timings =
-		(struct isp_supplemental_sensor_mode_data *) arg;
 		long ret;
 		ret = v4l2_subdev_call(subdev,
 			core,
 			ioctl,
-			INTEL_VIDIOC_PLTFRM_SENSOR_MODULE_TIMINGS,
-			&module_timings);
+			INTEL_VIDIOC_SENSOR_MODE_DATA,
+			arg);
 
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE(ret))
 			pr_err("img_src.%s subdev call failed with error %ld\n",
-				__func__, ret);
-			return ret;
-		}
-
-		timings->sensor_output_width =
-			module_timings.sensor_output_width;
-		timings->sensor_output_height =
-			module_timings.sensor_output_height;
-		timings->crop_horizontal_start =
-			module_timings.crop_horizontal_start;
-		timings->crop_vertical_start =
-			module_timings.crop_vertical_start;
-		timings->crop_horizontal_end =
-			module_timings.crop_horizontal_end;
-		timings->crop_vertical_end =
-			module_timings.crop_vertical_end;
-		timings->line_length_pck =
-			module_timings.line_length_pck;
-		timings->frame_length_lines =
-			module_timings.frame_length_lines;
-		timings->vt_pix_clk_freq_hz =
-			module_timings.vt_pix_clk_freq_hz;
-		timings->binning_factor_x =
-			module_timings.binning_factor_x;
-		timings->binning_factor_y =
-			module_timings.binning_factor_y;
-		timings->coarse_integration_time_max_margin =
-			module_timings.coarse_integration_time_max_margin;
-		timings->coarse_integration_time_min =
-			module_timings.coarse_integration_time_min;
-		timings->fine_integration_time_max_margin =
-			module_timings.fine_integration_time_max_margin;
-		timings->fine_integration_time_min =
-			module_timings.fine_integration_time_min;
+			__func__, ret);
 
 		return ret;
 	} else {

@@ -188,6 +188,28 @@
 #define CIFISP_DEBUG_INFO	(1<<1)
 #define CIFISP_DEBUG_ERROR	(1<<0)
 
+
+/* Empirical rough (relative) times it takes to perform
+    given function. */
+#define CIFISP_MODULE_BPC_PROC_TIME 3
+#define CIFISP_MODULE_BLS_PROC_TIME 10
+#define CIFISP_MODULE_LSC_PROC_TIME	1747
+#define CIFISP_MODULE_FLT_PROC_TIME 15
+#define CIFISP_MODULE_BDM_PROC_TIME 1
+#define CIFISP_MODULE_SDG_PROC_TIME 53
+#define CIFISP_MODULE_GOC_PROC_TIME 1000
+#define CIFISP_MODULE_CTK_PROC_TIME 772
+#define CIFISP_MODULE_AWB_PROC_TIME 8
+#define CIFISP_MODULE_HST_PROC_TIME 5
+#define CIFISP_MODULE_AEC_PROC_TIME 5
+#define CIFISP_MODULE_AWB_GAIN_PROC_TIME 2
+#define CIFISP_MODULE_CPROC_PROC_TIME 5
+#define CIFISP_MODULE_MACC_PROC_TIME 32
+#define CIFISP_MODULE_TMAP_PROC_TIME 257
+/* Leave time for scaler reprogramming */
+#define CIFISP_MODULE_YCFLT_PROC_TIME (10 + 500)
+#define CIFISP_MODULE_AFC_PROC_TIME 8
+
 /* For Debugging only!!! */
 #define CIFISP_MODULE_BPC     1
 #define CIFISP_MODULE_BLS     3
@@ -206,6 +228,8 @@
 #define CIFISP_MODULE_TMAP     25
 #define CIFISP_MODULE_YCFLT    26
 #define CIFISP_MODULE_AFC      27
+
+#define CIFISP_MODULE_DEFAULT_VBLANKING_TIME 3000
 
 static int cifisp_dbg_level = CIFISP_DEBUG_ERROR;
 
@@ -3341,6 +3365,8 @@ struct video_device *register_cifisp_device(struct xgold_isp_dev *isp_dev,
 	if (!measurement_wq)
 		return ERR_PTR(-ENOMEM);
 
+	isp_dev->v_blanking_us = CIFISP_MODULE_DEFAULT_VBLANKING_TIME;
+
 	return vdev_cifisp;
 }
 
@@ -3404,7 +3430,8 @@ static void cifisp_dump_reg(struct xgold_isp_dev *isp_dev, int level)
 }
 
 /* Not called when the camera active, thus not isr protection. */
-void cifisp_configure_isp(struct xgold_isp_dev *isp_dev, unsigned int capture)
+void cifisp_configure_isp(struct xgold_isp_dev *isp_dev,
+						unsigned int capture)
 {
 	CIFISP_DPRINT(CIFISP_DEBUG_INFO, "%s\n", __func__);
 
@@ -3747,158 +3774,298 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 	}
 
 	if (isp_mis & CIF_ISP_FRAME) {
-		CIFISP_DPRINT(CIFISP_DEBUG_ISR, "frame\n");
+		int time_left = (int)isp_dev->v_blanking_us;
+
+		CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+			"time-left 0:%d\n", time_left);
 
 		/* Then update  changed configs. Some of them involve
 		   lot of register writes. Do those only one per frame.
 
 		   Do the updates in the order of the processing flow.*/
 #ifndef CIFISP_DEBUG_DISABLE_BLOCKS
-		if (isp_dev->isp_param_bpc_update_needed) {
-			/*update bpc config */
-			cifisp_bp_config(isp_dev);
+		if (isp_dev->isp_param_bpc_update_needed ||
+			isp_dev->isp_param_bls_update_needed ||
+			isp_dev->isp_param_sdg_update_needed ||
+			isp_dev->isp_param_lsc_update_needed ||
+			isp_dev->isp_param_awb_gain_update_needed ||
+			isp_dev->isp_param_bdm_update_needed ||
+			isp_dev->isp_param_flt_update_needed ||
+			isp_dev->isp_param_ycflt_update_needed ||
+			isp_dev->isp_param_ctk_update_needed ||
+			isp_dev->isp_param_goc_update_needed ||
+			isp_dev->isp_param_cproc_update_needed ||
+			isp_dev->isp_param_macc_update_needed ||
+			isp_dev->isp_param_tmap_update_needed) {
 
-			if (isp_dev->bpc_en)
-				cifisp_bp_en(isp_dev);
-			else
-				cifisp_bp_end(isp_dev);
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 1:%d %d\n",
+				time_left,
+				isp_dev->isp_param_bpc_update_needed);
 
-			isp_dev->isp_param_bpc_update_needed = false;
-		} else if (isp_dev->isp_param_bls_update_needed) {
-			/*update bls config */
-			cifisp_bls_config(isp_dev);
+			if (isp_dev->isp_param_bpc_update_needed) {
+				/*update bpc config */
+				cifisp_bp_config(isp_dev);
 
-			if (isp_dev->bls_en)
-				cifisp_bls_en(isp_dev);
-			else
-				cifisp_bls_end(isp_dev);
+				if (isp_dev->bpc_en)
+					cifisp_bp_en(isp_dev);
+				else
+					cifisp_bp_end(isp_dev);
 
-			isp_dev->isp_param_bls_update_needed = false;
-		} else if (isp_dev->isp_param_sdg_update_needed) {
-			/*update sdg config */
-			cifisp_sdg_config(isp_dev);
+				isp_dev->isp_param_bpc_update_needed = false;
 
-			if (isp_dev->sdg_en)
-				cifisp_sdg_en(isp_dev);
-			else
-				cifisp_sdg_end(isp_dev);
+				time_left -= CIFISP_MODULE_BPC_PROC_TIME;
+			}
 
-			isp_dev->isp_param_sdg_update_needed = false;
-		} else if (isp_dev->isp_param_lsc_update_needed) {
-			/*update lsc config */
-			bool res = true;
-			if (isp_dev->lsc_en) {
-				if (!cifisp_lsc_config(isp_dev))
-					res = false;
-			} else
-				cifisp_lsc_end(isp_dev);
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 2:%d %d\n",
+				time_left,
+				isp_dev->isp_param_bls_update_needed);
 
-			if (res)
-				isp_dev->isp_param_lsc_update_needed = false;
-		} else if (isp_dev->isp_param_awb_gain_update_needed) {
-			/*update awb gains */
-			cifisp_awb_gain_config(isp_dev);
+			if (isp_dev->isp_param_bls_update_needed &&
+				time_left >= CIFISP_MODULE_BLS_PROC_TIME) {
+				/*update bls config */
+				cifisp_bls_config(isp_dev);
 
-			if (isp_dev->awb_gain_en)
-				cifisp_awb_gain_en(isp_dev);
-			else
-				cifisp_awb_gain_end(isp_dev);
+				if (isp_dev->bls_en)
+					cifisp_bls_en(isp_dev);
+				else
+					cifisp_bls_end(isp_dev);
 
-			isp_dev->isp_param_awb_gain_update_needed = false;
-		} else if (isp_dev->isp_param_bdm_update_needed) {
-			/*update bdm config */
-			cifisp_bdm_config(isp_dev);
+				isp_dev->isp_param_bls_update_needed = false;
 
-			if (isp_dev->bdm_en)
-				cifisp_bdm_en(isp_dev);
-			else
-				cifisp_bdm_end(isp_dev);
+				time_left -= CIFISP_MODULE_BLS_PROC_TIME;
+			}
 
-			isp_dev->isp_param_bdm_update_needed = false;
-		} else if (isp_dev->isp_param_flt_update_needed) {
-			/*update filter config */
-			cifisp_flt_config(isp_dev);
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 3:%d %d\n",
+				time_left,
+				isp_dev->isp_param_sdg_update_needed);
 
-			if (isp_dev->flt_en)
-				cifisp_flt_en(isp_dev);
-			else
-				cifisp_flt_end(isp_dev);
+			if (isp_dev->isp_param_sdg_update_needed &&
+				time_left >= CIFISP_MODULE_SDG_PROC_TIME) {
+				/*update sdg config */
+				cifisp_sdg_config(isp_dev);
 
-			isp_dev->isp_param_flt_update_needed = false;
-		} else if (isp_dev->isp_param_ycflt_update_needed) {
-			/* TODO: currently changing the YC flt dynamically
-				only works reliable if we do YC filt and scaler
-				reconfiguration together
-				in the MI frame end interrupt. This has to be
-				investigated further */
-			/*
-			cifisp_ycflt_config(isp_dev);
+				if (isp_dev->sdg_en)
+					cifisp_sdg_en(isp_dev);
+				else
+					cifisp_sdg_end(isp_dev);
 
-			if (isp_dev->ycflt_en)
-				cifisp_ycflt_en(isp_dev);
-			else
-				cifisp_ycflt_end(isp_dev);
+				isp_dev->isp_param_sdg_update_needed = false;
 
-			*/
-			isp_dev->ycflt_update = true;
+				time_left -= CIFISP_MODULE_SDG_PROC_TIME;
+			}
 
-			isp_dev->isp_param_ycflt_update_needed = false;
-		} else if (isp_dev->isp_param_ctk_update_needed) {
-			/*update ctk config */
-			cifisp_ctk_config(isp_dev);
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 4:%d %d\n",
+				time_left,
+				isp_dev->isp_param_lsc_update_needed);
 
-			if (isp_dev->ctk_en)
-				cifisp_ctk_en(isp_dev);
-			else
-				cifisp_ctk_end(isp_dev);
+			if (isp_dev->isp_param_lsc_update_needed &&
+				time_left >= CIFISP_MODULE_LSC_PROC_TIME) {
+				/*update lsc config */
+				bool res = true;
+				if (isp_dev->lsc_en) {
+					if (!cifisp_lsc_config(isp_dev))
+						res = false;
+				} else
+					cifisp_lsc_end(isp_dev);
 
-			isp_dev->isp_param_ctk_update_needed = false;
-		} else if (isp_dev->isp_param_goc_update_needed) {
-			/*update goc config */
-			cifisp_goc_config(isp_dev);
+				if (res)
+					isp_dev->isp_param_lsc_update_needed =
+						false;
 
-			if (isp_dev->goc_en)
-				cifisp_goc_en(isp_dev);
-			else
-				cifisp_goc_end(isp_dev);
+				time_left -= CIFISP_MODULE_LSC_PROC_TIME;
+			}
 
-			isp_dev->isp_param_goc_update_needed = false;
-		} else if (isp_dev->isp_param_cproc_update_needed) {
-			/*update cprc config */
-			cifisp_cproc_config(isp_dev);
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 5:%d %d\n",
+				time_left,
+				isp_dev->isp_param_awb_gain_update_needed);
 
-			if (isp_dev->cproc_en)
-				cifisp_cproc_en(isp_dev);
-			else
-				cifisp_cproc_end(isp_dev);
+			if (isp_dev->isp_param_awb_gain_update_needed &&
+				time_left >= CIFISP_MODULE_AWB_GAIN_PROC_TIME) {
+				/*update awb gains */
+				cifisp_awb_gain_config(isp_dev);
 
-			isp_dev->isp_param_cproc_update_needed = false;
-		}
-#if !defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
-		else if (isp_dev->isp_param_macc_update_needed) {
-			/*update macc config */
-			cifisp_macc_config(isp_dev);
+				if (isp_dev->awb_gain_en)
+					cifisp_awb_gain_en(isp_dev);
+				else
+					cifisp_awb_gain_end(isp_dev);
 
-			if (isp_dev->macc_en)
-				cifisp_macc_en(isp_dev);
-			else
-				cifisp_macc_end(isp_dev);
+				isp_dev->isp_param_awb_gain_update_needed =
+					false;
 
-			isp_dev->isp_param_macc_update_needed = false;
-		} else if (isp_dev->isp_param_tmap_update_needed) {
-			/*update tmap config */
-			cifisp_tmap_config(isp_dev);
+				time_left -= CIFISP_MODULE_AWB_GAIN_PROC_TIME;
+			}
 
-			if (isp_dev->tmap_en)
-				cifisp_tmap_en(isp_dev);
-			else
-				cifisp_tmap_end(isp_dev);
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 6:%d %d\n",
+				time_left,
+				isp_dev->isp_param_bdm_update_needed);
 
-			isp_dev->isp_param_tmap_update_needed = false;
-		}
+			if (isp_dev->isp_param_bdm_update_needed &&
+				time_left >= CIFISP_MODULE_BDM_PROC_TIME) {
+				/*update bdm config */
+				cifisp_bdm_config(isp_dev);
+
+				if (isp_dev->bdm_en)
+					cifisp_bdm_en(isp_dev);
+				else
+					cifisp_bdm_end(isp_dev);
+
+				isp_dev->isp_param_bdm_update_needed = false;
+
+				time_left -= CIFISP_MODULE_BDM_PROC_TIME;
+			}
+
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 7:%d %d\n",
+				time_left,
+				isp_dev->isp_param_flt_update_needed);
+
+			if (isp_dev->isp_param_flt_update_needed &&
+				time_left >= CIFISP_MODULE_FLT_PROC_TIME) {
+				/*update filter config */
+				cifisp_flt_config(isp_dev);
+
+				if (isp_dev->flt_en)
+					cifisp_flt_en(isp_dev);
+				else
+					cifisp_flt_end(isp_dev);
+
+				isp_dev->isp_param_flt_update_needed = false;
+
+				time_left -= CIFISP_MODULE_FLT_PROC_TIME;
+			}
+
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 8:%d %d\n",
+				time_left,
+				isp_dev->isp_param_ycflt_update_needed);
+
+			if (isp_dev->isp_param_ycflt_update_needed &&
+				time_left >= CIFISP_MODULE_YCFLT_PROC_TIME) {
+				cifisp_ycflt_config(isp_dev);
+
+				if (isp_dev->ycflt_en)
+					cifisp_ycflt_en(isp_dev);
+				else
+					cifisp_ycflt_end(isp_dev);
+
+				isp_dev->isp_param_ycflt_update_needed = false;
+				isp_dev->ycflt_update = true;
+				time_left -= CIFISP_MODULE_YCFLT_PROC_TIME;
+			}
+
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 9:%d %d\n",
+				time_left,
+				isp_dev->isp_param_ctk_update_needed);
+
+			if (isp_dev->isp_param_ctk_update_needed &&
+				time_left >= CIFISP_MODULE_CTK_PROC_TIME) {
+				/*update ctk config */
+				cifisp_ctk_config(isp_dev);
+
+				if (isp_dev->ctk_en)
+					cifisp_ctk_en(isp_dev);
+				else
+					cifisp_ctk_end(isp_dev);
+
+				isp_dev->isp_param_ctk_update_needed = false;
+
+				time_left -= CIFISP_MODULE_CTK_PROC_TIME;
+			}
+
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 10:%d %d\n",
+				time_left,
+				isp_dev->isp_param_goc_update_needed);
+
+			if (isp_dev->isp_param_goc_update_needed &&
+				time_left >= CIFISP_MODULE_GOC_PROC_TIME) {
+				/*update goc config */
+				cifisp_goc_config(isp_dev);
+
+				if (isp_dev->goc_en)
+					cifisp_goc_en(isp_dev);
+				else
+					cifisp_goc_end(isp_dev);
+
+				isp_dev->isp_param_goc_update_needed = false;
+
+				time_left -= CIFISP_MODULE_GOC_PROC_TIME;
+			}
+
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 11:%d %d\n",
+				time_left,
+				isp_dev->isp_param_cproc_update_needed);
+
+			if (isp_dev->isp_param_cproc_update_needed &&
+				time_left >= CIFISP_MODULE_CPROC_PROC_TIME) {
+				/*update cprc config */
+				cifisp_cproc_config(isp_dev);
+
+				if (isp_dev->cproc_en)
+					cifisp_cproc_en(isp_dev);
+				else
+					cifisp_cproc_end(isp_dev);
+
+				isp_dev->isp_param_cproc_update_needed = false;
+
+				time_left -= CIFISP_MODULE_CPROC_PROC_TIME;
+			}
+
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 12:%d %d\n",
+				time_left,
+				isp_dev->isp_param_macc_update_needed);
+
+			if (isp_dev->isp_param_macc_update_needed &&
+				time_left >= CIFISP_MODULE_MACC_PROC_TIME) {
+				/*update macc config */
+				cifisp_macc_config(isp_dev);
+
+				if (isp_dev->macc_en)
+					cifisp_macc_en(isp_dev);
+				else
+					cifisp_macc_end(isp_dev);
+
+				isp_dev->isp_param_macc_update_needed = false;
+
+				time_left -= CIFISP_MODULE_MACC_PROC_TIME;
+			}
+
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 13:%d %d\n",
+				time_left,
+				isp_dev->isp_param_tmap_update_needed);
+
+			if (isp_dev->isp_param_tmap_update_needed &&
+				time_left >= CIFISP_MODULE_TMAP_PROC_TIME) {
+				/*update tmap config */
+				cifisp_tmap_config(isp_dev);
+
+				if (isp_dev->tmap_en)
+					cifisp_tmap_en(isp_dev);
+				else
+					cifisp_tmap_end(isp_dev);
+
+				isp_dev->isp_param_tmap_update_needed = false;
+
+				time_left -= CIFISP_MODULE_TMAP_PROC_TIME;
+			}
+		} else {
 #endif
-		else {
-#endif
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 14:%d %d\n",
+				time_left,
+				isp_dev->isp_param_awb_meas_update_needed ||
+				isp_dev->isp_param_awb_meas_update_fast_needed);
+
 			if (isp_dev->isp_param_awb_meas_update_needed ||
 			isp_dev->isp_param_awb_meas_update_fast_needed) {
 				/*update awb config */
@@ -3915,6 +4082,13 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 				isp_dev->isp_param_awb_meas_update_fast_needed =
 					false;
 			}
+
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 15:%d %d\n",
+				time_left,
+				isp_dev->isp_param_afc_update_needed ||
+				isp_dev->isp_param_afc_update_fast_needed);
+
 			if (isp_dev->isp_param_afc_update_needed ||
 				isp_dev->isp_param_afc_update_fast_needed) {
 				/*update afc config */
@@ -3931,6 +4105,12 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 				isp_dev->isp_param_afc_update_fast_needed =
 					false;
 			}
+
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 16:%d %d\n",
+				time_left,
+				isp_dev->isp_param_hst_update_needed);
+
 			if (isp_dev->isp_param_hst_update_needed) {
 				/*update hst config */
 				cifisp_hst_config(isp_dev);
@@ -3942,6 +4122,13 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 
 				isp_dev->isp_param_hst_update_needed = false;
 			}
+
+			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
+				"time-left 17:%d %d\n",
+				time_left,
+				isp_dev->isp_param_aec_update_needed ||
+				isp_dev->isp_param_aec_update_fast_needed);
+
 			if (isp_dev->isp_param_aec_update_needed ||
 				isp_dev->isp_param_aec_update_fast_needed) {
 				/*update aec config */

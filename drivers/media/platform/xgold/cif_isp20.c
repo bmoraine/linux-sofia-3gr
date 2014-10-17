@@ -31,6 +31,7 @@
 #define MEASURE_VERTICAL_BLANKING
 */
 
+
 static int marvin_mipi_isr(
 	void *cntxt);
 static int marvin_isp_isr(
@@ -988,6 +989,7 @@ static int cif_isp20_img_src_select_strm_fmt(
 	u32 target_width, target_height;
 	u32 img_src_width, img_src_height;
 	u32 best_diff = ~0;
+	int vblanking;
 
 	if (IS_ERR_OR_NULL(dev->img_src)) {
 		cif_isp20_pltfrm_pr_err(dev->dev,
@@ -1105,6 +1107,13 @@ static int cif_isp20_img_src_select_strm_fmt(
 		goto err;
 
 	dev->config.img_src_output = request_strm_fmt;
+
+	ret = cif_isp20_img_src_g_ctrl(dev->img_src,
+		CIF_ISP20_CID_VBLANKING, &vblanking);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	dev->isp_dev.v_blanking_us = vblanking;
 
 	return 0;
 err:
@@ -2935,9 +2944,10 @@ static int cif_isp20_config_cif(
 		cif_isp20_config_ie(dev);
 
 		/* YC filter enabled in secondary path causes sync fifo
-			overflows in capture use case. */
-		if (((stream_ids & CIF_ISP20_STREAM_MP) &&
-			dev->config.jpeg_config.enable) ||
+			overflows for interleaved output */
+		if (((stream_ids & CIF_ISP20_STREAM_SP) &&
+			CIF_ISP20_PIX_FMT_IS_INTERLEAVED(
+			dev->config.mi_config.sp.output.pix_fmt)) ||
 			(dev->config.input_sel == CIF_ISP20_INP_DMA_SP))
 			dev->config.sp_config.inp_yc_filt = false;
 		else

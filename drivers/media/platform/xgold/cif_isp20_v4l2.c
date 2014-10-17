@@ -1019,7 +1019,6 @@ static long v4l2_default_ioctl(struct file *file, void *fh,
 	int ret = -EINVAL;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
-	int has_auto_gain;
 
 	if (arg == NULL) {
 		cif_isp20_pltfrm_pr_err(dev->dev,

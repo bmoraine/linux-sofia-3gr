@@ -39,31 +39,6 @@ struct pltfrm_camera_module_reg_table {
 	struct pltfrm_camera_module_reg *reg_table;
 };
 
-struct pltfrm_camera_module_timings {
-	unsigned int coarse_integration_time_min;
-	unsigned int coarse_integration_time_max_margin;
-	unsigned int fine_integration_time_min;
-	unsigned int fine_integration_time_max_margin;
-	unsigned int fine_integration_time_def;
-	unsigned int frame_length_lines;
-	unsigned int line_length_pck;
-	unsigned int vt_pix_clk_freq_hz;
-	unsigned int crop_horizontal_start; /* Sensor crop start cord. (x0,y0)*/
-	unsigned int crop_vertical_start;
-	unsigned int crop_horizontal_end; /* Sensor crop end cord. (x1,y1)*/
-	unsigned int crop_vertical_end;
-	unsigned int sensor_output_width; /* input size to ISP */
-	unsigned int sensor_output_height;
-	unsigned int isp_input_width;
-	unsigned int isp_input_height;
-	unsigned char binning_factor_x; /* horizontal binning factor used */
-	unsigned char binning_factor_y; /* vertical binning factor used */
-	unsigned int sensor_type; /* 0 without ISP, 1 with ISP*/
-};
-
-#define INTEL_VIDIOC_PLTFRM_SENSOR_MODULE_TIMINGS \
-	_IOR('v', BASE_VIDIOC_PRIVATE + 1, struct pltfrm_camera_module_timings*)
-
 int pltfrm_camera_module_set_pm_state(
 	struct v4l2_subdev *sd,
 	enum device_pm_state state);

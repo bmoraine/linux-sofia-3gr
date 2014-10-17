@@ -137,6 +137,7 @@ enum cif_isp20_cid {
 	CIF_ISP20_CID_HFLIP = 14,
 	CIF_ISP20_CID_VFLIP = 15,
 	CIF_ISP20_CID_AUTO_FPS = 16,
+	CIF_ISP20_CID_VBLANKING = 17
 };
 
 /* correspond to bit field values */
@@ -216,6 +217,9 @@ enum cif_isp20_image_effect {
 #define CIF_ISP20_PIX_FMT_IS_JPEG(pix_fmt) \
 	((pix_fmt & CIF_ISP20_PIX_FMT_MASK) == 0x40000000)
 
+#define CIF_ISP20_PIX_FMT_IS_INTERLEAVED(pix_fmt) \
+	(!CIF_ISP20_PIX_FMT_IS_YUV(pix_fmt) ||\
+	!CIF_ISP20_PIX_FMT_YUV_GET_NUM_CPLANES(pix_fmt))
 
 enum cif_isp20_pix_fmt {
 	/* YUV */
@@ -464,29 +468,6 @@ struct cif_isp20_mi_state {
 	unsigned int cb_size;
 	unsigned int cr_base_ad;
 	unsigned int cr_size;
-};
-
-/* Sensor resolution specific data for AE calculation.*/
-struct isp_supplemental_sensor_mode_data {
-	unsigned int coarse_integration_time_min;
-	unsigned int coarse_integration_time_max_margin;
-	unsigned int fine_integration_time_min;
-	unsigned int fine_integration_time_max_margin;
-	unsigned int frame_length_lines;
-	unsigned int line_length_pck;
-	unsigned int vt_pix_clk_freq_hz;
-	unsigned int crop_horizontal_start; /* Sensor crop start cord. (x0,y0)*/
-	unsigned int crop_vertical_start;
-	unsigned int crop_horizontal_end; /* Sensor crop end cord. (x1,y1)*/
-	unsigned int crop_vertical_end;
-	unsigned int sensor_output_width; /* input size to ISP */
-	unsigned int sensor_output_height;
-	unsigned int isp_input_horizontal_start;
-	unsigned int isp_input_vertical_start;
-	unsigned int isp_input_width;
-	unsigned int isp_input_height;
-	unsigned char binning_factor_x; /* horizontal binning factor used */
-	unsigned char binning_factor_y; /* vertical binning factor used */
 };
 
 /* ======================================================================== */
