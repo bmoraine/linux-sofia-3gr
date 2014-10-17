@@ -1,0 +1,755 @@
+	otm1284 {
+		compatible = "intel,display";
+		intel,display-resolution= <720 1280>;
+		intel,display-dpi= <295 295>;
+
+		/* MIPI-DSI video mode settings */
+		intel,display-vid-hfp-hs-bytes = <192>;
+		intel,display-vid-hbp-hs-bytes = <192>;
+		intel,display-vid-hsa-hs-bytes = <24>;
+		intel,display-vid-vfp-lines = <20>;
+		intel,display-vid-vbp-lines = <16>;
+		intel,display-vid-vsa-lines = <4>;
+
+		intel,display-vid-mode = "pulses";
+		intel,display-vid-id = <0>;
+		intel,display-vid-pixel = "24packed";
+		intel,display-vid-fill_buf_to = <0x1F>;
+
+		intel,display-reset = <1 1 0 2 1 10>;
+
+		cmd-init {
+			enable-orise-mode-1 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			enable-orise-mode-2 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xff 0x12 0x84 0x01>;
+				intel,cmd-lp = <1>;
+			};
+			enable-orise-mode-3 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x80>;
+				intel,cmd-lp = <1>;
+			};
+			enable-orise-mode-4 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xff 0x12 0x84>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-1 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x80>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-2 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xC0 0x00 0x64 0x00 0x10 0x10 0x00 0x64 0x10 0x10>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-3 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x90>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-4 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xC0 0x00 0x5C 0x00 0x01 0x00 0x04>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-5 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB3>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-6 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xC0 0x00 0x55>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-7 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x81>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-8 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC1 0x66>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-9 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xA6>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-10 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB3 0x0F>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-11 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xA0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-12 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xC4 0x05 0x10 0x04 0x02 0x05 0x15 0x1A 0x05 0x10 0x05 0x02 0x05 0x15 0x1A>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-13 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-14 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xC4 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-15 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x91>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-16 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xC5 0x47 0xD2>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-17 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-18 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xD8 0xB6 0xB6>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-19 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-20 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD9 0x43>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-21 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xb3>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-22 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xc5 0x84>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-23 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xBB>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-24 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC5 0x8a>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-25 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x82>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-26 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC4 0x0a>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-27 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xC6>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-28 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB0 0x03>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-29 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xc2>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-30 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xf5 0x40>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-31 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xc3>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-32 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xf5 0x85>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-33 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-34 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD0 0x40>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-35 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-36 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xD1 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-37 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x80>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-38 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCB 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-39 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x90>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-40 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCB 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-41 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xA0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-42 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCB 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-43 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-44 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCB 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-45 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xC0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-46 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCB 0x05 0x05 0x05 0x05 0x05 0x05 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-47 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xD0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-48 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCB 0x00 0x00 0x00 0x05 0x05 0x00 0x00 0x05 0x05 0x05 0x05 0x05 0x05 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-49 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xE0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-50 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCB 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x05 0x05 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-51 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xF0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-52 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCB 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-53 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x80>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-54 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCC 0x07 0x05 0x0F 0x0D 0x0B 0x09 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-55 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x90>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-56 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCC 0x00 0x00 0x00 0x01 0x03 0x00 0x00 0x08 0x06 0x10 0x0E 0x0C 0x0A 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-57 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xA0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-58 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCC 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x02 0x04 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-59 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-60 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCC 0x02 0x04 0x0E 0x10 0x0A 0x0C 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-61 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xC0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-62 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCC 0x00 0x00 0x00 0x08 0x06 0x00 0x00 0x01 0x03 0x0D 0x0F 0x09 0x0B 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-63 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xD0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-64 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCC 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x07 0x05 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-65 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x80>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-66 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCE 0x87 0x03 0x10 0x86 0x03 0x10 0x85 0x03 0x10 0x84 0x03 0x10>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-67 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x90>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-68 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCE 0x34 0xFB 0x10 0x34 0xFC 0x10 0x34 0xFD 0x10 0x34 0xFE 0x10>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-69 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xA0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-70 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCE 0x38 0x05 0x04 0xFD 0x00 0x10 0x00 0x38 0x04 0x04 0xFE 0x00 0x10 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-71 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-72 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCE 0x38 0x03 0x04 0xFF 0x00 0x10 0x00 0x38 0x02 0x05 0x00 0x00 0x10 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-73 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xC0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-74 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCE 0x38 0x01 0x05 0x01 0x00 0x10 0x00 0x38 0x00 0x05 0x02 0x00 0x10 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-75 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xD0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-76 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCE 0x30 0x00 0x05 0x03 0x00 0x10 0x00 0x30 0x01 0x05 0x04 0x00 0x10 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-77 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x80>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-78 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCF 0x30 0x02 0x05 0x05 0x00 0x10 0x00 0x30 0x03 0x05 0x06 0x00 0x10 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-79 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x90>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-80 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCF 0x30 0x04 0x05 0x07 0x00 0x10 0x00 0x30 0x05 0x05 0x08 0x00 0x10 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-81 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xA0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-82 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCF 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-83 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-84 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCF 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-85 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xC0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-86 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xCF 0x01 0x01 0x20 0x20 0x00 0x00 0x01 0x82 0x01 0x10 0x10>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-87 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB5>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-88 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xC5 0x0C 0x01 0xFF 0x0C 0x01 0xFF>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-89 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x90>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-90 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xF5 0x02 0x11 0x02 0x15>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-91 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x90>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-92 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC5 0x50>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-93 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x94>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-94 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC5 0x66>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-95 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB2>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-96 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xF5 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-97 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB4>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-98 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xF5 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-99 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB6>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-100 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xF5 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-101 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB8>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-102 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xF5 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-103 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x94>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-104 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xf5 0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-105 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xd2>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-106 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xf5 0x06 0x15>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-107 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB4>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-108 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC5 0xCC>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-109 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xA0>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-110 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC1 0x02>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-111 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-112 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xE1 0x00 0x0A 0x13 0x1F 0x2D 0x3B 0x3E 0x6B 0x5E 0x78 0x8C 0x76 0x86 0x5A 0x54 0x44 0x34 0x25 0x19 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-113 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-114 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xE2 0x00 0x0A 0x13 0x1F 0x2D 0x3B 0x3E 0x6B 0x5E 0x77 0x8B 0x76 0x86 0x5A 0x54 0x44 0x34 0x25 0x19 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-115 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x80>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-116 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC4 0x30>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-117 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x8b>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-118 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC4 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-119 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB9>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-120 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB0 0x51>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-121 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0xB1>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-122 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xc6 0x05>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-123 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			panel-init-seq-124 {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0xFF 0xFF 0xFF 0xFF>;
+				intel,cmd-lp = <1>;
+			};
+			cabc-ui-mode{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x55 0x01>;
+				intel,cmd-lp = <1>;
+			};
+			max-brightness{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x51 0xF0>;
+				intel,cmd-lp = <1>;
+			};
+			min-brightness{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5E 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			cabc-enable{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x53 0x24>;
+				intel,cmd-lp = <1>;
+			};
+			set-address-mode {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x36 0x08>;
+				intel,cmd-lp = <1>;
+			};
+			sleep-out{
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x11>;
+				intel,cmd-delay = <120>;
+				intel,cmd-lp = <1>;
+			};
+			display-on{
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x29>;
+				intel,cmd-delay = <5>;
+				intel,cmd-lp = <1>;
+			};
+		};
+
+		cmd-power-on {
+			display-on{
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x29>;
+				intel,cmd-delay = <5>;
+				intel,cmd-lp = <1>;
+			};
+		};
+
+		cmd-power-off {
+			display-off{
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x28>;
+				intel,cmd-delay = <5>;
+				intel,cmd-lp = <1>;
+			};
+		};
+
+		cmd-sleep-in {
+			display-off{
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x28>;
+				intel,cmd-delay = <5>;
+				intel,cmd-lp = <1>;
+			};
+			sleep-in{
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x10>;
+				intel,cmd-delay = <120>;
+				intel,cmd-lp = <1>;
+			};
+		};
+
+		cmd-sleep-out {
+			sleep-out{
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x11>;
+				intel,cmd-delay = <5>;
+				intel,cmd-lp = <1>;
+			};
+			display-on{
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x29>;
+				intel,cmd-delay = <5>;
+				intel,cmd-lp = <1>;
+			};
+		};
+
+		cmd-update {
+			send-data {
+				intel,cmd-type = <0x39>;
+				intel,cmd-data = <0x2C>;
+			};
+		};
+	};
