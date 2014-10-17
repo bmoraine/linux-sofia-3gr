@@ -442,6 +442,12 @@
 						interrupt-names = "usif-int", "wk_int";
 						clocks = <&clk_usif3>, <&clk_ahb_per1>;
 						clock-names = "kernel", "register";
+						intel,usif-serial,datapath = "dma";
+						dmas = < &dma8ch 2
+							 &dma8ch 3 >;
+						dma-names = "rx", "tx";
+						intel,usif-serial,rx,buffer-size = < 1024 >;
+						intel,ictmo-cfg = < 3000000 0x100 >; /* rate, ictmo */
 
 						pm,class-name = "usif_class";
 						pm,user-name = "usif3";
