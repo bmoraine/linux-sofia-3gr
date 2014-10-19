@@ -303,6 +303,15 @@
 		pinctrl-1 = <&touch_sleep_pins>;
 		pinctrl-2 = <&touch_inactive_pins>;
 		intel,ts-gpio-reset = <&xgold_pmx_gpio 32 0>;
+		intel,x_pos_max = < 470 >;
+		intel,x_pos_min = < 15 >;
+		intel,y_pos_max = < 854 >;
+		intel,y_pos_min = < 15 >;
+		intel,screen_max_y = < 854 >;
+		intel,screen_max_x = < 480 >;
+		intel,key_y = < 900 >;
+		intel,key_back = < 80 >;
+		intel,key_menu = < 400 >;
 		pm,class-name = "ft5x0x_class";
 		pm,user-name = "tp";
 		pm,state-D0 = "enable";
