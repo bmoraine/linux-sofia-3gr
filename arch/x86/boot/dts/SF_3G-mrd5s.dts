@@ -322,25 +322,6 @@
 
 	};
 #endif
-#ifndef RECOVERY_KERNEL
-	touchscreen {
-		compatible = "goodix,Goodix-TS";
-		reg = < 0x14 >;
-		interrupt-parent = <&eint>;
-		interrupts = < EINT_EXI0 XGOLD_IRQ_TYPE_EDGE_FALLING >;
-		pinctrl-names = "default", "sleep", "inactive", "gpio";
-		pinctrl-0 = <&touch_default_pins>;
-		pinctrl-1 = <&touch_sleep_pins>;
-		pinctrl-2 = <&touch_inactive_pins>;
-		pinctrl-3 = <&touch_gpio_pins>;
-		intel,ts-gpio-reset = <&xgold_pmx_gpio 32 0>;
-		intel,ts-gpio-irq = <&xgold_pmx_gpio 66 0>;
-		pm,class-name = "gt9xx_class";
-		pm,user-name = "tp";
-		pm,state-D0 = "enable";
-		pm,state-D3 = "disable";
-	};
-#endif
 };
 
 &i2c_2 {
@@ -348,6 +329,34 @@
 	pinctrl-0 = <&i2c2_default_pins>;
 	pinctrl-1 = <&i2c2_sleep_pins>;
 	pinctrl-2 = <&i2c2_inactive_pins>;
+
+#ifndef RECOVERY_KERNEL
+	touchscreen {
+		compatible = "focaltech,ft5x06";
+		reg = < 0x38 >;
+		interrupt-parent = <&eint>;
+		interrupts = < EINT_EXI0 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&touch_default_pins>;
+		pinctrl-1 = <&touch_sleep_pins>;
+		pinctrl-2 = <&touch_inactive_pins>;
+		intel,ts-gpio-reset = <&xgold_pmx_gpio 32 0>;
+		intel,x_pos_max = < 720 >;
+		intel,x_pos_min = < 0 >;
+		intel,y_pos_max = < 1280 >;
+		intel,y_pos_min = < 0 >;
+		intel,screen_max_y = < 1280 >;
+		intel,screen_max_x = < 720 >;
+		intel,key_y = < 1320 >;
+		intel,key_back = < 400 >;
+		intel,key_menu = < 80 >;
+		intel,key_home = < 240 >;
+		pm,class-name = "ft5x0x_class";
+		pm,user-name = "tp";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+	};
+#endif
 
 #ifndef RECOVERY_KERNEL
 	accelerometer {
