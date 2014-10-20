@@ -17,6 +17,8 @@
 #include <linux/module.h>
 #include <linux/irqdomain.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/irqchip/irq_xgold.h>
+
 
 #define gpio_err(fmt, arg...)	pr_err("gpio: "  fmt, ##arg)
 #define gpio_info(fmt, arg...)	pr_info("gpio: "  fmt, ##arg)
@@ -142,12 +144,29 @@ static int xgold_gpio_direction_output(struct gpio_chip *chip, unsigned offset,
 
 static int xgold_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
-	u32 i;
+	u32 i, eint = -1, irq;
 	struct xgold_pcl_gpio *xgold_gpio = to_xgold_pcl_gpio(chip);
+	struct irq_domain *domain = xgold_irq_eint_get_domain();
+
 	for (i = 0; i < xgold_gpio->nirqs; i++) {
-		if (xgold_gpio->gpio_irq[i].gpio == offset)
-			return xgold_gpio->gpio_irq[i].irq;
+		if (xgold_gpio->gpio_irq[i].gpio == offset) {
+			eint = xgold_gpio->gpio_irq[i].irq;
+			break;
+		}
 	}
+	if (eint < 0) {
+		pr_err("%s: Can't bind gpio to interrupt\n", __func__);
+		return -EINVAL;
+	}
+
+	if (domain) {
+		irq = irq_find_mapping(domain, eint);
+		pr_debug("%s:irq found is:%d for eint:%d\n",
+				__func__, irq, eint);
+		return irq;
+	} else
+		pr_err("%s: No eint domain found\n", __func__);
+
 	return -EINVAL;
 }
 
@@ -173,7 +192,7 @@ static int xgold_gpio_xlate(struct gpio_chip *gc,
 
 	/*FIXME: Configure pin if needed */
 	if (flags)
-		*flags = gpiospec->args[2] >> 16;
+		*flags = gpiospec->args[1];
 
 	return gpiospec->args[0];
 }
