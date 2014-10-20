@@ -1,26 +1,26 @@
 &xgold_pmx_gpio {
 		intel,gpio-to-irq-num = < 16 >;
 		intel,gpio-to-irq = <
-			12 EXI0
-			67 EXI1
-			71 EXI2
-			14 EXI3
-			11 EXI4
-			27 EXI5
-			47 EXI6
-			45 EXI7
+			12 EINT_EXI0
+			67 EINT_EXI1
+			71 EINT_EXI2
+			14 EINT_EXI3
+			11 EINT_EXI4
+			27 EINT_EXI5
+			47 EINT_EXI6
+			45 EINT_EXI7
 #if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
-			53 EXI8
+			53 EINT_EXI8
 #else
-			49 EXI8
+			49 EINT_EXI8
 #endif
-			70 EXI9
-			16 EXI10
-			17 EXI11
-			18 EXI12
-			19 EXI13
-			52 EXI14
-			56 EXI15 >;
+			70 EINT_EXI9
+			16 EINT_EXI10
+			17 EINT_EXI11
+			18 EINT_EXI12
+			19 EINT_EXI13
+			52 EINT_EXI14
+			56 EINT_EXI15 >;
 };
 &xgold_pmx_core {
 	/* sparse GPIO range could be supported */
