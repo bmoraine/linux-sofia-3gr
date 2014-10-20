@@ -28,8 +28,6 @@
 
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
-#include <linux/dmaengine.h>
-#include <linux/amba/pl08x.h>
 #include <linux/dma-mapping.h>
 #include <linux/serial_core.h>
 #include <linux/platform_data/serial_xgold.h>
@@ -67,10 +65,10 @@
 			| USIF_FIFO_CFG_TXFC_TXFC | USIF_FIFO_CFG_TXFA_TXFA1 \
 			| USIF_FIFO_CFG_TXBS_TXBS8)
 
-#define USIF_DMA_FIFO_SETUP (USIF_FIFO_CFG_RXFC_RXNFC \
-			| USIF_FIFO_CFG_RXFA_RXFA1 | USIF_FIFO_CFG_RXBS_RXBS1 \
-			| USIF_FIFO_CFG_TXFC_TXNFC | USIF_FIFO_CFG_TXFA_TXFA1 \
-			| USIF_FIFO_CFG_TXBS_TXBS1)
+#define USIF_DMA_FIFO_SETUP (USIF_FIFO_CFG_RXFC_RXFC \
+			| USIF_FIFO_CFG_RXFA_RXFA1 | USIF_FIFO_CFG_RXBS_RXBS4 \
+			| USIF_FIFO_CFG_TXFC_TXFC | USIF_FIFO_CFG_TXFA_TXFA1 \
+			| USIF_FIFO_CFG_TXBS_TXBS4)
 
 #define USIF_IDI_FIFO_SETUP (USIF_FIFO_CFG_RXFC_RXFC \
 			| USIF_FIFO_CFG_RXFA_RXFA1 | USIF_FIFO_CFG_RXBS_RXBS4 \
@@ -103,7 +101,17 @@
 
 #define USIF_IMSC_TX_RX_CONFIG	 (USIF_MIS_TRANSMIT | USIF_MIS_RECEIVE)
 
+static int xgold_usif_read_rps(struct uart_port *port);
+
+static int xgold_usif_write_tps(struct uart_port *port, unsigned cnt);
+
 static void xgold_usif_dma_init(struct uart_usif_xgold_port *uxp);
+
+static void xgold_usif_dma_rx_request(struct uart_usif_xgold_port *uxp);
+
+static void xgold_usif_dma_rx_call_back(void *param);
+
+static void xgold_usif_dma_tx_tasklet_func(unsigned long data);
 
 static int usif_port_is_console(struct uart_port *port)
 {
@@ -112,6 +120,18 @@ static int usif_port_is_console(struct uart_port *port)
 #else
 	return 0;
 #endif
+}
+
+static void xgold_usif_error(struct uart_port *port, int line,
+				const char *function)
+{
+	struct uart_usif_xgold_port *uxp = to_usif_port(port);
+
+	if (uxp->use_dma) {
+		/* Safe to print error if the device is not the console */
+		dev_err(port->dev, "%d:%s: unrecoverable error!\n",
+					line, function);
+	}
 }
 
 static void xgold_usif_clc_error(struct uart_port *port, int line,
@@ -137,9 +157,12 @@ static void usif_set_running_mode(struct uart_port *port)
 		while (!USIF_CLC_STAT_RUN(
 				ioread32(USIF_CLC_STAT(port->membase)))) {
 			udelay(1);
-			if (i++ > 50) {
-				xgold_usif_clc_error(port, __LINE__, __func__);
-				break;
+			if (i++ > 10000) {
+				/* It can take several 100000 clock cycles
+				 * to write the CLC register.
+				 * If the write was still not successful after
+				 * 10ms we can assume something went wrong. */
+				BUG();
 			}
 		}
 	}
@@ -160,9 +183,12 @@ static void usif_set_config_mode(struct uart_port *port)
 		while (USIF_CLC_STAT_RUN(
 				ioread32(USIF_CLC_STAT(port->membase)))) {
 			udelay(1);
-			if (i++ > 50) {
-				xgold_usif_clc_error(port, __LINE__, __func__);
-				break;
+			if (i++ > 10000) {
+				/* It can take several 100000 clock cycles
+				 * to write the CLC register.
+				 * If the write was still not successful after
+				 * 10ms we can assume something went wrong. */
+				BUG();
 			}
 		}
 	}
@@ -180,9 +206,12 @@ static void usif_set_disabled_mode(struct uart_port *port)
 		while (USIF_CLC_STAT_MODEN(
 				ioread32(USIF_CLC_STAT(port->membase)))) {
 			udelay(1);
-			if (i++ > 50) {
-				xgold_usif_clc_error(port, __LINE__, __func__);
-				break;
+			if (i++ > 10000) {
+				/* It can take several 100000 clock cycles
+				 * to write the CLC register.
+				 * If the write was still not successful after
+				 * 10ms we can assume something went wrong. */
+				BUG();
 			}
 		}
 	}
@@ -200,9 +229,12 @@ static void usif_set_enabled_mode(struct uart_port *port)
 		while (!USIF_CLC_STAT_MODEN(
 				ioread32(USIF_CLC_STAT(port->membase)))) {
 			udelay(1);
-			if (i++ > 50) {
-				xgold_usif_clc_error(port, __LINE__, __func__);
-				break;
+			if (i++ > 10000) {
+				/* It can take several 100000 clock cycles
+				 * to write the CLC register.
+				 * If the write was still not successful after
+				 * 10ms we can assume something went wrong. */
+				BUG();
 			}
 		}
 	}
@@ -358,12 +390,6 @@ static struct s_xgold_usif_baudrate_divider {
 
 };
 
-struct usif_dma_sg {
-	struct scatterlist *sg_iotx;
-	char *usif_txbuf;
-	struct uart_usif_xgold_port *uxp;
-};
-
 static void xgold_usif_stop_tx(struct uart_port *);
 static bool xgold_usif_is_tx_ready(struct uart_port *port);
 
@@ -399,9 +425,12 @@ static void xgold_usif_clk_enable(struct uart_port *port)
 		iowrite32(reg, USIF_CLC_CNT(port->membase));
 		while (ioread32(USIF_CLC_CNT(port->membase)) != reg) {
 			udelay(1);
-			if (i++ > 50) {
-				xgold_usif_clc_error(port, __LINE__, __func__);
-				break;
+			if (i++ > 10000) {
+				/* It can take several 100000 clock cycles
+				 * to write the CLC register.
+				 * If the write was still not successful after
+				 * 10ms we can assume something went wrong. */
+				BUG();
 			}
 		}
 	}
@@ -477,7 +506,6 @@ static void xgold_usif_set_fifo_cfg(struct uart_port *port)
 
 	iowrite32(uxp->fifo_cfg, USIF_FIFO_CFG(port->membase));
 	iowrite32(USIF_FIFO_CTRL_RX_AR_AR_ON, USIF_FIFO_CTRL(port->membase));
-
 }
 
 static inline unsigned int handle_receive_error(struct uart_port *port,
@@ -523,6 +551,7 @@ xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
 		struct ktermios *old)
 {
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
+	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
 	unsigned int old_int_mask, reg;
 	unsigned int mode_cfg = 0;
 	unsigned int prtc_cfg = 0;
@@ -533,7 +562,7 @@ xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned int ictmo_cfg;
 	unsigned index_baud_clk;
 	unsigned long flags;
-	int i = 0;
+	int i = 0, j;
 
 /* Macro definations for switch configuration register RUN_CTRL */
 /* Baud rate definition - default values are for 115200 at 104MHz */
@@ -597,6 +626,21 @@ xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
 		fdiv_dec = xgold_usif_baudrate_divider[index_baud_clk][i].dec;
 		baud_bc_cfg = xgold_usif_baudrate_divider[index_baud_clk][i].bc;
 		ictmo_cfg = xgold_usif_baudrate_divider[index_baud_clk][i].tmo;
+
+		if (!platdata->ictmo)
+			break;
+
+		/* Overwrite default ictmo if one is set in platdata for this
+		 * baud rate. */
+		j = 0;
+		while (platdata->ictmo[j]) {
+			/* (j) is baud rate
+			 * (j + 1) is associated ictmo_cfg value */
+			ictmo_cfg = (baud == platdata->ictmo[j]) ?
+				platdata->ictmo[j + 1] : ictmo_cfg;
+			j += 2;
+		}
+
 		break;
 	}
 
@@ -914,7 +958,6 @@ static irqreturn_t transmit_chars(struct uart_port *port, unsigned status)
 static irqreturn_t handle_err_interrupt(struct uart_port *port, unsigned status)
 {
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
-	unsigned clear = 0;
 	/* TODO: Error recovery */
 
 	USIF_PRINT_IRQ(RXUR)
@@ -923,18 +966,8 @@ static irqreturn_t handle_err_interrupt(struct uart_port *port, unsigned status)
 	USIF_PRINT_IRQ(TXOF)
 	USIF_PRINT_IRQ(CRC)
 
-	if (USIF_MIS_RXUR(status))
-		clear |= USIF_MIS_RXUR_MASK;
-	if (USIF_MIS_TXUR(status))
-		clear |= USIF_MIS_TXUR_MASK;
-	if (USIF_MIS_TXOF(status))
-		clear |= USIF_MIS_TXOF_MASK;
-	if (USIF_MIS_PHE(status))
-		clear |= USIF_MIS_PHE_MASK;
-	if (USIF_MIS_CRC(status))
-		clear |= USIF_MIS_CRC_MASK;
+	iowrite32(status, USIF_ICR(port->membase));
 
-	iowrite32(clear, USIF_ICR(port->membase));
 	return IRQ_HANDLED;
 }
 
@@ -1181,11 +1214,16 @@ static void xgold_usif_shutdown(struct uart_port *port)
 
 	xgold_usif_runtime_pm_resume(port);
 
-	/* Ensure that no TX is going on before we shutdown. */
+	/* Ensure that no TX is going on before we shutdown.
+	 */
 	while (USIF_FIFO_STAT_TXFFS(ioread32(USIF_FIFO_STAT(port->membase))))
 		barrier();
 
-	/* And wait a moment to ensure the TX FIFOs are empty. */
+	/* And wait a moment to ensure the TX FIFOs are empty.
+	 * This will prevent issues with the echo-command which shuts
+	 * down the port immediately after writing the data to it
+	 * which can lead to truncation of bits if we don't wait here.
+	 */
 	mdelay(2);
 
 	/*FIXME: XMM6321 is using spin_lock_irqsave */
@@ -1291,20 +1329,147 @@ static int xgold_usif_startup_idi(struct uart_port *port)
 	return 0;
 }
 
+static void xgold_usif_shutdown_dma(struct uart_port *port)
+{
+	struct uart_usif_xgold_port *uxp = to_usif_port(port);
+
+	if (uxp->dma_initialized) {
+		uxp->dma_initialized = false;
+		dmaengine_terminate_all(uxp->dma_tx_channel);
+		dma_release_channel(uxp->dma_tx_channel);
+		uxp->dma_tx_channel = NULL;
+		dmaengine_terminate_all(uxp->dma_rx_channel);
+		dma_release_channel(uxp->dma_rx_channel);
+		uxp->dma_rx_channel = NULL;
+	}
+
+	tasklet_kill(&uxp->tx_tasklet);
+
+	if (uxp->sg_rxbuf_a) {
+		kfree(uxp->sg_rxbuf_a->sg_iotx);
+		kfree(uxp->sg_rxbuf_a->usif_dmabuf);
+		kfree(uxp->sg_rxbuf_a);
+		uxp->sg_rxbuf_a = NULL;
+	}
+
+	if (uxp->sg_rxbuf_b) {
+		kfree(uxp->sg_rxbuf_b->sg_iotx);
+		kfree(uxp->sg_rxbuf_b->usif_dmabuf);
+		kfree(uxp->sg_rxbuf_b);
+		uxp->sg_rxbuf_b = NULL;
+	}
+
+	if (uxp->sg_txbuf) {
+		kfree(uxp->sg_txbuf->sg_iotx);
+		kfree(uxp->sg_txbuf);
+		uxp->sg_txbuf = NULL;
+	}
+
+	if (uxp->dma_tx_buf) {
+		free_page((unsigned long)uxp->dma_tx_buf);
+		uxp->dma_tx_buf = NULL;
+	}
+}
+
+static struct usif_dma_sg *xgold_usif_dma_alloc_buf(unsigned int size)
+{
+	struct usif_dma_sg *sg_buf =
+		kzalloc(sizeof(struct usif_dma_sg *), GFP_KERNEL);
+
+	if (sg_buf == NULL)
+		return NULL;
+
+	sg_buf->sg_iotx = kzalloc(sizeof(struct scatterlist), GFP_KERNEL);
+
+	if (sg_buf->sg_iotx == NULL) {
+		kfree(sg_buf);
+		return NULL;
+	}
+
+	if (!size)
+		return sg_buf;
+
+	sg_buf->usif_dmabuf = kzalloc(size, GFP_KERNEL);
+
+	if (sg_buf->usif_dmabuf == NULL) {
+		kfree(sg_buf->sg_iotx);
+		kfree(sg_buf);
+		sg_buf = NULL;
+		return NULL;
+	}
+
+	return sg_buf;
+
+}
+
 static int xgold_usif_startup_dma(struct uart_port *port)
 {
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
+	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
 	unsigned reg;
+	int mrps;
 
 	/* Reset the Rx and Tx local counters */
 	uxp->tx_tps_cnt = 0x00;
 
-	reg = USIF_DMAE_TX_DMA_CTRL;
+	reg = USIF_DMAE_TX_DMA_CTRL |
+			USIF_DMAE_RX_DMA_CTRL;
+
 	iowrite32(reg, USIF_DMAE(port->membase));
 
-	/* Enable only the receive interrupts here */
+	if (platdata->rx_mrps < 0) {
+		mrps = platdata->rx_buffer_size;
+		mrps /= (BIT(USIF_FIFO_ID_RPS_STAGE(uxp->fifo_hwid)));
+		platdata->rx_mrps = mrps;
+	}
+
+	iowrite32(platdata->rx_mrps, USIF_MRPS_CTRL(port->membase));
+
+	/* Enable RX and TX interrupts */
 	iowrite32(USIF_MIS_CLR_ALL, USIF_ICR(port->membase));
 	iowrite32(USIF_IMSC_TX_RX_CONFIG, USIF_IMSC(port->membase));
+
+	/* We use static SG buffers for both RX and TX. */
+	if (!uxp->sg_rxbuf_a) {
+		uxp->sg_rxbuf_a =
+			xgold_usif_dma_alloc_buf(platdata->rx_buffer_size);
+
+		if (!uxp->sg_rxbuf_a)
+			return -ENOMEM;
+	}
+
+	if (!uxp->sg_rxbuf_b) {
+		uxp->sg_rxbuf_b =
+			xgold_usif_dma_alloc_buf(platdata->rx_buffer_size);
+
+		if (!uxp->sg_rxbuf_b)
+			return -ENOMEM;
+	}
+
+	if (!uxp->sg_txbuf) {
+		uxp->sg_txbuf = xgold_usif_dma_alloc_buf(0);
+		if (!uxp->sg_txbuf)
+			return -ENOMEM;
+	}
+
+	if (!uxp->dma_tx_buf) {
+		unsigned long page;
+		page = get_zeroed_page(GFP_KERNEL);
+		if (!page)
+			return -ENOMEM;
+
+		uxp->dma_tx_buf = (char *) page;
+	}
+
+	uxp->sg_rxbuf_a->uxp = uxp;
+	uxp->sg_rxbuf_b->uxp = uxp;
+	uxp->sg_txbuf->uxp = uxp;
+
+	xgold_usif_dma_init(uxp);
+
+	tasklet_init(&uxp->tx_tasklet, xgold_usif_dma_tx_tasklet_func,
+			(unsigned long)&uxp->port);
+
 	return 0;
 }
 
@@ -1387,6 +1552,19 @@ static int xgold_usif_startup(struct uart_port *port)
 	/* Need a delay here for correct "halt" behavior.. */
 	mdelay(3);
 
+	if (uxp->use_dma) {
+		/* Ensure we are ready to receive data
+		 * by queuing an RX DMA request.
+		 */
+		spin_lock_irq(&port->lock);
+		iowrite32(0, USIF_IMSC(port->membase));
+		spin_unlock_irq(&port->lock);
+		xgold_usif_dma_rx_request(uxp);
+		spin_lock_irq(&port->lock);
+		iowrite32(USIF_IMSC_TX_RX_CONFIG, USIF_IMSC(port->membase));
+		spin_unlock_irq(&port->lock);
+	}
+
 	xgold_usif_runtime_pm_autosuspend(port);
 
 	return 0;
@@ -1426,71 +1604,314 @@ static void xgold_usif_stop_tx(struct uart_port *port)
 	xgold_usif_runtime_pm_autosuspend(port);
 }
 
+static void xgold_usif_dma_init(struct uart_usif_xgold_port *uxp)
+{
+	struct uart_port *port = &uxp->port;
+	struct dma_slave_config usif_config_tx;
+	struct dma_slave_config usif_config_rx;
+	int ret = 0;
+
+	if (uxp->dma_initialized)
+		return;
+
+	/* Channel name needs to match what is in dtsi. */
+	uxp->dma_tx_channel = dma_request_slave_channel(port->dev, "tx");
+
+	if (!uxp->dma_tx_channel) {
+		dev_err(port->dev, "ERROR in getting USIF TX channel\n");
+		return;
+	}
+
+	/* We need to set the physical address, since port->membase
+	 * is pointing to a virtual address it must not be used here. */
+	usif_config_tx.dst_addr = (dma_addr_t) USIF_TXD(port->mapbase);
+	usif_config_tx.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+	usif_config_tx.dst_maxburst = 4;
+	usif_config_tx.device_fc = true;
+	usif_config_tx.direction = DMA_TO_DEVICE;
+
+	ret = dmaengine_slave_config(uxp->dma_tx_channel, &usif_config_tx);
+
+	if (IS_ERR(&ret)) {
+		dev_err(port->dev, "Error in dma TX slave configuration\n");
+		return;
+	}
+
+	/* Channel name needs to match what is in dtsi. */
+	uxp->dma_rx_channel = dma_request_slave_channel(port->dev, "rx");
+
+	if (!uxp->dma_rx_channel) {
+		dev_err(port->dev, "ERROR in getting USIF RX channel\n");
+		return;
+	}
+
+	/* We need to set the physical address, since port->membase
+	 * is pointing to a virtual address it must not be used here. */
+	usif_config_rx.src_addr = (dma_addr_t) USIF_RXD(port->mapbase);
+	usif_config_rx.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+	usif_config_rx.src_maxburst = 4;
+	usif_config_rx.device_fc = true;
+	usif_config_rx.direction = DMA_FROM_DEVICE;
+
+	ret = dmaengine_slave_config(uxp->dma_rx_channel, &usif_config_rx);
+
+	uxp->dma_initialized = true;
+
+	if (IS_ERR(&ret))
+		dev_err(port->dev, "Error in dma RX slave configuration\n");
+}
+
+static void xgold_usif_dma_rx_request(struct uart_usif_xgold_port *uxp)
+{
+	struct xgold_usif_platdata *platdata = dev_get_platdata(uxp->port.dev);
+	struct dma_async_tx_descriptor *usif_desc_rx;
+	struct usif_dma_sg *usif_sg;
+	dma_cookie_t dma_cookie_rx;
+
+	if (uxp->use_rxbuf_b) {
+		uxp->use_rxbuf_b = false;
+		usif_sg = uxp->sg_rxbuf_a;
+	} else {
+		uxp->use_rxbuf_b = true;
+		usif_sg = uxp->sg_rxbuf_b;
+	}
+
+	usif_sg->uxp = uxp;
+
+	/* Queue the read buffer */
+	sg_init_one(usif_sg->sg_iotx, usif_sg->usif_dmabuf,
+			platdata->rx_buffer_size);
+	dma_map_sg(uxp->port.dev, usif_sg->sg_iotx, 1, DMA_FROM_DEVICE);
+
+	usif_desc_rx = dmaengine_prep_slave_sg(
+			uxp->dma_rx_channel, usif_sg->sg_iotx, 1,
+			DMA_DEV_TO_MEM, DMA_PREP_INTERRUPT);
+
+	if (!usif_desc_rx) {
+		xgold_usif_error(&uxp->port, __LINE__, __func__);
+		return;
+	}
+
+	if (usif_desc_rx->phys != (dma_addr_t) USIF_RXD(uxp->port.mapbase))
+		usif_desc_rx->phys = (dma_addr_t) USIF_RXD(uxp->port.mapbase);
+
+	/* DMA callback */
+	usif_desc_rx->callback = xgold_usif_dma_rx_call_back;
+	usif_desc_rx->callback_param = usif_sg;
+
+	/* Submit request to start RX */
+	dma_cookie_rx = dmaengine_submit(usif_desc_rx);
+	usif_sg->dma_cookie = dma_cookie_rx;
+
+	dma_async_issue_pending(uxp->dma_rx_channel);
+
+	return;
+}
+
+static void xgold_usif_dma_rx_call_back(void *param)
+{
+	struct usif_dma_sg *usif_sg =  (struct usif_dma_sg *)param;
+	int rx_chars, count;
+
+	if (usif_sg && usif_sg->uxp) {
+		struct uart_usif_xgold_port *uxp = usif_sg->uxp;
+		struct tty_port *tty_port = &uxp->port.state->port;
+		struct xgold_usif_platdata *platdata =
+				dev_get_platdata(uxp->port.dev);
+		enum dma_status status;
+		char flg;
+		unsigned int rsr;
+
+		status = dma_async_is_tx_complete(uxp->dma_rx_channel,
+				usif_sg->dma_cookie, NULL, NULL);
+
+		if (status == DMA_IN_PROGRESS ||
+			status == DMA_PAUSED ||
+			status == DMA_ERROR) {
+			xgold_usif_error(&uxp->port, __LINE__, __func__);
+			return;
+		}
+
+		spin_lock_irq(&uxp->port.lock);
+
+		count = xgold_usif_read_rps(&uxp->port);
+
+		dma_unmap_sg(uxp->port.dev, usif_sg->sg_iotx,
+					1, DMA_FROM_DEVICE);
+
+		BUG_ON(count > platdata->rx_buffer_size || count < 0);
+
+		spin_unlock_irq(&uxp->port.lock);
+
+		/* Set up next RX request asap. */
+		xgold_usif_dma_rx_request(usif_sg->uxp);
+
+		spin_lock_irq(&uxp->port.lock);
+
+		rsr = handle_receive_error(&uxp->port, &flg);
+
+		for (rx_chars = 0; rx_chars < count; rx_chars++) {
+			if (!uart_handle_sysrq_char(&uxp->port,
+					usif_sg->usif_dmabuf[rx_chars])) {
+				uart_insert_char(&uxp->port, rsr,
+						USIF_MIS_RXOF_INT_PEND,
+						usif_sg->usif_dmabuf[rx_chars],
+						flg);
+				uxp->port.icount.rx++;
+			}
+		}
+		spin_unlock_irq(&uxp->port.lock);
+
+		tty_flip_buffer_push(tty_port);
+
+	} else {
+		BUG();
+	}
+}
+
 static void xgold_usif_dma_tx_call_back(void *param)
 {
 	struct usif_dma_sg *usif_sg =  (struct usif_dma_sg *)param;
 
 	if (!usif_sg)
-		return;
+		BUG();
 
 	if (usif_sg->uxp) {
+		unsigned long flags;
 		struct uart_usif_xgold_port *uxp = usif_sg->uxp;
-		dma_unmap_sg(uxp->port.dev, usif_sg->sg_iotx, 1, DMA_TO_DEVICE);
-	}
+		struct circ_buf *xmit = &uxp->port.state->xmit;
 
-	if (usif_sg) {
-		kfree(usif_sg->sg_iotx);
-		kfree(usif_sg->usif_txbuf);
-		kfree(usif_sg);
+		spin_lock_irqsave(&uxp->port.lock, flags);
+
+		dma_unmap_sg(uxp->port.dev, usif_sg->sg_iotx, 1, DMA_TO_DEVICE);
+
+		if (!usif_sg->dmabuf_owned)
+			/* Advance the tail pointer in the ring buffer since
+			 * data is processed.
+			 */
+			xmit->tail = (xmit->tail + usif_sg->count) &
+					(UART_XMIT_SIZE - 1);
+
+		usif_sg->usif_dmabuf = NULL;
+		usif_sg->dmabuf_owned = false;
+		usif_sg->count = 0;
+		usif_sg->dma_cookie = 0;
+
+		if (uart_circ_chars_pending(xmit))
+			/* We have more data to send -> reschedule
+			 * the TX tasklet.
+			 */
+			tasklet_schedule(&uxp->tx_tasklet);
+
+		if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+			uart_write_wakeup(&uxp->port);
+
+		spin_unlock_irqrestore(&uxp->port.lock, flags);
+
+	} else {
+		BUG();
 	}
 }
 
-static void xgold_usif_submit_dma(struct uart_usif_xgold_port *uxp,
-		int count, struct usif_dma_sg *usif_sg)
+static void xgold_usif_dma_submit_tx(struct usif_dma_sg *usif_sg)
 {
+	struct uart_usif_xgold_port *uxp = usif_sg->uxp;
 	struct dma_async_tx_descriptor *usif_desc_tx;
 	struct dma_chan *dma_tx_channel = uxp->dma_tx_channel;
-	dma_cookie_t dma_cookie_tx;
 
-	usif_sg->sg_iotx = kzalloc(sizeof(struct scatterlist), GFP_KERNEL);
-
-	if (usif_sg->sg_iotx == NULL) {
-		kfree(usif_sg->usif_txbuf);
-		kfree(usif_sg);
-		return;
-	}
-
-	sg_init_one(usif_sg->sg_iotx, usif_sg->usif_txbuf, count);
+	sg_init_one(usif_sg->sg_iotx, usif_sg->usif_dmabuf,
+				round_up(usif_sg->count, 4));
 	dma_map_sg(uxp->port.dev, usif_sg->sg_iotx, 1, DMA_TO_DEVICE);
 
 	usif_desc_tx = dmaengine_prep_slave_sg(
 			dma_tx_channel, usif_sg->sg_iotx, 1,
 			DMA_MEM_TO_DEV, DMA_PREP_INTERRUPT);
 
-	if (!usif_desc_tx) {
-		/* we entered real bad state we cant even
-		 * print error message.
-		 */
+	if (!usif_desc_tx)
 		goto write_init_dma_fail;
-	}
 
-	usif_sg->uxp = uxp;
 	/* DMA callback */
 	usif_desc_tx->callback = xgold_usif_dma_tx_call_back;
-
-	/* in callback free sg list and console/xmit buffer */
 	usif_desc_tx->callback_param = usif_sg;
 
-	/* submit req to Start tx */
-	dma_cookie_tx = dmaengine_submit(usif_desc_tx);
+	/* USIF is flow controller so we need to write
+	 * correct TPS value.
+	 */
+	xgold_usif_write_tps(&uxp->port, usif_sg->count);
+
+	/* Submit request to start TX. */
+	usif_sg->dma_cookie = dmaengine_submit(usif_desc_tx);
 	dma_async_issue_pending(dma_tx_channel);
 
-	iowrite32(0, USIF_TPS_CTRL(uxp->port.membase));
 	return;
 
 write_init_dma_fail:
+	xgold_usif_error(&uxp->port, __LINE__, __func__);
 	dma_unmap_sg(uxp->port.dev, usif_sg->sg_iotx, 1, DMA_TO_DEVICE);
 	dmaengine_terminate_all(dma_tx_channel);
+	return;
+}
+
+static void xgold_usif_dma_tx_tasklet_func(unsigned long data)
+{
+	struct uart_port *port = (struct uart_port *)data;
+	struct uart_usif_xgold_port *uxp = to_usif_port(port);
+	struct circ_buf *xmit = &uxp->port.state->xmit;
+	int count;
+	unsigned long flags;
+
+	if (uart_circ_chars_pending(xmit)) {
+
+		char *buf = NULL;
+
+		spin_lock_irqsave(&port->lock, flags);
+
+		if (uxp->sg_txbuf->count != 0) {
+			/* A transfer is already ongoing -> return. */
+			spin_unlock_irqrestore(&port->lock, flags);
+			return;
+		}
+
+		count = uart_circ_chars_pending(xmit);
+
+		if (xmit->tail + count > UART_XMIT_SIZE ||
+				xmit->tail % 4 != 0) {
+			/* Need to copy to local TX buffer. */
+			int n;
+			buf = uxp->dma_tx_buf;
+
+			if (xmit->tail + count > UART_XMIT_SIZE) {
+				n = UART_XMIT_SIZE - xmit->tail;
+				memcpy(buf, &xmit->buf[xmit->tail], n);
+				memcpy(&buf[n], xmit->buf, count - n);
+			} else {
+				memcpy(buf, &xmit->buf[xmit->tail], count);
+			}
+
+			uxp->sg_txbuf->usif_dmabuf = buf;
+			uxp->sg_txbuf->dmabuf_owned = true;
+			xmit->tail = (xmit->tail + count) &
+					(UART_XMIT_SIZE - 1);
+		} else {
+			/* Use the ring buffer for TX.
+			 * The tail pointer will be advanced
+			 * in the TX complete callback to avoid
+			 * data corruption.
+			 */
+			uxp->sg_txbuf->usif_dmabuf = &xmit->buf[xmit->tail];
+			uxp->sg_txbuf->dmabuf_owned = false;
+		}
+		port->icount.tx += count;
+		uxp->sg_txbuf->uxp = uxp;
+		uxp->sg_txbuf->count = count;
+
+		spin_unlock_irqrestore(&port->lock, flags);
+
+		xgold_usif_dma_submit_tx(uxp->sg_txbuf);
+
+	}
+
+	return;
 }
 
 static void xgold_usif_start_tx(struct uart_port *port)
@@ -1499,9 +1920,25 @@ static void xgold_usif_start_tx(struct uart_port *port)
 	struct circ_buf *xmit = &port->state->xmit;
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
 	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
-	/* Initiate the transmission, only if the transmission is
-	 * not active already or stopped due to flow control
-	 */
+
+	if (uxp->use_dma) {
+		if (uxp->sg_txbuf->count != 0)
+			/* A transfer is already active. We cannot
+			 * queue another DMA transfer because we need
+			 * to write the TPS register which can corrupt the
+			 * ongoing transfer.
+			 * We simply return here since the TX tasklet will
+			 * be scheduled from the TX complete callback.
+			 */
+			return;
+
+		/* Submitting data to DMA happens in tasklet
+		 * to prevent scheduled while atomic bug.
+		*/
+		tasklet_schedule(&uxp->tx_tasklet);
+
+		return;
+	}
 
 #ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
 	if (usif_port_is_console(port)) {
@@ -1510,7 +1947,7 @@ static void xgold_usif_start_tx(struct uart_port *port)
 			int xmit_chars = 0;
 			int count = uart_circ_chars_pending(xmit);
 			struct xgold_usif_trace_buffer_list *tmp_list;
-			char *buf = kzalloc(count, GFP_KERNEL);
+			char *buf = kzalloc(count, GFP_NOWAIT);
 
 			if (buf == NULL)
 				return;
@@ -1524,7 +1961,7 @@ static void xgold_usif_start_tx(struct uart_port *port)
 
 			tmp_list = kzalloc(
 				sizeof(struct xgold_usif_trace_buffer_list),
-				GFP_KERNEL);
+					GFP_NOWAIT);
 
 			if (tmp_list == NULL) {
 				kfree(buf);
@@ -1533,7 +1970,8 @@ static void xgold_usif_start_tx(struct uart_port *port)
 
 			tmp_list->trace_buf = buf;
 			tmp_list->buf_len = count;
-			list_add(&tmp_list->list, &uxp->trace_buf_list->list);
+			list_add_tail(&tmp_list->list,
+					&uxp->trace_buf_list->list);
 
 			/* This error print will wake up the console */
 			dev_err(port->dev, "%s called while runtime_pm suspended\n",
@@ -1545,32 +1983,10 @@ static void xgold_usif_start_tx(struct uart_port *port)
 	}
 #endif
 
-	if (uxp->use_dma) {
-		int count = uart_circ_chars_pending(xmit);
-		struct usif_dma_sg *usif_sg;
-		u32 xmit_chars = 0;
 
-		if (count <= 0)
-			goto start_tx_done;
-
-		usif_sg =  kzalloc(sizeof(struct usif_dma_sg *), GFP_KERNEL);
-		if (usif_sg == NULL)
-			goto start_tx_done;
-
-		usif_sg->usif_txbuf = kzalloc(round_up(count, 4), GFP_KERNEL);
-		if (usif_sg->usif_txbuf == NULL)
-			goto start_tx_done;
-
-		for (xmit_chars = 0; xmit_chars < count; xmit_chars++) {
-			usif_sg->usif_txbuf[xmit_chars] = xmit->buf[xmit->tail];
-			xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
-			port->icount.tx++;
-		}
-
-		xgold_usif_submit_dma(uxp, round_up(count, 4), usif_sg);
-		return;
-	}
-
+	/* Initiate the transmission only if the transmission is
+	 * not active already or stopped due to flow control.
+	 */
 	if (platdata->datapath == USIF_SERIAL_DATAPATH_PIO
 			&& uxp->tx_tps_cnt == 0) {
 		uxp->tx_tps_cnt = uart_circ_chars_pending(xmit);
@@ -1770,12 +2186,6 @@ struct uart_ops usif_ops = {
 #define GO_TO_SLEEP		"Runtime PM Console Sleep\n"
 #define PM_RUNTIME_DEBUG	0
 
-/* Work queue for asynchronous PCL configuration and PM for
- * Runtime PM.
- */
-/*FIXME: move in xgold_port struct */
-static struct workqueue_struct *xgold_serial_usif_wq;
-
 static void xgold_usif_direct_write(struct uart_port *port, const char *s,
 					unsigned int count);
 
@@ -1947,14 +2357,26 @@ static int xgold_usif_serial_suspend(struct device *dev)
 	/* Ensure that we are awake */
 	xgold_usif_runtime_pm_resume(&uxp->port);
 
+	if (uxp->use_dma && uxp->dma_initialized) {
+		/* Release the DMA channel. */
+		dmaengine_terminate_all(uxp->dma_tx_channel);
+		dma_release_channel(uxp->dma_tx_channel);
+		uxp->dma_tx_channel = NULL;
+		dmaengine_terminate_all(uxp->dma_rx_channel);
+		dma_release_channel(uxp->dma_rx_channel);
+		uxp->dma_rx_channel = NULL;
+
+		uxp->dma_initialized = false;
+	}
+
+	/* Ensure that no TX is going on before we suspend.
+	 */
+	while (USIF_FIFO_STAT_TXFFS(ioread32(USIF_FIFO_STAT(port->membase))))
+		barrier();
+
 	/* uart_suspend_port will call the PM callback which
 	 * disables the USIF HW and powers it off. */
 	ret = uart_suspend_port(uxp->drv, port);
-
-	if (uxp->use_dma) {
-		dmaengine_terminate_all(uxp->dma_tx_channel);
-		dma_release_channel(uxp->dma_tx_channel);
-	}
 
 	/* Even if uart_suspend_port() already calls enable_irq_wake, we need
 	 * to enable the irq_wk anyway as this is not the same interrupt line.
@@ -2021,36 +2443,6 @@ static const struct dev_pm_ops serial_xgold_pm_ops = {
 #ifdef CONFIG_SERIAL_XGOLD_CONSOLE
 #include <linux/console.h>
 
-void xgold_usif_dma_init(struct uart_usif_xgold_port *uxp)
-{
-	struct uart_port *port = &uxp->port;
-	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
-	struct dma_slave_config usif_config_tx;
-	int ret = 0;
-	dma_cap_mask_t tx_mask;
-
-	dma_cap_zero(tx_mask);
-	dma_cap_set(DMA_SLAVE, tx_mask);
-	uxp->dma_tx_channel = dma_request_channel(tx_mask, pl08x_filter_id,
-					(void *) platdata->usif_tx_dma_name);
-
-	if (!uxp->dma_tx_channel)
-		pr_err("ERROR in getting USIF TX channel\n");
-
-	/* only tx as of now */
-	usif_config_tx.direction = DMA_TO_DEVICE;
-	usif_config_tx.dst_addr = (dma_addr_t) USIF_TXD(uxp->port.membase);
-
-	usif_config_tx.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	usif_config_tx.dst_maxburst = 1;
-
-	usif_config_tx.device_fc = false;
-	ret = dmaengine_slave_config(uxp->dma_tx_channel, &usif_config_tx);
-
-	if (IS_ERR(&ret))
-		pr_err("USIF: Console: error in dma slave configuration\n");
-}
-
 static inline void xgold_usif_putchar(struct uart_port *port, int s)
 {
 	while (USIF_FIFO_STAT_TXFFS(ioread32(USIF_FIFO_STAT(port->membase))))
@@ -2103,7 +2495,7 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 #ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
 	if (uxp->runtime_suspend_active == true) {
 		struct xgold_usif_trace_buffer_list *tmp_list;
-		char *buf = kzalloc(count, GFP_KERNEL);
+		char *buf = kzalloc(count, GFP_NOWAIT);
 
 		if (buf == NULL)
 			goto console_write_done;
@@ -2112,7 +2504,7 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 
 		tmp_list = (struct xgold_usif_trace_buffer_list *)
 			kzalloc(sizeof(struct xgold_usif_trace_buffer_list),
-					GFP_KERNEL);
+					GFP_NOWAIT);
 
 		if (tmp_list == NULL) {
 			kfree(buf);
@@ -2121,7 +2513,7 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 
 		tmp_list->trace_buf = buf;
 		tmp_list->buf_len = count;
-		list_add(&tmp_list->list, &uxp->trace_buf_list->list);
+		list_add_tail(&tmp_list->list, &uxp->trace_buf_list->list);
 
 		schedule_work(&uxp->usif_rpm_work);
 
@@ -2129,26 +2521,6 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 	} else
 		pm_runtime_get_noresume(port->dev);
 #endif
-
-	if (uxp->use_dma && !oops_in_progress) {
-		struct usif_dma_sg *usif_sg;
-
-		usif_sg =  kzalloc(sizeof(struct usif_dma_sg *), GFP_KERNEL);
-		if (usif_sg == NULL)
-			goto console_write_done_autosuspend;
-
-		usif_sg->usif_txbuf = kzalloc(round_up(count, 4), GFP_KERNEL);
-		if (usif_sg->usif_txbuf == NULL) {
-			kfree(usif_sg);
-			goto console_write_done_autosuspend;
-		}
-
-		memcpy(usif_sg->usif_txbuf, s, count);
-		s += count;
-
-		xgold_usif_submit_dma(uxp, round_up(count, 4), usif_sg);
-		goto console_write_done_autosuspend;
-	}
 
 	old_int_mask = ioread32(USIF_IMSC(port->membase));
 
@@ -2191,7 +2563,6 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 
 	iowrite32(old_int_mask, USIF_IMSC(port->membase));
 
-console_write_done_autosuspend:
 	xgold_usif_runtime_pm_autosuspend(port);
 
 #ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
@@ -2258,18 +2629,6 @@ static int __init xgold_usif_console_setup(struct console *co, char *options)
 
 	result = uart_set_options(port, co, baud, parity, bits, flow);
 
-	if (uxp->use_dma) {
-		/* FIXME: Is it called in PM callback ? */
-		xgold_usif_clk_enable(port);
-		usif_set_config_mode(port);
-
-		if (uxp->startup)
-			result = uxp->startup(port);
-
-		usif_set_running_mode(port);
-		xgold_usif_dma_init(uxp);
-	}
-
 	xgold_usif_runtime_pm_autosuspend(port);
 
 	return result;
@@ -2307,7 +2666,7 @@ static struct xgold_usif_platdata *xgold_usif_serial_get_platdata(
 	struct device_node *np = dev->of_node;
 	struct xgold_usif_platdata *platdata;
 	const char *str_datapath;
-	int i, j, nb_of_it, it_wk, ret = 0;
+	int i, j, nb_of_it, it_wk, len, ret = 0;
 
 	if (!np)
 		return ERR_PTR(-EINVAL);
@@ -2322,6 +2681,7 @@ static struct xgold_usif_platdata *xgold_usif_serial_get_platdata(
 		ret = -ENODEV;
 		goto free_platdata;
 	}
+
 	if (platdata->id > SERIAL_USIF_NR) {
 		dev_err(dev, "%d port is > max allowed ports\n", platdata->id);
 		ret = -ENODEV;
@@ -2348,13 +2708,13 @@ static struct xgold_usif_platdata *xgold_usif_serial_get_platdata(
 	if (IS_ERR(platdata->pins_inactive))
 		dev_err(dev, "could not get inactive pinstate\n");
 
-
 skip_pinctrl:
 	/* datapath */
 	platdata->datapath = USIF_SERIAL_DATAPATH_PIO;
 	ret =
 	    of_property_read_string(np, "intel,usif-serial,datapath",
 				    &str_datapath);
+
 	if (!ret) {
 		struct {
 			enum usif_serial_datapath path;
@@ -2373,6 +2733,7 @@ skip_pinctrl:
 				break;
 			}
 		}
+
 		if (!platdata->datapath)
 			dev_warn(dev, "%s is an invalid Property of \"%s\"",
 					str_datapath,
@@ -2397,6 +2758,31 @@ skip_pinctrl:
 				   &platdata->rx_mrps);
 	if (ret)
 		platdata->rx_mrps = -1;
+
+	if (of_find_property(np, "intel,ictmo-cfg", &len)) {
+		len /= 4;
+		dev_info(dev, "intel,ictmo-cfg %d params\n", len);
+
+		if (len % 2 != 0)
+			dev_warn(dev, "Wrong format for ictmo-cfg property\n");
+
+		/* Pairs (baud rate, ictmo), last element
+		 * is NULL pair.
+		 */
+		platdata->ictmo = kzalloc(sizeof(unsigned) * (len + 1),
+				GFP_KERNEL);
+		if (!platdata->ictmo) {
+			ret = -ENOMEM;
+			goto free_platdata;
+		}
+
+		ret = of_property_read_u32_array(np,  "intel,ictmo-cfg",
+				platdata->ictmo, len);
+		if (ret) {
+			dev_err(dev, "Error getting ictmo cfg params\n");
+			goto free_ictmo;
+		}
+	}
 
 	/* clocks */
 	platdata->clk_reg = of_clk_get_by_name(np, "register");
@@ -2456,6 +2842,8 @@ put_clk_register:
 		clk_put(platdata->clk_reg);
 	if (platdata->clk_kernel)
 		clk_put(platdata->clk_kernel);
+free_ictmo:
+	kfree(platdata->ictmo);
 free_platdata:
 	kfree(platdata);
 	return ERR_PTR(ret);
@@ -2534,6 +2922,7 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 	uxp->write_tps = xgold_usif_write_tps;
 	uxp->is_tx_ready = xgold_usif_is_tx_ready;
 	uxp->tx_tps_cnt = 0x0;
+	uxp->dma_initialized = false;
 
 	if (drv)
 		uxp->drv = drv;
@@ -2556,6 +2945,7 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 		dev_warn(dev, "Data path property set to DMA\n");
 		uxp->fifo_cfg = USIF_DMA_FIFO_SETUP;
 		uxp->startup = xgold_usif_startup_dma;
+		uxp->shutdown = xgold_usif_shutdown_dma;
 		uxp->use_dma = true;
 		break;
 	case USIF_SERIAL_DATAPATH_IDI:
@@ -2595,7 +2985,8 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 	uxp->port.line = platdata->id;
 	uxp->port.ops = &usif_ops;
 	uxp->runtime_suspend_active = false;
-	uxp->trace_buf_list = NULL;
+
+	uxp->use_rxbuf_b = false;
 
 	/*
 	 * Enable wakeup capability if possible
@@ -2626,22 +3017,15 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 		}
 
 #ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
-		/* Create and initialize the workqueue */
-		xgold_serial_usif_wq = create_singlethread_workqueue(uxp->name);
-		if (xgold_serial_usif_wq == NULL)
-			goto iounmap_ctrl;
-
+		/* Initialize the worker function on the global work queue */
 		INIT_WORK(&uxp->usif_rpm_work, xgold_serial_usif_rpm_work);
 
 		/* Initialize the list for queuing traces */
 		uxp->trace_buf_list = kzalloc(
 				sizeof(struct xgold_usif_trace_buffer_list),
 				GFP_KERNEL);
-		if (uxp->trace_buf_list == NULL) {
-			destroy_workqueue(xgold_serial_usif_wq);
+		if (uxp->trace_buf_list == NULL)
 			goto iounmap_ctrl;
-		}
-
 		INIT_LIST_HEAD(&uxp->trace_buf_list->list);
 
 		/* Enable Runtime PM and start the autosuspend timer */
@@ -2677,7 +3061,6 @@ void xgold_usif_remove_port(struct uart_usif_xgold_port *uxp)
 
 	if (xgold_usif_console.data == uxp->drv) {
 #ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
-		destroy_workqueue(xgold_serial_usif_wq);
 		pm_runtime_dont_use_autosuspend(dev);
 		pm_runtime_disable(dev);
 
@@ -2695,7 +3078,6 @@ void xgold_usif_remove_port(struct uart_usif_xgold_port *uxp)
 		dev_dbg(dev, "Remove uxp->port.line\n");
 		xgold_usif_ports[uxp->port.line] = NULL;
 	}
-
 
 	xgold_usif_set_pinctrl_state(dev, platdata->pins_inactive);
 

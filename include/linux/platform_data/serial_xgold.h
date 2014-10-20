@@ -14,6 +14,8 @@
 #ifndef _XGOLD_SERIAL_H
 #define _XGOLD_SERIAL_H
 
+#include <linux/dmaengine.h>
+
 /* USIF major device number */
 #define SERIAL_USIF_MAJOR       4
 
@@ -51,9 +53,9 @@ struct xgold_usif_platdata {
 	struct resource res_io;
 	unsigned ormc;
 	unsigned rmc;
+	unsigned *ictmo;
 	struct device_pm_platdata *pm_platdata;
 	unsigned long flags;
-	const char *usif_tx_dma_name;
 	unsigned long private[0] ____cacheline_aligned;
 };
 
@@ -61,6 +63,15 @@ struct xgold_usif_trace_buffer_list {
 	struct list_head list; /* kernel's list structure */
 	int buf_len;
 	char *trace_buf;
+};
+
+struct usif_dma_sg {
+	struct scatterlist *sg_iotx;
+	char *usif_dmabuf;
+	bool dmabuf_owned;
+	dma_cookie_t dma_cookie;
+	struct uart_usif_xgold_port *uxp;
+	int count;
 };
 
 struct uart_usif_xgold_port {
@@ -78,19 +89,27 @@ struct uart_usif_xgold_port {
 	struct timer_list modem_poll;
 
 	/* For DMA mode */
+	struct dma_chan *dma_rx_channel;
 	struct dma_chan *dma_tx_channel;
 	unsigned short use_dma;
+	bool dma_initialized;
+	struct usif_dma_sg *sg_rxbuf_a;
+	struct usif_dma_sg *sg_rxbuf_b;
+	bool use_rxbuf_b;
+	struct usif_dma_sg *sg_txbuf;
+	struct tasklet_struct tx_tasklet;
+	char *dma_tx_buf;
 
 	/* For runtime PM */
 	struct xgold_usif_trace_buffer_list *trace_buf_list;
 	bool runtime_suspend_active;
 	struct work_struct usif_rpm_work;
 
-	int (*startup) (struct uart_port *port);
-	void (*shutdown) (struct uart_port *port);
-	int (*read_rps) (struct uart_port *port);
-	int (*write_tps) (struct uart_port *port, unsigned cnt);
-	bool(*is_tx_ready) (struct uart_port *port);
+	int (*startup)(struct uart_port *port);
+	void (*shutdown)(struct uart_port *port);
+	int (*read_rps)(struct uart_port *port);
+	int (*write_tps)(struct uart_port *port, unsigned cnt);
+	bool (*is_tx_ready)(struct uart_port *port);
 	unsigned long private[0] ____cacheline_aligned;
 };
 
