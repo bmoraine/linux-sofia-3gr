@@ -12,7 +12,7 @@
  *  You should have received a copy of the GNU General Public License Version 2
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-  ---------------------------------------------------------------------------*/
+ ---------------------------------------------------------------------------*/
 
 /*
  * NOTES:
@@ -24,7 +24,7 @@
  * Use command: linux/scripts/checkpatch.pl -f <filename>
  * Clear ALL warnings and errors reported.
  *
-*/
+ */
 
 #ifdef __KERNEL__
 #include <linux/string.h>
@@ -219,7 +219,7 @@ static int sofia_vmm_map_vcpu_shmem(void)
 
 	vmm_shared_data[mv_vcpu_id()] = phys_to_virt((phys_addr_t)ptr);
 	pr_debug("ptr=0x%08X vmm_shared_data=0x%08X\n",
-	       (unsigned int)ptr, (unsigned int)mv_gal_get_shared_data());
+		(unsigned int)ptr, (unsigned int)mv_gal_get_shared_data());
 
 	return 0;
 }
@@ -237,6 +237,8 @@ int sofia_vmm_init_secondary(void)
 	mv_virq_unmask(CALL_FUNCTION_VECTOR);
 	mv_virq_request(CALL_FUNCTION_SINGLE_VECTOR, 1);
 	mv_virq_unmask(CALL_FUNCTION_SINGLE_VECTOR);
+	mv_virq_request(REBOOT_VECTOR, 1);
+	mv_virq_unmask(REBOOT_VECTOR);
 
 	return sofia_vmm_map_vcpu_shmem();
 }
@@ -252,15 +254,15 @@ static int __init sofia_vmm_init(void)
 	    ioremap_cache(mv_gal_get_shared_data()->pmem_paddr,
 			  mv_gal_get_shared_data()->pmem_size);
 	pr_debug(
-	       "pmem_paddr=0x%08X pmem_size=0x%08X pmem_vbase=0x%08X\n",
-	       mv_gal_get_shared_data()->pmem_paddr,
-	       mv_gal_get_shared_data()->pmem_size,
-	       (unsigned int)pmem_vbase);
+		"pmem_paddr=0x%08X pmem_size=0x%08X pmem_vbase=0x%08X\n",
+		mv_gal_get_shared_data()->pmem_paddr,
+		mv_gal_get_shared_data()->pmem_size,
+		(unsigned int)pmem_vbase);
 	if (!pmem_vbase)
 		panic("Unable to map PMEM\n");
 
 	pr_debug("Calling vmm_al_init. os_id=%d\n",
-	       mv_gal_get_shared_data()->os_id);
+		mv_gal_get_shared_data()->os_id);
 	mv_gal_init(mv_gal_get_shared_data());
 
 	return 0;
