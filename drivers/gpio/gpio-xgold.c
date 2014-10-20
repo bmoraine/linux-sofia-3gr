@@ -13,6 +13,7 @@
 #include <linux/gpio.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/irqdomain.h>
@@ -174,28 +175,6 @@ static struct of_device_id xgold_gpio_of_match[] = {
 	{.compatible = "intel,gpio",},
 	{},
 };
-static int xgold_gpio_xlate(struct gpio_chip *gc,
-			    const struct of_phandle_args *gpiospec, u32 *flags)
-{
-	unsigned int pin;
-
-	if (WARN_ON(gc->of_gpio_n_cells < 1))
-		return -EINVAL;
-
-	if (WARN_ON(gpiospec->args_count < gc->of_gpio_n_cells))
-		return -EINVAL;
-
-	if (gpiospec->args[0] > gc->ngpio)
-		return -EINVAL;
-
-	pin = gc->base + gpiospec->args[0];
-
-	/*FIXME: Configure pin if needed */
-	if (flags)
-		*flags = gpiospec->args[1];
-
-	return gpiospec->args[0];
-}
 
 #define GPIO_DT_DHIP		"intel,gpiochip"
 #define GPIO_DT_PIN_BASE	"intel,gpiochip-base"
@@ -306,8 +285,8 @@ static int xgold_gpio_probe(struct platform_device *pdev)
 		  pchip->base, pchip->ngpio, np->name);
 
 	pchip->of_node = np;
-	pchip->of_gpio_n_cells = 1;
-	pchip->of_xlate = xgold_gpio_xlate;
+	pchip->of_gpio_n_cells = 2;
+	pchip->of_xlate = of_gpio_simple_xlate;
 	gpiochip_add(pchip);
 	platform_set_drvdata(pdev, xgold_gpio);
 	pcl_write(pchip, 4, 0x100);
