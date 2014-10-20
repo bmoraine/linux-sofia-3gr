@@ -353,9 +353,9 @@ static void __init xgold_rtc_init(void)
 void sofia_init_irq(void)
 {
 	native_init_IRQ();
-/*
- * the cpu bitmap does not matter here as it's local interrupt
- */
+	/*
+	 * the cpu bitmap does not matter here as it's local interrupt
+	 */
 	mv_virq_request(LOCAL_TIMER_VECTOR, 1);
 	mv_virq_unmask(LOCAL_TIMER_VECTOR);
 #ifdef CONFIG_SMP
@@ -365,15 +365,17 @@ void sofia_init_irq(void)
 	mv_virq_unmask(CALL_FUNCTION_VECTOR);
 	mv_virq_request(CALL_FUNCTION_SINGLE_VECTOR, 1);
 	mv_virq_unmask(CALL_FUNCTION_SINGLE_VECTOR);
+	mv_virq_request(REBOOT_VECTOR, 1);
+	mv_virq_unmask(REBOOT_VECTOR);
 #endif
 }
 #endif
 #endif
 
 /*
-* XGOLD specific x86_init function overrides and early setup
-* calls.
-*/
+ * XGOLD specific x86_init function overrides and early setup
+ * calls.
+ */
 void __init x86_xgold_early_setup(void)
 {
 	x86_init.resources.probe_roms = x86_init_noop,
