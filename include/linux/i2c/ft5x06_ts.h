@@ -2,12 +2,18 @@
 #ifndef __LINUX_FT5X0X_TS_H__
 #define __LINUX_FT5X0X_TS_H__
 
-#define SCREEN_MAX_X    480
-#define SCREEN_MAX_Y    854
 #define PRESS_MAX       255
 
 /* #define FT5X0X_NAME   "ft5x06_ts" */
 #define FT5X0X_NAME	"imc-ts"
+
+enum key_index_t {
+	KEY_HOME_INDEX,
+	KEY_BACK_INDEX,
+	KEY_MENU_INDEX,
+	KEY_SEARCH_INDEX,
+	KEY_INDEX_MAX,
+};
 
 struct ft5x0x_ts_platform_data {
 	int irq_pin;
@@ -20,6 +26,14 @@ struct ft5x0x_ts_platform_data {
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
+	int x_pos_max;
+	int x_pos_min;
+	int y_pos_max;
+	int y_pos_min;
+	int screen_max_y;
+	int screen_max_x;
+	int key_y;
+	int key_x[KEY_INDEX_MAX];
 };
 
 enum ft5x0x_ts_regs {

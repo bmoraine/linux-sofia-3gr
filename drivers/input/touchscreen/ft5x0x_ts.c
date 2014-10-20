@@ -73,6 +73,13 @@ struct ft5x0x_ts_data {
 	int enable;
 };
 
+static int const android_key[KEY_INDEX_MAX] = {
+	KEY_HOMEPAGE,
+	KEY_BACK,
+	KEY_MENU,
+	KEY_SEARCH,
+};
+
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 struct device_state_pm_state ft5x0x_pm_states[] = {
 	{.name = "disable", }, /* D3 */
@@ -215,6 +222,45 @@ static struct ft5x0x_ts_platform_data *ft5x0x_ts_of_get_platdata(
 		ret = PTR_ERR(ft5x06_pdata->pm_platdata);
 		goto out;
 	}
+
+	of_property_read_u32(np, "intel,x_pos_max",
+			&ft5x06_pdata->x_pos_max);
+	of_property_read_u32(np, "intel,x_pos_min",
+			&ft5x06_pdata->x_pos_min);
+	of_property_read_u32(np, "intel,y_pos_max",
+			&ft5x06_pdata->y_pos_max);
+	of_property_read_u32(np, "intel,y_pos_min",
+			&ft5x06_pdata->y_pos_min);
+	of_property_read_u32(np, "intel,screen_max_x",
+			&ft5x06_pdata->screen_max_x);
+	of_property_read_u32(np, "intel,screen_max_y",
+			&ft5x06_pdata->screen_max_y);
+	of_property_read_u32(np, "intel,key_y",
+			&ft5x06_pdata->key_y);
+
+	ret = of_property_read_u32(np, "intel,key_home",
+			&ft5x06_pdata->key_x[KEY_HOME_INDEX]);
+	if (!ret)
+		dev_info(&client->dev, "home key x:%d\n",
+				ft5x06_pdata->key_x[KEY_HOME_INDEX]);
+
+	ret = of_property_read_u32(np, "intel,key_back",
+			&ft5x06_pdata->key_x[KEY_BACK_INDEX]);
+	if (!ret)
+		dev_info(&client->dev, "back key x:%d\n",
+				ft5x06_pdata->key_x[KEY_BACK_INDEX]);
+
+	ret = of_property_read_u32(np, "intel,key_menu",
+			&ft5x06_pdata->key_x[KEY_MENU_INDEX]);
+	if (!ret)
+		dev_info(&client->dev, "menu key x:%d\n",
+				ft5x06_pdata->key_x[KEY_MENU_INDEX]);
+
+	ret = of_property_read_u32(np, "intel,key_search",
+			&ft5x06_pdata->key_x[KEY_SEARCH_INDEX]);
+	if (!ret)
+		dev_info(&client->dev, "search key x:%d\n",
+				ft5x06_pdata->key_x[KEY_SEARCH_INDEX]);
 
 	return ft5x06_pdata;
 
@@ -439,13 +485,19 @@ static void ft5x0x_ts_release(struct i2c_client *client)
 static void ft5x0x_ts_inactivate(struct i2c_client *client)
 {
 	struct ft5x0x_ts_data *data = i2c_get_clientdata(client);
+	struct ft5x0x_ts_platform_data *ft5x0x_pdata =
+			client->dev.platform_data;
 	unsigned long flags = 0;
+	int i;
 
 	dev_dbg(&client->dev, "%s\n", __func__);
 	spin_lock_irqsave(&data->btn_lock, flags);
 	if (data->btn_active) {
-		input_event(data->input_dev, EV_KEY, KEY_BACK, 0);
-		input_event(data->input_dev, EV_KEY, KEY_MENU, 0);
+		for (i = 0; i < KEY_INDEX_MAX; i++) {
+			if (ft5x0x_pdata->key_x[i])
+				input_event(data->input_dev, EV_KEY,
+						android_key[i], 0);
+		}
 		input_report_key(data->input_dev, BTN_TOUCH, 0);
 		data->btn_active = 0;
 	}
@@ -454,37 +506,53 @@ static void ft5x0x_ts_inactivate(struct i2c_client *client)
 	input_sync(data->input_dev);
 }
 
-#define X_POS_MIN	15
-#define X_POS_MAX	470
-#define Y_POS_MIN	15
-#define Y_POS_MAX	854
-
-static u16 ft5x0x_convert_y(u16 value)
+static u16 ft5x0x_convert_y(struct i2c_client *client, u16 value)
 {
-	return (value - Y_POS_MIN) * SCREEN_MAX_Y / (Y_POS_MAX - Y_POS_MIN);
+	struct ft5x0x_ts_platform_data *ft5x0x_pdata =
+			client->dev.platform_data;
+
+	return (value - ft5x0x_pdata->y_pos_min) * ft5x0x_pdata->screen_max_y /
+		(ft5x0x_pdata->y_pos_max - ft5x0x_pdata->y_pos_min);
 }
 
-static u16 ft5x0x_convert_x(u16 value)
+static u16 ft5x0x_convert_x(struct i2c_client *client, u16 value)
 {
-	return (value - X_POS_MIN) * SCREEN_MAX_X / (X_POS_MAX - X_POS_MIN);
+	struct ft5x0x_ts_platform_data *ft5x0x_pdata =
+			client->dev.platform_data;
+
+	return (value - ft5x0x_pdata->x_pos_min) * ft5x0x_pdata->screen_max_x /
+		(ft5x0x_pdata->x_pos_max - ft5x0x_pdata->x_pos_min);
 }
 
-static bool ft5x0x_check_position(u16 x_val, u16 y_val)
+static bool ft5x0x_check_position(struct i2c_client *client, u16 x_val, u16 y_val)
 {
-	if (x_val < X_POS_MIN || x_val > X_POS_MAX)
+	struct ft5x0x_ts_platform_data *ft5x0x_pdata =
+			client->dev.platform_data;
+
+	if (x_val < ft5x0x_pdata->x_pos_min || x_val > ft5x0x_pdata->x_pos_max)
 		return false;
-	if (y_val < Y_POS_MIN || y_val > Y_POS_MAX)
+	if (y_val < ft5x0x_pdata->y_pos_min || y_val > ft5x0x_pdata->y_pos_max)
 		return false;
 
 	return true;
 }
 
-static bool ft5x0x_is_button(u16 x, u16 y)
+static int ft5x0x_is_button(struct i2c_client *client, u16 x, u16 y)
 {
-	if (y == 900 && (x == 60 || x == 80 || x == 400 || x == 420))
-		return true;
+	int i, key_x;
+	struct ft5x0x_ts_platform_data *ft5x0x_pdata =
+			client->dev.platform_data;
 
-	return false;
+	if (y != ft5x0x_pdata->key_y)
+		return 0;
+
+	for (i = 0; i < KEY_INDEX_MAX; i++) {
+		key_x = ft5x0x_pdata->key_x[i];
+		if ((key_x != 0) && (x == key_x))
+			return android_key[i];
+	}
+
+	return 0;
 }
 
 static int ft5x0x_read_data(struct i2c_client *client)
@@ -583,20 +651,21 @@ static void ft5x0x_report_value(struct i2c_client *client)
 	unsigned long flags;
 	int nbreport = 0;
 #endif
+	int key_value = 0;
 
 	dev_dbg(&client->dev, "%s\n", __func__);
 #ifdef CONFIG_FT5X0X_MULTITOUCH
 	switch (event->touch_point) {
 	case 5:
-		if (ft5x0x_check_position(event->x5, event->y5)) {
+		if (ft5x0x_check_position(client, event->x5, event->y5)) {
 			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
 					 event->touch_ID5);
 			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
 					 event->pressure);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X,
-					 ft5x0x_convert_x(event->x5));
+					 ft5x0x_convert_x(client, event->x5));
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
-					 ft5x0x_convert_y(event->y5));
+					 ft5x0x_convert_y(client, event->y5));
 			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR,
 					 1);
 			input_mt_sync(data->input_dev);
@@ -605,15 +674,15 @@ static void ft5x0x_report_value(struct i2c_client *client)
 			nbreport++;
 		}
 	case 4:
-		if (ft5x0x_check_position(event->x4, event->y4)) {
+		if (ft5x0x_check_position(client, event->x4, event->y4)) {
 			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
 					 event->touch_ID4);
 			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
 					 event->pressure);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X,
-					 ft5x0x_convert_x(event->x4));
+					 ft5x0x_convert_x(client, event->x4));
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
-					 ft5x0x_convert_y(event->y4));
+					 ft5x0x_convert_y(client, event->y4));
 			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR,
 					 1);
 			input_mt_sync(data->input_dev);
@@ -622,15 +691,15 @@ static void ft5x0x_report_value(struct i2c_client *client)
 			nbreport++;
 		}
 	case 3:
-		if (ft5x0x_check_position(event->x3, event->y3)) {
+		if (ft5x0x_check_position(client, event->x3, event->y3)) {
 			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
 					 event->touch_ID3);
 			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
 					 event->pressure);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X,
-					 ft5x0x_convert_x(event->x3));
+					 ft5x0x_convert_x(client, event->x3));
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
-					 ft5x0x_convert_y(event->y3));
+					 ft5x0x_convert_y(client, event->y3));
 			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR,
 					 1);
 			input_mt_sync(data->input_dev);
@@ -639,15 +708,15 @@ static void ft5x0x_report_value(struct i2c_client *client)
 			nbreport++;
 		}
 	case 2:
-		if (ft5x0x_check_position(event->x2, event->y2)) {
+		if (ft5x0x_check_position(client, event->x2, event->y2)) {
 			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
 					 event->touch_ID2);
 			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
 					 event->pressure);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X,
-					 ft5x0x_convert_x(event->x2));
+					 ft5x0x_convert_x(client, event->x2));
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
-					 ft5x0x_convert_y(event->y2));
+					 ft5x0x_convert_y(client, event->y2));
 			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR,
 					 1);
 			input_mt_sync(data->input_dev);
@@ -656,33 +725,26 @@ static void ft5x0x_report_value(struct i2c_client *client)
 			nbreport++;
 		}
 	case 1:
-		if (ft5x0x_is_button(event->x1, event->y1)) {
+		key_value = ft5x0x_is_button(client, event->x1, event->y1);
+		if (key_value) {
 			spin_lock_irqsave(&data->btn_lock, flags);
-			if (event->x1 == 60 || event->x1 == 80) {
-				input_event(data->input_dev, EV_KEY, KEY_BACK,
-					    1);
-				input_report_key(data->input_dev, BTN_TOUCH, 1);
-				data->btn_active++;
-				nbreport++;
-			} else if (event->x1 == 400 || event->x1 == 420) {
-				input_event(data->input_dev, EV_KEY, KEY_MENU,
-					    1);
-				input_report_key(data->input_dev, BTN_TOUCH, 1);
-				data->btn_active++;
-				nbreport++;
-			}
+			input_event(data->input_dev, EV_KEY, key_value,
+					1);
+			input_report_key(data->input_dev, BTN_TOUCH, 1);
+			data->btn_active++;
+			nbreport++;
 			spin_unlock_irqrestore(&data->btn_lock, flags);
 			dev_dbg(&client->dev, "*** x1 = %d, y1 = %d ***\n",
 					event->x1, event->y1);
-		} else if (ft5x0x_check_position(event->x1, event->y1)) {
+		} else if (ft5x0x_check_position(client, event->x1, event->y1)) {
 			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
 					 event->touch_ID1);
 			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
 					 event->pressure);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X,
-					 ft5x0x_convert_x(event->x1));
+					 ft5x0x_convert_x(client, event->x1));
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
-					 ft5x0x_convert_y(event->y1));
+					 ft5x0x_convert_y(client, event->y1));
 			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR,
 					 1);
 			input_mt_sync(data->input_dev);
@@ -825,6 +887,7 @@ static int ft5x0x_ts_probe(struct i2c_client *client,
 	struct input_dev *input_dev;
 	struct ft5x0x_ts_platform_data *ft5x06_pdata;
 	int err = 0;
+	int i = 0;
 
 	dev_dbg(&client->dev, "EDT FT5X06 touchscreen driver probing\n");
 
@@ -936,25 +999,29 @@ static int ft5x0x_ts_probe(struct i2c_client *client,
 	set_bit(ABS_MT_POSITION_Y, input_dev->absbit);
 	set_bit(ABS_MT_WIDTH_MAJOR, input_dev->absbit);
 
-	input_set_abs_params(input_dev,
-			     ABS_MT_POSITION_X, 0, SCREEN_MAX_X, 0, 0);
-	input_set_abs_params(input_dev,
-			     ABS_MT_POSITION_Y, 0, SCREEN_MAX_Y, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0,
+			ft5x06_pdata->screen_max_x, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0,
+			ft5x06_pdata->screen_max_y, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, PRESS_MAX, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_WIDTH_MAJOR, 0, 200, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TRACKING_ID, 0, 5, 0, 0);
-
-	set_bit(KEY_BACK, input_dev->keybit);
-	set_bit(KEY_MENU, input_dev->keybit);
 #else
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(EV_KEY, input_dev->evbit);
 	__set_bit(EV_SYN, input_dev->evbit);
 	__set_bit(BTN_TOUCH, input_dev->keybit);
-	input_set_abs_params(input_dev, ABS_X, 0, SCREEN_MAX_X, 0, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, SCREEN_MAX_Y, 0, 0);
+	input_set_abs_params(input_dev, ABS_X, 0,
+				ft5x06_pdata->screen_max_x, 0, 0);
+	input_set_abs_params(input_dev, ABS_Y, 0,
+				ft5x06_pdata->screen_max_y, 0, 0);
 	input_set_abs_params(input_dev, ABS_PRESSURE, 0, PRESS_MAX, 0, 0);
 #endif
+
+	for (i = 0; i < KEY_INDEX_MAX; i++) {
+		if (ft5x06_pdata->key_x[i])
+			set_bit(android_key[i], input_dev->keybit);
+	}
 
 	set_bit(EV_ABS, input_dev->evbit);
 	set_bit(EV_KEY, input_dev->evbit);
@@ -962,7 +1029,8 @@ static int ft5x0x_ts_probe(struct i2c_client *client,
 
 	input_dev->name = FT5X0X_NAME;
 	dev_dbg(&client->dev, "%s: TS_MAX_X_COORD %d TS_MAX_Y_COORD %d\n",
-		input_dev->name, SCREEN_MAX_X, SCREEN_MAX_Y);
+		input_dev->name, ft5x06_pdata->screen_max_x,
+		ft5x06_pdata->screen_max_y);
 	err = input_register_device(input_dev);
 	if (err) {
 		dev_err(&client->dev,
