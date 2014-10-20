@@ -600,7 +600,7 @@
 						intel,supply = "vmipi", "pll_mipi","vdd_dsi_phy","vdd_dif","vdd_dcc_pon";
 
 						intel,dcc-clkrate = <416000000>;
-						intel,dcc-gpio-reset = <&xgold_pmx_gpio 15 >;
+						intel,dcc-gpio-reset = <&xgold_pmx_gpio 15 0 >;
 						resets = < &dbb_rst0 1 >;
 						reset-names = "dcc";
 					};
@@ -749,7 +749,7 @@
 
 					xgold_pmx_gpio:gpio {
 						compatible = "intel,gpio";
-						#gpio-cells = <1>;
+						#gpio-cells = <2>;
 						reg = <0xE4800000 0x100000>;
 						gpio-controller;
 						gpio-ranges = <&xgold_pmx_core 0 0 145>;

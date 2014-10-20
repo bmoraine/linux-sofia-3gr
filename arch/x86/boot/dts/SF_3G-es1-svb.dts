@@ -171,7 +171,7 @@
 		pinctrl-1 = <&cam1_sleep_pins>;
 		pinctrl-2 = <&cam1_inactive_pins>;
 
-		intel,pd-gpio = <&xgold_pmx_gpio 39>;
+		intel,pd-gpio = <&xgold_pmx_gpio 39 0>;
 		intel,pd-gpio-is_active_low;
 
 		pm,class-name = "generic_class";
@@ -217,7 +217,7 @@
 		pinctrl-1 = <&cam2_sleep_pins>;
 		pinctrl-2 = <&cam2_inactive_pins>;
 
-		intel,pd-gpio = <&xgold_pmx_gpio 40>;
+		intel,pd-gpio = <&xgold_pmx_gpio 40 0>;
 
 		pm,class-name = "generic_class";
 		pm,user-name = "seccam";
@@ -251,7 +251,7 @@
 		pinctrl-0 = <&touch_default_pins>;
 		pinctrl-1 = <&touch_sleep_pins>;
 		pinctrl-2 = <&touch_inactive_pins>;
-		intel,ts-gpio-reset = <&xgold_pmx_gpio 32>;
+		intel,ts-gpio-reset = <&xgold_pmx_gpio 32 0>;
 		pm,class-name = "ft5x0x_class";
 		pm,user-name = "tp";
 		pm,state-D0 = "enable";

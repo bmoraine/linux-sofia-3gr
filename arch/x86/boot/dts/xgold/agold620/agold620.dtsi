@@ -52,7 +52,7 @@ agold {
 
 	abb_pmx_gpio:gpio@E6300000 {
 		compatible = "intel,gpio";
-		#gpio-cells = <1>;
+		#gpio-cells = <2>;
 		reg = <0xE6300000 0x600>;
 		gpio-controller;
 		gpio-ranges = <&abb_pmx_core 0 0 45>;

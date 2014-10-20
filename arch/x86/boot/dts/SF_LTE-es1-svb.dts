@@ -42,7 +42,7 @@
 		pinctrl-0 = <&bt_fmr_default_pins>;
 		pinctrl-1 = <&bt_fmr_sleep_pins>;
 		pinctrl-2 = <&bt_fmr_inactive_pins>;
-		intel,bt-fmr-gpio-reset = <&xgold_pmx_gpio 77 >;
+		intel,bt-fmr-gpio-reset = <&xgold_pmx_gpio 77 0 >;
 	};
 
 	headset:headset {
@@ -214,12 +214,12 @@
 		pinctrl-1 = <&cam1_function_B_sleep_pins>;
 		pinctrl-2 = <&cam1_function_B_inactive_pins>;
 
-		intel,pd-gpio = <&xgold_pmx_gpio 108>;
-		/*intel,pd-gpio_1v2 = <&xgold_pmx_gpio 68>;*/
+		intel,pd-gpio = <&xgold_pmx_gpio 108 0>;
+		/*intel,pd-gpio_1v2 = <&xgold_pmx_gpio 68 0>;*/
 		intel,pd-gpio_1v2;
 		intel,pd-gpio-is_active_low;
-	/*	intel,flash-gpio = <&xgold_pmx_gpio 37>;
-		intel,torch-gpio = <&xgold_pmx_gpio 38>;*/
+	/*	intel,flash-gpio = <&xgold_pmx_gpio 37 0>;
+		intel,torch-gpio = <&xgold_pmx_gpio 38 0>;*/
 
 		pm,class-name = "generic_class";
 		pm,user-name = "ext_prim_cam";
@@ -262,7 +262,7 @@
 		pinctrl-1 = <&cam2_function_B_sleep_pins>;
 		pinctrl-2 = <&cam2_function_B_inactive_pins>;
 
-		intel,pd-gpio = <&xgold_pmx_gpio 111>;
+		intel,pd-gpio = <&xgold_pmx_gpio 111 0>;
 
 		pm,class-name = "generic_class";
 		pm,user-name = "ext_sec_cam";
@@ -301,8 +301,8 @@
 		pinctrl-1 = <&touch_sleep_pins>;
 		pinctrl-2 = <&touch_inactive_pins>;
 		pinctrl-3 = <&touch_gpio_pins>;
-		intel,ts-gpio-reset = <&xgold_pmx_gpio 110>;
-		intel,ts-gpio-irq = <&xgold_pmx_gpio 88>;
+		intel,ts-gpio-reset = <&xgold_pmx_gpio 110 0>;
+		intel,ts-gpio-irq = <&xgold_pmx_gpio 88 0>;
 		pm,class-name = "gt9xx_class";
 		pm,user-name = "ext_tp";
 		pm,state-D0 = "enable";

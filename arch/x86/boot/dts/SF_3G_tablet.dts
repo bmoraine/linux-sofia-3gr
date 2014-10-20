@@ -114,7 +114,7 @@
 	pinctrl-1 = <&dif_sleep_pins>;
 	pinctrl-2 = <&dif_inactive_pins>;
 
-	intel,dcc-gpio-reset = <&xgold_pmx_gpio 72>;
+	intel,dcc-gpio-reset = <&xgold_pmx_gpio 72 0>;
 };
 
 &usif1 {
@@ -146,7 +146,7 @@
 		pinctrl-1 = <&cam1_sleep_pins>;
 		pinctrl-2 = <&cam1_inactive_pins>;
 
-		intel,pd-gpio = <&xgold_pmx_gpio 39>;
+		intel,pd-gpio = <&xgold_pmx_gpio 39 0>;
 		intel,pd-is_active_low;
 
 		pm,class-name = "generic_class";
@@ -164,7 +164,7 @@
 		pinctrl-1 = <&cam2_sleep_pins>;
 		pinctrl-2 = <&cam2_inactive_pins>;
 
-		intel,pd-gpio = <&xgold_pmx_gpio 40>;
+		intel,pd-gpio = <&xgold_pmx_gpio 40 0>;
 
 		pm,class-name = "generic_class";
 		pm,user-name = "seccam";
@@ -219,8 +219,8 @@
 		pinctrl-0 = <&touch_default_pins>;
 		pinctrl-1 = <&touch_sleep_pins>;
 		pinctrl-2 = <&touch_inactive_pins>;
-		intel,ts-gpio-reset = <&xgold_pmx_gpio 7>;
-		intel,ts-gpio-irq   = <&xgold_pmx_gpio 9>;
+		intel,ts-gpio-reset = <&xgold_pmx_gpio 7 0>;
+		intel,ts-gpio-irq   = <&xgold_pmx_gpio 9 0>;
 		i2c-supply = <&laux1>;
 		i2ca-supply = <&laux2>;
 		pm,class-name = "gt9xx_class";
@@ -237,7 +237,7 @@
 		orientation-x= <0>;
 		orientation-y= <0>;
 		orientation-z= <1>;
-		irq-gpio = <&xgold_pmx_gpio 67>;
+		irq-gpio = <&xgold_pmx_gpio 67 0>;
 		mpu-debug = <0>;
 		pm,class-name = "mpu6050_class";
 		pm,user-name = "gyroscope";
