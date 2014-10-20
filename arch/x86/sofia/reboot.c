@@ -107,31 +107,49 @@ static struct notifier_block reboot_notifier = {
 
 void vmm_machine_crash_shutdown(struct pt_regs *regs)
 {
+#ifdef CONFIG_SMP
+	stop_other_cpus();
+#endif
 	mv_stop_vcpu(mv_vcpu_id());
 }
 
 static void vmm_machine_emergency_restart(void)
 {
+#ifdef CONFIG_SMP
+	stop_other_cpus();
+#endif
 	mv_stop_vcpu(mv_vcpu_id());
 }
 
 void vmm_machine_shutdown(void)
 {
+#ifdef CONFIG_SMP
+	stop_other_cpus();
+#endif
 	mv_stop_vcpu(mv_vcpu_id());
 }
 
 static void vmm_machine_restart(char *__unused)
 {
+#ifdef CONFIG_SMP
+	stop_other_cpus();
+#endif
 	mv_stop_vcpu(mv_vcpu_id());
 }
 
 static void vmm_machine_halt(void)
 {
+#ifdef CONFIG_SMP
+	stop_other_cpus();
+#endif
 	mv_stop_vcpu(mv_vcpu_id());
 }
 
 static void vmm_machine_power_off(void)
 {
+#ifdef CONFIG_SMP
+	stop_other_cpus();
+#endif
 	mv_stop_vcpu(mv_vcpu_id());
 }
 
