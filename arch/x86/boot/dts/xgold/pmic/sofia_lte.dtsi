@@ -48,6 +48,144 @@ pmic {
 		interrupt-names = "PMIC_ACCESS_HIRQ";
 	};
 
+	vmm_pmic-ext {
+
+	#include "vmm_pmic-ext_regs.h"
+
+	vmm_pmic-ext,disallowed_regs = <
+
+			/*DEV1 Registers */
+			PBIRQ_REG
+			THRMIRQ0_REG
+			THRMIRQ1_REG
+			THRMIRQ2_REG
+			BCUIRQ_REG
+			ADCIRQ_REG
+			CHGRIRQ0_REG
+			CHGRIRQ1_REG
+			GPIOIRQ0_REG
+			GPIOIRQ1_REG
+			CRITIRQ_REG
+
+			RESETSRC0_REG
+			RESETSRC1_REG
+
+			WAKESRC_REG
+
+			MODEMCTRL_REG
+			SOCCTRL_REG
+
+			GPIO0CTLO_REG
+			GPIO1CTLO_REG
+			GPIO2CTLO_REG
+			GPIO3CTLO_REG
+			GPIO4CTLO_REG
+			GPIO5CTLO_REG
+			GPIO6CTLO_REG
+			GPIO7CTLO_REG
+			GPIO8CTLO_REG
+
+			S_BCUCTRL_REG
+
+			/*DEV2 Registers */
+			VRTCCTRL_REG
+			TMUIRQ_REG
+
+			/*DEV3 Registers */
+			USBIDDETTYPE_REG
+			USBPHYCTRL_REG
+
+			CHGRCTRL0_REG
+			CHGRSTATUS_REG
+
+			VBUSDETCTRL_REG
+			VDCINDETCTRL_REG
+
+			CHRTTADDR_REG
+
+			CHGDISCTRL_REG
+
+			TLP1CTRL_REG
+			TLP1EVSTATUS0_REG
+			TLP1EVSTATUS1_REG
+			TLP1EVSTATUS2_REG
+			TLP1EVSTATUS3_REG
+
+			TLP1INSTMEMADDRH_REG
+			TLP1INSTMEMADDRL_REG
+
+			TLP2CTRL_REG
+			TLP2EVSTATUS_REG
+
+			TLP2INSTMEMADDR_REG
+
+			/*DEV4 Registers */
+			VENDCTL0_REG
+			VENDCTL1_REG
+			VENDCTL2_REG
+
+			NVM_MB_ADDRH_REG
+			NVM_MB_ADDRL_REG
+
+			CODSRC_REG
+			ISOCTRL_REG
+
+			NVMVIRQ_REG
+			ADCTLP2VIRQ_REG
+
+			I2CSIFVIRQ_REG
+			REGBUSVIRQ_REG
+			CHGRVIRQ_REG
+			TLP1VIRQ_REG
+			DCDCVIRQ0_REG
+
+			VROCIRQ0_REG
+
+			VROCIRQ2_REG
+
+			GPADC_TEST0_REG
+
+			GPADC_PKTST_REG
+
+			COMPTEST1_REG
+
+			PMICSPARE05_REG
+			PMICSPARE06_REG
+			PMICSPARE07_REG
+			PMICSPARE08_REG
+			PMICSPARE09_REG
+			PMICSPARE10_REG
+			PMICSPARE11_REG
+			PMICSPARE12_REG
+			I2C_HS_TIMING_REG
+
+			AFE_SPARE1_REG
+			AFE_SPARE2_REG
+			AFE_SPARE3_REG
+
+			/*DEV5 Registers */
+
+			AFE_AUDOUTCTRL1A_REG
+			AFE_AUDOUTCTRL1B_REG
+			AFE_AUDOUTCTRL1C_REG
+			AFE_AUDOUTCTRL1D_REG
+
+			AFE_AUDOUTCTRL3A_REG
+			AFE_AUDOUTCTRL3B_REG
+			AFE_AUDOUTCTRL3C_REG
+			AFE_AUDOUTCTRL3D_REG
+
+			AFE_AUDIOINCTRL3_REG
+
+			AFE_GAIN_IN3_REG
+			AFE_GAIN_IN4_REG
+
+			AFE_DIGMICCTRL_REG
+
+			I2S_CTRL_LOW_REG >;
+	};
+
+
 	dev@1 {
 		compatible = "intel,pmicper";
 		/* VREG */
@@ -80,7 +218,41 @@ pmic {
 
 	dev@2 {
 		compatible = "intel,pmicper";
+
 		/* ADC */
+		adc:adc {
+			compatible = "intel,adc";
+		};
+
+		meas_pmic:meas_pmic {
+			compatible = "intel,meas_pmic";
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+			#address-cells = < 0 >;
+			interrupts = < 0 >;
+			interrupt-parent = <&meas_pmic>;
+			#interrupt-cells = < 1 >;
+			#size-cells = <1>;
+			interrupt-map = < 0 &hirq HIRQ_PMIC_ADC IRQ_TYPE_DEFAULT >;
+			interrupt-names = "PMIC_ADC_HIRQ";
+		};
+
+		adc_sensors:adc_sensors {
+			compatible = "intel,adc_sensors";
+			intel,platform_name = "pmic";
+			io-channel-names = "VBAT_ADC",     "VBAT_MIN_ADC",
+						"VBAT_OCV_ADC", "BATTEMP0_ADC",
+						"BATID_ADC",    "PMICTEMP_ADC",
+						"ANAMON_ADC",   "SYSTEMP0_ADC",
+						"SYSTEMP1_ADC", "SYSTEMP2_ADC",
+						"USBID_ADC";
+			io-channels = < &meas_pmic 0 &meas_pmic 1
+					&meas_pmic 2 &meas_pmic 3
+					&meas_pmic 4 &meas_pmic 5
+					&meas_pmic 6 &meas_pmic 7
+					&meas_pmic 8 &meas_pmic 9
+					&meas_pmic 10>;
+		};
 		/* Therm */
 	};
 
@@ -119,174 +291,5 @@ pmic {
 		};
 		/* Accessory Detection */
 		/* Vibrator */
-	};
-
-	adc:adc {
-		compatible = "intel,adc";
-	};
-
-	meas_pmic:meas_pmic {
-		compatible = "intel,meas_pmic";
-		#io-channel-cells = <1>;
-		io-channel-ranges;
-		#address-cells = < 0 >;
-		interrupts = < 0 >;
-		interrupt-parent = <&meas_pmic>;
-		#interrupt-cells = < 1 >;
-		#size-cells = <1>;
-		interrupt-map = < 0 &hirq HIRQ_PMIC_ADC IRQ_TYPE_DEFAULT >;
-		interrupt-names = "PMIC_ADC_HIRQ";
-	};
-
-	adc_sensors:adc_sensors {
-		compatible = "intel,adc_sensors";
-		intel,platform_name = "pmic";
-		io-channel-names = "VBAT_ADC",     "VBAT_MIN_ADC",
-						"VBAT_OCV_ADC", "BATTEMP0_ADC",
-						"BATID_ADC",    "PMICTEMP_ADC",
-						"ANAMON_ADC",   "SYSTEMP0_ADC",
-						"SYSTEMP1_ADC", "SYSTEMP2_ADC";
-		io-channels = < &meas_pmic 0 &meas_pmic 1
-					&meas_pmic 2 &meas_pmic 3
-					&meas_pmic 4 &meas_pmic 5
-					&meas_pmic 6 &meas_pmic 7
-					&meas_pmic 8 &meas_pmic 9>;
-	};
-
-	vmm_pmic-ext {
-
-		#include "vmm_pmic-ext_regs.h"
-
-		vmm_pmic-ext,disallowed_regs = <
-
-				/*DEV1 Registers */
-				PBIRQ_REG
-				THRMIRQ0_REG
-				THRMIRQ1_REG
-				THRMIRQ2_REG
-				BCUIRQ_REG
-				ADCIRQ_REG
-				CHGRIRQ0_REG
-				CHGRIRQ1_REG
-				GPIOIRQ0_REG
-				GPIOIRQ1_REG
-				CRITIRQ_REG
-
-				RESETSRC0_REG
-				RESETSRC1_REG
-
-				WAKESRC_REG
-
-				MODEMCTRL_REG
-				SOCCTRL_REG
-
-				GPIO0CTLO_REG
-				GPIO1CTLO_REG
-				GPIO2CTLO_REG
-				GPIO3CTLO_REG
-				GPIO4CTLO_REG
-				GPIO5CTLO_REG
-				GPIO6CTLO_REG
-				GPIO7CTLO_REG
-				GPIO8CTLO_REG
-
-				S_BCUCTRL_REG
-
-				/*DEV2 Registers */
-				VRTCCTRL_REG
-				TMUIRQ_REG
-
-				/*DEV3 Registers */
-				USBIDDETTYPE_REG
-				USBPHYCTRL_REG
-
-				CHGRCTRL0_REG
-				CHGRSTATUS_REG
-
-				VBUSDETCTRL_REG
-				VDCINDETCTRL_REG
-
-				CHRTTADDR_REG
-
-				CHGDISCTRL_REG
-
-				TLP1CTRL_REG
-				TLP1EVSTATUS0_REG
-				TLP1EVSTATUS1_REG
-				TLP1EVSTATUS2_REG
-				TLP1EVSTATUS3_REG
-
-				TLP1INSTMEMADDRH_REG
-				TLP1INSTMEMADDRL_REG
-
-				TLP2CTRL_REG
-				TLP2EVSTATUS_REG
-
-				TLP2INSTMEMADDR_REG
-
-				/*DEV4 Registers */
-				VENDCTL0_REG
-				VENDCTL1_REG
-				VENDCTL2_REG
-
-				NVM_MB_ADDRH_REG
-				NVM_MB_ADDRL_REG
-
-				CODSRC_REG
-				ISOCTRL_REG
-
-				NVMVIRQ_REG
-				ADCTLP2VIRQ_REG
-
-				I2CSIFVIRQ_REG
-				REGBUSVIRQ_REG
-				CHGRVIRQ_REG
-				TLP1VIRQ_REG
-				DCDCVIRQ0_REG
-
-				VROCIRQ0_REG
-
-				VROCIRQ2_REG
-
-				GPADC_TEST0_REG
-
-				GPADC_PKTST_REG
-
-				COMPTEST1_REG
-
-				PMICSPARE05_REG
-				PMICSPARE06_REG
-				PMICSPARE07_REG
-				PMICSPARE08_REG
-				PMICSPARE09_REG
-				PMICSPARE10_REG
-				PMICSPARE11_REG
-				PMICSPARE12_REG
-				I2C_HS_TIMING_REG
-
-				AFE_SPARE1_REG
-				AFE_SPARE2_REG
-				AFE_SPARE3_REG
-
-				/*DEV5 Registers */
-
-				AFE_AUDOUTCTRL1A_REG
-				AFE_AUDOUTCTRL1B_REG
-				AFE_AUDOUTCTRL1C_REG
-				AFE_AUDOUTCTRL1D_REG
-
-				AFE_AUDOUTCTRL3A_REG
-				AFE_AUDOUTCTRL3B_REG
-				AFE_AUDOUTCTRL3C_REG
-				AFE_AUDOUTCTRL3D_REG
-
-				AFE_AUDIOINCTRL3_REG
-
-				AFE_GAIN_IN3_REG
-				AFE_GAIN_IN4_REG
-
-				AFE_DIGMICCTRL_REG
-
-				I2S_CTRL_LOW_REG >;
 	};
 };
