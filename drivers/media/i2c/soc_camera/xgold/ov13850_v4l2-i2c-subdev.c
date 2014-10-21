@@ -1084,7 +1084,8 @@ static struct ov_camera_module_config ov13850_configs[] = {
 		.reg_table_num_entries =
 			sizeof(ov13850_init_tab_2112_1568_30fps)
 			/
-			sizeof(ov13850_init_tab_2112_1568_30fps[0])
+			sizeof(ov13850_init_tab_2112_1568_30fps[0]),
+		.v_blanking_time_us = 2000 /*empirically measured time*/
 	},
 	{
 		.name = "13M_15fps",
@@ -1106,7 +1107,8 @@ static struct ov_camera_module_config ov13850_configs[] = {
 		.reg_table_num_entries =
 			sizeof(ov13850_init_tab_4048_3040_15fps_vfifo)
 			/
-			sizeof(ov13850_init_tab_4048_3040_15fps_vfifo[0])
+			sizeof(ov13850_init_tab_4048_3040_15fps_vfifo[0]),
+		.v_blanking_time_us = 2000 /*empirically measured time*/
 	},
 };
 

@@ -361,7 +361,8 @@ static struct ov_camera_module_config ov9760_configs[] = {
 		.reg_table_num_entries =
 			sizeof(ov9760_init_tab_1_6MP_30fps)
 			/
-			sizeof(ov9760_init_tab_1_6MP_30fps[0])
+			sizeof(ov9760_init_tab_1_6MP_30fps[0]),
+		.v_blanking_time_us = 2000 /*empirically measured time*/
 	},
 };
 

@@ -20,6 +20,7 @@
 #include <media/videobuf-core.h>
 #include <linux/slab.h>
 #include <linux/gcd.h>
+#include <media/v4l2-controls_intel.h>
 
 #include "ov_camera_module.h"
 
@@ -489,6 +490,14 @@ int ov_camera_module_g_ctrl(struct v4l2_subdev *sd,
 		return -EFAULT;
 	}
 
+	if (ctrl->id == INTEL_V4L2_CID_VBLANKING) {
+		ctrl->value = cam_mod->active_config->v_blanking_time_us;
+		pltfrm_camera_module_pr_debug(&cam_mod->sd,
+			"INTEL_V4L2_CID_VBLANKING %d\n",
+			ctrl->value);
+		return 0;
+	}
+
 	if ((cam_mod->state != OV_CAMERA_MODULE_SW_STANDBY) &&
 		(cam_mod->state != OV_CAMERA_MODULE_STREAMING)) {
 		pltfrm_camera_module_pr_err(&cam_mod->sd,
@@ -777,11 +786,11 @@ long ov_camera_module_ioctl(struct v4l2_subdev *sd,
 
 	pltfrm_camera_module_pr_debug(&cam_mod->sd, "\n");
 
-	if (cmd == INTEL_VIDIOC_PLTFRM_SENSOR_MODULE_TIMINGS) {
+	if (cmd == INTEL_VIDIOC_SENSOR_MODE_DATA) {
 		int ret;
 		struct ov_camera_module_timings ov_timings;
-		struct pltfrm_camera_module_timings *timings =
-		(struct pltfrm_camera_module_timings *) arg;
+		struct isp_supplemental_sensor_mode_data *timings =
+		(struct isp_supplemental_sensor_mode_data *) arg;
 
 		ret = cam_mod->custom.g_timings(cam_mod, &ov_timings);
 

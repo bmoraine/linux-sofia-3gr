@@ -53,6 +53,7 @@ struct ov_camera_module_config {
 	bool auto_wb_enabled;
 	struct ov_camera_module_reg *reg_table;
 	u32 reg_table_num_entries;
+	u32 v_blanking_time_us;
 };
 
 struct ov_camera_module_exp_config {
