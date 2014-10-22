@@ -512,15 +512,6 @@ static int intel_usb3_hw_wakeup(struct intel_usb3 *iusb3)
 /* MODULE INTERFACE - OTG FSM						*/
 /*----------------------------------------------------------------------*/
 /**
- * host starts enumerating peripheral
- */
-int usb_bus_start_enum(struct usb_bus *bus, unsigned port_num)
-{
-	intel_phy_warn("implement for OTG / HOST support");
-	return 0;
-}
-
-/**
  * host suspend/resume
  */
 static int intel_usb3_otg_fsm_start_host(struct otg_fsm *fsm, int on)
@@ -965,7 +956,6 @@ static int intel_usb3_test_zero(struct intel_usb3 *iusb3,
 	intel_usb3_hw_wakeup(NULL);
 
 	/* interface */
-	usb_bus_start_enum(NULL, 0);
 	intel_usb3_otg_fsm_start_host(NULL, 0);
 	intel_usb3_otg_fsm_start_gadget(NULL, 0);
 #ifdef CONFIG_PM_RUNTIME

@@ -55,6 +55,7 @@ config INTEL_USB2PHY
 config INTEL_USB3PHY
 	tristate "Intel USB 3.0 PHY controller Driver"
 	select USB_PHY
+	select USB_OTG_FSM
 	help
 	  Enable to support Intel USB 3.0 phy controller driver for Intel SoCs.
 	  This driver handles runtime power management,
