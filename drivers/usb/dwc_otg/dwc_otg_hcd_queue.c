@@ -696,8 +696,6 @@ int dwc_otg_hcd_qtd_add(dwc_otg_qtd_t * qtd,
 			dwc_otg_hcd_t * hcd, dwc_otg_qh_t ** qh, int atomic_alloc)
 {
 	int retval = 0;
-	dwc_irqflags_t flags;
-
 	dwc_otg_hcd_urb_t *urb = qtd->urb;
 
 	/*
@@ -711,13 +709,11 @@ int dwc_otg_hcd_qtd_add(dwc_otg_qtd_t * qtd,
 			goto done;
 		}
 	}
-	DWC_SPINLOCK_IRQSAVE(hcd->lock, &flags);
 	retval = dwc_otg_hcd_qh_add(hcd, *qh);
 	if (retval == 0) {
 		DWC_CIRCLEQ_INSERT_TAIL(&((*qh)->qtd_list), qtd,
 					qtd_list_entry);
 	}
-	DWC_SPINUNLOCK_IRQRESTORE(hcd->lock, flags);
 
 done:
 

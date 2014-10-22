@@ -620,7 +620,6 @@ static int urb_enqueue(struct usb_hcd *hcd,
 
 	DWC_SPINLOCK_IRQSAVE(dwc_otg_hcd->lock, &irqflags);
 	retval = usb_hcd_link_urb_to_ep(hcd, urb);
-	DWC_SPINUNLOCK_IRQRESTORE(dwc_otg_hcd->lock, irqflags);
 	urb->hcpriv = dwc_otg_urb;
 	if (!retval) {
 		retval = dwc_otg_hcd_urb_enqueue(dwc_otg_hcd,
@@ -635,14 +634,13 @@ static int urb_enqueue(struct usb_hcd *hcd,
 			DWC_DEBUGPL(DBG_HCD,
 					"DWC OTG dwc_otg_hcd_urb_enqueue failed rc %d\n",
 					retval);
-			DWC_SPINLOCK_IRQSAVE(dwc_otg_hcd->lock, &irqflags);
 			usb_hcd_unlink_urb_from_ep(hcd, urb);
-			DWC_SPINUNLOCK_IRQRESTORE(dwc_otg_hcd->lock, irqflags);
 			if (retval == -DWC_E_NO_DEVICE)
 				retval = -ENODEV;
 		}
 	}
 
+	DWC_SPINUNLOCK_IRQRESTORE(dwc_otg_hcd->lock, irqflags);
 	return retval;
 }
 

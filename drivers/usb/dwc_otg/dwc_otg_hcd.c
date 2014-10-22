@@ -490,7 +490,6 @@ int dwc_otg_hcd_urb_enqueue(dwc_otg_hcd_t * hcd,
 			    dwc_otg_hcd_urb_t * dwc_otg_urb, void **ep_handle,
 			    int atomic_alloc)
 {
-	dwc_irqflags_t flags;
 	int retval = 0;
 	dwc_otg_qtd_t *qtd;
 	gintmsk_data_t intr_mask = {.d32 = 0 };
@@ -524,12 +523,10 @@ int dwc_otg_hcd_urb_enqueue(dwc_otg_hcd_t * hcd,
 			/* Do not schedule SG transactions until qtd has URB_GIVEBACK_ASAP set */
 			return 0;
 		}
-		DWC_SPINLOCK_IRQSAVE(hcd->lock, &flags);
 		tr_type = dwc_otg_hcd_select_transactions(hcd);
 		if (tr_type != DWC_OTG_TRANSACTION_NONE) {
 			dwc_otg_hcd_queue_transactions(hcd, tr_type);
 		}
-		DWC_SPINUNLOCK_IRQRESTORE(hcd->lock, flags);
 	}
 
 	return retval;
@@ -540,9 +537,26 @@ int dwc_otg_hcd_urb_dequeue(dwc_otg_hcd_t * hcd,
 {
 	dwc_otg_qh_t *qh;
 	dwc_otg_qtd_t *urb_qtd;
+	if (!hcd) {
+		DWC_ERROR("HCD NULL");
+		return -EINVAL;
+	}
+	if (!dwc_otg_urb) {
+		DWC_ERROR("DWC_OTG_URB NULL");
+		return -EINVAL;
+	}
 
 	urb_qtd = dwc_otg_urb->qtd;
+	if (!urb_qtd) {
+		DWC_ERROR("URQ QTD NULL");
+		return -EINVAL;
+	}
+
 	qh = urb_qtd->qh;
+	if (!qh) {
+		DWC_ERROR("QH NULL");
+		return -EINVAL;
+	}
 #ifdef DEBUG
 	if (CHK_DEBUG_LEVEL(DBG_HCDV | DBG_HCD_URB)) {
 		if (urb_qtd->in_process) {
