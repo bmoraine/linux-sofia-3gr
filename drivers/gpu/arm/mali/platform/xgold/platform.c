@@ -55,6 +55,10 @@ static struct resource mali_gpu_0xE2E00000_mp2_res[] = {
 MALI_GPU_RESOURCES_MALI400_MP2(0xE2E00000, -1, -1, -1, -1, -1, -1)
 };
 
+static struct resource mali_gpu_0xE2E00000_mp4_res[] = {
+MALI_GPU_RESOURCES_MALI400_MP4(0xE2E00000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
+};
+
 static struct resource mali_gpu_0xEB300000_mp1_res[] = {
 MALI_GPU_RESOURCES_MALI400_MP1(0xEB300000, -1, -1, -1, -1)
 };
@@ -63,6 +67,9 @@ static struct resource mali_gpu_0xEB300000_mp2_res[] = {
 MALI_GPU_RESOURCES_MALI400_MP2(0xEB300000, -1, -1, -1, -1, -1, -1)
 };
 
+static struct resource mali_gpu_0xEB300000_mp4_res[] = {
+MALI_GPU_RESOURCES_MALI400_MP4(0xEB300000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
+};
 #else
 static struct resource mali_gpu_res[] = {
 MALI_GPU_RESOURCES_MALI400_MP1_PMU(0xE2E00000, -1, -1, -1, -1)
@@ -70,6 +77,10 @@ MALI_GPU_RESOURCES_MALI400_MP1_PMU(0xE2E00000, -1, -1, -1, -1)
 
 static struct resource mali_gpu_mp2_res[] = {
 MALI_GPU_RESOURCES_MALI400_MP2_PMU(0xE2E00000, -1, -1, -1, -1, -1, -1)
+};
+
+static struct resource mali_gpu_mp4_res[] = {
+MALI_GPU_RESOURCES_MALI400_MP4_PMU(0xE2E00000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
 };
 
 static struct resource mali_gpu_0xEB300000_mp1_res[] = {
@@ -80,6 +91,9 @@ static struct resource mali_gpu_0xEB300000_mp2_res[] = {
 MALI_GPU_RESOURCES_MALI400_MP2_PMU(0xEB300000, -1, -1, -1, -1, -1, -1)
 };
 
+static struct resource mali_gpu_0xEB300000_mp4_res[] = {
+MALI_GPU_RESOURCES_MALI400_MP4_PMU(0xEB300000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
+};
 #endif
 
 
@@ -93,10 +107,14 @@ struct xgold_mali_resources {
 		ARRAY_SIZE(mali_gpu_0xE2E00000_mp1_res) },
 	{ 0xE2E00000, 2, mali_gpu_0xE2E00000_mp2_res,
 		ARRAY_SIZE(mali_gpu_0xE2E00000_mp2_res) },
+	{ 0xE2E00000, 4, mali_gpu_0xE2E00000_mp4_res,
+		ARRAY_SIZE(mali_gpu_0xE2E00000_mp4_res) },
 	{ 0xEB300000, 1, mali_gpu_0xEB300000_mp1_res,
 		ARRAY_SIZE(mali_gpu_0xEB300000_mp1_res) },
 	{ 0xEB300000, 2, mali_gpu_0xEB300000_mp2_res,
 		ARRAY_SIZE(mali_gpu_0xEB300000_mp2_res) },
+	{ 0xEB300000, 4, mali_gpu_0xEB300000_mp4_res,
+		ARRAY_SIZE(mali_gpu_0xEB300000_mp4_res) }
 };
 
 static struct mali_gpu_device_data xgold_mali_gpu_data;
