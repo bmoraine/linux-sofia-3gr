@@ -418,7 +418,7 @@ static const struct snd_kcontrol_new afe_snd_controls[] = {
 	SOC_SINGLE_TLV("Headset Gain", AFE_GAIN_OUT4_REG, 0, 28, 0,
 		HSGAIN_TLV),
 	SOC_SINGLE_TLV("LS Gain", AFE_GAIN_OUT3_REG, 4, 7, 0, LSGAIN_TLV),
-	SOC_SINGLE_TLV("MIC Gain", AFE_GAIN_IN1_REG, 0, 58, 0, MICGAIN_TLV),
+	SOC_SINGLE_TLV("MIC Gain", AFE_GAIN_IN1_REG, 5, 7, 0, MICGAIN_TLV),
 	SOC_ENUM("Earpiece Output Mode", afe_ep_out_enum),
 	SOC_ENUM("Earpiece Robust Mode", afe_ep_robust_enum),
 	SOC_ENUM("MIC1 Voltage", afe_mic1_voltage_enum),
@@ -623,7 +623,9 @@ static void afe_trigger_work_handler(struct work_struct *work)
 	struct afe_data *afe =
 		container_of(work, struct afe_data, afe_trigger_work);
 	struct snd_soc_codec *codec = afe->codec;
-	snd_soc_write(codec, I2S_CTRL_HIGH_REG, 0x0);
+
+	afe_debug(" %s cmd %d:", __func__, afe->cmd);
+
 	switch (afe->cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
@@ -638,10 +640,13 @@ static void afe_trigger_work_handler(struct work_struct *work)
 			reg |= 1 << BCON_AUDINSTART_BIT;
 			snd_soc_write(codec,
 				AFE_BCON1_REG, reg);
+			snd_soc_write(codec, I2S_CTRL_HIGH_REG, 0x0);
 			reg = snd_soc_read(codec, I2S_CTRL_LOW_REG);
 			reg |= (1 << TXSTART_BIT);
 			snd_soc_write(codec, I2S_CTRL_LOW_REG, reg);
 		} else {
+			afe_debug("Enabling I2S streaming");
+			snd_soc_write(codec, I2S_CTRL_HIGH_REG, 0x0);
 			reg = snd_soc_read(codec, I2S_CTRL_LOW_REG);
 			reg |= (1 << RXSTART_BIT);
 			snd_soc_write(codec, I2S_CTRL_LOW_REG, reg);
@@ -657,10 +662,13 @@ static void afe_trigger_work_handler(struct work_struct *work)
 			reg &= ~(BIT(BCON_AUDINSTART_BIT));
 			snd_soc_write(codec,
 				AFE_BCON1_REG, reg);
+			snd_soc_write(codec, I2S_CTRL_HIGH_REG, 0x0);
 			reg = snd_soc_read(codec, I2S_CTRL_LOW_REG);
 			reg &= ~(BIT(TXSTART_BIT));
 			snd_soc_write(codec, I2S_CTRL_LOW_REG, reg);
-		} else {
+		} else if (!codec->active) {
+			afe_debug("Disabling I2S streaming");
+			snd_soc_write(codec, I2S_CTRL_HIGH_REG, 0x0);
 			reg = snd_soc_read(codec, I2S_CTRL_LOW_REG);
 			reg &= ~(BIT(RXSTART_BIT));
 			snd_soc_write(codec, I2S_CTRL_LOW_REG, reg);
