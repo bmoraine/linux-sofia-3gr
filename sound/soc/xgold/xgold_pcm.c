@@ -40,6 +40,7 @@
 #include "aud_lib_dsp_internal.h"
 #include "dsp_audio_hal_internal.h"
 #include "xgold_pcm.h"
+#include "xgold_machine.h"
 #include "agold_bt_sco_streaming.h"
 
 /* Fix me move this to DTS */
@@ -153,6 +154,7 @@ static struct T_AUD_DSP_CMD_PCM_REC_PAR pcm_rec_par = { 0 };
 static struct T_AUD_DSP_CMD_HW_PROBE hw_probe_par = { 0 };
 static u16 xgold_pcm_sysfs_attribute_value;
 
+
 static inline int i2s_set_pinctrl_state(struct device *dev,
 		struct pinctrl_state *state)
 {
@@ -174,6 +176,61 @@ static inline int i2s_set_pinctrl_state(struct device *dev,
 		}
 	}
 	return ret;
+}
+
+/* Enable I2S power state */
+static void i2s_set_power_state(struct snd_soc_platform *p_snd,
+			bool state)
+{
+
+	int ret = 0;
+	struct xgold_audio *xgold_ptr =
+		dev_get_drvdata(p_snd->dev);
+
+	xgold_debug(" %s : state %d", __func__, state);
+
+	if (state == ON) {
+
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+		/* Enable I2S2 Power and clock domains */
+		if (xgold_ptr->pm_platdata) {
+			ret = platform_device_pm_set_state_by_name(
+				xgold_ptr->plat_dev,
+				xgold_ptr->pm_platdata->pm_state_D0_name);
+			if (ret < 0)
+				xgold_err("%s: failed to set PM state error %d\n",
+					__func__, ret);
+			udelay(5);
+		}
+#endif
+		/* Enable XGOLD I2S2 pins */
+		ret = i2s_set_pinctrl_state(&xgold_ptr->plat_dev->dev,
+			xgold_ptr->pins_default);
+		if (ret < 0)
+			xgold_err("%s: failed to set pinctrl state %d\n",
+				__func__, ret);
+	} else {
+
+		/* Disable i2s2 pins */
+		ret = i2s_set_pinctrl_state(&xgold_ptr->plat_dev->dev,
+				xgold_ptr->pins_inactive);
+
+		if (ret < 0)
+			xgold_err("%s: failed to set pinctrl state %d\n",
+			__func__, ret);
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+		/* Disable I2S2 Power and clock domains */
+		if (xgold_ptr->pm_platdata) {
+			ret = platform_device_pm_set_state_by_name(
+				xgold_ptr->plat_dev,
+				xgold_ptr->pm_platdata->pm_state_D3_name);
+			if (ret < 0)
+				xgold_err("%s: failed to set PM state error %d",
+				__func__, ret);
+		}
+#endif
+	}
+
 }
 
 int get_dsp_pcm_rate(unsigned int rate)
@@ -609,6 +666,8 @@ int register_audio_dsp(struct dsp_audio_device *dsp)
 	}
 	xgold_debug("registering device %s\n", dsp->name);
 	p_dsp_audio_dev = dsp;
+	p_dsp_audio_dev->p_dsp_common_data->i2s_set_power_state =
+		i2s_set_power_state;
 	return 0;
 }
 EXPORT_SYMBOL_GPL(register_audio_dsp);
@@ -812,24 +871,6 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 		&power_state);
 #endif
 
-	/* Disable i2s2 pins */
-	ret = i2s_set_pinctrl_state(&xgold_ptr->plat_dev->dev,
-			xgold_ptr->pins_inactive);
-
-	if (ret < 0)
-		xgold_err("%s: failed to set pinctrl state %d\n",
-			__func__, ret);
-#ifdef CONFIG_PLATFORM_DEVICE_PM
-	/* Disable I2S2 Power and clock domains */
-	if (xgold_ptr->pm_platdata) {
-		ret = platform_device_pm_set_state_by_name(
-			xgold_ptr->plat_dev,
-			xgold_ptr->pm_platdata->pm_state_D3_name);
-		if (ret < 0)
-			xgold_err("%s: failed to set PM state error %d",
-				__func__, ret);
-	}
-#endif
 	return ret;
 }
 
@@ -957,28 +998,10 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct xgold_audio *xgold_ptr;
-	int ret = 0;
+
 	xgold_ptr = snd_soc_platform_get_drvdata(rtd->platform);
 
 	xgold_debug("%s\n", __func__);
-#ifdef CONFIG_PLATFORM_DEVICE_PM
-	/* Enable I2S2 Power and clock domains */
-	if (xgold_ptr->pm_platdata) {
-		ret = platform_device_pm_set_state_by_name(
-			xgold_ptr->plat_dev,
-			xgold_ptr->pm_platdata->pm_state_D0_name);
-		if (ret < 0)
-			xgold_err("%s: failed to set PM state error %d\n",
-				__func__, ret);
-		udelay(5);
-	}
-#endif
-	/* Enable XGOLD I2S2 pins */
-	ret = i2s_set_pinctrl_state(&xgold_ptr->plat_dev->dev,
-		xgold_ptr->pins_default);
-	if (ret < 0)
-		xgold_err("%s: failed to set pinctrl state %d\n",
-			__func__, ret);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		xgold_ptr->audio_stream[STREAM_PLAY].hwptr_done = 0;
@@ -1144,7 +1167,7 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			}
 		}
 		/* HW_AFE should be sent after audio codec is powered up */
-		if (p_dsp_audio_dev->p_dsp_common_data->native_mode &&
+		if (audio_native_mode &&
 			xgold_ptr->stream_type != HW_PROBE_A &&
 			xgold_ptr->stream_type != HW_PROBE_B)
 				dsp_start_audio_hwafe();
@@ -1213,7 +1236,7 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		}
 		xgold_debug("DSP stopped\n");
 		/* HW_AFE should be switched off before audio codec power down*/
-		if (p_dsp_audio_dev->p_dsp_common_data->native_mode &&
+		if (audio_native_mode &&
 			xgold_ptr->stream_type != HW_PROBE_A &&
 			xgold_ptr->stream_type != HW_PROBE_B)
 				dsp_stop_audio_hwafe();

@@ -153,6 +153,7 @@ enum dsp_err_code dsp_audio_cmd(
 {
 	enum dsp_err_code dsp_result = DSP_SUCCESS;
 	U16 is_command_id_supported = 0x7fff;
+	U16 is_command_valid = 0;
 	xgold_debug("in %s\n", __func__);
 	if (dsp.num_dsp == 2) {
 		/* call the command if it is relevant for
@@ -162,6 +163,7 @@ enum dsp_err_code dsp_audio_cmd(
 						supported_cmd_fba,
 						sizeof(supported_cmd_fba));
 		if (0x7fff != is_command_id_supported) {
+			is_command_valid = 1;
 			dsp_add_audio_msg_2_dsp(dsp.dsp_fba,
 					command_id, command_len/2 +
 					DSP_AUDIO_CMD_ID_LEN, p_command);
@@ -174,17 +176,35 @@ enum dsp_err_code dsp_audio_cmd(
 						supported_cmd_sba,
 						sizeof(supported_cmd_sba));
 		if (0x7fff != is_command_id_supported) {
+
+			is_command_valid = 1;
+			/* Enable I2S2 */
+			if (command_id == 22) {
+				if (*p_command != 0)
+					dsp.dsp_sba->p_dsp_common_data->
+					i2s_set_power_state(
+					dsp.dsp_sba->p_dsp_common_data->
+					p_snd_soc_platform,
+					1);
+				else
+					dsp.dsp_sba->p_dsp_common_data->
+					i2s_set_power_state(
+					dsp.dsp_sba->p_dsp_common_data->
+					p_snd_soc_platform,
+					0);
+			}
+
 			dsp_add_audio_msg_2_dsp(dsp.dsp_sba,
 					command_id, command_len/2 +
 					DSP_AUDIO_CMD_ID_LEN, p_command);
 		}
 
 		/* return error if an error occurred */
-		if (0x7fff == is_command_id_supported
-				|| DSP_SUCCESS != dsp_result) {
+		if (!is_command_valid) {
 			pr_info("Dsp Audio Drv: TRAP\n");
 			return DSP_ERR_COMMAND_FAILURE;
 		}
+
 	} else {
 		dsp_add_audio_msg_2_dsp(dsp.dsp_fba, command_id,
 			command_len / 2 + DSP_AUDIO_CMD_ID_LEN,

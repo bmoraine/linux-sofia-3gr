@@ -162,5 +162,8 @@ int dsp_audio_platform_init(struct snd_soc_platform *platform)
 	if (ret != 0)
 		xgold_debug("dsp audio controls reg failed %d", ret);
 
+	p_dsp_audio_dev->p_dsp_common_data->p_snd_soc_platform =
+		platform;
+
 	return 0;
 }

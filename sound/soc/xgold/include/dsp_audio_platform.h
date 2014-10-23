@@ -117,6 +117,10 @@ struct dsp_common_data {
 	unsigned buf_sm_speech_probe_e_offset;
 	unsigned buf_sm_speech_probe_f_offset;
 	unsigned num_dsp;
+	struct snd_soc_platform *p_snd_soc_platform;
+	void (*i2s_set_power_state)(
+			struct snd_soc_platform *p_snd_soc_platform,
+			bool state);
 };
 
 int register_dsp_audio_lisr_cb(enum dsp_lisr_cb lisr_type,
