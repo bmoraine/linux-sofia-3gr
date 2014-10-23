@@ -50,7 +50,7 @@
 #define OV9760_TIMING_FRAME_LENGTH_LINES_LOW_REG 0x341
 #define OV9760_TIMING_LINE_LENGTH_PCKL_HIGH_REG 0x342
 #define OV9760_TIMING_LINE_LENGTH_PCKL_LOW_REG 0x343
-#define OV9760_INTEGRATION_TIME_MARGIN 0
+#define OV9760_INTEGRATION_TIME_MARGIN 4
 #define OV9760_TIMING_X_INC		0x3820
 #define OV9760_TIMING_Y_INC		0x3821
 
@@ -136,7 +136,7 @@ static const struct ov_camera_module_reg ov9760_init_tab_1_6MP_30fps[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x30b3, 0x32},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x30b4, 0x02},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x30b5, 0x00},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3503, 0x27},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3503, 0x07},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3509, 0x10},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3600, 0x7c},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3621, 0xb8},
@@ -212,13 +212,13 @@ static const struct ov_camera_module_reg ov9760_init_tab_1_6MP_30fps[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3811, 0x0c},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3812, 0x00},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3813, 0x08},
-	/* {OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3503, 0x00}, */ /* AEC+AEG */
 	/* default exposure and gain: */
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3500, 0x00},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3501, 0x20},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3502, 0x00},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x350a, 0x00},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x350b, 0x40},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x320b, 0x00}
 };
 
 #if 0
@@ -404,8 +404,10 @@ static int ov9760_auto_adjust_fps(struct ov_camera_module *cam_mod,
 	int ret;
 	u32 vts;
 
-	if (cam_mod->exp_config.exp_time > cam_mod->vts_min)
-		vts = cam_mod->exp_config.exp_time;
+	if ((cam_mod->exp_config.exp_time + OV9760_INTEGRATION_TIME_MARGIN) >
+		cam_mod->vts_min)
+		vts = cam_mod->exp_config.exp_time +
+			OV9760_INTEGRATION_TIME_MARGIN;
 	else
 		vts = cam_mod->vts_min;
 	ret = ov_camera_module_write_reg(cam_mod,
@@ -595,7 +597,7 @@ static int ov9760_g_timings(struct ov_camera_module *cam_mod,
 
 	timings->line_length_pck |= reg_val;
 
-	timings->coarse_integration_time_min = 0;
+	timings->coarse_integration_time_min = 1;
 	timings->coarse_integration_time_max_margin =
 		OV9760_INTEGRATION_TIME_MARGIN;
 

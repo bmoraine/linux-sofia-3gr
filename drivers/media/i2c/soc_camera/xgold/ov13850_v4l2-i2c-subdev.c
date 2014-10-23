@@ -52,7 +52,7 @@
 #define OV13850_TIMING_VTS_LOW_REG 0x380f
 #define OV13850_TIMING_HTS_HIGH_REG 0x380c
 #define OV13850_TIMING_HTS_LOW_REG 0x380d
-#define OV13850_INTEGRATION_TIME_MARGIN 0
+#define OV13850_INTEGRATION_TIME_MARGIN 4
 #define OV13850_TIMING_X_INC		0x3814
 #define OV13850_TIMING_Y_INC		0x3815
 #define OV13850_HORIZONTAL_START_HIGH_REG 0x3800
@@ -286,6 +286,8 @@ ov13850_init_tab_2112_1568_30fps[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5e00, 0x00},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5e10, 0x1c},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3509, 0x10},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3503, 0x07},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x320B, 0x00},
 	/* Convert_to 2112x1568 26MHz 572Mbps/lane 2lane*/
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3614, 0x25},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x0302, 0x33},
@@ -567,7 +569,9 @@ static const struct ov_camera_module_reg
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x4824, 0x00},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x4825, 0x32},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x4830, 0x00},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3509, 0x10}
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3509, 0x10},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3503, 0x07},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x320B, 0x00}
 };
 
 #if 0
@@ -1150,10 +1154,13 @@ static int ov13850_auto_adjust_fps(struct ov_camera_module *cam_mod,
 	int ret;
 	u32 vts;
 
-	if (cam_mod->exp_config.exp_time > cam_mod->vts_min)
-		vts = cam_mod->exp_config.exp_time;
+	if ((cam_mod->exp_config.exp_time + OV13850_INTEGRATION_TIME_MARGIN) >
+		cam_mod->vts_min)
+		vts = cam_mod->exp_config.exp_time +
+			OV13850_INTEGRATION_TIME_MARGIN;
 	else
 		vts = cam_mod->vts_min;
+
 	ret = ov_camera_module_write_reg(cam_mod,
 		OV13850_TIMING_VTS_LOW_REG,
 		vts & 0xFF);
@@ -1369,6 +1376,8 @@ static int ov13850_g_timings(struct ov_camera_module *cam_mod,
 		pll2_sys_prediv * pll2_sys_div_x2)) *
 		pll2_multiplier;
 
+	timings->vt_pix_clk_freq_hz *= 4;
+
 	/*VTS*/
 	ret = ov13850_g_VTS(cam_mod, &timings->frame_length_lines);
 	if (IS_ERR_VALUE(ret))
@@ -1391,10 +1400,7 @@ static int ov13850_g_timings(struct ov_camera_module *cam_mod,
 
 	timings->line_length_pck |= reg_val;
 
-	/* line_time = HTS / (sclk * 4) */
-	timings->line_length_pck /= 4;
-
-	timings->coarse_integration_time_min = 0;
+	timings->coarse_integration_time_min = 1;
 	timings->coarse_integration_time_max_margin =
 		OV13850_INTEGRATION_TIME_MARGIN;
 
