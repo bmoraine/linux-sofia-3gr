@@ -208,10 +208,6 @@ static int xgold_mc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	/* for LTE we use native mode by default */
-	if (!strcmp(codec_dai_name, "pmic_afe_i2s"))
-		audio_native_mode = 1;
-
 	if (!audio_native_mode) {
 		for (i = 0; i < xgold_snd_card.num_links; i++) {
 			dai_link = &xgold_snd_card.dai_link[i];
