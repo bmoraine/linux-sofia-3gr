@@ -752,7 +752,7 @@ static struct gc_register gc2155_init_settings[] = {
 	{ GC_8BIT, 0x2c, 0x20 },/* 12.5fps */
 	{ GC_8BIT, 0x2d, 0x0c },
 	{ GC_8BIT, 0x2e, 0x30 },/* 10fps */
-	{ GC_8BIT, 0x3c, 0x20 },
+	{ GC_8BIT, 0x3c, 0x00 },
 	{ GC_8BIT, 0xfe, 0x00 },
 
 	{ GC_8BIT, 0xfe, 0x03 },
