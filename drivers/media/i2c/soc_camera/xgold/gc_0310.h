@@ -501,7 +501,7 @@ static struct gc_register const gc0310_init_settings[] = {
 	{ GC_8BIT, 0x2c, 0x1b },
 	{ GC_8BIT, 0x2d, 0x09 },/* 6.25fps */
 	{ GC_8BIT, 0x2e, 0xf0 },
-	{ GC_8BIT, 0x3c, 0x20 },
+	{ GC_8BIT, 0x3c, 0x00 },
 	{ GC_8BIT, 0xfe, 0x00 },
 
 	{ GC_TOK_TERM, 0, 0}
