@@ -61,6 +61,24 @@
 #define MMC3416X_IOC_ID                 _IOR(MMC3416X_IOM, 0x06, short)
 #define MMC3416X_IOC_DIAG               _IOR(MMC3416X_IOM, 0x14, int[1])
 
+struct mmc3416x_platform_data {
+
+	unsigned int poll_interval;
+	unsigned int min_interval;
+
+	u8 fs_range;
+
+	u8 axis_map_x;
+	u8 axis_map_y;
+	u8 axis_map_z;
+
+	u8 negate_x;
+	u8 negate_y;
+	u8 negate_z;
+
+	int x_offset;
+	int y_offset;
+	int z_offset;
+};
 
 #endif /* __MMC3416X_H__ */
-

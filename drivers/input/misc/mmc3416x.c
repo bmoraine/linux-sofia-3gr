@@ -52,6 +52,19 @@
 
 #define MMC3416X_DEV_NAME	"mmc3416x"
 
+static struct mmc3416x_platform_data
+	default_mmc3416x_pdata = {
+	.axis_map_x = 0,
+	.axis_map_y = 1,
+	.axis_map_z = 2,
+	.negate_x = 0,
+	.negate_y = 0,
+	.negate_z = 0,
+	.poll_interval = 100,
+};
+
+static struct mmc3416x_platform_data *pdata;
+
 static u32 read_idx;
 struct class *mag_class;
 
@@ -135,6 +148,7 @@ static long mmc3416x_ioctl(struct file *file, unsigned int cmd,
 	void __user *pa = (void __user *)arg;
 	int __user *pa_i = (void __user *)arg;
 	unsigned char data[16] = {0};
+	int raw[3] = {0};
 	int vec[3] = {0};
 	int reg;
 	short flag;
@@ -212,12 +226,18 @@ static long mmc3416x_ioctl(struct file *file, unsigned int cmd,
 			mutex_unlock(&ecompass_lock);
 			return -EFAULT;
 		}
-		vec[0] = data[1] << 8 | data[0];
-		vec[1] = data[3] << 8 | data[2];
-		vec[2] = data[5] << 8 | data[4];
-		vec[2] = 65536 - vec[2];
+		raw[0] = data[1] << 8 | data[0];
+		raw[1] = data[3] << 8 | data[2];
+		raw[2] = data[5] << 8 | data[4];
+		raw[2] = 65536 - raw[2];
+		vec[0] = ((pdata->negate_x) ? (-raw[pdata->axis_map_x])
+		   : (raw[pdata->axis_map_x]));
+		vec[1] = ((pdata->negate_y) ? (-raw[pdata->axis_map_y])
+		   : (raw[pdata->axis_map_y]));
+		vec[2] = ((pdata->negate_z) ? (-raw[pdata->axis_map_z])
+		   : (raw[pdata->axis_map_z]));
 	#if DEBUG
-		pr_debug("[X - %04x] [Y - %04x] [Z - %04x]\n",
+		pr_debug("[X - %d] [Y - %d] [Z - %d]\n",
 			vec[0], vec[1], vec[2]);
 	#endif
 		if (copy_to_user(pa, vec, sizeof(vec))) {
@@ -295,12 +315,18 @@ static long mmc3416x_ioctl(struct file *file, unsigned int cmd,
 			mutex_unlock(&ecompass_lock);
 			return -EFAULT;
 		}
-		vec[0] = data[1] << 8 | data[0];
-		vec[1] = data[3] << 8 | data[2];
-		vec[2] = data[5] << 8 | data[4];
-		vec[2] = 65536 - vec[2];
+		raw[0] = data[1] << 8 | data[0];
+		raw[1] = data[3] << 8 | data[2];
+		raw[2] = data[5] << 8 | data[4];
+		raw[2] = 65536 - raw[2];
+		vec[0] = ((pdata->negate_x) ? (-raw[pdata->axis_map_x])
+		   : (raw[pdata->axis_map_x]));
+		vec[1] = ((pdata->negate_y) ? (-raw[pdata->axis_map_y])
+		   : (raw[pdata->axis_map_y]));
+		vec[2] = ((pdata->negate_z) ? (-raw[pdata->axis_map_z])
+		   : (raw[pdata->axis_map_z]));
 	#if DEBUG
-		pr_debug("[X - %04x] [Y - %04x] [Z - %04x]\n",
+		pr_debug("[X - %d] [Y - %d] [Z - %d]\n",
 			vec[0], vec[1], vec[2]);
 	#endif
 		if (copy_to_user(pa, vec, sizeof(vec))) {
@@ -362,6 +388,69 @@ static struct miscdevice mmc3416x_device = {
 	.fops = &mmc3416x_fops,
 };
 
+
+#ifdef CONFIG_OF
+
+#define OF_AXIS_MAP		"intel,axis-map"
+#define OF_NEGATE		"intel,negate"
+#define OF_POLL_INTERVAL	"intel,poll-interval"
+
+static struct mmc3416x_platform_data *mmc3416x_of_get_platdata(
+		struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct mmc3416x_platform_data *pdata;
+	u32 out_values[3];
+	int ret = 0;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+
+	if (!pdata)
+		return ERR_PTR(-ENOMEM);
+
+	/* Axis map properties */
+	if (of_property_read_u32_array(np, OF_AXIS_MAP, out_values, 3) < 0) {
+
+		dev_err(dev, "Error parsing %s property of node %s\n",
+			OF_AXIS_MAP, np->name);
+		goto out;
+	}
+	pdata->axis_map_x = (u8)out_values[0];
+	pdata->axis_map_y = (u8)out_values[1];
+	pdata->axis_map_z = (u8)out_values[2];
+
+	/* Negate properties */
+	if (of_property_read_u32_array(np, OF_NEGATE, out_values, 3) < 0) {
+
+		dev_err(dev, "Error parsing %s property of node %s\n",
+			OF_NEGATE, np->name);
+		goto out;
+	}
+	pdata->negate_x = (u8)out_values[0];
+	pdata->negate_y = (u8)out_values[1];
+	pdata->negate_z = (u8)out_values[2];
+
+	/* Poll interval property */
+	if (of_property_read_u32(np, OF_POLL_INTERVAL,
+				&pdata->poll_interval) < 0) {
+
+		dev_err(dev, "Error parsing %s property of node %s\n",
+			OF_POLL_INTERVAL, np->name);
+		goto out;
+	}
+
+	dev_dbg(dev, "axis:%d,%d,%d;negate:%d,%d,%d;interval:%d\n",
+		pdata->axis_map_x, pdata->axis_map_y, pdata->axis_map_z,
+		pdata->negate_x, pdata->negate_y, pdata->negate_z,
+		pdata->poll_interval);
+
+	return pdata;
+
+out:
+	return ERR_PTR(ret);
+}
+#endif
+
 static int mmc3416x_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
@@ -375,6 +464,15 @@ static int mmc3416x_probe(struct i2c_client *client,
 		goto out;
 	}
 	this_client = client;
+
+	pdata = &mmc3416x_platform_data;
+#ifdef CONFIG_OF
+	pdata = mmc3416x_of_get_platdata(&client->dev);
+	if (IS_ERR(pdata)) {
+		res = PTR_ERR(pdata);
+		goto out;
+	}
+#endif
 
 	res = misc_register(&mmc3416x_device);
 	if (res) {
