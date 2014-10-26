@@ -494,13 +494,14 @@ static struct kionix_accel_platform_data *kionix_acc_of_get_platdata(
 
 skip_pinctrl:
 	/* Axis direction property */
-	if (of_property_read_u8(np, OF_ACC_DIRECTION,
+	if (of_property_read_u32(np, OF_ACC_DIRECTION,
 				&acc_pdata->accel_direction) < 0) {
 
 		dev_err(dev, "Error parsing %s property of node %s\n",
 			OF_ACC_DIRECTION, np->name);
 		goto out;
 	}
+	dev_dbg(dev, "accel direction:%d\n", acc_pdata->accel_direction);
 
 	/* Poll interval property */
 	if (of_property_read_u32(np, OF_POLL_INTERVAL,
