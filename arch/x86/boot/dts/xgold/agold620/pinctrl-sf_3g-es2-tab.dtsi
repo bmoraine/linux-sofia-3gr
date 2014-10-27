@@ -112,7 +112,7 @@ bt_agold_function_B_sleep_pins:bt_agold_function_B_sleep_pins {
 };
 gnss_agold_default_pins:gnss_agold_default_pins {
 	pinctrl-single,pins = <
-		0x244 0x4001	/* gnss_fta_agold */
+		0x244 0x1001	/* gnss_fta_agold */
 	>;
 };
 gnss_agold_inactive_pins:gnss_agold_inactive_pins {
@@ -442,7 +442,7 @@ dpll_agold_function_B_sleep_pins:dpll_agold_function_B_sleep_pins {
 };
 ext_agold_default_pins:ext_agold_default_pins {
 	pinctrl-single,pins = <
-		0x23c 0x4001	/* ext_lna_ctrl_agold */
+		0x23c 0x1010	/* ext_lna_ctrl_agold */
 	>;
 };
 ext_agold_inactive_pins:ext_agold_inactive_pins {
