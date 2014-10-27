@@ -50,6 +50,7 @@ struct xgold_isp_dev {
 	bool tmap_en;
 	bool ycflt_en;
 	bool afc_en;
+	bool ie_en;
 
 	/* Purpose of mutex is to protect and serialize use
 		of isp data structure and CIF API calls. */
@@ -73,6 +74,7 @@ struct xgold_isp_dev {
 	struct cifisp_tmap_config tmap_config;
 	struct cifisp_ycflt_config ycflt_config;
 	struct cifisp_afc_config afc_config;
+	struct cifisp_ie_config ie_config;
 
 	bool isp_param_bpc_update_needed;
 	bool isp_param_bls_update_needed;
@@ -91,6 +93,7 @@ struct xgold_isp_dev {
 	bool isp_param_tmap_update_needed;
 	bool isp_param_ycflt_update_needed;
 	bool isp_param_afc_update_needed;
+	bool isp_param_ie_update_needed;
 
 	bool isp_param_awb_meas_update_fast_needed;
 	bool isp_param_afc_update_fast_needed;

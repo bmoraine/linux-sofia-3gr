@@ -18,6 +18,7 @@
  *
  ****************************************************************
  */
+#include <linux/v4l2-controls.h>
 
 #ifndef _XGOLD_ISP_IOCTL_H
 #define _XGOLD_ISP_IOCTL_H
@@ -201,6 +202,22 @@ enum cifisp_bls_win_enable {
 	ISP_BLS_CTRL_WINDOW_ENABLE_3 = 3
 };
 
+struct cifisp_ie_config {
+	enum v4l2_colorfx effect;
+	unsigned short color_sel;
+	/*3x3 Matrix Coefficients for Emboss Effect 1*/
+	unsigned short eff_mat_1;
+	/*3x3 Matrix Coefficients for Emboss Effect 2*/
+	unsigned short eff_mat_2;
+	/*3x3 Matrix Coefficients for Emboss 3/Sketch 1*/
+	unsigned short eff_mat_3;
+	/*3x3 Matrix Coefficients for Sketch Effect 2*/
+	unsigned short eff_mat_4;
+	/*3x3 Matrix Coefficients for Sketch Effect 3*/
+	unsigned short eff_mat_5;
+	/*Chrominance increment values of tint (used for sepia effect)*/
+	unsigned short eff_tint;
+};
 struct cifisp_awb_meas {
 	unsigned int cnt;
 	unsigned char mean_y;
@@ -662,8 +679,12 @@ struct cifisp_afc_config {
 	_IOR('v', BASE_VIDIOC_PRIVATE + 33, struct cifisp_afc_config)
 #define CIFISP_IOC_S_AFC \
 	_IOW('v', BASE_VIDIOC_PRIVATE + 34, struct cifisp_afc_config)
+#define CIFISP_IOC_G_IE \
+	_IOR('v', BASE_VIDIOC_PRIVATE + 35, struct cifisp_ie_config)
+#define CIFISP_IOC_S_IE \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 36, struct cifisp_ie_config)
 #define CIFISP_IOC_G_LAST_CONFIG \
-	_IOR('v', BASE_VIDIOC_PRIVATE + 35, struct cifisp_last_capture_config)
+	_IOR('v', BASE_VIDIOC_PRIVATE + 37, struct cifisp_last_capture_config)
 
 /*  CIF-ISP Private control IDs */
 #define V4L2_CID_CIFISP_BPC    (V4L2_CID_PRIVATE_BASE + 0)
@@ -683,6 +704,7 @@ struct cifisp_afc_config {
 #define V4L2_CID_CIFISP_TMAP    (V4L2_CID_PRIVATE_BASE + 14)
 #define V4L2_CID_CIFISP_YCFLT    (V4L2_CID_PRIVATE_BASE + 15)
 #define V4L2_CID_CIFISP_AFC    (V4L2_CID_PRIVATE_BASE + 16)
+#define V4L2_CID_CIFISP_IE    (V4L2_CID_PRIVATE_BASE + 17)
 
 /* Camera Sensors' running modes */
 #define CI_MODE_PREVIEW	0x8000
