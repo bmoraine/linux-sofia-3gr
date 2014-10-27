@@ -260,6 +260,20 @@ pmic {
 		compatible = "intel,pmicper";
 		/* USB */
 		/* Charger */
+		pmic_i2c:pmic_i2c {
+			compatible = "intel,pmic_i2c";
+			intel,reg = < 0x5e >;
+			intel,irq-reg = < 0x4e >;
+			#size-cells = <1>;
+			#address-cells = <0>;
+
+			interrupt-parent = <&hirq>;
+			interrupts = < HIRQ_PMIC_I2CWRCMP IRQ_TYPE_DEFAULT
+				HIRQ_PMIC_I2CRDCMP IRQ_TYPE_DEFAULT
+				HIRQ_PMIC_I2CERROR IRQ_TYPE_DEFAULT>;
+
+			interrupt-names = "rd", "wr", "err";
+		};
 	};
 
 	dev@4 {
