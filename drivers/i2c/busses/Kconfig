@@ -328,6 +328,14 @@ config I2C_XGOLD_IDI
 	  Say yes if you want to use the XGOLD I2C interface. This driver is
 	  based on IDI bus.
 
+config I2C_PMIC
+	tristate "Intel I2C PMIC adapter"
+	depends on I2C && X86_INTEL_XGOLD
+	help
+	  This supports the use of the I2C interface on Intel PMIC
+
+	  Say yes if you want to use the I2C PMIC interface
+
 config I2C_AT91
 	tristate "Atmel AT91 I2C Two-Wire interface (TWI)"
 	depends on ARCH_AT91
