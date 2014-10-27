@@ -92,12 +92,17 @@
 		  (uint32_t __iomem *) &sys_prof_if_dummy }
 
 
+struct interrupt_info {
+	uint32_t    id;
+	char        name[MAX_IRQ_NAME_SZ];
+};
+
 struct vsysprof_shared {
 	uint32_t    opcode;
 	union {
 		struct {
-			uint32_t    trace_paddr[SYSPROF_NOF_PHYSICAL_CORES];
 			uint32_t    trace_mask;
+			uint32_t    trace_paddr[SYSPROF_NOF_PHYSICAL_CORES];
 		} setup;
 		struct {
 			uint32_t    id;
@@ -131,6 +136,32 @@ uint32_t __iomem
 	};
 EXPORT_SYMBOL(sys_prof_if);
 
+/*
+ * List of interrupts not handled by common_interrupt handler
+ */
+static struct interrupt_info interrupt_list[] = {
+#ifdef CONFIG_X86_LOCAL_APIC
+	{LOCAL_TIMER_VECTOR, "apic_timer"},
+	{ERROR_APIC_VECTOR, "error_interrupt"},
+	{SPURIOUS_APIC_VECTOR, "spurious_interrupt"},
+#ifdef CONFIG_IRQ_WORK
+	{IRQ_WORK_VECTOR, "irq_work_interrupt"},
+#endif
+#endif
+#ifdef CONFIG_SMP
+	{RESCHEDULE_VECTOR , "reschedule_intr"},
+	{CALL_FUNCTION_VECTOR, "call_function"},
+	{CALL_FUNCTION_SINGLE_VECTOR, "call_func_single"},
+	{REBOOT_VECTOR, "reboot_interrupt"},
+#endif
+#ifdef CONFIG_HAVE_KVM
+	{POSTED_INTR_VECTOR, "kvm_posted_intr_ipi"},
+#endif
+	{X86_PLATFORM_IPI_VECTOR, "x86_platform_ipi"}
+};
+
+#define NUMOF_INTERRUPT_INFO \
+			(sizeof(interrupt_list)/sizeof(struct interrupt_info))
 
 static void vsysprof_set_trace_address(uint32_t *trace_addr)
 {
@@ -147,26 +178,14 @@ static void vsysprof_set_trace_address(uint32_t *trace_addr)
 
 static void vsysprof_set_trace_mask(unsigned int mask)
 {
-	int i, j, k;
+	int i, j;
 	uint32_t *trace_addr;
 
 	for (i = 0; i < SYSPROF_NOF_PHYSICAL_CORES; i++) {
 		for (j = 0; j < SYSPROF_NOF_EVENT_CLASSES; j++) {
-			/*
-			 * For SMP, re-arrange the trace address, so they can be
-			 * directly indexed by raw_smp_processor_id().
-			 * The assumption of the relation between this ID and
-			 * the physical core ID may be valid only for a system
-			 * with dual core CPU only.
-			 */
-			if ((mask & (1 << j)) && sys_prof_trace_addr[i]) {
-#ifdef CONFIG_SMP
-				k = SYSPROF_NOF_PHYSICAL_CORES - i - 1;
-#else
-				k = i;
-#endif
-				trace_addr = sys_prof_trace_addr[k];
-			} else
+			if ((mask & (1 << j)) && sys_prof_trace_addr[i])
+				trace_addr = sys_prof_trace_addr[i];
+			else
 				trace_addr = &sys_prof_if_dummy;
 			sys_prof_if[i][j] = (uint32_t __iomem *) trace_addr;
 		}
@@ -288,6 +307,23 @@ static void vsysprof_get_irq_list(struct vsysprof_struct *pvsysprof)
 	unsigned int irq;
 	struct irq_desc *desc;
 
+	/*
+	 * Send list of ID and name of interrupt not handled by common_interrupt
+	 */
+	for (irq = 0; irq < NUMOF_INTERRUPT_INFO; irq++) {
+		pvsysprof->vshared->u.entity_info.id = interrupt_list[irq].id;
+		strncpy(pvsysprof->vshared->u.entity_info.name,
+				interrupt_list[irq].name, MAX_IRQ_NAME_SZ);
+		pvsysprof->vshared->opcode = SYSPROF_ENTITY_INFO;
+		nkops.nk_xirq_trigger(pvsysprof->cxirq,	pvsysprof->vlink->c_id);
+
+		/* wait for front-end driver to finish reading entity */
+		wait_for_completion(&pvsysprof->entity_completion);
+	}
+
+	/*
+	 * Send list of ID and name of interrupt handled by common_interrupt
+	 */
 	for (irq = 0; irq < nr_irqs; irq++) {
 		desc = irq_to_desc(irq);
 		if (desc == NULL || desc->action == NULL)
@@ -298,7 +334,7 @@ static void vsysprof_get_irq_list(struct vsysprof_struct *pvsysprof)
 			nkops.nk_xirq_trigger(pvsysprof->cxirq,
 							pvsysprof->vlink->c_id);
 
-			/* wait for front-end driver to finisg reading entity */
+			/* wait for front-end driver to finish reading entity */
 			wait_for_completion(&pvsysprof->entity_completion);
 		}
 
