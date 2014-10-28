@@ -112,6 +112,8 @@ struct xgold_isp_dev {
 
 	bool streamon;
 	unsigned int v_blanking_us;
+
+	unsigned int frame_id;
 };
 
 struct video_device *register_cifisp_device(

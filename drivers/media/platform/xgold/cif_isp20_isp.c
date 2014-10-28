@@ -272,6 +272,7 @@ struct meas_readout_work {
 	struct work_struct work;
 	struct xgold_isp_dev *isp_dev;
 	int type;
+	unsigned int frame_id;
 };
 
 static struct workqueue_struct *measurement_wq;
@@ -3636,17 +3637,16 @@ static void cif_isp_send_measurement(struct work_struct *work)
 	struct meas_readout_work *meas_work =
 		(struct meas_readout_work *)work;
 	struct xgold_isp_dev *isp_dev = meas_work->isp_dev;
-	int type = meas_work->type;
 	static int last_type;
 
 	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
 				  "Measurement, last 0x%x new 0x%x\n",
-				  last_type, type);
+				  last_type, meas_work->type);
 	if (isp_dev->streamon) {
 		unsigned long lock_flags = 0;
 		struct videobuf_buffer *vb = NULL;
 
-		if (type != last_type) {
+		if (meas_work->type != last_type) {
 			spin_lock_irqsave(&isp_dev->irq_lock, lock_flags);
 			if (!list_empty(&isp_dev->stat)) {
 				vb = list_entry(isp_dev->stat.next,
@@ -3660,14 +3660,14 @@ static void cif_isp_send_measurement(struct work_struct *work)
 		}
 
 		if (vb) {
-			if (type == CIF_ISP_AWB_DONE) {
+			if (meas_work->type == CIF_ISP_AWB_DONE) {
 				cifisp_get_awb_meas(isp_dev,
 					videobuf_to_vmalloc(vb));
 				if (isp_dev->hst_en)
 					cifisp_get_hst_meas(isp_dev,
 						videobuf_to_vmalloc(vb));
 				last_type = CIF_ISP_AWB_DONE;
-			} else if (type == CIF_ISP_AFM_FIN) {
+			} else if (meas_work->type == CIF_ISP_AFM_FIN) {
 				cifisp_get_afc_meas(isp_dev,
 					videobuf_to_vmalloc(vb));
 				last_type = CIF_ISP_AFM_FIN;
@@ -3680,17 +3680,17 @@ static void cif_isp_send_measurement(struct work_struct *work)
 			}
 
 			do_gettimeofday(&vb->ts);
-			vb->field_count++;
+			vb->field_count = meas_work->frame_id;
 			vb->state = VIDEOBUF_DONE;
 			wake_up(&vb->done);
 
 			CIFISP_DPRINT(CIFISP_DEBUG_INFO, "Measurement done\n");
 		} else {
 			/* Re-enable non processed measurements*/
-			if (type == CIF_ISP_AWB_DONE)
+			if (meas_work->type == CIF_ISP_AWB_DONE)
 				isp_dev->isp_param_awb_meas_update_fast_needed =
 				true;
-			else if (type == CIF_ISP_AFM_FIN)
+			else if (meas_work->type == CIF_ISP_AFM_FIN)
 				isp_dev->isp_param_afc_update_fast_needed =
 				true;
 			else
@@ -3747,6 +3747,7 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 					cif_isp_send_measurement);
 
 				work->isp_dev = isp_dev;
+				work->frame_id = isp_dev->frame_id;
 
 				if (isp_mis & CIF_ISP_AWB_DONE) {
 					work->type = CIF_ISP_AWB_DONE;

@@ -1527,9 +1527,10 @@ static int cif_isp20_config_isp(
 	cif_iowrite32(
 		CIF_ISP_FRAME |
 		CIF_ISP_DATA_LOSS |
-		CIF_ISP_PIC_SIZE_ERROR
+		CIF_ISP_PIC_SIZE_ERROR |
+		CIF_ISP_V_START
 #ifdef MEASURE_VERTICAL_BLANKING
-		| CIF_ISP_V_START | CIF_ISP_FRAME_IN
+		| CIF_ISP_FRAME_IN
 #endif
 		,
 		dev->config.base_addr + CIF_ISP_IMSC);
@@ -3587,7 +3588,7 @@ static int cif_isp20_mi_frame_end(
 	if (frame_done && (stream->curr_buf != NULL)) {
 		if (!stream->stall) {
 			do_gettimeofday(&stream->curr_buf->ts);
-			stream->curr_buf->field_count++;
+			stream->curr_buf->field_count = dev->isp_dev.frame_id;
 			/*Inform the wait queue */
 			stream->curr_buf->state = VIDEOBUF_DONE;
 			wake_up(&stream->curr_buf->done);
@@ -5079,12 +5080,15 @@ int marvin_isp_isr(void *cntxt)
 		cif_ioread32(dev->config.base_addr + CIF_ISP_RIS),
 		cif_ioread32(dev->config.base_addr + CIF_ISP_IMSC));
 
-#ifdef MEASURE_VERTICAL_BLANKING
 	if (isp_mis & CIF_ISP_V_START) {
-		pr_info("ISP_INT:VS\n");
+		dev->isp_dev.frame_id += 2;
 		cif_iowrite32(CIF_ISP_V_START,
-			      dev->config.base_addr + CIF_ISP_ICR);
+		      dev->config.base_addr + CIF_ISP_ICR);
 	}
+
+#ifdef MEASURE_VERTICAL_BLANKING
+	if (isp_mis & CIF_ISP_V_START)
+		pr_info("ISP_INT:VS\n");
 	if (isp_mis & CIF_ISP_FRAME_IN) {
 		pr_info("ISP_INT:FI\n");
 		cif_iowrite32(CIF_ISP_FRAME_IN,
