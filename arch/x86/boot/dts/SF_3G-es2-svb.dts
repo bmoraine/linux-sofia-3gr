@@ -39,6 +39,11 @@
 		interrupt-names = "CPU_CLK_CHANGE";
 	};
 
+	vmodem {
+		compatible = "intel,vmodem";
+		reg = < 0x3c000000 0x04000000 >;
+	};
+
 	ion {
 		compatible = "intel,ion";
 #ifndef RECOVERY_KERNEL
