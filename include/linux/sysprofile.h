@@ -91,6 +91,10 @@
 #define sysprof_hw_interrupt(line)	iowrite32((0x000F0000 | \
 						   (line & 0xFFFF)), \
 						  SYS_PROF_IF(RTOS))
+#define sysprof_vmexit_start()		iowrite32((0x00000F01), \
+						  SYS_PROF_IF(RTOS))
+#define sysprof_vmentry_end()		iowrite32((0x00000F02), \
+						  SYS_PROF_IF(RTOS))
 
 extern uint32_t __iomem
 	*sys_prof_if[SYSPROF_NOF_PHYSICAL_CORES][SYSPROF_NOF_EVENT_CLASSES];
@@ -109,7 +113,14 @@ extern uint32_t __iomem
 #define sysprof_xirq_to_mex(num)
 #define sysprof_xirq_to_linux(num)
 #define sysprof_hw_interrupt(line)
+#define sysprof_vmexit_start()
+#define sysprof_vmentry_end()
 
 #endif
+
+#define mv_guest_trace_vmcall_entry()		sysprof_vmexit_start()
+#define mv_guest_trace_vmcall_exit()		sysprof_vmentry_end()
+#define mv_guest_trace_xirq_post(num)		sysprof_xirq_to_mex(num)
+#define mv_guest_trace_ipi_post(num)		sysprof_xirq_to_linux(num)
 
 #endif

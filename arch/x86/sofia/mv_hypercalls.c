@@ -44,15 +44,47 @@
 
 #define UNUSED_ARG	0
 
+#ifndef __KERNEL__
+/*
+ * These are the place holders for functions to trace VMCALL entry / exit, and
+ * needed as this file is built into lib_guest.a which the guest is linked.
+ * The guest should implement its own functions to replace them if needed.
+ */
+void  __attribute__((weak)) mv_guest_trace_vmcall_entry(void);
+void  __attribute__((weak)) mv_guest_trace_vmcall_exit(void);
+void  __attribute__((weak)) mv_guest_trace_xirq_post(uint32_t xirq);
+void  __attribute__((weak)) mv_guest_trace_ipi_post(uint32_t virq);
+
+void mv_guest_trace_vmcall_entry(void)
+{
+}
+
+void mv_guest_trace_vmcall_exit(void)
+{
+}
+
+void mv_guest_trace_xirq_post(uint32_t xirq)
+{
+	(void) xirq;
+}
+
+void mv_guest_trace_ipi_post(uint32_t virq)
+{
+	(void) virq;
+}
+#endif
+
 static inline int32_t mv_call(uint32_t nr, uint32_t arg0,
 			   uint32_t arg1, uint32_t arg2,
 			   uint32_t arg3)
 {
 	uint32_t ret = 0;
 
+	mv_guest_trace_vmcall_entry();
 	asm volatile (VMCALL_OPCODE : "=a"(ret)
 		      : "a"(nr), "b"(arg0), "c"(arg1), "d"(arg2), "S"(arg3)
 		      : "memory");
+	mv_guest_trace_vmcall_exit();
 
 	return ret;
 }
@@ -65,10 +97,12 @@ static inline int mv_call_5(uint32_t nr, uint32_t arg0,
 {
 	uint32_t results[5];
 
+	mv_guest_trace_vmcall_entry();
 	asm volatile (VMCALL_OPCODE : "=a"(results[0]), "=b"(results[1]),
 		      "=c"(results[2]), "=d"(results[3]), "=S"(results[4])
 		      : "a"(nr), "b"(arg0), "c"(arg1), "d"(arg2), "S"(arg3)
 		      : "memory");
+	mv_guest_trace_vmcall_exit();
 
 	if (ret0)
 		*ret0 = results[0];
@@ -156,12 +190,14 @@ uint32_t mv_xirq_alloc(vmm_paddr_t vlink, uint32_t resource_id,
 /* Trigger a virtual interrupt */
 void mv_xirq_post(uint32_t xirq, uint32_t os_id)
 {
+	mv_guest_trace_xirq_post(xirq);
 	mv_call(VMCALL_XIRQ_POST, xirq, os_id, UNUSED_ARG, UNUSED_ARG);
 }
 
 /* Trigger an IPI to the specified vcpus bitmap */
 void mv_ipi_post(uint32_t virq, uint32_t vcpus)
 {
+	mv_guest_trace_ipi_post(virq);
 	mv_call(VMCALL_IPI_POST, virq, vcpus, UNUSED_ARG, UNUSED_ARG);
 }
 

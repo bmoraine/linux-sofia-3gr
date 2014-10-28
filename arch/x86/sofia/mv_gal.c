@@ -32,7 +32,9 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/smp.h>
+#if defined(CONFIG_SYSTEM_PROFILING)
 #include <linux/sysprofile.h>
+#endif
 #include <linux/memblock.h>
 #include <sofia/mv_hypercalls.h>
 #include <sofia/mv_gal.h>
@@ -162,11 +164,15 @@ static void mv_gal_xirq_handler(registers_t *regs)
 	entry = xirq_callbacks[idx];
 	while (entry) {
 		if (entry->cb) {
+#if defined(CONFIG_SYSTEM_PROFILING)
 			sysprof_interrupt(p_shared_data->triggering_xirq);
 			sysprof_int_enter();
+#endif
 			entry->cb(entry->cookie,
 				p_shared_data->triggering_xirq);
+#if defined(CONFIG_SYSTEM_PROFILING)
 			sysprof_int_leave();
+#endif
 		}
 		entry = entry->next;
 	};
