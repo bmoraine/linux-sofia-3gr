@@ -361,13 +361,13 @@
 #endif
 #ifndef RECOVERY_KERNEL
 	magnetometer {
-		compatible = "st,lsm303dlhc_mag";
-		reg = < 0x1e >;
+		compatible = "memsic,mmc3416x";
+		reg = < 0x30 >;
 		intel,axis-map = < 0 1 2 >;
 		intel,negate = < 0 0 0 >;
 		intel,offset = < 0 0 0 >;
 		intel,poll-interval = < 100 >;
-		pm,class-name = "lsm303dlhc_mag_class";
+		pm,class-name = "mmc3416x_class";
 		pm,user-name = "compass";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
