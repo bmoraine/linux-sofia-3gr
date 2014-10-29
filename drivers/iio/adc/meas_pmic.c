@@ -37,17 +37,62 @@
 #include <linux/completion.h>
 #include <linux/slab.h>
 #include <sofia/vmm_pmic.h>
+#include <sofia/vmm_pmic-ext.h>
 #include "meas_pmic_reg.h"
 
 /* ADC resolution in bits */
 #define MEAS_PMIC_ADC_RESOLUTION_BITS			(12)
 /* ADC range for gain=1 (0db) in uV */
 #define MEAS_PMIC_ADC_RANGE_GAIN_0DB_UV		(1200000)
+/* PMIC NVM version which works for BATT TEMP and SYS TEMP ADC
+	meausrement without any change */
+#define MEAS_PMIC_TLP2_SEQ_FIX_NVM_VERSION (0x4)
+/* BATT TEMP ADC Auto current Scaling mode for measurement */
+#define MEAS_PMIC_BATT_TEMP_SCALING_MODE (3)
+/* SYS TEMP ADC Auto current Scaling mode for measurement */
+#define MEAS_PMIC_SYS_TEMP_SCALING_MODE (2)
 
 /* Size of debug data array (has to be power of 2!!!) */
 #define MEAS_PMIC_DEBUG_DATA_SIZE (1<<6)
 
+/* Max retry count for VMM read/write access */
+#define VMM_RW_MAX_RETRY (3)
+
 #define SYSFS_INPUT_VAL_LEN (1)
+
+/* PMIC NVM size in byte */
+#define PMIC_NVM_SIZE  (2048)
+/* Gain scaling factor */
+#define PMIC_GEC_SCALING (1024)
+/* Production header ID */
+#define PMIC_PRODUCT_SEC_ID (0x4)
+/* Mask value to extract production header from NVM header */
+#define PMIC_PRODUCT_SEC_ID_MASK (0x7C)
+/* Subsection id for Fuel gauge data inside production header */
+#define PMIC_FG_SUBSEC_ID (0x80)
+/* Mask value to extract header length from NVM header */
+#define PMIC_SEC_LENGTH_MASK (0x1F)
+/* Byte position of Fuel gauge calibration voltage and its result */
+#define FG_VHH_BYTE_POS (1)
+#define FG_VHL_BYTE_POS (2)
+#define FG_VLH_BYTE_POS (3)
+#define FG_VLL_BYTE_POS (4)
+#define FG_RDHH_BYTE_POS (9)
+#define FG_RDHL_BYTE_POS (10)
+#define FG_RDLH_BYTE_POS (11)
+#define FG_RDLL_BYTE_POS (12)
+/* Conversion factor from volt to milli volt */
+#define PMIC_V_TO_MV_FACTOR  (1000)
+/* Resistor divider pull-up (Ohms) */
+#define PMIC_VBAT_PULL_UP_RES_MOHM (78400)
+/* Resistor divider pull-down (Ohms) */
+#define PMIC_VBAT_PULL_DOWN_RES_MOHM (24000)
+/* Conversion factor in MV */
+#define PMIC_VBATRATIO_IN_MV (((PMIC_VBAT_PULL_UP_RES_MOHM + \
+	PMIC_VBAT_PULL_DOWN_RES_MOHM) * PMIC_V_TO_MV_FACTOR)/ \
+	PMIC_VBAT_PULL_DOWN_RES_MOHM)
+/* Max retry count to validate NVM read data */
+#define PMIC_NVM_READ_MAX_RETRY_CNT (100)
 
 /* Macro to log debug data */
 #define MEAS_PMIC_DEBUG_DATA_LOG(_event, _context, _context2, \
@@ -79,27 +124,43 @@
 }
 
 /**
+ * meas_pmic_vbat_cal_data - Contains vbat calibration data
+ * @gain: Gain Error Correction
+ * @offset_uv: Offset Error Correction
+ */
+struct meas_pmic_vbat_cal_data {
+	int gain;
+	int offset_uv;
+};
+
+/**
  * meas_pmic_state - A structure representing the internal meas_pmic_state of
  *			the MEAS HAL.
  *
+ * @otp_version:	NVM version of PMIC HW.
  * @lock:		Spin lock used to protect critical sections when
  *			modifying device state data.
  * @power_mode:		Power mode of the HW.
- * @suspended:		TRUE=Device is suspended, otherwise not.
+ * @suspended:		true=Device is suspended, otherwise not.
  * @active_channel:	Channel currently being measured.
  * @p_channel_data:	Pointer to channel data of each of the supported
  *			channels.
+ * @vbat_cal:	 Structure for vbat calibration data
+ * @p_platform_device:	Pointer to platform device
  * @irq_num:		IRQ number for underlying HW. It comes from device data.
  * @meas_done:		Completion used to wait for measurement done.
  * @operation_done_cb:	Pointer to HAL callback.
+ * @meas_pending:	measurement pending status.
  */
 struct meas_pmic_state_data {
+	int otp_version;
 	spinlock_t lock;
 	enum adc_hal_power_mode power_mode;
 	bool suspended;
 	enum adc_channel active_channel;
 	struct intel_adc_hal_channel_data
 		*p_channel_data[ADC_MAX_NO_OF_CHANNELS];
+	struct meas_pmic_vbat_cal_data vbat_cal;
 	struct platform_device *p_platform_device;
 	int irq_num;
 	struct completion meas_done;
@@ -210,15 +271,6 @@ static int meas_pmic_current_table[] = {
 };
 
 /**
- * meas_pmic_dump_register() - Dump MEAS registers.
-*/
-static void meas_pmic_dump_register(void)
-{
-	/* Start dumping relevant register content */
-	/* store first label interrupt and second label interrupt */
-}
-
-/**
  * meas_pmic_reg_write() - MEAS PMIC register write API.
  *  It is used to write the value into PMIC HW.
  * @addr			[in] Register address to be written
@@ -232,9 +284,13 @@ static int32_t meas_pmic_reg_write(uint32_t addr, uint32_t val)
 	do {
 		count++;
 		result = vmm_pmic_reg_write(addr, val);
-		} while ((result < 0) && (count <= 3));
+		} while ((result < 0) && (count <= VMM_RW_MAX_RETRY));
 	/*pr_err("WRITE addr = 0x%08x, val=0x%08x, count = %d\n",
 		 addr, val, count);*/
+	if (VMM_RW_MAX_RETRY == count) {
+		pr_err("%s VMM PMIC register write failed !!!!\n", __func__);
+		BUG();
+	}
 	return result;
 }
 
@@ -252,11 +308,47 @@ static int32_t meas_pmic_reg_read(uint32_t addr, uint32_t *val)
 	do {
 		count++;
 		result = vmm_pmic_reg_read(addr, val);
-		} while ((result < 0) && (count <= 3));
+		} while ((result < 0) && (count <= VMM_RW_MAX_RETRY));
 	/*pr_err("READ addr = 0x%08x, val=0x%08x count = %d\n",
 		 addr, *val, count);*/
+	if (VMM_RW_MAX_RETRY == count) {
+		pr_err("%s VMM PMIC register read failed !!!!\n", __func__);
+		BUG();
+	}
 	return result;
 }
+
+
+/**
+ * meas_pmic_dump_register() - Dump PMIC registers.
+*/
+static void meas_pmic_dump_register(void)
+{
+	int vmm_pmic_err = 0;
+	uint32_t read_value = 0;
+
+	/* Start dumping relevant register content */
+	vmm_pmic_err = meas_pmic_reg_read(IRQLVL1_REG_ADDR, &read_value);
+	pr_err("vmm_erro=%d IRQLVL1_REG_ADDR=0x%08x\n",
+		vmm_pmic_err, read_value);
+
+	vmm_pmic_err = meas_pmic_reg_read(GPADCIRQ_REG_ADDR, &read_value);
+	pr_err("vmm_erro=%d GPADCIRQ_REG_ADDR=0x%08x\n",
+		vmm_pmic_err, read_value);
+
+	vmm_pmic_err = meas_pmic_reg_read(GPADCREQ_REG_ADDR, &read_value);
+	pr_err("vmm_erro=%d GPADCREQ_REG_ADDR=0x%08x\n",
+		vmm_pmic_err, read_value);
+
+	vmm_pmic_err = meas_pmic_reg_read(MADCIRQ_REG_ADDR, &read_value);
+	pr_err("vmm_erro=%d MADCIRQ_REG_ADDR=0x%08x\n",
+		vmm_pmic_err, read_value);
+
+	vmm_pmic_err = meas_pmic_reg_read(MADCIRQ_REG_ADDR, &read_value);
+	pr_err("vmm_erro=%d MIRQLVL1_REG_ADDR=0x%08x\n",
+		vmm_pmic_err, read_value);
+}
+
 
 /**
  * meas_pmic_intern_temperature_calc() - Translates the internal die
@@ -285,7 +377,7 @@ static int meas_pmic_intern_temperature_calc(int meas_result_uv)
 	return ((meas_result_uv) * 106) / 125;
 }
 
-#ifdef PMIC_IRQ_WORKING
+
 /**
  * meas_pmic_irq_enable() - Function for enabling the MEAS irq.
  * @enable:	True if the irq is to be enabled, false for disabled.
@@ -294,59 +386,67 @@ static int meas_pmic_intern_temperature_calc(int meas_result_uv)
 static void meas_pmic_irq_enable(bool enable, int reg_channel)
 {
 	int32_t vmm_pmic_err = 0;
-	uint32_t madcirq_val = 0, irqlvl1_val = 0;
-	uint32_t read_val = 0;
+	uint32_t madcirq_mask, madcirq_data;
+	uint32_t madcirq_val = (1 <<
+		(meas_pmic_adc_reg[reg_channel].adc_sta_bit));
 
 	if (enable) {
-		/* Better to have interrupt lock for reg, modify and write */
-		vmm_pmic_err =
-		  meas_pmic_reg_read(MADCIRQ_REG_ADDR, &madcirq_val);
-		if (IS_ERR_VALUE(vmm_pmic_err)) {
-			pr_err("%s %d VMM PMIC read error %d\n", __func__,
-				__LINE__, vmm_pmic_err);
-		}
-
-		read_val = madcirq_val;
-		madcirq_val = madcirq_val &
-		 (~(1 << (meas_pmic_adc_reg[reg_channel].adc_sta_bit)));
-		pr_err("%s MADCIRQ is changed from %d to %d\n",
-			 __func__, read_val, madcirq_val);
-		vmm_pmic_err =
-			 meas_pmic_reg_write(MADCIRQ_REG_ADDR, madcirq_val);
-		if (IS_ERR_VALUE(vmm_pmic_err)) {
-			pr_err("%s %d VMM PMIC write error %d\n", __func__,
-				__LINE__, vmm_pmic_err);
-		}
-
-		irqlvl1_val = (1 << IRQLVL1_REG_ADC_BIT_POS);
-		pr_err("%s IRQLVL1 is set to %d\n", __func__, irqlvl1_val);
-		vmm_pmic_err =
-			 meas_pmic_reg_write(MIRQLVL1_REG_ADDR, irqlvl1_val);
-		if (IS_ERR_VALUE(vmm_pmic_err))
-			pr_err("%s %d VMM PMIC write error %d\n", __func__,
-				__LINE__, vmm_pmic_err);
-
+		madcirq_mask = madcirq_val;
+		madcirq_data = 0;
 	} else {
-		vmm_pmic_err =
-			meas_pmic_reg_read(MADCIRQ_REG_ADDR, &madcirq_val);
-		if (IS_ERR_VALUE(vmm_pmic_err)) {
-			pr_err("%s %d VMM PMIC read error %d\n", __func__,
-				__LINE__, vmm_pmic_err);
-		}
-
-		read_val = madcirq_val;
-		madcirq_val = madcirq_val |
-			(1 << (meas_pmic_adc_reg[reg_channel].adc_sta_bit));
-		pr_err("%s MADCIRQ is changed from %d to %d\n",
-		 __func__, read_val, madcirq_val);
-		vmm_pmic_err =
-			meas_pmic_reg_write(MADCIRQ_REG_ADDR, madcirq_val);
-		if (IS_ERR_VALUE(vmm_pmic_err))
-			pr_err("%s %d VMM PMIC write error %d\n", __func__,
-				__LINE__, vmm_pmic_err);
+		madcirq_mask = madcirq_val;
+		madcirq_data = madcirq_val;
 	}
+
+	vmm_pmic_err = pmic_reg_set_field(MADCIRQ_REG_ADDR,
+		madcirq_mask, madcirq_data);
+	if (IS_ERR_VALUE(vmm_pmic_err))
+		pr_err("%s %d VMM PMIC write error %d\n", __func__,
+			__LINE__, vmm_pmic_err);
 }
-#endif
+
+/**
+ * meas_pmic_cal_adc_bias_current() - Calculate ADC bias current in nA.
+ * @reg_channel: Physical channel of ADC
+ * @result_high:	MSB result value
+ * @return:	 ADC bias current in nA
+ */
+int meas_pmic_cal_adc_bias_current(int reg_channel, int result_high)
+{
+	int reg_current;
+
+	reg_current = (int) ((result_high >> 4) & 0xF);
+
+/*	This function is required to compensate wrong NVM setting.
+		This change would allow ADC driver to provide correct
+		battery temperature and system temperature. This problem is
+		fixed in newer NVM version. This needs to be cleaned up this
+		code when all HW would have correct NVM setting */
+	switch (reg_channel) {
+	case ADC_PHY_BAT0TEMP:
+	case ADC_PHY_BAT1TEMP:
+		if (meas_pmic_state.otp_version <
+			MEAS_PMIC_TLP2_SEQ_FIX_NVM_VERSION)
+			reg_current = reg_current -
+				MEAS_PMIC_BATT_TEMP_SCALING_MODE;
+		break;
+
+	case ADC_PHY_SYS0TEMP:
+	case ADC_PHY_SYS1TEMP:
+	case ADC_PHY_SYS2TEMP:
+		if (meas_pmic_state.otp_version <
+			MEAS_PMIC_TLP2_SEQ_FIX_NVM_VERSION)
+			reg_current = reg_current -
+				MEAS_PMIC_SYS_TEMP_SCALING_MODE;
+		break;
+
+	default:
+		break;
+	}
+
+	BUG_ON(reg_current >= ARRAY_SIZE(meas_pmic_current_table));
+	return meas_pmic_current_table[reg_current];
+}
 
 /**
  * meas_pmic_read_raw() - Configure the registers to perform a current
@@ -359,28 +459,19 @@ static void meas_pmic_irq_enable(bool enable, int reg_channel)
  *			in counts.
  */
 static void meas_pmic_read_raw(int reg_channel,
-				int  *p_result_uv,
-				int  *p_adc_bias_na,
-				bool calibrated,
-				enum adc_hal_avg_sample_level avg_sample_level,
-				bool converted)
+			int  *p_result_uv,
+			int  *p_adc_bias_na,
+			bool calibrated,
+			enum adc_hal_avg_sample_level avg_sample_level,
+			bool converted)
 {
 	int rslt_hsb = 0, rslt_lsb = 0;
-	int reg_current = 0;
-	unsigned int adc_irq_value = 0;
 	int vmm_pmic_err = 0;
 
 	BUG_ON(reg_channel < 0);
-
-	pr_err("reg_channel = %d\n", reg_channel);
+	BUG_ON(reg_channel >= ADC_PHY_MAX);
 
 	if (ADC_PHY_OCV != reg_channel) {
-		/* Enable the MEAS irq so that we're ready to receive
-		 it as soon as it's triggered */
-
-#ifdef PMIC_IRQ_WORKING
-		meas_pmic_irq_enable(true, reg_channel);
-#endif
 
 		vmm_pmic_err = meas_pmic_reg_write(GPADCIRQ_REG_ADDR,
 			(1 << (meas_pmic_adc_reg[reg_channel].adc_sta_bit)));
@@ -395,19 +486,13 @@ static void meas_pmic_read_raw(int reg_channel,
 			pr_err("%s %d VMM PMIC write error %d\n",
 				 __func__, __LINE__, vmm_pmic_err);
 
+		/* Enable the MEAS irq */
+		meas_pmic_irq_enable(true, reg_channel);
+
 		meas_pmic_state.meas_pending = true;
 
-#ifdef PMIC_IRQ_WORKING
 		/* Wait for measurement to be done  */
 		wait_for_completion(&meas_pmic_state.meas_done);
-#endif
-
-		do {
-			usleep_range(2000, 2500);
-			meas_pmic_reg_read(GPADCIRQ_REG_ADDR, &adc_irq_value);
-		} while (!(adc_irq_value &
-				(1 <<
-			 (meas_pmic_adc_reg[reg_channel].adc_sta_bit))));
 
 		meas_pmic_state.meas_pending = false;
 	}
@@ -426,18 +511,28 @@ static void meas_pmic_read_raw(int reg_channel,
 			__LINE__, vmm_pmic_err);
 	}
 
-/* According to datasheets: Vin (uV) = (measured Counts)
+	/* According to datasheets: Vin (uV) = (measured Counts)
 				* (measurement input range in uV) /
 						(ADC resolution) */
-	*p_result_uv = (int)((((long long int)
+	*p_result_uv = (int)((((int64_t)
 			(((rslt_hsb & 0xF) << 8) + rslt_lsb) *
 			MEAS_PMIC_ADC_RANGE_GAIN_0DB_UV) >>
 			(MEAS_PMIC_ADC_RESOLUTION_BITS-1)) + 1) >> 1;
 
+	/* Apply Vbat calibration */
+	if ((ADC_PHY_VBAT == reg_channel) ||
+		(ADC_PHY_OCV == reg_channel))
+		/* Apply calibration factors based on NVM data
+			 result_uv =
+			 (measured value + offset)*gain/PMIC_GEC_SCALING
+			i.e. result_uv =
+			 ((measured value + offset)*gain) >> 10 */
+		*p_result_uv = ((((*p_result_uv +
+			meas_pmic_state.vbat_cal.offset_uv)*
+			meas_pmic_state.vbat_cal.gain) >> 9)+1)>>1;
+
 	/* Get current bias used in measurement and converted to nA */
-	reg_current = (int) ((rslt_hsb >> 4) & 0xF);
-	BUG_ON(reg_current >= ARRAY_SIZE(meas_pmic_current_table));
-	*p_adc_bias_na = meas_pmic_current_table[reg_current];
+	*p_adc_bias_na = meas_pmic_cal_adc_bias_current(reg_channel, rslt_hsb);
 
 	if (converted) {
 		/* Apply post processing functions to special channels. */
@@ -517,7 +612,6 @@ static int meas_pmic_set_power_mode(enum adc_hal_power_mode new_power_mode)
 static int meas_pmic_stop_meas(enum adc_channel channel)
 {
 	int i;
-
 	/* wait until a measurement pending in meas_pmic_read_raw() */
 	for (i = 0; i < 100 && meas_pmic_state.meas_pending; i++) {
 		pr_warn("stop measurement on ADC running\n");
@@ -577,7 +671,9 @@ static int meas_pmic_set(enum adc_hal_set_key key,
 		break;
 	case ADC_HAL_DUMP_REGISTER:
 		meas_pmic_dump_register();
+		break;
 	default:
+		pr_err("%s Warning: Invalid request (%d)\n", __func__, key);
 		ret = -EINVAL;
 		break;
 	};
@@ -603,7 +699,7 @@ static int meas_pmic_get(enum adc_hal_get_key key,
 			/* Get measurement and copy value */
 			ret = meas_pmic_get_meas(params.adc_meas.channel,
 						params.adc_meas.p_adc_bias_na,
-						 params.adc_meas.p_result_uv);
+						params.adc_meas.p_result_uv);
 		}
 		break;
 	default:
@@ -613,7 +709,219 @@ static int meas_pmic_get(enum adc_hal_get_key key,
 	return ret;
 }
 
-#ifdef PMIC_IRQ_WORKING
+/**
+ * meas_pmic_read_vbat_cal_data() - Calculate Vbat gain
+ *  and offset error from PMIC NVM data.
+ * @p_gec:		Pointer of gain error correction for Vbat.
+ * @p_oec:		Pointer of offset error correction for Vbat.
+ */
+static void meas_pmic_read_vbat_cal_data(int *p_gec, int *p_oec)
+{
+	u32 otp_ready = 0, datum = 0, datumcheck = 0;
+	u32 cnt = 0, retry_count = 0;
+	int gain = PMIC_GEC_SCALING, offset_uv = 0;
+	int vmm_pmic_err = 0;
+	int NextSecCountdown = 0, inSectionCount = 0;
+	int Cref1 = 0, Cref2 = 0, Cadc1 = 0, Cadc2 = 0;
+	bool inHeader = false, inSection = false,
+		inSubsection = false, dataValid = true;
+
+	vmm_pmic_err = meas_pmic_reg_read(
+		NVM_STAT0_REG_ADDR, &otp_ready);
+	if (IS_ERR_VALUE(vmm_pmic_err))
+		pr_err("%s %d VMM PMIC read error %d\n",
+			__func__, __LINE__, vmm_pmic_err);
+
+	if (otp_ready & NVM_STAT0_REG_OTP_PD_ACT_VAL) {
+		/*	If OTP memory is in power down mode, power up the OTP
+		memory after writting into the NVM read mailbox registers */
+		vmm_pmic_err = meas_pmic_reg_write(
+			NVM_MB_ADDRH_REG_ADDR, (u8)(0x0));
+		if (IS_ERR_VALUE(vmm_pmic_err))
+			pr_err("%s %d VMM PMIC write error %d\n",
+				 __func__, __LINE__, vmm_pmic_err);
+
+		vmm_pmic_err = meas_pmic_reg_write(
+			NVM_MB_ADDRL_REG_ADDR, (u8)(0x0));
+		if (IS_ERR_VALUE(vmm_pmic_err))
+			pr_err("%s %d VMM PMIC write error %d\n",
+				 __func__, __LINE__, vmm_pmic_err);
+
+		retry_count = 0;
+		do {
+			/* Wait until OTP memory is powered up i.e.
+				OTP_PD_ACT==0 */
+			usleep_range(500, 1000);
+			vmm_pmic_err = meas_pmic_reg_read(
+				NVM_STAT0_REG_ADDR, &otp_ready);
+			if (IS_ERR_VALUE(vmm_pmic_err))
+				pr_err("%s %d VMM PMIC read error %d\n",
+				__func__, __LINE__, vmm_pmic_err);
+
+			if (!(otp_ready & NVM_STAT0_REG_OTP_PD_ACT_VAL))
+				break;
+
+			retry_count++;
+			if (retry_count == PMIC_NVM_READ_MAX_RETRY_CNT)
+				dataValid = false;
+		} while (retry_count < PMIC_NVM_READ_MAX_RETRY_CNT);
+	}
+
+	/* fetch data from OTP */
+	cnt = 0;
+	while ((cnt < PMIC_NVM_SIZE) && (true == dataValid)) {
+		retry_count = 0;
+
+		do {
+			/* Set NVM address to read */
+		vmm_pmic_err = meas_pmic_reg_write(
+				NVM_MB_ADDRH_REG_ADDR, (u8)(cnt>>8));
+		if (IS_ERR_VALUE(vmm_pmic_err))
+			pr_err("%s %d VMM PMIC write error %d\n",
+				 __func__, __LINE__, vmm_pmic_err);
+
+		vmm_pmic_err = meas_pmic_reg_write(
+				NVM_MB_ADDRL_REG_ADDR, (u8)(cnt));
+		if (IS_ERR_VALUE(vmm_pmic_err))
+			pr_err("%s %d VMM PMIC write error %d\n",
+				 __func__, __LINE__, vmm_pmic_err);
+
+		/* Read NVM data */
+		vmm_pmic_err = meas_pmic_reg_read(
+				NVM_MB_DATA_REG_ADDR, &datum);
+		if (IS_ERR_VALUE(vmm_pmic_err))
+			pr_err("%s %d VMM PMIC read error %d\n",
+				 __func__, __LINE__, vmm_pmic_err);
+
+		/* Re-read the data again and validate the the data with
+		earlier data. Set NVM address to read again */
+		vmm_pmic_err = meas_pmic_reg_write(
+			NVM_MB_ADDRH_REG_ADDR, (u8)(cnt>>8));
+		if (IS_ERR_VALUE(vmm_pmic_err))
+			pr_err("%s %d VMM PMIC write error %d\n",
+		  __func__, __LINE__, vmm_pmic_err);
+
+		vmm_pmic_err = meas_pmic_reg_write(
+			NVM_MB_ADDRL_REG_ADDR, (u8)(cnt));
+		if (IS_ERR_VALUE(vmm_pmic_err))
+			pr_err("%s %d VMM PMIC write error %d\n",
+		__func__, __LINE__, vmm_pmic_err);
+
+		/* Read NVM data */
+		vmm_pmic_err = meas_pmic_reg_read(
+				NVM_MB_DATA_REG_ADDR, &datumcheck);
+		if (IS_ERR_VALUE(vmm_pmic_err))
+			pr_err("%s %d VMM PMIC read error %d\n",
+				__func__, __LINE__, vmm_pmic_err);
+
+		if (datumcheck == datum)
+			break;
+
+		retry_count++;
+		if (retry_count == PMIC_NVM_READ_MAX_RETRY_CNT)
+			dataValid = false;
+		} while (retry_count < PMIC_NVM_READ_MAX_RETRY_CNT);
+
+		if (true == dataValid) {
+			if (true == inHeader) {
+				/* Bit 2 to 7 of 2nd byte of
+					header data contains section length */
+				NextSecCountdown = (datum &
+					PMIC_SEC_LENGTH_MASK)+1;
+				inHeader = false;
+				cnt++;
+			} else {
+				if (NextSecCountdown == 0) {
+					/* Bit 1 to 5 of 1st byte of
+					header data contains section owner */
+					inSection = false;
+					inSubsection = false;
+					inHeader = true;
+					if ((datum &  PMIC_PRODUCT_SEC_ID_MASK)
+						 == PMIC_PRODUCT_SEC_ID) {
+						inSection = true;
+						inSectionCount = 0;
+					}
+					cnt++;
+				} else {
+				if (inSection == true) {
+					if ((inSectionCount == 0)
+						&& (datum == PMIC_FG_SUBSEC_ID))
+							inSubsection = true;
+
+				if (inSubsection == true) {
+					if ((inSectionCount ==
+					FG_VHH_BYTE_POS) ||
+					(inSectionCount == FG_VHL_BYTE_POS))
+						Cref1 = (Cref1<<8)+((int)datum);
+
+					if ((inSectionCount ==
+					FG_VLH_BYTE_POS) ||
+					(inSectionCount == FG_VLL_BYTE_POS))
+						Cref2 = (Cref2<<8)+((int)datum);
+
+					if ((inSectionCount ==
+					FG_RDHH_BYTE_POS) ||
+					(inSectionCount == FG_RDHL_BYTE_POS))
+						Cadc1 = (Cadc1<<8)+((int)datum);
+
+					if ((inSectionCount ==
+					FG_RDLH_BYTE_POS) ||
+					(inSectionCount == FG_RDLL_BYTE_POS))
+						Cadc2 = (Cadc2<<8)+((int)datum);
+
+					if (inSectionCount == FG_RDLL_BYTE_POS)
+						break;
+
+						}
+						inSectionCount++;
+						NextSecCountdown--;
+						cnt++;
+					} else {
+						/* Skip the section data if
+						section does not contains
+						vbat calibration data */
+						cnt = cnt+NextSecCountdown;
+						NextSecCountdown = 0;
+					}
+				}
+			}
+		}
+	};
+
+	pr_err("%s Cref2=%d Cadc2=%d Cref1=%d Cadc1=%d\n",
+		__func__, Cref2, Cadc2, Cref1, Cadc1);
+
+	if ((true == dataValid) && (Cadc2 != Cadc1)
+		&& (Cref2 != Cref1)) {
+		/* Calculate gain error coef
+		gain = 100*(Cref_2-Cref_1)/(Cadc_2-Cadc_1)/Vbat_ratio/
+			(1200000/4096)*1024
+		*/
+		gain = (int)((2*100*(Cref2-Cref1)/(Cadc2-Cadc1)*
+			(1<<MEAS_PMIC_ADC_RESOLUTION_BITS)/PMIC_VBATRATIO_IN_MV*
+			PMIC_GEC_SCALING/(MEAS_PMIC_ADC_RANGE_GAIN_0DB_UV/1000))
+			+1)>>1;
+
+		/* Calculate offset error coef.
+			offset_uv =-(Cadc_1*(Cref_2-Cref_1)/(Cadc_2-Cadc_1)-
+			Cref_1)*100/(Vbat_ratio).
+		Offset is converted to uV format.
+		*/
+		offset_uv = (int)((-(2*2*10*Cadc1*(Cref2-Cref1)/(Cadc2-Cadc1)-
+			2*2*10*Cref1)*5*100/PMIC_VBATRATIO_IN_MV)*10);
+
+		if (offset_uv >= 0)
+			offset_uv = (offset_uv+1)/2;
+		else
+			offset_uv = (offset_uv-1)/2;
+	}
+
+	/* Pass result back */
+	*p_gec = gain;
+	*p_oec = offset_uv;
+}
+
 /**
  * meas_pmic_irq_handler - MEAS HW irq handler. It releases the "wait for
  *			completion" to process measurement done.
@@ -624,23 +932,32 @@ static irqreturn_t meas_pmic_irq_handler(int irq, void *data)
 {
 	struct meas_pmic_state_data *st = (struct meas_pmic_state_data *)data;
 	unsigned int adc_irq_value = 0;
-	enum adc_channel channel = meas_pmic_state.active_channel;
-	int reg_channel =
-		 meas_pmic_state.p_channel_data[channel]->phy_channel_num;
+	int reg_channel;
 	uint32_t irqlvl1_value = 0;
-
-	pr_err("channel = %d, reg_channel=%d\n", channel, reg_channel);
+	int32_t vmm_pmic_err = 0;
 
 	BUG_ON(st->irq_num != irq);
 
-	meas_pmic_reg_read(IRQLVL1_REG_ADDR, &irqlvl1_value);
+	if (meas_pmic_state.active_channel >= ADC_MAX_NO_OF_CHANNELS)
+		return IRQ_NONE;
+
+	vmm_pmic_err = meas_pmic_reg_read(IRQLVL1_REG_ADDR, &irqlvl1_value);
+	if (IS_ERR_VALUE(vmm_pmic_err)) {
+		pr_err("%s %d VMM PMIC write error %d\n", __func__,
+			__LINE__, vmm_pmic_err);
+	}
 	if (!(irqlvl1_value & (1 << IRQLVL1_REG_ADC_BIT_POS)))
 		return IRQ_NONE;
 
-	meas_pmic_reg_read(GPADCIRQ_REG_ADDR, &adc_irq_value);
+	vmm_pmic_err = meas_pmic_reg_read(GPADCIRQ_REG_ADDR, &adc_irq_value);
+	if (IS_ERR_VALUE(vmm_pmic_err)) {
+		pr_err("%s %d VMM PMIC write error %d\n", __func__,
+			__LINE__, vmm_pmic_err);
+	}
 
-	pr_err("adc_irq_value = %d\n", adc_irq_value);
-
+	reg_channel =
+		meas_pmic_state.p_channel_data[
+		meas_pmic_state.active_channel]->phy_channel_num;
 	if (!(adc_irq_value &
 			(1 << (meas_pmic_adc_reg[reg_channel].adc_sta_bit))))
 		return IRQ_NONE;
@@ -650,10 +967,8 @@ static irqreturn_t meas_pmic_irq_handler(int irq, void *data)
 
 	/* Signal to release measurement done completion */
 	complete(&st->meas_done);
-
 	return IRQ_HANDLED;
 }
-#endif
 
 static struct adc_hal_hw_info meas_pmic_hw_info = {
 	.p_current_scaling_info = NULL,
@@ -707,6 +1022,10 @@ static struct intel_adc_hal_channel_data channel_data[] = {
 	{"intel_adc_sensors", "SYSTEMP2_ADC", "CH04", ADC_T_SYS_2,
 	 ADC_PHY_SYS2TEMP, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
 	 ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_TEMP},
+
+	{"intel_adc_sensors", "USBID_ADC", "CH08", ADC_ID_USB,
+	 ADC_PHY_USBID, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
+	 ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_RESISTANCE},
 };
 
 static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
@@ -791,6 +1110,11 @@ static int meas_pmic_probe(struct platform_device *pdev)
 	meas_pmic_state.p_platform_device = pdev;
 
 	pdata = kzalloc(sizeof(struct intel_adc_hal_pdata), GFP_KERNEL);
+	if (!pdata) {
+		pr_err("(%s) Memory allocation failed!!\n", __func__);
+		ret = (int)pdata;
+		goto err_kzalloc;
+	}
 
 	pdata->channel_info.nchan = ARRAY_SIZE(channel_data);
 	pdata->channel_info.p_data = channel_data;
@@ -804,42 +1128,73 @@ static int meas_pmic_probe(struct platform_device *pdev)
 			&p_channel_info->p_data[chan];
 	}
 
-#ifdef PMIC_IRQ_WORKING
 	meas_pmic_state.irq_num = platform_get_irq_byname(pdev,
 					"PMIC_ADC_HIRQ");
-
 	if (IS_ERR_VALUE(meas_pmic_state.irq_num)) {
 		pr_err("(%s) failed to get irq no\n", __func__);
-		return -ENXIO;
+		ret = meas_pmic_state.irq_num;
+		goto err_request_irq;
 	}
 
 	/* Request and enable the MEAS irq */
-	ret = request_irq(meas_pmic_state.irq_num, meas_pmic_irq_handler,
-			IRQF_TRIGGER_RISING, "pmic_adc_irq", &meas_pmic_state);
-
+	ret = request_threaded_irq(meas_pmic_state.irq_num, NULL,
+		 meas_pmic_irq_handler, IRQF_SHARED | IRQF_ONESHOT,
+		"pmic_adc_irq", &meas_pmic_state);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("(%s) failed requesting interrupt\n", __func__);
-		return -EINVAL;
+		goto err_request_irq;
 	}
-#endif
+
+	/* Unmask ADC bit in first level interrupt register */
+	ret = pmic_reg_set_field(MIRQLVL1_REG_ADDR,
+		(1 << IRQLVL1_REG_ADC_BIT_POS), 0);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("%s %d VMM PMIC write error %d\n", __func__,
+			__LINE__, ret);
+		goto err_register_hal;
+	}
+
+	ret = meas_pmic_reg_read(OTPVERSION_REG_ADDR,
+		&meas_pmic_state.otp_version);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("%s %d VMM PMIC write error %d\n",
+			 __func__, __LINE__, ret);
+		goto err_register_hal;
+	}
+
+	pr_info("%s OTP version=%d\n",
+		__func__, meas_pmic_state.otp_version);
 
 	/* Initialise measurement done completion */
 	init_completion(&meas_pmic_state.meas_done);
 
+	/* Read Vbat calibration data from PMIC NVM data and
+		calculate gain and offset */
+	meas_pmic_read_vbat_cal_data(&meas_pmic_state.vbat_cal.gain,
+			&meas_pmic_state.vbat_cal.offset_uv);
+	pr_info("VBAT GEC = %d\n", meas_pmic_state.vbat_cal.gain);
+	pr_info("VBAT OEC = %d\n", meas_pmic_state.vbat_cal.offset_uv);
+
 	/* Register to HAL and return */
 	ret = adc_register_hal(&meas_pmic_adc_hal_interface, dev,
 				&meas_pmic_state.operation_done_cb);
-	if (ret)
+	if (ret) {
+		pr_err("(%s) Registration of ADC HAL is failed!! %d\n",
+			__func__, ret);
 		goto err_register_hal;
+	}
 
 	meas_pmic_setup_sysfs_attr(dev);
 
-	pr_err("(%s) probe OK\n", __func__);
-
+	pr_info("%s probe OK\n", __func__);
 	return 0;
 
 err_register_hal:
 	free_irq(meas_pmic_state.irq_num, &meas_pmic_state);
+err_request_irq:
+	kfree(pdata);
+	dev->platform_data = NULL;
+err_kzalloc:
 	pr_info("probe failed\n");
 	return ret;
 }
@@ -854,8 +1209,12 @@ static int meas_pmic_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
+	/* De-register the ADC HAL */
 	adc_unregister_hal(&meas_pmic_adc_hal_interface, dev);
 
+	/* De-allocate platform data */
+	kfree(dev->platform_data);
+	dev->platform_data = NULL;
 	return 0;
 }
 

@@ -44,6 +44,9 @@
 /* Size of debug data array (has to be power of 2!!!) */
 #define ADC_SENSORS_DEBUG_DATA_SIZE	(1<<6)
 
+/* Volt to micro volt factor */
+#define UV_PER_V (1000000)
+
 #define SYSFS_INPUT_VAL_LEN		(1)
 
 /* Macro to trace and log debug data internally. Jiffy resolution is adequate */
@@ -209,6 +212,7 @@ static const struct adc_sensors_chan_info
 		{"VBAT_OCV_SENSOR", "VBAT_OCV_ADC", IIO_VOLTAGE},
 		{"ACCID_SENSOR", "ACCID_ADC", IIO_VOLTAGE},
 		{"HWID_SENSOR", "HWID_ADC", IIO_RESISTANCE},
+		{"USBID_SENSOR", "USBID_ADC", IIO_RESISTANCE},
 };
 
 /*
@@ -303,9 +307,16 @@ static int adc_sensors_convert_linear_uv_ohm(
 	* Dividing with rounding measurement result in mV by current bias in nA,
 	* times scaling factor to bring result to Ohm
 	* NOTE: uV value multiplied by 1000 to compensate as current unit is nA
-	* ((adc_value_uv * 1000) * 2)
+	* (adc_value_uv * 1000)
+	* To avoid overflow of 32-bit operation, when adc_voltage_uv is more
+	 than 1V (1000000 uV), round off mechanism is not in place.
 	*/
-	total_resistance_ohm =
+
+	if (adc_voltage_uv > UV_PER_V)
+		total_resistance_ohm = ((adc_voltage_uv * 1000) /
+			 adc_current_na);
+	else
+		total_resistance_ohm =
 		(((adc_voltage_uv * 2000) / adc_current_na) + 1) >> 1;
 
 	/* Calculate battery ID resistor value */
@@ -775,16 +786,18 @@ static int adc_sensor_read_raw(struct iio_dev *p_iiodev,
 					if (apply_calibration) {
 						int cal_val =
 							(*p_val +
-							p_cal->offset) *
-							p_cal->gain;
+							p_cal->offset);
+
 					if (cal_val >= 0) {
 							*p_val =
-								((cal_val >>
+							((((int64_t) cal_val *
+							 p_cal->gain) >>
 								(p_cal->shift -
 								1)) + 1) >> 1;
 					} else {
 							*p_val =
-								-((-cal_val >>
+							-((-((int64_t)cal_val *
+							p_cal->gain) >>
 								(p_cal->shift -
 								1)) + 1) >> 1;
 						}
@@ -1218,7 +1231,7 @@ static void __exit adc_sensors_exit(void)
 	platform_driver_unregister(&adc_sensors_platform_driver);
 }
 
-device_initcall_sync(adc_sensors_init);
+module_init(adc_sensors_init);
 module_exit(adc_sensors_exit);
 
 MODULE_DESCRIPTION("Intel ADC Sensors Driver");

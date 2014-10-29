@@ -152,6 +152,16 @@ static struct adc_sensors_data_linear_uv_to_ohm adc_sensors_pmic_batid_data = {
 };
 
 /**
+ * USB ID for PMIC is measured as follows:
+ *
+ *	No series resistor.
+ */
+#define USBID_NO_SERIES_RESISTOR_OHM	(0)
+static struct adc_sensors_data_linear_uv_to_ohm adc_sensors_usbid_data = {
+	USBID_NO_SERIES_RESISTOR_OHM
+};
+
+/**
  * Die Temperature Sensor delivers 1mV / 1K
  */
 /* Scaled conversion factor: Scaling Factor / (uV to K factor) */
@@ -304,6 +314,10 @@ static struct adc_sensors_channel intel_adc_sensors_pmic_channels[] = {
 	{"sim_charge_pump", ADC_SENSORS_CHANNEL_VBAT,
 	ADC_SENSORS_CONVERSION_LINEAR_UV_TO_MV, &adc_sensors_vbat_data,
 	CAL_DEFAULT, VBAT_TOLERANCE_MV},
+
+	{"usb", ADC_SENSORS_CHANNEL_USBID,
+	ADC_SENSORS_CONVERSION_LINEAR_UV_TO_OHM, &adc_sensors_usbid_data,
+	CAL_DEFAULT, 0},
 };
 
 static struct adc_sensors_platform_data xgold_intel_adc_sensors_pmic_data

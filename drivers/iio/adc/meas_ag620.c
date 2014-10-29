@@ -966,6 +966,7 @@ static int meas_ag620_set(enum adc_hal_set_key key,
 		break;
 	case ADC_HAL_DUMP_REGISTER:
 		meas_ag620_dump_register();
+		break;
 	default:
 		pr_err("%s Warning: Invalid request (%d)\n", __func__, key);
 		ret = -EINVAL;

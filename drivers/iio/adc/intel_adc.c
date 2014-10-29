@@ -50,7 +50,7 @@
 
 /* This is used as the timeout for stuck conversion supervisory timer in ms.
    Timeout must take into account worst-case scenario and timer tolerance */
-#define ADC_MAX_MEAS_CONVERSION_LATENCY_MS (10000)
+#define ADC_MAX_MEAS_CONVERSION_LATENCY_MS (150000)
 
 /* ADC STM FIFO
    Queue depth. It must be a power of 2! */
