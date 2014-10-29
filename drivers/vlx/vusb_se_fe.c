@@ -865,7 +865,6 @@ static struct file *vusb_se_fe_open_gadget(int gadget)
 static void vusb_se_fe_close_gadget(struct file *fp, int gadget)
 {
 	/* Unused argument inode to function release */
-	struct inode *dummy_inode = NULL;
 	mm_segment_t oldfs;
 
 	/* In order to avoid compiler warning set unused variable to void */
@@ -875,8 +874,7 @@ static void vusb_se_fe_close_gadget(struct file *fp, int gadget)
 
 	set_fs(KERNEL_DS);
 
-	fp->f_op->release(dummy_inode, fp);
-
+	filp_close(fp, 0);
 	VUSB_SE_FE_LOG("Gadget Closed");
 
 	set_fs(oldfs);
