@@ -327,6 +327,9 @@ pmic {
 			pm,state-D0 = "enable";
 			pm,state-D3 = "disable";
 			intel,codec_dai_name = "pmic_afe_i2s";
+#ifdef PMIC_B0
+			intel,pmic-B0;
+#endif
 		};
 	};
 
@@ -343,7 +346,28 @@ pmic {
 			intel,led-up = <0x0A>;
 			intel,led-down = <0x04>;
 		};
+
+#ifdef PMIC_B0
 		/* Accessory Detection */
+		headset:headset {
+			compatible = "intel,headset,pmic";
+			#address-cells = < 0 >;
+			intel,reg = < 0x6e >;
+			intel,irq-reg = < 0x4e >;
+
+			interrupts = < 0 1 >;
+			interrupt-parent = <&headset>;
+			#interrupt-cells = <1>;
+			interrupt-map = <
+				0 &hirq HIRQ_PMIC_ACC_DET1 IRQ_TYPE_DEFAULT
+				1 &hirq HIRQ_PMIC_ACC_DET2 IRQ_TYPE_DEFAULT
+			>;
+			interrupt-names = "acd1", "acd2";
+			/*io-channel-names = "ACCID_ADC";
+			io-channels = < &meas_pmic ? >;*/
+		};
+#endif
+
 		/* Vibrator */
 	};
 };

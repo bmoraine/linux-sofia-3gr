@@ -119,6 +119,9 @@
 		intel,pcm-audio = <&pcm_music>;
 		intel,pcm-voice = <&pcm_voice>;
 		intel,speech = <&speech_probe>;
+#ifdef PMIC_B0
+		intel,jack = <&headset>;
+#endif
 	};
 	xgold_pmic {
 		/* compatible = "intel,xgold_pmic"; */
