@@ -42,6 +42,9 @@
 
 	ion {
 		compatible = "intel,ion";
+#ifndef RECOVERY_KERNEL
+		secvm-handler;
+#endif
 		cma-heap {
 			intel,heapmem = <   0x00000000 0x08000000 >;
 		};
