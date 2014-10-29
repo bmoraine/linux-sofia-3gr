@@ -1632,7 +1632,7 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 	wake_lock(&iphy->wlock);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-
+	kfree(pm_platdata);
 	return 0;
 }
 
