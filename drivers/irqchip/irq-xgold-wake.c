@@ -210,9 +210,10 @@ int32_t xgold_irq_is_wake_capable(struct irq_domain *domain,
 		struct xgold_irq_wake_data *data,
 		int32_t irq, struct xgold_irq_wake_table *find)
 {
-	int32_t i = 0, j;
+	int32_t j;
 	for (j = 0; j < data->nr_regs; j++) {
-		struct xgold_irq_wake_table *t = data->wake_table[i];
+		struct xgold_irq_wake_table *t = data->wake_table[j];
+		int32_t i = 0;
 		if (!t) {
 			pr_debug("%s: No wake-table available\n", __func__);
 			return false;
