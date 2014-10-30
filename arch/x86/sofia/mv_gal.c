@@ -158,25 +158,31 @@ static void mv_gal_xirq_handler(registers_t *regs)
 {
 	struct vmm_xirq_callback_entry *entry;
 	unsigned int idx;
+	unsigned int virq;
 	struct vmm_shared_data *p_shared_data = mv_gal_get_shared_data();
+	struct virq_info_s *p_virq = &(p_shared_data->virq_info);
 
-	idx = XIRQ_NUM2INDX(p_shared_data->triggering_xirq);
-	entry = xirq_callbacks[idx];
-	while (entry) {
-		if (entry->cb) {
+	while (!IS_RINGBUF_EMPTY(p_virq->host_index, p_virq->guest_index)) {
+		virq = p_virq->virq_ring_buf[p_virq->guest_index];
+		idx = XIRQ_NUM2INDX(virq);
+		entry = xirq_callbacks[idx];
+		while (entry) {
 #if defined(CONFIG_SYSTEM_PROFILING)
-			sysprof_interrupt(p_shared_data->triggering_xirq);
-			sysprof_int_enter();
+			if (entry->cb) {
+				sysprof_interrupt(virq);
+				sysprof_int_enter();
 #endif
-			entry->cb(entry->cookie,
-				p_shared_data->triggering_xirq);
+				entry->cb(entry->cookie, virq);
 #if defined(CONFIG_SYSTEM_PROFILING)
-			sysprof_int_leave();
+				sysprof_int_leave();
 #endif
-		}
-		entry = entry->next;
-	};
-
+			}
+			entry = entry->next;
+		};
+		p_virq->guest_index++;
+		if (p_virq->guest_index >= VCPU_VIRQ_RINGBUF_SIZE)
+			p_virq->guest_index = 0;
+	}
 #ifdef __KERNEL__
 	return IRQ_HANDLED;
 #endif

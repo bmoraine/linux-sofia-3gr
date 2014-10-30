@@ -44,6 +44,18 @@
 
 #define vmm_id_t uint32_t
 
+/*NOTE: this virq_info stuff must be consistent with guest_vm.h */
+#define VCPU_VIRQ_RINGBUF_SIZE 16
+#define IS_RINGBUF_FULL(pidx, cidx)	\
+	((pidx == cidx-1) || (pidx == VCPU_VIRQ_RINGBUF_SIZE-1 && cidx == 0))
+#define IS_RINGBUF_EMPTY(pidx, cidx)  (pidx == cidx)
+struct virq_info_s {
+	uint32_t host_info;
+	volatile uint16_t host_index;
+	volatile uint16_t guest_index;
+	uint16_t virq_ring_buf[VCPU_VIRQ_RINGBUF_SIZE];
+};
+
 /**
  * @brief Shared data between the MobileVisor and the guest
  *
@@ -91,6 +103,11 @@ struct vmm_shared_data {
 	 * the xirq and trigger the handler chain.
 	 */
 	const uint32_t triggering_xirq;
+
+	/** @brief virq info exchanged between guest and host
+	 *
+	 **/
+	struct virq_info_s virq_info;
 
 	/** @brief PM control shared data
 	 *
