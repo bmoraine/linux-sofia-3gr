@@ -146,6 +146,57 @@
 	#include "xgold/agold620/agold620.dtsi"
 };
 
+&bat_hal {
+	#define BAT_TYPE_LC 0
+	#define POWER_SUPPLY_TECHNOLOGY_LION 2
+
+	supp_batids =  < 0 BAT_TYPE_LC >;
+
+	supp_batids-map = "standrd";
+
+	prof-standrd = < POWER_SUPPLY_TECHNOLOGY_LION /*battery_type*/
+				  1630 /*capacity*/
+				  4250 /*voltage_max*/
+				  82 /*chrg_term_ma*/
+				  3200 /*low_batt_mv*/
+				  60 /*disch_tmp_ul*/
+				  0xffffffec /*disch_tmp_ll (-20)*/
+				  0 /*min_temp*/
+				  3 /*min_temp_restart*/
+				  42 /*max_temp_restart*/ >;
+
+	prof-standrd-cap_to_vbat_ocv = <
+		3227 3386 3478 3542 3591 3628 3650 3660 3665 3668
+		3671 3674 3676 3681 3687 3694 3699 3704 3709 3713
+		3718 3722 3726 3729 3732 3735 3737 3740 3743 3746
+		3748 3751 3753 3755 3756 3758 3760 3762 3764 3766
+		3768 3770 3772 3775 3777 3779 3782 3785 3787 3790
+		3793 3796 3800 3803 3806 3810 3813 3817 3821 3826
+		3830 3835 3841 3847 3853 3860 3867 3874 3881 3888
+		3895 3901 3908 3914 3920 3926 3933 3939 3945 3952
+		3958 3964 3970 3975 3981 3987 3994 4002 4013 4025
+		4036 4045 4053 4060 4067 4075 4083 4093 4102 4112
+		4124 >;
+
+
+	prof-standrd-ntemp_ranges = <1>;
+
+	prof-standrd-temp_range0 = < 45 /*max_temp*/
+					     4160 /*full_chrg_vol*/
+					     850 /*full_chrg_cur*/
+					     98 /*charging_res_cap*/
+					     4160 /*maint_chrg_vol_ul*/
+					     850 /*maint_chrg_cur*/ >;
+
+	nprofiles = <1>;
+};
+
+&fuel_gauge_hal {
+	sense_resistor_mohm = <22>;
+	gain_error_1_uc_per_mc = <30>;
+	gain_error_2_uc_per_mc = <30>;
+};
+
 &dcc {
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&dif_default_pins>;

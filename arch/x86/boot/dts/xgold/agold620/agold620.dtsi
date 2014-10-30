@@ -629,6 +629,8 @@ agold {
 			pm,user-name = "ccd";
 			pm,state-D0 = "enable";
 			pm,state-D3 = "disable";
+
+			offset_error_uc_per_s = <0>;
 		};
 		vibrator:vibrator {
 			compatible = "intel,vibra";
