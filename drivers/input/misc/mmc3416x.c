@@ -465,7 +465,7 @@ static int mmc3416x_probe(struct i2c_client *client,
 	}
 	this_client = client;
 
-	pdata = &mmc3416x_platform_data;
+	pdata = &default_mmc3416x_pdata;
 #ifdef CONFIG_OF
 	pdata = mmc3416x_of_get_platdata(&client->dev);
 	if (IS_ERR(pdata)) {
