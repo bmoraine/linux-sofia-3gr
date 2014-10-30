@@ -74,6 +74,7 @@ enum bprof_valid_status {
 
 #define BATTID_STR_LEN		8
 #define BATT_TEMP_NR_RNG	6
+#define BAT_CAP_TO_VBAT_TABLE_SIZE (101)
 /* Charging Profile */
 struct ps_pse_mod_prof {
 	/* battery id */
@@ -92,6 +93,8 @@ struct ps_pse_mod_prof {
 	/* number of temperature bounds */
 	u16 num_temp_bound;
 	struct pse_temp_bound temp_range[BATT_TEMP_NR_RNG];
+
+	u32 cap_to_vbat_ocv[BAT_CAP_TO_VBAT_TABLE_SIZE];
 
 	/* The status of validation of battery profile */
 	enum bprof_valid_status validated;

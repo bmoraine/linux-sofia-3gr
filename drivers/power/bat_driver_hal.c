@@ -39,6 +39,8 @@
 #include <linux/power/battery_id.h>
 #include <linux/wakelock.h>
 #include <linux/power_supply.h>
+#include <linux/slab.h>
+#include "bprofile_dts_parser.h"
 
 #define SYSFS_INPUT_VAL_LEN (1)
 
@@ -326,6 +328,15 @@ struct debounce_data {
 	spinlock_t lock;
 };
 
+struct bat_drv_hal_platform_data {
+	struct battery_type *supported_batteries;
+	size_t supported_batteries_len;
+
+	struct ps_pse_mod_prof *bprofiles;
+	size_t bprofiles_len;
+};
+
+
 /**
  * struct bat_drv_hal_data - Battery Driver Hal control structure
  * @initialised		Driver initialisation state
@@ -339,7 +350,6 @@ struct bat_drv_hal_data {
 	struct device_state_pm_state *pm_state_en;
 	struct device_state_pm_state *pm_state_dis;
 
-	struct ps_batt_chg_prof battery_id;
 	bool last_reported_presence_state;
 	struct bat_drv_hal_presence_stm presence_stm;
 	struct bat_drv_hal_presence_stm_debug presence_stm_debug;
@@ -349,13 +359,12 @@ struct bat_drv_hal_data {
 	void __iomem *p_pmu_c0_fs;
 	bool breg_state;
 	int irq;
+
+	struct bat_drv_hal_platform_data pdata;
 };
 
 /* Bat Driver Hal instance */
 static struct bat_drv_hal_data bat_drv_hal_instance = {
-	.battery_id = {
-		.chrg_prof_type = PSE_MOD_CHRG_PROF,
-	},
 	.presence_stm = {
 		.current_state =
 			BAT_DRV_HAL_PRESENCE_STM_STATE_PRE_INIT,
@@ -370,6 +379,37 @@ static struct bat_drv_hal_debug_data bat_drv_hal_debug_info = {
 
 /* Forwward declaration */
 static irqreturn_t bat_drv_hal_presence_change_cb(int irq, void *dev);
+
+
+static struct battery_type *get_bat_type(struct bat_drv_hal_data *pbat,
+					unsigned int batid_ohms)
+{
+	unsigned int ibatid_min_th, ibatid_max_th;
+	int i, len = pbat->pdata.supported_batteries_len;
+
+	if (batid_ohms > pbat->pdata.supported_batteries[len-1].batid_ohms)
+		return NULL;
+
+	if (batid_ohms < pbat->pdata.supported_batteries[0].batid_ohms)
+		return NULL;
+
+	if (1 == len)
+		return &pbat->pdata.supported_batteries[0];
+
+	for (i = 1; i < len; ++i) {
+		if (batid_ohms <= pbat->pdata.
+				supported_batteries[i].batid_ohms)
+			break;
+	}
+
+	ibatid_min_th = pbat->pdata.supported_batteries[i-1].batid_ohms;
+	ibatid_max_th = pbat->pdata.supported_batteries[i].batid_ohms;
+
+	if (batid_ohms >= (ibatid_min_th + ibatid_max_th)/2)
+		return &pbat->pdata.supported_batteries[i];
+	else
+		return &pbat->pdata.supported_batteries[i-1];
+}
 
 /**
  * bat_drv_hal_enqueue_function - Adds a function to the message queue for the
@@ -597,6 +637,7 @@ static void bat_drv_hal_enable_presence_detect_interrupt(bool bat_present)
 static void bat_drv_hal_check_battery_status_update(bool new_presence_state)
 {
 	/* Determine whether battery presence has changed */
+	struct battery_type *bat_type = NULL;
 	const bool presence_changed =
 	(bat_drv_hal_instance.last_reported_presence_state !=
 	new_presence_state);
@@ -613,8 +654,10 @@ static void bat_drv_hal_check_battery_status_update(bool new_presence_state)
 		2) when the battery was temporarily disconnected, for example if
 			the phone was dropped. */
 		/* Signal the presence of the default battery. */
+		bat_type = get_bat_type(&bat_drv_hal_instance, 0);
+
 		battery_prop_changed(POWER_SUPPLY_BATTERY_INSERTED,
-				&bat_drv_hal_instance.battery_id);
+				&bat_type->profile);
 	} else {
 		/* The battery is not fitted. Send update only if the presence
 		state has changed or this is the first notification report */
@@ -1272,35 +1315,39 @@ static void bat_drv_setup_sysfs_attr(struct device *dev)
 		dbg_logs_on_off_attr.attr.name);
 }
 
+static inline int bat_drv_hal_get_pdata(struct bat_drv_hal_data *hal)
+{
+	struct device_node *np = hal->p_idi_device->device.of_node;
+	struct bat_drv_hal_platform_data *pdata;
 
-/* FIXME: put that in dts ? */
-static struct ps_pse_mod_prof bat_drv_hal_prof = {
-	.batt_id = "STANDRD",
-	.battery_type = POWER_SUPPLY_TECHNOLOGY_LION,
-	.capacity = 1630,
-	.voltage_max = 4250,
-	.chrg_term_ma = 82,
-	.low_batt_mv = 3200,
-	.disch_tmp_ul = 60,
-	.disch_tmp_ll = -20,
-	.in_chrg_allowed_zone = false,
-	.validated = BPROF_NOT_VALIDATED,
-	.min_temp = 0,
-	.min_temp_restart = 3,
-	.max_temp_restart = 42,
+	if (IS_ENABLED(CONFIG_OF))
+		return bprofile_parse_dt(&hal->pdata.supported_batteries,
+				&hal->pdata.supported_batteries_len,
+				&hal->pdata.bprofiles,
+				&hal->pdata.bprofiles_len,
+				np);
 
-	.num_temp_bound = 1,
-	.temp_range = {
-		{
-			.max_temp = 45,
-			.full_chrg_vol = 4160,
-			.full_chrg_cur = 850,
-			.maint_chrg_vol_ul = 4160,
-			.charging_res_cap = 98,
-			.maint_chrg_cur = 850,
-		},
-	},
-};
+
+	pdata = (struct bat_drv_hal_platform_data *)
+			hal->p_idi_device->device.platform_data;
+
+	if (!pdata || !pdata->supported_batteries)
+		return -ENODATA;
+
+	hal->pdata.supported_batteries = pdata->supported_batteries;
+	hal->pdata.supported_batteries_len = pdata->supported_batteries_len;
+
+	return 0;
+}
+
+static inline void bat_drv_hal_release_pdata(struct bat_drv_hal_data *hal)
+{
+	if (IS_ENABLED(CONFIG_OF)) {
+		kfree(hal->pdata.supported_batteries);
+		kfree(hal->pdata.bprofiles);
+	}
+}
+
 
 /**
  * bat_drv_hal_probe - Initialises the driver, when the device has been found.
@@ -1312,6 +1359,8 @@ static int __init bat_drv_hal_probe(struct idi_peripheral_device *ididev,
 	struct device *dev = &ididev->device;
 	struct resource *res;
 	int ret = 0;
+	struct bat_drv_hal_data *hal = &bat_drv_hal_instance;
+
 	BAT_DRV_HAL_DEBUG_NO_PARAM(BAT_DRV_HAL_DEBUG_EVENT_PROBE);
 
 	/* Store platform device in static instance. */
@@ -1344,14 +1393,17 @@ static int __init bat_drv_hal_probe(struct idi_peripheral_device *ididev,
 
 	pr_info("%s: Getting PM state handlers: OK\n", __func__);
 
-	bat_drv_hal_instance.battery_id.batt_prof = &bat_drv_hal_prof;
+	ret = bat_drv_hal_get_pdata(hal);
+	if (ret)
+		return ret;
 
 	pmu_bat_det =
 		idi_get_resource_byname(&ididev->resources, IORESOURCE_MEM,
 								"pmu_bat_det");
 	if (pmu_bat_det == NULL) {
 		pr_err("getting PMU's 'BATRM_DET' resource failed!\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto res_fail;
 	}
 
 	pmu_c0_fs =
@@ -1359,7 +1411,8 @@ static int __init bat_drv_hal_probe(struct idi_peripheral_device *ididev,
 								"pmu_c0_fs");
 	if (pmu_c0_fs == NULL) {
 		pr_err("getting PMU's 'C0_FS' resource failed!\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto res_fail;
 	}
 
 	/* Obtain the IO addresses for the PMU registers. */
@@ -1378,7 +1431,8 @@ static int __init bat_drv_hal_probe(struct idi_peripheral_device *ididev,
 	bat_drv_hal_instance.irq = res->start;
 	if (!bat_drv_hal_instance.irq) {
 		dev_err(dev, "could not get interrupt\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto res_fail;
 	}
 
 	/* Initialise the spinlock and timer used for debouncing the battery
@@ -1472,7 +1526,8 @@ set_pm_state_fail:
 	iounmap(bat_drv_hal_instance.p_pmu_batrm_det);
 	iounmap(bat_drv_hal_instance.p_pmu_c0_fs);
 	destroy_workqueue(bat_drv_hal_instance.work.p_work_queue);
-
+res_fail:
+	bat_drv_hal_release_pdata(hal);
 	return ret;
 }
 
@@ -1494,6 +1549,8 @@ static int __exit bat_drv_hal_remove(struct idi_peripheral_device *ididev)
 
 		iounmap(bat_drv_hal_instance.p_pmu_batrm_det);
 		iounmap(bat_drv_hal_instance.p_pmu_c0_fs);
+
+		bat_drv_hal_release_pdata(&bat_drv_hal_instance);
 	}
 	return 0;
 }

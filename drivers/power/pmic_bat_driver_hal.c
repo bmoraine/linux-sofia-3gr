@@ -43,6 +43,7 @@
 #include <linux/iio/consumer.h>
 
 #include <linux/platform_device.h>
+#include "bprofile_dts_parser.h"
 
 #define SYSFS_INPUT_VAL_LEN (1)
 
@@ -115,19 +116,6 @@
 
 #define BATTDBEN_M 1
 #define BATTDBEN_O 0
-
-
-enum battery_type_id {
-	BAT_TYPE_LC,
-	BAT_TYPE_SMART,
-	BAT_TYPE_MIPI,
-};
-
-struct battery_type {
-	unsigned int batid_ohms;
-	enum battery_type_id type;
-	struct ps_batt_chg_prof profile;
-};
 
 /* Battery Removal Control Register 1 */
 #define BATTDETCTRL1_REG (BASE_ADDRESS_DEV1_VMM | 0x25)
@@ -295,6 +283,15 @@ struct bat_drv_presence_stm {
 };
 
 
+struct bat_drv_platform_data {
+	struct battery_type *supported_batteries;
+	size_t supported_batteries_len;
+
+	struct ps_pse_mod_prof *bprofiles;
+	size_t bprofiles_len;
+};
+
+
 /**
  * struct bat_drv_data		Battery Driver Hal control structure
  * @initialised			Driver initialisation state
@@ -318,11 +315,7 @@ struct bat_drv_data {
 	struct bat_drv_work_fifo work;
 	int irq;
 
-	struct battery_type *supported_batteries;
-	int supported_batteries_len;
-
-	struct ps_pse_mod_prof *bprofiles;
-	int bprofiles_len;
+	struct bat_drv_platform_data pdata;
 };
 
 /* Bat Driver Hal instance */
@@ -345,29 +338,30 @@ static struct battery_type *get_bat_type(struct bat_drv_data *pbat,
 					unsigned int batid_ohms)
 {
 	unsigned int ibatid_min_th, ibatid_max_th;
-	int i, len = pbat->supported_batteries_len;
+	int i, len = pbat->pdata.supported_batteries_len;
 
-	if (batid_ohms > pbat->supported_batteries[len-1].batid_ohms)
+	if (batid_ohms > pbat->pdata.supported_batteries[len-1].batid_ohms)
 		return NULL;
 
-	if (batid_ohms < pbat->supported_batteries[0].batid_ohms)
+	if (batid_ohms < pbat->pdata.supported_batteries[0].batid_ohms)
 		return NULL;
 
 	if (1 == len)
-		return &pbat->supported_batteries[0];
+		return &pbat->pdata.supported_batteries[0];
 
 	for (i = 1; i < len; ++i) {
-		if (batid_ohms <= pbat->supported_batteries[i].batid_ohms)
+		if (batid_ohms <= pbat->pdata.
+				supported_batteries[i].batid_ohms)
 			break;
 	}
 
-	ibatid_min_th = pbat->supported_batteries[i-1].batid_ohms;
-	ibatid_max_th = pbat->supported_batteries[i].batid_ohms;
+	ibatid_min_th = pbat->pdata.supported_batteries[i-1].batid_ohms;
+	ibatid_max_th = pbat->pdata.supported_batteries[i].batid_ohms;
 
 	if (batid_ohms >= (ibatid_min_th + ibatid_max_th)/2)
-		return &pbat->supported_batteries[i];
+		return &pbat->pdata.supported_batteries[i];
 	else
-		return &pbat->supported_batteries[i-1];
+		return &pbat->pdata.supported_batteries[i-1];
 }
 
 
@@ -853,202 +847,39 @@ static int bat_drv_hw_initialize(struct bat_drv_data *pbat)
 	return 0;
 }
 
-int bat_drv_dt_add_bprofile(struct bat_drv_data *pbat,
-	const char *prof_name, struct ps_pse_mod_prof *bprof, int len)
+static inline int bat_drv_get_pdata(struct bat_drv_data *hal)
 {
-#define BPROF_HEADER_SIZE 10
-#define TRANGE_SIZE 6
+	struct device_node *np = hal->pdev->dev.of_node;
+	struct bat_drv_platform_data *pdata;
 
-	struct device_node *np;
-	int i, index;
-	u32 nranges;
-	u32 temp_buf[BPROF_HEADER_SIZE];
-	unsigned char propname[64] = {0};
-	struct ps_pse_mod_prof *bprofile_ptr;
-	struct pse_temp_bound *trange_ptr;
-	size_t strlen = strnlen(prof_name, BATTID_STR_LEN);
-
-	np = pbat->pdev->dev.of_node;
-
-	/* Check if the profile was already added before */
-	for (i = 0; i < len; ++i) {
-
-		if (bprof[i].batt_id[0] == 0)
-			break;
-
-		if (0 == strncmp(bprof[i].batt_id, prof_name, strlen))
-			return i;
-	}
-
-	if (i == len)
-		return -ENOMEM;
-
-	index = i;
-	bprofile_ptr = &bprof[index];
-
-	strncpy(bprofile_ptr->batt_id, prof_name, strlen);
-
-	snprintf(propname, ARRAY_SIZE(propname),
-		"pmic_bat,prof-%s-ntemp_ranges", bprofile_ptr->batt_id);
-
-	if (of_property_read_u32(np, propname, &nranges)) {
-		pr_err("dt: parsing '%s' failed\n", propname);
-		return -EINVAL;
-	}
-
-	bprofile_ptr->num_temp_bound = nranges;
-
-	for (i = 0; i < nranges; ++i) {
-		int idx = 0;
-
-		snprintf(propname, ARRAY_SIZE(propname),
-			"pmic_bat,prof-%s-temp_range%d",
-				bprofile_ptr->batt_id, i);
-
-		if (of_property_read_u32_array(np, propname,
-						temp_buf, TRANGE_SIZE)) {
-			pr_err("dt: parsing '%s' failed\n", propname);
-			return -EINVAL;
-		}
-
-		trange_ptr = &bprofile_ptr->temp_range[i];
-		trange_ptr->max_temp = temp_buf[idx++];
-		trange_ptr->full_chrg_vol = temp_buf[idx++];
-		trange_ptr->full_chrg_cur = temp_buf[idx++];
-		trange_ptr->charging_res_cap = temp_buf[idx++];
-		trange_ptr->maint_chrg_vol_ul = temp_buf[idx++];
-		trange_ptr->maint_chrg_cur = temp_buf[idx++];
-	}
-
-	snprintf(propname, ARRAY_SIZE(propname), "pmic_bat,prof-%s",
-						bprofile_ptr->batt_id);
-
-	if (of_property_read_u32_array(np, propname, temp_buf,
-						BPROF_HEADER_SIZE)) {
-		pr_err("dt: parsing '%s' failed\n", propname);
-		return -EINVAL;
-	}
-
-	i = 0;
-	bprofile_ptr->battery_type = temp_buf[i++];
-	bprofile_ptr->capacity = temp_buf[i++];
-	bprofile_ptr->voltage_max = temp_buf[i++];
-	bprofile_ptr->chrg_term_ma = temp_buf[i++];
-	bprofile_ptr->low_batt_mv = temp_buf[i++];
-	bprofile_ptr->disch_tmp_ul = temp_buf[i++];
-	bprofile_ptr->disch_tmp_ll = temp_buf[i++];
-	bprofile_ptr->min_temp = temp_buf[i++];
-	bprofile_ptr->min_temp_restart = temp_buf[i++];
-	bprofile_ptr->max_temp_restart = temp_buf[i++];
-
-	return index;
-}
-
-int bat_drv_parse_dt(struct bat_drv_data *pbat, struct platform_device *pdev)
-{
-	struct device_node *np;
-	struct battery_type *supported_batids;
-	struct ps_pse_mod_prof *bprofiles;
-	u32 supported_batids_len, nprofiles;
-	int i, ret, index;
-	const char *pname;
-
-	np = pdev->dev.of_node;
-
-	supported_batids_len =
-		of_property_count_strings(np, "pmic_bat,supp_batids-map");
-
-	if (supported_batids_len <= 0) {
-		pr_err("dt: parsing 'pmic_bat,supp_batids-map' failed\n");
-		return -ENODEV;
-	}
-
-	supported_batids = kmalloc(supported_batids_len *
-			sizeof(struct battery_type), GFP_KERNEL);
-
-	if (!supported_batids)
-		return -ENOMEM;
-
-	memset(supported_batids, 0,
-		supported_batids_len * sizeof(struct battery_type));
-
-	pbat->supported_batteries = supported_batids;
-	pbat->supported_batteries_len = supported_batids_len;
-
-	ret = of_property_read_u32(np, "pmic_bat,nprofiles", &nprofiles);
-	if (ret) {
-		pr_err("dt: parsing 'pmic_bat,nprofiles' failed\n");
-		goto nprofiles_fail;
-	}
-
-	bprofiles = kmalloc(nprofiles *
-			sizeof(struct ps_pse_mod_prof), GFP_KERNEL);
-
-	if (!bprofiles) {
-		ret = -ENOMEM;
-		goto bprofiles_alloc_fail;
-	}
-
-	memset(bprofiles, 0,
-		nprofiles * sizeof(struct ps_pse_mod_prof));
-
-	pbat->bprofiles = bprofiles;
-	pbat->bprofiles_len = nprofiles;
-
-	for (i = 0; i < supported_batids_len; ++i) {
-		u32 batid, battype;
-
-		ret = of_property_read_string_index(np,
-				"pmic_bat,supp_batids-map", i, &pname);
-		if (ret)
-			goto supp_batids_fail;
-
-		ret = bat_drv_dt_add_bprofile(pbat, pname, bprofiles,
-								nprofiles);
-		if (ret < 0)
-			goto add_bprofile_fail;
-
-		index = ret;
-
-		supported_batids[i].profile.chrg_prof_type = PSE_MOD_CHRG_PROF;
-		supported_batids[i].profile.batt_prof = &bprofiles[index];
+	if (IS_ENABLED(CONFIG_OF))
+		return bprofile_parse_dt(&hal->pdata.supported_batteries,
+				&hal->pdata.supported_batteries_len,
+				&hal->pdata.bprofiles,
+				&hal->pdata.bprofiles_len,
+				np);
 
 
-		ret = of_property_read_u32_index(np, "pmic_bat,supp_batids",
-								i*2, &batid);
-		if (ret < 0) {
-			pr_err("dt: parsing 'pmic_bat,supp_batids' failed\n");
-			goto add_bprofile_fail;
-		}
+	pdata = (struct bat_drv_platform_data *)
+			hal->pdev->dev.platform_data;
 
-		supported_batids[i].batid_ohms = batid;
+	if (!pdata || !pdata->supported_batteries)
+		return -ENODATA;
 
-
-		ret = of_property_read_u32_index(np, "pmic_bat,supp_batids",
-							(i*2) + 1, &battype);
-		if (ret < 0) {
-			pr_err("dt: parsing 'pmic_bat,supp_batids' failed\n");
-			goto add_bprofile_fail;
-		}
-
-		supported_batids[i].type = battype;
-	}
+	hal->pdata.supported_batteries = pdata->supported_batteries;
+	hal->pdata.supported_batteries_len = pdata->supported_batteries_len;
 
 	return 0;
-
-add_bprofile_fail:
-supp_batids_fail:
-	kfree(bprofiles);
-	pbat->bprofiles = NULL;
-	pbat->bprofiles_len = 0;
-bprofiles_alloc_fail:
-nprofiles_fail:
-	kfree(supported_batids);
-	pbat->supported_batteries = NULL;
-	pbat->supported_batteries_len = 0;
-	return ret;
-
 }
+
+static inline void bat_drv_release_pdata(struct bat_drv_data *hal)
+{
+	if (IS_ENABLED(CONFIG_OF)) {
+		kfree(hal->pdata.supported_batteries);
+		kfree(hal->pdata.bprofiles);
+	}
+}
+
 
 /**
  * bat_drv_probe - Initialises the driver, when the device has been found.
@@ -1068,9 +899,10 @@ driver will become available */
 
 	pbat->pdev = p_platform_dev;
 
-	ret = bat_drv_parse_dt(pbat, p_platform_dev);
+	ret = bat_drv_get_pdata(pbat);
+
 	if (ret) {
-		pr_err("parsing the device tree failed!\n");
+		pr_err("obtaining platform data failed!\n");
 		return ret;
 	}
 
@@ -1185,8 +1017,7 @@ driver will become available */
 		/* Deregister interrupt handler */
 		bat_drv_batrm_det_irq_en(pbat, false);
 
-		kfree(pbat->bprofiles);
-		kfree(pbat->supported_batteries);
+		bat_drv_release_pdata(pbat);
 	}
 	return 0;
 }

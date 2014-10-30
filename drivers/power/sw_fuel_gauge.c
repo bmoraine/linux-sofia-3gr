@@ -212,15 +212,12 @@ enum bat_id_type {
  * @bat_id_type			Enumerated version of battery ID string for
  *				easy comparison.
  * @p_fitted_model		Pointer to the data of the fitted battery.
- * @p_cap_to_v_bat_table	Pointer to a table of VBAT voltages for each
- *				percent of capacity
  */
 struct bat_driver_data {
 	bool			initialised;
 	bool			fitted_state;
 	enum bat_id_type	bat_id_type;
 	struct ps_pse_mod_prof	*p_fitted_model;
-	const u16		*p_cap_to_v_bat_table;
 };
 
 /* Battery temperature filter data, Unit: degC */
@@ -687,8 +684,9 @@ static void sw_fuel_gauge_execute_function(struct work_struct *work)
  */
 static int sw_fuel_gauge_vbat_convert_to_capacity_permil(int vbat_mv)
 {
-	const u16 *p_cap_to_vbat_table =
-			&sw_fuel_gauge_instance.bat.p_cap_to_v_bat_table[0];
+	const u32 *p_cap_to_vbat_table =
+			&sw_fuel_gauge_instance.bat.
+				p_fitted_model->cap_to_vbat_ocv[0];
 	int ret_capacity;
 	/* Start the search in the middle of the table. */
 	int i = (BAT_CAP_TO_VBAT_TABLE_SIZE / 2);
@@ -826,8 +824,8 @@ static void sw_fuel_gauge_set_capacity(int capacity_permil)
 
 		/* Supply VBAT by table lookup of capacity then scale to uV for
 		PSY */
-		p_properties->voltage_ocv =
-			sw_fg->bat.p_cap_to_v_bat_table[capacity_percent] *
+		p_properties->voltage_ocv = sw_fg->bat.
+			p_fitted_model->cap_to_vbat_ocv[capacity_percent] *
 								SCALE_MILLI;
 		/* Calculate charge from capacity, if charge-full-design has
 		been set. */
@@ -1569,38 +1567,6 @@ static enum bat_id_type sw_fuel_gauge_bat_id_string_to_enum(
 }
 
 /**
- * sw_fuel_gauge_bat_set_capacity_table Configure the correct parameters for the
- *					fitted battery.
- *					NOTE: Until persistent storage is
- *					defined, this function always sets
- *					default values.
- */
-static void sw_fuel_gauge_bat_set_capacity_table(void)
-{
-	/* Standard battery VBAT to capacity table. NOTE: For simplicity during
-	testing, this data matches the default model used in the battery
-	simulator. */
-	static const u16
-	 sw_fuel_gauge_default_bat_capacity_table[BAT_CAP_TO_VBAT_TABLE_SIZE]
-	  = {
-
-	3227, 3386, 3478, 3542, 3591, 3628, 3650, 3660, 3665, 3668,
-	3671, 3674, 3676, 3681, 3687, 3694, 3699, 3704, 3709, 3713,
-	3718, 3722, 3726, 3729, 3732, 3735, 3737, 3740, 3743, 3746,
-	3748, 3751, 3753, 3755, 3756, 3758, 3760, 3762, 3764, 3766,
-	3768, 3770, 3772, 3775, 3777, 3779, 3782, 3785, 3787, 3790,
-	3793, 3796, 3800, 3803, 3806, 3810, 3813, 3817, 3821, 3826,
-	3830, 3835, 3841, 3847, 3853, 3860, 3867, 3874, 3881, 3888,
-	3895, 3901, 3908, 3914, 3920, 3926, 3933, 3939, 3945, 3952,
-	3958, 3964, 3970, 3975, 3981, 3987, 3994, 4002, 4013, 4025,
-	4036, 4045, 4053, 4060, 4067, 4075, 4083, 4093, 4102, 4112,
-	4124
-	};
-	sw_fuel_gauge_instance.bat.p_cap_to_v_bat_table =
-				&sw_fuel_gauge_default_bat_capacity_table[0];
-}
-
-/**
  * sw_fuel_gauge_bat_presence_report	Deal with battery driver battery status
  *					update. The Fuel Gauge Monitoring should
  *					continue even if a battery is not fitted
@@ -1641,7 +1607,6 @@ static void sw_fuel_gauge_bat_presence_report(
 		state machine will not be started, so this value will remain. */
 		p_bat->fitted_state = false;
 		p_bat->bat_id_type = BAT_ID_PSU;
-		sw_fuel_gauge_bat_set_capacity_table();
 		sw_fuel_gauge_set_bat_properties(POWER_SUPPLY_CHARGE_MAX_MAH,
 						POWER_SUPPLY_TECHNOLOGY_UNKNOWN,
 						false);
@@ -1660,9 +1625,6 @@ static void sw_fuel_gauge_bat_presence_report(
 
 		sw_fuel_gauge_calc_battery_values();
 
-		/* When the battery is known, fill in the capacity to
-		VBAT table(s). */
-		sw_fuel_gauge_bat_set_capacity_table();
 		/* Set battery properties in power supply class */
 		sw_fuel_gauge_set_bat_properties(p_reported_model->capacity,
 						p_reported_model->battery_type,
@@ -2440,7 +2402,7 @@ static void sw_fuel_gauge_stm_process_event_ocv_done(void)
  */
 static void sw_fuel_gauge_stm_process_event_eoc(void)
 {
-	const u16 *p_cap_to_vcell_table;
+	const u32 *p_cap_to_vcell_table;
 
 	SW_FUEL_GAUGE_DEBUG_PARAM(SW_FUEL_GAUGE_DEBUG_STM_EVENT_EOC,
 				sw_fuel_gauge_instance.charger_target_mv);
@@ -2454,7 +2416,8 @@ static void sw_fuel_gauge_stm_process_event_eoc(void)
 	case SW_FUEL_GAUGE_STM_STATE_WAIT_FOR_BATTERY_RELAXED:
 	/* Fall through is intentional. */
 		p_cap_to_vcell_table =
-			&sw_fuel_gauge_instance.bat.p_cap_to_v_bat_table[0];
+			&sw_fuel_gauge_instance.bat.
+				p_fitted_model->cap_to_vbat_ocv[0];
 
 		/* EOC calibration is only valid when the target Voltage is 100%
 		of SoC or more. */

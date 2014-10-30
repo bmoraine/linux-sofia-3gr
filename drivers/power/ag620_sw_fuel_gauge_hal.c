@@ -30,6 +30,7 @@
 #include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/string.h>
 #include <linux/platform_device.h>
 #include <linux/time.h>
 #include <linux/timer.h>
@@ -182,7 +183,7 @@ struct sw_fuel_gauge_hal_data {
 	struct device_state_pm_state *pm_state_dis;
 
 	/* pointer to platform configuration parameters. */
-	struct sw_fuel_gauge_platform_data const *p_platform_data;
+	struct sw_fuel_gauge_platform_data platform_data;
 	/* Wake lock to prevent suspend in critical sections. */
 	struct wake_lock suspend_lock;
 	/* Virtual address of PMU Coulomb Counter registers. */
@@ -747,15 +748,15 @@ static int sw_fuel_gauge_hal_calc_accumulated_error(void)
 
 	/* Calculate the offset error. */
 	error_uc =
-		(s64) sw_fuel_gauge_hal_instance.p_platform_data->
+		(s64) sw_fuel_gauge_hal_instance.platform_data.
 		offset_error_uc_per_s * (s64) error_period_sec;
 	/* Add in gain the error for current IN to battery. */
 	error_uc +=
-		(s64) sw_fuel_gauge_hal_instance.p_platform_data->
+		(s64) sw_fuel_gauge_hal_instance.platform_data.
 		gain_error_1_uc_per_mc * (s64) cc_delta_up_mc;
 	/* Add in the gain error for current OUT of the battery. */
 	error_uc +=
-		(s64) sw_fuel_gauge_hal_instance.p_platform_data->
+		(s64) sw_fuel_gauge_hal_instance.platform_data.
 		gain_error_2_uc_per_mc * (s64) cc_delta_down_mc;
 	/* Convert error to mC for return value.
 	NOTE: Standard C divide is not supported fot 64 bit values. */
@@ -832,7 +833,7 @@ static void sw_fuel_gauge_hal_set_delta_threshold(int delta_threshold_mc)
 			ret = request_irq(sw_fuel_gauge_hal_instance.irq,
 				sw_fuel_gauge_hal_coulomb_counter_delta_irq_cb,
 				0, DRIVER_NAME,
-				&sw_fuel_gauge_hal_instance.p_platform_data);
+				&sw_fuel_gauge_hal_instance.platform_data);
 			if (ret != 0) {
 				pr_err("Failed to register coulomb counter interrupt: %d\n",
 					sw_fuel_gauge_hal_instance.irq);
@@ -994,15 +995,6 @@ static int sw_fuel_gauge_hal_get(enum sw_fuel_gauge_hal_get_key key,
 	return error;
 }
 
-static struct sw_fuel_gauge_platform_data xgold_sw_fuel_gauge_hal_platform_data
-	= {
-		/* according schematic 20mOhm but measured 22mOhm */
-		.sense_resistor_mohm = 22,
-		.gain_error_1_uc_per_mc = 30,
-		.gain_error_2_uc_per_mc = 30,
-		.offset_error_uc_per_s = 0,
-};
-
 static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
 				char *buf)
 {
@@ -1067,6 +1059,72 @@ static void swfg_hal_setup_sysfs_attr(struct device *dev)
 }
 
 /**
+* Retrieves platform data from device tree
+*
+* @p_fg_hal		[in] Device data
+* @np			[in] Node pointer
+*/
+static int swfg_hal_get_platform_data(
+				struct sw_fuel_gauge_hal_data *p_fg_hal)
+{
+#ifdef CONFIG_OF
+
+	u32 val;
+	int ret;
+	struct device_node *np = p_fg_hal->p_idi_device->device.of_node;
+
+	if (of_find_property(np, "intel,ag620es2", NULL))
+		p_fg_hal->ag620es2 = 1;
+	else
+		p_fg_hal->ag620es2 = 0;
+
+
+	ret = of_property_read_u32(np, "sense_resistor_mohm", &val);
+	if (ret) {
+		pr_err("dt: parsing 'sense_resistor_mohm' failed\n");
+		return ret;
+	}
+	p_fg_hal->platform_data.sense_resistor_mohm = (int) val;
+
+	ret = of_property_read_u32(np, "gain_error_1_uc_per_mc", &val);
+	if (ret) {
+		pr_err("dt: parsing 'gain_error_1_uc_per_mc' failed\n");
+		return ret;
+	}
+	p_fg_hal->platform_data.gain_error_1_uc_per_mc = (int) val;
+
+	ret = of_property_read_u32(np, "gain_error_2_uc_per_mc", &val);
+	if (ret) {
+		pr_err("dt: parsing 'gain_error_2_uc_per_mc' failed\n");
+		return ret;
+	}
+	p_fg_hal->platform_data.gain_error_2_uc_per_mc = (int) val;
+
+	ret = of_property_read_u32(np, "offset_error_uc_per_s", &val);
+	if (ret) {
+		pr_err("dt: parsing 'offset_error_uc_per_s' failed\n");
+		return ret;
+	}
+	p_fg_hal->platform_data.offset_error_uc_per_s = (int) val;
+
+	return 0;
+#else
+
+	struct sw_fuel_gauge_platform_data *p_platform_data =
+			p_fg_hal->p_idi_device->device.platform_data;
+
+	/* Check pointer to platform data */
+	BUG_ON(NULL == p_platform_data);
+
+	memcpy(&p_fg_hal->platform_data, p_platform_data,
+			sizeof(struct sw_fuel_gauge_platform_data));
+
+	return 0;
+#endif
+}
+
+
+/**
  * sw_fuel_gauge_hal_probe - Initialises the driver, when the device has been
  * found.
  *
@@ -1075,24 +1133,20 @@ static void swfg_hal_setup_sysfs_attr(struct device *dev)
 static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 						const struct idi_device_id *id)
 {
-	struct sw_fuel_gauge_platform_data *p_platform_data =
-		ididev->device.platform_data;
+	struct sw_fuel_gauge_hal_data *p_fg_hal =
+				&sw_fuel_gauge_hal_instance;
 	struct resource *pmu_cc_res;
 	struct resource *res;
-	struct device_node *np = ididev->device.of_node;
 	int ret;
 
 	SW_FUEL_GAUGE_HAL_DEBUG_NO_PARAM(SW_FUEL_GAUGE_DEBUG_HAL_PROBE);
-	p_platform_data = &xgold_sw_fuel_gauge_hal_platform_data;
 
-#ifndef CONFIG_OF
-	/* Check pointer to platform data */
-	BUG_ON(NULL == p_platform_data);
-#else
-	if (of_find_property(np, "intel,ag620es2", NULL))
-		sw_fuel_gauge_hal_instance.ag620es2 = 1;
-	else
-		sw_fuel_gauge_hal_instance.ag620es2 = 0;
+	/* Store platform device in static instance. */
+	sw_fuel_gauge_hal_instance.p_idi_device = ididev;
+
+	ret = swfg_hal_get_platform_data(p_fg_hal);
+	if (ret)
+		return ret;
 
 	if (sw_fuel_gauge_hal_instance.ag620es2) {
 		res = idi_get_resource_byname(&ididev->resources,
@@ -1103,7 +1157,7 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 			BUG();
 		}
 	}
-#endif
+
 	ret =  idi_device_pm_set_class(ididev);
 	if (ret) {
 		pr_err("%s: Unable to register for generic pm class\n",
@@ -1174,10 +1228,6 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 	sw_fg_hal_set_pm_state(ididev, sw_fuel_gauge_hal_instance.pm_state_dis,
 					false);
 
-	/* Store platform device in static instance. */
-	sw_fuel_gauge_hal_instance.p_idi_device = ididev;
-	/* Store platform data pointer in static instance. */
-	sw_fuel_gauge_hal_instance.p_platform_data = p_platform_data;
 
 	/* Calculate the coulomb counter scaling factor from platform data.
 	The coulomb integrator detection threshold is 500mV.
@@ -1202,13 +1252,13 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 		sw_fuel_gauge_hal_instance.coulomb_count_scaling_uc =
 				((SCALING_C_TO_UC *
 				COULOMB_COUNTER_INCREMENT_THRESHOLD_MV_ES2) /
-				p_platform_data->sense_resistor_mohm) /
+				p_fg_hal->platform_data.sense_resistor_mohm) /
 					COULOMB_COUNTER_CLOCK_FREQ_HZ;
 	} else {
 		sw_fuel_gauge_hal_instance.coulomb_count_scaling_uc =
 				((SCALING_C_TO_UC *
 				COULOMB_COUNTER_INCREMENT_THRESHOLD_MV_ES1) /
-				p_platform_data->sense_resistor_mohm) /
+				p_fg_hal->platform_data.sense_resistor_mohm) /
 					COULOMB_COUNTER_CLOCK_FREQ_HZ;
 	}
 
@@ -1277,7 +1327,7 @@ static int __exit sw_fuel_gauge_hal_remove(struct idi_peripheral_device *ididev)
 	if (sw_fuel_gauge_hal_instance.ag620es2) {
 		/* Deregister CC interrupt handler */
 		free_irq(sw_fuel_gauge_hal_instance.irq,
-				&sw_fuel_gauge_hal_instance.p_platform_data);
+				&sw_fuel_gauge_hal_instance.platform_data);
 	}
 	wake_lock_destroy(&sw_fuel_gauge_hal_instance.suspend_lock);
 
