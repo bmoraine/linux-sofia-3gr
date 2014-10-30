@@ -53,3 +53,9 @@ config VIDEO_OV8858
 	---help---
 	Say Y here to enable OV8858.
 
+config VIDEO_OV2685
+    bool "OV2685"
+    depends on VIDEO_V4L2 && VIDEO_XGOLD && I2C
+	default n
+	---help---
+	Say Y here to enable OV2685.
