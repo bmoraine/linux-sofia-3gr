@@ -219,6 +219,9 @@ struct gc_product_info {
 	s32 f_number_range;
 
 	u8 reg_expo_coarse;
+	u8 reg_expo_div;
+
+	unsigned int exposure_time;
 
 	u32 power_up_delays_ms[3];
 

@@ -20,6 +20,7 @@
 #define GC0310_F_NUMBER_DEFAULT_NUM	24
 #define GC0310_F_NUMBER_DEM	10
 #define GC0310_REG_EXPO_COARSE	0x03
+#define GC0310_REG_EXPO_DIV     0x25
 #define GC0310_REG_MAX_AEC	0x3c
 #define GC0310_REG_COLOR_EFFECT	0x83
 #define GC0310_REG_BLOCK_ENABLE	0x42
@@ -860,6 +861,7 @@ struct gc_product_info gc0310_product_info = {
 	.f_number_range = GC0310_FNUMBER_RANGE_VALUE,
 
 	.reg_expo_coarse = GC0310_REG_EXPO_COARSE,
+	.reg_expo_div = GC0310_REG_EXPO_DIV,
 
 	.power_up_delays_ms = {5, 10, 0},
 

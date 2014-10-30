@@ -22,6 +22,7 @@
 #define GC_F_NUMBER_DEFAULT_NUM	24
 #define GC2155_F_NUMBER_DEM	10
 #define GC2155_REG_EXPO_COARSE	0x03
+#define GC2155_REG_EXPO_DIV	0x25
 #define GC2155_REG_MAX_AEC	0x3c
 #define GC2155_REG_COLOR_EFFECT	0x83
 #define GC2155_REG_BLOCK_ENABLE	0x82
@@ -2723,6 +2724,7 @@ struct gc_product_info gc2155_product_info = {
 	.f_number_range = GC2155_FNUMBER_RANGE_VALUE,
 
 	.reg_expo_coarse = GC2155_REG_EXPO_COARSE,
+	.reg_expo_div = GC2155_REG_EXPO_DIV,
 
 	.power_up_delays_ms = {30, 20, 0},
 
