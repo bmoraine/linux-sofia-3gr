@@ -26,6 +26,10 @@
 #include <linux/smpboot.h>
 #include <linux/tick.h>
 
+#if defined(CONFIG_SYSTEM_PROFILING)
+#include <linux/sysprofile.h>
+#endif
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/irq.h>
 
@@ -321,6 +325,11 @@ asmlinkage void do_softirq(void)
  */
 void irq_enter(void)
 {
+#if defined(CONFIG_SYSTEM_PROFILING)
+	if (!in_interrupt())
+		sysprof_task_leave(current->pid);
+#endif
+
 	rcu_irq_enter();
 	if (is_idle_task(current) && !in_interrupt()) {
 		/*
@@ -389,6 +398,12 @@ void irq_exit(void)
 
 	tick_irq_exit();
 	rcu_irq_exit();
+
+#if defined(CONFIG_SYSTEM_PROFILING)
+	if (!in_interrupt())
+		sysprof_task_enter(current->pid);
+#endif
+
 	trace_hardirq_exit(); /* must be last! */
 }
 
