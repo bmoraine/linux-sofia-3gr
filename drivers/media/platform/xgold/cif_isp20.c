@@ -1440,11 +1440,11 @@ static int cif_isp20_config_isp(
 
 		bpp = CIF_ISP20_PIX_FMT_GET_BPP(in_pix_fmt);
 		if (bpp == 8)
-			isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_8b_4_0_LSB;
+			isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_8B_MSB;
 		else if (bpp == 10)
-			isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_10b_2_MSB_LSB;
+			isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_10B_MSB;
 		else if (bpp == 12)
-			isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_12b;
+			isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_12B;
 		else {
 			cif_isp20_pltfrm_pr_err(dev->dev,
 				"%d bits per pixel not supported\n", bpp);
@@ -1468,7 +1468,31 @@ static int cif_isp20_config_isp(
 	} else if (CIF_ISP20_PIX_FMT_IS_YUV(in_pix_fmt)) {
 		output->pix_fmt = in_pix_fmt;
 		acq_mult = 2;
-		isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_12b;
+		if (dev->config.input_sel == CIF_ISP20_INP_DMA) {
+			bpp = CIF_ISP20_PIX_FMT_GET_BPP(in_pix_fmt);
+			bpp =
+				bpp * 4
+				/
+				(4 + (CIF_ISP20_PIX_FMT_YUV_GET_X_SUBS(
+					in_pix_fmt) *
+				CIF_ISP20_PIX_FMT_YUV_GET_Y_SUBS(
+					in_pix_fmt) / 2));
+			if (bpp == 8)
+				isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_8B_MSB;
+			else if (bpp == 10)
+				isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_10B_MSB;
+			else if (bpp == 12)
+				isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_12B;
+			else {
+				cif_isp20_pltfrm_pr_err(dev->dev,
+					"format %s not supported, invalid bpp %d\n",
+					cif_isp20_pix_fmt_string(in_pix_fmt),
+					bpp);
+				ret = -EINVAL;
+				goto err;
+			}
+		} else
+			isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_12B;
 		if (CIF_ISP20_PIX_FMT_YUV_IS_YC_SWAPPED(in_pix_fmt)) {
 			yuv_seq = CIF_ISP_ACQ_PROP_CBYCRY;
 			cif_isp20_pix_fmt_set_yc_swapped(output->pix_fmt, 0);
@@ -2876,7 +2900,6 @@ static int cif_isp20_config_cif(
 	u32 stream_ids)
 {
 	int ret = 0;
-	unsigned long flags = 0;
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
 		"config MP = %d, config SP = %d, img_src state = %s, PM state = %s, SP state = %s, MP state = %s\n",
@@ -2990,22 +3013,18 @@ static int cif_isp20_config_cif(
 			dev->config.sp_config.rsz_config.ycflt_adjust = true;
 	}
 
-	local_irq_save(flags);
 	if (dev->config.sp_config.rsz_config.ycflt_adjust) {
 		ret = cif_isp20_config_rsz(dev, CIF_ISP20_STREAM_SP);
 		if (IS_ERR_VALUE(ret))
-			goto err_irq_disabled;
+			goto err;
 	}
 	if (dev->config.mp_config.rsz_config.ycflt_adjust) {
 		ret = cif_isp20_config_rsz(dev, CIF_ISP20_STREAM_MP);
 		if (IS_ERR_VALUE(ret))
-			goto err_irq_disabled;
+			goto err;
 	}
-	local_irq_restore(flags);
 
 	return 0;
-err_irq_disabled:
-	local_irq_restore(flags);
 err:
 	cif_isp20_pltfrm_pr_err(dev->dev,
 		"failed with error %d\n", ret);
@@ -3050,6 +3069,7 @@ static void cif_isp20_init_stream(
 	stream->next_buf = NULL;
 	stream->curr_buf = NULL;
 	stream->updt_cfg = false;
+	stream->expect_frame_end = false;
 	stream->state = CIF_ISP20_STATE_INACTIVE;
 }
 
@@ -3527,11 +3547,76 @@ static void cif_isp20_dma_ready(
 	dev->config.mi_config.dma.busy = false;
 }
 
+static int cif_isp20_mi_frame_end_async(
+	struct cif_isp20_device *dev,
+	struct cif_isp20_stream *stream,
+	enum cif_isp20_stream_id stream_id,
+	u32 *next_buff_addr,
+	bool frame_done,
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR y_base_addr)
+{
+	cif_isp20_pltfrm_pr_dbg(NULL, "%s\n",
+		cif_isp20_stream_id_string(stream_id));
+
+	if (stream->next_buf == NULL) {
+		if (!list_empty(&stream->buf_queue)) {
+			stream->next_buf =
+				list_first_entry(&stream->buf_queue,
+					struct videobuf_buffer, queue);
+			list_del(&stream->next_buf->queue);
+			stream->next_buf->state = VIDEOBUF_ACTIVE;
+		}
+	}
+
+	if ((stream->next_buf == NULL) &&
+		!(dev->config.jpeg_config.enable &&
+		(stream_id == CIF_ISP20_STREAM_MP)))
+		stream->stall = true;
+
+	if (!stream->stall) {
+		if (frame_done && (stream->curr_buf != NULL)) {
+			if (videobuf_to_dma_contig(stream->curr_buf) ==
+				cif_ioread32(y_base_addr)) {
+				stream->curr_buf->ts = dev->curr_frame_time;
+				stream->curr_buf->field_count++;
+				/*Inform the wait queue */
+				stream->curr_buf->state = VIDEOBUF_DONE;
+				wake_up(&stream->curr_buf->done);
+				stream->curr_buf = NULL;
+			}
+		} else
+			cif_isp20_pltfrm_pr_warn(dev->dev,
+				"%s buffer queue is not advancing\n",
+				cif_isp20_stream_id_string(stream_id));
+		if (stream->curr_buf == NULL) {
+			if (stream->next_buf == NULL)
+				*next_buff_addr =
+					CIF_ISP20_INVALID_BUFF_ADDR;
+			else {
+				*next_buff_addr =
+					videobuf_to_dma_contig(
+						stream->next_buf);
+				stream->curr_buf = stream->next_buf;
+				stream->next_buf = NULL;
+			}
+		}
+	}
+	stream->stall = false;
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"%s next_buff_addr = 0x%08x\n",
+		cif_isp20_stream_id_string(stream_id),
+		*next_buff_addr);
+
+	return 0;
+}
+
 static int cif_isp20_mi_frame_end(
 	struct cif_isp20_device *dev,
 	enum cif_isp20_stream_id stream_id)
 {
 	struct cif_isp20_stream *stream;
+	u32 *next_buff_addr;
 	bool frame_done = true;
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR y_base_addr;
 
@@ -3542,6 +3627,7 @@ static int cif_isp20_mi_frame_end(
 		stream = &dev->mp_stream;
 		y_base_addr =
 			dev->config.base_addr + CIF_MI_MP_Y_BASE_AD_SHD;
+		next_buff_addr = &dev->config.mi_config.mp.next_buff_addr;
 		if (dev->config.jpeg_config.enable) {
 			unsigned int jpe_status =
 				cif_ioread32(dev->config.base_addr +
@@ -3572,23 +3658,24 @@ static int cif_isp20_mi_frame_end(
 		stream = &dev->sp_stream;
 		y_base_addr =
 			dev->config.base_addr + CIF_MI_SP_Y_BASE_AD_SHD;
-	} else if (stream_id == CIF_ISP20_STREAM_DMA) {
-		stream = &dev->sp_stream;
-		y_base_addr =
-			dev->config.base_addr + CIF_MI_DMA_Y_PIC_START_AD;
+		next_buff_addr = &dev->config.mi_config.sp.next_buff_addr;
 	} else
 		BUG();
 
+	if (dev->config.mi_config.async_updt)
+		return cif_isp20_mi_frame_end_async(
+			dev, stream, stream_id,
+			next_buff_addr, frame_done, y_base_addr);
+
 	if (stream->next_buf == NULL &&
 		!(dev->config.jpeg_config.enable &&
-		(stream_id == CIF_ISP20_STREAM_MP)) &&
-		(stream_id != CIF_ISP20_STREAM_DMA))
+		(stream_id == CIF_ISP20_STREAM_MP)))
 		stream->stall = true;
 
 	if (frame_done && (stream->curr_buf != NULL)) {
 		if (!stream->stall) {
-			do_gettimeofday(&stream->curr_buf->ts);
 			stream->curr_buf->field_count = dev->isp_dev.frame_id;
+			stream->curr_buf->ts = dev->curr_frame_time;
 			/*Inform the wait queue */
 			stream->curr_buf->state = VIDEOBUF_DONE;
 			wake_up(&stream->curr_buf->done);
@@ -3620,32 +3707,17 @@ static int cif_isp20_mi_frame_end(
 					struct videobuf_buffer, queue);
 			list_del(&stream->next_buf->queue);
 			stream->next_buf->state = VIDEOBUF_ACTIVE;
-			if (stream_id == CIF_ISP20_STREAM_MP)
-				dev->config.mi_config.mp.next_buff_addr =
-					videobuf_to_dma_contig(
-						stream->next_buf);
-			else if (stream_id == CIF_ISP20_STREAM_SP)
-				dev->config.mi_config.sp.next_buff_addr =
-					videobuf_to_dma_contig(
-						stream->next_buf);
-			else /* DMA */
-				dev->config.mi_config.dma.next_buff_addr =
-					videobuf_to_dma_contig(
-						stream->next_buf);
-		} else if (stream->curr_buf == NULL) {
-			if (stream_id == CIF_ISP20_STREAM_MP)
-				dev->config.mi_config.mp.next_buff_addr =
-					CIF_ISP20_INVALID_BUFF_ADDR;
-			else if (stream_id == CIF_ISP20_STREAM_SP)
-				dev->config.mi_config.sp.next_buff_addr =
-					CIF_ISP20_INVALID_BUFF_ADDR;
-		}
+			*next_buff_addr = videobuf_to_dma_contig(
+				stream->next_buf);
+		} else if (stream->curr_buf == NULL)
+			*next_buff_addr =
+				CIF_ISP20_INVALID_BUFF_ADDR;
 	}
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"MP next_buff_addr = 0x%08x, SP next_buff_addr = 0x%08x\n",
-		dev->config.mi_config.mp.next_buff_addr,
-		dev->config.mi_config.sp.next_buff_addr);
+		"%s next_buff_addr = 0x%08x\n",
+		cif_isp20_stream_id_string(stream_id),
+		*next_buff_addr);
 
 	return 0;
 }
@@ -3792,6 +3864,34 @@ static void cif_isp20_stop_mi(
 	}
 }
 
+static void cif_isp20_stop_dma(
+	struct cif_isp20_device *dev)
+{
+	unsigned long flags = 0;
+	if (dev->dma_stream.state ==
+		CIF_ISP20_STATE_STREAMING) {
+		/* we should not stop during an active DMA transfer */
+		dev->stop_dma = true;
+		(void)cif_isp20_pltfrm_event_wait_timeout(dev->dev,
+			&dev->dma_done,
+			!dev->config.mi_config.dma.busy,
+			50000);
+		/* intentionally NOT checking dma.busy again */
+		if (dev->config.mi_config.dma.busy)
+			cif_isp20_pltfrm_pr_warn(NULL,
+				"DMA transfer still active while stopping it\n");
+		dev->dma_stream.state = CIF_ISP20_STATE_READY;
+	}
+	spin_lock_irqsave(&dev->vbq_lock, flags);
+	if (dev->stop_dma && (dev->dma_stream.curr_buf != NULL)) {
+		list_add(&dev->dma_stream.curr_buf->queue,
+			&dev->dma_stream.buf_queue);
+		dev->dma_stream.curr_buf->state = VIDEOBUF_QUEUED;
+		dev->sp_stream.curr_buf = NULL;
+	}
+	spin_unlock_irqrestore(&dev->vbq_lock, flags);
+}
+
 static int cif_isp20_stop(
 	struct cif_isp20_device *dev,
 	bool stop_sp,
@@ -3819,21 +3919,7 @@ static int cif_isp20_stop(
 		(stop_mp &&
 		(dev->sp_stream.state != CIF_ISP20_STATE_STREAMING))) {
 
-		if ((dev->config.input_sel > CIF_ISP20_INP_CPI) &&
-			(dev->dma_stream.state ==
-				CIF_ISP20_STATE_STREAMING)) {
-			/* we should not stop during an active DMA transfer */
-			dev->stop_dma = true;
-			(void)cif_isp20_pltfrm_event_wait_timeout(dev->dev,
-				&dev->dma_done,
-				!dev->config.mi_config.dma.busy,
-				50000);
-			/* intentionally NOT checking dma.busy again */
-			if (dev->config.mi_config.dma.busy)
-				cif_isp20_pltfrm_pr_warn(NULL,
-					"DMA transfer still active while stopping it\n");
-			dev->dma_stream.state = CIF_ISP20_STATE_READY;
-		}
+		cif_isp20_stop_dma(dev);
 
 		/* stop and clear MI, MIPI, and ISP interrupts */
 		cif_iowrite32(0, dev->config.base_addr + CIF_MIPI_IMSC);
@@ -3881,6 +3967,7 @@ static int cif_isp20_stop(
 
 	spin_lock_irqsave(&dev->vbq_lock, flags);
 	if (stop_sp) {
+		dev->sp_stream.expect_frame_end = false;
 		if (dev->sp_stream.next_buf != NULL) {
 			list_add(&dev->sp_stream.next_buf->queue,
 				&dev->sp_stream.buf_queue);
@@ -3895,6 +3982,7 @@ static int cif_isp20_stop(
 		}
 	}
 	if (stop_mp) {
+		dev->sp_stream.expect_frame_end = true;
 		if (dev->mp_stream.next_buf != NULL) {
 			list_add(&dev->mp_stream.next_buf->queue,
 				&dev->mp_stream.buf_queue);
@@ -3907,12 +3995,6 @@ static int cif_isp20_stop(
 			dev->mp_stream.curr_buf->state = VIDEOBUF_QUEUED;
 			dev->mp_stream.curr_buf = NULL;
 		}
-	}
-	if (dev->stop_dma && (dev->dma_stream.curr_buf != NULL)) {
-		list_add(&dev->dma_stream.curr_buf->queue,
-			&dev->dma_stream.buf_queue);
-		dev->dma_stream.curr_buf->state = VIDEOBUF_QUEUED;
-		dev->sp_stream.curr_buf = NULL;
 	}
 	spin_unlock_irqrestore(&dev->vbq_lock, flags);
 
@@ -4082,6 +4164,7 @@ static int cif_isp20_mi_isr(void *cntxt)
 
 	if (mi_mis & CIF_MI_SP_FRAME) {
 		dev->sp_stream.first_frame = false;
+		dev->sp_stream.expect_frame_end = false;
 		if (!IS_ERR_VALUE(cif_isp20_mi_frame_end(dev,
 			CIF_ISP20_STREAM_SP)))
 			(void)cif_isp20_update_mi_sp(dev);
@@ -4090,6 +4173,7 @@ static int cif_isp20_mi_isr(void *cntxt)
 	}
 	if (mi_mis & CIF_MI_MP_FRAME) {
 		dev->mp_stream.first_frame = false;
+		dev->mp_stream.expect_frame_end = false;
 		if (!IS_ERR_VALUE(cif_isp20_mi_frame_end(dev,
 			CIF_ISP20_STREAM_MP)))
 			cif_isp20_update_mi_mp(dev);
@@ -4112,16 +4196,26 @@ static int cif_isp20_mi_isr(void *cntxt)
 		((mi_mis & CIF_MI_SP_FRAME) || dev->sp_stream.first_frame))
 		(void)cif_isp20_config_rsz(dev, CIF_ISP20_STREAM_SP);
 
-	if ((dev->sp_stream.state == CIF_ISP20_STATE_STREAMING) &&
-		(dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) &&
-		dev->config.mi_config.async_updt &&
-		!dev->config.jpeg_config.busy) {
-		cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
-			dev->config.base_addr + CIF_MI_INIT);
-	}
+	if (!dev->mp_stream.expect_frame_end &&
+		!dev->mp_stream.expect_frame_end) {
+		if ((dev->sp_stream.state == CIF_ISP20_STATE_STREAMING) &&
+			(dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) &&
+			dev->config.mi_config.async_updt &&
+			!dev->config.jpeg_config.busy) {
+			cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
+				dev->config.base_addr + CIF_MI_INIT);
+		}
 
-	if (mi_mis & (CIF_MI_SP_FRAME | CIF_MI_MP_FRAME))
-		cif_isp20_dma_next_buff(dev);
+		if ((dev->dma_stream.state == CIF_ISP20_STATE_STREAMING) &&
+			(dev->dma_stream.curr_buf == NULL))
+			cif_isp20_dma_next_buff(dev);
+		if ((dev->sp_stream.state == CIF_ISP20_STATE_STREAMING) &&
+			dev->sp_stream.curr_buf)
+			dev->sp_stream.expect_frame_end = true;
+		if ((dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) &&
+			dev->mp_stream.curr_buf)
+			dev->mp_stream.expect_frame_end = true;
+	}
 
 	cif_iowrite32(~(CIF_MI_MP_FRAME |
 		CIF_MI_SP_FRAME | CIF_MI_DMA_READY),
@@ -4299,9 +4393,11 @@ int cif_isp20_streamoff(
 		if (dev->mp_stream.state == CIF_ISP20_STATE_READY)
 			dev->mp_stream.state = CIF_ISP20_STATE_INACTIVE;
 	}
-	if ((streamoff_dma) &&
-		(dev->dma_stream.state == CIF_ISP20_STATE_READY))
-		dev->dma_stream.state = CIF_ISP20_STATE_INACTIVE;
+	if (streamoff_dma) {
+		cif_isp20_stop_dma(dev);
+		if (dev->dma_stream.state == CIF_ISP20_STATE_READY)
+			dev->dma_stream.state = CIF_ISP20_STATE_INACTIVE;
+	}
 
 	return 0;
 err:
@@ -4577,8 +4673,8 @@ int cif_isp20_s_input(
 	int ret;
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"setting input to %s(0x%08x)\n",
-		cif_isp20_inp_string(inp), inp);
+		"setting input to %s\n",
+		cif_isp20_inp_string(inp));
 
 	if (inp > CIF_ISP20_INP_DMA_SP) {
 		cif_isp20_pltfrm_pr_err(NULL,
@@ -4743,6 +4839,7 @@ int cif_isp20_calc_isp_cropping(
 		*v_offs = (input_height - *height) >> 1;
 	else if (*height > input_height) {
 		/* horizontal cropping */
+		*height = input_height;
 		*width = input_height * target_width / target_height;
 		*width &= ~1;
 		*h_offs = (input_width - *width) >> 1;
@@ -5140,6 +5237,7 @@ int marvin_isp_isr(void *cntxt)
 	cifisp_isp_isr(&dev->isp_dev, isp_mis);
 
 	if (isp_mis & CIF_ISP_FRAME) {
+		do_gettimeofday(&dev->curr_frame_time);
 		/* Clear Frame In (ISP) */
 		cif_iowrite32(CIF_ISP_FRAME
 			      | CIF_ISP_FRAME_IN

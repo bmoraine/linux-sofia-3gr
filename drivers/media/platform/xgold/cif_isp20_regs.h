@@ -137,11 +137,11 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_ISP_ACQ_PROP_FIELD_SEL_ALL         (0<<9)
 #define CIF_ISP_ACQ_PROP_FIELD_SEL_EVEN        (1<<9)
 #define CIF_ISP_ACQ_PROP_FIELD_SEL_ODD         (2<<9)
-#define CIF_ISP_ACQ_PROP_IN_SEL_12b            (4<<12)
-#define CIF_ISP_ACQ_PROP_IN_SEL_10b_2_0_LSB    (3<<12)
-#define CIF_ISP_ACQ_PROP_IN_SEL_10b_2_MSB_LSB  (2<<12)
-#define CIF_ISP_ACQ_PROP_IN_SEL_8b_4_0_LSB     (1<<12)
-#define CIF_ISP_ACQ_PROP_IN_SEL_8b_4_MSB_LSB   (0<<12)
+#define CIF_ISP_ACQ_PROP_IN_SEL_12B            (4<<12)
+#define CIF_ISP_ACQ_PROP_IN_SEL_10B_ZERO       (3<<12)
+#define CIF_ISP_ACQ_PROP_IN_SEL_10B_MSB        (2<<12)
+#define CIF_ISP_ACQ_PROP_IN_SEL_8B_ZERO        (1<<12)
+#define CIF_ISP_ACQ_PROP_IN_SEL_8B_MSB         (0<<12)
 
 /* VI_DPCL */
 #define CIF_VI_DPCL_MP_MUX_MRSZ_MI         (1<<0)

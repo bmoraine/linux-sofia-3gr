@@ -91,11 +91,11 @@ enum cif_isp20_pm_state {
 
 enum cif_isp20_inp {
 	CIF_ISP20_INP_CSI_0 = 0,
-	CIF_ISP20_INP_CSI_1,
-	CIF_ISP20_INP_CPI,
-	CIF_ISP20_INP_DMA, /* DMA -> ISP */
-	CIF_ISP20_INP_DMA_IE, /* DMA -> IE */
-	CIF_ISP20_INP_DMA_SP /* DMA -> SP */
+	CIF_ISP20_INP_CSI_1 = 1,
+	CIF_ISP20_INP_CPI = 2,
+	CIF_ISP20_INP_DMA = 3, /* DMA -> ISP */
+	CIF_ISP20_INP_DMA_IE = 4, /* DMA -> IE */
+	CIF_ISP20_INP_DMA_SP = 5 /* DMA -> SP */
 };
 
 enum cif_isp20_irq {
@@ -425,6 +425,7 @@ struct cif_isp20_stream {
 	bool updt_cfg;
 	bool stall;
 	bool first_frame;
+	bool expect_frame_end;
 };
 
 struct cif_isp20_jpeg_config {
@@ -502,6 +503,7 @@ struct cif_isp20_device {
 	struct cif_isp20_stream dma_stream;
 	bool stop_dma;
 	CIF_ISP20_PLTFRM_EVENT dma_done;
+	struct timeval curr_frame_time; /* updated each frame */
 #ifdef SOFIA_ES1_BU_PM_NATIVE
 	struct clk *clk_kernel;
 	struct clk *clk_slave;

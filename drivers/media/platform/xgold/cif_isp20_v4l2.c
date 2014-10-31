@@ -499,11 +499,14 @@ static int cif_isp20_v4l2_streamon(
 	}
 
 	ret = cif_isp20_streamon(dev, stream_ids);
-	if (IS_ERR_VALUE(ret))
+	if (IS_ERR_VALUE(ret)) {
+		videobuf_queue_cancel(queue);
 		goto err;
+	}
 
 	return 0;
 err:
+	(void)videobuf_mmap_free(queue);
 	cif_isp20_pltfrm_pr_err(dev->dev, "failed with error %d\n", ret);
 	return ret;
 }
@@ -513,7 +516,8 @@ static int cif_isp20_v4l2_streamoff(
 	void *priv,
 	enum v4l2_buf_type buf_type)
 {
-	int ret;
+	int ret = 0;
+	int err;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
 	u32 stream_ids = to_stream_id(file);
@@ -521,25 +525,26 @@ static int cif_isp20_v4l2_streamoff(
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
 
-	ret = cif_isp20_streamoff(dev, stream_ids);
-	if (IS_ERR_VALUE(ret))
-		goto err;
-	ret = videobuf_streamoff(queue);
-	if (IS_ERR_VALUE(ret)) {
+	err = cif_isp20_streamoff(dev, stream_ids);
+	if (IS_ERR_VALUE(err))
+		ret = -EFAULT;
+	err = videobuf_streamoff(queue);
+	if (IS_ERR_VALUE(err)) {
 		cif_isp20_pltfrm_pr_err(dev->dev,
-			"videobuf_streamoff failed\n");
-		goto err;
+			"videobuf_streamoff failed with error %d\n", ret);
+		ret = -EFAULT;
 	}
-	ret = videobuf_mmap_free(queue);
-	if (IS_ERR_VALUE(ret)) {
+	err = videobuf_mmap_free(queue);
+	if (IS_ERR_VALUE(err)) {
 		cif_isp20_pltfrm_pr_err(dev->dev,
-			"videobuf_mmap_free failed\n");
-		goto err;
+			"videobuf_mmap_free failed with error %d\n", ret);
+		ret = -EFAULT;
 	}
 
-	return 0;
-err:
-	cif_isp20_pltfrm_pr_err(dev->dev, "failed with error %d\n", ret);
+	if (IS_ERR_VALUE(ret))
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"failed with error %d\n", ret);
+
 	return ret;
 }
 
