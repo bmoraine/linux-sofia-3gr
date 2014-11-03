@@ -1168,23 +1168,28 @@ dwc_otg_pcd_t *dwc_otg_pcd_init(dwc_otg_core_if_t * core_if)
 	 * Initialize the DMA buffer for SETUP packets
 	 */
 	if (GET_CORE_IF(pcd)->dma_enable) {
-		pcd->setup_pkt =
-		    DWC_DMA_ALLOC(sizeof(*pcd->setup_pkt) * 5,
-				  &pcd->setup_pkt_dma_handle);
+		pcd->setup_pkt = DWC_ALLOC(sizeof(*pcd->setup_pkt) * 5);
 		if (pcd->setup_pkt == NULL) {
 			DWC_FREE(pcd);
 			return NULL;
 		}
+		pcd->setup_pkt_dma_handle = dma_map_single(core_if->dev, pcd->setup_pkt,
+				sizeof(*pcd->setup_pkt)
+				* 5, DMA_BIDIRECTIONAL);
 
-		pcd->status_buf =
-		    DWC_DMA_ALLOC(sizeof(uint16_t),
-				  &pcd->status_buf_dma_handle);
+		pcd->status_buf = DWC_ALLOC(sizeof(uint16_t));
 		if (pcd->status_buf == NULL) {
-			DWC_DMA_FREE(sizeof(*pcd->setup_pkt) * 5,
-				     pcd->setup_pkt, pcd->setup_pkt_dma_handle);
+			if (pcd->setup_pkt_dma_handle)
+				dma_unmap_single(core_if->dev, pcd->setup_pkt_dma_handle,
+						sizeof(*pcd->setup_pkt) * 5, DMA_BIDIRECTIONAL);
+			DWC_FREE(pcd->setup_pkt);
 			DWC_FREE(pcd);
 			return NULL;
 		}
+		pcd->status_buf_dma_handle = dma_map_single(core_if->dev,
+						pcd->status_buf, sizeof(uint16_t),
+						DMA_BIDIRECTIONAL);
+
 
 		if (GET_CORE_IF(pcd)->dma_desc_enable) {
 			dev_if->setup_desc_addr[0] =
@@ -1223,12 +1228,18 @@ dwc_otg_pcd_t *dwc_otg_pcd_init(dwc_otg_core_if_t * core_if)
 					    (dev_if->setup_desc_addr[0],
 					     dev_if->dma_setup_desc_addr[0], 1);
 
-				DWC_DMA_FREE(sizeof(*pcd->setup_pkt) * 5,
-					     pcd->setup_pkt,
-					     pcd->setup_pkt_dma_handle);
-				DWC_DMA_FREE(sizeof(*pcd->status_buf),
-					     pcd->status_buf,
-					     pcd->status_buf_dma_handle);
+				if (pcd->setup_pkt_dma_handle)
+					dma_unmap_single(core_if->dev, pcd->setup_pkt_dma_handle,
+							sizeof(*pcd->setup_pkt) * 5, DMA_BIDIRECTIONAL);
+
+
+				DWC_FREE(pcd->setup_pkt);
+
+				if (pcd->status_buf_dma_handle)
+					dma_unmap_single(NULL, pcd->status_buf_dma_handle,
+							sizeof(uint16_t),
+							DMA_BIDIRECTIONAL);
+				DWC_FREE(pcd->status_buf);
 
 				DWC_FREE(pcd);
 
@@ -1288,8 +1299,15 @@ dwc_otg_pcd_t *dwc_otg_pcd_init(dwc_otg_core_if_t * core_if)
 #ifdef DWC_UTE_CFI
 fail:
 #endif
+	if (pcd->setup_pkt_dma_handle)
+		dma_unmap_single(core_if->dev, pcd->setup_pkt_dma_handle,
+			sizeof(*pcd->setup_pkt) * 5, DMA_BIDIRECTIONAL);
 	if (pcd->setup_pkt)
 		DWC_FREE(pcd->setup_pkt);
+
+	if (pcd->status_buf_dma_handle)
+		dma_unmap_single(core_if->dev, pcd->status_buf_dma_handle,
+			sizeof(uint16_t), DMA_BIDIRECTIONAL);
 	if (pcd->status_buf)
 		DWC_FREE(pcd->status_buf);
 #ifdef DWC_UTE_CFI
@@ -1317,22 +1335,26 @@ void dwc_otg_pcd_remove(dwc_otg_pcd_t * pcd)
 	}
 
 	if (GET_CORE_IF(pcd)->dma_enable) {
-		DWC_DMA_FREE(sizeof(*pcd->setup_pkt) * 5, pcd->setup_pkt,
-			     pcd->setup_pkt_dma_handle);
-		DWC_DMA_FREE(sizeof(uint16_t), pcd->status_buf,
-			     pcd->status_buf_dma_handle);
+		if (pcd->setup_pkt_dma_handle)
+			dma_unmap_single(pcd->core_if->dev, pcd->setup_pkt_dma_handle,
+					sizeof(*pcd->setup_pkt) * 5, DMA_BIDIRECTIONAL);
+		DWC_FREE(pcd->setup_pkt);
+		if (pcd->status_buf_dma_handle)
+			dma_unmap_single(pcd->core_if->dev, pcd->status_buf_dma_handle,
+					sizeof(uint16_t), DMA_BIDIRECTIONAL);
+		DWC_FREE(pcd->status_buf);
 		if (GET_CORE_IF(pcd)->dma_desc_enable) {
 			dwc_otg_ep_free_desc_chain(dev_if->setup_desc_addr[0],
-						   dev_if->dma_setup_desc_addr
-						   [0], 1);
+					dev_if->dma_setup_desc_addr
+					[0], 1);
 			dwc_otg_ep_free_desc_chain(dev_if->setup_desc_addr[1],
-						   dev_if->dma_setup_desc_addr
-						   [1], 1);
+					dev_if->dma_setup_desc_addr
+					[1], 1);
 			dwc_otg_ep_free_desc_chain(dev_if->in_desc_addr,
-						   dev_if->dma_in_desc_addr, 1);
+					dev_if->dma_in_desc_addr, 1);
 			dwc_otg_ep_free_desc_chain(dev_if->out_desc_addr,
-						   dev_if->dma_out_desc_addr,
-						   1);
+					dev_if->dma_out_desc_addr,
+					1);
 		}
 	} else {
 		DWC_FREE(pcd->setup_pkt);

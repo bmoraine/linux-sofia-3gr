@@ -812,9 +812,10 @@ static void dwc_otg_hcd_free(dwc_otg_hcd_t * dwc_otg_hcd)
 
 	if (dwc_otg_hcd->core_if->dma_enable) {
 		if (dwc_otg_hcd->status_buf_dma) {
-			DWC_DMA_FREE(DWC_OTG_HCD_STATUS_BUF_SIZE,
-				     dwc_otg_hcd->status_buf,
-				     dwc_otg_hcd->status_buf_dma);
+			dma_unmap_single(dwc_otg_hcd->core_if->dev, dwc_otg_hcd->status_buf_dma,
+					DWC_OTG_HCD_STATUS_BUF_SIZE,
+					DMA_TO_DEVICE);
+			DWC_FREE(dwc_otg_hcd->status_buf);
 		}
 	} else if (dwc_otg_hcd->status_buf != NULL) {
 		DWC_FREE(dwc_otg_hcd->status_buf);
@@ -913,9 +914,7 @@ int dwc_otg_hcd_init(dwc_otg_hcd_t * hcd, dwc_otg_core_if_t * core_if)
 	 * pool.
 	 */
 	if (hcd->core_if->dma_enable) {
-		hcd->status_buf =
-		    DWC_DMA_ALLOC(DWC_OTG_HCD_STATUS_BUF_SIZE,
-				  &hcd->status_buf_dma);
+		hcd->status_buf = DWC_ALLOC(DWC_OTG_HCD_STATUS_BUF_SIZE);
 	} else {
 		hcd->status_buf = DWC_ALLOC(DWC_OTG_HCD_STATUS_BUF_SIZE);
 	}
@@ -1137,6 +1136,11 @@ static void assign_and_init_hc(dwc_otg_hcd_t * hcd, dwc_otg_qh_t * qh)
 
 			hc->xfer_len = 0;
 			if (hcd->core_if->dma_enable) {
+				hcd->status_buf_dma =
+					dma_map_single(hcd->core_if->dev,
+						hcd->status_buf,
+						DWC_OTG_HCD_STATUS_BUF_SIZE,
+						DMA_TO_DEVICE);
 				hc->xfer_buff = (uint8_t *) hcd->status_buf_dma;
 			} else {
 				hc->xfer_buff = (uint8_t *) hcd->status_buf;

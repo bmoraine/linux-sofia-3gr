@@ -776,6 +776,10 @@ static inline void ep0_out_start(dwc_otg_core_if_t * core_if,
 	doeptsize0.b.xfersize = 8 * 3;
 
 	if (core_if->dma_enable) {
+		dma_sync_single_for_device(core_if->dev,
+				pcd->setup_pkt_dma_handle,
+				sizeof(*pcd->setup_pkt) * 5,
+				DMA_FROM_DEVICE);
 		if (!core_if->dma_desc_enable) {
 			/** put here as for Hermes mode deptisz register should not be written */
 			DWC_WRITE_REG32(&dev_if->out_ep_regs[0]->doeptsiz,
@@ -1464,6 +1468,11 @@ static inline void do_setup_in_status_phase(dwc_otg_pcd_t * pcd)
 		pcd->backup_buf = phys_to_virt(ep0->dwc_ep.dma_addr);
 		pcd->data_terminated = 1;
 	}
+	dma_sync_single_for_device(pcd->core_if->dev, pcd->setup_pkt_dma_handle,
+			sizeof(*pcd->setup_pkt) * 5,
+			ep0->dwc_ep.is_in ? DMA_TO_DEVICE:
+			DMA_FROM_DEVICE);
+
 	ep0->dwc_ep.xfer_len = 0;
 	ep0->dwc_ep.xfer_count = 0;
 	ep0->dwc_ep.is_in = 1;
@@ -1490,6 +1499,9 @@ static inline void do_setup_out_status_phase(dwc_otg_pcd_t * pcd)
 	pcd->ep0state = EP0_OUT_STATUS_PHASE;
 
 	DWC_DEBUGPL(DBG_PCD, "EP0 OUT ZLP\n");
+	dma_sync_single_for_device(pcd->core_if->dev, pcd->setup_pkt_dma_handle,
+			sizeof(*pcd->setup_pkt) * 5,
+			DMA_FROM_DEVICE);
 	ep0->dwc_ep.xfer_len = 0;
 	ep0->dwc_ep.xfer_count = 0;
 	ep0->dwc_ep.is_in = 0;
@@ -1606,9 +1618,14 @@ static inline void do_get_status(dwc_otg_pcd_t * pcd)
 	usb_device_request_t ctrl = pcd->setup_pkt->req;
 	dwc_otg_pcd_ep_t *ep;
 	dwc_otg_pcd_ep_t *ep0 = &pcd->ep0;
-	uint16_t *status = pcd->status_buf;
+	uint16_t *status;
 	dwc_otg_core_if_t *core_if = GET_CORE_IF(pcd);
 
+	dma_sync_single_for_cpu(core_if->dev,
+			pcd->status_buf_dma_handle,
+			sizeof(uint16_t), DMA_FROM_DEVICE);
+
+	status = pcd->status_buf;
 #ifdef DEBUG_EP0
 	DWC_DEBUGPL(DBG_PCD,
 		    "GET_STATUS %02x.%02x v%04x i%04x l%04x\n",
@@ -1629,6 +1646,8 @@ static inline void do_get_status(dwc_otg_pcd_t * pcd)
 			    && core_if->core_params->otg_cap ==
 			    DWC_OTG_CAP_PARAM_HNP_SRP_CAPABLE) {
 				uint8_t *otgsts = (uint8_t *) pcd->status_buf;
+				dma_sync_single_for_device(core_if->dev, pcd->status_buf_dma_handle,
+					sizeof(uint16_t), DMA_TO_DEVICE);
 				*otgsts = (core_if->otg_sts & 0x1);
 				pcd->ep0_pending = 1;
 				ep0->dwc_ep.start_xfer_buff =
@@ -1666,6 +1685,8 @@ static inline void do_get_status(dwc_otg_pcd_t * pcd)
 		*status = ep->stopped;
 		break;
 	}
+	dma_sync_single_for_device(core_if->dev, pcd->status_buf_dma_handle,
+				sizeof(uint16_t), DMA_TO_DEVICE);
 	pcd->ep0_pending = 1;
 	ep0->dwc_ep.start_xfer_buff = (uint8_t *) status;
 	ep0->dwc_ep.xfer_buff = (uint8_t *) status;
@@ -1914,7 +1935,7 @@ static inline void pcd_setup(dwc_otg_pcd_t * pcd)
 {
 	dwc_otg_core_if_t *core_if = GET_CORE_IF(pcd);
 	dwc_otg_dev_if_t *dev_if = core_if->dev_if;
-	usb_device_request_t ctrl = pcd->setup_pkt->req;
+	usb_device_request_t ctrl;
 	dwc_otg_pcd_ep_t *ep0 = &pcd->ep0;
 
 	deptsiz0_data_t doeptsize0 = {.d32 = 0 };
@@ -1923,6 +1944,11 @@ static inline void pcd_setup(dwc_otg_pcd_t * pcd)
 	int retval = 0;
 	struct cfi_usb_ctrlrequest cfi_req;
 #endif
+	dma_sync_single_for_cpu(core_if->dev,
+			pcd->setup_pkt_dma_handle,
+			sizeof(*pcd->setup_pkt) * 5,
+			DMA_FROM_DEVICE);
+	ctrl = pcd->setup_pkt->req;
 
 	doeptsize0.d32 = DWC_READ_REG32(&dev_if->out_ep_regs[0]->doeptsiz);
 
@@ -4543,9 +4569,13 @@ do { \
 								status.d32 = core_if->dev_if->setup_desc_addr[core_if->
 											dev_if->setup_desc_index]->status.d32;
 								if(pcd->data_terminated) {
-									 pcd->data_terminated = 0;
-									 status.d32 = core_if->dev_if->out_desc_addr->status.d32;
-									 dwc_memcpy(&pcd->setup_pkt->req, pcd->backup_buf, 8);
+									pcd->data_terminated = 0;
+									status.d32 = core_if->dev_if->out_desc_addr->status.d32;
+									dma_sync_single_for_cpu(core_if->dev,
+											pcd->setup_pkt_dma_handle,
+											sizeof(*pcd->setup_pkt) * 5,
+											DMA_FROM_DEVICE);
+									dwc_memcpy(&pcd->setup_pkt->req, pcd->backup_buf, 8);
 								}
 								if (status.b.sr) {
 									if (doepint.b.setup) {
@@ -4601,6 +4631,10 @@ do { \
 										req = DWC_CIRCLEQ_FIRST(&ep->queue);
 										if (ep->dwc_ep.xfer_count != ep->dwc_ep.total_len &&
 											pcd->ep0state == EP0_OUT_DATA_PHASE) {
+											dma_sync_single_for_cpu(core_if->dev,
+													pcd->setup_pkt_dma_handle,
+													sizeof(*pcd->setup_pkt) * 5,
+													DMA_FROM_DEVICE);
 												/* Read arrived setup packet from req->buf */
 												dwc_memcpy(&pcd->setup_pkt->req, 
 													req->buf + ep->dwc_ep.xfer_count, 8);
@@ -4751,6 +4785,10 @@ retry:
 										req = DWC_CIRCLEQ_FIRST(&ep->queue);
 										if (ep->dwc_ep.xfer_count != ep->dwc_ep.total_len &&
 											pcd->ep0state == EP0_OUT_DATA_PHASE) {
+												dma_sync_single_for_cpu(core_if->dev,
+														pcd->setup_pkt_dma_handle,
+														sizeof(*pcd->setup_pkt) * 5,
+														DMA_FROM_DEVICE);
 												/* Read arrived setup packet from req->buf */
 												dwc_memcpy(&pcd->setup_pkt->req, 
 													req->buf + ep->dwc_ep.xfer_count, 8);

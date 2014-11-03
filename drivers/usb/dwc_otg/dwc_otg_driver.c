@@ -668,6 +668,7 @@ static int dwc_otg_driver_probe(struct platform_device *_dev)
 		retval = -ENOMEM;
 		goto fail;
 	}
+	dwc_otg_device->core_if->dev = &_dev->dev;
 
 	/*
 	 * Attempt to ensure this device is really a DWC_otg Controller.

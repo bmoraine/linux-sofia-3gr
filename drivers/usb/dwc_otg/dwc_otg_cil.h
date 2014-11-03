@@ -1034,6 +1034,7 @@ struct dwc_otg_core_if {
 
 	int enumdone;
 	struct usb_phy *uphy;
+	struct device *dev;
 
 };
 
