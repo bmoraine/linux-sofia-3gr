@@ -229,7 +229,7 @@ int dcc_core_probe(struct platform_device *pdev)
 		    goto exit;
 		}
 	} else {
-		pdata->mem.vbase = dma_alloc_coherent(dev, pdata->mem.size,
+		pdata->mem.vbase = dma_alloc_writecombine(dev, pdata->mem.size,
 				&pdata->mem.pbase, GFP_KERNEL);
 	}
 	dcc_boot_dbg("dedicated memory [0x%08x-0x%08x] remapped to 0x%08x\n",
@@ -297,7 +297,7 @@ int dcc_core_probe(struct platform_device *pdev)
 	return ret;
 
 exit_unmap:
-	dma_free_coherent(dev, pdata->mem.size,
+	dma_free_writecombine(dev, pdata->mem.size,
 			pdata->mem.vbase, pdata->mem.pbase);
 	release_mem_region((unsigned int)pdata->mem.pbase,
 			   (unsigned int)pdata->mem.size);
@@ -350,7 +350,7 @@ int dcc_core_remove(struct platform_device *pdev)
 	pdata->reg.vbase = NULL;
 
 	/* release video memory */
-	dma_free_coherent(&pdev->dev, pdata->mem.size,
+	dma_free_writecombine(&pdev->dev, pdata->mem.size,
 			pdata->mem.vbase, pdata->mem.pbase);
 	pdata->mem.vbase = NULL;
 

@@ -257,6 +257,8 @@ static void dcc_mipidsi_send_long_packet_dma(struct dcc_display *lcd,
 				pdata->mem.vbase+(i*4), reg);
 		i++;
 	}
+	/* Drain the write buffer */
+	wmb();
 	gra_write_field(pdata, EXR_DIF_CSREG,
 		BITFLDS(EXR_DIF_CSREG_GRACMD, 1));
 #endif
