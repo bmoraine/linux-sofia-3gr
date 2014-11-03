@@ -40,6 +40,11 @@
 		<&range 33 2 0x100>,
 		<&range 35 1 0x1500>,   /* cam1_reset */
 		<&range 36 3 0x100>,
+#elif defined SOFIA3G_MRD5S
+		<&range 33 4 0x100>,
+		<&range 35 1 0x1500>,   /* cam1_reset */
+		<&range 37 1 0x01500>,	/* flash */
+		<&range 38 1 0x01500>,	/* torch */
 #else
 		<&range 33 4 0x100>,
 		<&range 37 1 0x01500>,	/* flash */
@@ -538,6 +543,34 @@
 		pinctrl-single,pins = <
 			0x29c 0x4100	/* cam1_pd */
 			0x28c 0x4100	/* cam1_reset */
+		>;
+	};
+#elif defined SOFIA3G_MRD5S
+	cam1_default_pins:cam1_default_pins {
+		pinctrl-single,pins = <
+			0x294 0x1500	/* cam_flash */
+			0x298 0x1500	/* cam_torch */
+			0x29c 0x1500	/* cam1_pd */
+			0x28c 0x1500	/* cam1_rst */
+			0x310 0x1500	/* cam_1v2_en */
+		>;
+	};
+	cam1_inactive_pins:cam1_inactive_pins {
+		pinctrl-single,pins = <
+			0x294 0x4100	/* cam_flash */
+			0x298 0x4100	/* cam_torch */
+			0x29c 0x4100	/* cam1_pd */
+			0x28c 0x4100	/* cam1_rst */
+			0x310 0x4100	/* cam_1v2_en */
+		>;
+	};
+	cam1_sleep_pins:cam1_sleep_pins {
+		pinctrl-single,pins = <
+			0x294 0x4100	/* cam_flash */
+			0x298 0x4100	/* cam_torch */
+			0x29c 0x4100	/* cam1_pd */
+			0x28c 0x4100	/* cam1_rst */
+			0x310 0x4100	/* cam_1v2_en */
 		>;
 	};
 #else
