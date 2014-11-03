@@ -22,6 +22,7 @@ extern const char *PLTFRM_CAMERA_MODULE_PIN_PD;
 extern const char *PLTFRM_CAMERA_MODULE_PIN_DVDD;
 extern const char *PLTFRM_CAMERA_MODULE_PIN_FLASH;
 extern const char *PLTFRM_CAMERA_MODULE_PIN_TORCH;
+extern const char *PLTFRM_CAMERA_MODULE_PIN_RESET;
 
 enum pltfrm_camera_module_pin_state {
 	PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE = 0,

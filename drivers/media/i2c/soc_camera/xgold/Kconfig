@@ -45,3 +45,11 @@ config VIDEO_GC0310
 	  GC0310 is a VGA Camera Sensor.
 	  The supported max resolution is 640x480.
 	  It is a SOC Camera Sensor.
+
+config VIDEO_OV8858
+	bool "OV8858"
+	depends on VIDEO_V4L2 && VIDEO_XGOLD && I2C
+	default n
+	---help---
+	Say Y here to enable OV8858.
+

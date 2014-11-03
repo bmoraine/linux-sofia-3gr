@@ -121,6 +121,11 @@ static int pltfrm_camera_module_init_gpio(
 				ret = pltfrm_camera_module_set_pin_state(sd,
 					pdata->gpios[i].label,
 					PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
+			else if (pdata->gpios[i].label ==
+				PLTFRM_CAMERA_MODULE_PIN_RESET)
+				ret = pltfrm_camera_module_set_pin_state(sd,
+					pdata->gpios[i].label,
+					PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
 			else
 				ret = pltfrm_camera_module_set_pin_state(sd,
 					pdata->gpios[i].label,
