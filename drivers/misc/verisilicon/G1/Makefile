@@ -29,5 +29,6 @@
 # obj-m: build as module
 # obj-$(CONFIG_VERISILICON_G1) ... define in kernel .config file
 
+ccflags-y += -Idrivers/staging
 obj-$(CONFIG_VERISILICON_G1) += hx170dec.o
 obj-$(CONFIG_VERISILICON_G1_DEBUG_FS) += hx170debugfs.o

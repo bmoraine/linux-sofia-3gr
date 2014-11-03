@@ -120,6 +120,10 @@ struct vpu_dec_device_t {
 	struct vpu_dec_resource mem;	/* dedicated memory desc	  */
 	struct vpu_dec_irq irq;
 	struct reset_control *rstc;
+#if defined(CONFIG_SW_SYNC_USER)
+	struct sw_sync_timeline *pphwc_timeline;
+	uint64_t ppwc_instance;
+#endif
 };
 
 

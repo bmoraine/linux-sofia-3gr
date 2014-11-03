@@ -51,6 +51,12 @@
  * Ioctl definitions
  */
 
+struct pphwc_cmd {
+	int release_fence_fd;
+	uint32_t sync_value;
+	uint64_t instance;
+};
+
 /* Use 'k' as magic number */
 #define HX170DEC_IOC_MAGIC  'k'
 /*
@@ -83,7 +89,14 @@
 #define HX170DEC_IOCT_SECVM_CMD	 _IOWR(HX170DEC_IOC_MAGIC, 13, \
 		struct vvpu_secvm_cmd)
 
-#define HX170DEC_IOC_MAXNR 13
+#define HX170DEC_IOCT_PPHWC_START _IOWR(HX170DEC_IOC_MAGIC, 14, \
+		struct pphwc_cmd)
+#define HX170DEC_IOCT_PPHWC_DONE  _IOWR(HX170DEC_IOC_MAGIC, 15, \
+		struct pphwc_cmd)
+#define HX170DEC_IOCT_PPHWC_RELEASE  _IOWR(HX170DEC_IOC_MAGIC, 16, \
+		struct pphwc_cmd)
+
+#define HX170DEC_IOC_MAXNR 16
 
 /*
  * parameters for PM IOCTL

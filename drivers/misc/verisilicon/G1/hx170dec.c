@@ -121,6 +121,10 @@
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 
+#include <android/sync.h>
+#include <android/sw_sync.h>
+#include <linux/file.h>
+
 #if defined(CONFIG_VBPIPE)
 
 #include "../vvpu/vvpu_vbpipe.h"
@@ -512,6 +516,84 @@ static void hx170dec_release_post_processor(struct hx170dec *dev)
 	HX170_LEAVE(0);
 }
 
+#if defined(CONFIG_SW_SYNC_USER)
+static int pphwc_fence_init(struct vpu_dec_device_t *pdata, void *instance)
+{
+	if (!pdata->pphwc_timeline) {
+		pdata->pphwc_timeline = sw_sync_timeline_create("pphwc");
+		if (!pdata->pphwc_timeline) {
+			dev_err(pdata->dev,
+				"%s: cannot create time line", __func__);
+			return -ENOMEM;
+		}
+	}
+	return 0;
+}
+
+static void pphwc_fence_release(struct vpu_dec_device_t *pdata,
+	uint64_t instance)
+{
+	if (vpu_dec_data->pphwc_timeline) {
+		sync_timeline_destroy(&vpu_dec_data->pphwc_timeline->obj);
+		vpu_dec_data->pphwc_timeline = NULL;
+	}
+}
+
+static void pphwc_fence_update(struct vpu_dec_device_t *pdata,
+		struct pphwc_cmd *cmd)
+{
+	if (!pdata->pphwc_timeline)
+		return;
+	/* do not increase if the timeline is already past the given value */
+	if (cmd->sync_value > pdata->pphwc_timeline->value) {
+		sw_sync_timeline_inc(pdata->pphwc_timeline,
+			cmd->sync_value - pdata->pphwc_timeline->value);
+	}
+}
+
+static void pphwc_fence_create(struct vpu_dec_device_t *pdata,
+		struct pphwc_cmd *cmd)
+{
+	struct sync_pt *point;
+	struct sync_fence *fence = NULL;
+	int fd = -1;
+
+	cmd->release_fence_fd = -1;
+	if (!pdata->pphwc_timeline)
+		return;
+
+	/* Create sync point */
+	point = sw_sync_pt_create(pdata->pphwc_timeline,
+			pdata->pphwc_timeline->value + 1);
+	if (point == NULL) {
+		cmd->release_fence_fd = -EINVAL;
+		return;
+	}
+
+	/* Create fence */
+	fence = sync_fence_create("dcc-fence", point);
+	if (fence == NULL) {
+		sync_pt_free(point);
+		cmd->release_fence_fd = -EINVAL;
+		return;
+	}
+
+	/* Create fd */
+	fd = get_unused_fd();
+	if (fd < 0) {
+		dev_err(pdata->dev, "fence_fd not initialized\n");
+		sync_fence_put(fence);
+		sync_pt_free(point);
+		cmd->release_fence_fd = -EINVAL;
+		return;
+	}
+
+	/* Finally install the fence to that file descriptor */
+	sync_fence_install(fence, fd);
+	cmd->sync_value = pdata->pphwc_timeline->value + 1;
+	cmd->release_fence_fd = fd;
+}
+#endif
 
 /*--------------------------------------------------------------------------
   Function name	  : hx170dec_ioctl
@@ -722,6 +804,69 @@ static long hx170dec_ioctl(struct file *filp,
 		if (copy_to_user((void __user *)arg, &vvpu_cmd,
 				sizeof(vvpu_cmd)))
 			return -EFAULT;
+#else
+		ret = -EFAULT;
+#endif
+		break;
+	}
+	case HX170DEC_IOCT_PPHWC_START: {
+#if defined(CONFIG_SW_SYNC_USER)
+		struct pphwc_cmd cmd;
+		if (copy_from_user(&cmd, (void __user *)arg, sizeof(cmd))) {
+			ret = -EFAULT;
+			break;
+		}
+		/* set this as current instance, if it is not already */
+		if (vpu_dec_data->ppwc_instance == 0)
+			vpu_dec_data->ppwc_instance = cmd.instance;
+		/* only one instance at a time */
+		if (cmd.instance == 0 ||
+			(cmd.instance != vpu_dec_data->ppwc_instance)) {
+			ret = -EINVAL;
+			dev_err(dev, "pphwc start err: %d", err);
+			break;
+		}
+		pphwc_fence_create(vpu_dec_data, &cmd);
+		/* return out values to user space */
+		if (copy_to_user((void __user *)arg, &cmd, sizeof(cmd))) {
+			ret = -EFAULT;
+			break;
+		}
+#else
+		ret = -EFAULT;
+#endif
+		break;
+	}
+	case HX170DEC_IOCT_PPHWC_DONE: {
+#if defined(CONFIG_SW_SYNC_USER)
+		struct pphwc_cmd cmd;
+		if (copy_from_user(&cmd, (void __user *)arg, sizeof(cmd))) {
+			ret = -EFAULT;
+			break;
+		}
+		pphwc_fence_update(vpu_dec_data, &cmd);
+#else
+		ret = -EFAULT;
+#endif
+		break;
+	}
+	case HX170DEC_IOCT_PPHWC_RELEASE: {
+#if defined(CONFIG_SW_SYNC_USER)
+		struct pphwc_cmd cmd;
+		/* if instance is not set yet, just ignore and return OK,
+		 * it probably was never used */
+		if (vpu_dec_data->ppwc_instance == 0)
+			break;
+		if (copy_from_user(&cmd, (void __user *)arg, sizeof(cmd))) {
+			ret = -EFAULT;
+			break;
+		}
+		if (cmd.instance == 0 ||
+			(cmd.instance != vpu_dec_data->ppwc_instance)) {
+			ret = -EINVAL;
+			break;
+		}
+		vpu_dec_data->ppwc_instance = 0;
 #else
 		ret = -EFAULT;
 #endif
@@ -1319,6 +1464,9 @@ end:
 		dev_info(dev, "device probe OK (%d)", result);
 	}
 
+#if defined(CONFIG_SW_SYNC_USER)
+	pphwc_fence_init(vpu_dec_data, 0);
+#endif
 	return result;
 }
 
@@ -1347,6 +1495,10 @@ static int xgold_vpu_dec_remove(struct platform_device *pdev)
 
 #if defined(CONFIG_VBPIPE)
 	vvpu_vbpipe_release(dev);
+#endif
+
+#if defined(CONFIG_SW_SYNC_USER)
+	pphwc_fence_release(vpu_dec_data, 0);
 #endif
 	return ret;
 }
