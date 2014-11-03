@@ -861,6 +861,9 @@ static void pl08x_fill_lli_for_desc(struct pl08x_driver_data *pl08x,
 	if (pl08x->vd->pl080s)
 		llis_va[PL080S_LLI_CCTL2] = cctl2;
 
+	/* Drain the cpu wc buffer */
+	wmb();
+
 	if (cctl & PL080_CONTROL_SRC_INCR)
 		bd->srcbus.addr += len;
 	if (cctl & PL080_CONTROL_DST_INCR)
@@ -2149,7 +2152,7 @@ static int pl08x_probe(struct amba_device *adev, const struct amba_id *id)
 	tsfr_size = MAX_NUM_TSFR_LLIS * pl08x->lli_words * sizeof(u32);
 
 	/* A DMA memory pool for LLIs, align on 1-byte boundary */
-	pl08x->pool = dma_pool_create(DRIVER_NAME, &pl08x->adev->dev,
+	pl08x->pool = dma_wc_pool_create(DRIVER_NAME, &pl08x->adev->dev,
 						tsfr_size, PL08X_ALIGN, 0);
 	if (!pl08x->pool) {
 		ret = -ENOMEM;
