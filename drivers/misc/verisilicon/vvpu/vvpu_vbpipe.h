@@ -3,6 +3,7 @@
  *
  * Notes:
  * Aug 22 2014: IMC: vbpipe interface to secure vm
+ * Oct 30 2014: IMC: += vvpu_ping()
  */
 
 /*
@@ -62,6 +63,13 @@ int vvpu_vbpipe_release(struct device *dev);
  * send a vvpu command to secure vm and wait for response
  */
 int vvpu_call(struct device *dev, struct vvpu_secvm_cmd *cmd_p);
+
+/*
+ * send a ping request to the secure vm which immediately returns
+ * the payload cmd is for future use
+ * (takes the turn around time on the kernel log)
+ */
+int vvpu_ping(struct device *dev, uint32_t cmd);
 
 
 #endif /* _VVPU_VBPIPE_H_ */

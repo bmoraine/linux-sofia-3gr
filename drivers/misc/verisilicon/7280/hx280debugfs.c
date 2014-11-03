@@ -5,6 +5,7 @@
  * Nov	5 2013: IMC: debug fs for hx280enc driver
  * Mar 13 2014: IMC: Review Comments & Clean up
  * May 20 2014: IMC: replace printk() with pr_*()
+ * Oct 30 2014: IMC: include pingvm command
  */
 
 /*
@@ -36,6 +37,7 @@
 #include <linux/platform_device.h>
 
 #include "hx280enc.h"
+#include "../vvpu/vvpu_vbpipe.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Intel Mobile Communications GmbH");
@@ -78,6 +80,7 @@ enum _hx280_device_ctrl_cmds {
 	_HX280_DEVICE_RESET,
 	_HX280_DEVICE_STATE,
 	_HX280_DEVICE_COVERAGE,
+	_HX280_DEVICE_PING,
 	_HX280_MAX_CMDS
 };
 
@@ -93,6 +96,7 @@ static const char * const hx280_ctrl_cmds[_HX280_MAX_CMDS] = {
 	[_HX280_DEVICE_RESET]	   = "reset",
 	[_HX280_DEVICE_STATE]	   = "state",
 	[_HX280_DEVICE_COVERAGE]   = "coverage",
+	[_HX280_DEVICE_PING]	   = "pingvm",
 };
 
 
@@ -341,6 +345,15 @@ static ssize_t hx280_ctrlwrite(struct file *fp, const char __user *user_buffer,
 		 * call function for coverage testing
 		 */
 		pr_info("hx280dbg coverage testing ... TBD\n");
+
+	} else if (!strncmp(hx280_cmdBuffer,
+			hx280_ctrl_cmds[_HX280_DEVICE_PING],
+			strlen(hx280_ctrl_cmds[_HX280_DEVICE_PING]))) {
+		/*
+		 * call function for pinging the secure vm
+		 */
+		pr_info("hx280dbg ping secure vm\n");
+		vvpu_ping(dev, 0xfac31355);
 
 	} else {
 

@@ -5,6 +5,7 @@
  * Nov	5 2013: IMC: debug fs for hx170dec driver
  * Mar 13 2014: IMC: Review Comments & Clean up
  * May 20 2014: IMC: replace printk() with pr_*()
+ * Oct 30 2014: IMC: include pingvm command
  */
 
 /*
@@ -36,6 +37,8 @@
 #include <linux/platform_device.h>
 
 #include "hx170dec.h"
+#include "../vvpu/vvpu_vbpipe.h"
+
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Intel Mobile Communications GmbH");
@@ -78,6 +81,7 @@ enum _hx170_device_ctrl_cmds {
 	_HX170_DEVICE_RESET,
 	_HX170_DEVICE_STATE,
 	_HX170_DEVICE_COVERAGE,
+	_HX170_DEVICE_PING,
 	_HX170_MAX_CMDS
 };
 
@@ -93,6 +97,7 @@ static const char * const hx170_ctrl_cmds[_HX170_MAX_CMDS] = {
 	[_HX170_DEVICE_RESET]	   = "reset",
 	[_HX170_DEVICE_STATE]	   = "state",
 	[_HX170_DEVICE_COVERAGE]   = "coverage",
+	[_HX170_DEVICE_PING]	   = "pingvm",
 };
 
 /*
@@ -346,6 +351,15 @@ static ssize_t hx170_ctrlwrite(struct file *fp, const char __user *user_buffer,
 		 * call function for coverage testing
 		 */
 		pr_info("hx170dbg coverage testing ... TBD\n");
+
+	} else if (!strncmp(hx170_cmdBuffer,
+			hx170_ctrl_cmds[_HX170_DEVICE_PING],
+			strlen(hx170_ctrl_cmds[_HX170_DEVICE_PING]))) {
+		/*
+		 * call function for pinging the secure vm
+		 */
+		pr_info("hx170dbg ping secure vm\n");
+		vvpu_ping(dev, 0x0b53553d);
 
 	} else {
 

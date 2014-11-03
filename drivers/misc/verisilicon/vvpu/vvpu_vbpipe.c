@@ -3,6 +3,7 @@
  *
  * Notes:
  * Aug 22 2014: IMC: vbpipe interface to secure VM
+ * Oct 30 2014: IMC: += vvpu_ping()
  */
 
 /*
@@ -69,37 +70,36 @@ static const char * const vtnames[] = {
 };
 
 static const char * const vonames[] = {
-		"ping",
-		"get_api_version", /*  1 */
-		"get_build",
-		"init",
-		"deinit",
-		"decode", /*  5 */
-		"next_frame",
-		"get_info",
-		"peek",
-		"set_mvc",
-		"set_info", /* 10 */
-		"combined_mode_enable",
-		"combined_mode_disable",
-		"get_config",
-		"set_config",
-		"set_multiple_output", /* 15 */
-		"get_next_output",
-		"get_result",
-		"get_user_data",
-		"set_picture_buffers",
-		"set_coding_ctrl", /* 20 */
-		"get_coding_ctrl",
-		"set_rate_ctrl",
-		"get_rate_ctrl",
-		"set_preprocessing",
-		"get_preprocessing", /* 25 */
-		"set_sei_userdata",
-		"enc_strm_start",
-		"enc_strm_encode",
-		"enc_strm_end",	 /* 29 */
-
+		/*  0 */ "ping",
+		/*  1 */ "get_api_version",
+		/*  2 */ "get_build",
+		/*  3 */ "init",
+		/*  4 */ "deinit",
+		/*  5 */ "decode",
+		/*  6 */ "next_frame",
+		/*  7 */ "get_info",
+		/*  8 */ "peek",
+		/*  9 */ "set_mvc",
+		/* 10 */ "set_info",
+		/* 11 */ "combined_mode_enable",
+		/* 12 */ "combined_mode_disable",
+		/* 13 */ "get_config",
+		/* 14 */ "set_config",
+		/* 15 */ "set_multiple_output",
+		/* 16 */ "get_next_output",
+		/* 17 */ "get_result",
+		/* 18 */ "get_user_data",
+		/* 19 */ "set_picture_buffers",
+		/* 20 */ "set_coding_ctrl",
+		/* 21 */ "get_coding_ctrl",
+		/* 22 */ "set_rate_ctrl",
+		/* 23 */ "get_rate_ctrl",
+		/* 24 */ "set_preprocessing",
+		/* 25 */ "get_preprocessing",
+		/* 26 */ "set_sei_userdata",
+		/* 27 */ "enc_strm_start",
+		/* 28 */ "enc_strm_encode",
+		/* 29 */ "enc_strm_end",
 };
 
 #endif
@@ -143,7 +143,6 @@ static int vvpu_vbpipe_init_int(struct device *dev, int locked)
 				VVPU_VBPIPE, fp);
 
 			vvpu_vbpipe_filep = fp;
-
 			ret = 0;
 		}
 	} else
@@ -339,6 +338,48 @@ int vvpu_call(struct device *dev, struct vvpu_secvm_cmd *cmd_p)
 	dev_info(dev, "vvpu cmd done in %u ns r=0x%08x h=0x%08x.\n",
 		(unsigned int) tic, arg[3], arg[2]);
 #endif
+
+	return ret;
+}
+
+
+/*
+ * send a ping request to the secure vm which immediately returns
+ * (takes the turn around time on the kernel log)
+ */
+int vvpu_ping(struct device *dev, uint32_t cmd)
+{
+	unsigned long long tic;
+	struct timespec ts;
+
+	struct vvpu_secvm_cmd secvm_cmd;
+	uint32_t *arg = &(secvm_cmd.payload[0]);
+	int size = sizeof(struct vvpu_secvm_cmd);
+
+	int ret = 0;
+
+	secvm_cmd.payload[0] = VVPU_VTYPE_INIT_HANDSHAKE;
+	secvm_cmd.payload[1] = cmd;
+	secvm_cmd.payload[2] = 0xfefefefe;
+	secvm_cmd.payload[3] = 0xefefefef;
+
+	ktime_get_ts(&ts);
+	tic = timespec_to_ns(&ts);
+
+	dev_info(dev, "vvpu_ping [0x%08x 0x%08x 0x%08x 0x%08x] len %d\n",
+		arg[0], arg[1], arg[2], arg[3], size);
+
+	ret = vvpu_vbpipe_call(dev, (unsigned char *)arg, size);
+
+	if (ret == 0) {
+		ktime_get_ts(&ts);
+		tic = timespec_to_ns(&ts) - tic;
+
+		dev_info(dev,
+			"vvpu_ping [0x%08x 0x%08x 0x%08x 0x%08x] %u ns\n",
+			arg[0], arg[1], arg[2], arg[3], (unsigned int) tic);
+	} else
+		dev_warn(dev, "vvpu_ping error\n");
 
 	return ret;
 }
