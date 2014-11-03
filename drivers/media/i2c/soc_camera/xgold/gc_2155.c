@@ -221,24 +221,6 @@ int gc_s_power(struct v4l2_subdev *sd, int on)
 	return ret;
 }
 
-static int gc2155_s_ctrl(struct v4l2_subdev *sd,
-		struct v4l2_control *ctrl) {
-	struct gc_device *dev = to_gc_sensor(sd);
-	int ret = 0;
-
-	/* WA to make set ctrl take effect */
-	if (dev->power == 0) {
-		ret = __gc_s_power(sd, 1);
-		if (ret) {
-			pltfrm_camera_module_pr_err(sd,
-					"power on error %d\n", ret);
-			return ret;
-		}
-	}
-
-	return gc_s_ctrl(sd, ctrl);
-}
-
 static const struct v4l2_subdev_sensor_ops gc_sensor_ops = {
 	.g_skip_frames = gc_g_skip_frames,
 };
@@ -259,7 +241,7 @@ static const struct v4l2_subdev_core_ops gc_core_ops = {
 	.s_power = gc_s_power,
 	.ioctl = gc_ioctl,
 	.queryctrl = v4l2_subdev_queryctrl,
-	.s_ctrl = gc2155_s_ctrl,
+	.s_ctrl = gc_s_ctrl,
 	.g_ctrl = gc_g_ctrl,
 };
 
