@@ -51,6 +51,7 @@ struct dma_pool {		/* the pool */
 	size_t boundary;
 	char name[32];
 	struct list_head pools;
+	bool writecombine;
 };
 
 struct dma_page {		/* cacheable header for 'allocation' bytes */
@@ -127,8 +128,10 @@ static DEVICE_ATTR(pools, S_IRUGO, show_pools, NULL);
  * addressing restrictions on individual DMA transfers, such as not crossing
  * boundaries of 4KBytes.
  */
-struct dma_pool *dma_pool_create(const char *name, struct device *dev,
-				 size_t size, size_t align, size_t boundary)
+
+static struct dma_pool *_dma_pool_create(const char *name, struct device *dev,
+				 size_t size, size_t align, size_t boundary,
+				 bool writecombine)
 {
 	struct dma_pool *retval;
 	size_t allocation;
@@ -169,6 +172,7 @@ struct dma_pool *dma_pool_create(const char *name, struct device *dev,
 	retval->size = size;
 	retval->boundary = boundary;
 	retval->allocation = allocation;
+	retval->writecombine = writecombine;
 
 	if (dev) {
 		int ret;
@@ -191,7 +195,22 @@ struct dma_pool *dma_pool_create(const char *name, struct device *dev,
 
 	return retval;
 }
+
+struct dma_pool *dma_pool_create(const char *name, struct device *dev,
+				 size_t size, size_t align, size_t boundary)
+{
+	return _dma_pool_create(name, dev, size, align, boundary, false);
+
+}
 EXPORT_SYMBOL(dma_pool_create);
+
+struct dma_pool *dma_wc_pool_create(const char *name, struct device *dev,
+				 size_t size, size_t align, size_t boundary)
+{
+	return _dma_pool_create(name, dev, size, align, boundary, true);
+
+}
+EXPORT_SYMBOL(dma_wc_pool_create);
 
 static void pool_initialise_page(struct dma_pool *pool, struct dma_page *page)
 {
@@ -216,8 +235,14 @@ static struct dma_page *pool_alloc_page(struct dma_pool *pool, gfp_t mem_flags)
 	page = kmalloc(sizeof(*page), mem_flags);
 	if (!page)
 		return NULL;
-	page->vaddr = dma_alloc_coherent(pool->dev, pool->allocation,
-					 &page->dma, mem_flags);
+
+	if (pool->writecombine)
+		page->vaddr = dma_alloc_writecombine(pool->dev,
+				pool->allocation, &page->dma, mem_flags);
+	else
+		page->vaddr = dma_alloc_coherent(pool->dev,
+				pool->allocation, &page->dma, mem_flags);
+
 	if (page->vaddr) {
 #ifdef	DMAPOOL_DEBUG
 		memset(page->vaddr, POOL_POISON_FREED, pool->allocation);
@@ -244,7 +269,14 @@ static void pool_free_page(struct dma_pool *pool, struct dma_page *page)
 #ifdef	DMAPOOL_DEBUG
 	memset(page->vaddr, POOL_POISON_FREED, pool->allocation);
 #endif
-	dma_free_coherent(pool->dev, pool->allocation, page->vaddr, dma);
+
+	if (pool->writecombine)
+		dma_free_writecombine(pool->dev, pool->allocation,
+							page->vaddr, dma);
+	else
+		dma_free_coherent(pool->dev, pool->allocation,
+							page->vaddr, dma);
+
 	list_del(&page->page_list);
 	kfree(page);
 }

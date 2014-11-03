@@ -14,8 +14,12 @@
 #include <asm/io.h>
 #include <asm/scatterlist.h>
 
-struct dma_pool *dma_pool_create(const char *name, struct device *dev, 
+struct dma_pool *dma_pool_create(const char *name, struct device *dev,
 			size_t size, size_t align, size_t allocation);
+
+struct dma_pool *dma_wc_pool_create(const char *name, struct device *dev,
+			size_t size, size_t align, size_t allocation);
+
 
 void dma_pool_destroy(struct dma_pool *pool);
 
