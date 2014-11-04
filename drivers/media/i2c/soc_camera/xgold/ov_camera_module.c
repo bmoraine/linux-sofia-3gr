@@ -896,9 +896,9 @@ int ov_camera_module_read_reg_table(
 
 	if (!IS_ERR_OR_NULL(cam_mod->active_config)) {
 		for (
-			i = 0;
-			i < cam_mod->active_config->reg_table_num_entries;
-			i++) {
+			i = cam_mod->active_config->reg_table_num_entries - 1;
+			i > 0;
+			i--) {
 			if (cam_mod->active_config->reg_table[i].reg == reg) {
 				*val = cam_mod->active_config->reg_table[i].val;
 				return 0;

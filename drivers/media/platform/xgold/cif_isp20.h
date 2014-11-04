@@ -425,7 +425,6 @@ struct cif_isp20_stream {
 	bool updt_cfg;
 	bool stall;
 	bool first_frame;
-	bool expect_frame_end;
 };
 
 struct cif_isp20_jpeg_config {

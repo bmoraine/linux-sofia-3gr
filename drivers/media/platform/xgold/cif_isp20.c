@@ -400,6 +400,10 @@ static struct smarvin_hw_errors marvin_hw_errors[] = {
 
 #define CIF_ISP20_INVALID_BUFF_ADDR ((u32)~0)
 #define CIF_ISP20_SP_YCFLT_INP (true)
+#define CIF_ISP20_MI_IS_BUSY(dev)\
+	(dev->config.mi_config.mp.busy ||\
+	dev->config.mi_config.sp.busy ||\
+	dev->config.mi_config.dma.busy)
 
 #ifndef DIV_ROUND_UP
 #define DIV_ROUND_UP(x, y) (((x) + (y) - 1) / (y))
@@ -1399,13 +1403,16 @@ static int cif_isp20_config_isp(
 	u32 isp_input_sel = 0;
 	u32 isp_bayer_pat = 0;
 	u32 acq_mult = 1;
+	u32 irq_mask = 0;
 	enum cif_isp20_pix_fmt in_pix_fmt;
 	struct cif_isp20_frm_fmt *output;
 
-	if (dev->config.input_sel == CIF_ISP20_INP_DMA_IE)
+	if (dev->config.input_sel == CIF_ISP20_INP_DMA_IE) {
 		dev->config.isp_config.output =
 			dev->config.mi_config.dma.output;
-	else if (dev->config.input_sel == CIF_ISP20_INP_DMA_SP) {
+		cifisp_disable_isp(&dev->isp_dev);
+		return 0;
+	} else if (dev->config.input_sel == CIF_ISP20_INP_DMA_SP) {
 		cif_iowrite32AND(~CIF_ICCL_ISP_CLK,
 			dev->config.base_addr + CIF_ICCL);
 		cif_isp20_pltfrm_pr_dbg(NULL,
@@ -1491,8 +1498,17 @@ static int cif_isp20_config_isp(
 				ret = -EINVAL;
 				goto err;
 			}
-		} else
+			cif_iowrite32(CIF_ISP_CTRL_ISP_MODE_ITU601 |
+				CIF_ISP_CTRL_ISP_YUV_FAST_MODE_DIS,
+				dev->config.base_addr + CIF_ISP_CTRL);
+		} else {
 			isp_input_sel = CIF_ISP_ACQ_PROP_IN_SEL_12B;
+			cif_iowrite32(CIF_ISP_CTRL_ISP_MODE_ITU601,
+				dev->config.base_addr + CIF_ISP_CTRL);
+			/* ISP DATA LOSS is only meaningful
+				when input is not DMA */
+			irq_mask |= CIF_ISP_DATA_LOSS;
+		}
 		if (CIF_ISP20_PIX_FMT_YUV_IS_YC_SWAPPED(in_pix_fmt)) {
 			yuv_seq = CIF_ISP_ACQ_PROP_CBYCRY;
 			cif_isp20_pix_fmt_set_yc_swapped(output->pix_fmt, 0);
@@ -1500,8 +1516,6 @@ static int cif_isp20_config_isp(
 			yuv_seq = CIF_ISP_ACQ_PROP_YCRYCB;
 		else
 			yuv_seq = CIF_ISP_ACQ_PROP_YCBYCR;
-		cif_iowrite32(CIF_ISP_CTRL_ISP_MODE_ITU601,
-			dev->config.base_addr + CIF_ISP_CTRL);
 	} else {
 		cif_isp20_pltfrm_pr_err(dev->dev,
 			"format %s not supported\n",
@@ -1548,15 +1562,14 @@ static int cif_isp20_config_isp(
 	dev->isp_dev.input_height = output->height;
 
 	/* interrupt mask */
-	cif_iowrite32(
+	irq_mask |=
 		CIF_ISP_FRAME |
-		CIF_ISP_DATA_LOSS |
 		CIF_ISP_PIC_SIZE_ERROR |
-		CIF_ISP_V_START
 #ifdef MEASURE_VERTICAL_BLANKING
-		| CIF_ISP_FRAME_IN
+		CIF_ISP_FRAME_IN |
 #endif
-		,
+		CIF_ISP_V_START;
+	cif_iowrite32(irq_mask,
 		dev->config.base_addr + CIF_ISP_IMSC);
 
 	if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(
@@ -1568,7 +1581,7 @@ static int cif_isp20_config_isp(
 		cifisp_disable_isp(&dev->isp_dev);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"  ISP_CTRL 0x%08x\n"
+		"\n  ISP_CTRL 0x%08x\n"
 		"  ISP_IMSC 0x%08x\n"
 		"  ISP_ACQ_PROP 0x%08x\n"
 		"  ISP_ACQ %dx%d@(%d,%d)\n"
@@ -1868,7 +1881,8 @@ static int cif_isp20_config_mi_mp(
 		swap_cb_cr |
 		CIF_MI_CTRL_BURST_LEN_LUM_64 |
 		CIF_MI_CTRL_BURST_LEN_CHROM_64 |
-		CIF_MI_CTRL_INIT_BASE_EN,
+		CIF_MI_CTRL_INIT_BASE_EN |
+		CIF_MI_CTRL_INIT_OFFSET_EN,
 		dev->config.base_addr + CIF_MI_CTRL);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
@@ -2067,7 +2081,8 @@ static int cif_isp20_config_mi_sp(
 		output_format |
 		CIF_MI_CTRL_BURST_LEN_LUM_64 |
 		CIF_MI_CTRL_BURST_LEN_CHROM_64 |
-		CIF_MI_CTRL_INIT_BASE_EN,
+		CIF_MI_CTRL_INIT_BASE_EN |
+		CIF_MI_CTRL_INIT_OFFSET_EN,
 		dev->config.base_addr + CIF_MI_CTRL);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
@@ -2382,7 +2397,8 @@ static int cif_isp20_config_path(
 	if (dev->config.input_sel == CIF_ISP20_INP_DMA)
 		dpcl |= CIF_VI_DPCL_IF_SEL_DMA | CIF_VI_DPCL_DMA_SW_ISP;
 	else if (dev->config.input_sel == CIF_ISP20_INP_DMA_IE)
-		dpcl |= CIF_VI_DPCL_DMA_IE_MUX_DMA | CIF_VI_DPCL_DMA_SW_IE;
+		dpcl |= CIF_VI_DPCL_IF_SEL_DMA | CIF_VI_DPCL_DMA_IE_MUX_DMA |
+			CIF_VI_DPCL_DMA_SW_IE;
 	else if (dev->config.input_sel == CIF_ISP20_INP_DMA_SP)
 		dpcl |= CIF_VI_DPCL_DMA_SP_MUX_DMA;
 	else {
@@ -2939,9 +2955,12 @@ static int cif_isp20_config_cif(
 #ifdef CONFIG_CIF_ISP20_TEST_YC_FLT
 		cif_isp20_enable_yc_flt(dev);
 #endif
+		/* Decide when to switch to asynchronous mode */
 		/* TODO: remove dev->isp_dev.ycflt_en check for
 			HW with the scaler fix. */
 		if ((dev->config.input_sel > CIF_ISP20_INP_CPI) ||
+			((stream_ids & CIF_ISP20_STREAM_MP) &&
+			(dev->config.jpeg_config.enable)) ||
 			(dev->isp_dev.ycflt_en &&
 			(dev->isp_dev.ycflt_config.chr_ss_ctrl & 0x3))) {
 			dev->config.mi_config.async_updt = true;
@@ -3041,6 +3060,7 @@ static void cif_isp20_init_stream(
 	case CIF_ISP20_STREAM_SP:
 		stream = &dev->sp_stream;
 		dev->config.sp_config.rsz_config.ycflt_adjust = false;
+		dev->config.mi_config.sp.busy = false;
 		break;
 	case CIF_ISP20_STREAM_MP:
 		stream = &dev->mp_stream;
@@ -3050,6 +3070,7 @@ static void cif_isp20_init_stream(
 		dev->config.jpeg_config.enable = false;
 		dev->config.mi_config.raw_enable = false;
 		dev->config.mp_config.rsz_config.ycflt_adjust = false;
+		dev->config.mi_config.mp.busy = false;
 		break;
 	case CIF_ISP20_STREAM_DMA:
 		stream = &dev->dma_stream;
@@ -3069,7 +3090,6 @@ static void cif_isp20_init_stream(
 	stream->next_buf = NULL;
 	stream->curr_buf = NULL;
 	stream->updt_cfg = false;
-	stream->expect_frame_end = false;
 	stream->state = CIF_ISP20_STATE_INACTIVE;
 }
 
@@ -3122,6 +3142,20 @@ static void cif_isp20_mi_update_buff_addr(
 			dev->config.mi_config.sp.cr_offs,
 			dev->config.base_addr +
 			CIF_MI_SP_CR_BASE_AD_INIT);
+		/* There have bee repeatedly issues with
+			the offset registers, it is safer to write
+			them each time, even though it is always
+			0 and even though that is the
+			register's default value */
+		cif_iowrite32(0,
+			dev->config.base_addr +
+			CIF_MI_SP_Y_OFFS_CNT_INIT);
+		cif_iowrite32(0,
+			dev->config.base_addr +
+			CIF_MI_SP_CB_OFFS_CNT_INIT);
+		cif_iowrite32(0,
+			dev->config.base_addr +
+			CIF_MI_SP_CR_OFFS_CNT_INIT);
 		cif_isp20_pltfrm_pr_dbg(dev->dev,
 			"\n  MI_SP_Y_BASE_AD 0x%08x/0x%08x\n"
 			"  MI_SP_CB_BASE_AD 0x%08x/0x%08x\n"
@@ -3150,6 +3184,20 @@ static void cif_isp20_mi_update_buff_addr(
 			dev->config.mi_config.mp.cr_offs,
 			dev->config.base_addr +
 			CIF_MI_MP_CR_BASE_AD_INIT);
+		/* There have bee repeatedly issues with
+			the offset registers, it is safer to write
+			them each time, even though it is always
+			0 and even though that is the
+			register's default value */
+		cif_iowrite32(0,
+			dev->config.base_addr +
+			CIF_MI_MP_Y_OFFS_CNT_INIT);
+		cif_iowrite32(0,
+			dev->config.base_addr +
+			CIF_MI_MP_CB_OFFS_CNT_INIT);
+		cif_iowrite32(0,
+			dev->config.base_addr +
+			CIF_MI_MP_CR_OFFS_CNT_INIT);
 		cif_isp20_pltfrm_pr_dbg(dev->dev,
 			"\n  MI_MP_Y_BASE_AD 0x%08x/0x%08x\n"
 			"  MI_MP_CB_BASE_AD 0x%08x/0x%08x\n"
@@ -3222,11 +3270,6 @@ static int cif_isp20_update_mi_mp(
 					CIF_ISP20_STREAM_MP);
 				dev->config.mi_config.mp.curr_buff_addr =
 					dev->config.mi_config.mp.next_buff_addr;
-				if (dev->sp_stream.state !=
-					CIF_ISP20_STATE_STREAMING)
-					cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
-						dev->config.base_addr +
-						CIF_MI_INIT);
 			}
 			if (!dev->config.mi_config.async_updt) {
 				cif_isp20_mi_update_buff_addr(dev,
@@ -3266,13 +3309,7 @@ static int cif_isp20_update_mi_mp(
 			cif_isp20_mi_update_buff_addr(dev, CIF_ISP20_STREAM_MP);
 			dev->config.mi_config.mp.curr_buff_addr =
 				dev->config.mi_config.mp.next_buff_addr;
-			if (dev->config.mi_config.async_updt) {
-				if (dev->sp_stream.state !=
-					CIF_ISP20_STATE_STREAMING)
-					cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
-						dev->config.base_addr +
-						CIF_MI_INIT);
-			} else
+			if (!dev->config.mi_config.async_updt)
 				cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
 					dev->config.base_addr + CIF_ISP_CTRL);
 		} else if (dev->config.mi_config.mp.next_buff_addr ==
@@ -3318,17 +3355,7 @@ static int cif_isp20_update_mi_sp(
 		cif_isp20_mi_update_buff_addr(dev, CIF_ISP20_STREAM_SP);
 		dev->config.mi_config.sp.curr_buff_addr =
 			dev->config.mi_config.sp.next_buff_addr;
-		if (dev->config.mi_config.async_updt) {
-			struct cif_isp20_mi_state state_storage;
-			if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) {
-				return 0;
-				cif_isp20_save_mi_mp(dev, &state_storage);
-			}
-			cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
-				dev->config.base_addr + CIF_MI_INIT);
-			if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)
-				cif_isp20_restore_mi_mp(dev, &state_storage);
-		} else
+		if (!dev->config.mi_config.async_updt)
 			cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
 				dev->config.base_addr + CIF_ISP_CTRL);
 	} else if ((dev->config.mi_config.sp.next_buff_addr ==
@@ -3525,6 +3552,12 @@ static void cif_isp20_dma_next_buff(
 		cif_isp20_mi_update_buff_addr(dev,
 			CIF_ISP20_STREAM_DMA);
 		dev->config.mi_config.dma.busy = true;
+		if ((dev->sp_stream.state == CIF_ISP20_STATE_STREAMING) &&
+			dev->sp_stream.curr_buf)
+			dev->config.mi_config.sp.busy = true;
+		if ((dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) &&
+			dev->mp_stream.curr_buf)
+			dev->config.mi_config.mp.busy = true;
 		cif_iowrite32(CIF_MI_DMA_START_ENABLE,
 			dev->config.base_addr + CIF_MI_DMA_START);
 	}
@@ -3583,11 +3616,11 @@ static int cif_isp20_mi_frame_end_async(
 				stream->curr_buf->state = VIDEOBUF_DONE;
 				wake_up(&stream->curr_buf->done);
 				stream->curr_buf = NULL;
-			}
-		} else
-			cif_isp20_pltfrm_pr_warn(dev->dev,
-				"%s buffer queue is not advancing\n",
-				cif_isp20_stream_id_string(stream_id));
+			} else
+				cif_isp20_pltfrm_pr_warn(dev->dev,
+					"%s buffer queue is not advancing\n",
+					cif_isp20_stream_id_string(stream_id));
+		}
 		if (stream->curr_buf == NULL) {
 			if (stream->next_buf == NULL)
 				*next_buff_addr =
@@ -3773,10 +3806,9 @@ static void cif_isp20_start_mi(
 		dev->mp_stream.stall = false;
 	}
 
+	cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
+		dev->config.base_addr + CIF_MI_INIT);
 	if (!dev->config.mi_config.async_updt) {
-		cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
-			dev->config.base_addr + CIF_MI_INIT);
-
 		if (start_mi_sp && (dev->mp_stream.state ==
 			CIF_ISP20_STATE_STREAMING))
 			cif_isp20_restore_mi_mp(dev, &saved_mi_state);
@@ -3789,10 +3821,7 @@ static void cif_isp20_start_mi(
 	if (start_mi_mp && dev->config.jpeg_config.enable) {
 		cif_iowrite32OR(CIF_MI_MP_FRAME,
 			dev->config.base_addr + CIF_MI_IMSC);
-		spin_lock(&dev->vbq_lock);
-		cif_isp20_mi_frame_end(dev, CIF_ISP20_STREAM_MP);
 		cif_isp20_update_mi_mp(dev);
-		spin_unlock(&dev->vbq_lock);
 	}
 }
 
@@ -3801,8 +3830,6 @@ static void cif_isp20_stop_mi(
 	bool stop_mi_sp,
 	bool stop_mi_mp)
 {
-	struct cif_isp20_mi_state saved_mi_state;
-
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "\n");
 
 	if (stop_mi_sp &&
@@ -3834,21 +3861,19 @@ static void cif_isp20_stop_mi(
 		cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
 			dev->config.base_addr + CIF_MI_INIT);
 	} else if (stop_mi_sp) {
-		if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)
-			cif_isp20_save_mi_mp(dev, &saved_mi_state);
 		cif_iowrite32AND(~CIF_MI_SP_FRAME,
 			dev->config.base_addr + CIF_MI_IMSC);
 		cif_iowrite32(CIF_MI_SP_FRAME,
 			dev->config.base_addr + CIF_MI_ICR);
 		cif_iowrite32AND(~CIF_MI_CTRL_SP_ENABLE,
 			dev->config.base_addr + CIF_MI_CTRL);
-		cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
-			dev->config.base_addr + CIF_MI_INIT);
 		if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)
-			cif_isp20_restore_mi_mp(dev, &saved_mi_state);
+			cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
+				dev->config.base_addr + CIF_ISP_CTRL);
+		else
+			cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
+				dev->config.base_addr + CIF_MI_INIT);
 	} else if (stop_mi_mp) {
-		if (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)
-			cif_isp20_save_mi_sp(dev, &saved_mi_state);
 		cif_iowrite32AND(~(CIF_MI_MP_FRAME |
 			CIF_JPE_STATUS_ENCODE_DONE),
 			dev->config.base_addr + CIF_MI_IMSC);
@@ -3860,7 +3885,11 @@ static void cif_isp20_stop_mi(
 			CIF_MI_CTRL_RAW_ENABLE),
 			dev->config.base_addr + CIF_MI_CTRL);
 		if (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)
-			cif_isp20_restore_mi_sp(dev, &saved_mi_state);
+			cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
+				dev->config.base_addr + CIF_ISP_CTRL);
+		else
+			cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
+				dev->config.base_addr + CIF_MI_INIT);
 	}
 }
 
@@ -3907,11 +3936,14 @@ static int cif_isp20_stop(
 		stop_sp,
 		stop_mp);
 
+	local_irq_save(flags);
 	if (!((stop_mp &&
 		(dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)) ||
 		(stop_sp &&
-		(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING))))
+		(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)))) {
+		local_irq_restore(flags);
 		return 0;
+	}
 
 	if ((stop_mp && stop_sp) ||
 		(stop_sp &&
@@ -3958,6 +3990,7 @@ static int cif_isp20_stop(
 	} else /* stop_mp */ {
 		cif_isp20_stop_mi(dev, false, true);
 	}
+	local_irq_restore(flags);
 
 	if (stop_mp && (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING))
 		dev->mp_stream.state = CIF_ISP20_STATE_READY;
@@ -3965,9 +3998,9 @@ static int cif_isp20_stop(
 	if (stop_sp && (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING))
 		dev->sp_stream.state = CIF_ISP20_STATE_READY;
 
-	spin_lock_irqsave(&dev->vbq_lock, flags);
+	spin_lock(&dev->vbq_lock);
 	if (stop_sp) {
-		dev->sp_stream.expect_frame_end = false;
+		dev->config.mi_config.sp.busy = false;
 		if (dev->sp_stream.next_buf != NULL) {
 			list_add(&dev->sp_stream.next_buf->queue,
 				&dev->sp_stream.buf_queue);
@@ -3982,7 +4015,7 @@ static int cif_isp20_stop(
 		}
 	}
 	if (stop_mp) {
-		dev->sp_stream.expect_frame_end = true;
+		dev->config.mi_config.mp.busy = false;
 		if (dev->mp_stream.next_buf != NULL) {
 			list_add(&dev->mp_stream.next_buf->queue,
 				&dev->mp_stream.buf_queue);
@@ -3996,7 +4029,7 @@ static int cif_isp20_stop(
 			dev->mp_stream.curr_buf = NULL;
 		}
 	}
-	spin_unlock_irqrestore(&dev->vbq_lock, flags);
+	spin_unlock(&dev->vbq_lock);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
 		"SP state = %s, MP state = %s, DMA state = %s, img_src state = %s\n"
@@ -4164,7 +4197,7 @@ static int cif_isp20_mi_isr(void *cntxt)
 
 	if (mi_mis & CIF_MI_SP_FRAME) {
 		dev->sp_stream.first_frame = false;
-		dev->sp_stream.expect_frame_end = false;
+		dev->config.mi_config.sp.busy = false;
 		if (!IS_ERR_VALUE(cif_isp20_mi_frame_end(dev,
 			CIF_ISP20_STREAM_SP)))
 			(void)cif_isp20_update_mi_sp(dev);
@@ -4173,7 +4206,7 @@ static int cif_isp20_mi_isr(void *cntxt)
 	}
 	if (mi_mis & CIF_MI_MP_FRAME) {
 		dev->mp_stream.first_frame = false;
-		dev->mp_stream.expect_frame_end = false;
+		dev->config.mi_config.mp.busy = false;
 		if (!IS_ERR_VALUE(cif_isp20_mi_frame_end(dev,
 			CIF_ISP20_STREAM_MP)))
 			cif_isp20_update_mi_mp(dev);
@@ -4196,25 +4229,30 @@ static int cif_isp20_mi_isr(void *cntxt)
 		((mi_mis & CIF_MI_SP_FRAME) || dev->sp_stream.first_frame))
 		(void)cif_isp20_config_rsz(dev, CIF_ISP20_STREAM_SP);
 
-	if (!dev->mp_stream.expect_frame_end &&
-		!dev->mp_stream.expect_frame_end) {
-		if ((dev->sp_stream.state == CIF_ISP20_STATE_STREAMING) &&
-			(dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) &&
-			dev->config.mi_config.async_updt &&
-			!dev->config.jpeg_config.busy) {
+	/* In case two streams are active in asnychronous mode we have
+		to do a synchronised update */
+	if (!CIF_ISP20_MI_IS_BUSY(dev) &&
+		!dev->config.jpeg_config.busy) {
+		if (dev->config.mi_config.async_updt)
 			cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
 				dev->config.base_addr + CIF_MI_INIT);
-		}
-
-		if ((dev->dma_stream.state == CIF_ISP20_STATE_STREAMING) &&
-			(dev->dma_stream.curr_buf == NULL))
-			cif_isp20_dma_next_buff(dev);
-		if ((dev->sp_stream.state == CIF_ISP20_STATE_STREAMING) &&
-			dev->sp_stream.curr_buf)
-			dev->sp_stream.expect_frame_end = true;
 		if ((dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) &&
-			dev->mp_stream.curr_buf)
-			dev->mp_stream.expect_frame_end = true;
+			dev->mp_stream.curr_buf &&
+			dev->config.jpeg_config.enable)
+			cif_isp20_update_mi_mp(dev);
+
+		if (dev->dma_stream.state == CIF_ISP20_STATE_STREAMING) {
+			cif_isp20_dma_next_buff(dev);
+		} else {
+			if ((dev->sp_stream.state ==
+				CIF_ISP20_STATE_STREAMING) &&
+				dev->sp_stream.curr_buf)
+				dev->config.mi_config.sp.busy = true;
+			if ((dev->mp_stream.state ==
+				CIF_ISP20_STATE_STREAMING) &&
+				dev->mp_stream.curr_buf)
+				dev->config.mi_config.mp.busy = true;
+		}
 	}
 
 	cif_iowrite32(~(CIF_MI_MP_FRAME |
@@ -4687,7 +4725,7 @@ int cif_isp20_s_input(
 	if (inp == CIF_ISP20_INP_DMA) /* DMA -> ISP*/
 		dev->config.isp_config.input =
 			&dev->config.mi_config.dma.output;
-	else {
+	else if (inp < CIF_ISP20_INP_DMA) {
 		if (inp == CIF_ISP20_INP_CSI_0) {
 			if (NULL == dev->img_src_array[0]) {
 				cif_isp20_pltfrm_pr_err(dev->dev,
@@ -4706,11 +4744,6 @@ int cif_isp20_s_input(
 			}
 			dev->img_src = dev->img_src_array[1];
 			dev->config.mipi_config.input_sel = 1;
-		} else if (inp == CIF_ISP20_INP_CPI) {
-			cif_isp20_pltfrm_pr_err(dev->dev,
-				"parallel input currently not supported\n");
-			ret = -EINVAL;
-			goto err;
 		} else if (inp == CIF_ISP20_INP_CPI) {
 			cif_isp20_pltfrm_pr_err(dev->dev,
 				"parallel input currently not supported\n");
@@ -4781,7 +4814,7 @@ int cif_isp20_qbuf(
 	case CIF_ISP20_STREAM_DMA:
 		list_add_tail(&buf->queue, &dev->dma_stream.buf_queue);
 		if ((dev->dma_stream.state == CIF_ISP20_STATE_STREAMING) &&
-			(dev->dma_stream.curr_buf == NULL))
+			!CIF_ISP20_MI_IS_BUSY(dev))
 			cif_isp20_dma_next_buff(dev);
 		break;
 	case CIF_ISP20_STREAM_ISP:
