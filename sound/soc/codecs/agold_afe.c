@@ -865,10 +865,6 @@ SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(agold_afe_out_sel_text),
 static const struct soc_enum agold_afe_hs_sw_enum =
 SOC_ENUM_SINGLE(AGOLD_AFE_AUDOUTCTRL2, 12, 2, agold_afe_gen_sw_enum_text);
 
-static const struct soc_enum agold_afe_ep_on_mux_enum =
-SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(agold_afe_gen_sw_enum_text),
-					agold_afe_gen_sw_enum_text);
-
 static const struct snd_kcontrol_new agold_afe_ep_sel =
 SOC_DAPM_ENUM("Route", agold_afe_ep_mux_enum);
 
@@ -891,7 +887,7 @@ static const struct snd_kcontrol_new agold_afe_hs_sw =
 SOC_DAPM_ENUM("Route", agold_afe_hs_sw_enum);
 
 static const struct snd_kcontrol_new agold_afe_ep_sw =
-SOC_DAPM_ENUM("Route", agold_afe_ep_on_mux_enum);
+SOC_DAPM_SINGLE_VIRT("Switch", 1);
 
 static const struct snd_kcontrol_new agold_afe_amic_sw =
 SOC_DAPM_SINGLE("Switch", AGOLD_AFE_PWR, 4, 1, 0);
@@ -1013,6 +1009,7 @@ static inline void afe_write_register_cache(struct snd_soc_codec *codec,
 
 	afe_debug("%s: configure AFE register index %d ba %p, val %X\n",
 			__func__, reg, cache, value);
+
 	cache[reg] = value;
 }
 
@@ -1138,23 +1135,17 @@ static int agold_afe_dacl_event(struct snd_soc_dapm_widget *w,
 {
 	u32 reg = snd_soc_read(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1);
 
-	afe_debug("%s:\n", __func__);
+	afe_debug("%s\n", __func__);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		afe_debug("%s:SND_SOC_DAPM_PRE_PMU\n", __func__);
+		afe_debug("%s: SND_SOC_DAPM_PRE_PMU\n", __func__);
 		reg |= (1 << 16);
 		/* NSRON */
 		snd_soc_write(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1, reg);
 		break;
-	case SND_SOC_DAPM_POST_PMU:
-		afe_debug("%s:SND_SOC_DAPM_POST_PMU\n", __func__);
-		break;
-	case SND_SOC_DAPM_PRE_PMD:
-		afe_debug("%s:SND_SOC_DAPM_PRE_PMD\n", __func__);
-		break;
 	case SND_SOC_DAPM_POST_PMD:
-		afe_debug("%s:SND_SOC_DAPM_POST_PMD\n", __func__);
+		afe_debug("%s: SND_SOC_DAPM_POST_PMD\n", __func__);
 		reg &= ~(1 << 16);
 		/* NSROFF */
 		snd_soc_write(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1, reg);
@@ -1168,26 +1159,18 @@ static int agold_afe_dacr_event(struct snd_soc_dapm_widget *w,
 {
 	u32 reg = snd_soc_read(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1);
 
-	afe_debug("%s:\n", __func__);
+	afe_debug("%s\n", __func__);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		afe_debug("%s:SND_SOC_DAPM_PRE_PMU\n", __func__);
+		afe_debug("%s: SND_SOC_DAPM_PRE_PMU\n", __func__);
 		reg |= (1 << 17);
 		/*NSRON*/
 		snd_soc_write(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1, reg);
 		break;
 
-	case SND_SOC_DAPM_POST_PMU:
-		afe_debug("%s:SND_SOC_DAPM_POST_PMU\n", __func__);
-		break;
-
-	case SND_SOC_DAPM_PRE_PMD:
-		afe_debug("%s:SND_SOC_DAPM_PRE_PMD\n", __func__);
-		break;
-
 	case SND_SOC_DAPM_POST_PMD:
-		afe_debug("%s:SND_SOC_DAPM_POST_PMD\n", __func__);
+		afe_debug("%s: SND_SOC_DAPM_POST_PMD\n", __func__);
 		reg &= ~(1 << 17);	/*NSROFF */
 		snd_soc_write(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1, reg);
 		break;
@@ -1311,27 +1294,19 @@ static u32 agold_afe_get_hsamp_ramp_time(u32 step)
 }
 
 static int agold_afe_ep_amp_event(struct snd_soc_dapm_widget *w,
-			struct snd_kcontrol *kcontrol, int event)
+		struct snd_kcontrol *kcontrol, int event)
 {
 	u32 reg = 0;
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		afe_debug("%s:SND_SOC_DAPM_PRE_PMU\n", __func__);
+		afe_debug("%s: SND_SOC_DAPM_PRE_PMU\n", __func__);
 		reg = snd_soc_read(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1);
 		reg |= (1 << 1); /* EPLDO ON */
 		snd_soc_write(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1, reg);
 		break;
 
-	case SND_SOC_DAPM_POST_PMU:
-		afe_debug("%s:SND_SOC_DAPM_POST_PMU\n", __func__);
-		break;
-
-	case SND_SOC_DAPM_PRE_PMD:
-		afe_debug("%s:SND_SOC_DAPM_PRE_PMD\n", __func__);
-		break;
-
 	case SND_SOC_DAPM_POST_PMD:
-		afe_debug("%s:SND_SOC_DAPM_POST_PMD\n", __func__);
+		afe_debug("%s: SND_SOC_DAPM_POST_PMD\n", __func__);
 		reg = snd_soc_read(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1);
 		reg &= ~(1 << 1); /* EPLDO OFF */
 		snd_soc_write(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1, reg);
@@ -1348,22 +1323,22 @@ static int agold_afe_hsr_amp_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		afe_debug("%s:SND_SOC_DAPM_PRE_PMU\n", __func__);
+		afe_debug("%s: SND_SOC_DAPM_PRE_PMU\n", __func__);
 		reg = snd_soc_read(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1);
 		reg |= (1 << 18); /* HSLDO ON */
 		snd_soc_write(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1, reg);
 		break;
 
 	case SND_SOC_DAPM_POST_PMU:
-		afe_debug("%s:SND_SOC_DAPM_POST_PMU\n", __func__);
+		afe_debug("%s: SND_SOC_DAPM_POST_PMU\n", __func__);
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
-		afe_debug("%s:SND_SOC_DAPM_PRE_PMD\n", __func__);
+		afe_debug("%s: SND_SOC_DAPM_PRE_PMD\n", __func__);
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
-		afe_debug("%s:SND_SOC_DAPM_POST_PMD\n", __func__);
+		afe_debug("%s: SND_SOC_DAPM_POST_PMD\n", __func__);
 		/* Wait till ramp down is complete to avoid pops */
 		reg = snd_soc_read(w->dapm->codec, AGOLD_AFE_AUDOUTCTRL1);
 		wait_time = agold_afe_get_hsamp_ramp_time((reg >> 26) & 0x3);
@@ -1517,20 +1492,18 @@ static const struct snd_soc_dapm_widget agold_afe_dapm_widgets[] = {
 	/* DAPM Outputs */
 	SND_SOC_DAPM_OUTPUT("HSL"),
 	SND_SOC_DAPM_OUTPUT("HSR"),
-
 	SND_SOC_DAPM_OUTPUT("EARPIECE"),
 	SND_SOC_DAPM_OUTPUT("LOUDSPEAKER"),
 
+	/* Inputs */
 	SND_SOC_DAPM_INPUT("AMIC1"),
 	SND_SOC_DAPM_INPUT("AMIC2"),
-
 	SND_SOC_DAPM_INPUT("DMIC1"),
 	SND_SOC_DAPM_INPUT("DMIC2"),
 
 	SND_SOC_DAPM_PGA_E("Earpiece Amplifier", AGOLD_AFE_PWR, 0, 0,
 			NULL, 0, agold_afe_ep_amp_event,
-			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_PGA("LS Amp Enable", AGOLD_AFE_PWR, 3, 0, NULL, 0),
 
@@ -1545,8 +1518,7 @@ static const struct snd_soc_dapm_widget agold_afe_dapm_widgets[] = {
 	SND_SOC_DAPM_VIRT_MUX("LS Output Route", SND_SOC_NOPM, 0, 0,
 							&agold_afe_out_sel),
 
-
-	SND_SOC_DAPM_VIRT_MUX("EP Enable Switch", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_SWITCH("EP Enable", SND_SOC_NOPM, 0, 0,
 			&agold_afe_ep_sw),
 
 	SND_SOC_DAPM_MUX_E("HSR Enable Switch", SND_SOC_NOPM, 0, 0,
@@ -1556,7 +1528,6 @@ static const struct snd_soc_dapm_widget agold_afe_dapm_widgets[] = {
 
 	SND_SOC_DAPM_VIRT_MUX("HSL Enable Route", SND_SOC_NOPM, 0, 0,
 							&agold_afe_hsl_out_sel),
-
 
 
 #ifdef CONFIG_SND_SOC_AGOLD_620
@@ -1570,17 +1541,14 @@ static const struct snd_soc_dapm_widget agold_afe_dapm_widgets[] = {
 
 	SND_SOC_DAPM_DAC_E("DACL", "Playback Left", AGOLD_AFE_AUDOUTCTRL1,
 			9, 0, agold_afe_dacl_event,
-			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_DAC_E("DACR", "Playback Right", AGOLD_AFE_AUDOUTCTRL1,
 			10, 0, agold_afe_dacr_event,
-			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("EP Output Route", SND_SOC_NOPM, 0, 0,
 			&agold_afe_ep_sel),
-
 
 	SND_SOC_DAPM_MUX("HSL Output Route", SND_SOC_NOPM, 0, 0,
 			&agold_afe_hsl_sel),
@@ -1592,10 +1560,10 @@ static const struct snd_soc_dapm_widget agold_afe_dapm_widgets[] = {
 			SND_SOC_DAPM_POST_REG
 			),
 
-	SND_SOC_DAPM_AIF_IN("FM In", "FM Playback", 0,
+	SND_SOC_DAPM_AIF_IN("FM In", "Playback", 0,
 			SND_SOC_NOPM, 0, 0),
 
-	SND_SOC_DAPM_AIF_IN("DSP In", "PCM Playback", 0,
+	SND_SOC_DAPM_AIF_IN("DSP In", "Playback", 0,
 			SND_SOC_NOPM, 0, 0),
 
 	SND_SOC_DAPM_AIF_OUT_E("Audio Capture", "Capture", 0,
@@ -1659,9 +1627,9 @@ static const struct snd_soc_dapm_route agold_afe_audio_map[] = {
 	/* Earpiece Output Map */
 	{"EP Output Route", "RDAC", "DACR"},
 	{"EP Output Route", "LDAC", "DACL"},
-	{"Earpiece Amplifier", NULL, "EP Output Route"},
-	{"EP Enable Switch", "ON", "Earpiece Amplifier"},
-	{"EARPIECE", NULL, "EP Enable Switch"},
+	{"Earpiece Amplifier", "Switch", "EP Output Route"},
+	{"EP Enable", "Switch", "Earpiece Amplifier"},
+	{"EARPIECE", NULL, "EP Enable"},
 
 	/* Audio Input Map */
 	{"MIC1 BIAS", NULL, "AMIC1"},
