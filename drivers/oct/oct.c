@@ -348,9 +348,9 @@ static void trace_debug_oct_define_ringbuff(void *ring_buff_start,
 	if (ring_buff_size != -1)
 		oct_ext_ring_buff_len = ring_buff_size;
 
-	oct_ext_rbuff_ptr = dma_alloc_coherent(NULL,
-			(size_t)OCT_EXT_RING_BUFF_SIZE,
-			&phy_base_addr, GFP_KERNEL);
+	oct_ext_rbuff_ptr = kzalloc(OCT_EXT_RING_BUFF_SIZE, GFP_KERNEL);
+	phy_base_addr = dma_map_single(NULL, oct_ext_rbuff_ptr,
+			OCT_EXT_RING_BUFF_SIZE, DMA_FROM_DEVICE);
 
 	OCT_DBG("DMA addr:%#x; KERN Addr:%#x", (unsigned int)phy_base_addr,
 			(unsigned int)oct_ext_rbuff_ptr);
@@ -543,6 +543,11 @@ static int oct_thread(void *param)
 					oct_ext_mem_full++;
 			}
 			if (oct_out_path == OCT_PATH_TTY) {
+				/* Sync cache */
+				dma_sync_single_for_cpu(NULL, phy_base_addr +
+					oct_read_ptr, num_bytes,
+					DMA_FROM_DEVICE);
+
 				/* call subscribed function to forward data */
 				oct_write_data_to_usb((char *)
 				(&((char *)oct_ext_rbuff_ptr)[oct_read_ptr]),
@@ -611,6 +616,10 @@ static ssize_t oct_read(struct file *file_ptr, char __user *user_buffer,
 		    SET_OCT_OCT_CNF_ENABLE_TRIG_CYCLE_INT(oct_trform,
 				    OCT_CNF_ENABLE_TRIG_CYCLE_INT_ENABLED);
 		}
+		/* Sync cache */
+		dma_sync_single_for_cpu(NULL, phy_base_addr +
+			oct_read_ptr, num_bytes, DMA_FROM_DEVICE);
+
 		result = copy_to_user(user_buffer,
 			    &((char *)oct_ext_rbuff_ptr)[oct_read_ptr],
 			    num_bytes);
@@ -752,6 +761,10 @@ static ssize_t oct_write(struct file *p_file, const char __user *user_buffer,
 			OCT_LOG("flush: %x read_ptr_B", read_ptr);
 			OCT_LOG("flush: %x oct_read_ptr_B", oct_read_ptr);
 			OCT_LOG("flush: %x num_bytes_B", num_bytes);
+
+			/* Sync cache */
+			dma_sync_single_for_cpu(NULL, phy_base_addr +
+				oct_read_ptr, num_bytes, DMA_FROM_DEVICE);
 
 			/* call subscribed function to forward data */
 			oct_write_data_to_usb((char *)
@@ -1001,8 +1014,9 @@ static int oct_driver_remove(struct platform_device *pdev)
 	wake_up(&oct_wq);
 	kthread_stop(task);
 	iounmap((void *)OCT_REG_ADDRESS_BASE);
-	dma_free_coherent(NULL, OCT_EXT_RING_BUFF_SIZE,
-			oct_ext_rbuff_ptr, phy_base_addr);
+	dma_unmap_single(NULL, phy_base_addr,
+			OCT_EXT_RING_BUFF_SIZE, DMA_FROM_DEVICE);
+	kfree(oct_ext_rbuff_ptr);
 
 	device_destroy(class_oct, MKDEV(major, minor));
 	class_destroy(class_oct);
