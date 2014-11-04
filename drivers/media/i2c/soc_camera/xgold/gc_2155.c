@@ -316,6 +316,7 @@ static int gc_probe(struct i2c_client *client,
 		goto out_pltfrm_data_free;
 	}
 
+	gc_s_power(&dev->sd, 0);
 #if 0
 	/* Initialize v4l2 control handler */
 	ret = __gc_init_ctrl_handler(dev);
