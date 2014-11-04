@@ -1,5 +1,13 @@
 pcm_voice:pcm_voice {
 	compatible = "intel,xgold-snd-voice";
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&i2s1_default_pins>;
+	pinctrl-1 = <&i2s1_sleep_pins>;
+	pinctrl-2 = <&i2s1_inactive_pins>;
+	pm,class-name = "generic_class";
+	pm,user-name = "i2s1";
+	pm,state-D0 = "enable";
+	pm,state-D3 = "disable";
 };
 
 speech_probe:speech_probe {
