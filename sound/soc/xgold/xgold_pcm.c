@@ -178,58 +178,27 @@ static inline int i2s_set_pinctrl_state(struct device *dev,
 	return ret;
 }
 
-/* Enable I2S power state */
-static void i2s_set_power_state(struct snd_soc_platform *p_snd,
-			bool state)
+/* Set I2S2 devcice details to DSP structure */
+static void i2s2_set_device_data(
+	struct platform_device *pdev,
+	enum i2s_devices device)
 {
+	struct xgold_audio *xgold_ptr = platform_get_drvdata(pdev);
 
-	int ret = 0;
-	struct xgold_audio *xgold_ptr =
-		dev_get_drvdata(p_snd->dev);
+	xgold_debug("in %s\n", __func__);
 
-	xgold_debug(" %s : state %d", __func__, state);
-
-	if (state == ON) {
-
-#ifdef CONFIG_PLATFORM_DEVICE_PM
-		/* Enable I2S2 Power and clock domains */
-		if (xgold_ptr->pm_platdata) {
-			ret = platform_device_pm_set_state_by_name(
-				xgold_ptr->plat_dev,
-				xgold_ptr->pm_platdata->pm_state_D0_name);
-			if (ret < 0)
-				xgold_err("%s: failed to set PM state error %d\n",
-					__func__, ret);
-			udelay(5);
-		}
-#endif
-		/* Enable XGOLD I2S2 pins */
-		ret = i2s_set_pinctrl_state(&xgold_ptr->plat_dev->dev,
-			xgold_ptr->pins_default);
-		if (ret < 0)
-			xgold_err("%s: failed to set pinctrl state %d\n",
-				__func__, ret);
-	} else {
-
-		/* Disable i2s2 pins */
-		ret = i2s_set_pinctrl_state(&xgold_ptr->plat_dev->dev,
-				xgold_ptr->pins_inactive);
-
-		if (ret < 0)
-			xgold_err("%s: failed to set pinctrl state %d\n",
-			__func__, ret);
-#ifdef CONFIG_PLATFORM_DEVICE_PM
-		/* Disable I2S2 Power and clock domains */
-		if (xgold_ptr->pm_platdata) {
-			ret = platform_device_pm_set_state_by_name(
-				xgold_ptr->plat_dev,
-				xgold_ptr->pm_platdata->pm_state_D3_name);
-			if (ret < 0)
-				xgold_err("%s: failed to set PM state error %d",
-				__func__, ret);
-		}
-#endif
-	}
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->plat_dev = xgold_ptr->plat_dev;
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->pinctrl = xgold_ptr->pinctrl;
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->pins_default = xgold_ptr->pins_default;
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->pins_inactive = xgold_ptr->pins_inactive;
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->pins_sleep = xgold_ptr->pins_sleep;
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->pm_platdata = xgold_ptr->pm_platdata;
 
 }
 
@@ -666,8 +635,6 @@ int register_audio_dsp(struct dsp_audio_device *dsp)
 	}
 	xgold_debug("registering device %s\n", dsp->name);
 	p_dsp_audio_dev = dsp;
-	p_dsp_audio_dev->p_dsp_common_data->i2s_set_power_state =
-		i2s_set_power_state;
 	return 0;
 }
 EXPORT_SYMBOL_GPL(register_audio_dsp);
@@ -1515,6 +1482,10 @@ skip_pinctrl:
 	/* Disable I2S2 pins at init */
 	res = i2s_set_pinctrl_state(&pcm_data_ptr->plat_dev->dev,
 				pcm_data_ptr->pins_inactive);
+
+	/* set I2s2 device details */
+	i2s2_set_device_data(pdev, XGOLD_I2S2);
+
 	xgold_pcm_register_sysfs_attr(&pdev->dev);
 	return ret;
 }

@@ -92,6 +92,73 @@ static struct dsp_audio_device *g_dsp_audio_dev;
 static struct dsp_common_data *p_dsp_common_data;
 static LIST_HEAD(list_dsp);
 
+static inline int i2s_set_pinctrl_state(struct dsp_i2s_device *p_dev,
+		struct pinctrl_state *state)
+{
+	int ret = 0;
+
+	if (!p_dev) {
+		dev_err(&p_dev->plat_dev->dev,
+			"Unable to retrive i2s device data\n");
+		return -EINVAL;
+	}
+	if (!IS_ERR_OR_NULL(p_dev->pinctrl)) {
+		if (!IS_ERR_OR_NULL(state)) {
+			ret = pinctrl_select_state(p_dev->pinctrl, state);
+			if (ret)
+				dev_err(&p_dev->plat_dev->dev, "%d:could not set pins\n",
+					__LINE__);
+		}
+	}
+	return ret;
+}
+
+static void dsp_set_i2s_power_state(struct dsp_i2s_device *pdev,
+			bool state)
+{
+	int ret = 0;
+	xgold_debug("%s: state %d\n", __func__, state);
+
+	if (state == 1) {
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+		/* Enable I2S Power and clock domains */
+		if (pdev->pm_platdata) {
+			ret = platform_device_pm_set_state_by_name(
+				pdev->plat_dev,
+				pdev->pm_platdata->pm_state_D0_name);
+			if (ret < 0)
+				xgold_err("%s: failed to set PM state error %d\n",
+					__func__, ret);
+			udelay(5);
+		}
+#endif
+		/* Enable XGOLD I2S pins */
+		ret = i2s_set_pinctrl_state(pdev, pdev->pins_default);
+		if (ret < 0)
+			xgold_err("%s: failed to set pinctrl state %d\n",
+				__func__, ret);
+	} else {
+
+		/* Disable i2s pins */
+		ret = i2s_set_pinctrl_state(pdev, pdev->pins_inactive);
+
+		if (ret < 0)
+			xgold_err("%s: failed to set pinctrl state %d\n",
+			__func__, ret);
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+		/* Disable I2S Power and clock domains */
+		if (pdev->pm_platdata) {
+			ret = platform_device_pm_set_state_by_name(
+				pdev->plat_dev,
+				pdev->pm_platdata->pm_state_D3_name);
+			if (ret < 0)
+				xgold_err("%s: failed to set PM state error %d",
+				__func__, ret);
+		}
+#endif
+	}
+}
+
 /* Function to register the callbacks for interrupt type of enum dsp_lisr_cb */
 int register_dsp_audio_lisr_cb(enum dsp_lisr_cb lisr_type,
 	void (*p_func)(void *), void *dev)
@@ -1943,6 +2010,7 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 	unsigned interrupt;
 	struct resource *res;
 	int ret = 0;
+	int i;
 
 	dsp_dev = devm_kzalloc(&pdev->dev, sizeof(struct dsp_audio_device),
 						GFP_KERNEL);
@@ -1965,6 +2033,19 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 	} else
 		dsp_dev->p_dsp_common_data = p_dsp_common_data;
 
+	/* Allocate the memory for I2s devices control structure */
+	for (i = 0; i < XGOLD_I2S_END; i++) {
+		if (!dsp_dev->p_dsp_common_data->p_i2s_dev[i]) {
+			dsp_dev->p_dsp_common_data->p_i2s_dev[i] =
+				kzalloc((sizeof(struct dsp_i2s_device)),
+					GFP_KERNEL);
+
+				if (!dsp_dev->p_dsp_common_data->p_i2s_dev[i]) {
+					xgold_err("Failed to allocate common dsp data\n");
+					return -ENOMEM;
+				}
+		}
+	}
 	dsp_dev->dev = &pdev->dev;
 
 	platform_set_drvdata(pdev, dsp_dev);
@@ -2142,6 +2223,9 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 
 		g_dsp_audio_dev->name = "DSP AUDIO DEV";
 		g_dsp_audio_dev->p_dsp_common_data->ops = &dsp_dev_ops;
+
+		g_dsp_audio_dev->p_dsp_common_data->
+			i2s_set_power_state = dsp_set_i2s_power_state;
 
 		register_audio_dsp(g_dsp_audio_dev);
 		dsp_audio_init(&list_dsp);

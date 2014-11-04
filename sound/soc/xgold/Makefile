@@ -17,12 +17,14 @@ snd-soc-xgold-machine-objs := xgold_machine.o
 snd-soc-agold-bt-sco-streaming-objs := agold_bt_sco_streaming.o
 snd-soc-xgold-dsp-objs :=  dsp_audio_platform.o
 
+# dsp driver probe should be called before to other device probes
+obj-$(CONFIG_SND_XGOLD_DSP) += snd-soc-xgold-dsp.o
+obj-$(CONFIG_SND_XGOLD_DSP) += xgold_dsp/
+
 obj-$(CONFIG_SND_SOC_XGOLD_MACHINE) += snd-soc-xgold-machine.o
 obj-$(CONFIG_SND_SOC_XGOLD_PCM) += snd-soc-xgold-pcm.o
 obj-$(CONFIG_SND_SOC_XGOLD_SPEECH_PROBE) += snd-soc-xgold-speech.o
 obj-$(CONFIG_SND_SOC_AGOLD_BT_SCO_STREAMING) += snd-soc-agold-bt-sco-streaming.o
-obj-$(CONFIG_SND_XGOLD_DSP) += snd-soc-xgold-dsp.o
-obj-$(CONFIG_SND_XGOLD_DSP) += xgold_dsp/
 
 ccflags-$(CONFIG_SND_SOC_XGOLD_MACHINE) += -I$(srctree)/sound/soc/xgold/include
 ccflags-$(CONFIG_SND_XGOLD_DSP) += -I$(srctree)/sound/soc/xgold/xgold_dsp/include

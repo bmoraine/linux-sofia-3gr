@@ -29,12 +29,70 @@
 #include <sound/soc.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+#include <linux/platform_device_pm.h>
+#endif
+#include "dsp_audio_platform.h"
 
 #define	xgold_err(fmt, arg...) \
 		pr_err("snd: voice: "fmt, ##arg)
 
 #define	xgold_debug(fmt, arg...) \
 		pr_debug("snd: voice: "fmt, ##arg)
+
+struct xgold_voice {
+	struct platform_device *plat_dev;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pins_default;
+	struct pinctrl_state *pins_sleep;
+	struct pinctrl_state *pins_inactive;
+	struct device_pm_platdata *pm_platdata;
+};
+
+static inline int i2s1_set_pinctrl_state(struct device *dev,
+		struct pinctrl_state *state)
+{
+	int ret = 0;
+	struct xgold_voice *voice_data = dev_get_drvdata(dev);
+
+	if (!voice_data) {
+		dev_err(dev, "Unable to retrieve voice data\n");
+		return -EINVAL;
+	}
+	if (!IS_ERR_OR_NULL(voice_data->pinctrl)) {
+		if (!IS_ERR_OR_NULL(state)) {
+			ret = pinctrl_select_state(voice_data->pinctrl, state);
+			if (ret)
+				dev_err(dev, "%s %d:could not set pins\n",
+					__func__, __LINE__);
+		}
+	}
+	return ret;
+}
+
+/* Set I2S1 devcice details to DSP structure */
+static void i2s1_set_device_data(
+	struct platform_device *pdev,
+	enum i2s_devices device)
+{
+	struct xgold_voice *xgold_ptr = platform_get_drvdata(pdev);
+
+	xgold_debug("%s device %d\n",
+			__func__, device);
+
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->plat_dev = xgold_ptr->plat_dev;
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->pinctrl = xgold_ptr->pinctrl;
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->pins_default = xgold_ptr->pins_default;
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->pins_inactive = xgold_ptr->pins_inactive;
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->pins_sleep = xgold_ptr->pins_sleep;
+	p_dsp_audio_dev->p_dsp_common_data->
+		p_i2s_dev[device]->pm_platdata = xgold_ptr->pm_platdata;
+}
 
 static int xgold_voice_trigger(struct snd_pcm_substream *stream,
 		int cmd, struct snd_soc_dai *dai)
@@ -72,14 +130,82 @@ static const struct snd_soc_component_driver xgold_voice_component = {
 static int xgold_voice_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct xgold_voice *voice_data_ptr = NULL;
 
-	xgold_debug("%s :\n", __func__);
+	xgold_err("%s :\n", __func__);
+
+	voice_data_ptr = kzalloc(sizeof(struct xgold_voice), GFP_KERNEL);
+	if (voice_data_ptr == NULL)
+		return -ENOMEM;
+
+	voice_data_ptr = kzalloc(sizeof(struct xgold_voice), GFP_KERNEL);
+	if (voice_data_ptr == NULL)
+		return -ENOMEM;
 
 	ret = snd_soc_register_component(&pdev->dev, &xgold_voice_component,
 			&xgold_dai_voice, 1);
 
 	if (ret < 0)
 		xgold_err("Failed to register XGOLD platform driver 1\n");
+
+	voice_data_ptr->plat_dev = pdev;
+	/* pinctrl */
+	voice_data_ptr->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(voice_data_ptr->pinctrl)) {
+		voice_data_ptr->pinctrl = NULL;
+		goto skip_pinctrl;
+	}
+
+	voice_data_ptr->pins_default =
+		pinctrl_lookup_state(voice_data_ptr->pinctrl,
+						 PINCTRL_STATE_DEFAULT);
+	if (IS_ERR(voice_data_ptr->pins_default))
+		xgold_err("could not get default pinstate\n");
+
+	voice_data_ptr->pins_sleep =
+		pinctrl_lookup_state(voice_data_ptr->pinctrl,
+					       PINCTRL_STATE_SLEEP);
+	if (IS_ERR(voice_data_ptr->pins_sleep))
+		xgold_err("could not get sleep pinstate\n");
+
+	voice_data_ptr->pins_inactive =
+		pinctrl_lookup_state(voice_data_ptr->pinctrl,
+					       "inactive");
+	if (IS_ERR(voice_data_ptr->pins_inactive))
+		xgold_err("could not get inactive pinstate\n");
+
+skip_pinctrl:
+	voice_data_ptr->pm_platdata =
+		of_device_state_pm_setup(pdev->dev.of_node);
+	if (IS_ERR(voice_data_ptr->pm_platdata)) {
+		xgold_err("Missing pm platdata properties\n");
+		voice_data_ptr->pm_platdata = NULL;
+	}
+
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+	if (voice_data_ptr->pm_platdata) {
+		ret = platform_device_pm_set_class(pdev,
+				voice_data_ptr->pm_platdata->pm_user_name);
+
+		if (ret < 0)
+			xgold_err("\n %s: failed to set PM class error %d",
+				__func__, ret);
+		/* Disable I2S1 Power and clock domains */
+			ret = platform_device_pm_set_state_by_name(
+				voice_data_ptr->plat_dev,
+				voice_data_ptr->pm_platdata->pm_state_D3_name);
+			if (ret < 0)
+				xgold_err("\n %s: failed to set PM state error %d",
+					__func__, ret);
+		}
+#endif
+	platform_set_drvdata(pdev, voice_data_ptr);
+	/* Disable I2S1 pins at init */
+	ret = i2s1_set_pinctrl_state(&voice_data_ptr->plat_dev->dev,
+				voice_data_ptr->pins_inactive);
+
+	/* set I2s1 device details */
+	i2s1_set_device_data(pdev, XGOLD_I2S1);
 
 	return ret;
 }

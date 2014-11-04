@@ -178,19 +178,35 @@ enum dsp_err_code dsp_audio_cmd(
 		if (0x7fff != is_command_id_supported) {
 
 			is_command_valid = 1;
-			/* Enable I2S2 */
+			/* Enable I2S2 power&clock domain */
 			if (command_id == 22) {
 				if (*p_command != 0)
 					dsp.dsp_sba->p_dsp_common_data->
 					i2s_set_power_state(
 					dsp.dsp_sba->p_dsp_common_data->
-					p_snd_soc_platform,
+					p_i2s_dev[XGOLD_I2S2],
 					1);
 				else
 					dsp.dsp_sba->p_dsp_common_data->
 					i2s_set_power_state(
 					dsp.dsp_sba->p_dsp_common_data->
-					p_snd_soc_platform,
+					p_i2s_dev[XGOLD_I2S2],
+					0);
+			}
+			/* Enable I2S1 power&clock domain */
+			else if (command_id == 86) {
+				if (*p_command != 0) {
+					dsp.dsp_sba->p_dsp_common_data->
+					i2s_set_power_state(
+					dsp.dsp_sba->p_dsp_common_data->
+					p_i2s_dev[XGOLD_I2S1],
+					1);
+					}
+				else
+					dsp.dsp_sba->p_dsp_common_data->
+					i2s_set_power_state(
+					dsp.dsp_sba->p_dsp_common_data->
+					p_i2s_dev[XGOLD_I2S1],
 					0);
 			}
 

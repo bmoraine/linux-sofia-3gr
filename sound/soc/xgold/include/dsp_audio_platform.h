@@ -35,6 +35,13 @@ enum dsp_audio_controls {
 	DSP_AUDIO_CONTROL_END
 };
 
+/* List of the I2S devices supported by the DSP driver */
+enum i2s_devices {
+	XGOLD_I2S1,
+	XGOLD_I2S2,
+	XGOLD_I2S_END
+};
+
 struct dsp_ops {
 	int (*open)(void);
 	int (*set_controls)(enum dsp_audio_controls cmd, void *arg);
@@ -46,6 +53,15 @@ struct dsp_ops {
 struct dsp_clk {
 	struct list_head node;
 	struct clk *clk;
+};
+
+struct dsp_i2s_device {
+	struct platform_device *plat_dev;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pins_default;
+	struct pinctrl_state *pins_sleep;
+	struct pinctrl_state *pins_inactive;
+	struct device_pm_platdata *pm_platdata;
 };
 
 struct xgold_dsp_reg {
@@ -117,14 +133,14 @@ struct dsp_common_data {
 	unsigned buf_sm_speech_probe_e_offset;
 	unsigned buf_sm_speech_probe_f_offset;
 	unsigned num_dsp;
-	struct snd_soc_platform *p_snd_soc_platform;
+	struct dsp_i2s_device *p_i2s_dev[XGOLD_I2S_END];
 	void (*i2s_set_power_state)(
-			struct snd_soc_platform *p_snd_soc_platform,
+			struct dsp_i2s_device *p_i2s_device,
 			bool state);
 };
 
 int register_dsp_audio_lisr_cb(enum dsp_lisr_cb lisr_type,
-			       void (*p_func) (void *), void *);
+				void (*p_func)(void *), void *);
 int register_audio_dsp(struct dsp_audio_device *dsp);
 int unregister_audio_dsp(struct dsp_audio_device *dsp);
 int dsp_audio_platform_init(struct snd_soc_platform *platform);
