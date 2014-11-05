@@ -40,7 +40,7 @@
 #define VMM_HIRQ_END        768
 
 /* NOTE: must be consistent with mvconfig.h */
-#define CONFIG_MAX_VCPUS_PER_VM	8
+#define CONFIG_MAX_VCPUS_PER_VM 8
 
 #define vmm_id_t uint32_t
 
@@ -55,7 +55,6 @@ struct virq_info_s {
 	volatile uint16_t guest_index;
 	uint16_t virq_ring_buf[VCPU_VIRQ_RINGBUF_SIZE];
 };
-
 /**
  * @brief Shared data between the MobileVisor and the guest
  *
@@ -92,9 +91,9 @@ struct vmm_shared_data {
 	 *
 	 * Each guest will have a command line. Apart from the usual
 	 * parameters (e.g. in the case of Linux), it also contains
-	  * the virtual device information
+	 * the virtual device information
 	 */
-	const uint8_t vm_cmdline[1024];
+	const int8_t vm_cmdline[1024];
 
 	/** @brief Active xirq
 	 *
@@ -108,7 +107,6 @@ struct vmm_shared_data {
 	 *
 	 **/
 	struct virq_info_s virq_info;
-
 	/** @brief PM control shared data
 	 *
 	 */
@@ -240,7 +238,7 @@ vmm_paddr_t mv_get_vlink_db(void);
  *  the first allocated xirq otherwise
  */
 uint32_t mv_xirq_alloc(vmm_paddr_t vlink, uint32_t resource_id,
-			    uint32_t os_id, int32_t num_int);
+		uint32_t os_id, int32_t num_int);
 
 /** @brief Trigger a cross interrupt.
  *
@@ -266,7 +264,7 @@ void mv_ipi_post(uint32_t virq, uint32_t vcpus);
  *  @return The physical address of the allocated shared memory.
  */
 vmm_paddr_t mv_shared_mem_alloc(vmm_paddr_t vlink, uint32_t resource_id,
-				 uint32_t size);
+		uint32_t size);
 
 /** @brief Start a secondary VCPU
  *
@@ -319,12 +317,64 @@ int32_t mv_initiate_reboot(uint32_t reboot_action);
  */
 void mv_virq_spurious(uint32_t vector);
 
-/** @brief Used for platform service request. This should not be used directly.
- *	   Instead, guest should use functions from vmm_platform_service.h.
+/**
+ *  @brief Initialize the specified mailbox instance
+ *
+ *  @param id mailbox id
+ *  @param instance mailbox instance number
+ *  @param p_mbox_info the physical address of mailbox entry structure
+ *
+ *  @return returns the mailbox instance token
  */
+uint32_t mv_mbox_init(uint32_t id, uint32_t instance,
+		uint32_t *p_mbox_db_guest_entry);
+
+/**
+ *  @brief Retrieves the mailbox look-up directory
+ *
+ *  @return returns the physical address of the directory
+ */
+uint32_t mv_mbox_get_directory(void);
+
+/**
+ *  @brief Informs mobilevisor about the driver state
+ *
+ *  mailbox instance becomes active after both end point
+ *  has invoked the mv_mbox_set_ready call
+ *
+ *  @param token mailbox instance token
+ */
+void mv_mbox_set_ready(uint32_t token);
+
+/**
+ *  @brief Post an event to the counter part
+ *
+ *  @param token mailbox instance token
+ *  @param hirq mailbox event hirq to post
+ */
+void mv_mbox_post(uint32_t token, uint32_t hirq);
+
+/** @brief Used for platform service request. This should not be used directly.
+ *     Instead, guest should use functions from vmm_platform_service.h.
+ */
+
+
+/** @brief Start vm
+ *
+ *  @param vcpu_id Specify which vcpu is started.
+ *  @param entry_addr Specify the vcpu start address.
+ */
+void mv_start_vm(uint32_t vm_id);
+
+/** @brief Stop vm
+ *
+ *  @param vcpu_id Specify which vcpu needs to be stopped.
+ */
+void mv_stop_vm(uint32_t vm_id);
+
 uint32_t mv_platform_service(uint32_t service_type, uint32_t arg2,
-			 uint32_t arg3, uint32_t arg4,
-			 uint32_t *ret0, uint32_t *ret1,
-			 uint32_t *ret2, uint32_t *ret3,
-			 uint32_t *ret4);
+		uint32_t arg3, uint32_t arg4,
+		uint32_t *ret0, uint32_t *ret1,
+		uint32_t *ret2, uint32_t *ret3,
+		uint32_t *ret4);
 #endif /* _MV_HYPERCALLS_H */

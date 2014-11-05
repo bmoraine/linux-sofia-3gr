@@ -75,33 +75,33 @@ void mv_guest_trace_ipi_post(uint32_t virq)
 #endif
 
 static inline int32_t mv_call(uint32_t nr, uint32_t arg0,
-			   uint32_t arg1, uint32_t arg2,
-			   uint32_t arg3)
+		uint32_t arg1, uint32_t arg2,
+		uint32_t arg3)
 {
 	uint32_t ret = 0;
 
 	mv_guest_trace_vmcall_entry();
 	asm volatile (VMCALL_OPCODE : "=a"(ret)
-		      : "a"(nr), "b"(arg0), "c"(arg1), "d"(arg2), "S"(arg3)
-		      : "memory");
+			: "a"(nr), "b"(arg0), "c"(arg1), "d"(arg2), "S"(arg3)
+			: "memory");
 	mv_guest_trace_vmcall_exit();
 
 	return ret;
 }
 
 static inline int mv_call_5(uint32_t nr, uint32_t arg0,
-			     uint32_t arg1, uint32_t arg2,
-			     uint32_t arg3, uint32_t *ret0,
-			     uint32_t *ret1, uint32_t *ret2,
-			     uint32_t *ret3, uint32_t *ret4)
+		uint32_t arg1, uint32_t arg2,
+		uint32_t arg3, uint32_t *ret0,
+		uint32_t *ret1, uint32_t *ret2,
+		uint32_t *ret3, uint32_t *ret4)
 {
 	uint32_t results[5];
 
 	mv_guest_trace_vmcall_entry();
 	asm volatile (VMCALL_OPCODE : "=a"(results[0]), "=b"(results[1]),
-		      "=c"(results[2]), "=d"(results[3]), "=S"(results[4])
-		      : "a"(nr), "b"(arg0), "c"(arg1), "d"(arg2), "S"(arg3)
-		      : "memory");
+			"=c"(results[2]), "=d"(results[3]), "=S"(results[4])
+			: "a"(nr), "b"(arg0), "c"(arg1), "d"(arg2), "S"(arg3)
+			: "memory");
 	mv_guest_trace_vmcall_exit();
 
 	if (ret0)
@@ -137,7 +137,7 @@ void mv_log(void)
 void mv_virq_request(uint32_t virq, uint32_t vaffinity)
 {
 	mv_call(VMCALL_GUEST_REQUEST_VIRQ, virq, vaffinity, UNUSED_ARG,
-		 UNUSED_ARG);
+			UNUSED_ARG);
 }
 #ifdef __KERNEL__
 EXPORT_SYMBOL(mv_virq_request);
@@ -176,12 +176,12 @@ void mv_virq_set_affinity(uint32_t virq, uint32_t vaffinity)
 vmm_paddr_t mv_get_vlink_db()
 {
 	return (vmm_paddr_t) mv_call(VMCALL_GET_VLINK_DB, UNUSED_ARG,
-				      UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+			UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
 /* Request virtual interrupt as per vlink & resource id combo <vlink, id> */
 uint32_t mv_xirq_alloc(vmm_paddr_t vlink, uint32_t resource_id,
-			    uint32_t os_id, int32_t num_int)
+		uint32_t os_id, int32_t num_int)
 {
 	return mv_call(VMCALL_XIRQ_ALLOC, (uint32_t)vlink, resource_id,
 			os_id, num_int);
@@ -202,17 +202,17 @@ void mv_ipi_post(uint32_t virq, uint32_t vcpus)
 }
 
 vmm_paddr_t mv_shared_mem_alloc(vmm_paddr_t vlink, uint32_t resource_id,
-				 uint32_t size)
+		uint32_t size)
 {
 	return (vmm_paddr_t) mv_call(VMCALL_SHARED_MEM_ALLOC,
-				      (uint32_t)vlink, resource_id, size,
-				      UNUSED_ARG);
+			(uint32_t)vlink, resource_id, size,
+			UNUSED_ARG);
 }
 
 void mv_start_vcpu(uint32_t vcpu_id, uint32_t entry_addr)
 {
 	mv_call(VMCALL_START_VCPU, vcpu_id, entry_addr, UNUSED_ARG,
-		 UNUSED_ARG);
+			UNUSED_ARG);
 }
 
 void mv_stop_vcpu(uint32_t vcpu_id)
@@ -223,29 +223,29 @@ void mv_stop_vcpu(uint32_t vcpu_id)
 struct vmm_shared_data *mv_get_vcpu_data(void)
 {
 	return (struct vmm_shared_data *) mv_call(VMCALL_GET_VCPU_DATA,
-						UNUSED_ARG, UNUSED_ARG,
-						UNUSED_ARG, UNUSED_ARG);
+			UNUSED_ARG, UNUSED_ARG,
+			UNUSED_ARG, UNUSED_ARG);
 }
 
 int mv_vcpu_has_irq_pending(void)
 {
 	return (int)mv_call(VMCALL_VCPU_HAS_IRQ_PENDING, UNUSED_ARG,
-			     UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+			UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
 void mv_call_multiple_return(uint32_t *ret0, uint32_t *ret1,
-			      uint32_t *ret2, uint32_t *ret3,
-			      uint32_t *ret4)
+		uint32_t *ret2, uint32_t *ret3,
+		uint32_t *ret4)
 {
 	mv_call_5(VMCALL_VM_DUMMY, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG,
-		   UNUSED_ARG, ret0, ret1, ret2, ret3, ret4);
+			UNUSED_ARG, ret0, ret1, ret2, ret3, ret4);
 }
 
 uint32_t mv_platform_service(uint32_t service_type, uint32_t arg2,
-			uint32_t arg3, uint32_t arg4,
-			uint32_t *ret0, uint32_t *ret1,
-			uint32_t *ret2, uint32_t *ret3,
-			uint32_t *ret4)
+		uint32_t arg3, uint32_t arg4,
+		uint32_t *ret0, uint32_t *ret1,
+		uint32_t *ret2, uint32_t *ret3,
+		uint32_t *ret4)
 {
 	return mv_call_5(VMCALL_PLATFORM_SERVICE, service_type, arg2,
 			arg3, arg4, ret0, ret1, ret2, ret3, ret4);
@@ -254,13 +254,13 @@ uint32_t mv_platform_service(uint32_t service_type, uint32_t arg2,
 uint32_t mv_get_running_guests(void)
 {
 	return (uint32_t)mv_call(VMCALL_GET_RUNNING_GUESTS, UNUSED_ARG,
-			     UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+			UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
 int mv_initiate_reboot(uint32_t reboot_action)
 {
 	return (int)mv_call(VMCALL_INITIATE_REBOOT, reboot_action,
-			     UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+			UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
 void mv_virq_spurious(uint32_t virq)
@@ -270,3 +270,41 @@ void mv_virq_spurious(uint32_t virq)
 	return;
 }
 
+
+uint32_t mv_mbox_init(uint32_t id, uint32_t instance,
+		uint32_t *p_mbox_db_guest_entry)
+{
+	return (uint32_t)mv_call_5(VMCALL_MBOX_INIT, id, instance,
+			UNUSED_ARG, UNUSED_ARG,
+			UNUSED_ARG, UNUSED_ARG,
+			p_mbox_db_guest_entry,
+			UNUSED_ARG, UNUSED_ARG);
+}
+
+uint32_t mv_mbox_get_directory(void)
+{
+	return (uint32_t)mv_call(VMCALL_MBOX_GET_DIRECTORY, UNUSED_ARG,
+			UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+}
+
+void mv_mbox_set_ready(uint32_t token)
+{
+	mv_call(VMCALL_MBOX_SET_READY, token,
+			UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+}
+
+void mv_mbox_post(uint32_t token, uint32_t hirq)
+{
+	mv_call(VMCALL_MBOX_POST, token, hirq, UNUSED_ARG, UNUSED_ARG);
+}
+
+void mv_start_vm(uint32_t vm_id)
+{
+	mv_call(VMCALL_START_VM, vm_id, UNUSED_ARG, UNUSED_ARG,
+			UNUSED_ARG);
+}
+
+void mv_stop_vm(uint32_t vm_id)
+{
+	mv_call(VMCALL_STOP_VM, vm_id, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+}
