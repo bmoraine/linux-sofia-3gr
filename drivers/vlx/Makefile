@@ -51,3 +51,4 @@ obj-$(CONFIG_NKERNEL_VETH)      += veth.o
 
 #VLX virtual System Profiling
 obj-$(CONFIG_SYSTEM_PROFILING) += vsysprof-be.o
+obj-$(CONFIG_VBPIPE) += modem.o
