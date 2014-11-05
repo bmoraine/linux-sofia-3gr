@@ -24,11 +24,11 @@
 #define PRH_PER_MACPHY_MODE_START (PRH_PER_ARM11_CLK_MODE_END+1)
 /**< Disable MACPHY power resources and enable MACPHY power saving state */
 #define PRH_PER_MACPHY_DISABLE (PRH_PER_MACPHY_MODE_START + 1)
-/**< Disable MACPHY power saving state and enable MACPHY power resources
- * without EBU performance support */
+/**< Disable MACPHY power saving state and enable MACPHY power resources without
+EBU performance support */
 #define PRH_PER_MACPHY_ENABLE_LOW_PERF (PRH_PER_MACPHY_DISABLE + 1)
-/**< Disable MACPHY power saving state and enable MACPHY power resources
- * without EBU performance support */
+/**< Disable MACPHY power saving state and enable MACPHY power resources without
+EBU performance support */
 #define PRH_PER_MACPHY_ENABLE_HIGH_PERF (PRH_PER_MACPHY_ENABLE_LOW_PERF + 1)
 /**< End indicator (reserved for PRH driver) */
 #define PRH_PER_MACPHY_MODE_END (PRH_PER_MACPHY_ENABLE_HIGH_PERF + 1)
@@ -37,14 +37,14 @@
 #define PRH_PER_DMA_MODE_START (PRH_PER_MACPHY_MODE_END+1)
 /**< Disable DMA power resources and enable DMA power saving state */
 #define PRH_PER_DMA_DISABLE (PRH_PER_DMA_MODE_START + 1)
-/**< Disable DMA power saving state and enable DMA power resources
- * without EBU performance support */
+/**< Disable DMA power saving state and enable DMA power resources without EBU
+performance support */
 #define PRH_PER_DMA_ENABLE_LOW_PERF (PRH_PER_DMA_DISABLE + 1)
-/**< Disable DMA power saving state and enable DMA power resources
- * without EBU performance support */
+/**< Disable DMA power saving state and enable DMA power resources without EBU
+performance support */
 #define PRH_PER_DMA_ENABLE_MED_PERF (PRH_PER_DMA_ENABLE_LOW_PERF + 1)
-/**< Disable DMA power saving state and enable DMA power resources
- * without EBU performance support */
+/**< Disable DMA power saving state and enable DMA power resources without EBU
+performance support */
 #define PRH_PER_DMA_ENABLE_HIGH_PERF (PRH_PER_DMA_ENABLE_MED_PERF + 1)
 /**< End indicator (reserved for PRH driver) */
 #define PRH_PER_DMA_MODE_END (PRH_PER_DMA_ENABLE_HIGH_PERF + 1)
@@ -101,14 +101,14 @@
 #define PRH_PER_NAND_MODE_START (PRH_PER_MMCSD_CLK_MODE_END+1)
 /**< Disable NANDCTRL power resources and enable NANDCTRL power saving state */
 #define PRH_PER_NAND_DISABLE (PRH_PER_NAND_MODE_START + 1)
-/**< Enable NANDCTRL power saving state and
- * enable NANDCTRL power resources (104M)*/
+/**< Enable NANDCTRL power saving state and enable NANDCTRL power resources
+(104M)*/
 #define PRH_PER_NAND_ENABLE_LOW_PERF (PRH_PER_NAND_DISABLE + 1)
-/**< Enable NANDCTRL power saving state and
- * enable NANDCTRL power resources (104M) */
+/**< Enable NANDCTRL power saving state and enable NANDCTRL power resources
+(104M) */
 #define PRH_PER_NAND_ENABLE_MID_PERF (PRH_PER_NAND_ENABLE_LOW_PERF + 1)
-/**< Enable NANDCTRL power saving state and
- * enable NANDCTRL power resources (208M) */
+/**< Enable NANDCTRL power saving state and enable NANDCTRL power resources
+(208M) */
 #define PRH_PER_NAND_ENABLE_HIGH_PERF (PRH_PER_NAND_ENABLE_MID_PERF + 1)
 /**< End indicator (reserved for PRH driver) */
 #define PRH_PER_NAND_MODE_END (PRH_PER_NAND_ENABLE_HIGH_PERF + 1)
@@ -160,8 +160,12 @@
 #define PRH_PER_UICC_CLK_ENABLE_MED_PERF (PRH_PER_UICC_CLK_ENABLE_LOW_PERF + 1)
 /**< Kernel clk: 19.5/4MHz; Bus clk: 26MHz */
 #define PRH_PER_UICC_CLK_ENABLE_HIGH_PERF (PRH_PER_UICC_CLK_ENABLE_MED_PERF + 1)
+/**< Kernel clk: On with Power Save Disabled */
+#define PRH_PER_UICC_CLK_PSV_DISABLED (PRH_PER_UICC_CLK_ENABLE_HIGH_PERF + 1)
+/**< Kernel clk: On with Power Save Enabled */
+#define PRH_PER_UICC_CLK_PSV_ENABLED (PRH_PER_UICC_CLK_PSV_DISABLED + 1)
 /**< End indicator (reserved for PRH driver) */
-#define PRH_PER_UICC_CLK_MODE_END (PRH_PER_UICC_CLK_ENABLE_HIGH_PERF + 1)
+#define PRH_PER_UICC_CLK_MODE_END (PRH_PER_UICC_CLK_PSV_ENABLED + 1)
 
 /**< Start indicator (reserved for PRH driver) */
 #define PRH_PER_CAPCOM_MODE_START (PRH_PER_UICC_CLK_MODE_END+1)
@@ -248,11 +252,11 @@
 #define PRH_PER_IDI_DISABLE (PRH_PER_IDI_MODE_START + 1)
 /** Low 104 Mhz*/
 #define PRH_PER_IDI_ENABLE_LOW (PRH_PER_IDI_DISABLE + 1)
-/**< Disable IDI power saving state and enable IDI power resources
- * without EBU performance support (138.7Mhz) */
+/**< Disable IDI power saving state and enable IDI power resources without EBU
+performance support (138.7Mhz) */
 #define PRH_PER_IDI_ENABLE_FREQ_1 (PRH_PER_IDI_ENABLE_LOW + 1)
-/**< Disable IDI power saving state and enable IDI power resources
- * without EBU performance support (178.3MHz) */
+/**< Disable IDI power saving state and enable IDI power resources without EBU
+performance support (178.3MHz) */
 #define PRH_PER_IDI_ENABLE_FREQ_2 (PRH_PER_IDI_ENABLE_FREQ_1 + 1)
 /**< Enable IDI to main freq (208MHz)*/
 #define PRH_PER_IDI_ENABLE_HIGH (PRH_PER_IDI_ENABLE_FREQ_2 + 1)
