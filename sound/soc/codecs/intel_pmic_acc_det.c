@@ -126,20 +126,20 @@ int afe_set_acc_det_with_lock(struct afe_acc_det acc_det_par)
 			mutex_lock(&afe_private_data->codec->mutex);
 
 		reg = snd_soc_read(afe_private_data->codec,
-					AFE_AUDIOINCTRL3_REG_OFFSET);
+					AFE_AUDIOINCTRL3_REG);
 		result = snd_soc_write(afe_private_data->codec,
-					AFE_AUDIOINCTRL3_REG_OFFSET, reg);
+					AFE_AUDIOINCTRL3_REG, reg);
 		if (0 == result) {
 			reg = snd_soc_read(afe_private_data->codec,
-				AFE_AUDIOINCTRL4_REG_OFFSET);
+				AFE_AUDIOINCTRL4_REG);
 			result = snd_soc_write(afe_private_data->codec,
-					AFE_AUDIOINCTRL4_REG_OFFSET, reg);
+					AFE_AUDIOINCTRL4_REG, reg);
 		}
 		if (0 == result) {
 			reg = snd_soc_read(afe_private_data->codec,
-				AFE_BCON4_REG_OFFSET);
+				AFE_BCON4_REG);
 			result = snd_soc_write(afe_private_data->codec,
-						AFE_BCON4_REG_OFFSET, reg);
+						AFE_BCON4_REG, reg);
 			}
 			mutex_unlock(&afe_private_data->codec->mutex);
 		}
@@ -166,7 +166,7 @@ int afe_calculate_acc_settings(unsigned int reg,
 		/* The bits for accessory identification are spread over
 		AFE_AUDIOINCTRL2_REG, AFE_AUDIOINCTRL3_REG and AFE_BCON4_REG
 		registers */
-		if (AFE_AUDIOINCTRL3_REG_OFFSET == reg) {
+		if (AFE_AUDIOINCTRL3_REG == reg) {
 			/* Clear the bits that are unused by ASOC/DAPM,
 			 * so that they are freshly calculated */
 			*final_value &= ~(1 <<
@@ -216,7 +216,7 @@ int afe_calculate_acc_settings(unsigned int reg,
 					(pmic_acc_det_data.vmic_mode <<
 					AFE_SHIFT_AUDIOINCTRL_VMIC_MODE);
 			}
-		} else if (AFE_AUDIOINCTRL4_REG_OFFSET == reg) {
+		} else if (AFE_AUDIOINCTRL4_REG == reg) {
 			/* Clear the bits that are unused by ASOC/DAPM,
 			so that they are freshly calculated */
 			*final_value &= ~(1 << AFE_SHIFT_AUDIOINCTRL_MIC_LDO);
@@ -256,7 +256,7 @@ int afe_calculate_acc_settings(unsigned int reg,
 				(pmic_acc_det_data.acc_det_param.
 						vumic_conf.hzmic <<
 					AFE_SHIFT_AUDIOINCTRL_HZ_VUMIC);
-		} else if (AFE_BCON4_REG_OFFSET == reg) {
+		} else if (AFE_BCON4_REG == reg) {
 			if (0 == (*final_value & ~(AFE_MASK_BCON_XB_ON))) {
 				pr_debug("%s Using ACC requested val for XB\n",
 							__func__);

@@ -594,7 +594,7 @@ static inline int afe_reg_write(struct snd_soc_codec *codec,
 	if (reg >= AFE_REG_END)
 		return -EIO;
 
-#if 0 /* BU_HACK accessory detection not working on ES1.0 */
+
 #ifdef CONFIG_SND_SOC_AGOLD_ACC_DET_INTERFACE
 	if ((reg == AFE_AUDIOINCTRL3_REG)
 			|| (reg == AFE_AUDIOINCTRL4_REG)
@@ -604,7 +604,7 @@ static inline int afe_reg_write(struct snd_soc_codec *codec,
 		afe_calculate_acc_settings(reg, value, &final_value);
 	}
 #endif
-#endif
+
 	afe_write_register_cache(codec, reg, (u32)final_value);
 	afe_debug("%s : AFE REG OFFSET = %s, value = 0x%0x\n",
 		__func__, afe_reg_name[reg],
