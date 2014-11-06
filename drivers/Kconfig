@@ -182,4 +182,6 @@ source "drivers/powercap/Kconfig"
 
 source "drivers/oct/Kconfig"
 
+source "drivers/gator/Kconfig"
+
 endmenu

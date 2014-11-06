@@ -46,7 +46,7 @@ ifeq ($(CONFIG_GATOR_WITH_MALI_SUPPORT),y)
     ccflags-y += -I$(CONFIG_GATOR_MALI_PATH)
   endif
   ccflags-$(CONFIG_GATOR_MALI_4XXMP) += -DMALI_SUPPORT=MALI_4xx
-  ccflags-$(CONFIG_GATOR_MALI_MIDGARD) += -DMALI_SUPPORT=MALI_MIDGARD
+  ccflags-$(CONFIG_GATOR_MALI_MIDGARD) += -DMALI_SUPPORT=MALI_MIDGARD -I$(srctree)/drivers/staging/android
 endif
 
 # GATOR_TEST controls whether to include (=1) or exclude (=0) test code.
