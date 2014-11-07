@@ -53,6 +53,8 @@ int idi_push_xfer_to_tty(struct idi_peripheral_device *pdev,
 	sg = &xfer->sg[0];
 	buffer = idi_xfer_dma_to_virt(dev, xfer, sg);
 	len = sg_dma_len(sg);
+
+	dma_sync_sg_for_cpu(NULL, sg, sg_nents(sg), DMA_FROM_DEVICE);
 	do {
 		dev_dbg(dev, "\tRequest %#x bytes from tty\n", payload);
 		myroom = read_room =
@@ -103,6 +105,7 @@ int idi_push_xfer_to_tty(struct idi_peripheral_device *pdev,
 		payload -= read_room;
 	} while (payload);
 
+	dma_sync_sg_for_device(NULL, sg, sg_nents(sg), DMA_FROM_DEVICE);
 	return xfer->size;
 }
 EXPORT_SYMBOL_GPL(idi_push_xfer_to_tty);
