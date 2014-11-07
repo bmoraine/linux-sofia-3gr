@@ -70,9 +70,6 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 
 	dev_dbg(dev, "Request buffer allocation len %ld\n", len);
 
-	if (buffer->flags & ION_FLAG_CACHED)
-		return -EINVAL;
-
 	if (align > PAGE_SIZE)
 		return -EINVAL;
 
@@ -83,8 +80,13 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	}
 
 #ifdef CONFIG_X86
-	info->cpu_addr = dma_alloc_writecombine(dev, len, &(info->handle),
+	if (buffer->flags & ION_FLAG_CACHED)
+		info->cpu_addr = dma_alloc_writeback(dev, len, &(info->handle),
 						GFP_HIGHUSER | __GFP_ZERO);
+	else
+		info->cpu_addr = dma_alloc_writecombine(dev, len,
+					&(info->handle),
+					GFP_HIGHUSER | __GFP_ZERO);
 #else
 	info->cpu_addr = dma_alloc_coherent(dev, len, &(info->handle),
 						GFP_HIGHUSER | __GFP_ZERO);
@@ -180,11 +182,15 @@ static int ion_cma_mmap(struct ion_heap *mapper, struct ion_buffer *buffer,
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
 #ifdef CONFIG_X86
-	return dma_mmap_writecombine(dev, vma, info->cpu_addr, info->handle,
-				 buffer->size);
+	if (buffer->flags & ION_FLAG_CACHED)
+		return dma_mmap_writeback(dev, vma, info->cpu_addr,
+				info->handle, buffer->size);
+	else
+		return dma_mmap_writecombine(dev, vma, info->cpu_addr,
+				info->handle, buffer->size);
 #else
 	return dma_mmap_coherent(dev, vma, info->cpu_addr, info->handle,
-				 buffer->size);
+				buffer->size);
 #endif
 
 }
