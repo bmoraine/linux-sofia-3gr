@@ -75,7 +75,7 @@ static int noncoherent_map_sg(struct device *dev, struct scatterlist *sg,
 		s->dma_length = s->length;
 #endif
 		s->dma_address = ops->map_page(dev, sg_page(s), s->offset,
-						s->length, dir, attrs);
+						sg_dma_len(s), dir, attrs);
 		if (dma_mapping_error(dev, s->dma_address))
 			goto bad_mapping;
 	}
@@ -123,8 +123,8 @@ static void noncoherent_sync_sg_for_device(struct device *dev,
 	int i;
 
 	for_each_sg(sg, s, nents, i)
-		ops->sync_single_for_device(dev, sg_dma_address(s), s->length,
-					    dir);
+		ops->sync_single_for_device(dev, sg_dma_address(s),
+					sg_dma_len(s), dir);
 
 }
 
@@ -158,7 +158,7 @@ static void noncoherent_sync_sg_for_cpu(struct device *dev,
 
 	for_each_sg(sg, s, nents, i)
 		ops->sync_single_for_cpu(dev, sg_dma_address(s),
-							s->length, dir);
+							sg_dma_len(s), dir);
 }
 
 
