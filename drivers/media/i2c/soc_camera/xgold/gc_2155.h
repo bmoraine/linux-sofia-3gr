@@ -22,10 +22,11 @@
 #define GC_F_NUMBER_DEFAULT_NUM	24
 #define GC2155_F_NUMBER_DEM	10
 #define GC2155_REG_EXPO_COARSE	0x03
-#define GC2155_REG_EXPO_DIV	0x25
+#define GC2155_REG_EXPO_DIV	0x25	/*P1: 0x25*/
 #define GC2155_REG_MAX_AEC	0x3c
 #define GC2155_REG_COLOR_EFFECT	0x83
 #define GC2155_REG_BLOCK_ENABLE	0x82
+#define GC2155_REG_COL_CODE	0x25	/*P0: 0x25*/
 
 /*
  * focal length bits definition:
@@ -2725,6 +2726,8 @@ struct gc_product_info gc2155_product_info = {
 
 	.reg_expo_coarse = GC2155_REG_EXPO_COARSE,
 	.reg_expo_div = GC2155_REG_EXPO_DIV,
+
+	.reg_col_code = GC2155_REG_COL_CODE,
 
 	.power_up_delays_ms = {30, 20, 0},
 

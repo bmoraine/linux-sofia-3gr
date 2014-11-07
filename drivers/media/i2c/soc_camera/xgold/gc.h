@@ -223,6 +223,9 @@ struct gc_product_info {
 
 	unsigned int exposure_time;
 
+	u8 reg_col_code;
+	unsigned int iso;
+
 	u32 power_up_delays_ms[3];
 
 	struct gc_table_info settings_tables[GC_NUM_SETTINGS];

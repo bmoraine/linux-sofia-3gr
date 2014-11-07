@@ -24,6 +24,7 @@
 #define GC0310_REG_MAX_AEC	0x3c
 #define GC0310_REG_COLOR_EFFECT	0x83
 #define GC0310_REG_BLOCK_ENABLE	0x42
+#define GC0310_REG_COL_CODE	0x48
 
 /*
  * focal length bits definition:
@@ -862,6 +863,8 @@ struct gc_product_info gc0310_product_info = {
 
 	.reg_expo_coarse = GC0310_REG_EXPO_COARSE,
 	.reg_expo_div = GC0310_REG_EXPO_DIV,
+
+	.reg_col_code = GC0310_REG_COL_CODE,
 
 	.power_up_delays_ms = {5, 10, 0},
 
