@@ -201,6 +201,14 @@ static inline void *dma_alloc_writecombine(struct device *dev, size_t size,
 	return dma_alloc_attrs(dev, size, dma_handle, flag, &attrs);
 }
 
+static inline void *dma_alloc_writeback(struct device *dev, size_t size,
+				       dma_addr_t *dma_handle, gfp_t flag)
+{
+	DEFINE_DMA_ATTRS(attrs);
+	dma_set_attr(DMA_ATTR_NON_CONSISTENT, &attrs);
+	return dma_alloc_attrs(dev, size, dma_handle, flag, &attrs);
+}
+
 static inline void dma_free_writecombine(struct device *dev, size_t size,
 				     void *cpu_addr, dma_addr_t dma_handle)
 {

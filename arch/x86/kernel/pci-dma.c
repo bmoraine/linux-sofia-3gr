@@ -110,7 +110,7 @@ static void __dma_set_pages(struct page *page, unsigned int count,
 		ret = set_pages_uc(page, count);
 	else if (dma_get_attr(DMA_ATTR_WRITE_COMBINE, attrs))
 		ret = set_pages_wc(page, count);
-	else
+	else if (!dma_get_attr(DMA_ATTR_NON_CONSISTENT, attrs))
 		pr_warn("%s:DMA attrs %p not supported\n",
 					__func__, attrs->flags);
 
