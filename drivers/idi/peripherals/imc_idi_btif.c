@@ -612,10 +612,11 @@ static void btif_rx_transaction_complete(struct idi_transaction *trans)
 	list_del(&trans->queue);
 	spin_unlock_irqrestore(&p_btif->rxbuff_lock, flags);
 
-	dump_xfer(p_btif, " <--- ", xfer);
 
 	/* Insert, and push chars to tty buffer */
 	port->icount.rx += idi_push_xfer_to_tty(p_btif->p_dev, xfer, tty);
+
+	dump_xfer(p_btif, " <--- ", xfer);
 
 	idi_free_transaction(trans);
 
@@ -1013,13 +1014,22 @@ static int btif_prepare_rx(struct imc_idi_btif_port *p_btif)
 	rx_conf->channel_opts = IDI_PRIMARY_CHANNEL;
 	rx_conf->size = p_btif->rps_stage * BTIF_MAX_PACKET_SIZE;
 
-	rx_conf->cpu_base = dma_alloc_coherent(&p_device->device, rx_conf->size,
-					       &rx_conf->base,
-					       GFP_KERNEL | GFP_DMA);
+	rx_conf->cpu_base = kmalloc(rx_conf->size, GFP_KERNEL | GFP_DMA);
 
 #ifdef IMC_IDI_BTIF_PARANOID
 	if (!rx_conf->cpu_base) {
-		dev_err(dev, "Unable to allocate RX coherent buffer\n");
+		dev_err(dev, "Unable to allocate RX buffer\n");
+		return -ENOMEM;
+	}
+#endif
+
+	rx_conf->base = dma_map_single(NULL, rx_conf->cpu_base,
+			rx_conf->size, DMA_FROM_DEVICE);
+
+#ifdef IMC_IDI_BTIF_PARANOID
+	if (!rx_conf->base) {
+		dev_err(dev, "Unable to DMA-map RX buffer\n");
+		kfree(rx_conf->cpu_base);
 		return -ENOMEM;
 	}
 #endif
@@ -1032,8 +1042,9 @@ static int btif_prepare_rx(struct imc_idi_btif_port *p_btif)
 #ifdef IMC_IDI_BTIF_PARANOID
 	if (ret) {
 		dev_err(dev, "Unable to set IDI read channel configuration\n");
-		dma_free_coherent(dev, rx_conf->size,
-				  rx_conf->cpu_base, rx_conf->base);
+		dma_unmap_single(NULL, rx_conf->base, rx_conf->size,
+				DMA_FROM_DEVICE);
+		kfree(rx_conf->cpu_base);
 	}
 #endif
 
@@ -1762,7 +1773,9 @@ static int btif_startup(struct uart_port *port)
 
 #ifdef IMC_IDI_BTIF_PARANOID
 fail_request_irqs:
-	dma_free_coherent(dev, rx_conf->size, rx_conf->cpu_base, rx_conf->base);
+	dma_unmap_single(NULL, rx_conf->base, rx_conf->size, DMA_FROM_DEVICE);
+	kfree(rx_conf->cpu_base);
+
 	return ret;
 #endif
 }				/* btif_startup */
@@ -1804,9 +1817,11 @@ static void btif_shutdown(struct uart_port *port)
 		idi_free_transaction(p_btif->tx_trans);
 
 	/* Free the RX bounce buffer */
-	if (rx_conf->cpu_base)
-		dma_free_coherent(&p_btif->p_dev->device, rx_conf->size,
-				rx_conf->cpu_base, rx_conf->base);
+	if (rx_conf->cpu_base) {
+		dma_unmap_single(NULL, rx_conf->base,
+				rx_conf->size, DMA_FROM_DEVICE);
+		kfree(rx_conf->cpu_base);
+	}
 
 	stack_pid = 0;
 
