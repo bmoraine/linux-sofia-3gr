@@ -655,31 +655,25 @@
 	i2s1_default_pins:i2s1_default_pins {
 		pinctrl-single,pins = <
 			0x80330 0x1010	/* i2s1_clk0 */
-			0x80334 0x1010	/* i2s1_clk1 */
 			0x80338 0x4001	/* i2s1_rx */
 			0x8033c 0x1010	/* i2s1_tx */
 			0x80340 0x1010	/* i2s1_wa0 */
-			0x80344 0x1010	/* i2s1_wa1 */
 		>;
 	};
 	i2s1_inactive_pins:i2s1_inactive_pins {
 		pinctrl-single,pins = <
 			0x80330 0x1500	/* i2s1_clk0 */
-			0x80334 0x1500	/* i2s1_clk1 */
 			0x80338 0x2100	/* i2s1_rx */
 			0x8033c 0x1500	/* i2s1_tx */
 			0x80340 0x1500	/* i2s1_wa0 */
-			0x80344 0x1500	/* i2s1_wa1 */
 		>;
 	};
 	i2s1_sleep_pins:i2s1_sleep_pins {
 		pinctrl-single,pins = <
 			0x80330 0x1500	/* i2s1_clk0 */
-			0x80334 0x1500	/* i2s1_clk1 */
 			0x80338 0x4100	/* i2s1_rx */
 			0x8033c 0x1500	/* i2s1_tx */
 			0x80340 0x1500	/* i2s1_wa0 */
-			0x80344 0x1500	/* i2s1_wa1 */
 		>;
 	};
 	wlan_function_B_active_pins:wlan_function_B_active_pins {
