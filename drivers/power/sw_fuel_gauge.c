@@ -824,7 +824,8 @@ static void sw_fuel_gauge_set_capacity(int capacity_permil)
 
 		/* Supply VBAT by table lookup of capacity then scale to uV for
 		PSY */
-		p_properties->voltage_ocv = sw_fg->bat.
+		if (sw_fg->bat.fitted_state && sw_fg->bat.p_fitted_model)
+			p_properties->voltage_ocv = sw_fg->bat.
 			p_fitted_model->cap_to_vbat_ocv[capacity_percent] *
 								SCALE_MILLI;
 		/* Calculate charge from capacity, if charge-full-design has
@@ -2724,10 +2725,23 @@ static int sw_fuel_gauge_get_property(struct power_supply *p_power_supply,
 
 	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
 
-		error = update_property_and_log(&p_properties->lock, property,
-				&p_value->intval, p_properties->voltage_ocv,
+		if (sw_fuel_gauge_instance.bat.fitted_state) {
+			error = update_property_and_log(&p_properties->lock,
+					property, &p_value->intval,
+					p_properties->voltage_ocv,
 					p_properties->capacity_valid);
+		} else	{
 
+			int iio_vbat_mv;
+
+			error = iio_read_channel_raw(
+				sw_fuel_gauge_instance.vbat.p_iio_vbat_typ,
+								&iio_vbat_mv);
+
+			error = update_property_and_log(&p_properties->lock,
+				property, &p_value->intval,
+				iio_vbat_mv * SCALE_MILLI, (0 <= error));
+		}
 		break;
 
 	case POWER_SUPPLY_PROP_CHARGE_NOW:
