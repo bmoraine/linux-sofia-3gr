@@ -12,10 +12,4 @@ config SWITCH_GPIO
 	help
 	  Say Y here to enable GPIO based switch support.
 
-config SWITCH_XGOLD
-	bool "Configure XGOLD switch driver for XGOLD (headset)"
-	depends on SND_SOC_XGOLD_MACHINE
-	help
-	  Say Y here to enable XGOLD Switch driver (for headset)
-
 endif # SWITCH
