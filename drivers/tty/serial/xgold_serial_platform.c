@@ -46,6 +46,7 @@ static int xgold_usif_serial_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct uart_usif_xgold_port *uxp;
 	struct xgold_usif_platdata *platdata;
+	struct console *usif_console = NULL;
 
 	uxp = xgold_usif_add_port(&pdev->dev, &xgold_usif_reg, 0, 0);
 	if (IS_ERR(uxp))
@@ -66,7 +67,17 @@ static int xgold_usif_serial_probe(struct platform_device *pdev)
 		ret = platform_device_pm_set_class(pdev,
 				platdata->pm_platdata->pm_user_name);
 
+	/* Make sure that only the device that acts as console
+	 * gets assigned the driver console.
+	 */
+	usif_console = uxp->drv->cons;
+	if (!uxp->is_console)
+		uxp->drv->cons = NULL;
+
 	ret = uart_add_one_port(uxp->drv, &uxp->port);
+
+	uxp->drv->cons = usif_console;
+
 	if (ret)
 		goto err;
 

@@ -57,6 +57,10 @@ struct xgold_usif_platdata {
 	struct device_pm_platdata *pm_platdata;
 	unsigned long flags;
 	unsigned long private[0] ____cacheline_aligned;
+	short runtime_pm_enabled;
+	short runtime_pm_debug;
+	unsigned int rpm_suspend_delay;
+	short rpm_auto_suspend_enable;
 };
 
 struct xgold_usif_trace_buffer_list {
@@ -87,6 +91,7 @@ struct uart_usif_xgold_port {
 	unsigned long flags;
 	unsigned int modem_status[2];
 	struct timer_list modem_poll;
+	bool is_console;
 
 	/* For DMA mode */
 	struct dma_chan *dma_rx_channel;
@@ -102,8 +107,8 @@ struct uart_usif_xgold_port {
 
 	/* For runtime PM */
 	struct xgold_usif_trace_buffer_list *trace_buf_list;
-	bool runtime_suspend_active;
 	struct work_struct usif_rpm_work;
+	struct mutex runtime_lock;
 
 	int (*startup)(struct uart_port *port);
 	void (*shutdown)(struct uart_port *port);

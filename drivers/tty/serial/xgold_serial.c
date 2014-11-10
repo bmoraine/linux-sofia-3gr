@@ -33,14 +33,13 @@
 #include <linux/platform_data/serial_xgold.h>
 #include "xgold_usif.h"
 
-#if defined CONFIG_SERIAL_XGOLD_PM_RUNTIME
-#include <linux/pm_runtime.h>
-#include <linux/list.h>
+#ifdef CONFIG_PM_RUNTIME
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/console.h>
+#include <linux/list.h>
 #include <linux/workqueue.h>
-
 #define RUNTIME_SUSPEND_DELAY		5000 /* ms */
-#define RUNTIME_SUSPEND_THRESHOLD	500
 #endif
 
 #define XGOLD_USIF_ENTER pr_debug("--> %s\n", __func__);
@@ -100,8 +99,6 @@
 #define USIF_MIS_CLR_ALL_TX		0xFFBFFBF0
 
 #define USIF_IMSC_TX_RX_CONFIG	 (USIF_MIS_TRANSMIT | USIF_MIS_RECEIVE)
-
-static int xgold_usif_read_rps(struct uart_port *port);
 
 static int xgold_usif_write_tps(struct uart_port *port, unsigned cnt);
 
@@ -242,26 +239,70 @@ static void usif_set_enabled_mode(struct uart_port *port)
 
 static void xgold_usif_runtime_pm_resume(struct uart_port *port)
 {
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
-	if (usif_port_is_console(port)) {
-		if (port->dev->power.runtime_status == RPM_SUSPENDING) {
-			/* Wait until we are suspended */
-			while (port->dev->power.runtime_status != RPM_SUSPENDED)
-				udelay(1);
-		} else if (port->dev->power.runtime_status == RPM_RESUMING) {
-			/* Wait until we are resumed */
-			while (port->dev->power.runtime_status != RPM_ACTIVE)
-				udelay(1);
+#ifdef CONFIG_PM_RUNTIME
+	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
+	struct uart_usif_xgold_port *uxp = to_usif_port(port);
+
+	if (platdata->runtime_pm_enabled) {
+		if (platdata->rpm_auto_suspend_enable &&
+			(pm_runtime_enabled(port->dev))) {
+			int i = 0;
+
+			mutex_lock(&uxp->runtime_lock);
+
+			if (port->dev->power.runtime_status ==
+					RPM_SUSPENDING) {
+				/* Wait until we are suspended */
+				while (port->dev->power.runtime_status !=
+						RPM_SUSPENDED) {
+					udelay(1);
+					i++;
+					if (i > 500000) {
+						dev_err(port->dev,
+						 "Deadlock in RPM resume %d\n",
+							__LINE__);
+						BUG();
+					}
+				}
+			} else if (port->dev->power.runtime_status ==
+						RPM_RESUMING) {
+				/* Wait until we are resumed */
+				while (port->dev->power.runtime_status !=
+						RPM_ACTIVE) {
+					udelay(1);
+					i++;
+					if (i > 500000) {
+						dev_err(port->dev,
+						 "Deadlock in RPM resume %d\n",
+							__LINE__);
+						BUG();
+					}
+				}
+			}
+			pm_runtime_get_sync(port->dev);
+			mutex_unlock(&uxp->runtime_lock);
+			return;
 		}
-		pm_runtime_get_sync(port->dev);
+
+		if (port->state->port.count > 0 &&
+			pm_runtime_enabled(port->dev) &&
+			port->dev->power.runtime_status != RPM_ACTIVE)
+			/* We have called a port ops function while being
+			 * runtime suspended. This is not allowed.
+			 */
+			BUG();
 	}
 #endif
 }
 
 static void xgold_usif_runtime_pm_autosuspend(struct uart_port *port)
 {
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
-	if (usif_port_is_console(port)) {
+#ifdef CONFIG_PM_RUNTIME
+	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
+
+	if (platdata->runtime_pm_enabled &&
+		platdata->rpm_auto_suspend_enable &&
+		pm_runtime_enabled(port->dev)) {
 		pm_runtime_mark_last_busy(port->dev);
 		pm_runtime_put_autosuspend(port->dev);
 	}
@@ -271,28 +312,42 @@ static void xgold_usif_runtime_pm_autosuspend(struct uart_port *port)
 static int xgold_usif_runtime_pm_suspended(struct uart_port *port,
 			const char *function)
 {
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
-	if (usif_port_is_console(port)) {
-		struct uart_usif_xgold_port *uxp = to_usif_port(port);
-		if (uxp->runtime_suspend_active == true) {
-			/* The console is suspended and we can't wake up since
-			 * this function gets called from IRQ locked context. */
-			if (!in_interrupt())
-				/* Print an error and resume the console. */
-				dev_err(port->dev, "%s called while runtime_pm suspended\n",
-						function);
-			return 1;
-		} else {
-			/* This call will only increase the usage_count for
-			 * Runtime PM so we stay in sync. */
-			pm_runtime_get_noresume(port->dev);
-			return 0;
+#ifdef CONFIG_PM_RUNTIME
+	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
+	if (platdata->runtime_pm_enabled) {
+		if (platdata->rpm_auto_suspend_enable &&
+			pm_runtime_enabled(port->dev)) {
+			struct uart_usif_xgold_port *uxp = to_usif_port(port);
+			if (port->dev->power.runtime_status !=  RPM_ACTIVE) {
+				if (!work_pending(&uxp->usif_rpm_work))
+					schedule_work(&uxp->usif_rpm_work);
+				return 1;
+			} else {
+				/* This call will only increase the usage_count
+				 * for Runtime PM so we stay in sync. */
+				pm_runtime_get_noresume(port->dev);
+				return 0;
+			}
 		}
-	} else
-		return 0;
-#else
-	return 0;
+
+		if (port->state->port.count > 0 &&
+			pm_runtime_enabled(port->dev)) {
+			if (port->dev->power.runtime_status == RPM_RESUMING
+			  || port->dev->power.runtime_status == RPM_SUSPENDING)
+				/* Return 1 to signal that we are either
+				 * resuming or suspending and thus should not
+				 * access any port registers. */
+				return 1;
+			if (port->dev->power.runtime_status == RPM_SUSPENDED)
+				/* We have called a port ops function while
+				 *  being runtime suspended. This is not
+				  * allowed.
+				 */
+				BUG();
+		}
+	}
 #endif
+	return 0;
 }
 
 static inline int xgold_usif_set_pinctrl_state(struct device *dev,
@@ -406,8 +461,7 @@ static void xgold_usif_clk_enable(struct uart_port *port)
 	if (platdata->pm_platdata) {
 		ret = device_state_pm_set_state_by_name(port->dev,
 				platdata->pm_platdata->pm_state_D0_name);
-
-		pr_debug("%s set state return %d\n", __func__, ret);
+		dev_dbg(port->dev, "%s set state return %d\n", __func__, ret);
 	}
 
 	if (USIF_CLC_STAT_RUN(ioread32(USIF_CLC_STAT(port->membase)))) {
@@ -448,6 +502,20 @@ static void xgold_usif_clk_disable(struct uart_port *port)
 		device_state_pm_set_state_by_name(port->dev,
 			platdata->pm_platdata->pm_state_D3_name);
 
+}
+
+static bool xgold_usif_is_clk_enabled(struct uart_port *port)
+{
+	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
+
+	if (platdata->pm_platdata) {
+		if (strcmp(port->dev->pm_data.cur_state->name,
+			platdata->pm_platdata->pm_state_D3_name) == 0)
+			return false;
+		else
+			return true;
+	}
+	return false;
 }
 
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
@@ -547,7 +615,7 @@ static inline unsigned int handle_receive_error(struct uart_port *port,
 }
 
 static void
-xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
+_xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
 		struct ktermios *old)
 {
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
@@ -561,7 +629,6 @@ xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned int baud_bc_cfg;
 	unsigned int ictmo_cfg;
 	unsigned index_baud_clk;
-	unsigned long flags;
 	int i = 0, j;
 
 /* Macro definations for switch configuration register RUN_CTRL */
@@ -572,9 +639,6 @@ xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
 #define USIF_RX_ICTMO_BAUD_115200       0x800
 #define USIF_RX_ICTMO_BAUD_DEFAULT      (USIF_RX_ICTMO_BAUD_115200)
 
-	xgold_usif_runtime_pm_resume(port);
-
-	spin_lock_irqsave(&port->lock, flags);
 	/* FIXME: PM callback should have done it.
 		Should we call enable_mode ?
 	xgold_usif_clk_enable(port);
@@ -751,8 +815,7 @@ xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
 	int_mask |= USIF_ERR_INT;
 
 	/* We need to get the end of transmission interrupt */
-	if (!uxp->use_dma)
-		int_mask |= USIF_MIS_TX_FIN_MASK;
+	int_mask |= USIF_MIS_TX_FIN_MASK;
 
 	/* Switch to USIF working mode */
 	usif_set_running_mode(port);
@@ -764,8 +827,6 @@ xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
 	/* FIXME: PM callback should do the job..Disable clocks
 	xgold_usif_clk_disable(port);
 	*/
-
-	spin_unlock_irqrestore(&port->lock, flags);
 
 	dev_dbg(port->dev, " Setting baud rate as %d , uart clk as %d Hz\n",
 		baud, port->uartclk);
@@ -780,9 +841,22 @@ xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
 	dev_dbg(port->dev, " inc: %d, dec: %d, bc: %d, tmo: %d\n",
 		fdiv_inc, fdiv_dec, baud_bc_cfg, ictmo_cfg);
 
-	xgold_usif_runtime_pm_autosuspend(port);
-
 	return;
+}
+
+static void
+xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
+		struct ktermios *old)
+{
+	unsigned long flags;
+
+	xgold_usif_runtime_pm_resume(port);
+
+	spin_lock_irqsave(&port->lock, flags);
+	_xgold_usif_set_termios(port, termios, old);
+	spin_unlock_irqrestore(&port->lock, flags);
+
+	xgold_usif_runtime_pm_autosuspend(port);
 }
 
 static const char *xgold_usif_type(struct uart_port *port)
@@ -903,6 +977,7 @@ static void transmit_chars_pio(struct uart_port *port, unsigned int status)
 			dev_err(port->dev, "No Valid burst found !\n");
 		return;
 	}
+
 #define TX_STAGE_SIZE 4
 	bytes_per_stage =
 		(TX_STAGE_SIZE / (1 << USIF_FIFO_CFG_TXFA(uxp->fifo_cfg)));
@@ -1067,57 +1142,42 @@ static irqreturn_t handle_sta_interrupt(struct uart_port *port, unsigned status)
 				USIF_DMAE_RX_SREQ_DMA_CTRL | \
 				USIF_DMAE_RX_LSREQ_DMA_CTRL)
 
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
-static irqreturn_t xgold_usif_handle_rx_wake_interrupt(int irq, void *dev_id)
+static irqreturn_t xgold_usif_handle_wake_interrupt(int irq, void *dev_id)
 {
 	struct uart_port *port = dev_id;
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
 	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
 
-	/* This interrupt will only be triggered when the console USIF is asleep
-	 * and the user enters data.
-	 * Need to wake up the console.
-	 */
-	spin_lock(&port->lock);
+	if (platdata->runtime_pm_enabled) {
+		spin_lock(&port->lock);
 
-	if (!platdata->irq_wk_enabled) {
+		if (!platdata->irq_wk_enabled) {
+			spin_unlock(&port->lock);
+			return IRQ_HANDLED;
+		}
+
+		/* Disable the interrupt. */
+		if (platdata->irq_wk) {
+			disable_irq_nosync(platdata->irq_wk);
+			platdata->irq_wk_enabled = 0;
+		}
+
 		spin_unlock(&port->lock);
-		return IRQ_HANDLED;
+
+		/* Resume from work queue. */
+		if (!work_pending(&uxp->usif_rpm_work))
+			schedule_work(&uxp->usif_rpm_work);
+
 	}
-
-	/* Disable the interrupt. */
-	if (platdata->irq_wk) {
-		disable_irq_nosync(platdata->irq_wk);
-		platdata->irq_wk_enabled = 0;
-	}
-
-	spin_unlock(&port->lock);
-
-	/* Resume from work queue. */
-	schedule_work(&uxp->usif_rpm_work);
 
 	return IRQ_HANDLED;
 }
-#else
-static irqreturn_t xgold_usif_handle_rx_wake_interrupt(int irq, void *dev_id)
-{
-	/* Nothing to do.
-	 * But this handler is required because the request_irq is performed
-	 * even if PM_RUNTIME is disabled. In this case, USIF_WK is only used
-	 * for system resume, not pm_runtime */
-	return IRQ_HANDLED;
-}
-#endif
 
 static irqreturn_t handle_interrupt(int irq, void *dev_id)
 {
 	struct uart_port *port = dev_id;
-	struct uart_usif_xgold_port *uxp = to_usif_port(port);
 	unsigned int status, mask;
 	unsigned reg;
-
-	if (uxp->flags & XGOLD_USIF_ALLOW_DEBUG)
-		pr_debug("--> %s\n", __func__);
 
 	spin_lock(&port->lock);
 
@@ -1145,9 +1205,6 @@ static irqreturn_t handle_interrupt(int irq, void *dev_id)
 
 	while ((status = (ioread32(USIF_MIS(port->membase)) & mask))) {
 
-		if (uxp->flags & XGOLD_USIF_ALLOW_DEBUG)
-			pr_debug("--> %s:status %#x\n", __func__, status);
-
 		/* Handle the RX interrupts */
 		if (status & USIF_MIS_RECEIVE)
 			receive_chars(port, status & USIF_MIS_RECEIVE);
@@ -1168,9 +1225,6 @@ static irqreturn_t handle_interrupt(int irq, void *dev_id)
 	xgold_usif_runtime_pm_autosuspend(port);
 
 	spin_unlock(&port->lock);
-
-	if (uxp->flags & XGOLD_USIF_ALLOW_DEBUG)
-		pr_debug("<-- %s\n", __func__);
 
 	return IRQ_HANDLED;
 }
@@ -1211,8 +1265,14 @@ static int xgold_usif_free_irqs(struct uart_port *port)
 static void xgold_usif_shutdown(struct uart_port *port)
 {
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
+	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
 
-	xgold_usif_runtime_pm_resume(port);
+#ifdef CONFIG_PM_RUNTIME
+	if (platdata->runtime_pm_enabled) {
+		pm_runtime_get_sync(port->dev);
+		flush_work(&uxp->usif_rpm_work);
+	}
+#endif
 
 	/* Ensure that no TX is going on before we shutdown.
 	 */
@@ -1243,7 +1303,14 @@ static void xgold_usif_shutdown(struct uart_port *port)
 	*/
 	spin_unlock_irq(&port->lock);
 
-	xgold_usif_runtime_pm_autosuspend(port);
+#ifdef CONFIG_PM_RUNTIME
+	if (platdata->rpm_auto_suspend_enable &&
+		platdata->runtime_pm_enabled) {
+		pm_runtime_dont_use_autosuspend(port->dev);
+		pm_runtime_disable(port->dev);
+		pm_runtime_put_noidle(port->dev);
+	}
+#endif
 
 	xgold_usif_free_irqs(port);
 }
@@ -1255,11 +1322,10 @@ static void xgold_usif_modem_poll(unsigned long param)
 	unsigned imsc, fci_stat, old_fci_stat, modem_status;
 	unsigned long flags;
 
-	if (xgold_usif_runtime_pm_suspended(port, __func__))
-		/* xgold_usif_modem_poll should be last called long
-		 * before we suspend, so should hopefully never need
-		 * to return here.
-		 */
+	if (xgold_usif_is_clk_enabled(&uxp->port) == false ||
+		xgold_usif_runtime_pm_suspended(port, __func__))
+		/* The port has been powered off ->
+		 * need to return here. */
 		return;
 
 	modem_status = ioread32(USIF_MSS_STAT(port->membase));
@@ -1341,9 +1407,8 @@ static void xgold_usif_shutdown_dma(struct uart_port *port)
 		dmaengine_terminate_all(uxp->dma_rx_channel);
 		dma_release_channel(uxp->dma_rx_channel);
 		uxp->dma_rx_channel = NULL;
+		uxp->sg_txbuf->count = 0;
 	}
-
-	tasklet_kill(&uxp->tx_tasklet);
 
 	if (uxp->sg_rxbuf_a) {
 		kfree(uxp->sg_rxbuf_a->sg_iotx);
@@ -1467,9 +1532,6 @@ static int xgold_usif_startup_dma(struct uart_port *port)
 
 	xgold_usif_dma_init(uxp);
 
-	tasklet_init(&uxp->tx_tasklet, xgold_usif_dma_tx_tasklet_func,
-			(unsigned long)&uxp->port);
-
 	return 0;
 }
 
@@ -1501,13 +1563,12 @@ static int xgold_usif_startup_pio(struct uart_port *port)
 static int xgold_usif_startup(struct uart_port *port)
 {
 	int ret = 0;
+	unsigned int mode_cfg = 0;
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
 	struct tty_port *tty_port = &port->state->port;
 	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
 
 	snprintf(uxp->name, sizeof(uxp->name), "xgold_usif%d", port->line);
-
-	xgold_usif_runtime_pm_resume(port);
 
 	/* Update the 'low latency' flag
 	 * before enabling the receive interrupts
@@ -1543,6 +1604,12 @@ static int xgold_usif_startup(struct uart_port *port)
 	if (uxp->startup)
 		ret = uxp->startup(port);
 
+	/* Need to mask out the RX enable bit, it will be set in
+	 * the termios-function if this port shall support RX of data. */
+	mode_cfg = ioread32(USIF_MODE_CFG(port->membase));
+	mode_cfg &= ~USIF_MODE_CFG_RXEN_EN;
+	iowrite32(mode_cfg, USIF_MODE_CFG(port->membase));
+
 	usif_set_running_mode(port);
 	spin_unlock_irq(&port->lock);
 
@@ -1565,7 +1632,19 @@ static int xgold_usif_startup(struct uart_port *port)
 		spin_unlock_irq(&port->lock);
 	}
 
-	xgold_usif_runtime_pm_autosuspend(port);
+#ifdef CONFIG_PM_RUNTIME
+	if (platdata->rpm_auto_suspend_enable &&
+		platdata->runtime_pm_enabled) {
+		/* Enable Runtime PM and start the autosuspend timer */
+		pm_runtime_get_noresume(port->dev);
+		pm_runtime_enable(port->dev);
+		pm_runtime_use_autosuspend(port->dev);
+		pm_runtime_set_autosuspend_delay(port->dev,
+				platdata->rpm_suspend_delay);
+		pm_runtime_mark_last_busy(port->dev);
+		pm_runtime_put_autosuspend(port->dev);
+	}
+#endif
 
 	return 0;
 }
@@ -1722,6 +1801,30 @@ static void xgold_usif_dma_rx_call_back(void *param)
 		char flg;
 		unsigned int rsr;
 
+		if ((platdata->runtime_pm_enabled) &&
+			(platdata->rpm_auto_suspend_enable) &&
+			(pm_runtime_enabled(uxp->port.dev))) {
+			if ((uxp->port.dev->power.runtime_status ==
+						RPM_SUSPENDED)) {
+				dev_err(uxp->port.dev,
+					"Error: USIF port is Runtime suspended in dma RX func\n");
+				BUG();
+			} else if (uxp->port.dev->power.runtime_status ==
+						RPM_SUSPENDING) {
+				dev_info(uxp->port.dev, "RX data while suspending\n");
+				pm_runtime_get_noresume(uxp->port.dev);
+
+			} else if (uxp->port.dev->power.runtime_status ==
+						RPM_RESUMING) {
+				dev_info(uxp->port.dev, "RX data while resuming\n");
+				pm_runtime_get_noresume(uxp->port.dev);
+
+			} else if (uxp->port.dev->power.runtime_status ==
+						RPM_ACTIVE) {
+				pm_runtime_get_noresume(uxp->port.dev);
+			}
+		}
+
 		status = dma_async_is_tx_complete(uxp->dma_rx_channel,
 				usif_sg->dma_cookie, NULL, NULL);
 
@@ -1729,12 +1832,14 @@ static void xgold_usif_dma_rx_call_back(void *param)
 			status == DMA_PAUSED ||
 			status == DMA_ERROR) {
 			xgold_usif_error(&uxp->port, __LINE__, __func__);
+			xgold_usif_runtime_pm_autosuspend(&uxp->port);
 			return;
 		}
 
 		spin_lock_irq(&uxp->port.lock);
 
-		count = xgold_usif_read_rps(&uxp->port);
+		count = USIF_RPS_STAT_RPS(
+				ioread32(USIF_RPS_STAT(uxp->port.membase)));
 
 		dma_unmap_sg(uxp->port.dev, usif_sg->sg_iotx,
 					1, DMA_FROM_DEVICE);
@@ -1764,6 +1869,8 @@ static void xgold_usif_dma_rx_call_back(void *param)
 
 		tty_flip_buffer_push(tty_port);
 
+		xgold_usif_runtime_pm_autosuspend(&uxp->port);
+
 	} else {
 		BUG();
 	}
@@ -1780,6 +1887,17 @@ static void xgold_usif_dma_tx_call_back(void *param)
 		unsigned long flags;
 		struct uart_usif_xgold_port *uxp = usif_sg->uxp;
 		struct circ_buf *xmit = &uxp->port.state->xmit;
+		struct xgold_usif_platdata *platdata =
+					dev_get_platdata(uxp->port.dev);
+
+		if ((platdata->runtime_pm_enabled) &&
+			(pm_runtime_enabled(uxp->port.dev)) &&
+			(uxp->port.dev->power.runtime_status != RPM_ACTIVE)) {
+			pr_err("%s: USIF is RPM suspended in DMA callback!\n",
+					__func__);
+			BUG();
+			return;
+		}
 
 		spin_lock_irqsave(&uxp->port.lock, flags);
 
@@ -1807,6 +1925,8 @@ static void xgold_usif_dma_tx_call_back(void *param)
 			uart_write_wakeup(&uxp->port);
 
 		spin_unlock_irqrestore(&uxp->port.lock, flags);
+
+		xgold_usif_runtime_pm_autosuspend(&uxp->port);
 
 	} else {
 		BUG();
@@ -1849,6 +1969,7 @@ write_init_dma_fail:
 	xgold_usif_error(&uxp->port, __LINE__, __func__);
 	dma_unmap_sg(uxp->port.dev, usif_sg->sg_iotx, 1, DMA_TO_DEVICE);
 	dmaengine_terminate_all(dma_tx_channel);
+	uxp->sg_txbuf->count = 0;
 	return;
 }
 
@@ -1864,11 +1985,18 @@ static void xgold_usif_dma_tx_tasklet_func(unsigned long data)
 
 		char *buf = NULL;
 
+		if (xgold_usif_runtime_pm_suspended(port, __func__)) {
+			if (!work_pending(&uxp->usif_rpm_work))
+				schedule_work(&uxp->usif_rpm_work);
+			return;
+		}
+
 		spin_lock_irqsave(&port->lock, flags);
 
 		if (uxp->sg_txbuf->count != 0) {
 			/* A transfer is already ongoing -> return. */
 			spin_unlock_irqrestore(&port->lock, flags);
+			xgold_usif_runtime_pm_autosuspend(port);
 			return;
 		}
 
@@ -1932,57 +2060,25 @@ static void xgold_usif_start_tx(struct uart_port *port)
 			 */
 			return;
 
+		if (xgold_usif_runtime_pm_suspended(port, __func__))
+			return;
+
 		/* Submitting data to DMA happens in tasklet
 		 * to prevent scheduled while atomic bug.
 		*/
 		tasklet_schedule(&uxp->tx_tasklet);
 
+		xgold_usif_runtime_pm_autosuspend(port);
+
 		return;
 	}
 
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
-	if (usif_port_is_console(port)) {
-		if (uxp->runtime_suspend_active == true) {
-			/* We are suspended -> buffer traces and resume. */
-			int xmit_chars = 0;
-			int count = uart_circ_chars_pending(xmit);
-			struct xgold_usif_trace_buffer_list *tmp_list;
-			char *buf = kzalloc(count, GFP_NOWAIT);
+	if (xgold_usif_runtime_pm_suspended(port, __func__)) {
+		if (!work_pending(&uxp->usif_rpm_work))
+			schedule_work(&uxp->usif_rpm_work);
 
-			if (buf == NULL)
-				return;
-
-			for (xmit_chars = 0; xmit_chars < count; xmit_chars++) {
-				buf[xmit_chars] = xmit->buf[xmit->tail];
-				xmit->tail = (xmit->tail + 1) &
-						(UART_XMIT_SIZE - 1);
-				port->icount.tx++;
-			}
-
-			tmp_list = kzalloc(
-				sizeof(struct xgold_usif_trace_buffer_list),
-					GFP_NOWAIT);
-
-			if (tmp_list == NULL) {
-				kfree(buf);
-				return;
-			}
-
-			tmp_list->trace_buf = buf;
-			tmp_list->buf_len = count;
-			list_add_tail(&tmp_list->list,
-					&uxp->trace_buf_list->list);
-
-			/* This error print will wake up the console */
-			dev_err(port->dev, "%s called while runtime_pm suspended\n",
-					__func__);
-
-			return;
-		} else
-			pm_runtime_get_noresume(port->dev);
+		return;
 	}
-#endif
-
 
 	/* Initiate the transmission only if the transmission is
 	 * not active already or stopped due to flow control.
@@ -2162,6 +2258,19 @@ static void xgold_usif_pm(struct uart_port *port, unsigned int state,
 	xgold_usif_runtime_pm_autosuspend(port);
 }
 
+void xgold_usif_wake_peer(struct uart_port *port)
+{
+	struct uart_usif_xgold_port *uxp = to_usif_port(port);
+
+	if (xgold_usif_runtime_pm_suspended(port, __func__)) {
+		if (!work_pending(&uxp->usif_rpm_work))
+			schedule_work(&uxp->usif_rpm_work);
+		return;
+	}
+
+	xgold_usif_runtime_pm_autosuspend(port);
+}
+
 struct uart_ops usif_ops = {
 	.tx_empty = xgold_usif_tx_empty,
 	.set_mctrl = xgold_usif_set_mctrl,
@@ -2179,109 +2288,94 @@ struct uart_ops usif_ops = {
 	.config_port = xgold_usif_config_port,
 	.verify_port = xgold_usif_verify_port,
 	.pm = xgold_usif_pm,
+	.wake_peer = xgold_usif_wake_peer,
 };
 
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
+#ifdef CONFIG_PM_RUNTIME
 #define WAKE_FROM_SLEEP		"Runtime PM Console Wakeup\n"
 #define GO_TO_SLEEP		"Runtime PM Console Sleep\n"
-#define PM_RUNTIME_DEBUG	0
 
 static void xgold_usif_direct_write(struct uart_port *port, const char *s,
 					unsigned int count);
-
-static void xgold_serial_usif_rpm_work(struct work_struct *work)
-{
-	struct uart_usif_xgold_port *uxp = container_of(work,
-				struct uart_usif_xgold_port, usif_rpm_work);
-	struct xgold_usif_trace_buffer_list *tmp;
-	struct list_head *pos, *q;
-
-	xgold_usif_runtime_pm_resume(&uxp->port);
-
-	if (!list_empty(&uxp->trace_buf_list->list)) {
-		unsigned long flags;
-		spin_lock_irqsave(&uxp->port.lock, flags);
-
-		list_for_each_entry(tmp, &uxp->trace_buf_list->list, list) {
-			if (tmp && tmp->trace_buf && tmp->buf_len > 0) {
-				xgold_usif_direct_write(&uxp->port,
-					tmp->trace_buf, tmp->buf_len);
-				kfree(tmp->trace_buf);
-			}
-		}
-
-		list_for_each_safe(pos, q, &uxp->trace_buf_list->list) {
-			tmp = list_entry(pos,
-					struct xgold_usif_trace_buffer_list,
-					list);
-			list_del(pos);
-			kfree(tmp);
-		}
-
-		spin_unlock_irqrestore(&uxp->port.lock, flags);
-	}
-
-	xgold_usif_runtime_pm_autosuspend(&uxp->port);
-}
 
 int xgold_usif_serial_pm_runtime_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct uart_usif_xgold_port *uxp = platform_get_drvdata(pdev);
+	unsigned long flags;
+	struct xgold_usif_platdata *platdata = dev_get_platdata(dev);
 
-	if (usif_port_is_console(&uxp->port)) {
-		unsigned long flags;
-		struct xgold_usif_platdata *platdata = dev_get_platdata(dev);
-		unsigned long elapsed = jiffies - dev->power.last_busy;
+	mutex_lock(&uxp->runtime_lock);
 
-		if (jiffies_to_msecs(elapsed) < RUNTIME_SUSPEND_THRESHOLD)
-			/* Runtime suspend is being triggered even though the
-			 * runtime PM timer has not expired yet. This happens
-			 * when the runtime PM timer gets cancelled before a
-			 * system suspend. We therefore do not suspend here. */
-			return 0;
-
-		spin_lock_irqsave(&uxp->port.lock, flags);
-
-		if (uxp->runtime_suspend_active == true) {
-			spin_unlock_irqrestore(&uxp->port.lock, flags);
-			return 0;
-		}
-
-		if (platdata->irq_wk) {
-			if (!platdata->irq_wk_enabled) {
-				enable_irq(platdata->irq_wk);
-				platdata->irq_wk_enabled = 1;
-			}
-		}
-
-#if PM_RUNTIME_DEBUG
-		xgold_usif_direct_write(&uxp->port, GO_TO_SLEEP,
-				(strlen(GO_TO_SLEEP)));
-#endif
-		uxp->runtime_suspend_active = true;
-
-		spin_unlock_irqrestore(&uxp->port.lock, flags);
-
-		/* Wait 1ms to ensure that the sleep message is fully written
-		 * to the console and that the TX_FIN interrupt is cleared
-		 * before switching off. */
-		mdelay(1);
-
-		spin_lock_irqsave(&uxp->port.lock, flags);
-
-		usif_set_enabled_mode(&uxp->port);
-		usif_set_config_mode(&uxp->port);
-		usif_set_disabled_mode(&uxp->port);
-
-		spin_unlock_irqrestore(&uxp->port.lock, flags);
-
-		xgold_usif_clk_disable(&uxp->port);
-
-		/* FIXME: pin config may differ between runtime and normal
-		 * suspend */
-		xgold_usif_set_pinctrl_state(dev, platdata->pins_sleep);
+	if (uxp->use_dma && uxp->dma_initialized) {
+		uxp->dma_initialized = false;
+		dmaengine_terminate_all(uxp->dma_tx_channel);
+		dma_release_channel(uxp->dma_tx_channel);
+		uxp->dma_tx_channel = NULL;
+		dmaengine_terminate_all(uxp->dma_rx_channel);
+		dma_release_channel(uxp->dma_rx_channel);
+		uxp->dma_rx_channel = NULL;
 	}
+
+	del_timer_sync(&uxp->modem_poll);
+
+	if (xgold_usif_is_clk_enabled(&uxp->port) == false) {
+		/* The port is already powered off ->
+		 * nothing to be done here. */
+		if (platdata->runtime_pm_debug &&
+			!usif_port_is_console(&uxp->port))
+			dev_info(dev, "Port is already disabled\n");
+		mutex_unlock(&uxp->runtime_lock);
+		return 0;
+	}
+
+	if (platdata->runtime_pm_debug) {
+#ifdef CONFIG_SERIAL_XGOLD_CONSOLE
+		if (usif_port_is_console(&uxp->port) && uxp->port.line == 0) {
+			spin_lock_irqsave(&uxp->port.lock, flags);
+			xgold_usif_direct_write(&uxp->port, GO_TO_SLEEP,
+					(strlen(GO_TO_SLEEP)));
+			spin_unlock_irqrestore(&uxp->port.lock, flags);
+
+			/* Wait 1ms to ensure that the sleep message is fully
+			 * written to the console and that the TX_FIN interrupt
+			 * is cleared before switching off. */
+			mdelay(1);
+		} else
+#endif
+			dev_info(dev, "Port is runtime suspended.\n");
+	}
+
+	spin_lock_irqsave(&uxp->port.lock, flags);
+
+	usif_set_enabled_mode(&uxp->port);
+	usif_set_config_mode(&uxp->port);
+	usif_set_disabled_mode(&uxp->port);
+
+	spin_unlock_irqrestore(&uxp->port.lock, flags);
+
+	xgold_usif_clk_disable(&uxp->port);
+
+	/* FIXME: pin config may differ between runtime and normal
+	 * suspend */
+	xgold_usif_set_pinctrl_state(dev, platdata->pins_sleep);
+
+	spin_lock_irqsave(&uxp->port.lock, flags);
+
+	if (platdata->rpm_auto_suspend_enable && platdata->irq_wk) {
+		if (!platdata->irq_wk_enabled) {
+			/* Try a w/a for getting wk_irq with no reason */
+			dev_dbg(dev, "enabling irq_wk\n");
+			enable_irq(platdata->irq_wk);
+			disable_irq_nosync(platdata->irq_wk);
+			enable_irq(platdata->irq_wk);
+			platdata->irq_wk_enabled = 1;
+		}
+	}
+
+	spin_unlock_irqrestore(&uxp->port.lock, flags);
+
+	mutex_unlock(&uxp->runtime_lock);
 
 	return 0;
 }
@@ -2290,17 +2384,15 @@ int xgold_usif_serial_pm_runtime_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct uart_usif_xgold_port *uxp = platform_get_drvdata(pdev);
+	unsigned long flags;
+	struct xgold_usif_platdata *platdata = dev_get_platdata(dev);
+	struct ktermios termios;
+	int locked;
 
-	if (usif_port_is_console(&uxp->port)) {
-		unsigned long flags;
-		struct xgold_usif_platdata *platdata = dev_get_platdata(dev);
+	locked = mutex_trylock(&uxp->runtime_lock);
 
+	if (platdata->rpm_auto_suspend_enable) {
 		spin_lock_irqsave(&uxp->port.lock, flags);
-
-		if (uxp->runtime_suspend_active == false) {
-			spin_unlock_irqrestore(&uxp->port.lock, flags);
-			return 0;
-		}
 
 		if (platdata->irq_wk) {
 			if (platdata->irq_wk_enabled) {
@@ -2310,24 +2402,64 @@ int xgold_usif_serial_pm_runtime_resume(struct device *dev)
 		}
 
 		spin_unlock_irqrestore(&uxp->port.lock, flags);
+	}
 
-		xgold_usif_set_pinctrl_state(dev, platdata->pins_default);
+	xgold_usif_set_pinctrl_state(dev, platdata->pins_default);
 
-		xgold_usif_clk_enable(&uxp->port);
+	xgold_usif_clk_enable(&uxp->port);
 
-		spin_lock_irqsave(&uxp->port.lock, flags);
+	spin_lock_irqsave(&uxp->port.lock, flags);
 
-		usif_set_enabled_mode(&uxp->port);
-		usif_set_running_mode(&uxp->port);
-		uxp->runtime_suspend_active = false;
+	/* Reset peripheral */
+	if (!IS_ERR_OR_NULL(platdata->reset))
+		reset_control_reset(platdata->reset);
 
-#if PM_RUNTIME_DEBUG
-		xgold_usif_direct_write(&uxp->port, WAKE_FROM_SLEEP,
+	usif_set_enabled_mode(&uxp->port);
+	usif_set_config_mode(&uxp->port);
+
+	if (uxp->startup)
+		uxp->startup(&uxp->port);
+
+	usif_set_running_mode(&uxp->port);
+
+	/* Need to restore the termios settings. */
+	memset(&termios, 0, sizeof(struct ktermios));
+	if (uxp->port.cons)
+		termios.c_cflag = uxp->port.cons->cflag;
+
+	if (uxp->port.state->port.tty && termios.c_cflag == 0)
+		termios = uxp->port.state->port.tty->termios;
+
+	_xgold_usif_set_termios(&uxp->port, &termios, NULL);
+
+	spin_unlock_irqrestore(&uxp->port.lock, flags);
+
+	if (platdata->runtime_pm_debug) {
+#ifdef CONFIG_SERIAL_XGOLD_CONSOLE
+		if (usif_port_is_console(&uxp->port) && uxp->port.line == 0)
+			xgold_usif_direct_write(&uxp->port, WAKE_FROM_SLEEP,
 				(strlen(WAKE_FROM_SLEEP)));
+		else
 #endif
+			dev_info(dev, "Port is runtime resumed.\n");
+	}
+
+	if (uxp->use_dma) {
+		/* Ensure we are ready to receive data
+		 * by queuing an RX DMA request.
+		 */
+		spin_lock_irqsave(&uxp->port.lock, flags);
+		iowrite32(0, USIF_IMSC(uxp->port.membase));
+		spin_unlock_irqrestore(&uxp->port.lock, flags);
+		xgold_usif_dma_rx_request(uxp);
+		spin_lock_irqsave(&uxp->port.lock, flags);
+		iowrite32(USIF_MIS_CLR_ALL, USIF_ICR(uxp->port.membase));
+		iowrite32(USIF_IMSC_TX_RX_CONFIG, USIF_IMSC(uxp->port.membase));
 		spin_unlock_irqrestore(&uxp->port.lock, flags);
 	}
 
+	if (locked)
+		mutex_unlock(&uxp->runtime_lock);
 	return 0;
 }
 
@@ -2425,7 +2557,7 @@ static int xgold_usif_serial_resume(struct device *dev)
 static const struct dev_pm_ops serial_xgold_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(xgold_usif_serial_suspend,
 			xgold_usif_serial_resume)
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
+#ifdef CONFIG_PM_RUNTIME
 	SET_RUNTIME_PM_OPS(xgold_usif_serial_pm_runtime_suspend,
 			xgold_usif_serial_pm_runtime_resume, NULL)
 #endif
@@ -2452,7 +2584,6 @@ static inline void xgold_usif_putchar(struct uart_port *port, int s)
 	iowrite32(s, USIF_TXD(port->membase));
 }
 
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
 static void xgold_usif_direct_write(struct uart_port *port, const char *s,
 					unsigned int count)
 {
@@ -2470,14 +2601,13 @@ static void xgold_usif_direct_write(struct uart_port *port, const char *s,
 	iowrite32(USIF_MIS_CLR_ALL, USIF_ICR(port->membase));
 	iowrite32(old_int_mask, USIF_IMSC(port->membase));
 }
-#endif
-
 
 static void xgold_usif_console_write(struct console *co, const char *s,
 		unsigned int count)
 {
 	struct uart_port *port = &xgold_usif_ports[co->index]->port;
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
+	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
 	unsigned int old_int_mask;
 	unsigned int flushed = 0;
 	unsigned long flags;
@@ -2492,8 +2622,8 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 	else
 		spin_lock(&port->lock);
 
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
-	if (uxp->runtime_suspend_active == true) {
+	if (platdata->runtime_pm_enabled &&
+		port->dev->power.runtime_status != RPM_ACTIVE) {
 		struct xgold_usif_trace_buffer_list *tmp_list;
 		char *buf = kzalloc(count, GFP_NOWAIT);
 
@@ -2515,12 +2645,12 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 		tmp_list->buf_len = count;
 		list_add_tail(&tmp_list->list, &uxp->trace_buf_list->list);
 
-		schedule_work(&uxp->usif_rpm_work);
+		if (!work_pending(&uxp->usif_rpm_work))
+			schedule_work(&uxp->usif_rpm_work);
 
 		goto console_write_done;
 	} else
-		pm_runtime_get_noresume(port->dev);
-#endif
+		xgold_usif_runtime_pm_suspended(port, __func__);
 
 	old_int_mask = ioread32(USIF_IMSC(port->membase));
 
@@ -2565,12 +2695,50 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 
 	xgold_usif_runtime_pm_autosuspend(port);
 
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
 console_write_done:
-#endif
 	if (locked)
 		spin_unlock(&port->lock);
 	local_irq_restore(flags);
+}
+
+static void xgold_serial_usif_rpm_work(struct work_struct *work)
+{
+	struct uart_usif_xgold_port *uxp = container_of(work,
+				struct uart_usif_xgold_port, usif_rpm_work);
+
+	xgold_usif_runtime_pm_resume(&uxp->port);
+
+	if (usif_port_is_console(&uxp->port) &&
+		uxp->trace_buf_list &&
+		!list_empty(&uxp->trace_buf_list->list)) {
+		unsigned long flags;
+		struct xgold_usif_trace_buffer_list *tmp;
+		struct list_head *pos, *q;
+
+		spin_lock_irqsave(&uxp->port.lock, flags);
+
+		list_for_each_entry(tmp, &uxp->trace_buf_list->list, list) {
+			if (tmp && tmp->trace_buf && tmp->buf_len > 0) {
+				xgold_usif_direct_write(&uxp->port,
+					tmp->trace_buf, tmp->buf_len);
+				kfree(tmp->trace_buf);
+			}
+		}
+
+		list_for_each_safe(pos, q, &uxp->trace_buf_list->list) {
+			tmp = list_entry(pos,
+					struct xgold_usif_trace_buffer_list,
+					list);
+			list_del(pos);
+			kfree(tmp);
+		}
+
+		spin_unlock_irqrestore(&uxp->port.lock, flags);
+	}
+
+	xgold_usif_start_tx(&uxp->port);
+
+	xgold_usif_runtime_pm_autosuspend(&uxp->port);
 }
 
 static void __init
@@ -2654,6 +2822,21 @@ static int __init xgold_usif_console_init(void)
 console_initcall(xgold_usif_console_init);
 #endif
 
+static int __init xgold_usif_check_console_port(char *buf)
+{
+#define ASCII_OFFSET 48
+	int len = strlen(xgold_usif_console.name);
+
+	if (0 == strncmp(xgold_usif_console.name, buf, len)) {
+		if (buf[len] >= 48 && buf[len] <= 57)
+			/* Set the console port number. */
+			xgold_usif_console.index =
+					(int) (buf[len] - ASCII_OFFSET);
+	}
+	return 0;
+}
+early_param("console", xgold_usif_check_console_port);
+
 #define SERIAL_SGOLD_USIF_CONSOLE	(&xgold_usif_console)
 #else
 #define SERIAL_SGOLD_USIF_CONSOLE	NULL
@@ -2666,6 +2849,7 @@ static struct xgold_usif_platdata *xgold_usif_serial_get_platdata(
 	struct device_node *np = dev->of_node;
 	struct xgold_usif_platdata *platdata;
 	const char *str_datapath;
+	const char *str_runtime_pm;
 	int i, j, nb_of_it, it_wk, len, ret = 0;
 
 	if (!np)
@@ -2835,6 +3019,45 @@ skip_pinctrl:
 
 	of_address_to_resource(np, 0, &platdata->res_io);
 
+	platdata->runtime_pm_enabled = 0;
+	ret =
+	    of_property_read_string(np, "pm,runtime",
+				    &str_runtime_pm);
+	if (!ret) {
+		if (strcmp(str_runtime_pm, "enable") == 0)
+			platdata->runtime_pm_enabled = 1;
+	}
+	dev_info(dev, "runtime_pm_enabled is %s\n",
+		platdata->runtime_pm_enabled?"enable":"disable");
+
+	platdata->runtime_pm_debug = 0;
+	ret =
+	    of_property_read_string(np, "pm,debug_rpm",
+				    &str_runtime_pm);
+	if (!ret) {
+		if (strcmp(str_runtime_pm, "enable") == 0)
+			platdata->runtime_pm_debug = 1;
+	}
+	dev_info(dev, "runtime_pm_debug is %s\n",
+		platdata->runtime_pm_debug?"enable":"disable");
+
+	if (of_property_read_u32(np, "pm,rpm_suspend_delay",
+		&platdata->rpm_suspend_delay)) {
+		platdata->rpm_suspend_delay = RUNTIME_SUSPEND_DELAY;
+	}
+	dev_info(dev, "rpm_suspend_delay set to %d\n",
+			platdata->rpm_suspend_delay);
+
+	platdata->rpm_auto_suspend_enable = 0;
+	ret = of_property_read_string(np, "pm,auto_suspend_enable",
+					&str_runtime_pm);
+	if (!ret) {
+		if (strcmp(str_runtime_pm, "enable") == 0)
+			platdata->rpm_auto_suspend_enable = 1;
+	}
+	dev_info(dev, "auto_suspend_enable is %s\n",
+		platdata->rpm_auto_suspend_enable?"enable":"disable");
+
 	return platdata;
 
 put_clk_register:
@@ -2891,7 +3114,14 @@ static int xgold_usif_read_rps(struct uart_port *port)
 
 static int xgold_usif_write_tps(struct uart_port *port, unsigned cnt)
 {
-	xgold_usif_runtime_pm_resume(port);
+	if (xgold_usif_runtime_pm_suspended(port, __func__)) {
+		/* Need to return since we are suspended and can't wake up
+		* in IRQ locked context.
+		*/
+		dev_dbg(port->dev, "%s: cannot write TPS - USIF is RPM suspended %d\n",
+				__func__, __LINE__);
+		return 0;
+	}
 
 	while (!xgold_usif_is_tx_ready(port))
 		;
@@ -2947,6 +3177,8 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 		uxp->startup = xgold_usif_startup_dma;
 		uxp->shutdown = xgold_usif_shutdown_dma;
 		uxp->use_dma = true;
+		tasklet_init(&uxp->tx_tasklet, xgold_usif_dma_tx_tasklet_func,
+				(unsigned long)&uxp->port);
 		break;
 	case USIF_SERIAL_DATAPATH_IDI:
 		dev_warn(dev, "Data path property set to IDI\n");
@@ -2984,10 +3216,9 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 	uxp->port.flags = UPF_BOOT_AUTOCONF;
 	uxp->port.line = platdata->id;
 	uxp->port.ops = &usif_ops;
-	uxp->runtime_suspend_active = false;
-
 	uxp->use_rxbuf_b = false;
-
+	uxp->is_console = false;
+	mutex_init(&uxp->runtime_lock);
 	/*
 	 * Enable wakeup capability if possible
 	 */
@@ -2997,45 +3228,45 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 			goto iounmap_ctrl;
 	}
 
-	if (xgold_usif_console.data == uxp->drv) {
+#ifdef CONFIG_SERIAL_XGOLD_CONSOLE
+	if (uxp->port.line == xgold_usif_console.index)
+		uxp->is_console = true;
+
+	if (uxp->is_console) {
 		dev_dbg(dev, "Set uxp->port.line %d\n", uxp->port.line);
 		xgold_usif_ports[uxp->port.line] = uxp;
-
-		/* Request the interrupt for wakeup of the console */
-		if (platdata->irq_wk) {
-			ret = request_irq(platdata->irq_wk,
-					xgold_usif_handle_rx_wake_interrupt,
-					IRQF_TRIGGER_FALLING, uxp->name,
-					&uxp->port);
-			if (ret) {
-				dev_err(dev, "%s: cannot request irq_wk %d\n",
-						__func__, platdata->irq_wk);
-				goto iounmap_ctrl;
-			}
-			disable_irq_nosync(platdata->irq_wk);
-			platdata->irq_wk_enabled = 0;
+	}
+#endif
+	/* Request the interrupt for wakeup of the console */
+	if (platdata->irq_wk) {
+		ret = request_irq(platdata->irq_wk,
+				xgold_usif_handle_wake_interrupt,
+				IRQF_TRIGGER_FALLING, uxp->name,
+				&uxp->port);
+		if (ret) {
+			dev_err(dev, "%s: cannot request irq_wk %d\n",
+					__func__, platdata->irq_wk);
+			goto iounmap_ctrl;
 		}
+		disable_irq_nosync(platdata->irq_wk);
+		platdata->irq_wk_enabled = 0;
+	}
 
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
-		/* Initialize the worker function on the global work queue */
-		INIT_WORK(&uxp->usif_rpm_work, xgold_serial_usif_rpm_work);
+	if (platdata->runtime_pm_enabled) {
+		/* Initialize the worker function on the global
+		 * work queue */
+		INIT_WORK(&uxp->usif_rpm_work,
+			xgold_serial_usif_rpm_work);
 
-		/* Initialize the list for queuing traces */
-		uxp->trace_buf_list = kzalloc(
+		if (uxp->is_console) {
+			/* Initialize the list for queuing traces */
+			uxp->trace_buf_list = kzalloc(
 				sizeof(struct xgold_usif_trace_buffer_list),
 				GFP_KERNEL);
-		if (uxp->trace_buf_list == NULL)
-			goto iounmap_ctrl;
-		INIT_LIST_HEAD(&uxp->trace_buf_list->list);
-
-		/* Enable Runtime PM and start the autosuspend timer */
-		pm_runtime_enable(dev);
-		pm_runtime_use_autosuspend(dev);
-		pm_runtime_set_autosuspend_delay(dev, RUNTIME_SUSPEND_DELAY);
-		pm_runtime_get_noresume(dev);
-		pm_runtime_mark_last_busy(dev);
-		pm_runtime_put_autosuspend(dev);
-#endif
+			if (uxp->trace_buf_list == NULL)
+				goto iounmap_ctrl;
+			INIT_LIST_HEAD(&uxp->trace_buf_list->list);
+		}
 	}
 
 	xgold_usif_set_pinctrl_state(dev, platdata->pins_default);
@@ -3059,11 +3290,8 @@ void xgold_usif_remove_port(struct uart_usif_xgold_port *uxp)
 
 	device_init_wakeup(dev, false);
 
-	if (xgold_usif_console.data == uxp->drv) {
-#ifdef CONFIG_SERIAL_XGOLD_PM_RUNTIME
-		pm_runtime_dont_use_autosuspend(dev);
-		pm_runtime_disable(dev);
-
+#ifdef CONFIG_SERIAL_XGOLD_CONSOLE
+	if (platdata->runtime_pm_enabled) {
 		if (platdata->irq_wk) {
 			if (platdata->irq_wk_enabled)
 				disable_irq_nosync(platdata->irq_wk);
@@ -3073,16 +3301,16 @@ void xgold_usif_remove_port(struct uart_usif_xgold_port *uxp)
 
 		kfree(uxp->trace_buf_list);
 		uxp->trace_buf_list = NULL;
-
-#endif
-		dev_dbg(dev, "Remove uxp->port.line\n");
-		xgold_usif_ports[uxp->port.line] = NULL;
 	}
 
-	xgold_usif_set_pinctrl_state(dev, platdata->pins_inactive);
+	dev_dbg(dev, "Remove uxp->port.line\n");
+	xgold_usif_ports[uxp->port.line] = NULL;
+#endif
 
-	if (xgold_usif_console.data == uxp->drv)
-		xgold_usif_ports[uxp->port.line] = NULL;
+	if (uxp->use_dma)
+		tasklet_kill(&uxp->tx_tasklet);
+
+	xgold_usif_set_pinctrl_state(dev, platdata->pins_inactive);
 
 	del_timer(&uxp->modem_poll);
 	iounmap(uxp->port.membase);
