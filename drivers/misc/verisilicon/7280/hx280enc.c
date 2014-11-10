@@ -124,7 +124,7 @@
 
 #if defined(CONFIG_VBPIPE)
 
-#include "../vvpu/vvpu_vbpipe.h"
+#include <sofia/vvpu_vbpipe.h>
 
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <sofia/nk_sofia_bridge.h>

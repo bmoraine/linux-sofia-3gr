@@ -4,6 +4,7 @@
  * Notes:
  * Aug 22 2014: IMC: vbpipe interface to secure vm
  * Oct 30 2014: IMC: += vvpu_ping()
+ * Nov 10 2014: IMC: add type & commands for secure memory allocator
  */
 
 /*
@@ -17,10 +18,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *					 Boston, MA  02110-1301, USA.
  */
 
 #ifndef _VVPU_VBPIPE_H_
@@ -42,11 +39,17 @@ struct vvpu_secvm_cmd {
  * first handshake with vvpu on secure VM, for debug
  */
 #define VVPU_VTYPE_INIT_HANDSHAKE 0x1000
-#define VVPU_VTYPE_DEC		  0x1001
-#define VVPU_VTYPE_ENC		  0x1002
 #define VVPU_VOP_INIT_HANDSHAKE	  0x1000
 #define VVPU_CNF_INIT_HANDSHAKE	  0xFAB00000
+
+#define VVPU_VTYPE_DEC		  0x1001
+#define VVPU_VTYPE_ENC		  0x1002
+
 #define VVPU_VOP_INIT_PROBE	  0x2000
+
+#define VVPU_VTYPE_MEM		  0x3000
+#define VVPU_VOP_MEM_ALLOC	  37
+#define VVPU_VOP_MEM_FREE	  38
 
 
 /*

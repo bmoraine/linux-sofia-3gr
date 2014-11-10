@@ -17,10 +17,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
  */
 
 #include <linux/fs.h>
@@ -31,7 +27,7 @@
 #include <linux/device.h>
 #include <linux/ktime.h>
 
-#include "vvpu_vbpipe.h"
+#include <sofia/vvpu_vbpipe.h>
 
 
 /*
@@ -70,36 +66,46 @@ static const char * const vtnames[] = {
 };
 
 static const char * const vonames[] = {
-		/*  0 */ "ping",
-		/*  1 */ "get_api_version",
-		/*  2 */ "get_build",
-		/*  3 */ "init",
-		/*  4 */ "deinit",
-		/*  5 */ "decode",
-		/*  6 */ "next_frame",
-		/*  7 */ "get_info",
-		/*  8 */ "peek",
-		/*  9 */ "set_mvc",
-		/* 10 */ "set_info",
-		/* 11 */ "combined_mode_enable",
-		/* 12 */ "combined_mode_disable",
-		/* 13 */ "get_config",
-		/* 14 */ "set_config",
-		/* 15 */ "set_multiple_output",
-		/* 16 */ "get_next_output",
-		/* 17 */ "get_result",
-		/* 18 */ "get_user_data",
-		/* 19 */ "set_picture_buffers",
-		/* 20 */ "set_coding_ctrl",
-		/* 21 */ "get_coding_ctrl",
-		/* 22 */ "set_rate_ctrl",
-		/* 23 */ "get_rate_ctrl",
-		/* 24 */ "set_preprocessing",
-		/* 25 */ "get_preprocessing",
-		/* 26 */ "set_sei_userdata",
-		/* 27 */ "enc_strm_start",
-		/* 28 */ "enc_strm_encode",
-		/* 29 */ "enc_strm_end",
+		"ping",			     /*	 0: generic, testing purposes */
+		"get_api_version",	     /*	 1: */
+		"get_build",		     /*	 2: */
+		"init",			     /*	 3: */
+		"deinit",		     /*	 4: */
+		"decode",		     /*	 5: */
+		"next_frame",		     /*	 5: */
+		"get_info",		     /*	 7: */
+		"peek",			     /*	 8: */
+		"set_mvc",		     /*	 9: h264 only */
+		"set_info",		     /* 10: mpeg4 only */
+		"combined_mode_enable",	     /* 11: pp only */
+		"combined_mode_disable",     /* 12: pp only */
+		"get_config",		     /* 13: pp only */
+		"set_config",		     /* 14: pp only */
+		"set_multiple_output",	     /* 15: pp only */
+		"get_next_output",	     /* 16: pp only */
+		"get_result",		     /* 17: pp only */
+		"get_user_data",	     /* 18: mpeg4 only */
+		"set_picture_buffers",	     /* 19: vp8 only */
+		"set_coding_ctrl",	     /* 20: enc only */
+		"get_coding_ctrl",	     /* 21: enc only */
+		"set_rate_ctrl",	     /* 22: enc only */
+		"get_rate_ctrl",	     /* 23: enc only */
+		"set_preprocessing",	     /* 24: enc only */
+		"get_preprocessing",	     /* 25: enc only */
+		"set_sei_userdata",	     /* 26: enc only */
+		"enc_strm_start",	     /* 27: enc only */
+		"enc_strm_encode",	     /* 28: enc only */
+		"enc_strm_end",		     /* 29: enc only */
+		"enc_op_set_stream_info",    /* 30: enc only */
+		"enc_op_get_stream_info",    /* 31: enc only */
+		"enc_op_set_hw_burst_size",  /* 32: enc only */
+		"enc_op_set_hw_burst_type",  /* 33: enc only */
+		"enc_op_set_chr_qp_offset",  /* 34: enc only */
+		"enc_op_set_filter",	     /* 35: enc only */
+		"enc_op_get_filter",	     /* 36: enc only */
+		"mem_op_alloc",		     /* 37: mem only */
+		"mem_op_free",		     /* 38: mem only */
+
 };
 
 #endif
@@ -317,11 +323,13 @@ int vvpu_call(struct device *dev, struct vvpu_secvm_cmd *cmd_p)
 
 #ifdef __VERBOSE_RPC__
 	if (arg[0] < ARRAY_SIZE(vtnames) && arg[1] < ARRAY_SIZE(vonames)) {
-		dev_info(dev, "vvpu cmd: %s-%s h=%x\n", vtnames[arg[0]],
-			vonames[arg[1]], arg[2]);
+		dev_info(dev, "vvpu cmd: %s-%s h=0x%08x %08x %08x %08x %08x\n",
+			vtnames[arg[0]], vonames[arg[1]],
+			arg[2], arg[3], arg[4], arg[5], arg[6]);
 	} else {
-		dev_info(dev, "vvpu cmd type=%d op=%d h=0x%08x\n",
-			arg[0], arg[1], arg[2]);
+		dev_info(dev,
+			"vvpu cmd type=%d op=%d h=0x%08x %08x %08x %08x %08x\n",
+			arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6]);
 	}
 
 	ktime_get_ts(&ts);

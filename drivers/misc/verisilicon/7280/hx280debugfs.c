@@ -37,7 +37,7 @@
 #include <linux/platform_device.h>
 
 #include "hx280enc.h"
-#include "../vvpu/vvpu_vbpipe.h"
+#include <sofia/vvpu_vbpipe.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Intel Mobile Communications GmbH");
