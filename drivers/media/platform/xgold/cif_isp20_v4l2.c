@@ -271,6 +271,8 @@ static int cif_isp20_v4l2_cid2cif_isp20_cid(u32 v4l2_cid)
 		return CIF_ISP20_CID_HFLIP;
 	case V4L2_CID_VFLIP:
 		return CIF_ISP20_CID_VFLIP;
+	case V4L2_CID_ISO_SENSITIVITY:
+		return CIF_ISP20_CID_ISO_SENSITIVITY;
 	case INTEL_V4L2_CID_AUTO_FPS:
 		return CIF_ISP20_CID_AUTO_FPS;
 	default:
@@ -316,6 +318,8 @@ static int cif_isp20_v4l2_cid2v4l2_cid(u32 cif_isp20_cid)
 		return V4L2_CID_HFLIP;
 	case CIF_ISP20_CID_VFLIP:
 		return V4L2_CID_VFLIP;
+	case CIF_ISP20_CID_ISO_SENSITIVITY:
+		return V4L2_CID_ISO_SENSITIVITY;
 	case CIF_ISP20_CID_AUTO_FPS:
 		return INTEL_V4L2_CID_AUTO_FPS;
 	default:

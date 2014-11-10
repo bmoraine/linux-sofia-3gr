@@ -220,11 +220,7 @@ struct gc_product_info {
 
 	u8 reg_expo_coarse;
 	u8 reg_expo_div;
-
-	unsigned int exposure_time;
-
 	u8 reg_col_code;
-	unsigned int iso;
 
 	u32 power_up_delays_ms[3];
 
