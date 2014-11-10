@@ -2213,6 +2213,8 @@ static int kionix_accel_probe(struct i2c_client *client,
 	register_early_suspend(&acceld->early_suspend);
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
+	kionix_accel_power_off(acceld);
+
 	dev_info(&client->dev, "<-------------- probe done\n");
 	return 0;
 
