@@ -32,6 +32,8 @@ struct xgold_ion_get_params_data {
 
 enum {
 	XGOLD_ION_GET_PARAM = 0,
+	XGOLD_ION_ALLOC_SECURE,
+	XGOLD_ION_FREE_SECURE,
 };
 
 enum {

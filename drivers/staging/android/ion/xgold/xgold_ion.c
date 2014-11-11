@@ -22,6 +22,9 @@
 #include <linux/of.h>
 
 #include <linux/xgold_ion.h>
+#ifdef CONFIG_X86_INTEL_SOFIA
+#include <sofia/vvpu_vbpipe.h>
+#endif
 
 struct ion_mapper *xgold_user_mapper;
 struct ion_heap **heaps;
@@ -39,12 +42,13 @@ static int xgold_ion_get_param(struct ion_client *client,
 					unsigned long arg)
 {
 	struct xgold_ion_get_params_data data;
+	void *user_data;
 	struct ion_handle *handle;
 	ion_phys_addr_t paddr;
 	size_t size;
-	struct xgold_ion_get_params_data *user_data =
-				(struct xgold_ion_get_params_data *)arg;
 	struct ion_buffer *buffer;
+
+	user_data = (void *)arg;
 
 	if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
 		return -EFAULT;
@@ -62,6 +66,96 @@ static int xgold_ion_get_param(struct ion_client *client,
 }
 
 
+#ifdef CONFIG_X86_INTEL_SOFIA
+static int xgold_ion_alloc_secure(struct ion_client *client,
+	unsigned int cmd,
+	unsigned long arg)
+{
+	struct xgold_ion_get_params_data data;
+	void *user_data;
+	struct device *dev;
+
+	struct vvpu_secvm_cmd vvpu_cmd;
+	int vvpu_ret;
+
+	dev = ion_struct_device_from_client(client);
+
+	user_data = (void *)arg;
+
+	if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
+		return -EFAULT;
+
+	/* call into secure VM to allocate a secure video buffer */
+	memset(&vvpu_cmd, 0, sizeof(cmd));
+
+	vvpu_cmd.payload[0] = VVPU_VTYPE_MEM;
+	vvpu_cmd.payload[1] = VVPU_VOP_MEM_ALLOC;
+	vvpu_cmd.payload[2] = 0;
+	vvpu_cmd.payload[3] = 0;
+	vvpu_cmd.payload[4] = data.size;
+	vvpu_cmd.payload[5] = 0;
+
+	/* execute command */
+	vvpu_ret = vvpu_call(dev, &vvpu_cmd);
+
+	if (vvpu_ret == 0)
+		dev_err(dev, "error allocating secure memory");
+	else {
+		data.size = (unsigned int) vvpu_cmd.payload[4];
+		data.addr = (unsigned int) vvpu_cmd.payload[5];
+
+		dev_info(dev, "ion_alloc_secure() 0x%08lx / %u",
+			data.addr, data.size);
+	}
+
+	if (copy_to_user(user_data, &data, sizeof(data)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int xgold_ion_free_secure(struct ion_client *client,
+	unsigned int cmd,
+	unsigned long arg)
+{
+	struct xgold_ion_get_params_data data;
+	void *user_data;
+	struct device *dev;
+
+	struct vvpu_secvm_cmd vvpu_cmd;
+	int vvpu_ret;
+
+	dev = ion_struct_device_from_client(client);
+
+	user_data = (void *)arg;
+
+	if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
+		return -EFAULT;
+
+	/* call into secure VM to allocate a secure video buffer */
+	memset(&vvpu_cmd, 0, sizeof(cmd));
+
+	vvpu_cmd.payload[0] = VVPU_VTYPE_MEM;
+	vvpu_cmd.payload[1] = VVPU_VOP_MEM_FREE;
+	vvpu_cmd.payload[2] = 0;
+	vvpu_cmd.payload[3] = 0;
+	vvpu_cmd.payload[4] = data.size;
+	vvpu_cmd.payload[5] = data.addr;
+
+	/* execute command */
+	vvpu_ret = vvpu_call(dev, &vvpu_cmd);
+
+	if (vvpu_ret == 0)
+		dev_err(dev, "error freeing secure memory");
+
+	/* leave data.size and data.addr alone */
+
+	if (copy_to_user(user_data, &data, sizeof(data)))
+		return -EFAULT;
+
+	return 0;
+}
+#endif
 
 static long xgold_ion_ioctl(struct ion_client *client,
 				   unsigned int cmd,
@@ -73,6 +167,14 @@ static long xgold_ion_ioctl(struct ion_client *client,
 	case XGOLD_ION_GET_PARAM:
 		ret = xgold_ion_get_param(client, cmd, arg);
 		break;
+#ifdef CONFIG_X86_INTEL_SOFIA
+	case XGOLD_ION_ALLOC_SECURE:
+		ret = xgold_ion_alloc_secure(client, cmd, arg);
+		break;
+	case XGOLD_ION_FREE_SECURE:
+		ret = xgold_ion_free_secure(client, cmd, arg);
+		break;
+#endif
 	default:
 		pr_err("Unknown custom ioctl\n");
 		return -ENOTTY;
