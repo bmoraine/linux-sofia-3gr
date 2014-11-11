@@ -1,6 +1,8 @@
 /*
  * include/linux/xgold_ion.h
  *
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (C) 2012 Intel Corp.
  *
@@ -10,7 +12,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
  * GNU General Public License for more details.
  *
  */
@@ -18,7 +20,9 @@
 #ifndef _LINUX_XGOLD_ION_H
 #define _LINUX_XGOLD_ION_H
 
+#ifndef __KERNEL__
 #include <linux/ion.h>
+#endif
 
 struct xgold_ion_get_params_data {
 	int handle;

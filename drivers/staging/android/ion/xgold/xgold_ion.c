@@ -21,20 +21,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 
-struct xgold_ion_get_params_data {
-	int handle;
-	unsigned int size;
-	unsigned int addr;
-};
-
-enum {
-	XGOLD_ION_GET_PARAM = 0,
-};
-
-enum {
-	ION_HEAP_TYPE_DISPLAY_CARVEOUT = ION_HEAP_TYPE_CUSTOM,
-	ION_HEAP_TYPE_VIDEO_CARVEOUT,
-};
+#include <linux/xgold_ion.h>
 
 struct ion_mapper *xgold_user_mapper;
 struct ion_heap **heaps;
