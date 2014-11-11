@@ -106,8 +106,8 @@
 		intel,display-ramless = <1>;
 		intel,display-preinit = <0>;
 		intel,display-if = <&mipi_dsi>;
-		intel,display-if-rate = <390000000>;
-		/include/ "xgold/display/OTM1283.dtsi"
+		intel,display-if-rate = <368000000>;
+		/include/ "xgold/display/HX8394.dtsi"
 		mipi_dsi:mipi-dsi {
 				intel,display-if-min = <104000000>;
 				intel,display-if-max = <550000000>;
