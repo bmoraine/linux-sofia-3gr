@@ -64,6 +64,72 @@ struct afe_reg {
 };
 
 static const u8 afe_reg_cache[] = {
+	0x0, /* PLLA_CTRL_1 */
+	0x0, /* PLLA_CTRL_2 */
+	0x0, /* PLLA_CTRL_3 */
+	0x0, /* PLLA_STATUS */
+	0x0, /* PLLA_PWRCRTL_REG */
+	0x0, /* AFE_POWER1 */
+	0x0, /* AFE_POWER2 */
+	0x0, /* AFE_POWER3 */
+	0x0, /* AFE_POWER_STAT */
+	0x0, /* AFE_BCON1 */
+	0x1, /* AFE_BCON2 */
+	0x0, /* AFE_BCON3 */
+	0x0, /* AFE_BCON4 */
+	0x0, /* AFE_AUDOUTCTRL1A_REG */
+	0x10, /* AFE_AUDOUTCTRL1B_REG */
+	0x80, /* AFE_AUDOUTCTRL1C_REG */
+	0x0, /* AFE_AUDOUTCTRL1D_REG */
+	0x0, /* AFE_AUDOUTCTRL2A_REG */
+	0x10, /* AFE_AUDOUTCTRL2B_REG */
+	0x08, /* AFE_AUDOUTCTRL2C_REG */
+	0x28, /* AFE_AUDOUTCTRL2D_REG */
+	0xFF, /* AFE_AUDOUTCTRL3A_REG */
+	0xFF, /* AFE_AUDOUTCTRL3B_REG */
+	0xFF, /* AFE_AUDOUTCTRL3C_REG */
+	0xFF, /* AFE_AUDOUTCTRL3D_REG */
+	0x40, /* AFE_AUDIOINCTRL1_REG */
+	0x00, /* AFE_AUDIOINCTRL2_REG */
+	0x18, /* AFE_AUDIOINCTRL3_REG */
+	0x03, /* AFE_AUDIOINCTRL4_REG */
+	0x13, /* AFE_GAIN_OUT1_REG */
+	0x13, /* AFE_GAIN_OUT2_REG */
+	0x06, /* AFE_GAIN_OUT3_REG */
+	0x0E, /* AFE_GAIN_OUT4_REG */
+	0x1A, /* AFE_GAIN_IN1_REG */
+	0x06, /* AFE_GAIN_IN2_REG */
+	0x0,  /* AFE_GAIN_IN3_REG */
+	0x0,  /* AFE_GAIN_IN4_REG */
+	0x0,  /* AFE_DIGMICCTRL_REG */
+	0x0,  /* I2S_CTRL_LOW_REG */
+	0x0,  /* I2S_CTRL_HIGH_REG */
+	0x0,  /* I2S_CSEL_LOW_REG */
+	0x0,  /* I2S_CSEL_HIGH_REG */
+	0x0,  /* I2S_WRADDR_REG */
+	0x0,  /* I2S_RDADDR_REG */
+	0x0,  /* I2S_NUM0_LOW_REG */
+	0x0,  /* I2S_NUM0_HIGH_REG */
+	0x0,  /* I2S_DEN0_LOW_REG  */
+	0x0,  /* I2S_DEN0_HIGH_REG */
+	0x0,  /* I2S_DEN1_LOW_REG */
+	0x0,  /* I2S_DEN1_HIGH_REG */
+	0x0,  /* I2S_TXCLL_LOW_REG */
+	0x0,  /* I2S_TXCLL_HIGH_REG */
+	0x0,  /* I2S_TXCHL_LOW_REG */
+	0x0,  /* I2S_TXCHL_HIGH_REG */
+	0x0,  /* I2S_RXCLL_LOW_REG */
+	0x0,  /* I2S_RXCLL_HIGH_REG */
+	0x0,  /* I2S_RXCHL_LOW_REG */
+	0x0,  /* I2S_RXCHL_HIGH_REG */
+	0x0,  /* I2S_RXCONF_LOW_REG */
+	0x0,  /* I2S_RXCONF_HIGH_REG */
+	0x0,  /* I2S_TXCONF_LOW_REG */
+	0x0,  /* I2S_TXCONF_HIGH_REG */
+};
+
+/* FIXME: remove ugly dupplication ASA A0 PMIC becomes deprecated */
+static const u8 afe_reg_cache_a0[] = {
 	0x0, /* PLLA_CTRL_3 */
 	0x0, /* PLLA_CTRL_2 */
 	0x0, /* PLLA_CTRL_1 */
@@ -129,9 +195,9 @@ static const u8 afe_reg_cache[] = {
 };
 
 static const unsigned int afe_default_regs_addr[AFE_REG_END] = {
-	PLLA_CTRL_3_REG_OFFSET,
-	PLLA_CTRL_2_REG_OFFSET,
 	PLLA_CTRL_1_REG_OFFSET,
+	PLLA_CTRL_2_REG_OFFSET,
+	PLLA_CTRL_3_REG_OFFSET,
 	PLLA_STATUS_REG,
 	PLLA_PWRCRTL_REG,
 	AFE_POWER1_REG_OFFSET,
@@ -194,9 +260,9 @@ static const unsigned int afe_default_regs_addr[AFE_REG_END] = {
 };
 
 static const char *afe_reg_name[AFE_REG_END] = {
-	"PLLA_CTRL_3_REG",
-	"PLLA_CTRL_2_REG",
 	"PLLA_CTRL_1_REG",
+	"PLLA_CTRL_2_REG",
+	"PLLA_CTRL_3_REG",
 	"PLLA_STATUS_REG",
 	"PLLA_PWRCRTL_REG",
 	"AFE_POWER1_REG",
@@ -1226,9 +1292,18 @@ static int afe_hw_params(struct snd_pcm_substream *substream,
 				afe_private_data->pins_default);
 		/* Program PLL to generate 196MHz from 26MHz clk input
 		SD[21:0] = 0x66276*/
-		snd_soc_write(codec, AFE_PLLA_CTRL_1_REG, 0x6);
-		snd_soc_write(codec, AFE_PLLA_CTRL_2_REG, 0x62);
-		snd_soc_write(codec, AFE_PLLA_CTRL_3_REG, 0x76);
+
+		if (afe_private_data->pmic == PMIC_A0) {
+			/* PLL register are swapped */
+			snd_soc_write(codec, AFE_PLLA_CTRL_3_REG, 0x76);
+			snd_soc_write(codec, AFE_PLLA_CTRL_2_REG, 0x62);
+			snd_soc_write(codec, AFE_PLLA_CTRL_1_REG, 0x6);
+		} else {
+			snd_soc_write(codec, AFE_PLLA_CTRL_1_REG, 0x76);
+			snd_soc_write(codec, AFE_PLLA_CTRL_2_REG, 0x62);
+			snd_soc_write(codec, AFE_PLLA_CTRL_3_REG, 0x6);
+		}
+
 		snd_soc_write(codec, AFE_PLLA_PWRCRTL_REG, 0x3);
 		/* Wait for 100us for the output clock to stabilize */
 		udelay(100);
@@ -1255,6 +1330,7 @@ static int afe_hw_params(struct snd_pcm_substream *substream,
 		udelay(10);
 		reg |= 1 << I2SON_BIT;
 		snd_soc_write(codec, I2S_CTRL_LOW_REG, reg);
+
 		/* Configure i2s normal mode of operation */
 		reg |= (0 << RXPCM_BIT) | (0 << TXPCM_BIT);
 		/* Enable continuous transmission mode */
@@ -1615,7 +1691,28 @@ static struct snd_soc_codec_driver soc_codec_dev_afe = {
 	.readable_register = afe_is_reg_readable,
 	.num_controls = ARRAY_SIZE(afe_snd_controls),
 	.controls = afe_snd_controls
+};
 
+/* FIXME: remove A0 when deprecated */
+static struct snd_soc_codec_driver soc_codec_dev_afe_a0 = {
+	.probe = afe_codec_probe,
+	.remove = afe_remove,
+	.suspend = afe_suspend,
+	.resume = afe_resume,
+	.read = afe_reg_read_cache,
+	.write = afe_reg_write,
+	.reg_word_size = sizeof(u8),
+	.set_bias_level = afe_set_bias,
+	.dapm_widgets = afe_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(afe_dapm_widgets),
+	.dapm_routes = afe_audio_map,
+	.num_dapm_routes = ARRAY_SIZE(afe_audio_map),
+	.reg_cache_size = ARRAY_SIZE(afe_reg_cache_a0),
+	.reg_word_size = sizeof(u8),
+	.reg_cache_default = afe_reg_cache_a0,
+	.readable_register = afe_is_reg_readable,
+	.num_controls = ARRAY_SIZE(afe_snd_controls),
+	.controls = afe_snd_controls
 };
 
 static struct snd_soc_dai_ops afe_dai_ops = {
@@ -1648,17 +1745,27 @@ static int afe_device_probe(struct platform_device *pdev)
 	int ret = 0;
 	int res = 0;
 	struct afe_data *afe;
-	afe_debug("%s\n", __func__);
-	afe = kzalloc(sizeof(struct afe_data), GFP_KERNEL);
+	struct device_node *np = pdev->dev.of_node;
 
+	afe_debug("%s\n", __func__);
+
+	afe = kzalloc(sizeof(struct afe_data), GFP_KERNEL);
 	if (afe == NULL) {
 		afe_err("%s :Failed allocating driver data",
 			__func__);
 		return -ENOMEM;
 	}
+
 	afe->plat_dev = pdev;
 	platform_set_drvdata(pdev, afe);
 	afe->codec_force_shutdown = 0;
+
+	afe->pmic =
+		(of_find_property(np, "intel,pmic-B0", NULL)) ? PMIC_B0 :
+		PMIC_A0;
+
+	afe_debug("%s: use pmic revision %s\n", __func__,
+			(afe->pmic == PMIC_B0) ? "B0" : "A0");
 
 	/* pinctrl */
 	afe->pinctrl = devm_pinctrl_get(&pdev->dev);
@@ -1691,7 +1798,6 @@ skip_pinctrl:
 		afe->pm_platdata = NULL;
 	}
 
-
 	if (afe->pm_platdata) {
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 		res = platform_device_pm_set_class(pdev,
@@ -1702,29 +1808,33 @@ skip_pinctrl:
 				__func__, res);
 #endif
 	}
-	/* create workqueue to handle the vmm pmic API's which are
-		non-atomic. Afe trigger expects only atomic operations.
-	*/
+
+	/* Create workqueue to handle the vmm pmic API's which are
+	 * non-atomic. Afe trigger expects only atomic operations */
 	INIT_WORK(&afe->afe_trigger_work, afe_trigger_work_handler);
 	platform_set_drvdata(pdev, afe);
-
 
 	afe_debug("dev_set_drvdata ret %d\n", ret);
 	afe->afe_pow.cp_freq = AFE_CP_DEFAULT_FREQ_KHZ;
 	afe->afe_pow.direct_dac_on = 0;
 	afe->afe_pow.hs_on = 0;
 
-	ret = snd_soc_register_codec(&pdev->dev,
+	if (afe->pmic == PMIC_A0)
+		ret = snd_soc_register_codec(&pdev->dev,
+				&soc_codec_dev_afe_a0, &afe_dai, 1);
+	else
+		ret = snd_soc_register_codec(&pdev->dev,
 				&soc_codec_dev_afe, &afe_dai, 1);
+
 	if (ret < 0) {
 		afe_err("unable to register codec drivers\n");
 		kfree(afe);
 		platform_set_drvdata(pdev, NULL);
 		return ret;
 	}
+
 	afe_set_private_data(afe);
-	if (ret < 0)
-		return -EINVAL;
+
 	return ret;
 }
 

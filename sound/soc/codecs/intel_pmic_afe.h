@@ -38,9 +38,9 @@
 
 
 /* AFE Registers offsets */
-#define PLLA_CTRL_3_REG_OFFSET		0x0
+#define PLLA_CTRL_1_REG_OFFSET		0x0
 #define PLLA_CTRL_2_REG_OFFSET		0x01
-#define PLLA_CTRL_1_REG_OFFSET		0x02
+#define PLLA_CTRL_3_REG_OFFSET		0x02
 #define PLLA_STATUS_REG				0x08
 #define PLLA_PWRCRTL_REG			0x09
 #define AFE_POWER1_REG_OFFSET		0x40
@@ -210,8 +210,8 @@
 #define I2S_DEFAULT_SETTING_TXCONF_LOW_REG 0x13
 
 enum afe_requester {
-AFE_REQUESTER_ASOC, /* /< Request is from ASOC module */
-AFE_REQUESTER_ACCESSORY_IDENTIFICATION /* /< Request is from
+	AFE_REQUESTER_ASOC, /* /< Request is from ASOC module */
+	AFE_REQUESTER_ACCESSORY_IDENTIFICATION /* /< Request is from
 					ACCESSORY identification module*/
 };
 
@@ -293,6 +293,11 @@ struct afe_power_state {
 	int cp_freq;
 };
 
+enum pmic_rev {
+	PMIC_A0,
+	PMIC_B0,
+};
+
 struct afe_data {
 	struct platform_device *plat_dev;
 	struct regmap *regmap;
@@ -308,6 +313,7 @@ struct afe_data {
 	struct work_struct afe_trigger_work;
 	int cmd;
 	int stream;
+	enum pmic_rev pmic;
 };
 
 struct afe_data *afe_get_private_data(void);
