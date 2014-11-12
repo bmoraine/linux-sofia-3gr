@@ -45,10 +45,6 @@
 		intel,bt-fmr-gpio-reset = <&xgold_pmx_gpio 77 0 >;
 	};
 
-	headset:headset {
-		/* FIXME: Add headset desc */
-	};
-
 	lcd:lcd {
 		compatible = "intel,lcd";
 		pm,class-name = "generic_class";

@@ -60,24 +60,6 @@
 		pm,state-D3 = "disable";
 	};
 
-#ifndef RECOVERY_KERNEL
-	headset:headset {
-		compatible = "intel,headset";
-		#address-cells = < 0 >;
-		reg = <0xE6501C00 0x4>;
-		reg-names = "headset-registers";
-		interrupts = < 0 1 >;
-		interrupt-parent = < &headset>;
-		#interrupt-cells = < 1 >;
-		interrupt-map = <
-			 0 &ag620_pmu ABB_PMU_ACD1 XGOLD_IRQ_TYPE_NONE
-			 1 &ag620_pmu ABB_PMU_ACD2 XGOLD_IRQ_TYPE_NONE
-			>;
-		interrupt-names = "acd1", "acd2";
-		io-channel-names = "ACCID_ADC";
-		io-channels = < &meas 4 >;
-	};
-#endif
 	lcd:lcd {
 		compatible = "intel,lcd";
 		pm,class-name = "generic_class";
@@ -128,12 +110,13 @@
 	};
 
 #ifndef RECOVERY_KERNEL
-	sound {
+	sound:sound {
 		compatible = "intel,xgold-snd-asoc";
 		intel,audio-codec = < &afe >;
 		intel,pcm-audio = <&pcm_music>;
 		intel,pcm-voice = <&pcm_voice>;
 		intel,speech = <&speech_probe>;
+		intel,jack = <&headset>;
 	};
 #endif
 
