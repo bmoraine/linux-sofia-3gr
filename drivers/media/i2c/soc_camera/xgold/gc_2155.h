@@ -2671,9 +2671,9 @@ static struct gc_register gc2155_awb_mode_incandescent_table[] = {
 static struct gc_register gc2155_awb_mode_fluorescent_table[] = {
 	{GC_8BIT_RMW_AND, GC2155_REG_BLOCK_ENABLE, 0xf8},
 	{ GC_8BIT, 0xfe, 0x00 },
-	{ GC_8BIT, 0xb3, 0x50 },
+	{ GC_8BIT, 0xb3, 0x72 },
 	{ GC_8BIT, 0xb4, 0x40 },
-	{ GC_8BIT, 0xb5, 0x9a },
+	{ GC_8BIT, 0xb5, 0x5b },
 	{GC_TOK_TERM, 0, 0},
 };
 
