@@ -477,9 +477,62 @@
 					};
 
 					capcom1:capcom1 {
+						compatible = "intel,capcom";
 						reg = <0xE1B00000 0x100000>;
+						reg-names = "capcom-regs";
+						clocks = <&clk_cap1>;
+						clock-names = "clk_kernel";
+						pm,class-name = "capcom_class";
+						pm,user-name = "capcom1";
+						pm,state-D0 = "enable"; /* enable_psv */
+						pm,state-D3 = "disable"; /* disable_psv */
 						resets = < &dbb_rst2 9 >;
 						reset-names = "capcom";
+						interrupt-controller;
+						interrupt-parent = <&pic>;
+						#interrupt-cells = <2>;
+						interrupts =
+							< CC1_CCINT0_7 IRQ_TYPE_DEFAULT >,
+							< CC1_CCINT0_7 IRQ_TYPE_DEFAULT >,
+							< CC1_CCINT0_7 IRQ_TYPE_DEFAULT >,
+							< CC1_CCINT0_7 IRQ_TYPE_DEFAULT >,
+							< CC1_CCINT0_7 IRQ_TYPE_DEFAULT >,
+							< CC1_CCINT0_7 IRQ_TYPE_DEFAULT >,
+							< CC1_CCINT0_7 IRQ_TYPE_DEFAULT >,
+							< CC1_CCINT0_7 IRQ_TYPE_DEFAULT >;
+						intel,io-access-guest;
+						intel,mask,0 = < 0x84 0 1 >; /* CCx_CCINT0 */
+						intel,mask,1 = < 0x84 1 1 >; /* CCx_CCINT1 */
+						intel,mask,2 = < 0x84 2 1 >; /* CCx_CCINT2 */
+						intel,mask,3 = < 0x84 3 1 >; /* CCx_CCINT3 */
+						intel,mask,4 = < 0x84 4 1 >; /* CCx_CCINT4 */
+						intel,mask,5 = < 0x84 5 1 >; /* CCx_CCINT5 */
+						intel,mask,6 = < 0x84 6 1 >; /* CCx_CCINT6 */
+						intel,mask,7 = < 0x84 7 1 >; /* CCx_CCINT7 */
+						intel,ack,0 = < 0x8C 0 1 >; /* CCx_CCINT0 */
+						intel,ack,1 = < 0x8C 1 1 >; /* CCx_CCINT1 */
+						intel,ack,2 = < 0x8C 2 1 >; /* CCx_CCINT2 */
+						intel,ack,3 = < 0x8C 3 1 >; /* CCx_CCINT3 */
+						intel,ack,4 = < 0x8C 4 1 >; /* CCx_CCINT4 */
+						intel,ack,5 = < 0x8C 5 1 >; /* CCx_CCINT5 */
+						intel,ack,6 = < 0x8C 6 1 >; /* CCx_CCINT6 */
+						intel,ack,7 = < 0x8C 7 1 >; /* CCx_CCINT7 */
+						intel,edge,0 = < 0x14 0 3 >; /* CCx_CCINT0 */
+						intel,edge,1 = < 0x14 4 3 >; /* CCx_CCINT1 */
+						intel,edge,2 = < 0x14 8 3 >; /* CCx_CCINT2 */
+						intel,edge,3 = < 0x14 12 3 >; /* CCx_CCINT3 */
+						intel,edge,4 = < 0x18 0 3 >; /* CCx_CCINT4 */
+						intel,edge,5 = < 0x18 4 3 >; /* CCx_CCINT5 */
+						intel,edge,6 = < 0x18 8 3 >; /* CCx_CCINT6 */
+						intel,edge,7 = < 0x18 12 3 >; /* CCx_CCINT7 */
+						intel,status,0 = < 0x88 0 1 >; /* CCx_CCINT0 */
+						intel,status,1 = < 0x88 1 1 >; /* CCx_CCINT1 */
+						intel,status,2 = < 0x88 2 1 >; /* CCx_CCINT2 */
+						intel,status,3 = < 0x88 3 1 >; /* CCx_CCINT3 */
+						intel,status,4 = < 0x88 4 1 >; /* CCx_CCINT4 */
+						intel,status,5 = < 0x88 5 1 >; /* CCx_CCINT5 */
+						intel,status,6 = < 0x88 6 1 >; /* CCx_CCINT6 */
+						intel,status,7 = < 0x88 7 1 >; /* CCx_CCINT7 */
 					};
 
 					capcom2:capcom2 {
