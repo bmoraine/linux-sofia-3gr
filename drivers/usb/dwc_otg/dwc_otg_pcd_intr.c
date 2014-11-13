@@ -646,7 +646,6 @@ void dwc_otg_pcd_stop(dwc_otg_pcd_t * pcd)
 
 	gintmsk_data_t intr_mask = {.d32 = 0 };
 
-	DWC_SPINLOCK(pcd->lock);
 
 	num_in_eps = GET_CORE_IF(pcd)->dev_if->num_in_eps;
 	num_out_eps = GET_CORE_IF(pcd)->dev_if->num_out_eps;
@@ -655,7 +654,6 @@ void dwc_otg_pcd_stop(dwc_otg_pcd_t * pcd)
 	/* don't disconnect drivers more than once */
 	if (pcd->ep0state == EP0_DISCONNECT) {
 		DWC_DEBUGPL(DBG_ANY, "%s() Already Disconnected\n", __func__);
-		DWC_SPINUNLOCK(pcd->lock);
 		return;
 	}
 	pcd->ep0state = EP0_DISCONNECT;
@@ -693,7 +691,6 @@ void dwc_otg_pcd_stop(dwc_otg_pcd_t * pcd)
 		pcd->fops->disconnect(pcd);
 		DWC_SPINLOCK(pcd->lock);
 	}
-	DWC_SPINUNLOCK(pcd->lock);
 }
 
 /**

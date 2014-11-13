@@ -129,9 +129,7 @@ int32_t dwc_otg_handle_otg_intr(dwc_otg_core_if_t * core_if)
 			/* Reset PCD and Gadget driver to a
 			 * clean state. */
 			core_if->lx_state = DWC_OTG_L0;
-			DWC_SPINUNLOCK(core_if->lock);
 			cil_pcd_stop(core_if);
-			DWC_SPINLOCK(core_if->lock);
 
 			if (core_if->otg_ver) {
 				/** PET testing*/
@@ -217,11 +215,11 @@ exit_interrupt:
 				DWC_MODIFY_REG32(&global_regs->gintmsk,
 						 gintmsk.d32, 0);
 				/* Call callback function with spin lock released */
-				DWC_SPINUNLOCK(core_if->lock);
 				cil_pcd_stop(core_if);
 				/*
 				 * Initialize the Core for Host mode.
 				 */
+				DWC_SPINUNLOCK(core_if->lock);
 				if (core_if->otg_ver) {
 					dwc_mdelay(100);
 					cil_hcd_start(core_if);
@@ -271,8 +269,8 @@ exit_interrupt:
 			gintmsk.d32 = 0;
 			gintmsk.b.sofintr = 1;
 			DWC_MODIFY_REG32(&global_regs->gintmsk, gintmsk.d32, 0);
-			DWC_SPINUNLOCK(core_if->lock);
 			cil_pcd_stop(core_if);
+			DWC_SPINUNLOCK(core_if->lock);
 			cil_hcd_start(core_if);
 			DWC_SPINLOCK(core_if->lock);
 			core_if->op_state = A_HOST;
@@ -288,8 +286,8 @@ exit_interrupt:
 		if (core_if->otg_ver && core_if->op_state == A_PERIPHERAL) {
 			DWC_DEBUGPL(DBG_ANY, "a_peripheral->a_host\n");
 			/* Clear the a_peripheral flag, back to a_host. */
-			DWC_SPINUNLOCK(core_if->lock);
 			cil_pcd_stop(core_if);
+			DWC_SPINUNLOCK(core_if->lock);
 			cil_hcd_start(core_if);
 			DWC_SPINLOCK(core_if->lock);
 			core_if->op_state = A_HOST;
@@ -1381,8 +1379,8 @@ int32_t dwc_otg_handle_usb_suspend_intr(dwc_otg_core_if_t * core_if)
 		if (core_if->op_state == A_PERIPHERAL) {
 			DWC_DEBUGPL(DBG_ANY, "a_peripheral->a_host\n");
 			/* Clear the a_peripheral flag, back to a_host. */
-			DWC_SPINUNLOCK(core_if->lock);
 			cil_pcd_stop(core_if);
+			DWC_SPINUNLOCK(core_if->lock);
 			cil_hcd_start(core_if);
 			DWC_SPINLOCK(core_if->lock);
 			core_if->op_state = A_HOST;

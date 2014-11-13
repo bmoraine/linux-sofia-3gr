@@ -984,16 +984,14 @@ static int dwc_pullup(struct usb_gadget *gadget, int is_on)
 	core_if = pcd->core_if;
 	pr_debug("pullup %s\n", is_on ? "enable" : "disable");
 
-	DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 	/*
 	 * Don't try to enable/disable pullup while core is off
 	 */
 	if (core_if->lx_state == DWC_OTG_L3 || core_if->op_state == A_HOST) {
 		if (!is_on)
-			pcd->soft_disconnected = 0;
-		else
 			pcd->soft_disconnected = 1;
-		DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
+		else
+			pcd->soft_disconnected = 0;
 		return 0;
 	}
 
@@ -1002,22 +1000,26 @@ static int dwc_pullup(struct usb_gadget *gadget, int is_on)
 		dctl.b.sftdiscon = 1;
 		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl,
 								0, dctl.d32);
-		pcd->soft_disconnected = 0;
-		DWC_SPINUNLOCK(pcd->lock);
+		DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 		/* Stop USB transfers */
-		cil_pcd_stop(d->pcd->core_if);
-		DWC_SPINLOCK(pcd->lock);
+		cil_pcd_stop(core_if);
+		gadget->speed = USB_SPEED_UNKNOWN;
+		pcd->soft_disconnected = 1;
 		core_if->enumdone = 0;
+		DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
 	} else {
+		DWC_UDELAY(125);
+		dwc_otg_core_init(core_if);
+		dwc_otg_enable_global_interrupts(core_if);
+		cil_pcd_start(core_if);
 		/* Disable Soft Disconnect */
 		dctl.d32 =
 			DWC_READ_REG32(&core_if->dev_if->dev_global_regs->dctl);
 		dctl.b.sftdiscon = 0;
 		DWC_WRITE_REG32(&core_if->dev_if->dev_global_regs->dctl,
 								dctl.d32);
-		pcd->soft_disconnected = 1;
+		pcd->soft_disconnected = 0;
 	}
-	DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
 	return 0;
 }
 
@@ -1028,13 +1030,11 @@ static int dwc_vbus_session(struct usb_gadget *gadget, int is_active)
 	dwc_otg_core_if_t *core_if;
 	dwc_otg_pcd_t *pcd;
 	pcgcctl_data_t power = {.d32 = 0 };
-	dctl_data_t dctl = { 0 };
 	d = container_of(gadget, struct gadget_wrapper, gadget);
 	pcd = d->pcd;
 	core_if = d->pcd->core_if;
 	pr_debug("vbus session %s\n", is_active ?
 			"is active" : "is not active");
-	DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 	if (is_active && core_if->lx_state != DWC_OTG_L0) {
 		/*
 		 * Wakeup the core
@@ -1048,22 +1048,9 @@ static int dwc_vbus_session(struct usb_gadget *gadget, int is_active)
 		power.b.rstpdwnmodule = 0;
 		DWC_MODIFY_REG32(core_if->pcgcctl, 0, power.d32);
 
-		/*
-		 * Prepare core to transactions
-		 */
-		dwc_otg_core_init(d->pcd->core_if);
-		dwc_otg_enable_global_interrupts(d->pcd->core_if);
-		cil_pcd_start(d->pcd->core_if);
 		core_if->lx_state = DWC_OTG_L0;
-		if (pcd->soft_disconnected) {
-			/* Disable Soft Disconnect */
-			dctl.d32 =
-				DWC_READ_REG32(&core_if->dev_if
-						->dev_global_regs->dctl);
-			dctl.b.sftdiscon = 0;
-			DWC_WRITE_REG32(&core_if->dev_if->dev_global_regs->dctl,
-					dctl.d32);
-		}
+		if (!pcd->soft_disconnected)
+			dwc_pullup(gadget, 1);
 
 	} else if (!is_active) {
 		/*
@@ -1071,15 +1058,14 @@ static int dwc_vbus_session(struct usb_gadget *gadget, int is_active)
 		 * disconnecting usb cable. (like otg interrupt)
 		 */
 		dwc_otg_disable_global_interrupts(core_if);
-		DWC_SPINUNLOCK(pcd->lock);
+		DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 		/* Stop USB transfers */
-		cil_pcd_stop(d->pcd->core_if);
-		DWC_SPINLOCK(pcd->lock);
+		cil_pcd_stop(core_if);
+		gadget->speed = USB_SPEED_UNKNOWN;
 		core_if->lx_state = DWC_OTG_L3;
-		d->gadget.speed = USB_SPEED_UNKNOWN;
 		core_if->enumdone = 0;
+		DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
 	}
-	DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
 
 	return 0;
 }
