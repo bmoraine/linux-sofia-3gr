@@ -3412,7 +3412,7 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
 	struct device *dev = hsotg->dev;
 	struct s3c_hsotg_plat *plat = dev->platform_data;
 	struct phy *phy;
-	struct usb_phy *uphy;
+	struct usb_phy *uphy = NULL;
 	struct s3c_hsotg_ep *eps;
 	int epnum;
 	int ret;
@@ -3559,12 +3559,20 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
 	if (ret)
 		goto err_ep_mem;
 
+	if (!IS_ERR_OR_NULL(uphy)) {
+		ret = otg_set_peripheral(uphy->otg, &hsotg->gadget);
+		if (ret && ret != -ENOTSUPP)
+			goto err_set_peripheral;
+	}
+
 	s3c_hsotg_create_debug(hsotg);
 
 	s3c_hsotg_dump(hsotg);
 
 	return 0;
 
+err_set_peripheral:
+	usb_del_gadget_udc(&hsotg->gadget);
 err_ep_mem:
 	kfree(eps);
 err_supplies:
