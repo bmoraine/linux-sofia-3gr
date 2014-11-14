@@ -4722,7 +4722,9 @@ int cif_isp20_s_input(
 	}
 
 	dev->img_src = NULL;
-	if (inp == CIF_ISP20_INP_DMA) /* DMA -> ISP*/
+
+	/* DMA -> ISP or DMA -> IE */
+	if ((inp == CIF_ISP20_INP_DMA) || (inp == CIF_ISP20_INP_DMA_IE))
 		dev->config.isp_config.input =
 			&dev->config.mi_config.dma.output;
 	else if (inp < CIF_ISP20_INP_DMA) {
