@@ -69,6 +69,7 @@ enum adc_channel {
 	ADC_ID_PCB,
 	ADC_ID_ACC,
 	ADC_ANAMON,
+	ADC_ID_USB,
 	ADC_MAX_NO_OF_CHANNELS
 };
 
