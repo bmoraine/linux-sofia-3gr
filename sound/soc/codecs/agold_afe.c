@@ -1245,30 +1245,6 @@ static int agold_afe_mic1_mode_event(struct snd_soc_dapm_widget *w,
 #endif
 }
 
-static int agold_afe_aif_event(struct snd_soc_dapm_widget *w,
-			struct snd_kcontrol *kcontrol, int event)
-{
-	afe_debug("%s:\n", __func__);
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		afe_debug("%s:SND_SOC_DAPM_PRE_PMU\n", __func__);
-		break;
-
-	case SND_SOC_DAPM_POST_PMU:
-		afe_debug("%s:SND_SOC_DAPM_POST_PMU\n", __func__);
-		break;
-
-	case SND_SOC_DAPM_PRE_PMD:
-		afe_debug("%s:SND_SOC_DAPM_PRE_PMD\n", __func__);
-		break;
-
-	case SND_SOC_DAPM_POST_PMD:
-		afe_debug("%s:SND_SOC_DAPM_POST_PMD\n", __func__);
-		break;
-	}
-	return 0;
-}
-
 static u32 agold_afe_get_hsamp_ramp_time(u32 step)
 {
 	/*Optimum time in mili seconds. Used as default */
@@ -1566,10 +1542,8 @@ static const struct snd_soc_dapm_widget agold_afe_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("DSP In", "Playback", 0,
 			SND_SOC_NOPM, 0, 0),
 
-	SND_SOC_DAPM_AIF_OUT_E("Audio Capture", "Capture", 0,
-			SND_SOC_NOPM, 0, 0, agold_afe_aif_event,
-			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_AIF_OUT("Audio Capture", "Capture", 0,
+			SND_SOC_NOPM, 0, 0),
 
 #ifdef CONFIG_SND_SOC_AGOLD_620
 	SND_SOC_DAPM_PGA_E("DMIC On",
@@ -1581,12 +1555,12 @@ static const struct snd_soc_dapm_widget agold_afe_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MUX("MICIN Sel", SND_SOC_NOPM, 0, 0, &agold_afe_mic_sel),
 
-	SND_SOC_DAPM_MICBIAS_E("MIC1 BIAS", AGOLD_AFE_AUDIOINCTRL,
+	SND_SOC_DAPM_SUPPLY("MIC1 BIAS", AGOLD_AFE_AUDIOINCTRL,
 			20, 0, agold_afe_mic1_mode_event,
 			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MICBIAS_E("MIC2 BIAS", AGOLD_AFE_AUDIOINCTRL,
+	SND_SOC_DAPM_SUPPLY("MIC2 BIAS", AGOLD_AFE_AUDIOINCTRL,
 			22, 0, NULL,
 			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
@@ -1632,23 +1606,23 @@ static const struct snd_soc_dapm_route agold_afe_audio_map[] = {
 	{"EARPIECE", NULL, "EP Enable"},
 
 	/* Audio Input Map */
-	{"MIC1 BIAS", NULL, "AMIC1"},
-	{"MIC2 BIAS", NULL, "AMIC2"},
-	{"MICIN Sel", "AMIC1", "MIC1 BIAS"},
-	{"MICIN Sel", "AMIC2", "MIC2 BIAS"},
+	{"AMIC1", "NULL", "MIC1 BIAS"},
+	{"AMIC2", "NULL", "MIC2 BIAS"},
+	{"MICIN Sel", "AMIC1", "AMIC1"},
+	{"MICIN Sel", "AMIC2", "AMIC2"},
 	{"MIC Enable", NULL, "MICIN Sel"},
 	{"AMIC On", "Switch", "MIC Enable"},
 	{"Audio Capture", NULL, "AMIC On"},
 
 #ifdef CONFIG_SND_SOC_AGOLD_620
-	{"DMIC On", NULL, "DMIC1"},
-	{"DMIC On", NULL, "DMIC2"},
-	{"MIC Enable", NULL, "MIC1 BIAS"},
-	{"DMIC On", NULL, "MIC Enable"},
-	{"DMIC1 Enable", "Switch", "DMIC On"},
-	{"DMIC2 Enable", "Switch", "DMIC On"},
-	{"Audio Capture", NULL, "DMIC1 Enable"},
-	{"Audio Capture", NULL, "DMIC2 Enable"},
+	{"DMIC1", NULL, "MIC1 BIAS"},
+	{"DMIC2", NULL, "MIC1 BIAS"},
+	{"DMIC1 Enable", "Switch", "DMIC1"},
+	{"DMIC2 Enable", "Switch", "DMIC2"},
+	{"DMIC On", NULL, "DMIC1 Enable"},
+	{"DMIC On", NULL, "DMIC2 Enable"},
+	{"MIC Enable", NULL, "DMIC On"},
+	{"Audio Capture", NULL, "MIC Enable"},
 #endif
 };
 
