@@ -1,6 +1,7 @@
 /*
  * drivers/staging/android/ion/ion.h
  *
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
  * Copyright (C) 2011 Google, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -69,6 +70,15 @@ struct ion_platform_data {
 	int nr;
 	struct ion_platform_heap *heaps;
 };
+
+/**
+ * ion_struct_device_from_client() - return device structure for ion client
+ * @client:	address of ion client structure
+ *
+ * evaluates client and client->dev and returns the address
+ * of struct device
+ */
+struct device *ion_struct_device_from_client(struct ion_client *client);
 
 /**
  * ion_reserve() - reserve memory for ion heaps if applicable

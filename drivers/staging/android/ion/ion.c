@@ -119,6 +119,14 @@ struct ion_handle {
 	int id;
 };
 
+struct device *ion_struct_device_from_client(struct ion_client *client)
+{
+	if (client != NULL && client->dev != NULL)
+		return client->dev->dev.this_device;
+	else
+		return NULL;
+}
+
 bool ion_buffer_fault_user_mappings(struct ion_buffer *buffer)
 {
 	return (buffer->flags & ION_FLAG_CACHED) &&
