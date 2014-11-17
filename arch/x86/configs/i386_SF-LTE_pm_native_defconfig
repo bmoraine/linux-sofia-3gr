@@ -2090,7 +2090,6 @@ CONFIG_LEDS_CLASS=y
 # LED Triggers
 #
 # CONFIG_LEDS_TRIGGERS is not set
-# CONFIG_SWITCH is not set
 # CONFIG_ACCESSIBILITY is not set
 # CONFIG_EDAC is not set
 CONFIG_RTC_LIB=y
