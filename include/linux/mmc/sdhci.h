@@ -113,6 +113,7 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_FORCE_SDR_MODE			(1<<20)
 #define SDHCI_QUIRK2_HOST_TUNING_WORKAROUND		(1<<21)
 #define SDHCI_QUIRK2_WA_LNP				(1<<22)
+#define SDHCI_QUIRK2_HOST_EXEC_TUNING_WA		(1<<23)
 
 
 	int irq;		/* Device IRQ */
