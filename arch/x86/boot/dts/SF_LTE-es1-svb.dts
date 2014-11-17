@@ -485,7 +485,7 @@
 };
 
 &sdio {
-	intel,tap_values = <0x0C51020 0x0C41020 0x0C41020 0x0C41020 0x0C51021 0x0A40F20 0x0370001 >;
+	intel,tap_values = <0x0C51020 0x0C41020 0x0C41020 0x0C41020 0x0C51021 0x0A40F20 0x370030>;
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&sdio_default_pins>;
 	pinctrl-1 = <&sdio_sleep_pins>;
