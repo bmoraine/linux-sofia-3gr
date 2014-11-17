@@ -25,6 +25,10 @@
 #include <linux/cpu.h>
 #include <linux/gfp.h>
 
+#if defined(CONFIG_SYSTEM_PROFILING)
+#include <linux/sysprofile.h>
+#endif
+
 #include <asm/mtrr.h>
 #include <asm/tlbflush.h>
 #include <asm/mmu_context.h>
@@ -270,6 +274,10 @@ static inline void smp_entering_irq(unsigned vector)
 {
 	ack_APIC_vector(vector);
 	irq_enter();
+#if defined(CONFIG_SYSTEM_PROFILING)
+	sysprof_interrupt(vector);
+	sysprof_int_enter();
+#endif
 }
 
 __visible void smp_trace_reschedule_interrupt(struct pt_regs *regs)
@@ -300,6 +308,9 @@ __visible void smp_call_function_interrupt(struct pt_regs *regs)
 {
 	smp_entering_irq(CALL_FUNCTION_VECTOR);
 	__smp_call_function_interrupt();
+#if defined(CONFIG_SYSTEM_PROFILING)
+	sysprof_int_leave();
+#endif
 	exiting_irq();
 }
 
@@ -322,6 +333,9 @@ __visible void smp_call_function_single_interrupt(struct pt_regs *regs)
 {
 	smp_entering_irq(CALL_FUNCTION_SINGLE_VECTOR);
 	__smp_call_function_single_interrupt();
+#if defined(CONFIG_SYSTEM_PROFILING)
+	sysprof_int_leave();
+#endif
 	exiting_irq();
 }
 

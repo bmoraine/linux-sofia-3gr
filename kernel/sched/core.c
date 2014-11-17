@@ -1522,6 +1522,10 @@ void scheduler_ipi(void)
 	 * somewhat pessimize the simple resched case.
 	 */
 	irq_enter();
+#if defined(CONFIG_SYSTEM_PROFILING)
+	sysprof_interrupt(RESCHEDULE_VECTOR);
+	sysprof_int_enter();
+#endif
 	tick_nohz_full_check();
 	sched_ttwu_pending();
 
@@ -1532,6 +1536,9 @@ void scheduler_ipi(void)
 		this_rq()->idle_balance = 1;
 		raise_softirq_irqoff(SCHED_SOFTIRQ);
 	}
+#if defined(CONFIG_SYSTEM_PROFILING)
+	sysprof_int_leave();
+#endif
 	irq_exit();
 }
 
