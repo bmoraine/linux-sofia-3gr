@@ -20,6 +20,7 @@
 #include <linux/mm.h>
 #include <linux/sizes.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/dma-contiguous.h>
 
 #define MAX_RESERVED_REGIONS	16
 static struct reserved_mem reserved_mem[MAX_RESERVED_REGIONS];
@@ -99,6 +100,19 @@ static int __init __reserved_mem_alloc_size(unsigned long node,
 	__be32 *prop;
 	int nomap;
 	int ret;
+
+	/* reserve cma default area */
+	if (of_get_flat_dt_prop(node, "linux,cma-default", NULL) != NULL) {
+		phys_addr_t limit = 0;
+		__be32 *prop_limit = of_get_flat_dt_prop(node, "limit", &len);
+		if (prop_limit)
+			limit = dt_mem_next_cell(dt_root_size_cells,
+						&prop_limit);
+		pr_info("Reserved memory: '%s' reserve CMA default limit %pa\n",
+			uname, &limit);
+		dma_contiguous_reserve(limit);
+		return 0;
+	}
 
 	prop = of_get_flat_dt_prop(node, "size", &len);
 	if (!prop)
@@ -215,3 +229,44 @@ void __init fdt_init_reserved_mem(void)
 			__reserved_mem_init_node(rmem);
 	}
 }
+
+int of_get_reserved_memory_region(struct device_node *node,
+		phys_addr_t *size, phys_addr_t *base,
+		struct cma **cma_area)
+{
+	int ret;
+	struct device_node *nregion = NULL;
+	u32 array[2] = {0, 0};
+
+	*cma_area = NULL;
+
+	nregion = of_parse_phandle(node, "memory-region", 0);
+	if (!nregion) {
+		pr_err("%s: Can't find memory region in '%s'.\n",
+				__func__, node->name);
+		return -ENOENT;
+	}
+	ret = of_property_read_u32_array(nregion, "reg", array, 2);
+	if (ret) {
+		ret = of_property_read_u32(nregion, "size", &array[1]);
+		if (ret) {
+			pr_err("%s: Can't find memory definiition '%s'\n",
+					__func__, nregion->name);
+			return -ENOENT;
+		}
+	}
+
+	*base = array[0];
+	*size = array[1];
+
+	if (of_property_read_bool(nregion, "linux,cma"))
+		*cma_area = cma_area_lookup(*size, *base);
+	else if (of_property_read_bool(nregion, "linux,cma-default"))
+		*cma_area = dma_contiguous_default_area;
+
+	pr_debug("found cma area %p %d MiB at %pa\n",
+			*cma_area, array[1] / SZ_1M, base);
+
+	return (*cma_area) ? 0 : -EINVAL;
+}
+

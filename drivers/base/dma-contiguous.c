@@ -367,3 +367,35 @@ bool dma_release_from_contiguous(struct device *dev, struct page *pages,
 
 	return true;
 }
+
+/**
+ * cma_area_lookup() - retrieve cma area from base and size
+ * @size: area size in bytes.
+ * @base: area physial base.
+ *
+ * This function retrieve cma area from base and size if it exists
+ * in cma area table.
+ * It returns NULL if area is not found cma pointer otherwise.
+ */
+struct cma *cma_area_lookup(phys_addr_t size, phys_addr_t base)
+{
+	int i = 0;
+	unsigned long base_pfn = PFN_DOWN(base);
+	unsigned long count = size >> PAGE_SHIFT;
+
+	pr_debug("search area %ld MiB at %pa\n",
+			(unsigned long)size / SZ_1M,
+			&base);
+	while (i < cma_area_count) {
+		struct cma *cmap = &cma_areas[i];
+
+		if ((cmap->base_pfn == base_pfn) && (cmap->count == count)) {
+			pr_debug("found area %p(%d) base_pfn %lx count %lx\n",
+					cmap, i, base_pfn, count);
+			return cmap;
+		}
+		i++;
+	}
+
+	return NULL;
+}

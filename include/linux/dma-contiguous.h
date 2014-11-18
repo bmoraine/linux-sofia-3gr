@@ -86,7 +86,7 @@ static inline void dma_contiguous_set_default(struct cma *cma)
 }
 
 void dma_contiguous_reserve(phys_addr_t addr_limit);
-
+struct cma *cma_area_lookup(phys_addr_t size, phys_addr_t base);
 int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t base,
 				       phys_addr_t limit, struct cma **res_cma);
 
@@ -161,6 +161,11 @@ bool dma_release_from_contiguous(struct device *dev, struct page *pages,
 	return false;
 }
 
+static inline
+struct cma *cma_area_lookup(phys_addr_t size, phys_addr_t base)
+{
+	return NULL;
+}
 #endif
 
 #endif

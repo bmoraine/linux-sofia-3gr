@@ -28,6 +28,9 @@ typedef int (*reservedmem_of_init_fn)(struct reserved_mem *rmem,
 void fdt_init_reserved_mem(void);
 void fdt_reserved_mem_save_node(unsigned long node, const char *uname,
 			       phys_addr_t base, phys_addr_t size);
+int of_get_reserved_memory_region(struct device_node *node,
+		phys_addr_t *size, phys_addr_t *base,
+		struct cma **cma_area);
 
 #define RESERVEDMEM_OF_DECLARE(name, compat, init)			\
 	static const struct of_device_id __reservedmem_of_table_##name	\
@@ -40,6 +43,12 @@ void fdt_reserved_mem_save_node(unsigned long node, const char *uname,
 static inline void fdt_init_reserved_mem(void) { }
 static inline void fdt_reserved_mem_save_node(unsigned long node,
 		const char *uname, phys_addr_t base, phys_addr_t size) { }
+static inline int of_get_reserved_memory_region(struct device_node *node,
+		phys_addr_t *size, phys_addr_t *base,
+		struct cma **cma_area)
+{
+	return -EINVAL;
+}
 
 #define RESERVEDMEM_OF_DECLARE(name, compat, init)			\
 	static const struct of_device_id __reservedmem_of_table_##name	\
