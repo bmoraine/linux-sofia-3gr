@@ -1369,7 +1369,7 @@ static int xgold_vpu_dec_probe(struct platform_device *pdev)
 		 * the first time it is used
 		 */
 		if (error != 0) {
-			dev_warn(dev, "vbpipe init error, postpone");
+			dev_warn(dev, "vbpipe open is postponed");
 
 			/* TODO: ignore and skip probing; open pipe later */
 			error = 0;

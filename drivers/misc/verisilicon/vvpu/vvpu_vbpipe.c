@@ -142,7 +142,10 @@ static int vvpu_vbpipe_init_int(struct device *dev, int locked)
 		if (IS_ERR(fp)) {
 			ret = (int)fp;
 
-			dev_err(dev, "open vbpipe: error %d", ret);
+			/* only log error if called from internal this module */
+			if (locked != 0)
+				dev_err(dev, "open vbpipe: error %d", ret);
+
 			vvpu_vbpipe_filep = NULL;
 		} else {
 			dev_info(dev, "vbpipe %s link 0x%p established",
