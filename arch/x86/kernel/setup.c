@@ -50,6 +50,8 @@
 #include <linux/init_ohci1394_dma.h>
 #include <linux/kvm_para.h>
 #include <linux/dma-contiguous.h>
+#include <linux/of_fdt.h>
+#include <linux/of_reserved_mem.h>
 
 #include <linux/errno.h>
 #include <linux/kernel.h>
@@ -734,7 +736,7 @@ static void __init trim_snb_memory(void)
 	 * already been reserved.
 	 */
 	memblock_reserve(0, 1<<20);
-	
+
 	for (i = 0; i < ARRAY_SIZE(bad_pages); i++) {
 		if (memblock_reserve(bad_pages[i], PAGE_SIZE))
 			printk(KERN_WARNING "failed to reserve 0x%08lx\n",
@@ -826,7 +828,7 @@ static void __init trim_low_memory_range(void)
 {
 	memblock_reserve(0, ALIGN(reserve_low, PAGE_SIZE));
 }
-	
+
 /*
  * Dump out kernel offset information on panic.
  */
@@ -853,6 +855,8 @@ dump_kernel_offset(struct notifier_block *self, unsigned long v, void *p)
  *
  * Note: On x86_64, fixmaps are ready for use even before this is called.
  */
+
+void *__init x86_fdt_header(void);
 
 void __init setup_arch(char **cmdline_p)
 {
@@ -1120,7 +1124,9 @@ void __init setup_arch(char **cmdline_p)
 	setup_real_mode();
 
 	memblock_set_current_limit(get_max_mapped());
-	dma_contiguous_reserve(0);
+
+	early_init_dt_scan(x86_fdt_header());
+	early_init_fdt_scan_reserved_mem();
 
 	/*
 	 * NOTE: On x86-32, only from this point on, fixmaps are ready for use.

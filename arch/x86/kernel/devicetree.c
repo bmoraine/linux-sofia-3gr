@@ -46,11 +46,6 @@ void __init early_init_dt_scan_chosen_arch(unsigned long node)
 	BUG();
 }
 
-void __init early_init_dt_add_memory_arch(u64 base, u64 size)
-{
-	BUG();
-}
-
 void * __init early_init_dt_alloc_memory_arch(u64 size, u64 align)
 {
 	return __alloc_bootmem(size, align, __pa(MAX_DMA_ADDRESS));
@@ -265,6 +260,30 @@ static void __init dtb_apic_setup(void)
 }
 
 #ifdef CONFIG_OF_FLATTREE
+void * __init x86_fdt_header(void)
+{
+	u32 size, map_len;
+	struct boot_param_header *dt;
+
+	if (!initial_dtb) {
+		printk(KERN_ERR "Error: initial_dtb not initialized.\n");
+		return NULL;
+	}
+
+	map_len = max(PAGE_SIZE - (initial_dtb & ~PAGE_MASK),
+			(u64)sizeof(struct boot_param_header));
+
+	dt = early_memremap(initial_dtb, map_len);
+	size = be32_to_cpu(dt->totalsize);
+	if (map_len < size) {
+		early_iounmap(dt, map_len);
+		dt = early_memremap(initial_dtb, size);
+		map_len = size;
+	}
+
+	return (void *)dt;
+}
+
 static void __init x86_flattree_get_config(void)
 {
 	u32 size, map_len;
