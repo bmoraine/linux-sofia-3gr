@@ -25,6 +25,19 @@
 		/* FIXME: Add memory desc */
 	};
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		/* global autoconfigured region for contiguous allocations */
+		cma_default_region: region@0 {
+			size = <0x08000000>;
+			linux,cma-default;
+		};
+	};
+
+
 	cpufreq {
 		/* FIXME:Add cpufreq desc */
 	};
@@ -32,7 +45,7 @@
 	ion {
 		compatible = "intel,ion";
 		cma-heap {
-			intel,heapmem = <   0x00000000 0x08000000 >;
+			memory-region = <&cma_default_region>;
 		};
 	};
 
