@@ -1361,11 +1361,6 @@ static int OV8858_g_timings(struct ov_camera_module *cam_mod,
 {
 	int ret = 0;
 	u32 reg_val;
-	u32 pll2_prediv0;
-	u32 pll2_prediv_x2;
-	u32 pll2_multiplier;
-	u32 pll2_sys_prediv;
-	u32 pll2_sys_div_x2;
 
 	if (IS_ERR_OR_NULL(cam_mod->active_config))
 		goto err;
