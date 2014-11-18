@@ -20,7 +20,7 @@
 #include "../ion_priv.h"
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/compat.h>
+#include <linux/of_reserved_mem.h>
 
 #include <linux/xgold_ion.h>
 #ifdef CONFIG_X86_INTEL_SOFIA
@@ -263,70 +263,84 @@ static struct ion_type_name ion_heap_type_name[] = {
 	{
 		.name = "system-heap",
 		.id = ION_HEAP_TYPE_SYSTEM,
-		.type = ION_HEAP_TYPE_SYSTEM
 	}, {
 		.name = "carveout-heap",
 		.id = ION_HEAP_TYPE_CARVEOUT,
-		.type = ION_HEAP_TYPE_CARVEOUT
 	}, {
 		.name = "cma-heap",
 		.id = ION_HEAP_TYPE_DMA,
-		.type = ION_HEAP_TYPE_DMA
 	}, {
-		.name = "display-heap",
-		.id = ION_HEAP_TYPE_DISPLAY_CARVEOUT,
-		.type = ION_HEAP_TYPE_CARVEOUT
-	}, {
-		.name = "video-heap",
-		.id = ION_HEAP_TYPE_VIDEO_CARVEOUT,
-		.type = ION_HEAP_TYPE_CARVEOUT
+		.name = "secured-heap",
+		.id = ION_HEAP_TYPE_SECURE,
 	},
 };
 
 #include <linux/of.h>
-#define ION_PROP_HEAP_MEM	"intel,heapmem"
+
+int xgold_ion_of_heap(struct ion_platform_heap *myheap,
+		struct device_node *node)
+{
+	int ret = 0;
+	int itype = 0;
+
+	for (itype = 0;	itype < ARRAY_SIZE(ion_heap_type_name);	itype++) {
+		if (!strcmp(ion_heap_type_name[itype].name, node->name)) {
+			struct cma *cma_area;
+			phys_addr_t base = 0;
+			phys_addr_t size = 0;
+
+			myheap->name = node->name;
+
+			myheap->align = 0x100000;
+			myheap->id = ion_heap_type_name[itype].id;
+
+			ret = of_get_reserved_memory_region(node,
+					&size, &base, &cma_area);
+			if (ret) {
+				pr_err("xg_ion Can't find memory def! Skip %s\n",
+						node->name);
+				continue;
+			}
+
+			myheap->base = base;
+			myheap->size = size;
+
+			if (cma_area) {
+				myheap->priv2 = cma_area;
+				myheap->type = ION_HEAP_TYPE_DMA;
+			} else if (myheap->base && !cma_area)
+				myheap->type = ION_HEAP_TYPE_CARVEOUT;
+			else if (size)
+				myheap->type = ION_HEAP_TYPE_SYSTEM;
+			else {
+				pr_err("xg_ion unknow memory type! Skip %s\n",
+						node->name);
+				continue;
+			}
+
+			pr_info("xg_ion heap %s base:%pa length:0x%08x type %d\n",
+					node->name, &myheap->base,
+					myheap->size, myheap->type);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 
 static struct ion_platform_data *xgold_ion_of(struct device_node *node)
 {
 	struct ion_platform_data *pdata;
-	int ret = 0;
-	int itype = 0;
 	int iheap = 0;
 	struct device_node *child;
 	struct ion_platform_heap *myheap;
-	u32 array[2];
-	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
 
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
 	pdata->nr = of_get_child_count(node);
 again:
 	pdata->heaps = kcalloc(pdata->nr, sizeof(*myheap), GFP_KERNEL);
 	for_each_child_of_node(node, child) {
-		for (itype = 0;
-				itype < ARRAY_SIZE(ion_heap_type_name);
-				itype++) {
-			if (!strcmp(ion_heap_type_name[itype].name,
-							child->name)) {
-				myheap = &pdata->heaps[iheap];
-				pr_debug("%s: heap %p\n", __func__, myheap);
-				myheap->name = child->name;
-				myheap->type = ion_heap_type_name[itype].type;
-				myheap->align = 0x100000;
-				myheap->id = ion_heap_type_name[itype].id;
-				ret = of_property_read_u32_array(child,
-						ION_PROP_HEAP_MEM, array, 2);
-				if (ret) {
-					pr_err("xg_ion Can't read property:%s, skipping node %s\n",
-						ION_PROP_HEAP_MEM, child->name);
-					continue;
-				}
-				myheap->base = array[0];
-				myheap->size = array[1] - 1;
-				pr_info("xg_ion heap %d %s base:0x%08x length:0x%08x\n",
-							iheap, child->name,
-							array[0], array[1]);
-				iheap++;
-			}
-		}
+		iheap += xgold_ion_of_heap(&pdata->heaps[iheap], child);
 	}
 
 	if (pdata->nr != iheap) {
@@ -363,7 +377,7 @@ int xgold_ion_probe(struct platform_device *pdev)
 	/* create the heaps as specified in the board file */
 	for (i = 0; i < pdata->nr; i++) {
 		struct ion_platform_heap *heap_data =  &pdata->heaps[i];
-
+		heap_data->priv = &pdev->dev;
 		heaps[i] = ion_heap_create(heap_data);
 		if (IS_ERR_OR_NULL(heaps[i])) {
 			err = PTR_ERR(heaps[i]);

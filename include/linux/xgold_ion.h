@@ -23,6 +23,7 @@
 #ifndef __KERNEL__
 #include <linux/ion.h>
 #endif
+#include <linux/compat.h>
 
 
 #ifdef __KERNEL__
@@ -46,9 +47,10 @@ enum {
 };
 
 enum {
-	ION_HEAP_TYPE_DISPLAY_CARVEOUT = ION_HEAP_TYPE_CUSTOM,
-	ION_HEAP_TYPE_VIDEO_CARVEOUT,
+	ION_HEAP_TYPE_SECURE = ION_HEAP_TYPE_CUSTOM,
 };
+
+#define ION_HEAP_TYPE_SECURE_MASK	(1 << ION_HEAP_TYPE_SECURE)
 
 #ifdef __KERNEL__
 #ifdef CONFIG_COMPAT
@@ -68,18 +70,13 @@ extern struct xgold_ion_get_params_data __user
 #else
 struct compat_xgold_ion_get_params_data;
 
-extern int compat_put_xgold_ion_custom_data(unsigned int arg, struct
+static inline int compat_put_xgold_ion_custom_data(unsigned int arg, struct
 		xgold_ion_get_params_data __user *data)
 {
 	return 0;
 }
-extern int compat_get_xgold_ion_custom_data(
-	struct compat_xgold_ion_get_params_data __user *data32,
-	struct xgold_ion_get_params_data __user *data)
-{
-	return 0;
-}
-extern struct xgold_ion_get_params_data __user
+
+static inline struct xgold_ion_get_params_data __user
 		*compat_xgold_ion_get_param(unsigned int arg)
 {
 	return NULL;
