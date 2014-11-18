@@ -193,6 +193,7 @@
 /* Registers Contents */
 #define WHOAMI_L3GD20_GYR	(0xD4)  /* Expected content for WAI register*/
 
+
 static int int1_gpio = L3GD20_GYR_DEFAULT_INT1_GPIO;
 static int int2_gpio = L3GD20_GYR_DEFAULT_INT2_GPIO;
 /* module_param(int1_gpio, int, S_IRUGO); */
@@ -648,11 +649,9 @@ static int l3gd20_gyr_enable(struct l3gd20_gyr_status *stat)
 		if (err < 0)
 			return err;
 
-#ifdef POLLING
 		if (stat->polling_enabled)
 			hrtimer_start(&stat->hr_timer, stat->ktime,
 						HRTIMER_MODE_REL);
-#endif
 	}
 
 	return 0;
@@ -666,9 +665,9 @@ static int l3gd20_gyr_disable(struct l3gd20_gyr_status *stat)
 	if (atomic_cmpxchg(&stat->enabled, 1, 0)) {
 		l3gd20_gyr_manage_int1settings(stat, 0);
 		l3gd20_gyr_device_power_off(stat);
-#ifdef POLLING
-		hrtimer_cancel(&stat->hr_timer);
-#endif
+		if (stat->polling_enabled)
+			hrtimer_cancel(&stat->hr_timer);
+
 		dev_dbg(&stat->client->dev, "%s: cancel_hrtimer ", __func__);
 	}
 	return 0;
@@ -737,7 +736,6 @@ static ssize_t attr_enable_store(struct device *dev,
 	return size;
 }
 
-#ifdef POLLING
 static ssize_t attr_polling_mode_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
@@ -763,25 +761,23 @@ static ssize_t attr_polling_mode_store(struct device *dev,
 
 	mutex_lock(&stat->lock);
 	if (val) {
-		stat->polling_enabled = true;
-		l3gd20_gyr_manage_int2settings(stat, stat->fifomode);
+		if (!stat->polling_enabled) {
+			stat->polling_enabled = true;
+			if (atomic_read(&stat->enabled))
+				hrtimer_start(&(stat->hr_timer), stat->ktime,
+						HRTIMER_MODE_REL);
+		}
 		dev_info(dev, "polling mode enabled\n");
-		if (atomic_read(&stat->enabled))
-			hrtimer_start(&(stat->hr_timer), stat->ktime,
-					HRTIMER_MODE_REL);
-
 	} else {
-		if (stat->polling_enabled)
+		if (stat->polling_enabled) {
 			hrtimer_cancel(&stat->hr_timer);
-
-		stat->polling_enabled = false;
-		l3gd20_gyr_manage_int2settings(stat, stat->fifomode);
+			stat->polling_enabled = false;
+		}
 		dev_info(dev, "polling mode disabled\n");
 	}
 	mutex_unlock(&stat->lock);
 	return size;
 }
-#endif
 
 static ssize_t attr_reg_get(struct device *dev,
 			       struct device_attribute *attr, char *buf)
@@ -862,10 +858,8 @@ static struct device_attribute attributes[] = {
 	__ATTR(pollrate_ms, 0666, attr_polling_rate_show,
 						attr_polling_rate_store),
 	__ATTR(enable_device, 0666, attr_enable_show, attr_enable_store),
-#ifdef POLLING
 	__ATTR(enable_polling, 0666, attr_polling_mode_show,
 						attr_polling_mode_store),
-#endif
 	__ATTR(reg, S_IRUGO, attr_reg_get,
 						attr_reg_set),
 };
@@ -1033,7 +1027,6 @@ static void l3gd20_gyr_input_cleanup(struct l3gd20_gyr_status *stat)
 	input_free_device(stat->input_dev);
 }
 
-#ifdef POLLING
 static void poll_function_work(struct work_struct *polling_task)
 {
 	struct l3gd20_gyr_status *stat;
@@ -1063,7 +1056,6 @@ enum hrtimer_restart poll_function_read(struct hrtimer *timer)
 	queue_work(l3gd20_gyr_workqueue, &stat->polling_task);
 	return HRTIMER_NORESTART;
 }
-#endif
 
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 static int l3gd20_set_pm_state(
@@ -1321,11 +1313,6 @@ static int l3gd20_gyr_probe(struct i2c_client *client,
 		goto err0_1;
 	}
 
-#ifdef POLLING
-	hrtimer_init(&stat->hr_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	stat->hr_timer.function = &poll_function_read;
-#endif
-
 	mutex_init(&stat->lock);
 	mutex_lock(&stat->lock);
 	stat->client = client;
@@ -1375,7 +1362,20 @@ static int l3gd20_gyr_probe(struct i2c_client *client,
 	stat->resume_state[RES_CTRL_REG5] = ALL_ZEROES;
 	stat->resume_state[RES_FIFO_CTRL_REG] = ALL_ZEROES;
 
-	stat->polling_enabled = false;
+	if (client->irq > 0 || stat->pdata->gpio_int1 > 0)
+		stat->polling_enabled = false;
+	else {
+		stat->polling_enabled = true;
+		stat->pdata->gpio_int1 = -1;
+	}
+
+	if (stat->polling_enabled) {
+		stat->pdata->gpio_int1 = -1;
+		hrtimer_init(&stat->hr_timer,
+				CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		stat->hr_timer.function = &poll_function_read;
+		INIT_WORK(&stat->polling_task, poll_function_work);
+	}
 
 	if (stat->pdata->gpio_int1 >= 0) {
 		INIT_WORK(&stat->irq1_work, l3gd20_gyr_irq1_work_func);
@@ -1471,9 +1471,6 @@ static int l3gd20_gyr_probe(struct i2c_client *client,
 
 	mutex_unlock(&stat->lock);
 
-#ifdef POLLING
-	INIT_WORK(&stat->polling_task, poll_function_work);
-#endif
 	dev_info(&client->dev, "%s probed successfully\n",
 			L3GD20_GYR_DEV_NAME);
 
