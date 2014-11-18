@@ -5000,6 +5000,8 @@ int cif_isp20_s_ctrl(
 	case CIF_ISP20_CID_AUTO_N_PRESET_WHITE_BALANCE:
 	case CIF_ISP20_CID_SCENE_MODE:
 	case CIF_ISP20_CID_AUTO_FPS:
+	case CIF_ISP20_CID_HFLIP:
+	case CIF_ISP20_CID_VFLIP:
 		return cif_isp20_img_src_s_ctrl(dev->img_src,
 			id, val);
 	default:

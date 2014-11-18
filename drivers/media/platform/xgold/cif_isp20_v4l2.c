@@ -284,54 +284,6 @@ static int cif_isp20_v4l2_cid2cif_isp20_cid(u32 v4l2_cid)
 	return -EINVAL;
 }
 
-#ifdef NOT_YET
-static int cif_isp20_v4l2_cid2v4l2_cid(u32 cif_isp20_cid)
-{
-	switch (cif_isp20_cid) {
-	case CIF_ISP20_CID_FLASH_MODE:
-		return V4L2_CID_FLASH_LED_MODE;
-	case CIF_ISP20_CID_AUTO_GAIN:
-		return V4L2_CID_AUTOGAIN;
-	case CIF_ISP20_CID_AUTO_EXPOSURE:
-		return V4L2_EXPOSURE_AUTO;
-	case CIF_ISP20_CID_AUTO_WHITE_BALANCE:
-		return V4L2_CID_AUTO_WHITE_BALANCE;
-	case CIF_ISP20_CID_BLACK_LEVEL:
-		return V4L2_CID_BLACK_LEVEL;
-	case CIF_ISP20_CID_WB_TEMPERATURE:
-		return V4L2_CID_WHITE_BALANCE_TEMPERATURE;
-	case CIF_ISP20_CID_EXPOSURE_TIME:
-		return V4L2_CID_EXPOSURE;
-	case CIF_ISP20_CID_ANALOG_GAIN:
-		return V4L2_CID_GAIN;
-	case CIF_ISP20_CID_FOCUS_ABSOLUTE:
-		return V4L2_CID_FOCUS_ABSOLUTE;
-	case CIF_ISP20_CID_AUTO_N_PRESET_WHITE_BALANCE:
-		return V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE;
-	case CIF_ISP20_CID_SCENE_MODE:
-		return V4L2_CID_SCENE_MODE;
-	case CIF_ISP20_CID_IMAGE_EFFECT:
-		return V4L2_CID_COLORFX;
-	case CIF_ISP20_CID_JPEG_QUALITY:
-		return V4L2_CID_JPEG_COMPRESSION_QUALITY;
-	case CIF_ISP20_CID_HFLIP:
-		return V4L2_CID_HFLIP;
-	case CIF_ISP20_CID_VFLIP:
-		return V4L2_CID_VFLIP;
-	case CIF_ISP20_CID_ISO_SENSITIVITY:
-		return V4L2_CID_ISO_SENSITIVITY;
-	case CIF_ISP20_CID_AUTO_FPS:
-		return INTEL_V4L2_CID_AUTO_FPS;
-	default:
-		cif_isp20_pltfrm_pr_err(NULL,
-			"unknown/unsupported CIF ISP20 ID %d\n",
-			cif_isp20_cid);
-		break;
-	}
-	return -EINVAL;
-}
-#endif
-
 static enum cif_isp20_image_effect cif_isp20_v4l2_colorfx2cif_isp20_ie(
 	u32 v4l2_colorfx)
 {
