@@ -36,6 +36,8 @@
 #include <linux/sysctl.h>
 #include <linux/input-polldev.h>
 #include <linux/uaccess.h>
+#include <linux/input.h>
+#include <linux/workqueue.h>
 
 #include "mmc3416x.h"
 
@@ -49,6 +51,11 @@
 
 #define MMC3416X_RETRY_COUNT	3
 #define MMC3416X_SET_INTV	250
+
+/** Maximum polled-device-reported g value */
+#define H_MAX			32767
+#define MMC3416X_SENSITIVITY	2048
+#define MMC3416X_OFFSET       32768
 
 #define MMC3416X_DEV_NAME	"mmc3416x"
 
@@ -72,6 +79,14 @@ static struct i2c_client *this_client;
 
 static struct input_polled_dev *ipdev;
 static struct mutex lock;
+
+/* input dev work as polling */
+struct input_dev *input_dev;
+struct delayed_work mmc3416x_work;
+
+int mmc3416x_enabled;
+int need_resume;
+int poll_ms;
 
 static DEFINE_MUTEX(ecompass_lock);
 
@@ -388,6 +403,252 @@ static struct miscdevice mmc3416x_device = {
 	.fops = &mmc3416x_fops,
 };
 
+static void mmc3416x_mag_disable(void)
+{
+	if (mmc3416x_enabled) {
+		mmc3416x_enabled = 0;
+		cancel_delayed_work(&mmc3416x_work);
+	}
+}
+
+static void mmc3416x_mag_enable(void)
+{
+	if (!mmc3416x_enabled) {
+		mmc3416x_enabled = 1;
+		schedule_delayed_work(&mmc3416x_work,
+			msecs_to_jiffies(poll_ms));
+	}
+}
+
+static ssize_t attr_set_polling_rate(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t size)
+{
+	unsigned long interval_ms;
+
+	if (kstrtoul(buf, 10, &interval_ms))
+		return -EINVAL;
+	/* FIXME */
+	if (!interval_ms)
+		return -EINVAL;
+	mutex_lock(&ecompass_lock);
+	poll_ms = interval_ms;
+	mutex_unlock(&ecompass_lock);
+
+	return size;
+}
+
+static ssize_t attr_get_polling_rate(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	int val;
+
+	mutex_lock(&ecompass_lock);
+	val = poll_ms;
+	mutex_unlock(&ecompass_lock);
+	return sprintf(buf, "%d\n", val);
+}
+
+static ssize_t attr_get_enable(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	int ret;
+
+	mutex_lock(&ecompass_lock);
+	ret = sprintf(buf, "%d\n", mmc3416x_enabled);
+	mutex_unlock(&ecompass_lock);
+	return ret;
+}
+
+static ssize_t attr_set_enable(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t size)
+{
+	unsigned long val;
+
+	if (kstrtoul(buf, 10, &val))
+		return -EINVAL;
+
+	if (val)
+		mmc3416x_mag_enable();
+	else
+		mmc3416x_mag_disable();
+
+	dev_info(dev, "sensor %s\n", val ? "enable" : "disable");
+
+	return size;
+}
+
+static struct device_attribute attributes[] = {
+	__ATTR(pollrate_ms, 0666, attr_get_polling_rate, attr_set_polling_rate),
+	__ATTR(enable_device, 0666, attr_get_enable, attr_set_enable),
+};
+
+static int create_sysfs_interfaces(struct device *dev)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(attributes); i++)
+		if (device_create_file(dev, attributes + i))
+			goto error;
+	return 0;
+
+error:
+	for (; i >= 0; i--)
+		device_remove_file(dev, attributes + i);
+	dev_err(dev, "%s:Unable to create interface\n", __func__);
+	return -1;
+}
+
+static int remove_sysfs_interfaces(struct device *dev)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(attributes); i++)
+		device_remove_file(dev, attributes + i);
+	return 0;
+}
+
+static int mmc3416x_get_data(int *xyz)
+{
+	unsigned char data[16] = {0};
+	/* x,y,z hardware data */
+	int raw[3] = { 0 };
+	int hw_d[3] = { 0 };
+
+	if (!(read_idx % MMC3416X_SET_INTV)) {
+		data[0] = MMC3416X_REG_CTRL;
+		data[1] = MMC3416X_CTRL_REFILL;
+		mmc3xxx_i2c_tx_data(data, 2);
+		msleep(MMC3416X_DELAY_RESET);
+		data[0] = MMC3416X_REG_CTRL;
+		data[1] = MMC3416X_CTRL_RESET;
+		mmc3xxx_i2c_tx_data(data, 2);
+		usleep_range(1000, 1100);
+		data[0] = MMC3416X_REG_CTRL;
+		data[1] = 0;
+		mmc3xxx_i2c_tx_data(data, 2);
+		usleep_range(1000, 1100);
+
+		data[0] = MMC3416X_REG_CTRL;
+		data[1] = MMC3416X_CTRL_REFILL;
+		mmc3xxx_i2c_tx_data(data, 2);
+		msleep(MMC3416X_DELAY_SET);
+		data[0] = MMC3416X_REG_CTRL;
+		data[1] = MMC3416X_CTRL_SET;
+		mmc3xxx_i2c_tx_data(data, 2);
+		usleep_range(1000, 1100);
+		data[0] = MMC3416X_REG_CTRL;
+		data[1] = 0;
+		mmc3xxx_i2c_tx_data(data, 2);
+		usleep_range(1000, 1100);
+	}
+	/* send TM cmd before read */
+	data[0] = MMC3416X_REG_CTRL;
+	data[1] = MMC3416X_CTRL_TM;
+	/* not check return value here, assume it always OK */
+	mmc3xxx_i2c_tx_data(data, 2);
+	/* wait TM done for coming data read */
+	msleep(MMC3416X_DELAY_TM);
+	/* read xyz raw data */
+	read_idx++;
+	data[0] = MMC3416X_REG_DATA;
+	if (mmc3xxx_i2c_rx_data(data, 6) < 0) {
+		mutex_unlock(&ecompass_lock);
+		return -EFAULT;
+	}
+	raw[0] = data[1] << 8 | data[0];
+	raw[1] = data[3] << 8 | data[2];
+	raw[2] = data[5] << 8 | data[4];
+	/* axis map */
+	hw_d[0] = ((pdata->negate_x) ? (-raw[pdata->axis_map_x])
+	   : (raw[pdata->axis_map_x]));
+	hw_d[1] = ((pdata->negate_y) ? (-raw[pdata->axis_map_y])
+	   : (raw[pdata->axis_map_y]));
+	hw_d[2] = ((pdata->negate_z) ? (-raw[pdata->axis_map_z])
+	   : (raw[pdata->axis_map_z]));
+	/* data unit is mGaus */
+	xyz[0] = (hw_d[0] - MMC3416X_OFFSET) * 1000 / MMC3416X_SENSITIVITY;
+	xyz[1] = (hw_d[1] - MMC3416X_OFFSET) * 1000 / MMC3416X_SENSITIVITY;
+	xyz[2] = (hw_d[2] - MMC3416X_OFFSET) * 1000 / MMC3416X_SENSITIVITY;
+
+	dev_dbg(&this_client->dev, "x =   %d   y =   %d   z =   %d\n",
+			xyz[0], xyz[1], xyz[2]);
+
+	return 0;
+}
+
+static void mmc3416x_work_func(struct work_struct *work)
+{
+	int xyz[3] = { 0 };
+
+	mutex_lock(&ecompass_lock);
+
+	/* check mmc3416x_enabled staues first */
+	if (mmc3416x_enabled == 0) {
+		mutex_unlock(&ecompass_lock);
+		return;
+	}
+	/* read data */
+	if (mmc3416x_get_data(xyz) < 0)
+		dev_err(&this_client->dev, "get_data failed\n");
+	/* report data */
+	input_report_rel(input_dev, REL_X, xyz[0]);
+	input_report_rel(input_dev, REL_Y, xyz[1]);
+	input_report_rel(input_dev, REL_Z, xyz[2]);
+	input_sync(input_dev);
+
+	schedule_delayed_work(&mmc3416x_work, msecs_to_jiffies(poll_ms));
+	mutex_unlock(&ecompass_lock);
+}
+
+static int mmc3416x_input_init(void)
+{
+	int err = -1;
+
+	INIT_DELAYED_WORK(&mmc3416x_work, mmc3416x_work_func);
+	poll_ms = 200;
+
+	input_dev = input_allocate_device();
+	if (!input_dev) {
+		err = -ENOMEM;
+		dev_err(&this_client->dev, "input device allocate failed\n");
+		goto err0;
+	}
+
+	input_dev->id.bustype = BUS_I2C;
+	input_dev->dev.parent = &this_client->dev;
+
+	input_set_drvdata(input_dev, this_client);
+
+	/*
+	 * Driver use EV_REL event to report data to user space
+	 * instead of EV_ABS. Because EV_ABS event will be ignored
+	 * if current input has same value as former one. which effect
+	 * data smooth
+	 */
+	set_bit(EV_REL, input_dev->evbit);
+	set_bit(REL_X, input_dev->relbit);
+	set_bit(REL_Y, input_dev->relbit);
+	set_bit(REL_Z, input_dev->relbit);
+
+	input_dev->name = "mmc3416x_mag";
+
+	err = input_register_device(input_dev);
+	if (err) {
+		dev_err(&this_client->dev,
+			"unable to register input  device %s\n",
+			input_dev->name);
+		goto err1;
+	}
+
+	return 0;
+
+err1:
+	input_free_device(input_dev);
+err0:
+	return err;
+}
+
+
 
 #ifdef CONFIG_OF
 
@@ -540,7 +801,20 @@ static int mmc3416x_probe(struct i2c_client *client,
 
 	mutex_init(&lock);
 
+	if (mmc3416x_input_init() < 0) {
+		dev_err(&client->dev, "input init failed\n");
+		goto out_deregister;
+	}
+
+	if (create_sysfs_interfaces(&client->dev) < 0) {
+		dev_err(&client->dev, "register failed\n");
+		goto out_sysfs;
+	}
+
+	dev_info(&client->dev, "probe done.\n");
 	return 0;
+out_sysfs:
+	input_free_device(input_dev);
 
 out_deregister:
 	misc_deregister(&mmc3416x_device);
@@ -602,6 +876,8 @@ static int mmc3416x_remove(struct i2c_client *client)
 	misc_deregister(&mmc3416x_device);
 	if (ipdev)
 		input_unregister_polled_device(ipdev);
+	input_free_device(input_dev);
+	remove_sysfs_interfaces(&client->dev);
 
 	return 0;
 }
