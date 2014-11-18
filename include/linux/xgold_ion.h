@@ -24,6 +24,15 @@
 #include <linux/ion.h>
 #endif
 
+
+#ifdef __KERNEL__
+extern struct ion_handle *ion_handle_get_by_id(struct ion_client *client,
+						int id);
+extern int xgold_ion_handler_init(struct device_node *node,
+	struct ion_device *idev);
+extern void xgold_ion_handler_exit(void);
+#endif
+
 struct xgold_ion_get_params_data {
 	int handle;
 	size_t size;
@@ -40,5 +49,42 @@ enum {
 	ION_HEAP_TYPE_DISPLAY_CARVEOUT = ION_HEAP_TYPE_CUSTOM,
 	ION_HEAP_TYPE_VIDEO_CARVEOUT,
 };
+
+#ifdef __KERNEL__
+#ifdef CONFIG_COMPAT
+struct compat_xgold_ion_get_params_data {
+	compat_int_t handle;
+	compat_size_t size;
+	compat_long_t addr;
+};
+
+extern int compat_put_xgold_ion_custom_data(unsigned int arg, struct
+		xgold_ion_get_params_data __user *data);
+extern int compat_get_xgold_ion_custom_data(
+			struct compat_xgold_ion_get_params_data __user *data32,
+			struct xgold_ion_get_params_data __user *data);
+extern struct xgold_ion_get_params_data __user
+		*compat_xgold_ion_get_param(unsigned int arg);
+#else
+struct compat_xgold_ion_get_params_data;
+
+extern int compat_put_xgold_ion_custom_data(unsigned int arg, struct
+		xgold_ion_get_params_data __user *data)
+{
+	return 0;
+}
+extern int compat_get_xgold_ion_custom_data(
+	struct compat_xgold_ion_get_params_data __user *data32,
+	struct xgold_ion_get_params_data __user *data)
+{
+	return 0;
+}
+extern struct xgold_ion_get_params_data __user
+		*compat_xgold_ion_get_param(unsigned int arg)
+{
+	return NULL;
+}
+#endif
+#endif
 
 #endif /* _LINUX_XGOLD_ION_H */

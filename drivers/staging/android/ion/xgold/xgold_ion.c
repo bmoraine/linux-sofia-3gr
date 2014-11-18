@@ -20,6 +20,7 @@
 #include "../ion_priv.h"
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/compat.h>
 
 #include <linux/xgold_ion.h>
 #ifdef CONFIG_X86_INTEL_SOFIA
@@ -29,40 +30,55 @@
 struct ion_mapper *xgold_user_mapper;
 struct ion_heap **heaps;
 
-extern struct ion_handle *ion_handle_get_by_id(struct ion_client *client,
-						int id);
-
-extern int xgold_ion_handler_init(struct device_node *node,
-	struct ion_device *idev);
-extern void xgold_ion_handler_exit(void);
-
-
 static int xgold_ion_get_param(struct ion_client *client,
 					unsigned int cmd,
 					unsigned long arg)
 {
-	struct xgold_ion_get_params_data data;
-	void *user_data;
+	struct xgold_ion_get_params_data *data;
 	struct ion_handle *handle;
 	ion_phys_addr_t paddr;
 	size_t size;
 	struct ion_buffer *buffer;
+	int ret = 0;
 
-	user_data = (void *)arg;
+	if (is_compat_task()) {
+		data = compat_xgold_ion_get_param(arg);
+		if (IS_ERR_OR_NULL(data))
+			return -EFAULT;
+	} else {
+		data = kmalloc(sizeof(struct xgold_ion_get_params_data),
+				GFP_KERNEL);
+		if (!data)
+			return -ENOMEM;
 
-	if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
-		return -EFAULT;
-	handle = ion_handle_get_by_id(client, data.handle);
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			ret = -EFAULT;
+			goto free_data;
+		}
+	}
+
+	handle = ion_handle_get_by_id(client, data->handle);
 	buffer = ion_handle_buffer(handle);
 	ion_phys(client, handle, &paddr, &size);
 	ion_free(client, handle);
-	data.addr = (unsigned int) paddr;
-	data.size = (unsigned int) size;
+	data->addr = paddr;
+	data->size = size;
 
-	if (copy_to_user(user_data, &data, sizeof(data)))
-		return -EFAULT;
+	if (is_compat_task()) {
+		return compat_put_xgold_ion_custom_data(arg, data);
+
+	} else {
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			ret = -EFAULT;
+			goto free_data;
+		}
+		kfree(data);
+	}
 
 	return 0;
+free_data:
+	kfree(data);
+	return ret;
 }
 
 
@@ -71,19 +87,29 @@ static int xgold_ion_alloc_secure(struct ion_client *client,
 	unsigned int cmd,
 	unsigned long arg)
 {
-	struct xgold_ion_get_params_data data;
-	void *user_data;
+	struct xgold_ion_get_params_data *data = NULL;
 	struct device *dev;
-
 	struct vvpu_secvm_cmd vvpu_cmd;
 	int vvpu_ret;
+	int ret = 0;
 
 	dev = ion_struct_device_from_client(client);
+	if (is_compat_task()) {
+		data = compat_xgold_ion_get_param(arg);
+		if (IS_ERR_OR_NULL(data))
+			return -EFAULT;
+	} else {
+		data = kmalloc(sizeof(struct xgold_ion_get_params_data),
+				GFP_KERNEL);
+		if (!data)
+			return -ENOMEM;
 
-	user_data = (void *)arg;
-
-	if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
-		return -EFAULT;
+		if (copy_from_user(data, (void __user *)arg,
+					sizeof(*data))) {
+			ret = -EFAULT;
+			goto free_data;
+		}
+	}
 
 	/* call into secure VM to allocate a secure video buffer */
 	memset(&vvpu_cmd, 0, sizeof(cmd));
@@ -92,7 +118,7 @@ static int xgold_ion_alloc_secure(struct ion_client *client,
 	vvpu_cmd.payload[1] = VVPU_VOP_MEM_ALLOC;
 	vvpu_cmd.payload[2] = 0;
 	vvpu_cmd.payload[3] = 0;
-	vvpu_cmd.payload[4] = data.size;
+	vvpu_cmd.payload[4] = data->size;
 	vvpu_cmd.payload[5] = 0;
 
 	/* execute command */
@@ -101,36 +127,57 @@ static int xgold_ion_alloc_secure(struct ion_client *client,
 	if (vvpu_ret == 0)
 		dev_err(dev, "error allocating secure memory");
 	else {
-		data.size = (unsigned int) vvpu_cmd.payload[4];
-		data.addr = (unsigned int) vvpu_cmd.payload[5];
+		data->size = (unsigned int) vvpu_cmd.payload[4];
+		data->addr = (unsigned int) vvpu_cmd.payload[5];
 
-		dev_info(dev, "ion_alloc_secure() 0x%08lx / %u",
-			data.addr, data.size);
+		dev_info(dev, "ion_alloc_secure() 0x%lx / %zu",
+			data->addr, data->size);
 	}
 
-	if (copy_to_user(user_data, &data, sizeof(data)))
-		return -EFAULT;
+	if (is_compat_task()) {
+		return compat_put_xgold_ion_custom_data(arg, data);
+	} else {
+		if (copy_to_user((void __user *) arg, data, sizeof(*data))) {
+			ret = -EFAULT;
+			goto free_data;
+		}
+
+		kfree(data);
+	}
 
 	return 0;
+
+free_data:
+	kfree(data);
+	return ret;
 }
 
 static int xgold_ion_free_secure(struct ion_client *client,
 	unsigned int cmd,
 	unsigned long arg)
 {
-	struct xgold_ion_get_params_data data;
-	void *user_data;
+	struct xgold_ion_get_params_data *data;
 	struct device *dev;
-
 	struct vvpu_secvm_cmd vvpu_cmd;
 	int vvpu_ret;
+	int ret = 0;
 
 	dev = ion_struct_device_from_client(client);
+	if (is_compat_task()) {
+		data = compat_xgold_ion_get_param(arg);
+		if (IS_ERR_OR_NULL(data))
+			return -EFAULT;
+	} else {
+		data = kmalloc(sizeof(struct xgold_ion_get_params_data),
+				GFP_KERNEL);
+		if (!data)
+			return -ENOMEM;
 
-	user_data = (void *)arg;
-
-	if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
-		return -EFAULT;
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			ret = -EFAULT;
+			goto free_data;
+		}
+	}
 
 	/* call into secure VM to allocate a secure video buffer */
 	memset(&vvpu_cmd, 0, sizeof(cmd));
@@ -139,8 +186,8 @@ static int xgold_ion_free_secure(struct ion_client *client,
 	vvpu_cmd.payload[1] = VVPU_VOP_MEM_FREE;
 	vvpu_cmd.payload[2] = 0;
 	vvpu_cmd.payload[3] = 0;
-	vvpu_cmd.payload[4] = data.size;
-	vvpu_cmd.payload[5] = data.addr;
+	vvpu_cmd.payload[4] = data->size;
+	vvpu_cmd.payload[5] = data->addr;
 
 	/* execute command */
 	vvpu_ret = vvpu_call(dev, &vvpu_cmd);
@@ -149,11 +196,21 @@ static int xgold_ion_free_secure(struct ion_client *client,
 		dev_err(dev, "error freeing secure memory");
 
 	/* leave data.size and data.addr alone */
+	if (is_compat_task()) {
+		return compat_put_xgold_ion_custom_data(arg, data);
 
-	if (copy_to_user(user_data, &data, sizeof(data)))
-		return -EFAULT;
+	} else {
+		if (copy_to_user((void __user *) arg, data, sizeof(*data))) {
+			ret = -EFAULT;
+			goto free_data;
+		}
+		kfree(data);
+	}
 
 	return 0;
+free_data:
+	kfree(data);
+	return ret;
 }
 #endif
 
