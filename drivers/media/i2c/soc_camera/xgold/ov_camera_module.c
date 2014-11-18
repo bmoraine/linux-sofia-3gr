@@ -711,9 +711,16 @@ int ov_camera_module_s_ext_ctrls(
 			ctrl->value);
 			break;
 		case V4L2_CID_HFLIP:
+			if (ctrl->value)
+				cam_mod->hflip = true;
+			else
+				cam_mod->hflip = false;
+			break;
 		case V4L2_CID_VFLIP:
-			/* TBD */
-			/* fallthrough */
+			if (ctrl->value)
+				cam_mod->vflip = true;
+			else
+				cam_mod->vflip = false;
 			break;
 		default:
 			pltfrm_camera_module_pr_warn(&cam_mod->sd,

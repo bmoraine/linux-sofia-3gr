@@ -76,6 +76,10 @@
 #define OV13850_H_WIN_OFF_LOW_REG 0x3811
 #define OV13850_V_WIN_OFF_HIGH_REG 0x3812
 #define OV13850_V_WIN_OFF_LOW_REG 0x3813
+#define OV13850_TIMIMG_20_REG 0x3820
+#define OV13850_TIMIMG_21_REG 0x3821
+
+#define OV13850_FLIP 0x4
 
 /* High byte of product ID */
 #define OV13850_PIDH_MAGIC 0xD8
@@ -1234,6 +1238,49 @@ static int ov13850_write_aec(struct ov_camera_module *cam_mod)
 }
 
 /*--------------------------------------------------------------------------*/
+static int ov13850_flip(struct ov_camera_module *cam_mod)
+{
+	int ret = -EAGAIN;
+
+	if (cam_mod->state == OV_CAMERA_MODULE_SW_STANDBY) {
+		u32 reg_val;
+
+		ret = ov_camera_module_read_reg(cam_mod, 1,
+			OV13850_TIMIMG_20_REG, &reg_val);
+
+		if (!IS_ERR_VALUE(ret)) {
+			if (cam_mod->hflip)
+				reg_val |= OV13850_FLIP;
+			else
+				reg_val &= ~OV13850_FLIP;
+
+			ret = ov_camera_module_write_reg(cam_mod,
+				OV13850_TIMIMG_20_REG,
+				reg_val);
+		}
+
+		ret = ov_camera_module_read_reg(cam_mod, 1,
+			OV13850_TIMIMG_21_REG, &reg_val);
+
+		if (!IS_ERR_VALUE(ret)) {
+			if (cam_mod->vflip)
+				reg_val |= OV13850_FLIP;
+			else
+				reg_val &= ~OV13850_FLIP;
+
+			ret = ov_camera_module_write_reg(cam_mod,
+				OV13850_TIMIMG_21_REG,
+				reg_val);
+		}
+	}
+
+	if (IS_ERR_VALUE(ret))
+		ov_camera_module_pr_err(cam_mod,
+			"failed with error (%d)\n", ret);
+	return ret;
+}
+
+/*--------------------------------------------------------------------------*/
 
 static int ov13850_g_ctrl(struct ov_camera_module *cam_mod, u32 ctrl_id)
 {
@@ -1583,6 +1630,10 @@ static int ov13850_s_ctrl(struct ov_camera_module *cam_mod, u32 ctrl_id)
 	case V4L2_CID_FLASH_LED_MODE:
 		/* nothing to be done here */
 		break;
+	case V4L2_CID_HFLIP:
+	case V4L2_CID_VFLIP:
+		ret = ov13850_flip(cam_mod);
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -1631,6 +1682,9 @@ static int ov13850_start_streaming(struct ov_camera_module *cam_mod)
 	if (IS_ERR_VALUE(ret))
 		goto err;
 	ret = ov13850_write_aec(cam_mod);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+	ret = ov13850_flip(cam_mod);
 	if (IS_ERR_VALUE(ret))
 		goto err;
 	if (IS_ERR_VALUE(ov_camera_module_write_reg(cam_mod, 0x0100, 1)))

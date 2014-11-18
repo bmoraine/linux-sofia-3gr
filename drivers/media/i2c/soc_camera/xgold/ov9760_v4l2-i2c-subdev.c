@@ -71,6 +71,10 @@
 #define OV9760_PLL2_MUL 0x3091
 #define OV9760_PLL2_DIV 0x3092
 #define OV9760_PLL_SELD5 0x3093
+#define OV9760_IMAGE_ORIENTATION_REG 0x0101
+
+#define OV9760_VFLIP 0x2
+#define OV9760_HFLIP 0x1
 
 /* High byte of product ID */
 #define OV9760_PIDH_MAGIC 0x97
@@ -392,6 +396,30 @@ static int ov9760_g_VTS(struct ov_camera_module *cam_mod, u32 *vts)
 	return 0;
 err:
 	ov_camera_module_pr_err(cam_mod,
+			"failed with error (%d)\n", ret);
+	return ret;
+}
+
+/*--------------------------------------------------------------------------*/
+static int ov9760_flip(struct ov_camera_module *cam_mod)
+{
+	int ret = -EAGAIN;
+
+	if (cam_mod->state == OV_CAMERA_MODULE_SW_STANDBY) {
+		u32 reg_val = 0;
+
+		if (cam_mod->hflip)
+			reg_val |= OV9760_HFLIP;
+		if (cam_mod->vflip)
+			reg_val |= OV9760_VFLIP;
+
+		ret = ov_camera_module_write_reg(cam_mod,
+			OV9760_IMAGE_ORIENTATION_REG,
+			reg_val);
+	}
+
+	if (IS_ERR_VALUE(ret))
+		ov_camera_module_pr_err(cam_mod,
 			"failed with error (%d)\n", ret);
 	return ret;
 }
@@ -744,6 +772,10 @@ static int ov9760_s_ctrl(struct ov_camera_module *cam_mod, u32 ctrl_id)
 	case V4L2_CID_EXPOSURE:
 		ret = ov9760_write_aec(cam_mod);
 		break;
+	case V4L2_CID_HFLIP:
+	case V4L2_CID_VFLIP:
+		ret = ov9760_flip(cam_mod);
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -793,6 +825,9 @@ static int ov9760_start_streaming(struct ov_camera_module *cam_mod)
 	if (IS_ERR_VALUE(ret))
 		goto err;
 	ret = ov9760_write_aec(cam_mod);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+	ret = ov9760_flip(cam_mod);
 	if (IS_ERR_VALUE(ret))
 		goto err;
 	if (IS_ERR_VALUE(ov_camera_module_write_reg(cam_mod, 0x0100, 1)))
