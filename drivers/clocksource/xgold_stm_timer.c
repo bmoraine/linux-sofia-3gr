@@ -273,6 +273,7 @@ cycle_t xgold_stm_clock_source_read(struct clocksource *cs)
 	ptime2[1] = ioread32(stm_hw_base + REG_STM_CAP_OFFSET);
 	return ull_time2;
 }
+EXPORT_SYMBOL(xgold_stm_clock_source_read);
 
 static void xgold_stm_evt_suspend(struct clock_event_device *evt)
 {
