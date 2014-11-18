@@ -30,6 +30,7 @@
 struct ion_cma_heap {
 	struct ion_heap heap;
 	struct device *dev;
+	struct cma *cma_area;
 };
 
 #define to_cma_heap(x) container_of(x, struct ion_cma_heap, heap)
@@ -69,6 +70,9 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	struct ion_cma_buffer_info *info;
 
 	dev_dbg(dev, "Request buffer allocation len %ld\n", len);
+
+	/* set cma_area */
+	dev_set_cma_area(dev, cma_heap->cma_area);
 
 	if (align > PAGE_SIZE)
 		return -EINVAL;
@@ -131,6 +135,8 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
 	dev_dbg(dev, "Release buffer %p\n", buffer);
+	/* set cma_area */
+	dev_set_cma_area(dev, cma_heap->cma_area);
 	/* release memory */
 #ifdef CONFIG_X86
 	dma_free_writecombine(dev, buffer->size, info->cpu_addr, info->handle);
@@ -181,6 +187,8 @@ static int ion_cma_mmap(struct ion_heap *mapper, struct ion_buffer *buffer,
 	struct device *dev = cma_heap->dev;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
+	/* set cma_area */
+	dev_set_cma_area(dev, cma_heap->cma_area);
 #ifdef CONFIG_X86
 	if (buffer->flags & ION_FLAG_CACHED)
 		return dma_mmap_writeback(dev, vma, info->cpu_addr,
@@ -222,6 +230,7 @@ static struct ion_heap_ops ion_cma_ops = {
 struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 {
 	struct ion_cma_heap *cma_heap;
+	struct device *dev = NULL;
 
 	cma_heap = kzalloc(sizeof(struct ion_cma_heap), GFP_KERNEL);
 
@@ -232,6 +241,11 @@ struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 	/* get device from private heaps data, later it will be
 	 * used to make the link with reserved CMA memory */
 	cma_heap->dev = data->priv;
+	dev = cma_heap->dev;
+
+	/* register cma area linked to this heap */
+	cma_heap->cma_area = data->priv2;
+
 	cma_heap->heap.type = ION_HEAP_TYPE_DMA;
 	return &cma_heap->heap;
 }

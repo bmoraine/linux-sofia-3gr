@@ -57,6 +57,7 @@ struct ion_platform_heap {
 	size_t size;
 	ion_phys_addr_t align;
 	void *priv;
+	void *priv2;
 };
 
 /**
