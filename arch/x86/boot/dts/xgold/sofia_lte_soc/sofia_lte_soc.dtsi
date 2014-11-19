@@ -364,7 +364,8 @@
 						/* QUIRK1_HOST_CLOCK_BASE_BROKEN: bit25 */
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_WA_LNP: bit22 */
-						intel,quirks = < 0x2000000 0x404008 >;
+						/* QUIRK2_HOST_EXEC_TUNING_WA: bit23 */
+						intel,quirks = < 0x2000000 0xc00008 >;
 						intel,io-access-guest;
 						pm_ctrl{
 							pm,class-name = "mmcsd_volt_class";
