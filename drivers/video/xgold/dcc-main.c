@@ -369,7 +369,7 @@ static int dcc_fb_pan_display(struct fb_var_screeninfo *var,
 			dcc_get_fb_fmt(gradata),/* format */
 			0, DCC_UPDATE_ONESHOT_SYNC);
 		wmb();
-		ret = dcc_rq_update(gradata, &r);
+		ret = dcc_rq_update(gradata, &r, 0);
 	}
 	up(&gradata->sem);
 	return ret;
@@ -399,7 +399,7 @@ static int dcc_fb_blank(int blank, struct fb_info *info)
 	sprite_confx |= BITFLDS(INR_DIF_CONF_BACK, !!blank);
 	gra_write_field(gradata, INR_DIF_CONF, sprite_confx);
 
-	ret = dcc_rq_update(gradata, &r);
+	ret = dcc_rq_update(gradata, &r, 0);
 
 	up(&gradata->sem);
 	return ret;
@@ -705,7 +705,7 @@ long dcc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (copy_from_user(&r, (void __user *)arg, sizeof(r)))
 				return -EFAULT;
 
-			err = dcc_rq_update(pdata, &r);
+			err = dcc_rq_update(pdata, &r, 0);
 		}
 		break;
 

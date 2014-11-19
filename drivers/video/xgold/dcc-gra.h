@@ -37,7 +37,8 @@ enum {
 /* RQ Processing */
 void dcc_config_reset(struct dcc_drvdata *p);
 int dcc_rq_convert(struct dcc_drvdata *p, struct dcc_rq_t *rq);
-int dcc_rq_update(struct dcc_drvdata *p, struct dcc_rect_t *r);
+int dcc_rq_update(struct dcc_drvdata *p, struct dcc_rect_t *r,
+		unsigned int pbase_yuv);
 int dcc_rq_acquire_and_compose(struct dcc_drvdata *p,
 		struct dcc_update_layers *updt, int updt_pt);
 int dcc_rq_fillrectangle(struct dcc_drvdata *p, struct dcc_rect_t *r);
@@ -55,8 +56,6 @@ int dcc_overlay_off(struct dcc_drvdata *p);
 void dcc_format_set_convertmatrix(struct dcc_drvdata *p,
 		int sfmt, int dfmt, int force);
 void dcc_hwreset(struct dcc_drvdata *p);
-void dcc_update(struct dcc_drvdata *p, struct x_rect_t *rect,
-		unsigned int alpha);
 void dcc_bootscreen(struct dcc_drvdata *p);
 void dcc_clearscreen(struct dcc_drvdata *p);
 void dcc_bootlogo(struct dcc_drvdata *p);

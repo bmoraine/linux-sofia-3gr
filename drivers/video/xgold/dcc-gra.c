@@ -274,7 +274,7 @@ static void dcc_getcbcr_offsets(int *cb_off, int *cr_off, int fmt, int w, int h)
 #define DIF_SPRITE_SIZE_SET(_w_, _h_, _a_, _g_) (\
 	BITFLDS(INR_DIF_SPRITE_SIZE0_WIDTH, _w_) | \
 	BITFLDS(INR_DIF_SPRITE_SIZE0_HEIGHT, _h_) | \
-	BITFLDS(INR_DIF_SPRITE_SIZE0_WIDTHMSB, (_w_>>9)) | \
+	BITFLDS(INR_DIF_SPRITE_SIZE0_WIDTHMSB, (_w_>>10)) | \
 	BITFLDS(INR_DIF_SPRITE_SIZE0_ALPHA, _a_) | \
 	BITFLDS(INR_DIF_SPRITE_SIZE0_GLOBAL, _g_))
 
@@ -543,7 +543,7 @@ static int dcc_setalpha(struct dcc_drvdata *p, unsigned int alpha)
 	return 0;
 }
 
-static int dcc_conf_back(struct dcc_drvdata *p, int backen)
+static int dcc_dif_conf_set(struct dcc_drvdata *p, int backen, int yuv)
 {
 	int ret = 0;
 	unsigned int difconf = 0;
@@ -551,6 +551,11 @@ static int dcc_conf_back(struct dcc_drvdata *p, int backen)
 	gra_read_field(p, INR_DIF_CONF, &difconf);
 	difconf &= ~BITFLDS(INR_DIF_CONF_BACK, 1);
 	difconf |= BITFLDS(INR_DIF_CONF_BACK, !!backen);
+
+	/* SMS06203470 (not mandatory from SoFIA LTE Es2.0) */
+	difconf &= ~BITFLDS(INR_DIF_CONF_DEST, 1);
+	difconf |= BITFLDS(INR_DIF_CONF_DEST, yuv ? 1 : 0);
+	/* SMS06203470 - end */
 	ret = gra_write_field(p, INR_DIF_CONF, difconf);
 	return ret;
 }
@@ -806,40 +811,44 @@ exit:
 	return err;
 }
 
-void dcc_update(struct dcc_drvdata *p, struct x_rect_t *r, unsigned int alpha)
+static void dcc_update(struct dcc_drvdata *p, struct x_rect_t *r,
+			unsigned int alpha, unsigned int pbase_yuv)
 {
 	/* prepare update */
-	dcc_conf_back(p, DCC_UPDATE_NOBG_GET(r->flags));
+	dcc_dif_conf_set(p, DCC_UPDATE_NOBG_GET(r->flags), !!pbase_yuv);
 
 	if (p->display_autorefresh)
 		DCC_UPDATE_MODE_SET(r->flags, DCC_UPDATE_CONTINOUS);
 
 	if (DCC_UPDATE_MODE_GET(r->flags) == DCC_UPDATE_ONESHOT_SYNC) {
-		uint32_t paramssc[6] = { alpha, 0x5, r->x, r->y, X2(r), Y2(r) };
+		uint32_t paramssc[7] = {
+				alpha, 0x5, r->x, r->y, X2(r), Y2(r), 0 };
 
 		if (p->display.frame_prepare)
 			p->display.frame_prepare(&p->display,
 					(dcc_get_display_w(p) * 3) / 2,
 					2 * dcc_get_display_h(p));
 
-		gra_sendcmd(p, GRACMD_SCHEDULE_UPDATE, 0, paramssc, 6);
+		gra_sendcmd(p, GRACMD_SCHEDULE_UPDATE, 0, paramssc, 7);
 		if (p->display.frame_wfe)
 			p->display.frame_wfe(&p->display);
 
 	} else if (DCC_UPDATE_MODE_GET(r->flags) == DCC_UPDATE_ONESHOT_ASYNC) {
-		uint32_t paramssc[6] = { alpha, 0x5, r->x, r->y, X2(r), Y2(r) };
+		uint32_t paramssc[7] = {
+				alpha, 0x5, r->x, r->y, X2(r), Y2(r), 0 };
 
 		if (p->display.frame_prepare)
 			p->display.frame_prepare(&p->display,
 					(dcc_get_display_w(p) * 3) / 2,
 					2 * dcc_get_display_h(p));
 
-		gra_sendcmd(p, GRACMD_SCHEDULE_UPDATE, 0, paramssc, 6);
+		gra_sendcmd(p, GRACMD_SCHEDULE_UPDATE, 0, paramssc, 7);
 
 	} else if (DCC_UPDATE_MODE_GET(r->flags) == DCC_UPDATE_CONTINOUS) {
-		uint32_t paramssc[6] = { alpha, 0x6, r->x, r->y, X2(r), Y2(r) };
+		uint32_t paramssc[7] = {
+			alpha, 0x6, r->x, r->y, X2(r), Y2(r), pbase_yuv };
 
-		gra_sendcmd(p, GRACMD_SCHEDULE_UPDATE, 0, paramssc, 6);
+		gra_sendcmd(p, GRACMD_SCHEDULE_UPDATE, 0, paramssc, 7);
 		dcc_dsi_start_video(&p->display);/* TEMP PATCH SMS05120496 */
 	}
 }
@@ -854,15 +863,15 @@ void dcc_bootscreen(struct dcc_drvdata *p)
 	dcc_set_framebuffer(p, p->mem.pbase, dcc_get_display_w(p));
 
 	dcc_fillrectangle(p, 0xFF0000FF, &r);
-	dcc_update(p, &r, 0);
+	dcc_update(p, &r, 0, 0);
 
 	mdelay(p->test.bootscreen_msdelay);
 	dcc_fillrectangle(p, 0xFF00FF00, &r);
-	dcc_update(p, &r, 0);
+	dcc_update(p, &r, 0, 0);
 
 	mdelay(p->test.bootscreen_msdelay);
 	dcc_fillrectangle(p, 0xFFFF0000, &r);
-	dcc_update(p, &r, 0);
+	dcc_update(p, &r, 0, 0);
 
 	mdelay(p->test.bootscreen_msdelay);
 	DCC_DBGT("<-- Bootscreen test passed\n");
@@ -881,7 +890,7 @@ void dcc_clearscreen(struct dcc_drvdata *p)
 	else
 		DCC_UPDATE_NOBG_SET(r.flags, 1); /* black screen */
 
-	dcc_update(p, &r, 0xFF);
+	dcc_update(p, &r, 0xFF, 0);
 }
 
 void dcc_clearvideomem(struct dcc_drvdata *p)
@@ -1134,6 +1143,47 @@ static int dcc_drawimage(struct dcc_drvdata *p,
 	return 0;
 }
 
+static int dcc_cfg_video(struct dcc_drvdata *p,
+		struct x_area_t *sarea,
+		struct x_rect_t *swin,
+		struct x_rect_t *drect,
+		unsigned int srcaddr, int flag, int alpha)
+{
+	uint32_t scalex = NO_RESCALING;
+	uint32_t scaley = NO_RESCALING;
+	unsigned int cr_off = 0, cb_off = 0;
+
+	dcc_format_set_convertmatrix(p, sarea->fmt, drect->fmt, 0);
+
+	/* Compute scale ratio on X and Y axis */
+	if ((swin == NULL)
+	    && ((sarea->w != drect->w) || (sarea->h != drect->h))) {
+		scalex = scaling_factor_int(sarea->w, drect->w);
+		scaley = scaling_factor_int(sarea->h, drect->h);
+	} else if (swin) {
+		if ((swin->w != drect->w) || (swin->h != drect->h)) {
+			scalex = scaling_factor_int(swin->w, drect->w);
+			scaley = scaling_factor_int(swin->h, drect->h);
+		}
+	} else {
+		dcc_err("swin is null\n");
+	}
+
+	/* check constraints */
+	DCC_CHECK((srcaddr & 0x3) == 0,
+		  "src adress(0x%08x) is not dividable by 4 !!", srcaddr);
+	DCC_CHECK(scalex <= 0xFFFF, "scaleX factor(0x%08x) overflow !!",
+		  scalex);
+	DCC_CHECK(scaley <= 0xFFFF, "scaleY factor(0x%08x) overflow !!",
+		  scaley);
+
+	/* Compute Cr and Cb offsets if needed */
+	dcc_getcbcr_offsets(&cb_off, &cr_off, sarea->fmt, sarea->w, sarea->h);
+	dcc_setsrcformat(p, 0, sarea->fmt, drect->fmt, cr_off, cb_off);
+	dcc_setsrcimage(p, sarea, swin, scalex, scaley);
+	return 0;
+}
+
 int dcc_bitblit(struct dcc_drvdata *p,
 		struct x_rect_t *r, unsigned int srcaddr)
 {
@@ -1226,7 +1276,8 @@ int dcc_rq_convert(struct dcc_drvdata *p,
 	return 0;
 }
 
-int dcc_rq_update(struct dcc_drvdata *p, struct dcc_rect_t *ru)
+int dcc_rq_update(struct dcc_drvdata *p, struct dcc_rect_t *ru,
+		unsigned int pbase_yuv)
 {
 	struct x_rect_t rk;
 
@@ -1241,7 +1292,8 @@ int dcc_rq_update(struct dcc_drvdata *p, struct dcc_rect_t *ru)
 			ru->phys, rk.x, rk.y, rk.w, rk.h,
 			dcc_format_name(ru->fmt), rk.flags);
 		dcc_set_framebuffer(p, ru->phys, ru->fbwidth);
-		dcc_update(p, &rk, (ru->color >> 24) & 0xFF);
+		dcc_update(p, &rk, (ru->color >> 24) & 0xFF,
+				pbase_yuv);
 	} else {
 		struct x_area_t sarea;
 		AREA_INIT(sarea, ru->w, ru->h, ru->fmt);
@@ -1311,8 +1363,9 @@ static int dcc_rq_compose(struct dcc_drvdata *p,
 {
 	struct dcc_rect_t ru;
 	struct dcc_sprite_t spr;
-	unsigned int global_ovl_status = 0;
-	int ret = 0, ovl_draw = -1, l_id = 0, ovl_id;
+	unsigned int pbase_yuv = 0;
+	int ret = 0, global_ovl_status = 0, l_id = 0, ovl_id;
+	struct dcc_layer_ovl *lyuv = NULL;
 	struct dcc_layer_ovl *l = &updt->ovls[l_id];
 
 	DCC_DBG2("compose --> BACK @ 0x%x %s\n",
@@ -1335,6 +1388,9 @@ static int dcc_rq_compose(struct dcc_drvdata *p,
 			/* use this overlay for current layer
 			 * and go to next one */
 			dcc_set_overlay(&spr, l, ovl_id, l_id);
+			/* register yuv layer */
+			if (IS_DCC_FMT_YUV(l->fmt))
+				lyuv = l;
 			l_id++;
 			l = &updt->ovls[l_id];
 			global_ovl_status = 1;
@@ -1356,38 +1412,33 @@ static int dcc_rq_compose(struct dcc_drvdata *p,
 		l_id++;
 	}
 
-	if (ovl_draw >= 0) {
+	if (lyuv) {
+		/* configure video related registers */
 		struct x_rect_t dr, swin;
 		struct x_area_t sarea;
-		struct dcc_layer_ovl *l = &updt->ovls[ovl_draw];
 
-		AREA_INIT(sarea, updt->back.src.w, updt->back.src.h,
-				updt->back.fmt);
-		RECT_INIT(swin, l->src.x, l->src.y, l->src.w, l->src.h,
+		AREA_INIT(sarea, lyuv->src.w, lyuv->src.h,
+				lyuv->fmt);
+		RECT_INIT(swin, lyuv->src.x, lyuv->src.y,
+				lyuv->src.w, lyuv->src.h,
 				l->fmt, 0);
-		RECT_INIT(dr, l->dst.x, l->dst.y, l->dst.w, l->dst.h,
+		RECT_INIT(dr, lyuv->dst.x, lyuv->dst.y,
+				lyuv->dst.w, lyuv->dst.h,
 				dcc_get_fb_fmt(p), 0);
 
-		DCC_DBG2("draw[%dx%d](%d,%d)%dx%d @0x%x %s-> (%d,%d)%dx%d %s\n",
-				sarea.w, sarea.h,
-				swin.x, swin.y, swin.w, swin.h, updt->back.phys,
-				dcc_format_name(swin.fmt),
-				dr.x, dr.y, dr.w, dr.h,
-				dcc_format_name(dr.fmt));
-		dcc_set_framebuffer(p, updt->back.phys, updt->back.src.w);
-		dcc_setdrawimagedest(p, DCC_DEST_DRAW2DISP);
-		dcc_drawimage(p, &sarea, &swin, &dr, updt->back.phys, 0, 0xFF);
-		dcc_setdrawimagedest(p, DCC_DEST_DRAW2MEM);
-		p->debug.frame_update_number++;
-	} else {
-		/* set up FB */
-		DCC_INIT_RECT(ru, updt->back.phys, updt->back.stride,
-				updt->back.src.x, updt->back.src.y,
-				updt->back.src.w, updt->back.src.h,
-				updt->back.fmt,	0, updt->flags);
+		pbase_yuv = lyuv->phys;
 
-		ret = dcc_rq_update(p, &ru);
+		dcc_cfg_video(p, &sarea, &swin, &dr, updt->back.phys, 0, 0xFF);
 	}
+
+	/* set up FB */
+	DCC_INIT_RECT(ru, updt->back.phys, updt->back.stride,
+			updt->back.src.x, updt->back.src.y,
+			updt->back.src.w, updt->back.src.h,
+			updt->back.fmt,	0, updt->flags);
+
+	ret = dcc_rq_update(p, &ru, pbase_yuv);
+
 	down(&p->update_sem);
 	p->update_pt_curr = update_pt;
 	up(&p->update_sem);

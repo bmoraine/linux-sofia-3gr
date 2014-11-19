@@ -1214,11 +1214,17 @@ int gra_sendcmd(struct dcc_drvdata *p, unsigned int opcode,
 
 	case GRACMD_SCHEDULE_UPDATE: /* Schedule update command opcode */
 		cmdbuf[0] =
-		    ((params[1] & 0x7) << 16) | ((params[0] & 0xFF) << 8) |
+		    ((!!params[6]) << 19) |
+		    ((params[1] & 0x7) << 16) |
+		    ((params[0] & 0xFF) << 8) |
 		    CMDHEADER(iten, opcode);
 		cmdbuf[1] = COORDINATES(params[3], params[2]);
 		cmdbuf[2] = COORDINATES(params[5], params[4]);
-		cmdbufwords = 3;
+		if (params[6]) {
+			cmdbuf[3] = params[6];
+			cmdbufwords = 4;
+		} else
+			cmdbufwords = 3;
 		break;
 
 	case GRACMD_SWITCH_UPDATE: /* Switch update command opcode */
