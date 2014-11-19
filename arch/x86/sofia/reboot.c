@@ -60,6 +60,12 @@ static void next_mode_transition(enum boot_mode *next_mode, char *reason)
 			*next_mode, reason);
 }
 
+static void deferred_reboot(struct work_struct *dummy)
+{
+	kernel_restart(NULL);
+}
+
+static DECLARE_WORK(reboot_work, deferred_reboot);
 static void reboot_sysconf_hdl(void *dev, NkXIrq xirq)
 {
 	struct vmm_shared_data *data;
@@ -69,7 +75,7 @@ static void reboot_sysconf_hdl(void *dev, NkXIrq xirq)
 		if (!is_blocking) {
 			TRACE("This reboot triggered by other OS\n");
 			is_linux_reboot = false;
-			kernel_restart(NULL);
+			schedule_work(&reboot_work);
 		}
 	}
 }
