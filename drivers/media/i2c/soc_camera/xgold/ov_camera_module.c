@@ -24,6 +24,7 @@
 
 #include "ov_camera_module.h"
 
+
 static struct ov_camera_module *to_ov_camera_module(struct v4l2_subdev *sd)
 {
 	return container_of(sd, struct ov_camera_module, sd);
@@ -620,11 +621,13 @@ int ov_camera_module_s_ext_ctrls(
 	int ctrl_cnt = 0;
 	struct ov_camera_module *cam_mod =  to_ov_camera_module(sd);
 	int ret = 0;
+	char *flash_driver = NULL;
 
 	pltfrm_camera_module_pr_debug(&cam_mod->sd, "\n");
-
 	if (ctrls->count == 0)
 		return -EINVAL;
+
+	flash_driver = pltfrm_camera_module_get_flash_driver_name(sd);
 
 	for (i = 0; i < ctrls->count; i++) {
 		struct v4l2_ext_control *ctrl;
@@ -641,8 +644,15 @@ int ov_camera_module_s_ext_ctrls(
 			ctrl->value);
 			break;
 		case V4L2_CID_FLASH_LED_MODE:
-			if (ctrl->value ==
-				V4L2_FLASH_LED_MODE_NONE) {
+			if (ctrl->value == V4L2_FLASH_LED_MODE_NONE) {
+				if (!strcmp(flash_driver, "FP6773C")) {
+					pltfrm_camera_module_set_pin_state(
+					sd,
+					PLTFRM_CAMERA_MODULE_PIN_TORCH,
+					PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE
+					);
+					}
+				else {
 				if (cam_mod->exp_config.flash_mode ==
 					V4L2_FLASH_LED_MODE_FLASH)
 					pltfrm_camera_module_set_pin_state(
@@ -657,18 +667,39 @@ int ov_camera_module_s_ext_ctrls(
 					PLTFRM_CAMERA_MODULE_PIN_TORCH,
 					PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE
 					);
+				}
 			} else if (ctrl->value ==
-				V4L2_FLASH_LED_MODE_FLASH) {
+					V4L2_FLASH_LED_MODE_FLASH) {
 				pltfrm_camera_module_set_pin_state(
 					sd,
 					PLTFRM_CAMERA_MODULE_PIN_FLASH,
-					PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
-			} else if (ctrl->value ==
-				V4L2_FLASH_LED_MODE_TORCH)
-				pltfrm_camera_module_set_pin_state(
+					PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE
+					);
+				if (!strcmp(flash_driver, "FP6773C")) {
+					pltfrm_camera_module_set_pin_state(
 					sd,
 					PLTFRM_CAMERA_MODULE_PIN_TORCH,
 					PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
+				} else {
+					pltfrm_camera_module_set_pin_state(
+					sd,
+					PLTFRM_CAMERA_MODULE_PIN_TORCH,
+					PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE
+					);
+					}
+			} else if (ctrl->value ==
+					V4L2_FLASH_LED_MODE_TORCH) {
+					pltfrm_camera_module_set_pin_state(
+					sd,
+					PLTFRM_CAMERA_MODULE_PIN_FLASH,
+					PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE
+					);
+					pltfrm_camera_module_set_pin_state(
+					sd,
+					PLTFRM_CAMERA_MODULE_PIN_TORCH,
+					PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE
+					);
+					}
 			cam_mod->exp_config.flash_mode = ctrl->value;
 			pltfrm_camera_module_pr_debug(&cam_mod->sd,
 				"V4L2_CID_FLASH_LED_MODE %d\n",

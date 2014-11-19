@@ -63,6 +63,7 @@ struct pltfrm_camera_module_data {
 	struct pinctrl_state *pins_inactive;
 	struct device_pm_platdata *pm_platdata;
 	struct v4l2_subdev *af_ctrl;
+	const char *flash_driver_name;
 };
 
 /* ======================================================================== */
@@ -159,6 +160,19 @@ static struct pltfrm_camera_module_data *pltfrm_camera_module_get_data(
 	}
 
 	client->dev.platform_data = pdata;
+
+	ret = of_property_read_string(np, "intel.flash-driver",
+			&pdata->flash_driver_name);
+	if (ret) {
+		pltfrm_camera_module_pr_warn(sd,
+				"cannot not get flash-driver property of node %s\n",
+				np->name);
+		pdata->flash_driver_name = "0";
+		} else {
+		pltfrm_camera_module_pr_info(sd,
+			"camera module flash driver is %s\n",
+			(char *)pdata->flash_driver_name);
+		}
 
 	af_ctrl_node = of_parse_phandle(np, "intel,af-ctrl", 0);
 	if (!IS_ERR_OR_NULL(af_ctrl_node)) {
@@ -869,6 +883,16 @@ struct v4l2_subdev *pltfrm_camera_module_get_af_ctrl(
 		dev_get_platdata(&client->dev);
 
 	return pdata->af_ctrl;
+}
+
+char *pltfrm_camera_module_get_flash_driver_name(
+	struct v4l2_subdev *sd)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct pltfrm_camera_module_data *pdata =
+		dev_get_platdata(&client->dev);
+
+	return (char *)pdata->flash_driver_name;
 }
 
 int pltfrm_camera_module_patch_config(

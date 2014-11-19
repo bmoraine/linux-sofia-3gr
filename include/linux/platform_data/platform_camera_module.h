@@ -61,6 +61,9 @@ int pltfrm_camera_module_patch_config(
 struct v4l2_subdev *pltfrm_camera_module_get_af_ctrl(
 	struct v4l2_subdev *sd);
 
+char *pltfrm_camera_module_get_flash_driver_name(
+	struct v4l2_subdev *sd);
+
 int pltfrm_camera_module_init(
 	struct v4l2_subdev *sd,
 	void **pldata);
