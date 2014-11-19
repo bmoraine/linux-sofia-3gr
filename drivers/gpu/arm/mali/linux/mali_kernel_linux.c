@@ -1,3 +1,14 @@
+/*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Nov 18 2014: IMC: Adapt SoFIA hooks to use CONFIG_MALI_DT
+ * Jun 02 2014: IMC: Change hooks to platform adaption to use platform_device
+ *                   Add hooks for platform runtime pm
+ * May 19 2014: IMC: Set default debug level to 1
+ * Mar 14 2014: IMC: Add basic DTS support for SoFIA
+ */
+
 /**
  * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
  * 
@@ -49,6 +60,8 @@ static int is_first_resume = 1;
 static struct mali_gpu_clk_item mali_gpu_clk[2];
 #endif
 
+#include <xgold/platform.h>
+
 /* Streamline support for the Mali driver */
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_MALI400_PROFILING)
 /* Ask Linux to create the tracepoints */
@@ -64,7 +77,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(mali_sw_counters);
 extern const char *__malidrv_build_info(void);
 
 /* Module parameter to control log level */
-int mali_debug_level = 2;
+int mali_debug_level = 1;
 module_param(mali_debug_level, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
 MODULE_PARM_DESC(mali_debug_level, "Higher number, more dmesg output");
 
@@ -374,6 +387,14 @@ int mali_module_init(void)
 	mali_init_cpu_time_counters_on_all_cpus(1);
 #endif
 
+	/* Patch for SoFIA */
+	err = mali_platform_init();
+	if (err) {
+		MALI_PRINT_ERROR(("mali_platform_init() failed!\n"));
+		return -EINVAL;
+	}
+	/* End of patch */
+
 	/* Initialize module wide settings */
 #ifdef MALI_FAKE_PLATFORM_DEVICE
 #ifndef CONFIG_MALI_DT
@@ -547,7 +568,20 @@ static void mali_miscdevice_unregister(void)
 
 static int mali_driver_suspend_scheduler(struct device *dev)
 {
+	int err;
+	struct platform_device *pdev;
+
 	mali_pm_os_suspend(MALI_TRUE);
+
+	/* Patch for SoFIA */
+	pdev = to_platform_device(dev);
+	err = mali_platform_suspend(pdev);
+	if (err) {
+		MALI_PRINT_ERROR(("mali_platform_suspend() failed!\n"));
+		return -EINVAL;
+	}
+	/* End of patch */
+
 	/* Tracing the frequency and voltage after mali is suspended */
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 				      MALI_PROFILING_EVENT_CHANNEL_GPU |
@@ -560,6 +594,18 @@ static int mali_driver_suspend_scheduler(struct device *dev)
 
 static int mali_driver_resume_scheduler(struct device *dev)
 {
+	int err;
+	struct platform_device *pdev;
+
+	/* Patch for SoFIA */
+	pdev = to_platform_device(dev);
+	err = mali_platform_resume(pdev);
+	if (err) {
+		MALI_PRINT_ERROR(("mali_platform_resume() failed!\n"));
+		return -EINVAL;
+	}
+	/* End of patch */
+
 	/* Tracing the frequency and voltage after mali is resumed */
 #if defined(CONFIG_MALI400_PROFILING) && defined(CONFIG_MALI_DVFS)
 	/* Just call mali_get_current_gpu_clk_item() once,to record current clk info.*/
@@ -581,7 +627,19 @@ static int mali_driver_resume_scheduler(struct device *dev)
 #ifdef CONFIG_PM_RUNTIME
 static int mali_driver_runtime_suspend(struct device *dev)
 {
+	int err;
+	struct platform_device *pdev;
+
 	if (MALI_TRUE == mali_pm_runtime_suspend()) {
+		/* Patch for SoFIA */
+		pdev = to_platform_device(dev);
+		err = mali_platform_runtime_suspend(pdev);
+		if (err) {
+			MALI_PRINT_ERROR(("mali_platform_runtime_suspend() failed!\n"));
+			return -EINVAL;
+		}
+		/* End of patch */
+
 		/* Tracing the frequency and voltage after mali is suspended */
 		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 					      MALI_PROFILING_EVENT_CHANNEL_GPU |
@@ -598,6 +656,18 @@ static int mali_driver_runtime_suspend(struct device *dev)
 
 static int mali_driver_runtime_resume(struct device *dev)
 {
+	int err;
+	struct platform_device *pdev;
+
+	/* Patch for SoFIA */
+	pdev = to_platform_device(dev);
+	err = mali_platform_runtime_resume(pdev);
+	if (err) {
+		MALI_PRINT_ERROR(("mali_platform_runtime_resume() failed!\n"));
+		return -EINVAL;
+	}
+	/* End of patch */
+
 	/* Tracing the frequency and voltage after mali is resumed */
 #if defined(CONFIG_MALI400_PROFILING) && defined(CONFIG_MALI_DVFS)
 	/* Just call mali_get_current_gpu_clk_item() once,to record current clk info.*/
@@ -619,6 +689,18 @@ static int mali_driver_runtime_resume(struct device *dev)
 
 static int mali_driver_runtime_idle(struct device *dev)
 {
+	int err;
+	struct platform_device *pdev;
+
+	/* Patch for SoFIA */
+	pdev = to_platform_device(dev);
+	err = mali_platform_runtime_idle(pdev);
+	if (err) {
+		MALI_PRINT_ERROR(("mali_platform_runtime_idle() failed!\n"));
+		return -EINVAL;
+	}
+	/* End of patch */
+
 	/* Nothing to do */
 	return 0;
 }

@@ -1,4 +1,11 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Mar 14 2014: IMC: Add missing include for Kernel 3.10
+ */
+
+/*
  * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
@@ -11,6 +18,7 @@
 #include "mali_memory.h"
 #include "mali_memory_block_alloc.h"
 #include "mali_osk.h"
+#include <linux/dma-mapping.h>
 #include <linux/mutex.h>
 #define MALI_BLOCK_SIZE (256UL * 1024UL)  /* 256 kB, remember to keep the ()s */
 

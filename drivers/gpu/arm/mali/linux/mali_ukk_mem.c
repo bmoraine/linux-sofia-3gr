@@ -1,4 +1,11 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Jul 10 2014: IMC: Add missing include to recognize SZ_8M
+ */
+
+/*
  * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
@@ -8,6 +15,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include <linux/fs.h>       /* file system operations */
+#include <linux/sizes.h>
 #include <asm/uaccess.h>    /* user space access */
 
 #include "mali_ukk.h"
