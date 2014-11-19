@@ -906,6 +906,14 @@ int gc_set_streaming(struct v4l2_subdev *sd, int enable)
 				"Started writing stream-off regs.\n");
 			ret = __gc_program_ctrl_table(sd, GC_SETTING_STREAM, 0);
 			dev->streaming = 0;
+
+			/* wait for a frame period to make sure that there is
+				no pending frame left. */
+			if (dev->curr_res_table &&
+				dev->curr_res_table[dev->fmt_idx].fps)
+				mdelay(1000 /
+				dev->curr_res_table[dev->fmt_idx].fps + 1);
+
 			pltfrm_camera_module_pr_info(sd,
 				"Writing stream-off regs done.\n");
 		}

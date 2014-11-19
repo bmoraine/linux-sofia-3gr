@@ -899,16 +899,8 @@ static int cif_isp20_img_src_set_state(
 		break;
 	case CIF_ISP20_IMG_SRC_STATE_SW_STNDBY:
 		if (dev->img_src_state == CIF_ISP20_IMG_SRC_STATE_STREAMING) {
-			struct cif_isp20_frm_intrvl *frm_intrvl =
-				&dev->config.img_src_output.frm_intrvl;
 			ret = cif_isp20_img_src_s_streaming(
 				dev->img_src, false);
-			/* wait for a frame period to make sure that there is
-				no pending frame left. */
-			mdelay((1000 *
-				frm_intrvl->numerator +
-				frm_intrvl->denominator - 1) /
-				frm_intrvl->denominator);
 		} else
 			ret = cif_isp20_img_src_s_power(dev->img_src, true);
 		break;
