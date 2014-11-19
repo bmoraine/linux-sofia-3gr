@@ -78,7 +78,7 @@
 				stat,2 = "GPU";
 				stat,3 = "DCC2";
 				stat,4 = "EMIC";
-				
+
 
 				intel,qos-configs = "DCC2", "GPU";
 				intel,GPU-qos-settings = <
@@ -323,10 +323,9 @@
 						intel,corecfg_reg = < 0x80008 >;
 						intel,corecfg_val = < 0x0074072>;
 						intel,is_non_removable = < 0 >;
-						/* BROKEN_CARD_DETECTION: bit15/
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_POWER_CONTROL_BUG: bit15 */
-						intel,quirks = < 0x8000 0xc008 >;
+						intel,quirks = < 0x0 0xc008 >;
 						intel,io-access-guest;
 						pm_ctrl{
 							pm,class-name = "mmcsd_volt_class";
