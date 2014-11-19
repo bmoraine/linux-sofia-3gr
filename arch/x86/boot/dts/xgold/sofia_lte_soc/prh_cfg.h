@@ -43,8 +43,10 @@
 #define PRH_PER_EMACPHY_ENABLE_HIGH_PERF (PRH_PER_EMACPHY_ENABLE_MID_PERF + 1)
 /**< Reset EMACPHY */
 #define PRH_PER_EMACPHY_RESET (PRH_PER_EMACPHY_ENABLE_HIGH_PERF + 1)
+/**< Disable EMACPHY power saving state and enable EMACPHY power resources */
+#define PRH_PER_EMACPHY_ENABLE_LOW_PERF_3G (PRH_PER_EMACPHY_RESET + 1)
 /**< End indicator (reserved for PRH driver) */
-#define PRH_PER_EMACPHY_MODE_END (PRH_PER_EMACPHY_RESET + 1)
+#define PRH_PER_EMACPHY_MODE_END (PRH_PER_EMACPHY_ENABLE_LOW_PERF_3G + 1)
 
 /**< Start indicator (reserved for PRH driver) */
 #define PRH_PER_DMA_MODE_START (PRH_PER_EMACPHY_MODE_END+1)
@@ -246,15 +248,6 @@ performance support */
 /**< End indicator (reserved for PRH driver) */
 #define PRH_PER_GPU_MODE_END (PRH_PER_GPU_ENABLE_HIGH_PERF + 1)
 
-/**< Disable TDIP */
-#define PRH_PER_TDIP_DISABLE (0)
-/**< Enable TDIP */
-#define PRH_PER_TDIP_ENABLE (PRH_PER_TDIP_DISABLE + 1)
-/**< Suspend TDIP */
-#define PRH_PER_TDIP_SUSPEND (PRH_PER_TDIP_ENABLE + 1)
-/**< End indicator (reserved for PRH driver) */
-#define PRH_PER_TDIP_MODE_END (PRH_PER_TDIP_SUSPEND + 1)
-
 /**< Start indicator (reserved for PRH driver) */
 #define PRH_PER_VIDEO_DEC_MODE_START (PRH_PER_GPU_MODE_END+1)
 /**< Disable VIDEO clock */
@@ -295,6 +288,28 @@ performance support */
 #define PRH_PER_KPD_ENABLE_PSV (PRH_PER_KPD_ENABLE + 1)
 /**< End indicator (reserved for PRH driver) */
 #define PRH_PER_KPD_MODE_END (PRH_PER_KPD_ENABLE_PSV + 1)
+
+/**< Start indicator (reserved for PRH driver) */
+#define PRH_PER_TDIP_MODE_START (PRH_PER_KPD_MODE_END + 1)
+/**< Disable TDIP */
+#define PRH_PER_TDIP_DISABLE (PRH_PER_TDIP_MODE_START + 1)
+/**< Enable TDIP */
+#define PRH_PER_TDIP_ENABLE (PRH_PER_TDIP_DISABLE + 1)
+/**< Suspend TDIP */
+#define PRH_PER_TDIP_SUSPEND (PRH_PER_TDIP_ENABLE + 1)
+/**< End indicator (reserved for PRH driver) */
+#define PRH_PER_TDIP_MODE_END (PRH_PER_TDIP_SUSPEND + 1)
+
+/**< Start indicator (reserved for PRH driver) */
+#define PRH_PER_3G_SUBSYS_MODE_START (PRH_PER_TDIP_MODE_END + 1)
+/**< Disable 3G Subsys: BootReq OFF; ShutDown ON */
+#define PRH_PER_3G_SUBSYS_DISABLE (PRH_PER_3G_SUBSYS_MODE_START + 1)
+/**< Enable  3G Subsys: BootReq ON;  ShutDown OFF */
+#define PRH_PER_3G_SUBSYS_ENABLE (PRH_PER_3G_SUBSYS_DISABLE + 1)
+/**< Suspend 3G Subsys: BootReq ON;  ShutDown ON */
+#define PRH_PER_3G_SUBSYS_BOOT (PRH_PER_3G_SUBSYS_ENABLE + 1)
+/**< End indicator (reserved for PRH driver) */
+#define PRH_PER_3G_SUBSYS_MODE_END (PRH_PER_3G_SUBSYS_BOOT + 1)
 
 /**< Start indicator (reserved for PRH driver) */
 #define PRH_PER_MIPI_HSI_VOLT_START (0)
@@ -676,8 +691,10 @@ performance support */
 #define PRH_PER_EXT_SEC_CAM (PRH_PER_EXT_PRIM_CAM + 1)
 /**< PRH peripheral identifier for magnetometer */
 #define PRH_PER_EXT_MAGNETOMETER (PRH_PER_EXT_SEC_CAM + 1)
+/**< PRH user identifier for L1U */
+#define PRH_PER_3G_SUBSYS (PRH_PER_EXT_MAGNETOMETER + 1)
 /**< PRH peripheral dummy identifier  */
-#define PRH_PER_DUMMY (PRH_PER_EXT_MAGNETOMETER + 1)
+#define PRH_PER_DUMMY (PRH_PER_3G_SUBSYS + 1)
 /**< End indicator */
 #define PRH_PER_NOF_ID (PRH_PER_DUMMY + 1)
 
@@ -729,6 +746,8 @@ performance support */
 #define PRH_PER_TYPE_VIDEO_ENC (PRH_PER_TYPE_VIDEO_DEC + 1)
 /**< PRH peripheral identifier for TDIP peripheral */
 #define PRH_PER_TYPE_TDIP (PRH_PER_TYPE_VIDEO_ENC + 1)
+/**< PRH peripheral identifier for 3G Subsystem peripheral */
+#define PRH_PER_TYPE_3G_SUBSYS (PRH_PER_TYPE_TDIP + 1)
 /**< End indicator (reserved for PRH driver) */
-#define PRH_PER_NOF_TYPE (PRH_PER_TYPE_TDIP + 1)
+#define PRH_PER_NOF_TYPE (PRH_PER_TYPE_3G_SUBSYS + 1)
 

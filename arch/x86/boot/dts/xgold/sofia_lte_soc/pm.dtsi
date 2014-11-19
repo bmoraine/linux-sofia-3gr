@@ -61,13 +61,15 @@ emacphy_pm_class:emacphy_pm_class {
 		"low_perf",
 		"mid_perf",
 		"high_perf",
-		"reset";
+		"reset",
+		"low_perf_3g";
 	intel,states = <
 		PRH_PER_TYPE_EMACPHY PRH_PER_EMACPHY_DISABLE
 		PRH_PER_TYPE_EMACPHY PRH_PER_EMACPHY_ENABLE_LOW_PERF
 		PRH_PER_TYPE_EMACPHY PRH_PER_EMACPHY_ENABLE_MID_PERF
 		PRH_PER_TYPE_EMACPHY PRH_PER_EMACPHY_ENABLE_HIGH_PERF
-		PRH_PER_TYPE_EMACPHY PRH_PER_EMACPHY_RESET >;
+		PRH_PER_TYPE_EMACPHY PRH_PER_EMACPHY_RESET
+		PRH_PER_TYPE_EMACPHY PRH_PER_EMACPHY_ENABLE_LOW_PERF_3G >;
 };
 
 dma_pm_class:dma_pm_class {
@@ -384,6 +386,19 @@ tdip_pm_class:tdip_pm_class {
 		PRH_PER_TYPE_TDIP PRH_PER_TDIP_DISABLE
 		PRH_PER_TYPE_TDIP PRH_PER_TDIP_ENABLE
 		PRH_PER_TYPE_TDIP PRH_PER_TDIP_SUSPEND >;
+};
+
+_3g_subsys_pm_class:_3g_subsys_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "_3g_subsys_class";
+	intel,states-names =
+		"disable",
+		"enable",
+		"boot";
+	intel,states = <
+		PRH_PER_TYPE_3G_SUBSYS PRH_PER_3G_SUBSYS_DISABLE
+		PRH_PER_TYPE_3G_SUBSYS PRH_PER_3G_SUBSYS_ENABLE
+		PRH_PER_TYPE_3G_SUBSYS PRH_PER_3G_SUBSYS_BOOT >;
 };
 
 mmc_core_clk_pm_user:mmc_core_clk_pm_user {
@@ -1192,6 +1207,14 @@ tds_comram_pm_user:tds_comram_pm_user {
 	intel,user-id = <PRH_USER_TDS_PS>;
 	intel,per-id = <PRH_PER_TDS_COMRAM>;
 	intel,class = <&generic_pm_class>;
+};
+
+_3g_subsys_pm_user:_3g_subsys_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "_3g_subsys";
+	intel,user-id = <PRH_USER_TDS_PS>;
+	intel,per-id = <PRH_PER_3G_SUBSYS>;
+	intel,class = <&_3g_subsys_pm_class>;
 };
 
 pdb_pm_user:pdb_pm_user {
