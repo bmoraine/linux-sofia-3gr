@@ -1355,12 +1355,20 @@ static int agold_afe_dmic_event(struct snd_soc_dapm_widget *w,
 	struct agold_afe_data *agold_afe =
 		(struct agold_afe_data *)snd_soc_codec_get_drvdata(w->codec);
 	int ret;
-
+	u32 reg = 0;
 	afe_debug("%s\n", __func__);
+
+	reg = snd_soc_read(w->codec, AGOLD_AFE_BCON);
+	reg &= 0xFFFFFF3F;
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		afe_debug("%s: SND_SOC_DAPM_PRE_PMU\n", __func__);
+
+		/* Program the INRATE bits */
+		/* For DigMic set sampling rate to 48KHz */
+		reg |= (0x3 << AFE_BCON_AUD_INRATE_POS);
+
 		ret = agold_afe_set_pinctrl_state(w->codec->dev,
 				agold_afe->pins_default);
 		if (ret)
@@ -1379,10 +1387,14 @@ static int agold_afe_dmic_event(struct snd_soc_dapm_widget *w,
 		afe_debug("%s: SND_SOC_DAPM_POST_PMD\n", __func__);
 		ret = agold_afe_set_pinctrl_state(w->codec->dev,
 				agold_afe->pins_sleep);
+		/* Set default sampling rate to 16KHz */
+		reg |= (0x1 << AFE_BCON_AUD_INRATE_POS);
 		if (ret)
 			afe_err("%s: Deactivating PCL pad failed\n", __func__);
 		break;
 	}
+	snd_soc_write(w->codec, AGOLD_AFE_BCON, reg);
+
 	return 0;
 }
 #endif
@@ -1834,7 +1846,9 @@ static int agold_afe_hw_params(struct snd_pcm_substream *substream,
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		/* Program the INRATE bits */
 		reg &= 0xFFFFFF3F;
-		reg |= (0x3 << AFE_BCON_AUD_INRATE_POS);
+
+		/* Default to 16KHz input sampling rate */
+		reg |= (0x1 << AFE_BCON_AUD_INRATE_POS);
 
 		if (*audio_native)
 			reg |= BIT(5); /* INSTART */
