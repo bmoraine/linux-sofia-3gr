@@ -197,7 +197,7 @@ pmic {
 			interrupt-parent = <&on_button>;
 			#interrupt-cells = <1>;
 			interrupt-map = <
-				0 &hirq HIRQ_PMIC_POWER_BUTTON IRQ_TYPE_DEFAULT >;
+				0 &hirq HIRQ_PMIC_PWR_BUTTON IRQ_TYPE_DEFAULT >;
 			interrupt-names = "on_button0";
 			linux,keymap = <0x00000074>; /* KEY_POWER */
 		};
@@ -210,7 +210,7 @@ pmic {
 			interrupt-parent = <&pmic_bat>;
 			#interrupt-cells = < 1 >;
 			interrupt-map = <
-				0 &hirq HIRQ_PMIC_CHARGER IRQ_TYPE_DEFAULT
+				0 &hirq HIRQ_PMIC_BATTDET IRQ_TYPE_DEFAULT
 			>;
 			interrupt-names = "PMIC_CHARGER_HIRQ";
 		};
@@ -233,7 +233,7 @@ pmic {
 			interrupt-parent = <&meas_pmic>;
 			#interrupt-cells = < 1 >;
 			#size-cells = <1>;
-			interrupt-map = < 0 &hirq HIRQ_PMIC_ADC IRQ_TYPE_DEFAULT >;
+			interrupt-map = < 0 &hirq HIRQ_PMIC_ADC_USBID IRQ_TYPE_DEFAULT >;
 			interrupt-names = "PMIC_ADC_HIRQ";
 		};
 
