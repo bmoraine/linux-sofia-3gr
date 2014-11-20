@@ -36,10 +36,38 @@
 	#undef HWREG_U8
 #endif
 
-#define HWREG_U32 unsigned long
+#define HWREG_U32 unsigned int
 #define HWREG_U16 unsigned short
 #define HWREG_U8 unsigned char
 
+#define AG620_MEAS_CLC(_base)		((_base) + 0x0)
+#define AG620_MEAS_ID(_base)		((_base) + 0x8)
+#define AG620_MEAS_RUN_CTRL(_base)	((_base) + 0x10)
+#define AG620_MEAS_IDINT(_base)		((_base) + 0x14)
+#define AG620_MEAS_CONF(_base)		((_base) + 0x18)
+#define AG620_MEAS_CTRL_Ax(_base, _x)	((_base) + 0x1C + (_x * 4))
+#define AG620_MEAS_CTRL_Bx(_base, _x)	((_base) + 0x3C + (_x * 4))
+#define AG620_MEAS_CTRL_Cx(_base, _x)	((_base) + 0x5C + (_x * 4))
+#define AG620_MEAS_CLK(_base)		((_base) + 0x6C)
+#define AG620_MEAS_CALI(_base)		((_base) + 0xE8)
+#define AG620_MEAS_TIMER_CTRL(_base)	((_base) + 0xEC)
+#define AG620_MEAS_PEAK(_base)		((_base) + 0xF0)
+#define AG620_MEAS_TEMP_ALERT(_base)	((_base) + 0xF4)
+
+#define AG620_MEAS_SWSTAT0(_base)	((_base) + 0x70)
+#define AG620_MEAS_SWSTAT1ORIG(_base)	((_base) + 0x74)
+#define AG620_MEAS_SWSTAT1(_base)	((_base) + 0x78)
+#define AG620_MEAS_STAT(_base)		((_base) + 0x7C)
+
+#define AG620_MEAS_DATA_Ax(_base, _x)	((_base) + 0x80 + (_x * 4))
+#define AG620_MEAS_DATA_Bx(_base, _x)	((_base) + 0xA0 + (_x * 4))
+#define AG620_MEAS_DATA_Cx(_base, _x)	((_base) + 0xC0 + (_x * 4))
+
+#define AG620_MEAS_RIS(_base)		((_base) + 0xD0)
+#define AG620_MEAS_IMSC(_base)		((_base) + 0xD4)
+#define AG620_MEAS_MIS(_base)		((_base) + 0xD8)
+#define AG620_MEAS_ICR(_base)		((_base) + 0xDC)
+#define AG620_MEAS_ISR(_base)		((_base) + 0xE0)
 
 
 /** @brief MEAS_CLC register description at address offset 0x0
@@ -1357,72 +1385,6 @@ enum E_MEAS_TEMP_ALERT_STOP115 {
 	MEAS_TEMP_ALERT_STOP115_OFF = 0,
 	MEAS_TEMP_ALERT_STOP115_ON = 1
 };
-
-struct meas_regmap {
-	union U_MEAS_CLC MEAS_CLC; /*< Address offset = 0x0 */
-	const HWREG_U8 reservedArea0[4]; /*< Address offset = 0x4 */
-	union U_MEAS_ID MEAS_ID; /*< Address offset = 0x8 */
-	const HWREG_U8 reservedArea1[4]; /*< Address offset = 0xc */
-	union U_MEAS_RUN_CTRL MEAS_RUN_CTRL; /*< Address offset = 0x10 */
-	union U_MEAS_IDINT MEAS_IDINT; /*< Address offset = 0x14 */
-	union meas_conf MEAS_CONF; /*< Address offset = 0x18 */
-	union meas_ctrl_ax MEAS_CTRL_A0; /*< Address offset = 0x1c */
-	union meas_ctrl_ax MEAS_CTRL_A1; /*< Address offset = 0x20 */
-	union meas_ctrl_ax MEAS_CTRL_A2; /*< Address offset = 0x24 */
-	union meas_ctrl_ax MEAS_CTRL_A3; /*< Address offset = 0x28 */
-	union meas_ctrl_ax MEAS_CTRL_A4; /*< Address offset = 0x2c */
-	union meas_ctrl_ax MEAS_CTRL_A5; /*< Address offset = 0x30 */
-	union meas_ctrl_ax MEAS_CTRL_A6; /*< Address offset = 0x34 */
-	union meas_ctrl_ax MEAS_CTRL_A7; /*< Address offset = 0x38 */
-	union meas_ctrl_bx MEAS_CTRL_B0; /*< Address offset = 0x3c */
-	union meas_ctrl_bx MEAS_CTRL_B1; /*< Address offset = 0x40 */
-	union meas_ctrl_bx MEAS_CTRL_B2; /*< Address offset = 0x44 */
-	union meas_ctrl_bx MEAS_CTRL_B3; /*< Address offset = 0x48 */
-	union meas_ctrl_bx MEAS_CTRL_B4; /*< Address offset = 0x4c */
-	union meas_ctrl_bx MEAS_CTRL_B5; /*< Address offset = 0x50 */
-	union meas_ctrl_bx MEAS_CTRL_B6; /*< Address offset = 0x54 */
-	union meas_ctrl_bx MEAS_CTRL_B7; /*< Address offset = 0x58 */
-	union meas_ctrl_cx MEAS_CTRL_C0; /*< Address offset = 0x5c */
-	union meas_ctrl_cx MEAS_CTRL_C1; /*< Address offset = 0x60 */
-	union meas_ctrl_cx MEAS_CTRL_C2; /*< Address offset = 0x64 */
-	union meas_ctrl_cx MEAS_CTRL_C3; /*< Address offset = 0x68 */
-	union U_MEAS_CLK MEAS_CLK; /*< Address offset = 0x6c */
-	union U_MEAS_SWSTAT0 MEAS_SWSTAT0; /*< Address offset = 0x70 */
-	union U_MEAS_SWSTAT1ORIG MEAS_SWSTAT1ORIG; /*< Address offset = 0x74 */
-	union U_MEAS_SWSTAT1 MEAS_SWSTAT1; /*< Address offset = 0x78 */
-	union meas_stat MEAS_STAT; /*< Address offset = 0x7c */
-	union meas_data_a MEAS_DATA_A0; /*< Address offset = 0x80 */
-	union meas_data_a MEAS_DATA_A1; /*< Address offset = 0x84 */
-	union meas_data_a MEAS_DATA_A2; /*< Address offset = 0x88 */
-	union meas_data_a MEAS_DATA_A3; /*< Address offset = 0x8c */
-	union meas_data_a MEAS_DATA_A4; /*< Address offset = 0x90 */
-	union meas_data_a MEAS_DATA_A5; /*< Address offset = 0x94 */
-	union meas_data_a MEAS_DATA_A6; /*< Address offset = 0x98 */
-	union meas_data_a MEAS_DATA_A7; /*< Address offset = 0x9c */
-	union meas_data_b MEAS_DATA_B0; /*< Address offset = 0xa0 */
-	union meas_data_b MEAS_DATA_B1; /*< Address offset = 0xa4 */
-	union meas_data_b MEAS_DATA_B2; /*< Address offset = 0xa8 */
-	union meas_data_b MEAS_DATA_B3; /*< Address offset = 0xac */
-	union meas_data_b MEAS_DATA_B4; /*< Address offset = 0xb0 */
-	union meas_data_b MEAS_DATA_B5; /*< Address offset = 0xb4 */
-	union meas_data_b MEAS_DATA_B6; /*< Address offset = 0xb8 */
-	union meas_data_b MEAS_DATA_B7; /*< Address offset = 0xbc */
-	union meas_data_c MEAS_DATA_C0; /*< Address offset = 0xc0 */
-	union meas_data_c MEAS_DATA_C1; /*< Address offset = 0xc4 */
-	union meas_data_c MEAS_DATA_C2; /*< Address offset = 0xc8 */
-	union meas_data_c MEAS_DATA_C3; /*< Address offset = 0xcc */
-	union U_MEAS_RIS MEAS_RIS; /*< Address offset = 0xd0 */
-	union meas_imsc MEAS_IMSC; /*< Address offset = 0xd4 */
-	union U_MEAS_MIS MEAS_MIS; /*< Address offset = 0xd8 */
-	union meas_icr MEAS_ICR; /*< Address offset = 0xdc */
-	union U_MEAS_ISR MEAS_ISR; /*< Address offset = 0xe0 */
-	const HWREG_U8 reservedArea2[4]; /*< Address offset = 0xe4 */
-	union meas_cali MEAS_CALI; /*< Address offset = 0xe8 */
-	union U_MEAS_TIMER_CTRL MEAS_TIMER_CTRL; /*< Address offset = 0xec */
-	union meas_peak MEAS_PEAK; /*< Address offset = 0xf0 */
-	union U_MEAS_TEMP_ALERT MEAS_TEMP_ALERT; /*< Address offset = 0xf4 */
-};
-
 
 enum emeasresetvalues {
 	MEAS_CLC_RESET_VALUE = (int)0x3,

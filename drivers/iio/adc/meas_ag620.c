@@ -137,8 +137,7 @@ struct meas_ag620_calibration {
  * @active_channel:	Channel currently being measured.
  * @p_channel_data:	Pointer to channel data of each of the supported
  *			channels.
- * @regmap:		A pointer to the MEAS memory-mapped registers. For
- *			convenience purposes.
+ * @hw_base:		IO remap base address
  * @ididev:		Pointer to IDI driver instance.
  * @calibration:	Calibration data.
  * @pd_timer:		Timer used to time peak detector search.
@@ -153,7 +152,7 @@ struct meas_ag620_state_data {
 	enum adc_channel active_channel;
 	struct intel_adc_hal_channel_data
 		*p_channel_data[ADC_MAX_NO_OF_CHANNELS];
-	struct meas_regmap *regmap;
+	void __iomem *hw_base;
 	struct idi_peripheral_device *ididev;
 	struct device_state_pm_state *pm_state_en;
 	struct device_state_pm_state *pm_state_dis;
@@ -240,66 +239,67 @@ static void meas_ag620_dump_register(void)
 {
 	/* Start dumping relevant register content */
 
+	void __iomem *hw_base = meas_ag620_state.hw_base;
 	pr_err("***Dump of TSMU registers\n");
 	pr_err("CALI		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CALI));
+		ioread32(AG620_MEAS_CALI(hw_base)));
 	pr_err("CLC		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CLC));
+		ioread32(AG620_MEAS_CLC(hw_base)));
 	pr_err("CLK		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CLK));
+		ioread32(AG620_MEAS_CLK(hw_base)));
 	pr_err("CONF		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CONF));
+		ioread32(AG620_MEAS_CONF(hw_base)));
 	pr_err("RUN_CTRL	0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_RUN_CTRL));
+		ioread32(AG620_MEAS_RUN_CTRL(hw_base)));
 	pr_err("STAT		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_STAT));
+		ioread32(AG620_MEAS_STAT(hw_base)));
 	pr_err("PEAK		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_PEAK));
+		ioread32(AG620_MEAS_PEAK(hw_base)));
 
 	pr_err("CTRL_B0		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CTRL_B0));
+		ioread32(AG620_MEAS_CTRL_Bx(hw_base, 0)));
 	pr_err("CTRL_B1		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CTRL_B1));
+		ioread32(AG620_MEAS_CTRL_Bx(hw_base, 1)));
 	pr_err("CTRL_B2		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CTRL_B2));
+		ioread32(AG620_MEAS_CTRL_Bx(hw_base, 2)));
 	pr_err("CTRL_B3		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CTRL_B3));
+		ioread32(AG620_MEAS_CTRL_Bx(hw_base, 3)));
 	pr_err("CTRL_B4		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CTRL_B4));
+		ioread32(AG620_MEAS_CTRL_Bx(hw_base, 4)));
 	pr_err("CTRL_B5		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CTRL_B5));
+		ioread32(AG620_MEAS_CTRL_Bx(hw_base, 5)));
 	pr_err("CTRL_B6		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CTRL_B6));
+		ioread32(AG620_MEAS_CTRL_Bx(hw_base, 6)));
 	pr_err("CTRL_B7		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_CTRL_B7));
+		ioread32(AG620_MEAS_CTRL_Bx(hw_base, 7)));
 
 	pr_err("DATA_B0		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_DATA_B0));
+		ioread32(AG620_MEAS_DATA_Bx(hw_base, 0)));
 	pr_err("DATA_B1		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_DATA_B1));
+		ioread32(AG620_MEAS_DATA_Bx(hw_base, 1)));
 	pr_err("DATA_B2		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_DATA_B2));
+		ioread32(AG620_MEAS_DATA_Bx(hw_base, 2)));
 	pr_err("DATA_B3		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_DATA_B3));
+		ioread32(AG620_MEAS_DATA_Bx(hw_base, 3)));
 	pr_err("DATA_B4		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_DATA_B4));
+		ioread32(AG620_MEAS_DATA_Bx(hw_base, 4)));
 	pr_err("DATA_B5		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_DATA_B5));
+		ioread32(AG620_MEAS_DATA_Bx(hw_base, 5)));
 	pr_err("DATA_B6		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_DATA_B6));
+		ioread32(AG620_MEAS_DATA_Bx(hw_base, 6)));
 	pr_err("DATA_B7		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_DATA_B7));
+		ioread32(AG620_MEAS_DATA_Bx(hw_base, 7)));
 
 	pr_err("RIS		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_RIS));
+		ioread32(AG620_MEAS_RIS(hw_base)));
 	pr_err("IMSC		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_IMSC));
+		ioread32(AG620_MEAS_IMSC(hw_base)));
 	pr_err("MIS		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_MIS));
+		ioread32(AG620_MEAS_MIS(hw_base)));
 	pr_err("ICR		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_ICR));
+		ioread32(AG620_MEAS_ICR(hw_base)));
 	pr_err("ISR		0x%08x\n",
-		ioread32(&meas_ag620_state.regmap->MEAS_ISR));
+		ioread32(AG620_MEAS_ISR(hw_base)));
 }
 
 /**
@@ -383,19 +383,21 @@ static int meas_ag620_internal_temperature_calc(int meas_result_uv)
  */
 static void meas_ag620_irq_enable(bool enable)
 {
+	void __iomem *hw_base = meas_ag620_state.hw_base;
 	union meas_imsc meas_imsc_reg = { 0 };
 	union meas_icr meas_icr_reg = { 0 };
 
 	if (enable) {
 		meas_icr_reg.s.MEAS_RDY = 1;
-		iowrite32(meas_icr_reg.val, &meas_ag620_state.regmap->MEAS_ICR);
+		iowrite32(meas_icr_reg.val,
+				AG620_MEAS_ICR(hw_base));
 		meas_imsc_reg.s.MEAS_RDY = 1;
 		iowrite32(meas_imsc_reg.val,
-				&meas_ag620_state.regmap->MEAS_IMSC);
+				AG620_MEAS_IMSC(hw_base));
 	} else {
 		meas_imsc_reg.s.MEAS_RDY = 0;
 		iowrite32(meas_imsc_reg.val,
-				&meas_ag620_state.regmap->MEAS_IMSC);
+				AG620_MEAS_IMSC(hw_base));
 	}
 }
 
@@ -422,6 +424,7 @@ static int meas_ag620_read_raw(int reg_channel,
 	union meas_conf conf = { 0 };
 	union meas_stat stat;
 	union meas_data_b data_reg;
+	void __iomem *hw_base = meas_ag620_state.hw_base;
 
 	/* The setting gain=2 or 6db is not currently used. */
 	enum E_MEAS_CTRL_B_GBY gain = MEAS_CTRL_B_GBY_0;
@@ -438,7 +441,7 @@ static int meas_ag620_read_raw(int reg_channel,
 	/* Keep interrupts disabled for now */
 	conf.s.ENIRQB = MEAS_CONF_ENIRQB_0;
 	conf.s.ADCON = MEAS_CONF_ADCON_1;	/* Turn ADC ON */
-	iowrite32(conf.val, &meas_ag620_state.regmap->MEAS_CONF);
+	iowrite32(conf.val, AG620_MEAS_CONF(hw_base));
 
 	/* Configure the MEAS_CTRL_Bx registers */
 	reg_bx.s.MXBY = reg_channel;
@@ -454,7 +457,7 @@ static int meas_ag620_read_raw(int reg_channel,
 	reg_bx.s.BYPBY = !calibrated;
 	reg_bx.s.MAVGBY = avg_sample_level_to_reg(avg_sample_level);
 	reg_bx.s.AVGBY = MEAS_CTRL_B_AVGBY_0;	/* Do NOT bypass the averager */
-	iowrite32(reg_bx.val, &meas_ag620_state.regmap->MEAS_CTRL_B0);
+	iowrite32(reg_bx.val, AG620_MEAS_CTRL_Bx(hw_base, 0));
 
 	/* Enable the MEAS irq so that we're ready to receive it as soon as
 	it's triggered */
@@ -464,7 +467,7 @@ static int meas_ag620_read_raw(int reg_channel,
 	conf.s.RES_WPTRB = 0;
 	conf.s.STARTB = 1;	/* Single conversion */
 	conf.s.ENIRQB = MEAS_CONF_ENIRQB_1;	/* Enable interrupts now */
-	iowrite32(conf.val, &meas_ag620_state.regmap->MEAS_CONF);
+	iowrite32(conf.val, AG620_MEAS_CONF(hw_base));
 
 	meas_ag620_state.meas_pending = true;
 
@@ -475,7 +478,7 @@ static int meas_ag620_read_raw(int reg_channel,
 
 	/* The first thing to do it to reat the status bit and trap if the READY
 	bit is not set */
-	stat.val = ioread32(&meas_ag620_state.regmap->MEAS_STAT);
+	stat.val = ioread32(AG620_MEAS_STAT(hw_base));
 	BUG_ON(stat.s.READYB == 0);
 
 	/* Configure the ADC back into rest mode. */
@@ -486,10 +489,10 @@ static int meas_ag620_read_raw(int reg_channel,
 	conf.s.ENSTOP = MEAS_CONF_ENSTOP_1;
 	conf.s.SWTRIGB = 0;
 	conf.s.STARTB = 0;
-	iowrite32(conf.val, &meas_ag620_state.regmap->MEAS_CONF);
+	iowrite32(conf.val, AG620_MEAS_CONF(hw_base));
 
 	/* Read the data back */
-	data_reg.val = readl(&meas_ag620_state.regmap->MEAS_DATA_B0);
+	data_reg.val = ioread32(AG620_MEAS_DATA_Bx(hw_base, 0));
 	ret = data_reg.s.DATA_BY;
 
 	if (converted) {
@@ -545,6 +548,7 @@ static void meas_ag620_set_peak_detector(enum meas_ag620_peak_detect_modes
 					peakmode)
 {
 	union meas_peak reg_peak = { 0 };
+	void __iomem *hw_base = meas_ag620_state.hw_base;
 
 	switch (peakmode) {
 	case ADC_HAL_PEAKDET_MODE_OFF:
@@ -552,7 +556,8 @@ static void meas_ag620_set_peak_detector(enum meas_ag620_peak_detect_modes
 		reg_peak.s.PEAKON = MEAS_PEAK_PEAKON_OFF;
 		reg_peak.s.PEAKRESET = MEAS_PEAK_PEAKRESET_NORESET;
 		reg_peak.s.PEAKMODE = MEAS_PEAK_PEAKMODE_READOUT;
-		iowrite32(reg_peak.val, &meas_ag620_state.regmap->MEAS_PEAK);
+		iowrite32(reg_peak.val,
+				AG620_MEAS_PEAK(hw_base));
 		break;
 	case ADC_HAL_PEAKDET_MODE_MIN_DETECT:
 	case ADC_HAL_PEAKDET_MODE_MAX_DETECT:
@@ -566,16 +571,19 @@ static void meas_ag620_set_peak_detector(enum meas_ag620_peak_detect_modes
 			ADC_HAL_PEAKDET_MODE_MIN_DETECT ?
 			MEAS_PEAK_PEAKMODE_MINDETECT :
 			MEAS_PEAK_PEAKMODE_MAXDETECT);
-		iowrite32(reg_peak.val, &meas_ag620_state.regmap->MEAS_PEAK);
+		iowrite32(reg_peak.val,
+				AG620_MEAS_PEAK(hw_base));
 
 		/* Step 2: enter reset mode */
 		reg_peak.s.PEAKON = MEAS_PEAK_PEAKON_ON;
-		iowrite32(reg_peak.val, &meas_ag620_state.regmap->MEAS_PEAK);
+		iowrite32(reg_peak.val,
+				AG620_MEAS_PEAK(hw_base));
 		udelay(15);	/* Wait for at least 15us */
 
 		/* Step 3: clear peakreset */
 		reg_peak.s.PEAKRESET = MEAS_PEAK_PEAKRESET_NORESET;
-		iowrite32(reg_peak.val, &meas_ag620_state.regmap->MEAS_PEAK);
+		iowrite32(reg_peak.val,
+				AG620_MEAS_PEAK(hw_base));
 		udelay(20);	/* Wait for at least 20us */
 		break;
 	case ADC_HAL_PEAKDET_MODE_READOUT:
@@ -584,7 +592,8 @@ static void meas_ag620_set_peak_detector(enum meas_ag620_peak_detect_modes
 		reg_peak.s.PEAKON = MEAS_PEAK_PEAKON_ON;
 		reg_peak.s.PEAKRESET = MEAS_PEAK_PEAKRESET_NORESET;
 		reg_peak.s.PEAKMODE = MEAS_PEAK_PEAKMODE_READOUT;
-		iowrite32(reg_peak.val, &meas_ag620_state.regmap->MEAS_PEAK);
+		iowrite32(reg_peak.val,
+				AG620_MEAS_PEAK(hw_base));
 		udelay(20);	/* Wait for at least 20us */
 		break;
 	default:
@@ -621,6 +630,7 @@ static void meas_ag620_calibration(void)
 	struct meas_ag620_calibration *p_calibration =
 		&meas_ag620_state.calibration;
 	union meas_cali cali_reg;
+	void __iomem *hw_base = meas_ag620_state.hw_base;
 
 	/* Get current timestamp */
 	ktime_get_ts(&currtime);
@@ -659,7 +669,7 @@ static void meas_ag620_calibration(void)
 	cali_reg.s.Y1 = p_calibration->vref;
 	cali_reg.s.BYP = MEAS_CTRL_B_BYPBY_0;
 	cali_reg.s.XBON = MEAS_CALI_XBON_1;	/* Keep central biasing on */
-	iowrite32(cali_reg.val, &meas_ag620_state.regmap->MEAS_CALI);
+	iowrite32(cali_reg.val, AG620_MEAS_CALI(hw_base));
 }
 
 /**
@@ -672,6 +682,7 @@ static void meas_ag620_calibration(void)
 static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 {
 	int ret = WNOTREQ;
+	void __iomem *hw_base = meas_ag620_state.hw_base;
 
 	/* Protect critical section when testing and modifying device
 	state data */
@@ -710,31 +721,26 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 				* signal EOC.
 				*/
 				stat.val =
-					ioread32(&meas_ag620_state.regmap->
-						MEAS_STAT);
+					ioread32(AG620_MEAS_STAT(hw_base));
 				if (stat.s.BUSYADC == 1) {
 					/* this should never happen, ignore the
 					power off request */
 					pr_warn("POWER_MODE_OFF request while ADC is still running or already off\n");
 					pr_warn("CLC		0x%08x\n",
-						ioread32
-						(&meas_ag620_state.
-						regmap->MEAS_CLC));
+						ioread32(AG620_MEAS_CLC
+							(hw_base)));
 					pr_warn("CLK		0x%08x\n",
-						ioread32
-						(&meas_ag620_state.
-						regmap->MEAS_CLK));
+						ioread32(AG620_MEAS_CLK
+							(hw_base)));
 					pr_warn("CONF		0x%08x\n",
-						ioread32
-						(&meas_ag620_state.
-						regmap->MEAS_CONF));
+						ioread32(AG620_MEAS_CONF
+							(hw_base)));
 					pr_warn("RUN_CTRL	0x%08x\n",
-						ioread32(&meas_ag620_state.
-							regmap->MEAS_RUN_CTRL));
+						ioread32(AG620_MEAS_RUN_CTRL
+							(hw_base)));
 					pr_warn("STAT		0x%08x\n",
-						ioread32
-						(&meas_ag620_state.
-						regmap->MEAS_STAT));
+						ioread32(AG620_MEAS_STAT
+							(hw_base)));
 					pr_warn("\t channel=%d, pending=%d\n",
 						meas_ag620_state.active_channel,
 						meas_ag620_state.meas_pending);
@@ -749,16 +755,14 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 					conf.s.ADCON = MEAS_CONF_ADCON_0;
 
 					iowrite32(conf.val,
-					 &meas_ag620_state.regmap->
-					  MEAS_CONF);
+						AG620_MEAS_CONF(hw_base));
 					/* Turn central biasing off */
 					cali_reg.s.XBON = MEAS_CALI_XBON_0;
 					iowrite32(cali_reg.val,
-					 &meas_ag620_state.regmap->MEAS_CALI);
+						AG620_MEAS_CALI(hw_base));
 
 					iowrite32(0,
-					 &meas_ag620_state.regmap->
-					  MEAS_RUN_CTRL);
+						AG620_MEAS_RUN_CTRL(hw_base));
 					/* Disable power domain */
 					idi_set_power_state(meas_ag620_state.
 							ididev,
@@ -789,22 +793,20 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 						meas_ag620_state.pm_state_en,
 						true));
 
-					clc.val = ioread32(&meas_ag620_state.
-							regmap->MEAS_CLC);
+					clc.val = ioread32(AG620_MEAS_CLC
+							(hw_base));
 
 				} while (((clc.MEAS_CLC_STRUCTURE.DISS == 1)
 					|| (clc.MEAS_CLC_STRUCTURE.DISR == 1)));
 
 				/* Enable relevant HW resources */
-				iowrite32(0, &meas_ag620_state.
-							regmap->MEAS_CLK);
-				iowrite32(1, &meas_ag620_state.
-							regmap->MEAS_RUN_CTRL);
+				iowrite32(0, AG620_MEAS_CLK(hw_base));
+				iowrite32(1, AG620_MEAS_RUN_CTRL(hw_base));
 
 				/* Turn on central biasing */
 				cali_reg.s.XBON = MEAS_CALI_XBON_1;
 				iowrite32(cali_reg.val,
-					&meas_ag620_state.regmap->MEAS_CALI);
+					AG620_MEAS_CALI(hw_base));
 
 				/* Configure the MEAS_CONF register */
 
@@ -820,14 +822,13 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 				/* Turn ADC ON */
 				conf.s.ADCON = MEAS_CONF_ADCON_1;
 				iowrite32(conf.val,
-					&meas_ag620_state.regmap->MEAS_CONF);
+					AG620_MEAS_CONF(hw_base));
 
 				/* Write sequence stop marker on 2nd control
 				register entry */
 				reg_bx.s.MXBY = ADC_PHY_OFF;
 				iowrite32(reg_bx.val,
-						&meas_ag620_state.regmap->
-						MEAS_CTRL_B1);
+					AG620_MEAS_CTRL_Bx(hw_base, 1));
 
 				/* wait for the ADC HW to settle */
 				udelay(150);
@@ -1257,7 +1258,7 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 
 	pdata->channel_info.nchan = of_get_child_count(np);
 
-	dev_set_drvdata(dev, meas_ag620_state.regmap);
+	dev_set_drvdata(dev, meas_ag620_state.hw_base);
 #else
 	pdata = dev->platform_data;
 	meas_ag620_state.calibration.period_s = pdata->calibration_period_s;
@@ -1269,7 +1270,7 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 	/* Force calibration before the first measurement. */
 	meas_ag620_state.calibration.last_timestamp_s = 0;
 
-	dev_set_drvdata(dev, meas_ag620_state.regmap);
+	dev_set_drvdata(dev, meas_ag620_state.hw_base);
 
 	/* Get IRQ number to use */
 	BUG_ON(NULL ==
@@ -1281,9 +1282,9 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 	BUG_ON(NULL ==
 		(p_resource = idi_get_resource_byname(&ididev->resources,
 						IORESOURCE_MEM, "meas_reg")));
-	meas_ag620_state.regmap =
+	meas_ag620_state.hw_base =
 		ioremap(p_resource->start, resource_size(p_resource));
-	if (!meas_ag620_state.regmap) {
+	if (!meas_ag620_state.hw_base) {
 		dev_err(&ididev->device, "Unable to remap MEAS registers!\n");
 		ret = -ENOMEM;
 		goto err_exit;
@@ -1366,8 +1367,8 @@ err_register_hal:
 err_dev_pm:
 err_request_irq:
 	dev_set_drvdata(&ididev->device, NULL);
-	iounmap(meas_ag620_state.regmap);
-	meas_ag620_state.regmap = NULL;
+	iounmap(meas_ag620_state.hw_base);
+	meas_ag620_state.hw_base = NULL;
 err_exit:
 	meas_ag620_state.ididev = NULL;
 	return ret;
