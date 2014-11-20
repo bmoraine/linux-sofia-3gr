@@ -811,7 +811,8 @@ long dcc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				updt.fence_retire =
 					dcc_fence_create(pdata,
 						pdata->timeline_current);
-				if (updt.back.phys)
+				if (updt.back.phys &&
+					(!DCC_UPDATE_NOBG_GET(updt.flags)))
 					updt.back.fence_release =
 						dcc_fence_create(pdata,
 						pdata->timeline_current);
