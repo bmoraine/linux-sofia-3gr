@@ -38,6 +38,10 @@
 #include "vrpc.h"
 #include "voemcrypto_common.h"
 
+#include <linux/mm.h>
+#include <linux/mm_types.h>
+#include <linux/sched.h>
+
 #if 1
 #define VOEMCRYPTO_DEBUG
 #endif
@@ -231,6 +235,55 @@ void voemc_stop_decrypt_ctr_out_buffer(struct voemc_dest_buffer_desc
 	kfree(phys_out_buffer);
 }
 
+static int get_phys_addr_from_user(struct voem_input_buffer *ib)
+{
+	struct mm_struct *mm = current->mm;
+	struct vm_area_struct *vma;
+	unsigned long prev_pfn, this_pfn;
+	unsigned long pages_done, user_address;
+	unsigned int offset;
+	int err;
+
+	offset = ib->baddr & ~PAGE_MASK;
+	ib->phys_size = PAGE_ALIGN(ib->size + offset);
+	err = -EINVAL;
+
+	down_read(&mm->mmap_sem);
+
+	vma = find_vma(mm, ib->baddr);
+	if (!vma)
+		goto out_up;
+
+	if ((ib->baddr + ib->phys_size) > vma->vm_end)
+		goto out_up;
+
+	pages_done = 0;
+	prev_pfn = 0; /* kill warning */
+	user_address = ib->baddr;
+
+	while (pages_done < (ib->phys_size >> PAGE_SHIFT)) {
+		err = follow_pfn(vma, user_address, &this_pfn);
+		if (err)
+			break;
+
+		if (pages_done == 0)
+			ib->phys = (this_pfn << PAGE_SHIFT) + offset;
+		else if (this_pfn != (prev_pfn + 1))
+			err = -EFAULT;
+
+		if (err)
+			break;
+
+		prev_pfn = this_pfn;
+		user_address += PAGE_SIZE;
+		pages_done++;
+	}
+
+out_up:
+	up_read(&current->mm->mmap_sem);
+
+	return err;
+}
 
 /*
  * Description:
@@ -291,6 +344,25 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 {
 	size_t ret_size = 0;
 	void *data = (void *)voemcrypto_data->vrpc_data;
+
+	/*===================================================================*/
+	/* this ioctl should always be executed, as it does not use
+	 * any device shared resource */
+	if (cmd == VOEMC_IOCTL_GETADDR) {
+		int err;
+		struct voem_input_buffer ib;
+		if (copy_from_user(&ib, (void __user *)input, sizeof(ib)))
+			return -EFAULT;
+
+		err = get_phys_addr_from_user(&ib);
+
+		/* return to user space */
+		if (copy_to_user((void __user *)input, &ib, sizeof(ib)))
+			return -EFAULT;
+
+		return err;
+	}
+	/*===================================================================*/
 
 	if (device_state != VOEMCRYPTO_DEVICE_IDLE)
 		return -EBUSY;

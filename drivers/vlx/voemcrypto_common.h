@@ -95,6 +95,7 @@ enum voemcrypto_cmd_t {
 #define VOEMC_IOCTL_GENDECRYPT _IOR(MAGIC_NUM, 23, uint32_t)
 #define VOEMC_IOCTL_GENERICSIGN _IOR(MAGIC_NUM, 24, uint32_t)
 #define VOEMC_IOCTL_GENVERIFY _IOR(MAGIC_NUM, 25, uint32_t)
+#define VOEMC_IOCTL_GETADDR _IOR(MAGIC_NUM, 26, uint32_t)
 
 
 struct voemc_generic_t {
@@ -390,6 +391,12 @@ struct voemc_securitylevel_t {
 	char *level;
 };
 
+struct voem_input_buffer {
+	uint32_t size;
+	uint32_t baddr;
+	uint32_t phys;
+	uint32_t phys_size;
+};
 
 /*****************************************************************************/
 /* Licence Description                                                       */
