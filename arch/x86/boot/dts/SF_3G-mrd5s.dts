@@ -260,6 +260,7 @@
 		intel,rst-gpio-is_active_low;
 		intel,flash-gpio = <&xgold_pmx_gpio 37 0>;
 		intel,torch-gpio = <&xgold_pmx_gpio 38 0>;
+		intel.flash-driver = "FP6773C";
 
 		pm,class-name = "generic_class";
 		pm,user-name = "primcam";
