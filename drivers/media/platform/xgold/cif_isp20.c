@@ -5115,7 +5115,8 @@ int marvin_mipi_isr(void *cntxt)
 				break;
 			}
 		}
-	} else if (mipi_mis & CIF_MIPI_ERR_CSI) {
+	}
+	if (mipi_mis & CIF_MIPI_ERR_CSI) {
 		/*clear_mipi_csi_error*/
 		cif_iowrite32(CIF_MIPI_ERR_CSI,
 			      dev->config.base_addr + CIF_MIPI_ICR);
@@ -5136,7 +5137,8 @@ int marvin_mipi_isr(void *cntxt)
 				break;
 			}
 		}
-	} else if ((mipi_mis & CIF_MIPI_SYNC_FIFO_OVFLW(3))) {
+	}
+	if ((mipi_mis & CIF_MIPI_SYNC_FIFO_OVFLW(3))) {
 
 		/* clear_mipi_fifo_error*/
 		cif_iowrite32(CIF_MIPI_SYNC_FIFO_OVFLW(3),
@@ -5158,7 +5160,8 @@ int marvin_mipi_isr(void *cntxt)
 				break;
 			}
 		}
-	} else if (mipi_mis & CIF_MIPI_ADD_DATA_OVFLW) {
+	}
+	if (mipi_mis & CIF_MIPI_ADD_DATA_OVFLW) {
 		/* clear_mipi_fifo_error*/
 		cif_iowrite32(CIF_MIPI_ADD_DATA_OVFLW,
 				  dev->config.base_addr + CIF_MIPI_ICR);
