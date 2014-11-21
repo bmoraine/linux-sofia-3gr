@@ -13,7 +13,7 @@
 
 snd-soc-xgold-pcm-objs := xgold_pcm.o xgold_voice.o
 snd-soc-xgold-speech-objs := xgold_speech_probe.o
-snd-soc-xgold-machine-objs := xgold_machine.o
+snd-soc-xgold-machine-objs := xgold_machine.o xgold_jack.o
 snd-soc-agold-bt-sco-streaming-objs := agold_bt_sco_streaming.o
 snd-soc-xgold-dsp-objs :=  dsp_audio_platform.o
 
