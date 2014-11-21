@@ -71,8 +71,6 @@
 #define PMU_AG620_CC_CBAT_POS_MASK				(0xFFF)
 /* Bitfield mask for negative part of 13 bit battery current field. */
 #define PMU_AG620_CC_CBAT_NEG_MASK				(0x1000)
-/* Maximum value of CC_THR register. 6 bit for ES2_0 */
-#define PMU_AG620_ES1_CC_THR_LIMIT				(0x3F)
 /* Maximum value of CC_THR register. 8 bit for AG620 ES2_0 */
 #define PMU_AG620_ES2_CC_THR_LIMIT				(0xFF)
 
@@ -88,12 +86,8 @@
 /* Theoretical trigger level for coulomb counter increment in mV. */
 #define COULOMB_COUNTER_INCREMENT_THRESHOLD_THEORETICAL_MV	(500)
 /* Average error in trigger level for coulomb counter increment in mV. */
-#define COULOMB_COUNTER_INCREMENT_THRESHOLD_COMPENSATION_MV_ES1	(-5)
 #define COULOMB_COUNTER_INCREMENT_THRESHOLD_COMPENSATION_MV_ES2	(-10)
 /* Error compensated trigger level for coulomb counter increment in mV. */
-#define COULOMB_COUNTER_INCREMENT_THRESHOLD_MV_ES1 \
-	(COULOMB_COUNTER_INCREMENT_THRESHOLD_THEORETICAL_MV + \
-		COULOMB_COUNTER_INCREMENT_THRESHOLD_COMPENSATION_MV_ES1)
 #define COULOMB_COUNTER_INCREMENT_THRESHOLD_MV_ES2 \
 	(COULOMB_COUNTER_INCREMENT_THRESHOLD_THEORETICAL_MV + \
 		COULOMB_COUNTER_INCREMENT_THRESHOLD_COMPENSATION_MV_ES2)
@@ -102,7 +96,6 @@
 /* Delta coulomb counter threshold scaling factor,
 according to the fixed hw divider before the cc
 threshold comparator */
-#define COULOMB_COUNTER_DELTA_THRESHOLD_SCALING_ES1		(128)
 #define COULOMB_COUNTER_DELTA_THRESHOLD_SCALING_ES2		(512)
 
 /* Minimum period required for a long term average Ibat measurement. */
@@ -113,7 +106,6 @@ threshold comparator */
 /* long term average Ibat period error margin in percent. */
 #define IBAT_LONG_TERM_AVERAGE_ERROR_MARGIN_PERCENT		(10)
 /* Timer polling period for long term average Ibat in Secs. */
-#define IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES1		(60)
 #define IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES2 \
 			(IBAT_LONG_TERM_AVERAGE_PERIOD_SECS +\
 			((IBAT_LONG_TERM_AVERAGE_PERIOD_SECS\
@@ -207,8 +199,6 @@ struct sw_fuel_gauge_hal_data {
 	struct alarm ibat_long_term_average_polling_atimer;
 	/* Ibat long term average data. */
 	struct ibat_long_term_average ibat_long_term_average;
-	/* AGOLD620ES2 flag */
-	int ag620es2;
 	/* Coulomb counter interrupt */
 	int irq;
 };
@@ -340,13 +330,9 @@ static int sw_fuel_gauge_hal_read_coulomb_counter(enum sw_fuel_gauge_hal_get_key
 		this is correct). Our design works on the premise that the IBAT
 		is negative when charging, so the sign is inverted by
 		subtracting the negative minus the positive. */
-		if (sw_fuel_gauge_hal_instance.ag620es2) {
-			result_mc = sw_fuel_gauge_hal_counts_to_mc(
+		result_mc = sw_fuel_gauge_hal_counts_to_mc(
 						cc_down - cc_up);
-		} else {
-			result_mc = sw_fuel_gauge_hal_counts_to_mc(
-						cc_up - cc_down);
-		}
+
 		SW_FUEL_GAUGE_HAL_DEBUG_PARAM(
 			SW_FUEL_GAUGE_DEBUG_HAL_GET_BALANCED_CC_MC, result_mc);
 		break;
@@ -411,10 +397,7 @@ static int sw_fuel_gauge_hal_read_battery_current(void)
 	correct). Our design works on the premise that the IBAT is negative when
 	charging, so the sign is inverted by subtracting the negative minus the
 	positive. */
-	if (sw_fuel_gauge_hal_instance.ag620es2)
-		ibat_count_signed = ibat_negative - ibat_positive;
-	else
-		ibat_count_signed = ibat_positive - ibat_negative;
+	ibat_count_signed = ibat_negative - ibat_positive;
 
 	/* Return the HW count value scaled to mA. */
 	ibat_ma =
@@ -550,14 +533,9 @@ static void sw_fuel_gauge_hal_process_timer_and_irq_work(int param)
 								cb_param);
 	}
 	/* Calculate and set the period for the next timeout. */
-	if (sw_fuel_gauge_hal_instance.ag620es2)
-		SET_ALARM_TIMER(&sw_fuel_gauge_hal_instance.
+	SET_ALARM_TIMER(&sw_fuel_gauge_hal_instance.
 				ibat_long_term_average_polling_atimer,
 				IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES2);
-	else
-		SET_ALARM_TIMER(&sw_fuel_gauge_hal_instance.
-				ibat_long_term_average_polling_atimer,
-				IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES1);
 }
 
 /**
@@ -673,21 +651,10 @@ static int sw_fuel_gauge_hal_calc_long_ibat_average(int *p_ibat_average_ma)
 				 p_next->time_secs);
 		}
 		/* Calculate coulomb counter difference over average period. */
-		if (sw_fuel_gauge_hal_instance.ag620es2) {
-			cc_delta_balanced_mc =
-				sw_fuel_gauge_hal_counts_to_mc((s32)
+		cc_delta_balanced_mc = sw_fuel_gauge_hal_counts_to_mc((s32)
 					((u32)(cc_down - p_ref->cc_down)-
 					(u32)(cc_up - p_ref->cc_up)));
 
-		} else {
-			/* Calculate coulomb counter difference over average
-			period. In AG620_ES1,the coulomb counter assumes
-			positive IBAT when discharging*/
-			cc_delta_balanced_mc =
-				sw_fuel_gauge_hal_counts_to_mc((s32)
-					((u32)(cc_up - p_ref->cc_up)-
-					(u32)(cc_down - p_ref->cc_down)));
-		}
 
 		/* Result in mA is mC per second. */
 		*p_ibat_average_ma =
@@ -788,24 +755,16 @@ static void sw_fuel_gauge_hal_set_delta_threshold(int delta_threshold_mc)
 					sw_fuel_gauge_hal_instance.
 						threshold_count_scaling_mc);
 
-	if (sw_fuel_gauge_hal_instance.ag620es2) {
-		/* CC_THR register field is 8 bits, ensure the calculated value
-		fits. */
-		if (delta_threshold_cc_thr > PMU_AG620_ES2_CC_THR_LIMIT)
-			delta_threshold_cc_thr = PMU_AG620_ES2_CC_THR_LIMIT;
-	} else {
-		/* CC_THR register field is only 6 bits, ensure the calculated
-		value fits. */
-		if (delta_threshold_cc_thr > PMU_AG620_ES1_CC_THR_LIMIT)
-			delta_threshold_cc_thr = PMU_AG620_ES1_CC_THR_LIMIT;
-	}
+	/* CC_THR register field is 8 bits, ensure the calculated value
+	fits. */
+	if (delta_threshold_cc_thr > PMU_AG620_ES2_CC_THR_LIMIT)
+		delta_threshold_cc_thr = PMU_AG620_ES2_CC_THR_LIMIT;
 
 	/* Subtract one as zero counts as one LSB in CC_THR */
 	delta_threshold_cc_thr -= 1;
 
-	if (sw_fuel_gauge_hal_instance.ag620es2) {
-		sw_fg_hal_set_pm_state(sw_fuel_gauge_hal_instance.p_idi_device,
-				sw_fuel_gauge_hal_instance.pm_state_en, true);
+	sw_fg_hal_set_pm_state(sw_fuel_gauge_hal_instance.p_idi_device,
+			sw_fuel_gauge_hal_instance.pm_state_en, true);
 
 	/* Write the calculated value into the CC_THR register */
 	iowrite32(delta_threshold_cc_thr,
@@ -813,8 +772,7 @@ static void sw_fuel_gauge_hal_set_delta_threshold(int delta_threshold_mc)
 						PMU_AG620_CC_THR));
 
 	sw_fg_hal_set_pm_state(sw_fuel_gauge_hal_instance.p_idi_device,
-				sw_fuel_gauge_hal_instance.pm_state_dis, false);
-	}
+			sw_fuel_gauge_hal_instance.pm_state_dis, false);
 
 	/* Calculate and store the real delta threshold value set */
 	sw_fuel_gauge_hal_instance.delta_threshold_mc =
@@ -826,19 +784,18 @@ static void sw_fuel_gauge_hal_set_delta_threshold(int delta_threshold_mc)
 		 sw_fuel_gauge_hal_instance.delta_threshold_mc);
 
 	if (!sw_fuel_gauge_hal_instance.delta_threshold_set) {
-		if (sw_fuel_gauge_hal_instance.ag620es2) {
-			int ret = 0;
-			/* Register and enable the coulomb counter
-			interrupt handler with the PMU */
-			ret = request_irq(sw_fuel_gauge_hal_instance.irq,
-				sw_fuel_gauge_hal_coulomb_counter_delta_irq_cb,
-				0, DRIVER_NAME,
-				&sw_fuel_gauge_hal_instance.platform_data);
-			if (ret != 0) {
-				pr_err("Failed to register coulomb counter interrupt: %d\n",
-					sw_fuel_gauge_hal_instance.irq);
-				BUG();
-			}
+
+		int ret = 0;
+		/* Register and enable the coulomb counter
+		interrupt handler with the PMU */
+		ret = request_irq(sw_fuel_gauge_hal_instance.irq,
+			sw_fuel_gauge_hal_coulomb_counter_delta_irq_cb,
+			0, DRIVER_NAME,
+			&sw_fuel_gauge_hal_instance.platform_data);
+		if (ret != 0) {
+			pr_err("Failed to register coulomb counter interrupt: %d\n",
+				sw_fuel_gauge_hal_instance.irq);
+			BUG();
 		}
 		sw_fuel_gauge_hal_instance.delta_threshold_set = true;
 	}
@@ -1073,12 +1030,6 @@ static int swfg_hal_get_platform_data(
 	int ret;
 	struct device_node *np = p_fg_hal->p_idi_device->device.of_node;
 
-	if (of_find_property(np, "intel,ag620es2", NULL))
-		p_fg_hal->ag620es2 = 1;
-	else
-		p_fg_hal->ag620es2 = 0;
-
-
 	ret = of_property_read_u32(np, "sense_resistor_mohm", &val);
 	if (ret) {
 		pr_err("dt: parsing 'sense_resistor_mohm' failed\n");
@@ -1148,14 +1099,12 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 	if (ret)
 		return ret;
 
-	if (sw_fuel_gauge_hal_instance.ag620es2) {
-		res = idi_get_resource_byname(&ididev->resources,
-					IORESOURCE_IRQ, "cccl");
-		sw_fuel_gauge_hal_instance.irq = res->start;
-		if (IS_ERR_VALUE(sw_fuel_gauge_hal_instance.irq)) {
-			pr_err("setup of couloumb counter irq failed\n");
-			BUG();
-		}
+	res = idi_get_resource_byname(&ididev->resources,
+				IORESOURCE_IRQ, "cccl");
+	sw_fuel_gauge_hal_instance.irq = res->start;
+	if (IS_ERR_VALUE(sw_fuel_gauge_hal_instance.irq)) {
+		pr_err("setup of couloumb counter irq failed\n");
+		BUG();
 	}
 
 	ret =  idi_device_pm_set_class(ididev);
@@ -1218,12 +1167,10 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 			(sw_fuel_gauge_hal_instance.p_pmu_cc_base +
 						PMU_AG620_CC_CTRL));
 
-	if (sw_fuel_gauge_hal_instance.ag620es2) {
-		/* Clear the coulomb counter delta threshold */
-		iowrite32(PMU_AG620_CC_CTRL2_CLEAR,
-			(sw_fuel_gauge_hal_instance.p_pmu_cc_base +
-				PMU_AG620_CC_CTRL2));
-	}
+	/* Clear the coulomb counter delta threshold */
+	iowrite32(PMU_AG620_CC_CTRL2_CLEAR,
+		(sw_fuel_gauge_hal_instance.p_pmu_cc_base +
+			PMU_AG620_CC_CTRL2));
 
 	sw_fg_hal_set_pm_state(ididev, sw_fuel_gauge_hal_instance.pm_state_dis,
 					false);
@@ -1248,36 +1195,21 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 	(1000i mA)* ( 500mV/20mOhm)/i )*(1/8192) s = 25000/8192 mAs
 	= 3.05175 mC. */
 
-	if (sw_fuel_gauge_hal_instance.ag620es2) {
-		sw_fuel_gauge_hal_instance.coulomb_count_scaling_uc =
-				((SCALING_C_TO_UC *
-				COULOMB_COUNTER_INCREMENT_THRESHOLD_MV_ES2) /
-				p_fg_hal->platform_data.sense_resistor_mohm) /
-					COULOMB_COUNTER_CLOCK_FREQ_HZ;
-	} else {
-		sw_fuel_gauge_hal_instance.coulomb_count_scaling_uc =
-				((SCALING_C_TO_UC *
-				COULOMB_COUNTER_INCREMENT_THRESHOLD_MV_ES1) /
-				p_fg_hal->platform_data.sense_resistor_mohm) /
-					COULOMB_COUNTER_CLOCK_FREQ_HZ;
-	}
+	sw_fuel_gauge_hal_instance.coulomb_count_scaling_uc =
+			((SCALING_C_TO_UC *
+			COULOMB_COUNTER_INCREMENT_THRESHOLD_MV_ES2) /
+			p_fg_hal->platform_data.sense_resistor_mohm) /
+				COULOMB_COUNTER_CLOCK_FREQ_HZ;
 
 	SW_FUEL_GAUGE_HAL_DEBUG_PARAM(SW_FUEL_GAUGE_DEBUG_HAL_CC_SCALE_UC,
 			sw_fuel_gauge_hal_instance.coulomb_count_scaling_uc);
 
 	/* Calculate the coulomb threshold scaling factor from coulomb counter
 	scaling factor */
-	if (sw_fuel_gauge_hal_instance.ag620es2) {
-		sw_fuel_gauge_hal_instance.threshold_count_scaling_mc =
-			(sw_fuel_gauge_hal_instance.coulomb_count_scaling_uc *
-			COULOMB_COUNTER_DELTA_THRESHOLD_SCALING_ES2)
-				/ SCALING_UC_TO_MC;
-	} else {
-		sw_fuel_gauge_hal_instance.threshold_count_scaling_mc =
-			(sw_fuel_gauge_hal_instance.coulomb_count_scaling_uc *
-			COULOMB_COUNTER_DELTA_THRESHOLD_SCALING_ES1)
-				/ SCALING_UC_TO_MC;
-	}
+	sw_fuel_gauge_hal_instance.threshold_count_scaling_mc =
+		(sw_fuel_gauge_hal_instance.coulomb_count_scaling_uc *
+		COULOMB_COUNTER_DELTA_THRESHOLD_SCALING_ES2)
+			/ SCALING_UC_TO_MC;
 
 	SW_FUEL_GAUGE_HAL_DEBUG_PARAM
 		(SW_FUEL_GAUGE_DEBUG_HAL_CC_THRESHOLD_SCALE_MC,
@@ -1295,15 +1227,9 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 			  sw_fuel_gauge_hal_polling_atimer_expired_cb);
 
 	/* Calculate and set the period for the first timeout */
-	if (sw_fuel_gauge_hal_instance.ag620es2) {
-		SET_ALARM_TIMER(&sw_fuel_gauge_hal_instance.
-				ibat_long_term_average_polling_atimer,
-				IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES2);
-	} else {
-		SET_ALARM_TIMER(&sw_fuel_gauge_hal_instance.
-				ibat_long_term_average_polling_atimer,
-				IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES1);
-	}
+	SET_ALARM_TIMER(&sw_fuel_gauge_hal_instance.
+			ibat_long_term_average_polling_atimer,
+			IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES2);
 
 	/* Register the HAL with the SW Fuel Gauge */
 	BUG_ON(sw_fuel_gauge_register_hal(&ag620_sw_fuel_gauge_hal,
@@ -1324,11 +1250,10 @@ static int __exit sw_fuel_gauge_hal_remove(struct idi_peripheral_device *ididev)
 {
 	SW_FUEL_GAUGE_HAL_DEBUG_NO_PARAM(SW_FUEL_GAUGE_DEBUG_HAL_REMOVE);
 
-	if (sw_fuel_gauge_hal_instance.ag620es2) {
-		/* Deregister CC interrupt handler */
-		free_irq(sw_fuel_gauge_hal_instance.irq,
-				&sw_fuel_gauge_hal_instance.platform_data);
-	}
+	/* Deregister CC interrupt handler */
+	free_irq(sw_fuel_gauge_hal_instance.irq,
+			&sw_fuel_gauge_hal_instance.platform_data);
+
 	wake_lock_destroy(&sw_fuel_gauge_hal_instance.suspend_lock);
 
 	/* Delete allocated resources and mark driver as uninitialised. */
