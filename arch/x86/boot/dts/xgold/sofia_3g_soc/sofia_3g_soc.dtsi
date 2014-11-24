@@ -121,22 +121,44 @@
 				stat,3 = "GPU";
 #ifdef SOFIA3G_ES2
 				stat,4 = "DCC2";
+#endif
 
-				intel,qos-configs = "DCC2", "GPU";
+#if defined(SOFIA3G_ES21)
+				intel,qos-configs = "DCC2", "GPU", "CPU1";
 				intel,GPU-qos-settings = <
-					0x1C8C 0x1      /* GPU mode limiter */
-					0x1C88 0x0      /* GPU rw/wr prio 0/0 */
-					0x1C90 0x120    /* GPU bandwidth 900MB/s */
-					0x1C94 0x90     /* GPU saturation 400MB/s */
-					0x1C98 0x5>;    /* GPU QoSEn */
+					0x1C88 0x0      /* rw/wr prio */
+					0x1C8C 0x2      /* mode bypass */
+					0x1C90 0x120    /* bandwidth */
+					0x1C94 0x90     /* saturation */
+					0x1C98 0x5>;    /* QoSEn */
 
 				intel,DCC2-qos-settings = <
-					0x1E08 0xE      /* DCC2 prio 2/3 */
-					0x1E0C 0x3      /* DCC2 mode regulator*/
-					0x1E10 0x9F     /* DCC2 bandwidth */
-					0x1E14 0x90     /* DCC2 saturation */
-					0x1E18 0x5>;    /* DCC2 QoSEn */
+					0x1E08 0xE      /* prio */
+					0x1E0C 0x3      /* mode regulator*/
+					0x1E10 0x9F     /* bandwidth */
+					0x1E14 0x90     /* saturation */
+					0x1E18 0x5>;    /* QoSEn */
 
+				intel,CPU1-qos-owner;
+				intel,CPU1-qos-settings = <
+					0x1E88 0xF      /* prio */
+					0x1E8C 0x0      /* mode fixed */
+					0x1E98 0x5>;    /* QoSEn */
+#elif defined(SOFIA3G_ES2)
+				intel,qos-configs = "DCC2", "GPU";
+				intel,GPU-qos-settings = <
+					0x1C88 0x0      /* rw/wr prio */
+					0x1C8C 0x1      /* mode bypass */
+					0x1C90 0x120    /* bandwidth */
+					0x1C94 0x90     /* saturation */
+					0x1C98 0x5>;    /* QoSEn */
+
+				intel,DCC2-qos-settings = <
+					0x1E08 0xE      /* prio */
+					0x1E0C 0x3      /* mode regulator*/
+					0x1E10 0x9F     /* bandwidth */
+					0x1E14 0x90     /* saturation */
+					0x1E18 0x5>;    /* QoSEn */
 #endif
 				#include "xgold/sofia_3g_soc/NoC.dtsi"
 			};
