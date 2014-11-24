@@ -92,7 +92,7 @@ static irqreturn_t process_cpufreq(int irq, void *dev)
 	struct cpufreq_policy *policy = dev;
 	cpufreq_old = cpufreq_new;
 	cpufreq_new = vpower_system_get_cpu_freq() * 1000;
-	pr_debug("cpufreq: hirq, new freq is %d \n", cpufreq_new);
+	pr_debug("cpufreq: hirq, new freq is %d\n", cpufreq_new);
 	stat_policy = policy;
 	queue_work(system_nrt_wq, &vcpufreq_pre);
 	return IRQ_HANDLED;
@@ -209,12 +209,13 @@ static int xgold_cpufreq_target(struct cpufreq_policy *policy,
 	freqs->new = freq_table[index].frequency;
 	freqs->cpu = policy->cpu;
 
-	pr_debug("cpufreq: intarget freqs->new %d freqs->old %d\n", freqs->new, freqs->old);
+	pr_debug("cpufreq: intarget freqs->new %d freqs->old %d\n", freqs->new,
+			freqs->old);
 	if (freqs->new == freqs->old)
 		goto out;
 
-	cpufreq_notify_transition(policy, freqs, CPUFREQ_PRECHANGE);
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
+	cpufreq_notify_transition(policy, freqs, CPUFREQ_PRECHANGE);
 	clk_set_rate(xgold_cpu_info->pll_clk, (freqs->new * 1000));
 	cpufreq_notify_transition(policy, freqs, CPUFREQ_POSTCHANGE);
 #else
