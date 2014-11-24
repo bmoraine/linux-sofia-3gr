@@ -175,7 +175,7 @@
 				  2300 /*capacity*/
 				  4350 /*voltage_max*/
 				  82 /*chrg_term_ma*/
-				  3200 /*low_batt_mv*/
+				  3000 /*low_batt_mv*/
 				  60 /*disch_tmp_ul*/
 				  0xffffffec /*disch_tmp_ll (-20)*/
 				  0 /*min_temp*/
