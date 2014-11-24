@@ -73,7 +73,7 @@ static struct mmc3416x_platform_data
 static struct mmc3416x_platform_data *pdata;
 
 static u32 read_idx;
-struct class *mag_class;
+static struct class *mag_class;
 
 static struct i2c_client *this_client;
 
@@ -81,12 +81,12 @@ static struct input_polled_dev *ipdev;
 static struct mutex lock;
 
 /* input dev work as polling */
-struct input_dev *input_dev;
-struct delayed_work mmc3416x_work;
+static struct input_dev *input_dev;
+static struct delayed_work mmc3416x_work;
 
-int mmc3416x_enabled;
-int need_resume;
-int poll_ms;
+static int mmc3416x_enabled;
+static int enabled_before_suspend;
+static unsigned int poll_ms;
 
 static DEFINE_MUTEX(ecompass_lock);
 
@@ -405,15 +405,44 @@ static struct miscdevice mmc3416x_device = {
 
 static void mmc3416x_mag_disable(void)
 {
+	unsigned char data[2];
 	if (mmc3416x_enabled) {
+		data[0] = MMC3416X_REG_CTRL;
+		data[1] = 0;
+		if (mmc3xxx_i2c_tx_data(data, 2) < 0)
+			pr_debug("%s tx err\r\n", __func__);
+
 		mmc3416x_enabled = 0;
 		cancel_delayed_work(&mmc3416x_work);
 	}
 }
 
+static unsigned char mmc3416x_mag_poll_hz(void)
+{
+	unsigned char poll_hz;
+
+	if (poll_ms <= 40)
+		poll_hz = MMC3416X_CTRL_50HZ;
+	else if (poll_ms <= 75)
+		poll_hz = MMC3416X_CTRL_25HZ;
+	else if (poll_ms <= 800)
+		poll_hz = MMC3416X_CTRL_13HZ;
+	else
+		poll_hz = MMC3416X_CTRL_1HZ;
+
+	return poll_hz;
+}
+
 static void mmc3416x_mag_enable(void)
 {
+	unsigned char data[2];
+
 	if (!mmc3416x_enabled) {
+		data[0] = MMC3416X_REG_CTRL;
+		data[1] = mmc3416x_mag_poll_hz() | MMC3416X_CTRL_CM;
+		if (mmc3xxx_i2c_tx_data(data, 2) < 0)
+			pr_debug("%s tx err\r\n", __func__);
+
 		mmc3416x_enabled = 1;
 		schedule_delayed_work(&mmc3416x_work,
 			msecs_to_jiffies(poll_ms));
@@ -514,50 +543,16 @@ static int mmc3416x_get_data(int *xyz)
 	int raw[3] = { 0 };
 	int hw_d[3] = { 0 };
 
-	if (!(read_idx % MMC3416X_SET_INTV)) {
-		data[0] = MMC3416X_REG_CTRL;
-		data[1] = MMC3416X_CTRL_REFILL;
-		mmc3xxx_i2c_tx_data(data, 2);
-		msleep(MMC3416X_DELAY_RESET);
-		data[0] = MMC3416X_REG_CTRL;
-		data[1] = MMC3416X_CTRL_RESET;
-		mmc3xxx_i2c_tx_data(data, 2);
-		usleep_range(1000, 1100);
-		data[0] = MMC3416X_REG_CTRL;
-		data[1] = 0;
-		mmc3xxx_i2c_tx_data(data, 2);
-		usleep_range(1000, 1100);
-
-		data[0] = MMC3416X_REG_CTRL;
-		data[1] = MMC3416X_CTRL_REFILL;
-		mmc3xxx_i2c_tx_data(data, 2);
-		msleep(MMC3416X_DELAY_SET);
-		data[0] = MMC3416X_REG_CTRL;
-		data[1] = MMC3416X_CTRL_SET;
-		mmc3xxx_i2c_tx_data(data, 2);
-		usleep_range(1000, 1100);
-		data[0] = MMC3416X_REG_CTRL;
-		data[1] = 0;
-		mmc3xxx_i2c_tx_data(data, 2);
-		usleep_range(1000, 1100);
-	}
-	/* send TM cmd before read */
-	data[0] = MMC3416X_REG_CTRL;
-	data[1] = MMC3416X_CTRL_TM;
-	/* not check return value here, assume it always OK */
-	mmc3xxx_i2c_tx_data(data, 2);
-	/* wait TM done for coming data read */
-	msleep(MMC3416X_DELAY_TM);
 	/* read xyz raw data */
 	read_idx++;
 	data[0] = MMC3416X_REG_DATA;
-	if (mmc3xxx_i2c_rx_data(data, 6) < 0) {
-		mutex_unlock(&ecompass_lock);
+	if (mmc3xxx_i2c_rx_data(data, 6) < 0)
 		return -EFAULT;
-	}
+
 	raw[0] = data[1] << 8 | data[0];
 	raw[1] = data[3] << 8 | data[2];
 	raw[2] = data[5] << 8 | data[4];
+
 	/* axis map */
 	hw_d[0] = ((pdata->negate_x) ? (-raw[pdata->axis_map_x])
 	   : (raw[pdata->axis_map_x]));
@@ -579,7 +574,6 @@ static int mmc3416x_get_data(int *xyz)
 static void mmc3416x_work_func(struct work_struct *work)
 {
 	int xyz[3] = { 0 };
-
 	mutex_lock(&ecompass_lock);
 
 	/* check mmc3416x_enabled staues first */
@@ -711,6 +705,34 @@ out:
 	return ERR_PTR(ret);
 }
 #endif
+
+#ifdef CONFIG_PM
+static int mag_suspend(struct device *dev)
+{
+	if (mmc3416x_enabled)
+		enabled_before_suspend = 1;
+	else
+		enabled_before_suspend = 0;
+
+	mmc3416x_mag_disable();
+	return 0;
+}
+
+static int mag_resume(struct device *dev)
+{
+	if (enabled_before_suspend)
+		mmc3416x_mag_enable();
+
+	return 0;
+}
+#else
+#define mag_suspend	NULL
+#define mag_resume	NULL
+#endif /* CONFIG_PM */
+
+static const struct dev_pm_ops mag_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(mag_suspend, mag_resume)
+};
 
 static int mmc3416x_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
@@ -897,6 +919,7 @@ static struct i2c_driver mmc3416x_driver = {
 	.driver		= {
 		.owner	= THIS_MODULE,
 		.name	= MMC3416X_I2C_NAME,
+		.pm = &mag_pm,
 	},
 };
 
