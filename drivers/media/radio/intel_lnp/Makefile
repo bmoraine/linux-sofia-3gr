@@ -14,7 +14,7 @@ obj-$(CONFIG_RADIO_LNP)+= fmdrv_intel.o
 
 # FM Radio Includes
 ## Common
-FMR_DRV_PATH	:= ../linux-3.10/drivers/media/radio/intel_lnp
+FMR_DRV_PATH	:= $(srctree)/drivers/media/radio/intel_lnp
 CHIPID		:= lnp
 #PLATFORM:= xmm6321a2
 #PLATFORM := moor
