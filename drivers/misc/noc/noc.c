@@ -1244,14 +1244,23 @@ static int xgold_noc_parse_dts_qoslist(struct device *_dev)
 					"intel,qos-configs", i,
 					&devqos->name);
 
+			/* test if controlled by noc driver */
+			sprintf(str, "intel,%s-qos-owner", devqos->name);
+			if (of_property_read_bool(np, str))
+				devqos->noc_owner = 1;
+			else
+				devqos->noc_owner = 0;
+
 			sprintf(str, "intel,%s-qos-settings", devqos->name);
 			ret = xgold_noc_parse_dts_qoscfg(_dev, str,
 					&devqos->config);
 			if (ret) {
 				dev_info(_dev, "%s not add to list\n", str);
 				devm_kfree(_dev, devqos);
+				return -EINVAL;
 			} else {
-				dev_info(_dev, "%s added to list\n", str);
+				dev_info(_dev, "%s added to list(%d)\n",
+						str, devqos->noc_owner);
 				list_add_tail(&devqos->list,
 					&noc_device->qos->list);
 			}
@@ -1264,7 +1273,7 @@ static int xgold_noc_parse_dts_qoslist(struct device *_dev)
 }
 static struct xgold_noc_device *noc_dev_glob[2] = {NULL, NULL};
 static int noc_idev_glob;
-void xgold_noc_qos_set(char *name)
+void xgold_noc_qos_set(const char *name)
 {
 	struct dev_qos_cfg *qos;
 	struct regcfg *reg;
@@ -1290,6 +1299,25 @@ void xgold_noc_qos_set(char *name)
 	pr_debug("QoS config %s not found\n", name);
 }
 EXPORT_SYMBOL(xgold_noc_qos_set);
+
+static void noc_device_qos_set(struct xgold_noc_device *noc_device)
+{
+	struct dev_qos_cfg *qos;
+	if (!noc_device) {
+		pr_err("%s NULL noc device\n", __func__);
+		return;
+	}
+	if (!noc_device->qos)
+		return;
+
+	list_for_each_entry(qos, &noc_device->qos->list, list) {
+		if (qos->noc_owner) {
+			pr_debug("noc: Set default QoS config %s\n",
+					qos->name);
+			xgold_noc_qos_set(qos->name);
+		}
+	}
+}
 
 /**
  * Parse dts to get number of probes and number of filters and counters per probe
@@ -1334,10 +1362,7 @@ static int xgold_noc_parse_dts(struct device *_dev)
 
 	xgold_noc_parse_dts_qoslist(_dev);
 	noc_dev_glob[noc_idev_glob] = noc_device;
-	if (noc_idev_glob == 0) {
-		xgold_noc_qos_set("DCC2");
-		xgold_noc_qos_set("GPU");
-	}
+	noc_device_qos_set(noc_device);
 	noc_idev_glob++;
 
 
@@ -1585,11 +1610,32 @@ static int xgold_noc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int noc_resume(struct device *dev)
+{
+	struct xgold_noc_device *noc_device = dev_get_drvdata(dev);
+	noc_device_qos_set(noc_device);
+	return 0;
+}
+
+static int noc_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static const struct dev_pm_ops noc_driver_pm_ops = {
+#if CONFIG_PM
+	.suspend = noc_suspend,
+	.resume = noc_resume,
+#endif
+};
+
 static struct platform_driver xgold_noc_driver = {
 	.probe = xgold_noc_probe,
 	.remove = xgold_noc_remove,
 	.driver = {
 		   .name = "xgold-noc",
+		   .owner = THIS_MODULE,
+		   .pm = &noc_driver_pm_ops,
 		   .of_match_table = of_match_ptr(xgold_noc_of_match),},
 };
 

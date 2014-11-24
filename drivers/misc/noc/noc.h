@@ -124,6 +124,7 @@ struct dev_qos_cfg {
 	struct list_head list;
 	const char *name;
 	struct regcfg *config;
+	int noc_owner;
 };
 
 struct regcfg {
