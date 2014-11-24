@@ -69,7 +69,6 @@ static void vcpufreq_notify(struct work_struct *work)
 	notif_freqs.old = cpufreq_old;
 	notif_freqs.new = cpufreq_new;
 	notif_freqs.flags = 0;
-	notif_freqs.cpu = 0;
 	cpufreq_notify_transition(stat_policy,
 				&notif_freqs,
 				CPUFREQ_PRECHANGE);
@@ -77,14 +76,7 @@ static void vcpufreq_notify(struct work_struct *work)
 				&notif_freqs,
 				CPUFREQ_POSTCHANGE);
 
-	notif_freqs.cpu = 1;
-	cpufreq_notify_transition(stat_policy,
-				&notif_freqs,
-				CPUFREQ_PRECHANGE);
-	cpufreq_notify_transition(stat_policy,
-				&notif_freqs,
-				CPUFREQ_POSTCHANGE);
-}
+	}
 
 
 static irqreturn_t process_cpufreq(int irq, void *dev)
