@@ -522,5 +522,10 @@
 };
 #endif
 
-#include "xgold/agold620/pinctrl-sf_3g-es2-svb.dtsi"
+#if defined(SOFIA3G_ES21)
+#include "xgold/sofia_3g_soc/pinctrl-sf_3g-es2.1-svb.dtsi"
+#include "xgold/agold620/pinctrl-sf_3g-es2.1-svb.dtsi"
+#else
 #include "xgold/sofia_3g_soc/pinctrl-sf_3g-es2-svb.dtsi"
+#include "xgold/agold620/pinctrl-sf_3g-es2-svb.dtsi"
+#endif
