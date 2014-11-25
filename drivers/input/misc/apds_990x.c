@@ -778,27 +778,30 @@ static ssize_t apds990x_store_enable_ps_sensor(struct device *dev,
 		/* turn off p sensor - kk 25 Apr 2011 .
 		 * we can't turn off the entire sensor,
 		 * the light sensor may be needed by HAL */
-		data->enable_ps_sensor = 0;
-		if (data->enable_als_sensor) {
-			/* reconfigute light sensor setting */
-			/* Power Off */
-			apds990x_set_enable(client, 0);
+		if (data->enable_ps_sensor == 1) {
+			data->enable_ps_sensor = 0;
+			if (data->enable_als_sensor) {
+				/* reconfigute light sensor setting */
+				/* Power Off */
+				apds990x_set_enable(client, 0);
 
-			/* previous als poll delay */
-			apds990x_set_atime(client, data->als_atime);
+				/* previous als poll delay */
+				apds990x_set_atime(client, data->als_atime);
 
-			apds990x_set_ailt(client, 0xffff);
-			apds990x_set_aiht(client, 0);
+				apds990x_set_ailt(client, 0xffff);
+				apds990x_set_aiht(client, 0);
 
-			apds990x_set_control(client, data->control_default);
-			/* 3 persistence */
-			apds990x_set_pers(client, 0x33);
+				apds990x_set_control(client,
+						data->control_default);
+				/* 3 persistence */
+				apds990x_set_pers(client, 0x33);
 
-			/* only enable light sensor */
-			apds990x_set_enable(client, 0x13);
-		} else {
-			apds990x_set_enable(client, 0);
-			apds990x_power_off(data);
+				/* only enable light sensor */
+				apds990x_set_enable(client, 0x13);
+			} else {
+				apds990x_set_enable(client, 0);
+				apds990x_power_off(data);
+			}
 		}
 	}
 
@@ -880,29 +883,32 @@ static ssize_t apds990x_store_enable_als_sensor(struct device *dev,
 	} else {
 		/* turn off light sensor
 		 * what if the p sensor is active?*/
-		data->enable_als_sensor = 0;
+		if (data->enable_als_sensor == 1) {
+			data->enable_als_sensor = 0;
 
-		if (data->enable_ps_sensor) {
-			apds990x_set_enable(client, 0); /* Power Off */
-			apds990x_set_atime(client, 0xf6);  /* 27.2ms */
-			apds990x_set_ptime(client, 0xff); /* 2.72ms */
-			apds990x_set_ppcount(client, 8); /* 8-pulse */
+			if (data->enable_ps_sensor) {
+				apds990x_set_enable(client, 0); /* Power Off */
+				apds990x_set_atime(client, 0xf6);  /* 27.2ms */
+				apds990x_set_ptime(client, 0xff); /* 2.72ms */
+				apds990x_set_ppcount(client, 8); /* 8-pulse */
 
-			apds990x_set_control(client, data->control_default);
+				apds990x_set_control(client,
+						data->control_default);
 
-			apds990x_set_pilt(client,
-					data->ps_hysteresis_threshold);
-			apds990x_set_piht(client, 1023);
+				apds990x_set_pilt(client,
+						data->ps_hysteresis_threshold);
+				apds990x_set_piht(client, 1023);
 
-			apds990x_set_ailt(client, 0);
-			apds990x_set_aiht(client, 0xffff);
-
-			apds990x_set_pers(client, 0x33); /* 3 persistence */
-			/* only enable prox sensor with interrupt */
-			apds990x_set_enable(client, 0x27);
-		} else {
-			apds990x_set_enable(client, 0);
-			apds990x_power_off(data);
+				apds990x_set_ailt(client, 0);
+				apds990x_set_aiht(client, 0xffff);
+				/* 3 persistence */
+				apds990x_set_pers(client, 0x33);
+				/* only enable prox sensor with interrupt */
+				apds990x_set_enable(client, 0x27);
+			} else {
+				apds990x_set_enable(client, 0);
+				apds990x_power_off(data);
+			}
 		}
 	}
 
