@@ -222,7 +222,7 @@ enum sw_fuel_gauge_hal_cb_event {
 };
 
 /* Function type for scheduled execution by work. */
-typedef void (*fp_scheduled_function)(int param);
+typedef void (*fp_scheduled_function)(long param);
 
 /**
  * struct sw_fuel_gauge_interface -  SW Fuel Gauge interface function type.
@@ -239,7 +239,7 @@ struct sw_fuel_gauge_interface {
 	void (*event_cb)(enum sw_fuel_gauge_hal_cb_event event,
 					union sw_fuel_gauge_hal_cb_param param);
 
-	void (*enqueue)(fp_scheduled_function p_function, int param);
+	void (*enqueue)(fp_scheduled_function p_function, long param);
 };
 
 /**

@@ -179,7 +179,7 @@ struct sw_fuel_gauge_hal_data {
 	/* Wake lock to prevent suspend in critical sections. */
 	struct wake_lock suspend_lock;
 	/* Virtual address of PMU Coulomb Counter registers. */
-	void *p_pmu_cc_base;
+	void __iomem *p_pmu_cc_base;
 	/* Base timestamp for accumulated error. */
 	time_t error_base_rtc_sec;
 	/* Base count for accumulated error in charge IN to battery. */
@@ -498,7 +498,7 @@ static void sw_fuel_gauge_hal_update_long_term_ibat_average(void)
  *
  * @param	[in]	Generic parameter passed from scheduler queue. Not used.
  */
-static void sw_fuel_gauge_hal_process_timer_and_irq_work(int param)
+static void sw_fuel_gauge_hal_process_timer_and_irq_work(long param)
 {
 	struct timespec now;
 

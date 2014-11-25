@@ -45,13 +45,13 @@ do { \
 	spin_lock(&_array.lock); \
 	_array.log_array[_array.index].time_stamp = jiffies; \
 	_array.log_array[_array.index].event = (_event); \
-	_array.log_array[_array.index].param = (int)(_param); \
+	_array.log_array[_array.index].param = (long)(_param); \
 	_array.index++; \
 	_array.index &= (BAT_DRV_HAL_DEBUG_DATA_SIZE-1); \
 	spin_unlock(&_array.lock); \
 	if (_array.printk_logs_en) \
-		pr_debug("%s 0x%lx  dec=%d\n", \
-			#_event, (unsigned long)_param, (int)_param); \
+		pr_debug("%s 0x%lx  dec=%ld\n", \
+			#_event, (unsigned long)_param, (long)_param); \
 } while (0)
 
 /** Events for use in debug and tracing. */
@@ -85,7 +85,7 @@ struct bat_drv_hal_debug_data {
 	struct {
 		u32				time_stamp;
 		enum bat_drv_hal_debug_event	event;
-		int				param;
+		long			param;
 	} log_array[BAT_DRV_HAL_DEBUG_DATA_SIZE];
 };
 

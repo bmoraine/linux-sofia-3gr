@@ -164,13 +164,13 @@ for Bat Drv HAL */
 	spin_lock(&_array.lock); \
 	_array.log_array[_array.index].time_stamp = jiffies; \
 	_array.log_array[_array.index].event = (_event); \
-	_array.log_array[_array.index].param = (int)(_param); \
+	_array.log_array[_array.index].param = (long)(_param); \
 	_array.index++; \
 	_array.index &= (BAT_DRV_DEBUG_DATA_SIZE-1); \
 	spin_unlock(&_array.lock); \
 	if (_array.printk_logs_en) \
-		pr_debug("%s 0x%lx  dec=%d\n", #_event, \
-				(unsigned long)_param, (int)_param); \
+		pr_debug("%s 0x%lx  dec=%ld\n", #_event, \
+				(unsigned long)_param, (long)_param); \
 }
 
 /* Macro to trace and log debug event and data. */
@@ -183,19 +183,19 @@ for Bat Drv HAL */
 
 #define BAT_DRV_HAL_ENQUEUE(pbat, p_func, param) \
 	bat_drv_enqueue_function(pbat, (fp_scheduled_function)(p_func), \
-								(int)(param))
+								(long)(param))
 
 struct bat_drv_data;
 
 /* Function type for scheduled execution by work. */
-typedef void (*fp_scheduled_function) (struct bat_drv_data *, int);
+typedef void (*fp_scheduled_function) (struct bat_drv_data *, long);
 static int bat_drv_get_batid_ohm(struct bat_drv_data *pbat);
 static int pmic_set_bat_type(struct bat_drv_data *pbat, enum battery_type_id);
 
 /* Message payload for work scheduler queue. */
 struct bat_drv_fifo_payload {
 	fp_scheduled_function p_func;
-	int param;
+	long param;
 };
 
 /*
@@ -260,7 +260,7 @@ struct bat_drv_debug_data {
 	struct {
 		u32 time_stamp;
 		enum bat_drv_debug_event event;
-		int param;
+		long param;
 	} log_array[BAT_DRV_DEBUG_DATA_SIZE];
 };
 
@@ -377,7 +377,7 @@ static struct battery_type *get_bat_type(struct bat_drv_data *pbat,
  */
 static void bat_drv_enqueue_function(struct bat_drv_data *pbat,
 				fp_scheduled_function p_function,
-							int param)
+							long param)
 {
 	unsigned long flags;
 

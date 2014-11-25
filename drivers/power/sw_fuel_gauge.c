@@ -142,13 +142,13 @@ available after startup. */
 
 #define SW_FUEL_GAUGE_ENQUEUE(p_func, param) \
 	sw_fuel_gauge_enqueue_function((fp_scheduled_function)(p_func), \
-								(int)(param))
+								(long)(param))
 
 
 /* Message payload for work scheduler queue. */
 struct sw_fuel_gauge_fifo_payload {
 	fp_scheduled_function	p_func;
-	int			param;
+	long		param;
 };
 
 /*
@@ -397,7 +397,7 @@ static const char *bat_id_strings[BAT_ID_MAX] = {
 
 /* Prototype for functions exported to the HAL. */
 static void sw_fuel_gauge_enqueue_function(
-				fp_scheduled_function p_function, int param);
+				fp_scheduled_function p_function, long param);
 
 static void sw_fuel_gauge_cc_hal_callback(enum sw_fuel_gauge_hal_cb_event event,
 					union sw_fuel_gauge_hal_cb_param param);
@@ -563,7 +563,7 @@ static void sw_fuel_gauge_eoc_handler(int target_voltage_mv)
  * @param		[in] Parameter value for the function.
  */
 static void sw_fuel_gauge_enqueue_function(
-				fp_scheduled_function p_function, int param)
+				fp_scheduled_function p_function, long param)
 {
 	unsigned long flags;
 

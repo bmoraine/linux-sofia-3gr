@@ -105,13 +105,13 @@ for Bat Drv HAL */
 	spin_lock(&_array.lock); \
 	_array.log_array[_array.index].time_stamp = jiffies; \
 	_array.log_array[_array.index].event = (_event); \
-	_array.log_array[_array.index].param = (int)(_param); \
+	_array.log_array[_array.index].param = (long)(_param); \
 	_array.index++; \
 	_array.index &= (BAT_DRV_HAL_DEBUG_DATA_SIZE-1); \
 	spin_unlock(&_array.lock); \
 	if (_array.printk_logs_en) \
-		pr_debug("%s 0x%lx  dec=%d\n", #_event, \
-				(unsigned long)_param, (int)_param); \
+		pr_debug("%s 0x%lx  dec=%ld\n", #_event, \
+				(unsigned long)_param, (long)_param); \
 }
 
 /* Macro to trace and log debug event and data. */
@@ -124,7 +124,7 @@ for Bat Drv HAL */
 
 #define BAT_DRV_HAL_ENQUEUE(p_func, param) \
 	bat_drv_hal_enqueue_function((fp_scheduled_function)(p_func), \
-								(int)(param))
+								(long)(param))
 
 #define bat_hal_set_pm_state(_idi_dev, _pm_state, _en) \
 do {\
@@ -140,12 +140,12 @@ do {\
 } while (0)
 
 /* Function type for scheduled execution by work. */
-typedef void (*fp_scheduled_function) (int param);
+typedef void (*fp_scheduled_function) (long param);
 
 /* Message payload for work scheduler queue. */
 struct bat_drv_hal_fifo_payload {
 	fp_scheduled_function p_func;
-	int param;
+	long param;
 };
 
 /*
@@ -217,7 +217,7 @@ struct bat_drv_hal_debug_data {
 	struct {
 		u32 time_stamp;
 		enum bat_drv_hal_debug_event event;
-		int param;
+		long param;
 	} log_array[BAT_DRV_HAL_DEBUG_DATA_SIZE];
 };
 
@@ -421,7 +421,7 @@ static struct battery_type *get_bat_type(struct bat_drv_hal_data *pbat,
  * @param		[in] Parameter value for the function.
  */
 static void bat_drv_hal_enqueue_function(fp_scheduled_function p_function,
-					int param)
+					long param)
 {
 	unsigned long flags;
 

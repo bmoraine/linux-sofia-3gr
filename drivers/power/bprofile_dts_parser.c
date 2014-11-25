@@ -137,7 +137,8 @@ int bprofile_parse_dt(struct battery_type **batteries, size_t *batteries_len,
 {
 	struct battery_type *supported_batids;
 	struct ps_pse_mod_prof *bprofiles;
-	size_t supported_batids_len, nprofiles;
+	size_t supported_batids_len;
+	unsigned nprofiles;
 	int i, ret, index;
 	const char *pname;
 
@@ -149,15 +150,11 @@ int bprofile_parse_dt(struct battery_type **batteries, size_t *batteries_len,
 	}
 
 	supported_batids_len = ret;
-
-	supported_batids = kmalloc(supported_batids_len *
+	supported_batids = kzalloc(supported_batids_len *
 			sizeof(struct battery_type), GFP_KERNEL);
 
 	if (!supported_batids)
 		return -ENOMEM;
-
-	memset(supported_batids, 0,
-		supported_batids_len * sizeof(struct battery_type));
 
 	*batteries = supported_batids;
 	*batteries_len = supported_batids_len;
@@ -168,16 +165,13 @@ int bprofile_parse_dt(struct battery_type **batteries, size_t *batteries_len,
 		goto nprofiles_fail;
 	}
 
-	bprofiles = kmalloc(nprofiles *
+	bprofiles = kzalloc(nprofiles *
 			sizeof(struct ps_pse_mod_prof), GFP_KERNEL);
 
 	if (!bprofiles) {
 		ret = -ENOMEM;
 		goto bprofiles_alloc_fail;
 	}
-
-	memset(bprofiles, 0,
-		nprofiles * sizeof(struct ps_pse_mod_prof));
 
 	*bprof = bprofiles;
 	*bprof_len = nprofiles;

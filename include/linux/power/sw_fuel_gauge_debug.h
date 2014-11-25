@@ -36,8 +36,8 @@
 do { \
 	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(_array, _event, _param) \
 	if (_array.printk_logs_en)\
-		pr_debug("%s 0x%lx  dec=%d\n", \
-			#_event, (unsigned long)_param, (int)_param); \
+		pr_debug("%s 0x%lx  dec=%ld\n", \
+			#_event, (unsigned long)_param, (long)_param); \
 } while (0)
 #else
 #define SW_FUEL_GAUGE_DEBUG(_array, _event, _param) \
@@ -55,7 +55,7 @@ do { \
 	spin_lock_irqsave(&_array.lock, flags); \
 	_array.log_array[_array.index].time_stamp = jiffies; \
 	_array.log_array[_array.index].event = (_event); \
-	_array.log_array[_array.index].param = (int)(_param); \
+	_array.log_array[_array.index].param = (long)(_param); \
 	_array.index++; \
 	_array.index &= (SW_FUEL_GAUGE_DEBUG_DATA_SIZE-1); \
 	spin_unlock_irqrestore(&_array.lock, flags); \
@@ -247,7 +247,7 @@ struct sw_fuel_gauge_debug_data {
 	struct {
 		u32				time_stamp;
 		enum sw_fuel_gauge_debug_event	event;
-		int				param;
+		long			param;
 	} log_array[SW_FUEL_GAUGE_DEBUG_DATA_SIZE];
 };
 

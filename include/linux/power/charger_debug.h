@@ -34,8 +34,8 @@ do { \
 					(jiffies - INITIAL_JIFFIES); \
 	_array.log_array[_array.write_index].event = (_event); \
 	_array.log_array[_array.write_index].event_string = _event_str; \
-	_array.log_array[_array.write_index].param = (int)(_param); \
-	_array.log_array[_array.write_index].param2 = (int)(_param2); \
+	_array.log_array[_array.write_index].param = (long)(_param); \
+	_array.log_array[_array.write_index].param2 = (long)(_param2); \
 	_array.write_index++; \
 	_array.write_index &= (CHARGER_DEBUG_DATA_SIZE-1); \
 	_array.count = (_array.count == CHARGER_DEBUG_DATA_SIZE) ? \
@@ -46,8 +46,8 @@ do { \
 						_array.write_index : \
 						_array.read_index; \
 	if (_array.printk_logs_en) \
-		printk(KERN_DEBUG "%s param=0x%x, param2=0x%x\n", \
-				_event_str, (int)_param, (int)_param2); \
+		pr_debug("%s param=0x%lx, param2=0x%lx\n", \
+				_event_str, (long)_param, (long)_param2); \
 	spin_unlock(&_array.lock); \
 } while (0)
 
@@ -195,8 +195,8 @@ struct charger_debug_data {
 		unsigned long			time_stamp_jiffies;
 		enum charger_debug_event	event;
 		const char			*event_string;
-		int				param;
-		int				param2;
+		long			param;
+		long			param2;
 	} log_array[CHARGER_DEBUG_DATA_SIZE];
 };
 
