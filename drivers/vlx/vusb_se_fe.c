@@ -168,6 +168,10 @@ struct vusb_se_fe_map_link_id {
 	int vbpipe;
 };
 
+struct vusb_se_data {
+	unsigned uint_val;
+} *vusb_data;
+
 /*****************************************************************************/
 /* LOCAL DATA OBJECTS                                                        */
 /*****************************************************************************/
@@ -422,8 +426,8 @@ static char *vusb_se_fe_ersatz_strtok(char *text, char *seps)
 					token++;
 
 					VUSB_SE_FE_INF
-					    ("Token %d: Sep[%c] at [%d]", token,
-					     *sptr, (tptr - start));
+					    ("Token %d: Sep[%c] at [%zu]",
+					     token, *sptr, (tptr - start));
 
 					*tptr = 0;
 
@@ -1093,15 +1097,15 @@ static void vusb_se_fe_handle_start_threads(void)
 		sprintf(thread_name, "VUSB_SE_FE_LINK_RX_%d", pval[0]);
 
 		VUSB_SE_FE_LOG("Starting Thread [%s]", thread_name);
-
-		kthread_run(vusb_se_fe_link_rx_thread, (void *)pval[0],
+		vusb_data->uint_val = pval[0];
+		kthread_run(vusb_se_fe_link_rx_thread, (void *)vusb_data,
 			    thread_name);
 
 		sprintf(thread_name, "VUSB_SE_FE_LINK_TX_%d", pval[0]);
 
 		VUSB_SE_FE_LOG("Starting Thread [%s]", thread_name);
 
-		kthread_run(vusb_se_fe_link_tx_thread, (void *)pval[0],
+		kthread_run(vusb_se_fe_link_tx_thread, (void *)vusb_data,
 			    thread_name);
 
 		/* Start Modem event watcher thread
@@ -1110,9 +1114,8 @@ static void vusb_se_fe_handle_start_threads(void)
 
 		VUSB_SE_FE_LOG("Starting Thread [%s]", thread_name);
 
-		kthread_run(vusb_se_fe_modem_event_thread, (void *)pval[0],
+		kthread_run(vusb_se_fe_modem_event_thread, (void *)vusb_data,
 			    thread_name);
-
 		/* And notify the back end that things are running
 		 */
 		vusb_se_fe_send_message(pval[0], VUSB_SECMD_TXT_LINK,
@@ -1447,7 +1450,7 @@ static void vusb_se_fe_send_message(int channel, char *item, char *signal,
 /*              or are run-time modem state changes to be passed to links    */
 /*****************************************************************************/
 
-static int vusb_se_fe_command_thread(void *data)
+static int vusb_se_fe_command_thread(void *d)
 {
 	/* Use a local buffer in the thread's stack since Linux Kernel advice
 	 * is not to attempt to use 'malloc' functionality
@@ -1457,15 +1460,16 @@ static int vusb_se_fe_command_thread(void *data)
 	unsigned int pipe;
 
 	int count;
+	unsigned data = ((struct vusb_se_data *)d)->uint_val;
 
-	if (NULL == data) {
+	if (!data) {
 
 		VUSB_SE_FE_ERR("Bad thread parameter");
 
 		return -1;
 	} else {
 
-		pipe = (unsigned int)data;
+		pipe = data;
 	}
 
 	/* Wait a while for Linux start to stabilise...
@@ -1709,11 +1713,12 @@ static int vusb_se_fe_do_link_txfr(unsigned int link, char *tag,
 /*              defined by the parameter 'data'                              */
 /*****************************************************************************/
 
-static int vusb_se_fe_link_rx_thread(void *data)
+static int vusb_se_fe_link_rx_thread(void *d)
 {
 	unsigned int link;
 
 	int diagnostic = 1;
+	unsigned data = ((struct vusb_se_data *)d)->uint_val;
 
 	VUSB_SE_FE_CHECK_AND_SET_LINK(data, link, "BE-to-FE");
 
@@ -1740,13 +1745,14 @@ static int vusb_se_fe_link_rx_thread(void *data)
 /*              defined by the parameter 'data'                              */
 /*****************************************************************************/
 
-static int vusb_se_fe_link_tx_thread(void *data)
+static int vusb_se_fe_link_tx_thread(void *d)
 {
 	unsigned int link;
 
 	int diagnostic = 1;
 
 	unsigned int index = 0;
+	unsigned data = ((struct vusb_se_data *)d)->uint_val;
 
 	VUSB_SE_FE_CHECK_AND_SET_LINK(data, link, "FE-to-BE");
 
@@ -1811,9 +1817,10 @@ static int vusb_se_fe_link_tx_thread(void *data)
 /*              defined by the parameter 'data'                              */
 /*****************************************************************************/
 
-static int vusb_se_fe_modem_event_thread(void *data)
+static int vusb_se_fe_modem_event_thread(void *d)
 {
 	unsigned int link;
+	unsigned data = ((struct vusb_se_data *)d)->uint_val;
 
 	mm_segment_t old_fs;
 
@@ -1930,6 +1937,11 @@ static int vusb_se_fe_modem_event_thread(void *data)
 static int __init vusb_se_fe_init(void)
 {
 	int link;
+	vusb_data = kzalloc(sizeof(struct vusb_se_data), GFP_KERNEL);
+	if (!vusb_data) {
+		VUSB_SE_FE_ERR("Alloc failed - out of memory");
+		return -ENOMEM;
+	}
 
 	VUSB_SE_FE_LOG("INIT VUSB_SE_FE called");
 
@@ -1947,8 +1959,9 @@ static int __init vusb_se_fe_init(void)
 	 * vbpipe command channel and then wait for incoming setup commands
 	 * from the back end, and after that, possible modem state changes
 	 */
+	vusb_data->uint_val = VUSB_SE_FE_COMMAND_VBPIPE_NUM;
 	kthread_run(vusb_se_fe_command_thread,
-		    (void *)VUSB_SE_FE_COMMAND_VBPIPE_NUM,
+			(void *)vusb_data,
 		    "VUSB_SE_FE_MEX_MESSAGES");
 
 	VUSB_SE_FE_LOG("INIT OK");
@@ -1966,7 +1979,7 @@ static void __exit vusb_se_fe_exit(void)
 {
 #ifdef GCOV_CODE_COVERAGE
 #endif
-
+	kfree(vusb_data);
 	VUSB_SE_FE_LOG("EXIT OK");
 }
 
