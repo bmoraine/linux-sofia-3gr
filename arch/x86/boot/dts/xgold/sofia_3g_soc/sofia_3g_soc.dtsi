@@ -124,10 +124,10 @@
 #endif
 
 #if defined(SOFIA3G_ES21)
-				intel,qos-configs = "DCC2", "GPU", "CPU1";
+				intel,qos-configs = "DCC2", "GPU", "CPU1", "VPU", "CIF";
 				intel,GPU-qos-settings = <
-					0x1C88 0x0      /* rw/wr prio */
-					0x1C8C 0x2      /* mode bypass */
+					0x1C88 0x0      /* prio */
+					0x1C8C 0x1      /* mode limiter */
 					0x1C90 0x120    /* bandwidth */
 					0x1C94 0x90     /* saturation */
 					0x1C98 0x5>;    /* QoSEn */
@@ -143,12 +143,28 @@
 				intel,CPU1-qos-settings = <
 					0x1E88 0xF      /* prio */
 					0x1E8C 0x0      /* mode fixed */
+					0x1E90 0x340    /* bandwidth */
+					0x1E94 0x10     /* saturation */
 					0x1E98 0x5>;    /* QoSEn */
+
+				intel,VPU-qos-settings = <
+					0x1D08 0xE      /* prio */
+					0x1D0C 0x3      /* mode regulator*/
+					0x1D10 0x190    /* bandwidth */
+					0x1D14 0x9F     /* saturation */
+					0x1D18 0x5>;    /* QoSEn */
+
+				intel,CIF-qos-settings = <
+					0x1D88 0x4      /* prio */
+					0x1D8C 0x3      /* mode regulator*/
+					0x1D90 0x100    /* bandwidth */
+					0x1D94 0x10     /* saturation */
+					0x1D98 0x5>;    /* QoSEn */
 #elif defined(SOFIA3G_ES2)
 				intel,qos-configs = "DCC2", "GPU";
 				intel,GPU-qos-settings = <
-					0x1C88 0x0      /* rw/wr prio */
-					0x1C8C 0x1      /* mode bypass */
+					0x1C88 0x0      /* prio */
+					0x1C8C 0x1      /* mode limiter */
 					0x1C90 0x120    /* bandwidth */
 					0x1C94 0x90     /* saturation */
 					0x1C98 0x5>;    /* QoSEn */
@@ -168,7 +184,7 @@
 				#address-cells = <1>;
 				#size-cells = <1>;
 				ranges;
-				reg = <0xEF010000 0x2000>;
+				reg = <0xEF010000 0x12000>;
 
 				clocks = <&clk_x2 >;
 				interrupts = < NOC_ERR_APS_L2 IRQ_TYPE_DEFAULT >, < NOC_STATALARM IRQ_TYPE_DEFAULT >;
@@ -186,6 +202,16 @@
 				stat,0 = "DMA4C";
 				stat,1 = "DMA8C_1";
 
+#if defined(SOFIA3G_ES21)
+				intel,qos-configs = "IDI";
+				intel,IDI-qos-owner;
+				intel,IDI-qos-settings = <
+					0x11888 0x4      /* prio */
+					0x1188C 0x3      /* mode limiter */
+					0x11880 0x18    /* bandwidth */
+					0x11894 0x10     /* saturation */
+					0x11898 0x0>;    /* QoSEn */
+#endif
 				#include "xgold/sofia_3g_soc/NoC.dtsi"
 
 				ahb_per@0 {
