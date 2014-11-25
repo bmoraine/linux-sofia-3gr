@@ -23,13 +23,13 @@
 #include <linux/io.h>
 
 #include <sofia/vmcalls.h>
-#include <sofia/mv_hypercalls.h>
+#include <sofia/mv_svc_hypercalls.h>
 #include <linux/proc_fs.h>
 #include <sofia/nk_sofia_bridge.h>
 #include <sofia/mv_gal.h>
 
-#define MAX_MEMMAP_SIZE 0x04000000
 #define NVM_ADDR_SHIFT	(0x3D100000 - 0x3C000000)
+#define SEC_PACK_SIZE 2048
 
 struct vmodem_drvdata {
 	struct device *dev;
@@ -41,6 +41,44 @@ struct vmodem_drvdata {
 	void __iomem *mex_buffer;
 };
 
+struct shared_secure_data {
+	unsigned int vm_id;
+	unsigned int image_startaddr;
+	char secpack[SEC_PACK_SIZE];
+};
+
+
+struct shared_secure_data *p_shared_mem_addr;
+static unsigned int mex_loadaddr;
+static unsigned int mex_loadsize;
+vmm_paddr_t p_shared_mem_phy_addr;
+
+
+static void linux2secvm_vlink_init(void)
+{
+	vmm_paddr_t paddr;
+	vmm_id_t vm_id;
+	struct vmm_vlink *vlink;
+	char *vlink_name = "vlinux2secvm";
+	vm_id = mv_gal_os_id();
+	paddr = 0;
+	do {
+		paddr = mv_gal_vlink_lookup(vlink_name, paddr);
+		mv_gal_printk("vlink lookup returns: 0x%X\n", paddr);
+		vlink = (struct vmm_vlink *)mv_gal_ptov(paddr);
+		if (vlink->s_id == vm_id)
+			break;
+	} while (paddr);
+
+	if (!paddr) {
+		mv_gal_printk("Cannot find %s\n", vlink_name);
+		return;
+	}
+	p_shared_mem_phy_addr = mv_shared_mem_alloc(paddr, 0,
+			sizeof(struct shared_secure_data));
+	p_shared_mem_addr =
+		(struct shared_secure_data *)mv_gal_ptov(p_shared_mem_phy_addr);
+}
 
 static void modem_state_work(struct work_struct *ws)
 {
@@ -81,6 +119,54 @@ static ssize_t modem_sys_state_show(struct device *dev,
 	return sprintf(buf, "%s\n",
 			p->modem_state ? "On" : "Off");
 }
+/*
+ * This function will be revmoved once the vvfs driver is ready
+*/
+static int reload_nvm(struct vmodem_drvdata *p)
+{
+	mm_segment_t fs = get_fs();
+	struct file *fd;
+	set_fs(get_fs());
+	fd = filp_open(
+		"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022",
+		(O_RDONLY | O_SYNC), 0);
+	set_fs(fs);
+	if (unlikely(IS_ERR(fd))) {
+		/* Better use system events to get notified
+		 * on device removal/creation */
+		return -EINVAL;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+	fd->f_op->read(fd, (p->mex_buffer + NVM_ADDR_SHIFT),
+			0x180000, &(fd->f_pos));
+	set_fs(fs);
+	filp_close(fd, NULL);
+	return 1;
+}
+
+static int load_secpack(unsigned char *buf)
+{
+	mm_segment_t fs = get_fs();
+	struct file *fd;
+	set_fs(get_fs());
+	fd = filp_open(
+		"/data/modem.fls_ID0_CUST_SecureBlock.bin",
+		(O_RDONLY | O_SYNC), 0);
+	set_fs(fs);
+	if (unlikely(IS_ERR(fd))) {
+		/* Better use system events to get notified
+		 * on device removal/creation */
+		return -EINVAL;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+	fd->f_op->read(fd, buf,
+			SEC_PACK_SIZE, &(fd->f_pos));
+	set_fs(fs);
+	filp_close(fd, NULL);
+	return 1;
+}
 
 static ssize_t modem_sys_state_store(struct device *dev,
 			       struct device_attribute *attr,
@@ -88,8 +174,6 @@ static ssize_t modem_sys_state_store(struct device *dev,
 {
 	int en, ret;
 	struct vmodem_drvdata *p = dev_get_drvdata(dev);
-	mm_segment_t fs = get_fs();
-
 	ret = sscanf(buf, "%d", &en);
 	if (ret != 1) {
 		dev_err(dev, "invalid input\n");
@@ -97,26 +181,8 @@ static ssize_t modem_sys_state_store(struct device *dev,
 	}
 	dev_dbg(dev, "%s sets modem %s\n", __func__, en ? "On" : "Off");
 	if (en != 0) {
-		struct file *fd;
-#if 1
-		set_fs(get_fs());
-		fd = filp_open(
-			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022",
-			(O_RDONLY | O_SYNC), 0);
-		set_fs(fs);
-		if (unlikely(IS_ERR(fd))) {
-			/* Better use system events to get notified
-			 * on device removal/creation */
-			dev_err(dev, "open device NVM failed, retrying\n");
-			return -EINVAL;
-		}
-		fs = get_fs();
-		set_fs(get_ds());
-		fd->f_op->read(fd, (p->mex_buffer + NVM_ADDR_SHIFT),
-				0x180000, &(fd->f_pos));
-		set_fs(fs);
-		filp_close(fd, NULL);
-#endif
+		reload_nvm(p);
+		load_secpack(p_shared_mem_addr->secpack);
 		mv_start_vm(1);
 	} else {
 		mv_stop_vm(1);
@@ -163,7 +229,6 @@ int vmodem_probe(struct platform_device *pdev)
 	struct resource *res;
 	NkXIrqId sysconf_id;
 	int ret;
-
 	/* Allocate driver data record */
 	pdata = devm_kzalloc(dev,
 			sizeof(struct vmodem_drvdata), GFP_KERNEL);
@@ -171,7 +236,6 @@ int vmodem_probe(struct platform_device *pdev)
 		dev_err(dev, "Couldn't allocate driver data record\n");
 		return -ENOMEM;
 	}
-
 	pdata->modem_state = 0;
 	pdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, pdata);
@@ -219,7 +283,10 @@ int vmodem_probe(struct platform_device *pdev)
 		dev_err(dev, "nk_xirq_attach failed\n");
 		return -EINVAL;
 	}
-
+	mv_svc_security_getvm_loadinfo(1, &mex_loadaddr, &mex_loadsize);
+	linux2secvm_vlink_init();
+	p_shared_mem_addr->vm_id = 1;
+	p_shared_mem_addr->image_startaddr = mex_loadaddr;
 	dev_dbg(dev, "modem device initialized");
 	return 0;
 }
