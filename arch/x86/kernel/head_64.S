@@ -158,8 +158,85 @@ startup_64:
 	addq	%rbp, phys_base(%rip)
 
 	movq	$(early_level4_pgt - __START_KERNEL_map), %rax
+#ifdef CONFIG_X86_INTEL_SOFIA
+	jmp 3f
+#else
 	jmp 1f
+#endif
 ENTRY(secondary_startup_64)
+#ifdef CONFIG_X86_INTEL_SOFIA
+	/*
+	 * Fixup the physical addresses in the page table
+	 */
+	addq	%rbp, init_level4_pgt + (L4_START_KERNEL*8)(%rip)
+
+	addq	%rbp, level3_kernel_pgt + (510*8)(%rip)
+	addq	%rbp, level3_kernel_pgt + (511*8)(%rip)
+
+	addq	%rbp, level2_fixmap_pgt + (506*8)(%rip)
+
+	/*
+	 * Set up the identity mapping for the switchover.  These
+	 * entries should *NOT* have the global bit set!  This also
+	 * creates a bunch of nonsense entries but that is fine --
+	 * it avoids problems around wraparound.
+	 */
+	leaq	_text(%rip), %rdi
+	leaq	init_level4_pgt(%rip), %rbx
+
+	movq	%rdi, %rax
+	shrq	$PGDIR_SHIFT, %rax
+
+	leaq	(4096 + _KERNPG_TABLE)(%rbx), %rdx
+	movq	%rdx, 0(%rbx,%rax,8)
+	movq	%rdx, 8(%rbx,%rax,8)
+
+	addq	$4096, %rdx
+	movq	%rdi, %rax
+	shrq	$PUD_SHIFT, %rax
+	andl	$(PTRS_PER_PUD-1), %eax
+	movq	%rdx, 4096(%rbx,%rax,8)
+	incl	%eax
+	andl	$(PTRS_PER_PUD-1), %eax
+	movq	%rdx, 4096(%rbx,%rax,8)
+
+	addq	$8192, %rbx
+	movq	%rdi, %rax
+	shrq	$PMD_SHIFT, %rdi
+	addq	$(__PAGE_KERNEL_LARGE_EXEC & ~_PAGE_GLOBAL), %rax
+	leaq	(_end - 1)(%rip), %rcx
+	shrq	$PMD_SHIFT, %rcx
+	subq	%rdi, %rcx
+	incl	%ecx
+
+1:
+	andq	$(PTRS_PER_PMD - 1), %rdi
+	movq	%rax, (%rbx,%rdi,8)
+	incq	%rdi
+	addq	$PMD_SIZE, %rax
+	decl	%ecx
+	jnz	1b
+
+	/*
+	 * Fixup the kernel text+data virtual addresses. Note that
+	 * we might write invalid pmds, when the kernel is relocated
+	 * cleanup_highmap() fixes this up along with the mappings
+	 * beyond _end.
+	 */
+	leaq	level2_kernel_pgt(%rip), %rdi
+	leaq	4096(%rdi), %r8
+	/* See if it is a valid page table entry */
+1:	testq	$1, 0(%rdi)
+	jz	2f
+	addq	%rbp, 0(%rdi)
+	/* Go to the next page */
+2:	addq	$8, %rdi
+	cmp	%r8, %rdi
+	jne	1b
+
+	/* Fixup phys_base */
+	addq	%rbp, phys_base(%rip)
+#endif
 	/*
 	 * At this point the CPU runs in 64bit mode CS.L = 1 CS.D = 0,
 	 * and someone has loaded a mapped page table.
@@ -175,7 +252,11 @@ ENTRY(secondary_startup_64)
 	 */
 
 	movq	$(init_level4_pgt - __START_KERNEL_map), %rax
+#ifdef CONFIG_X86_INTEL_SOFIA
+3:
+#else
 1:
+#endif
 
 	/* Enable PAE mode and PGE */
 	/* FIXME: Don't overwrite CR4 as already configured by VMM */
