@@ -631,13 +631,13 @@
 					};
 
 					vpu_dec {
-						/*compatible = "intel,vpu_decoder";*/
-						reg = < 0xEB200200 0x200 >;
+						compatible = "intel,vpu_decoder";
+						reg = < 0x00000000 0x000 >;
 						interrupt-names = "vpu_dec";
 						interrupts = < VID_HINT_DEC IRQ_TYPE_DEFAULT  >;
 
 						pm,class-name = "vpu_dec_class";
-						pm,user-name = "vpu_dec";
+						pm,user-name = "video_dec";
 						pm,state-D3 = "disable";
 						pm,state-D0 = "high_perf"; /*"ultra_high_perf"*/
 
@@ -651,13 +651,13 @@
 						/*vvpu-secvm;*/
 					};
 					vpu_enc {
-						/*compatible = "intel,vpu_encoder";*/
-						reg = < 0xEB200000 0x200 >;
+						compatible = "intel,vpu_encoder";
+						reg = < 0x00000000 0x000 >;
 						interrupt-names = "vpu_enc";
 						interrupts = < VID_HINT_ENC IRQ_TYPE_DEFAULT >;
 
 						pm,class-name = "vpu_enc_class";
-						pm,user-name = "vpu_enc";
+						pm,user-name = "video_enc";
 						pm,state-D3 = "disable";
 						pm,state-D0 = "high_perf"; /*"ultra_high_perf"*/
 
