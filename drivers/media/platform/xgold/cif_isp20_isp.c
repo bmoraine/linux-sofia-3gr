@@ -232,7 +232,7 @@
 #define CIFISP_MODULE_AFC      27
 #define CIFISP_MODULE_IE      28
 
-#define CIFISP_MODULE_DEFAULT_VBLANKING_TIME 3000
+#define CIFISP_MODULE_DEFAULT_VBLANKING_TIME 2000
 
 static int cifisp_dbg_level = CIFISP_DEBUG_ERROR;
 
@@ -3439,18 +3439,105 @@ static int cifisp_mmap(struct file *file, struct vm_area_struct *vma)
 	return videobuf_mmap_mapper(&isp_dev->vbq_stat, vma);
 }
 
+static int cifisp_open(struct file *file)
+{
+	struct xgold_isp_dev *isp_dev =
+		video_get_drvdata(video_devdata(file));
+
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO, "cifisp_open\n");
+
+	isp_dev->bpc_en = false;
+	isp_dev->bls_en = false;
+	isp_dev->sdg_en = false;
+	isp_dev->lsc_en = false;
+	isp_dev->awb_meas_en = false;
+	isp_dev->awb_gain_en = false;
+	isp_dev->flt_en = false;
+	isp_dev->bdm_en = false;
+	isp_dev->ctk_en = false;
+	isp_dev->goc_en = false;
+	isp_dev->hst_en = false;
+	isp_dev->aec_en = false;
+	isp_dev->cproc_en = false;
+	isp_dev->macc_en = false;
+	isp_dev->tmap_en = false;
+	isp_dev->ycflt_en = false;
+	isp_dev->afc_en = false;
+	isp_dev->ie_en = false;
+
+	memset(&isp_dev->bpc_config, 0, sizeof(isp_dev->bpc_config));
+	memset(&isp_dev->bls_config, 0, sizeof(isp_dev->bls_config));
+	memset(&isp_dev->sdg_config, 0, sizeof(isp_dev->sdg_config));
+	memset(&isp_dev->lsc_config, 0, sizeof(isp_dev->lsc_config));
+	memset(&isp_dev->awb_meas_config, 0, sizeof(isp_dev->awb_meas_config));
+	memset(&isp_dev->awb_gain_config, 0, sizeof(isp_dev->awb_gain_config));
+	memset(&isp_dev->flt_config, 0, sizeof(isp_dev->flt_config));
+	memset(&isp_dev->bdm_config, 0, sizeof(isp_dev->bdm_config));
+	memset(&isp_dev->ctk_config, 0, sizeof(isp_dev->ctk_config));
+	memset(&isp_dev->goc_config, 0, sizeof(isp_dev->goc_config));
+	memset(&isp_dev->hst_config, 0, sizeof(isp_dev->hst_config));
+	memset(&isp_dev->aec_config, 0, sizeof(isp_dev->aec_config));
+	memset(&isp_dev->cproc_config, 0, sizeof(isp_dev->cproc_config));
+	memset(&isp_dev->macc_config, 0, sizeof(isp_dev->macc_config));
+	memset(&isp_dev->tmap_config, 0, sizeof(isp_dev->tmap_config));
+	memset(&isp_dev->ycflt_config, 0, sizeof(isp_dev->ycflt_config));
+	memset(&isp_dev->afc_config, 0, sizeof(isp_dev->afc_config));
+	memset(&isp_dev->ie_config, 0, sizeof(isp_dev->ie_config));
+
+	isp_dev->isp_param_bpc_update_needed = false;
+	isp_dev->isp_param_bls_update_needed = false;
+	isp_dev->isp_param_sdg_update_needed = false;
+	isp_dev->isp_param_lsc_update_needed = false;
+	isp_dev->isp_param_awb_meas_update_needed = false;
+	isp_dev->isp_param_awb_gain_update_needed = false;
+	isp_dev->isp_param_flt_update_needed = false;
+	isp_dev->isp_param_bdm_update_needed = false;
+	isp_dev->isp_param_ctk_update_needed = false;
+	isp_dev->isp_param_goc_update_needed = false;
+	isp_dev->isp_param_hst_update_needed = false;
+	isp_dev->isp_param_aec_update_needed = false;
+	isp_dev->isp_param_cproc_update_needed = false;
+	isp_dev->isp_param_macc_update_needed = false;
+	isp_dev->isp_param_tmap_update_needed = false;
+	isp_dev->isp_param_ycflt_update_needed = false;
+	isp_dev->isp_param_afc_update_needed = false;
+	isp_dev->isp_param_ie_update_needed = false;
+	isp_dev->isp_param_awb_meas_update_fast_needed = false;
+	isp_dev->isp_param_afc_update_fast_needed = false;
+	isp_dev->isp_param_aec_update_fast_needed = false;
+
+	isp_dev->active_lsc_width = 0;
+	isp_dev->active_lsc_height = 0;
+
+	isp_dev->streamon = false;
+
+	return 0;
+}
+
+static int cifisp_close(struct file *file)
+{
+	struct xgold_isp_dev *isp_dev =
+		video_get_drvdata(video_devdata(file));
+
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO, "cifisp_close\n");
+
+	videobuf_stop(&isp_dev->vbq_stat);
+	videobuf_mmap_free(&isp_dev->vbq_stat);
+
+	return 0;
+}
+
 struct v4l2_file_operations cifisp_fops = {
 	.mmap = cifisp_mmap,
 	.ioctl = video_ioctl2,
-	.poll = cifisp_poll
+	.poll = cifisp_poll,
+	.open = cifisp_open,
+	.release = cifisp_close
 };
 
 static void cifisp_release(struct video_device *vdev)
 {
-	struct xgold_isp_dev *isp_dev = video_get_drvdata(vdev);
-
-	videobuf_stop(&isp_dev->vbq_stat);
-	videobuf_mmap_free(&isp_dev->vbq_stat);
+	CIFISP_DPRINT(CIFISP_DEBUG_INFO, "cifisp_release\n");
 
 	video_device_release(vdev);
 
