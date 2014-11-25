@@ -409,3 +409,25 @@ int32_t mv_svc_spcu_thermal_service(uint32_t opcode, uint32_t dev_id,
 #ifdef __KERNEL__
 EXPORT_SYMBOL(mv_svc_spcu_thermal_service);
 #endif
+
+int32_t mv_svc_security_verify_vm_completed(uint32_t verify_result,
+						uint32_t vm_id)
+{
+	return mv_platform_service(VMM_SECURITY_VERIFY_VM_COMPLETED_SERVICE,
+			verify_result, vm_id, 0, 0, 0, 0, 0, 0);
+}
+
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_security_verify_vm_completed);
+#endif
+
+int32_t mv_svc_security_getvm_loadinfo(uint32_t vm_id, uint32_t *vm_loadaddr,
+					uint32_t *vm_loadsize)
+{
+	return mv_platform_service(VMM_SECURITY_GETVM_LOADINFO_SERVICE,
+			vm_id, 0, 0, 0,	0, 0, vm_loadaddr, vm_loadsize);
+}
+
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_security_getvm_loadinfo);
+#endif
