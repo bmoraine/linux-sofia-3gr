@@ -58,9 +58,12 @@
 #define CORE3_C6_EXIT 0
 #define U2USPC 0
 #define _3G2USPC 0
+#define EXI15 37
+#define CC1_T0INT 0
+#define CC1_T1INT 0
 #define I2C2_WK 35
-#define EXI15 0
-#define EXI14 37
+#define CC1_CCINT0_7 36
+#define EXI14 0
 #define EXI13 38
 #define EXI12 39
 #define EXI11 41
@@ -135,9 +138,6 @@
 #define PROF_ENV_INT 137
 #define RTC_INT 138
 #define RTC_INT1 139
-#define CC1_T0INT 0
-#define CC1_T1INT 0
-#define CC1_CCINT0_7 36
 #define I2C1_INT 143
 #define EXI0 144
 #define RESET_CORE0 145

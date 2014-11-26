@@ -77,7 +77,6 @@ eint:eint-interrupt-controller {
 	intel,virq,24	= <1>; /* EINT12 */
 	intel,virq,25	= <1>; /* EINT13 */
 	intel,virq,26	= <1>; /* EINT14 */
-	intel,virq,27	= <1>; /* EINT15 */
 	intel,virq,28	= <1>; /* EINT8 */
 	intel,virq,29	= <1>; /* EINT9 */
 	intel,virq,30	= <1>; /* EINT10 */

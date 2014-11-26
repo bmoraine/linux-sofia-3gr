@@ -711,7 +711,7 @@
 			0x300 0x1410	/* gnss_uart_txd */
 			0x304 0x2001	/* gnss_uart_rxd */
 			0x308 0x1410	/* gnss_uart_rts */
-			0x30c 0x2001	/* gnss_uart_cts */
+			0x30c 0x3001	/* gnss_uart_cts */
 			0x31c 0x1700	/* gnss_poweron */
 			0x36c 0x1420	/* gnss_ext_frm_sync */
 			0x370 0x1440	/* gnss_ext_duty_cycle */
@@ -730,13 +730,13 @@
 	};
 	gnss_sleep_pins:gnss_sleep_pins {
 		pinctrl-single,pins = <
-			0x300 0x4100	/* gnss_uart_txd */
+			0x300 0x1700	/* gnss_uart_txd */
 			0x304 0x4100	/* gnss_uart_rxd */
-			0x308 0x4100	/* gnss_uart_rts */
-			0x30c 0x4100	/* gnss_uart_cts */
-			0x31c 0x4100	/* gnss_poweron */
-			0x36c 0x4100	/* gnss_ext_frm_sync */
-			0x370 0x4100	/* gnss_ext_duty_cycle */
+			0x308 0x1700	/* gnss_uart_rts */
+			0x30c 0x1003	/* gnss_uart_cts */
+			0x31c 0x1700	/* gnss_poweron */
+			0x36c 0x1420	/* gnss_ext_frm_sync */
+			0x370 0x1440	/* gnss_ext_duty_cycle */
 		>;
 	};
 	bt_default_pins:bt_default_pins {
