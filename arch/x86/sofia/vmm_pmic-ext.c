@@ -73,7 +73,7 @@ static int32_t __init pmic_reg_access_init(void)
 {
 	struct device_node *np;
 	struct property *prop;
-	size_t size;
+	int size;
 
 	np = of_find_node_by_name(NULL, PMIC_REG_ACCESS_NODE_NAME);
 	if (!np) {
