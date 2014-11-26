@@ -574,6 +574,12 @@ int ov_camera_module_g_ctrl(struct v4l2_subdev *sd,
 			"V4L2_CID_WHITE_BALANCE_TEMPERATURE %d\n",
 			ctrl->value);
 		break;
+	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
+		ctrl->value = cam_mod->wb_config.preset_id;
+		pltfrm_camera_module_pr_debug(&cam_mod->sd,
+			"V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE %d\n",
+			ctrl->value);
+		break;
 	case V4L2_CID_AUTOGAIN:
 		ctrl->value = cam_mod->exp_config.auto_gain;
 		pltfrm_camera_module_pr_debug(&cam_mod->sd,
@@ -717,6 +723,13 @@ int ov_camera_module_s_ext_ctrls(
 			cam_mod->wb_config.temperature = ctrl->value;
 			pltfrm_camera_module_pr_debug(&cam_mod->sd,
 			"V4L2_CID_WHITE_BALANCE_TEMPERATURE %d\n",
+			ctrl->value);
+			break;
+		case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
+			ctrl_updt = OV_CAMERA_MODULE_CTRL_UPDT_PRESET_WB;
+			cam_mod->wb_config.preset_id = ctrl->value;
+			pltfrm_camera_module_pr_debug(&cam_mod->sd,
+			"V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE %d\n",
 			ctrl->value);
 			break;
 		case V4L2_CID_AUTOGAIN:

@@ -33,6 +33,7 @@
 #define OV_CAMERA_MODULE_CTRL_UPDT_AUTO_GAIN		0x10
 #define OV_CAMERA_MODULE_CTRL_UPDT_AUTO_EXP			0x20
 #define OV_CAMERA_MODULE_CTRL_UPDT_FOCUS_ABSOLUTE	0x40
+#define OV_CAMERA_MODULE_CTRL_UPDT_PRESET_WB		0x80
 
 
 enum ov_camera_module_state {
@@ -57,7 +58,7 @@ struct ov_camera_module_config {
 };
 
 struct ov_camera_module_exp_config {
-	u32 exp_time;
+	s32 exp_time;
 	bool auto_exp;
 	u16 gain;
 	bool auto_gain;
@@ -66,6 +67,7 @@ struct ov_camera_module_exp_config {
 
 struct ov_camera_module_wb_config {
 	u32 temperature;
+	u32 preset_id;
 	bool auto_wb;
 };
 
