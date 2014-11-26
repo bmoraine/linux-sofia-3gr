@@ -20,11 +20,17 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/irqchip/irq_xgold.h>
 
+#ifdef CONFIG_X86_INTEL_SOFIA
+#include <sofia/mv_svc_hypercalls.h>
+#endif
 
 #define gpio_err(fmt, arg...)	pr_err("gpio: "  fmt, ##arg)
 #define gpio_info(fmt, arg...)	pr_info("gpio: "  fmt, ##arg)
 #define gpio_dbg(fmt, arg...)	pr_debug("gpio: "  fmt, ##arg)
 #define MAX_GPIO_IRQS		16
+
+#define PCL_IO_ACCESS_BY_VMM 0
+#define PCL_IO_ACCESS_BY_LNX 1
 
 struct xgold_pcl_field {
 	char *name;
@@ -51,6 +57,7 @@ struct xgold_pcl_gpio {
 
 	u32 nirqs;
 	struct xgold_gpio_irq gpio_irq[MAX_GPIO_IRQS];
+	bool io_master;
 };
 
 static inline struct xgold_pcl_gpio *to_xgold_pcl_gpio(struct gpio_chip *chip)
@@ -62,13 +69,37 @@ static inline struct xgold_pcl_gpio *to_xgold_pcl_gpio(struct gpio_chip *chip)
 static inline u32 pcl_read(struct gpio_chip *chip, unsigned offset)
 {
 	struct xgold_pcl_gpio *xgold_gpio = to_xgold_pcl_gpio(chip);
-	return readl_relaxed(xgold_gpio->gpio_base + offset);
+#ifdef CONFIG_X86_INTEL_SOFIA
+	uint32_t tmp = 0;
+	if (xgold_gpio->io_master == PCL_IO_ACCESS_BY_VMM) {
+		if (mv_svc_pinctrl_service(PINCTRL_GET,
+				((uint32_t)xgold_gpio->gpio_base + offset),
+				0, (uint32_t *)&tmp))
+			gpio_err("%s: mv_svc_pinctrl_service(PINCTRL_GET) failed at %p\n",
+				__func__,
+				(void *)(xgold_gpio->gpio_base + offset));
+		return tmp;
+	} else
+#endif
+		return readl_relaxed(xgold_gpio->gpio_base + offset);
 }
 
 static inline void pcl_write(struct gpio_chip *chip, unsigned offset, u32 value)
 {
 	struct xgold_pcl_gpio *xgold_gpio = to_xgold_pcl_gpio(chip);
-	writel(value, (xgold_gpio->gpio_base + offset));
+#ifdef CONFIG_X86_INTEL_SOFIA
+	if (xgold_gpio->io_master == PCL_IO_ACCESS_BY_VMM) {
+		if (mv_svc_pinctrl_service(PINCTRL_SET,
+				((uint32_t)xgold_gpio->gpio_base + offset),
+				value, NULL))
+			gpio_err(
+				"%s: mv_svc_pinctrl_service(PINCTRL_SET) fails at %p - value: %x\n",
+				__func__,
+				(void *)(xgold_gpio->gpio_base + offset),
+				value);
+	} else
+#endif
+		writel(value, (xgold_gpio->gpio_base + offset));
 }
 static inline void field_set_val(struct xgold_pcl_field *f, u32 *reg, u32 val)
 {
@@ -189,6 +220,16 @@ static struct of_device_id xgold_gpio_of_match[] = {
 #define GPIO_TO_IRQ_NUM		"intel,gpio-to-irq-num"
 #define GPIO_TO_IRQ		"intel,gpio-to-irq"
 
+/*
+ * Get intel,io-access property if any from dts
+ */
+bool xgold_gpio_get_io_master(struct device_node *np)
+{
+	if (of_find_property(np, "intel,vmm-secured-access", NULL))
+		return PCL_IO_ACCESS_BY_VMM;
+	return PCL_IO_ACCESS_BY_LNX;
+
+}
 static int xgold_gpio_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -275,8 +316,15 @@ static int xgold_gpio_probe(struct platform_device *pdev)
 		return -EBUSY;
 	}
 */
-	xgold_gpio->gpio_base = devm_ioremap(&pdev->dev,
+	xgold_gpio->io_master = xgold_gpio_get_io_master(np);
+	if (xgold_gpio->io_master == PCL_IO_ACCESS_BY_LNX)
+		xgold_gpio->gpio_base = devm_ioremap(&pdev->dev,
 					res->start, resource_size(res));
+	else
+		xgold_gpio->gpio_base = (void __iomem *)res->start;
+	gpio_info("gpio: io:%s-@:%#x\n",
+		xgold_gpio->io_master == PCL_IO_ACCESS_BY_LNX ?
+		"linux" : "vmm", (uint32_t)xgold_gpio->gpio_base);
 	if (!xgold_gpio->gpio_base) {
 		gpio_err("Could not ioremap\n");
 		return -ENOMEM;
@@ -291,7 +339,13 @@ static int xgold_gpio_probe(struct platform_device *pdev)
 	pchip->of_xlate = of_gpio_simple_xlate;
 	gpiochip_add(pchip);
 	platform_set_drvdata(pdev, xgold_gpio);
-	pcl_write(pchip, 4, 0x100);
+#ifdef CONFIG_X86_INTEL_SOFIA
+	if (xgold_gpio->io_master == PCL_IO_ACCESS_BY_VMM) {
+		if (mv_svc_pinctrl_service(PINCTRL_OPEN, 0, 0, 0))
+			gpio_err("mv_svc_pinctrl_service PINCTRL_OPEN fails");
+	} else
+#endif
+		pcl_write(pchip, 4, 0x100);
 	/* read direction layout */
 	ret = of_property_read_u32(np, PROP_GPIO_DIRECTION_OUT,
 				&xgold_gpio->dir_out);
