@@ -127,6 +127,7 @@
 #include <sofia/vvpu_vbpipe.h>
 
 #ifdef CONFIG_X86_INTEL_SOFIA
+#include <linux/xgold_noc.h>
 #include <sofia/nk_sofia_bridge.h>
 #endif
 
@@ -538,6 +539,7 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd,
 		} else
 			hx280enc_req_counter++;
 
+		xgold_noc_qos_set("VPU");
 		up(&hx280enc_req_counter_lock);
 
 #endif /* __SKIP_POWER_ON_OFF__ */
