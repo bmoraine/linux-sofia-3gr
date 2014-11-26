@@ -32,6 +32,9 @@
 
 #include "core.h"
 #include "pinconf.h"
+#ifdef CONFIG_X86_INTEL_SOFIA
+#include <sofia/mv_svc_hypercalls.h>
+#endif
 
 #define DRIVER_NAME			"pinctrl-single"
 #define PCS_MUX_PINS_NAME		"pinctrl-single,pins"
@@ -279,6 +282,20 @@ static unsigned __maybe_unused pcs_readl(void __iomem *reg)
 	return readl(reg);
 }
 
+#ifdef CONFIG_X86_INTEL_SOFIA
+static unsigned __maybe_unused pcs_vmm_read(void __iomem *reg)
+{
+	unsigned tmp = 0;
+	if (mv_svc_pinctrl_service(PINCTRL_GET, (uint32_t)reg, 0,
+					(uint32_t *)&tmp)) {
+		pr_err("%s: mv_svc_pinctrl_service(PINCTRL_GET) failed at %p\n",
+			__func__,
+			reg);
+	}
+	return tmp;
+}
+#endif
+
 static void __maybe_unused pcs_writeb(unsigned val, void __iomem *reg)
 {
 	writeb(val, reg);
@@ -293,6 +310,19 @@ static void __maybe_unused pcs_writel(unsigned val, void __iomem *reg)
 {
 	writel(val, reg);
 }
+
+#ifdef CONFIG_X86_INTEL_SOFIA
+static void __maybe_unused pcs_vmm_write(unsigned val, void __iomem *reg)
+{
+	if (mv_svc_pinctrl_service(PINCTRL_SET, (uint32_t)reg, val, NULL)) {
+		pr_err("%s: mv_svc_pinctrl_service(PINCTRL_SET) failed at %p\n",
+			__func__,
+			reg);
+
+	}
+
+}
+#endif
 
 static int pcs_get_groups_count(struct pinctrl_dev *pctldev)
 {
@@ -1542,7 +1572,7 @@ static void pcs_free_resources(struct pcs_device *pcs)
 			dev_err(pcs->dev, err);				\
 			return ret;					\
 		}							\
-	} while (0);
+	} while (0)
 
 static struct of_device_id pcs_of_match[];
 
@@ -1940,23 +1970,32 @@ static int pcs_probe(struct platform_device *pdev)
 	INIT_RADIX_TREE(&pcs->ftree, GFP_KERNEL);
 	platform_set_drvdata(pdev, pcs);
 
-	switch (pcs->width) {
-	case 8:
-		pcs->read = pcs_readb;
-		pcs->write = pcs_writeb;
-		break;
-	case 16:
-		pcs->read = pcs_readw;
-		pcs->write = pcs_writew;
-		break;
-	case 32:
-		pcs->read = pcs_readl;
-		pcs->write = pcs_writel;
-		break;
-	default:
-		break;
+#ifdef CONFIG_X86_INTEL_SOFIA
+	if ((of_find_property(np, "intel,vmm-secured-access", NULL))) {
+		pcs->read = pcs_vmm_read;
+		pcs->write = pcs_vmm_write;
+		pcs->base = (void __iomem *)pcs->res->start;
+		dev_info(pcs->dev, "pinctrl: io:@vmm\n");
+	} else
+#endif
+	{
+		switch (pcs->width) {
+		case 8:
+			pcs->read = pcs_readb;
+			pcs->write = pcs_writeb;
+			break;
+		case 16:
+			pcs->read = pcs_readw;
+			pcs->write = pcs_writew;
+			break;
+		case 32:
+			pcs->read = pcs_readl;
+			pcs->write = pcs_writel;
+			break;
+		default:
+			break;
+		}
 	}
-
 	pcs->desc.name = DRIVER_NAME;
 	pcs->desc.pctlops = &pcs_pinctrl_ops;
 	pcs->desc.pmxops = &pcs_pinmux_ops;
