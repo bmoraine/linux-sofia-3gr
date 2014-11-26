@@ -1277,23 +1277,30 @@ void xgold_noc_qos_set(const char *name)
 {
 	struct dev_qos_cfg *qos;
 	struct regcfg *reg;
-	struct xgold_noc_device *noc_dev = noc_dev_glob[0];
+	int idev = 0;
+	for (idev = 0; idev < 2; idev++) {
+		struct xgold_noc_device *noc_dev =
+					noc_dev_glob[idev];
 
-	if ((!noc_dev) || (!noc_dev->qos))
-		return;
-
-	list_for_each_entry(qos, &noc_dev->qos->list, list) {
-
-		if (strcmp(qos->name, name) == 0) {
-			if (qos->config) {
-				pr_debug("Set QoS config %s\n", qos->name);
-				list_for_each_entry(reg,
-						&qos->config->list, list) {
-					iowrite32(reg->value,
-						noc_dev->hw_base + reg->offset);
-				}
-			}
+		if ((!noc_dev) || (!noc_dev->qos))
 			return;
+
+		list_for_each_entry(qos, &noc_dev->qos->list, list) {
+
+			if (strcmp(qos->name, name) == 0) {
+				if (qos->config) {
+					pr_info("Set QoS config %s\n",
+							qos->name);
+					list_for_each_entry(reg,
+							&qos->config->list,
+							list) {
+						iowrite32(reg->value,
+							noc_dev->hw_base +
+							reg->offset);
+					}
+				}
+				return;
+			}
 		}
 	}
 	pr_debug("QoS config %s not found\n", name);
