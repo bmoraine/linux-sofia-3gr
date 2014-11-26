@@ -40,8 +40,7 @@
 #define VMM_PAL_REBOOT_ACTION_HALT      1
 #define VMM_PAL_REBOOT_ACTION_RESET     2
 
-#define PINCTRL_NULL 0
-#define PINCTRL_ABB_IDX(x) (x | (0x8000))
+#define PINCTRL_ABB_IDX(x)	(x|(0x8000))
 
 /** @typedef vmm_platform_service_type
  *
@@ -77,11 +76,38 @@ enum mv_service_type {
 **/
 enum pinctrl_service_op_code {
 	PINCTRL_OPEN = 0,
-	PINCTRL_CONTROL,
-	PINCTRL_GET_PCL,
-	PINCTRL_SET_PCL,
-	PINCTRL_GET_PIN,
+	PINCTRL_GET,
+	PINCTRL_SET,
+	PINCTRL_CONFIG_FUNC,
 	PINCTRL_CLOSE
+};
+
+/**
+  @typedef pinctrl_oper
+  @brief   enumeration containing port configuration
+**/
+enum pinctrl_oper {
+	PINCTRL_OPER_ACTIVE		= 0,
+	PINCTRL_OPER_SLEEP		= 1,
+	PINCTRL_OPER_DEAVTIVE	= 2
+};
+
+/**
+  @typedef pinctrl_funcs
+  @brief	 enumeration containing function ID
+  **/
+enum pinctrl_funcs {
+	PINCTRL_EMMC	= 0x80000000,
+	PINCTRL_SDMMC,
+	PINCTRL_NAND,
+	PINCTRL_KEYPAD,
+	PINCTRL_I2C1,
+	PINCTRL_I2C2,
+	PINCTRL_USIF1,
+	PINCTRL_USIF2,
+	PINCTRL_CC1,
+	PINCTRL_CC2,
+	PINCTRL_LAST	= 0x8FFFFFFF
 };
 
 /**
@@ -255,25 +281,6 @@ uint32_t mv_svc_rtc_set_alarm(pal_rtc_datetime *rtc_datetime);
 uint32_t mv_svc_rtc_get_alarm(pal_rtc_datetime *rtc_datetime);
 
 /**
-  @typedef vmm_pinctrl_result
-  @brief   enumeration containing return result types
-**/
-enum vmm_pinctrl_result {
-	VMM_PINCTRL_RESULT_SUCCESS = 0,
-	VMM_PINCTRL_RESULT_FAILURE = -1
-};
-
-/**
-  @typedef port configuration operation
-  @brief   enumeration containing return result types
-**/
-enum pinctrl_oper {
-	VMM_PINCTRL_OPER_ACTIVATE          = 0,
-	VMM_PINCTRL_OPER_SLEEP             = 1,
-	VMM_PINCTRL_OPER_DEACTIVATE        = 2
-};
-
-/**
   @typedef sysprof_op_code
   @brief   enumeration containing the operation of System Profiling service
 **/
@@ -317,14 +324,12 @@ enum pwm_op_code {
 
 /**
  @brief  MobileVisor platform pin control service
- @brief  Use PINCTRL_ABB_IDX(agr1) for AGOLD PCL
- @param  pinctrl_opcode  enumerate operation service
- @param  arg1  physical index number of PCL (GET/ SET)
- @param  arg1  symbolic pad names (CONTROL)
- @param  arg2  register value to be written (SET)
- @param  arg2  operation mode (CONTROL)
+         <b> Note, Use PINCTRL_ABB_IDX(agr1) for AGOLD PCL ,<b>
+ @param  pinctrl_opcode  operation service
+ @param  agr1  physical index number of PCL (GET/SET) functional ID (FUNC_CONFIG)
+ @param  arg2  register value to be written (SET) operation mode (FUNC_CONFIG)
  @param  arg3  return register value read (GET)
- @return Return 0 if success, -1 otherwise
+ @return return 0 if success, -1 otherwise
 **/
 uint32_t mv_svc_pinctrl_service(
 			uint32_t pinctrl_opcode,

@@ -67,14 +67,25 @@ uint32_t mv_svc_pinctrl_service(
 				uint32_t arg2,
 				uint32_t *arg3)
 {
-	if ((PINCTRL_GET_PCL == opcode) ||
-			(PINCTRL_GET_PIN == opcode)) {
-		return mv_platform_service(PINCTRL_SERVICE, opcode, arg1,
-						0, 0, 0, 0, 0, arg3);
-	} else {
-		return mv_platform_service(PINCTRL_SERVICE, opcode,
-				arg1, arg2, 0, 0, 0, 0, 0);
+	int ret = 0;
+	switch (opcode) {
+	case PINCTRL_OPEN:
+	case PINCTRL_SET:
+	case PINCTRL_CONFIG_FUNC:
+	case PINCTRL_CLOSE:
+		ret = mv_platform_service(PINCTRL_SERVICE, opcode,
+					arg1, arg2, 0, 0, 0, 0, 0);
+		break;
+
+	case PINCTRL_GET:
+		ret = mv_platform_service(PINCTRL_SERVICE, opcode, arg1,
+					0, 0, 0, 0, 0, arg3);
+		break;
+
+	default:
+		break;
 	}
+	return ret;
 }
 
 uint32_t mv_svc_pm_control(uint32_t pm_opcode,
