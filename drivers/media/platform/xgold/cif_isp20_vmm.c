@@ -37,6 +37,7 @@
 #include <linux/jiffies.h>
 #include "cif_isp20.h"
 #include <linux/list.h>
+#include <linux/xgold_noc.h>
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
 #include <linux/fs.h>
@@ -1059,6 +1060,9 @@ int cif_isp20_pltfrm_pm_set_state(
 
 	ret = device_state_pm_set_state(dev,
 		get_device_pm_state(pdata->pm_platdata, pltfrm_pm_state));
+
+	if (pltfrm_pm_state == PM_STATE_D0)
+		xgold_noc_qos_set("CIF");
 
 	if (IS_ERR_VALUE(ret))
 		cif_isp20_pltfrm_pr_err(dev,
