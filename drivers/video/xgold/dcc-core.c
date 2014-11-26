@@ -174,7 +174,6 @@ static inline int dcc_set_pinctrl_state(struct device *dev,
 }
 
 
-extern void xgold_noc_qos_set(char *name);
 int dcc_core_probe(struct platform_device *pdev)
 {
 	int ret = 0;
