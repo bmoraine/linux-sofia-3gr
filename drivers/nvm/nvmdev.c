@@ -121,6 +121,9 @@ static struct file_operations fops = {
     .read           = nvmdev_read,                /* Not supported */
     .write          = nvmdev_write,               /* Not supported */
     .open           = nvmdev_open,
+#ifdef CONFIG_COMPAT
+    .compat_ioctl   = nvmdev_ioctl,
+#endif
     .unlocked_ioctl = nvmdev_ioctl,
     .release        = nvmdev_release,
     .owner          = THIS_MODULE
