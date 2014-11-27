@@ -1488,19 +1488,28 @@ static void sw_fuel_gauge_calculate_nvm_capacity_and_error(void)
 
 }
 
-/**
- * sw_fuel_gauge_nvs_ready_cb -	Called by NVS when the NVS is initialized.
- */
-static void sw_fuel_gauge_nvs_ready_cb(void)
+static void swfg_nvs_ready_work(int param)
 {
+	/* unused */
+	(void)param;
+
 	/* Double check that we only calculate the capacity from
-	 *	NVM in case that we are waiting for the initial SOC. */
+	NVM in case that we are waiting for the initial SOC. */
 	if (SW_FUEL_GAUGE_STM_STATE_WAIT_FOR_INITIAL_SOC ==
 		sw_fuel_gauge_instance.stm.state)
 			sw_fuel_gauge_calculate_nvm_capacity_and_error();
 	else
 		pr_err("%s() called in invalid state %d\n", __func__,
 			sw_fuel_gauge_instance.stm.state);
+}
+
+/**
+ * sw_fuel_gauge_nvs_ready_cb -	Called by NVS when the NVS is initialized.
+ */
+static void sw_fuel_gauge_nvs_ready_cb(void)
+{
+	/* Handle event in the serialized workqueue  */
+	SW_FUEL_GAUGE_ENQUEUE(swfg_nvs_ready_work, 0);
 }
 
 /*
