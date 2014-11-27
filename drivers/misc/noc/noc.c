@@ -1289,7 +1289,7 @@ void xgold_noc_qos_set(const char *name)
 
 			if (strcmp(qos->name, name) == 0) {
 				if (qos->config) {
-					pr_info("Set QoS config %s\n",
+					pr_debug("Set QoS config %s\n",
 							qos->name);
 					list_for_each_entry(reg,
 							&qos->config->list,
