@@ -2249,14 +2249,6 @@ static void sw_fuel_gauge_stm_process_event_soc_update(void)
 		 SW_FUEL_GAUGE_DEBUG_CALC_CAPACITY,
 		  sw_fuel_gauge_instance.latest_calculated_capacity_permil);
 
-		/* Reconfigure the reporting threshold in the coulomb counter,
-		even though the delta threshold remains the same. This is done
-		so that the current value is used as a baseline for the next
-		report. */
-		BUG_ON(0 != sw_fuel_gauge_instance.p_hal_interface->set(
-			SW_FUEL_GAUGE_HAL_SET_COULOMB_IND_DELTA_THRESHOLD,
-			 sw_fuel_gauge_instance.hal_set));
-
 		/* Push new value to the power supply class. */
 		sw_fuel_gauge_set_capacity(
 		 sw_fuel_gauge_instance.latest_calculated_capacity_permil);
