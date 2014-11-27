@@ -242,6 +242,9 @@ static void mali_dev_do_dvfs(struct work_struct *work)
 	unsigned int prev_pm_state;
 	int ret;
 
+	if (mali_dev_pm.dvfs_off)
+		return;
+
 	if ((util < GPU_THROTTLE_DOWN_THRESHOLD) &&
 		(mali_dev_pm.curr_pm_state > GPU_MIN_PM_STATE)) {
 		/*
@@ -315,7 +318,7 @@ int mali_platform_init(void)
 int mali_platform_probe(struct platform_device *pdev,
 	const struct dev_pm_ops *pdev_pm_ops)
 {
-	int ret = 0, i;
+	int ret = 0, i, mali_do_dvfs = 0;
 	unsigned int irq;
 	struct device_node *np;
 	unsigned int nr_cores, regbase;
@@ -358,6 +361,12 @@ int mali_platform_probe(struct platform_device *pdev,
 		mali_err("Could not update irq\n");
 		return -1;
 	}
+
+	if (of_property_read_bool(np, "intel,mali,dvfs"))
+		mali_do_dvfs = 1;
+
+	mali_info("dvfs %s\n", mali_do_dvfs?"ON":"OFF");
+
 
 #if !defined(CONFIG_PLATFORM_DEVICE_PM_VIRT)
 	mali_platform_native_probe(&(pdev->dev), np);
@@ -408,17 +417,26 @@ int mali_platform_probe(struct platform_device *pdev,
 
 	/* Set utilization callback */
 	plf_data.gpu_data->utilization_interval = 100;
-	plf_data.gpu_data->utilization_callback = mali_gpu_utilization_callback;
-
+	plf_data.gpu_data->utilization_callback =
+		mali_gpu_utilization_callback;
 	mali_dev_pm.dvfs_wq = create_workqueue("CONFIG_GPU_DVFS_work_queue");
 	if (mali_dev_pm.dvfs_wq == 0) {
 		mali_err("Unable to create workqueue for dvfs\n");
 		return -1;
-		}
-	mali_dev_pm.dvfs_off = false;
+	}
+	if (mali_do_dvfs) {
 
-	mali_dev_pm.curr_pm_state = GPU_INITIAL_PM_STATE;
-	mali_dev_pm.resume_pm_state = GPU_INITIAL_PM_STATE;
+		mali_dev_pm.dvfs_off = false;
+
+		mali_dev_pm.curr_pm_state = GPU_INITIAL_PM_STATE;
+		mali_dev_pm.resume_pm_state = GPU_INITIAL_PM_STATE;
+	} else {
+		mali_dev_pm.dvfs_off = true;
+
+		mali_dev_pm.curr_pm_state = GPU_MAX_PM_STATE;
+		mali_dev_pm.resume_pm_state = GPU_MAX_PM_STATE;
+	}
+
 	ret = platform_device_pm_set_state(pdev,
 		mali_dev_pm.pm_states[mali_dev_pm.curr_pm_state]);
 	if (ret < 0) {
