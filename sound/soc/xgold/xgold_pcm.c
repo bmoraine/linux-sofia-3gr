@@ -962,10 +962,11 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 					false);
 		}
 		/* HW_AFE should be sent after audio codec is powered up */
-		if (audio_native_mode &&
-			xgold_ptr->stream_type != HW_PROBE_A &&
-			xgold_ptr->stream_type != HW_PROBE_B)
-				dsp_start_audio_hwafe();
+		if (xgold_pcm_sysfs_attribute_value ==
+				XGOLD_PCM_ATTR_SEND_DSP_CMD &&
+				xgold_ptr->stream_type != HW_PROBE_A &&
+				xgold_ptr->stream_type != HW_PROBE_B)
+			dsp_start_audio_hwafe();
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -988,7 +989,8 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 
 		/* HW_AFE should be switched off before audio codec power
 		 * down */
-		if (audio_native_mode &&
+		if (xgold_pcm_sysfs_attribute_value ==
+				XGOLD_PCM_ATTR_SEND_DSP_CMD &&
 				xgold_ptr->stream_type != HW_PROBE_A &&
 				xgold_ptr->stream_type != HW_PROBE_B)
 			dsp_stop_audio_hwafe();
