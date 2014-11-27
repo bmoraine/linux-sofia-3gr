@@ -57,7 +57,7 @@
 	((ch_id * TADO_FIFO_CHID_RANGE) + TADO_FIFO_BASE_ADDR)
 
 #define TADO_HANDLE_TO_CHID(_h) \
-	(((((unsigned int)_h)) - TADO_FIFO_BASE_ADDR) / TADO_FIFO_CHID_RANGE)
+	(((((uintptr_t)_h)) - TADO_FIFO_BASE_ADDR) / TADO_FIFO_CHID_RANGE)
 
 #define TRCDBG_TADO_FILL(x_) \
 	((x_ < TADO_CHID_GENERAL_PURPOSE_START) \
@@ -78,13 +78,13 @@
 	#endif
 	#define FIFO_W32(handle, data) {\
 		iowrite32(data, handle);\
-		TADI_DBG("W32: %x @ %x\n", (unsigned int)handle, data); }
+		TADI_DBG("W32: %p @ %x\n", handle, data); }
 	#define FIFO_W16(handle, data) {\
 		iowrite16(data, handle);\
-		TADI_DBG("W16: %x @ %x\n", (unsigned int)handle, data); }
+		TADI_DBG("W16: %p @ %x\n", handle, data); }
 	#define FIFO_W8(handle, data) {\
 		iowrite8(data, handle);\
-		TADI_DBG("W8: %x @ %x\n", (unsigned int)handle, data); }
+		TADI_DBG("W8: %p @ %x\n", handle, data); }
 #else /* TADI_DEV_PHASE */
 	#ifdef TADI_DEBUG_ON
 		#define TADI_DBG(fmt, arg...) \
@@ -107,7 +107,7 @@ struct s_tadi_priv {
 
 /* Global variables */
 static int rev = TADI_DRV_VERSION;
-static unsigned int fifo_start;
+static uintptr_t fifo_start;
 static int tadi_major_number;
 static struct class *class_tadi;
 static unsigned char tado_free_ch_id_count =
@@ -426,8 +426,8 @@ static long tadi_ioctl(struct file *p_file, unsigned int cmnd,
 	unsigned ret = 0;
 
 	p_tadi_priv = (struct s_tadi_priv *)p_file->private_data;
-	TADI_DBG("IOCTL FD:%x CMD:%d, MT/param:%x\n",
-			(int)p_file, (int)cmnd, (int)param);
+	TADI_DBG("IOCTL FD:%p CMD:%d, MT/param:%lx\n",
+			p_file, cmnd, param);
 	switch (cmnd) {
 	case CMD_SET_MT:
 		p_tadi_priv->mt = param;
@@ -701,9 +701,9 @@ static int tadi_driver_probe(struct platform_device *_dev)
 		return 0;
 	}
 	size = (mem->end - mem->start) + 1;
-	fifo_start = (unsigned int)ioremap(mem->start, size);
-	pr_info("%s: ioremap trace port: size=%d,start=%x,end=%x,fifo_start=%x\n",
-			__func__, size, mem->start, mem->end, fifo_start);
+	fifo_start = (uintptr_t)ioremap(mem->start, size);
+	pr_info("%s: trace port:%pR - ioremap:%lx\n",
+			__func__, mem, fifo_start);
 	if (!fifo_start) {
 		pr_err("%s: unable to remap memory region\n", __func__);
 		release_mem_region(mem->start, size);
