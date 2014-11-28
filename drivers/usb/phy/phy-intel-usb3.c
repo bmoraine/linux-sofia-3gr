@@ -37,8 +37,9 @@
 /*#define INTEL_USB3_HW_STUB*/
 /*#define INTEL_USB3_WA_RST*/
 /*#define INTEL_USB3_WA_PM*/
-#define INTEL_USB3_PMIC_WA
-#ifdef INTEL_USB3_PMIC_WA
+#define INTEL_USB3_WA_PMIC
+#define INTEL_USB3_WA_PHY
+#ifdef INTEL_USB3_WA_PMIC
 #include <sofia/vmm_pmic.h>
 #endif
 
@@ -79,6 +80,8 @@ struct intel_usb3 {
 /*----------------------------------------------------------------------*/
 /* CONSTANTS								*/
 /*----------------------------------------------------------------------*/
+#define INTEL_USB3_MPLL_LOOP_CTL	(0x0030UL)
+
 /**
  * todo: comment
  */
@@ -93,8 +96,15 @@ static const struct intel_usb3_bf scu_gen_stat_u3pmu	= {0x0610UL, BIT(13)};
 static const struct intel_usb3_bf scu_gen_u2pmu		= {0x0610UL, BIT(12)};
 static const struct intel_usb3_bf scu_gen_u3pmu		= {0x0610UL, BIT(11)};
 static const struct intel_usb3_bf scu_pm_pwr_state_req	= {0x0610UL, BIT(9)};
+static const struct intel_usb3_bf scu_cr_cap_addr	= {0x0610UL, BIT(0)};
+static const struct intel_usb3_bf scu_cr_cap_data	= {0x0610UL, BIT(1)};
+static const struct intel_usb3_bf scu_cr_read		= {0x0610UL, BIT(2)};
+static const struct intel_usb3_bf scu_cr_write		= {0x0610UL, BIT(3)};
+static const struct intel_usb3_bf scu_cr_data_in	= {0x0614UL, 0x0FFFFUL};
 static const struct intel_usb3_bf scu_get_state_u3pmu	= {0x0620UL, BIT(18)};
 static const struct intel_usb3_bf scu_get_state_u2pmu	= {0x0620UL, BIT(17)};
+static const struct intel_usb3_bf scu_cr_ack		= {0x0620UL, BIT(21)};
+static const struct intel_usb3_bf scu_cr_data_out	= {0x0624UL, 0x0FFFFUL};
 static const struct intel_usb3_bf scu_usb_ss_trim[] = {
 	{0x0630UL, ~0},
 	{0x0634UL, ~0},
@@ -145,11 +155,13 @@ static u32 intel_usb3_hw_bf_read(
 {
 	u32 data = 0;
 
+
 	if (IS_ERR_OR_NULL(iusb3) || IS_ERR_OR_NULL(bf)) {
 		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
 	}
-	ioread32(iusb3->iomem + bf->addr);
+
+	data = ioread32(iusb3->iomem + bf->addr);
 	return (data & bf->mask) >> __ffs(bf->mask);
 }
 
@@ -164,6 +176,7 @@ static void intel_usb3_hw_bf_write(
 		intel_phy_kernel_trap();
 		return;
 	}
+
 	if (~bf->mask) {
 		data = (data << __ffs(bf->mask)) & bf->mask;
 		data |= ioread32(iusb3->iomem + bf->addr) & ~bf->mask;
@@ -228,7 +241,6 @@ static int intel_usb3_hw_reset(struct intel_usb3 *iusb3, bool reset)
 		reset_control_deassert(iusb3->reset_usb_core);
 #endif
 	}
-
 	return 0;
 }
 
@@ -241,11 +253,103 @@ static int intel_usb3_pm_set_state(struct intel_usb3 *iusb3, const char *state)
 		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
 	}
+
 #ifdef INTEL_USB3_WA_PM
 	intel_phy_warn("pm set state stubbed");
 	return 0;
 #endif
+
 	return platform_device_pm_set_state_by_name(iusb3->pdev, state);
+}
+
+/*----------------------------------------------------------------------*/
+/* LOCAL - PHY UTILITIES						*/
+/*----------------------------------------------------------------------*/
+/**
+ * @todo: comment
+ */
+static int intel_usb3_phy_hw_wait_ack(struct intel_usb3 *iusb3)
+{
+	unsigned i = 0;
+
+
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	for (i = 10000; i > 0; i--) {
+		if (intel_usb3_hw_bf_read(iusb3, &scu_cr_ack) != 0)
+			break;
+		cpu_relax();
+	}
+	if (0 == i) {
+		intel_phy_err("phy did not ack");
+		return intel_phy_kernel_trap();
+	}
+	return 0;
+}
+
+/**
+ * @todo: comment
+ */
+static int intel_usb3_phy_hw_set_addr(struct intel_usb3 *iusb3, int addr)
+{
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	intel_usb3_hw_bf_write(iusb3, &scu_cr_data_in, addr);
+	intel_usb3_hw_bf_write(iusb3, &scu_cr_cap_addr, 1);
+	intel_usb3_phy_hw_wait_ack(iusb3);
+	intel_usb3_hw_bf_write(iusb3, &scu_cr_cap_addr, 0);
+	return 0;
+}
+
+/**
+ * @todo: comment
+ * for future struct usb_phy_io_ops.read implementation
+ */
+static int intel_usb3_phy_io_read(struct intel_usb3 *iusb3, u32 reg)
+{
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	intel_usb3_phy_hw_set_addr(iusb3, reg);
+
+	intel_usb3_hw_bf_write(iusb3, &scu_cr_read, 1);
+	intel_usb3_phy_hw_wait_ack(iusb3);
+	intel_usb3_hw_bf_write(iusb3, &scu_cr_read, 0);
+
+	return intel_usb3_hw_bf_read(iusb3, &scu_cr_data_out);
+}
+
+/**
+ * @todo: comment
+ * for future struct usb_phy_io_ops.write implementation
+ */
+static int intel_usb3_phy_io_write(struct intel_usb3 *iusb3, u32 val, u32 reg)
+{
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	intel_usb3_phy_hw_set_addr(iusb3, reg);
+
+	intel_usb3_hw_bf_write(iusb3, &scu_cr_data_in, val);
+
+	intel_usb3_hw_bf_write(iusb3, &scu_cr_cap_data, 1);
+	intel_usb3_phy_hw_wait_ack(iusb3);
+	intel_usb3_hw_bf_write(iusb3, &scu_cr_cap_data, 0);
+
+	intel_usb3_hw_bf_write(iusb3, &scu_cr_write, 1);
+	intel_usb3_phy_hw_wait_ack(iusb3);
+	intel_usb3_hw_bf_write(iusb3, &scu_cr_write, 0);
+	return 0;
 }
 
 /*----------------------------------------------------------------------*/
@@ -304,6 +408,7 @@ static int intel_usb3_hw_init(struct intel_usb3 *iusb3)
 static int intel_usb3_hw_powerup(struct intel_usb3 *iusb3)
 {
 	int ret = 0;
+
 
 	if (IS_ERR_OR_NULL(iusb3)) {
 		intel_phy_err("invalid parameter");
@@ -373,7 +478,6 @@ static int intel_usb3_hw_powerdown(struct intel_usb3 *iusb3)
 		intel_phy_err("set pm state disable, %d", ret);
 		return intel_phy_kernel_trap();
 	}
-
 	return 0;
 }
 
@@ -399,7 +503,7 @@ static int intel_usb3_hw_suspend(struct intel_usb3 *iusb3)
 
 
 	if (IS_ERR_OR_NULL(iusb3)) {
-		intel_phy_err("invalid parameter iusb3");
+		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
 	}
 
@@ -520,6 +624,7 @@ static int intel_usb3_otg_fsm_start_host(struct otg_fsm *fsm, int on)
 		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
 	}
+
 	intel_phy_warn("todo: implementation");
 	return 0;
 }
@@ -588,6 +693,8 @@ static int intel_usb3_runtime_suspend(struct device *dev)
 		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
 	}
+
+	intel_phy_warn("todo: implementation");
 	return 0;
 }
 
@@ -600,6 +707,8 @@ static int intel_usb3_runtime_resume(struct device *dev)
 		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
 	}
+
+	intel_phy_warn("todo: implementation");
 	return 0;
 }
 
@@ -612,6 +721,8 @@ static int intel_usb3_runtime_idle(struct device *dev)
 		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
 	}
+
+	intel_phy_warn("todo: implementation");
 	return 0;
 }
 #endif
@@ -626,6 +737,8 @@ static int intel_usb3_system_sleep_suspend(struct device *dev)
 		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
 	}
+
+	intel_phy_warn("todo: implementation");
 	return 0;
 }
 
@@ -638,6 +751,8 @@ static int intel_usb3_system_sleep_resume(struct device *dev)
 		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
 	}
+
+	intel_phy_warn("todo: implementation");
 	return 0;
 }
 #endif
@@ -677,7 +792,6 @@ static irqreturn_t intel_usb3_isr_usb_resume(int irq, void *dev_id)
 		disable_irq_wake(iusb3->irq_usb_resume);
 
 	intel_phy_warn("todo: implementation");
-
 	return IRQ_HANDLED;
 }
 
@@ -745,40 +859,43 @@ static int intel_usb3_probe(struct platform_device *pdev)
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	iusb3->reg_dig = regulator_get(&pdev->dev, "digital");
 	if (IS_ERR(iusb3->reg_dig)) {
-		intel_phy_err("can't get dig regulator");
+		intel_phy_err("cannot get digital regulator");
 		goto error_iounmap;
 	}
 	regulator_enable(iusb3->reg_dig);
 
 	iusb3->reg_phy = regulator_get(&pdev->dev, "phy");
 	if (IS_ERR(iusb3->reg_phy)) {
-		intel_phy_err("can't get phy regulator");
+		intel_phy_err("cannot get phy regulator");
 		goto error_iounmap;
 	}
 	regulator_enable(iusb3->reg_phy);
 
 	iusb3->reg_iso = regulator_get(&pdev->dev, "iso");
 	if (IS_ERR(iusb3->reg_iso)) {
-		intel_phy_err("can't get iso regulator");
+		intel_phy_err("cannot get iso regulator");
 		goto error_iounmap;
 	}
 	regulator_enable(iusb3->reg_iso);
 
 	iusb3->reg_core = regulator_get(&pdev->dev, "core");
 	if (IS_ERR(iusb3->reg_core)) {
-		intel_phy_err("can't get core regulator");
+		intel_phy_err("cannot get core regulator");
 		goto error_iounmap;
 	}
 	regulator_enable(iusb3->reg_core);
 
 	iusb3->clk_kernel = of_clk_get_by_name(pdev->dev.of_node, "clk_kernel");
-	if (IS_ERR(iusb3->clk_kernel))
-		intel_phy_err("Clk kernel not found\n");
+	if (IS_ERR(iusb3->clk_kernel)) {
+		intel_phy_err("clk kernel not found");
+		goto error_iounmap;
+	}
 
 	iusb3->clk_bus = of_clk_get_by_name(pdev->dev.of_node, "clk_bus");
-	if (IS_ERR(iusb3->clk_bus))
-		intel_phy_err("Clk bus not found\n");
-
+	if (IS_ERR(iusb3->clk_bus)) {
+		intel_phy_err("clk bus not found");
+		goto error_iounmap;
+	}
 
 	clk_prepare_enable(iusb3->clk_bus);
 	clk_prepare_enable(iusb3->clk_kernel);
@@ -788,7 +905,7 @@ static int intel_usb3_probe(struct platform_device *pdev)
 				&intel_usb3_otg_fsm_ops, USB_PHY_TYPE_USB2);
 	if (IS_ERR_VALUE(ret)) {
 		intel_phy_err("intel probe, %d", ret);
-		goto error_clkput;
+		goto error_clk_put;
 	}
 
 	ret = intel_usb3_debugfs_init(iusb3);
@@ -820,11 +937,15 @@ static int intel_usb3_probe(struct platform_device *pdev)
 	intel_phy_warn("forced cable attach for hardware bring up");
 	intel_phy_notify(&iusb3->iphy, USB_EVENT_VBUS, NULL);
 #endif
-#ifdef INTEL_USB3_PMIC_WA
+#ifdef INTEL_USB3_WA_PMIC
 	intel_phy_warn("applying pmic workaround");
 	/* vmm addr = SLAVE_DEV3 << 24 | USBPHYCTRL_REG */
 	vmm_pmic_reg_write((0x5EUL << 24) | 0x08UL, 1);
 	intel_phy_warn("pmic workaround applied!");
+#endif
+#ifdef INTEL_USB3_WA_PHY
+	intel_phy_warn("applying phy workaround");
+	intel_usb3_phy_io_write(iusb3, 0x0, INTEL_USB3_MPLL_LOOP_CTL);
 #endif
 	return 0;
 
@@ -832,7 +953,7 @@ error_debugfs_exit:
 	intel_usb3_debugfs_exit(iusb3);
 error_phy_exit:
 	intel_phy_exit(&pdev->dev, &iusb3->iphy);
-error_clkput:
+error_clk_put:
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	clk_put(iusb3->clk_kernel);
 	clk_put(iusb3->clk_bus);
@@ -929,6 +1050,37 @@ static ssize_t intel_usb3_debugfs_write(
 /**
  * @todo: comment
  */
+static int intel_usb3_test_two(struct intel_usb3 *iusb3,
+	unsigned loop, unsigned t1, unsigned t2)
+{
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	intel_usb3_phy_io_write(iusb3, t2, t1);
+	return 0;
+}
+
+/**
+ * @todo: comment
+ */
+static int intel_usb3_test_one(struct intel_usb3 *iusb3,
+	unsigned loop, unsigned t1, unsigned t2)
+{
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	intel_phy_info("PHY[0x%02X] = 0x%08X", t1,
+			intel_usb3_phy_io_read(iusb3, t1));
+	return 0;
+}
+
+/**
+ * @todo: comment
+ */
 static int intel_usb3_test_zero(struct intel_usb3 *iusb3,
 	unsigned dummy1, unsigned dummy2, unsigned dummy3)
 {
@@ -940,15 +1092,22 @@ static int intel_usb3_test_zero(struct intel_usb3 *iusb3,
 	/* disable crash during this test */
 	intel_phy_kernel_trap_enable(false);
 
-	/* internal */
+	/* local - utilities */
 	intel_usb3_get_device(NULL);
 	intel_usb3_get_gadget(NULL);
 	intel_usb3_get_speed(NULL);
+	/* local - hw utilities */
 	intel_usb3_hw_bf_read(NULL, NULL);
 	intel_usb3_hw_bf_write(NULL, NULL, 0);
 	intel_usb3_hw_req_pwr_state(NULL, false);
 	intel_usb3_hw_reset(NULL, false);
 	intel_usb3_pm_set_state(NULL, NULL);
+	/* local - phy utilities */
+	intel_usb3_phy_hw_wait_ack(NULL);
+	intel_usb3_phy_hw_set_addr(NULL, 0);
+	intel_usb3_phy_io_read(NULL, 0);
+	intel_usb3_phy_io_write(NULL, 0, 0);
+	/* local - hw configuration */
 	intel_usb3_hw_init(NULL);
 	intel_usb3_hw_powerup(NULL);
 	intel_usb3_hw_powerdown(NULL);
@@ -972,6 +1131,8 @@ static int intel_usb3_test_zero(struct intel_usb3 *iusb3,
 	intel_usb3_remove(NULL);
 
 	/* debugfs and test */
+	intel_usb3_test_two(NULL, 0, 0, 0);
+	intel_usb3_test_one(NULL, 0, 0, 0);
 	intel_usb3_test_zero(NULL, 0, 0, 0);
 	intel_usb3_debugfs_open(NULL, NULL);
 	intel_usb3_debugfs_read(NULL, NULL, 0, NULL);
@@ -1011,6 +1172,7 @@ static ssize_t intel_usb3_debugfs_read(
 	struct file *file, char __user *ubuf, size_t count, loff_t *ppos)
 {
 	struct intel_usb3 *iusb3 = NULL;
+	unsigned i = 0;
 
 
 	if (IS_ERR_OR_NULL(file) || IS_ERR_OR_NULL(ubuf)
@@ -1028,7 +1190,14 @@ static ssize_t intel_usb3_debugfs_read(
 
 	/* todo: log in provided buffer instead */
 
-	intel_phy_info("PHY state: %04X", cpu_to_le32(iusb3->state));
+	intel_phy_info("PHY state: 0x%04X", cpu_to_le32(iusb3->state));
+
+	for (i = 0; i < ARRAY_SIZE(scu_usb_ss_trim); i++)
+		intel_phy_info("USB_SS_TRIM%u  = 0x%08X", (i + 1),
+			intel_usb3_hw_bf_read(iusb3, &scu_usb_ss_trim[i]));
+
+	intel_phy_info("MPLL_LOOP_CTL = 0x%08X",
+		intel_usb3_phy_io_read(iusb3, INTEL_USB3_MPLL_LOOP_CTL));
 	return 0;
 }
 
@@ -1061,7 +1230,7 @@ static ssize_t intel_usb3_debugfs_write(
 		return intel_phy_kernel_trap();
 	}
 
-	if (sscanf(buf, "%u %u %u %u", &test, &loop, &t1, &t2) != 4) {
+	if (sscanf(buf, "%u %u %i %i", &test, &loop, &t1, &t2) != 4) {
 		intel_phy_err("wrong parameter number!");
 		goto info;
 	}
@@ -1079,6 +1248,12 @@ static ssize_t intel_usb3_debugfs_write(
 	case 0:
 		intel_usb3_test_zero(iusb3, loop, t1, t2);
 		break;
+	case 1:
+		intel_usb3_test_one(iusb3, loop, t1, t2);
+		break;
+	case 2:
+		intel_usb3_test_two(iusb3, loop, t1, t2);
+		break;
 	default:
 		intel_phy_err("test not defined!");
 		break;
@@ -1087,7 +1262,9 @@ static ssize_t intel_usb3_debugfs_write(
 	return count;
 info:
 	intel_phy_info("<test> <loop> <t1> <t2>");
-	intel_phy_info("test 0: test invalid parameter, boost coverage");
+	intel_phy_info("test 0: test invalid parameter, boost coverage  ");
+	intel_phy_info("test 1: read  phy register <t1 = reg>           ");
+	intel_phy_info("test 2: write phy register <t1 = reg> <t2 = val>");
 	return count;
 }
 
