@@ -994,6 +994,9 @@ static const struct file_operations hx170dec_fops = {
 	.open		= hx170dec_open,
 	.release	= hx170dec_release,
 	.unlocked_ioctl = hx170dec_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl   = hx170dec_ioctl,
+#endif
 	.fasync		= hx170dec_fasync,
 };
 

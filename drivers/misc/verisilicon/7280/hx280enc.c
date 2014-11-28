@@ -670,6 +670,9 @@ static const struct file_operations hx280enc_fops = {
 	.open		= hx280enc_open,
 	.release	= hx280enc_release,
 	.unlocked_ioctl = hx280enc_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl   = hx280enc_ioctl,
+#endif
 	.fasync		= hx280enc_fasync,
 };
 
