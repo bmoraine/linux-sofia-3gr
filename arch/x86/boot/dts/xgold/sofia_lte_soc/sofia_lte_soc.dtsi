@@ -590,7 +590,7 @@
 						pm,class-name = "usb";
 						pm,user-name = "usb";
 
-						scu_usb_ss_trim = < 0x242486ed 0x2d070621 0x2104>;
+						scu_usb_ss_trim = < 0x242486ed 0x2506a862 0x2104>;
 
 						iso-supply = <&vdd_usb_ss_phy>;
 						phy-supply = <&vusb>;
