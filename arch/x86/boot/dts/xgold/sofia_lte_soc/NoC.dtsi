@@ -41,7 +41,7 @@ ErrorLogger0 {
 	Format {
 		compatible = "intel,xgold,bitfield";
 		offset,length = < 31 1 >;
-		lut = "NTTP v3.0 (XG631L)", "NTTP v3.5 (XG631H/XG632/XG726)";
+		lut = "NTTP v3.0 (Invalid)", "NTTP v3.5 (Ok)";
 	};
 };
 
@@ -540,7 +540,7 @@ ErrorLogger5 {
 	User_priv {
 		compatible = "intel,xgold,bitfield";
 		offset,length = < 9 1>;
-		lut = "User access", "privileged access";
+		lut = "User access", "Privileged access";
 	};
 
 	MasterID {
@@ -632,10 +632,10 @@ ErrorLogger7 {
 	compatible = "intel,xgold,register", "intel,xgold,noc,filter,security";
 	offset,length = < 0x30 32>;
 	description = "Register 7 to log errors";
-	tz_secure {
+	vm_id {
 		compatible = "intel,xgold,bitfield";
-		offset,length = < 4 1>;
-		lut = "TrustZone Access", "No TrustZone Access";
+		offset,length = < 4 2>;
+		lut = "VMM", "Modem VM", "Secure VM", "Android VM";
 	};
 
 	sec_acc {
