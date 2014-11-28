@@ -167,8 +167,8 @@ static void mv_gal_xirq_handler(registers_t *regs)
 		idx = XIRQ_NUM2INDX(virq);
 		entry = xirq_callbacks[idx];
 		while (entry) {
-#if defined(CONFIG_SYSTEM_PROFILING)
 			if (entry->cb) {
+#if defined(CONFIG_SYSTEM_PROFILING)
 				sysprof_interrupt(virq);
 				sysprof_int_enter();
 #endif
