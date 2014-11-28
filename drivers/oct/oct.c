@@ -113,7 +113,7 @@ static int pm_suspend_fct(struct device *dev)
 {
 	int irq;
 	/* steps to move subsystem to system suspend safe state */
-	OCT_LOG("suspend");
+	OCT_DBG("suspend");
 
 	/* adjust sleep TIMEOUT */
 	SET_OCT_OCT_MASTER_TRIG_CYCLE_DMA_TRIG_CYCLE(oct_trform,
@@ -130,7 +130,7 @@ static int pm_suspend_fct(struct device *dev)
 static int pm_resume_fct(struct device *dev)
 {
 	/* steps to resume from suspend */
-	OCT_LOG("resume");
+	OCT_DBG("resume");
 	/* reset & enable CYCLE interrupt */
 	SET_OCT_OCT_MASTER_TRIG_CYCLE_DMA_TRIG_CYCLE(oct_trform,
 							current_timeout);
@@ -139,7 +139,7 @@ static int pm_resume_fct(struct device *dev)
 
 static int pm_runtime_suspend_fct(struct device *dev)
 {
-	OCT_LOG("Runtime suspend");
+	OCT_DBG("Runtime suspend");
 	/* steps to move subsystem to runtime suspend safe state */
 	return 0;
 }
@@ -147,7 +147,7 @@ static int pm_runtime_suspend_fct(struct device *dev)
 static int pm_runtime_resume_fct(struct device *dev)
 {
 	/* steps to resume from suspend */
-	OCT_LOG("Runtime resume");
+	OCT_DBG("Runtime resume");
 	return 0;
 }
 
@@ -159,7 +159,7 @@ static int pm_runtime_idle_fct(struct device *dev)
 	 * Before allowing it to enter suspend
 	 * This function will indirect reach runtime_suspend
 	*/
-	OCT_LOG("Runtime Idle");
+	OCT_DBG("Runtime Idle");
 	/* If abc conditions are met.. */
 	pm_runtime_suspend(dev);
 	return 0;
@@ -299,7 +299,7 @@ static struct file *oct_open_gadget(char *gadget_name)
 			msleep(2000);
 			continue;
 		} else if (IS_ERR(fp)) {
-			OCT_LOG("Gadget fp=%x open failed!", (unsigned int)fp);
+			OCT_LOG("Gadget %s open failed.", gadget_name);
 			msleep(2000);
 			continue;
 		} else {
@@ -352,13 +352,13 @@ static void trace_debug_oct_define_ringbuff(void *ring_buff_start,
 	phy_base_addr = dma_map_single(NULL, oct_ext_rbuff_ptr,
 			OCT_EXT_RING_BUFF_SIZE, DMA_FROM_DEVICE);
 
-	OCT_DBG("DMA addr:%#x; KERN Addr:%#x", (unsigned int)phy_base_addr,
-			(unsigned int)oct_ext_rbuff_ptr);
+	OCT_DBG("DMA addr:%#x; KERN Addr:%p", (unsigned int)phy_base_addr,
+			oct_ext_rbuff_ptr);
 
 	/* if NULL ptr or zero size defined -> Error
 	 * or bad alignment */
 	if (!(oct_ext_rbuff_ptr && oct_ext_ring_buff_len) ||
-		((unsigned int)oct_ext_rbuff_ptr & 15) ||
+		((uintptr_t)oct_ext_rbuff_ptr & 15) ||
 		(oct_ext_ring_buff_len & 15) ||
 		(oct_ext_ring_buff_len < 0x4000) ||
 		(oct_ext_ring_buff_len > 0x04000000))
@@ -443,7 +443,7 @@ static void oct_write_data_to_usb(void *ptr, int num_bytes)
 	int written_bytes;
 	int verify_fp = 2;
 
-	OCT_DBG("Sending to USB @0x%x:0x%x", (unsigned int)ptr, num_bytes);
+	OCT_DBG("Sending to USB @%p:0x%x", ptr, num_bytes);
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 	while (verify_fp > 0) {
@@ -676,7 +676,7 @@ static ssize_t oct_write(struct file *p_file, const char __user *user_buffer,
 	if (result)
 		OCT_DBG("Error copy_from_user");
 	buffer[count] = '\0';
-	OCT_DBG("Buffer: %s Count: %d", buffer, count);
+	OCT_DBG("Buffer: %s Count: %d", (char *)buffer, (uint32_t)count);
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 	{
@@ -702,21 +702,21 @@ static ssize_t oct_write(struct file *p_file, const char __user *user_buffer,
 
 		OCT_LOG("OCT driver version: %d", OCT_DRIVER_VER);
 		OCT_LOG("OCT Power (1-ON/0-OFF) %d", oct_check_power());
-		OCT_LOG("oct_trform=%x", (unsigned)
+		OCT_LOG("oct_trform=%p",
 				oct_trform);
-		OCT_LOG("Ptr: %x Len: %d", (unsigned)
+		OCT_LOG("Ptr: %p Len: %d",
 				oct_ext_rbuff_ptr, oct_ext_ring_buff_len);
-		OCT_LOG("Wptr: %d", (unsigned)
+		OCT_LOG("Wptr: %d",
 				GET_OCT_OCT_MASTER_WPTR(oct_trform));
-		OCT_LOG("Rptr: %d", (unsigned)
+		OCT_LOG("Rptr: %d",
 				GET_OCT_OCT_SW_RPTR(oct_trform));
-		OCT_LOG("Base %x", (unsigned)
+		OCT_LOG("Base %#x",
 				GET_OCT_OCT_MASTER_RXCH0_BASE(oct_trform));
-		OCT_LOG("Size:%x", (unsigned)
+		OCT_LOG("Size:%#x",
 				GET_OCT_OCT_MASTER_RXCH0_SIZE(oct_trform));
-		OCT_LOG("IRQ Stat:%x", (unsigned)
+		OCT_LOG("IRQ Stat:%#x",
 				GET_OCT_OCT_MASTER_RXIRQ_STAT(oct_trform));
-		OCT_LOG("SW-Rptr: %d", oct_read_ptr);
+		OCT_LOG("SW-Rptr: %#x", oct_read_ptr);
 		OCT_LOG("Data_avail: %d", data_available);
 		tadihandle = trc_tadi_open(MT_PRINTF);
 		trc_tadi_write(tadihandle,
@@ -789,7 +789,7 @@ static ssize_t oct_write(struct file *p_file, const char __user *user_buffer,
 		int nb_of_bytes;
 		nb_of_bytes =  fp->f_op->write(fp, buffer, count, 0);
 		OCT_LOG("Bytes to write %d, Bytes written %d",
-				count, nb_of_bytes);
+				(uint32_t)count, nb_of_bytes);
 	}
 	if (count <= 0)
 		OCT_LOG("OCT to USB write Error");
@@ -929,8 +929,7 @@ static int oct_driver_probe(struct platform_device *pdev)
 	}
 	size = (mem->end - mem->start) + 1;
 	oct_base = ioremap(mem->start, size);
-	OCT_DBG("ioremap oct-regs: size=%d, start=%x, oct_base=%p\n",
-			size, mem->start, oct_base);
+	OCT_LOG("oct resource: %pR - ioremap: %p\n", mem, oct_base);
 	if (!oct_base) {
 		pr_err("%s: unable to remap memory region\n", __func__);
 		release_mem_region(mem->start, size);
@@ -956,7 +955,7 @@ static int oct_driver_probe(struct platform_device *pdev)
 				__func__, pm_platdata->pm_state_D0_name);
 			return -1;
 		} else
-			pr_info("%s: %s requested for user %s\n", __func__,
+			pr_debug("%s: %s requested for user %s\n", __func__,
 					pm_platdata->pm_state_D0_name,
 					pm_platdata->pm_user_name);
 	} else
@@ -970,7 +969,7 @@ static int oct_driver_probe(struct platform_device *pdev)
 	oct_ext_mem_full = 0;
 	init_waitqueue_head(&oct_wq);
 	init_waitqueue_head(&oct_poll_wq);
-	task = kthread_run(oct_thread, (void *)data, "OCT Thread");
+	task = kthread_run(oct_thread, (void *)&data, "OCT Thread");
 	OCT_DBG("Kernel OCT Thread: %s", task->comm);
 
 	oct_int = platform_get_irq_byname(pdev, "OCT_INT");
@@ -1013,7 +1012,7 @@ static int oct_driver_remove(struct platform_device *pdev)
 	oct_events = 1;
 	wake_up(&oct_wq);
 	kthread_stop(task);
-	iounmap((void *)OCT_REG_ADDRESS_BASE);
+	iounmap(OCT_REG_ADDRESS_BASE);
 	dma_unmap_single(NULL, phy_base_addr,
 			OCT_EXT_RING_BUFF_SIZE, DMA_FROM_DEVICE);
 	kfree(oct_ext_rbuff_ptr);
@@ -1058,7 +1057,7 @@ static struct platform_driver oct_driver = {
 static int __init oct_init(void)
 {
 	int err;
-	OCT_LOG("Module loading...ver %d", OCT_DRIVER_VER);
+	OCT_DBG("Module loading...ver %d", OCT_DRIVER_VER);
 
 	err = platform_driver_register(&oct_driver);
 	if (err) {
@@ -1073,7 +1072,7 @@ static void __exit oct_exit(void)
 {
 	/* Deregister Driver */
 	platform_driver_unregister(&oct_driver);
-	OCT_LOG("module removed");
+	OCT_DBG("module removed");
 }
 
 module_init(oct_init);
