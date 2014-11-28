@@ -134,7 +134,7 @@
 
 				intel,DCC2-qos-settings = <
 					0x1E08 0xE      /* prio */
-					0x1E0C 0x3      /* mode regulator*/
+					0x1E0C 0x0      /* mode fixed */
 					0x1E10 0x9F     /* bandwidth */
 					0x1E14 0x90     /* saturation */
 					0x1E18 0x5>;    /* QoSEn */
@@ -143,20 +143,20 @@
 				intel,CPU1-qos-settings = <
 					0x1E88 0xF      /* prio */
 					0x1E8C 0x0      /* mode fixed */
-					0x1E90 0x340    /* bandwidth */
-					0x1E94 0x10     /* saturation */
+					0x1E90 0xFFF    /* bandwidth */
+					0x1E94 0x0      /* saturation */
 					0x1E98 0x5>;    /* QoSEn */
 
 				intel,VPU-qos-settings = <
 					0x1D08 0xE      /* prio */
-					0x1D0C 0x3      /* mode regulator*/
+					0x1D0C 0x3      /* mode regulator */
 					0x1D10 0x190    /* bandwidth */
 					0x1D14 0x9F     /* saturation */
 					0x1D18 0x5>;    /* QoSEn */
 
 				intel,CIF-qos-settings = <
 					0x1D88 0x4      /* prio */
-					0x1D8C 0x3      /* mode regulator*/
+					0x1D8C 0x3      /* mode regulator */
 					0x1D90 0x100    /* bandwidth */
 					0x1D94 0x10     /* saturation */
 					0x1D98 0x5>;    /* QoSEn */
