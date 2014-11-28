@@ -1,4 +1,12 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Nov 28 2014: IMC: Suppress error trace for L2 cache
+ *                   invalidation when GPU is paused
+ */
+
+/*
  * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
@@ -480,9 +488,8 @@ void mali_l2_cache_invalidate_all_pages(u32 *pages, u32 num_pages)
 			for (j = 0; j < num_pages; j++) {
 				_mali_osk_errcode_t ret;
 				ret = mali_l2_cache_send_command(mali_global_l2_cache_cores[i], MALI400_L2_CACHE_REGISTER_CLEAR_PAGE, pages[j]);
-				if (_MALI_OSK_ERR_OK != ret) {
+				if (_MALI_OSK_ERR_FAULT == ret)
 					MALI_PRINT_ERROR(("Failed to invalidate page cache\n"));
-				}
 			}
 		}
 		mali_l2_cache_unlock_power_state(mali_global_l2_cache_cores[i]);

@@ -56,7 +56,8 @@ MALI_GPU_RESOURCES_MALI400_MP2(0xE2E00000, -1, -1, -1, -1, -1, -1)
 };
 
 static struct resource mali_gpu_0xE2E00000_mp4_res[] = {
-MALI_GPU_RESOURCES_MALI400_MP4(0xE2E00000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
+MALI_GPU_RESOURCES_MALI400_MP4(0xE2E00000, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1)
 };
 
 static struct resource mali_gpu_0xEB300000_mp1_res[] = {
@@ -68,7 +69,8 @@ MALI_GPU_RESOURCES_MALI400_MP2(0xEB300000, -1, -1, -1, -1, -1, -1)
 };
 
 static struct resource mali_gpu_0xEB300000_mp4_res[] = {
-MALI_GPU_RESOURCES_MALI400_MP4(0xEB300000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
+MALI_GPU_RESOURCES_MALI400_MP4(0xEB300000, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1)
 };
 #else
 static struct resource mali_gpu_res[] = {
@@ -80,7 +82,8 @@ MALI_GPU_RESOURCES_MALI400_MP2_PMU(0xE2E00000, -1, -1, -1, -1, -1, -1)
 };
 
 static struct resource mali_gpu_mp4_res[] = {
-MALI_GPU_RESOURCES_MALI400_MP4_PMU(0xE2E00000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
+MALI_GPU_RESOURCES_MALI400_MP4_PMU(0xE2E00000, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1)
 };
 
 static struct resource mali_gpu_0xEB300000_mp1_res[] = {
@@ -92,7 +95,8 @@ MALI_GPU_RESOURCES_MALI400_MP2_PMU(0xEB300000, -1, -1, -1, -1, -1, -1)
 };
 
 static struct resource mali_gpu_0xEB300000_mp4_res[] = {
-MALI_GPU_RESOURCES_MALI400_MP4_PMU(0xEB300000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
+MALI_GPU_RESOURCES_MALI400_MP4_PMU(0xEB300000, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1)
 };
 #endif
 
@@ -254,9 +258,11 @@ static void mali_dev_do_dvfs(struct work_struct *work)
 		mali_dev_pm.curr_pm_state--;
 		mali_dbg("Utilization %d/256; Lowering power state to %d\n",
 			util, mali_dev_pm.curr_pm_state);
+		mali_dev_pause();
 		ret = platform_device_pm_set_state(mali_dev_pm.pdev,
 			mali_dev_pm.pm_states[
 			mali_dev_pm.curr_pm_state]);
+		mali_dev_resume();
 		if (ret != 0) {
 			mali_dev_pm.curr_pm_state++;
 			mali_err("Utilization set state failed (%d)\n", ret);
@@ -271,9 +277,11 @@ static void mali_dev_do_dvfs(struct work_struct *work)
 		mali_dev_pm.curr_pm_state = GPU_MAX_PM_STATE;
 		mali_dbg("Utilization %d/256, Increasing power state to %d\n",
 			util, mali_dev_pm.curr_pm_state);
+		mali_dev_pause();
 		ret = platform_device_pm_set_state(mali_dev_pm.pdev,
 			mali_dev_pm.pm_states[
 			mali_dev_pm.curr_pm_state]);
+		mali_dev_resume();
 		if (once_glb && (prev_pm_state == GPU_MIN_PM_STATE)) {
 			xgold_noc_qos_set("GPU");
 			once_glb--;

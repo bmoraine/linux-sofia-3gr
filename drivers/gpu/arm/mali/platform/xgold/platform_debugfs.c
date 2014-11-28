@@ -85,9 +85,11 @@ static ssize_t dev_gpu_dvfs_write(struct file *filp, const char __user *ubuf,
 			p_dev_pm->curr_pm_state = GPU_INITIAL_PM_STATE;
 			mali_dbg("DebugFS - PM Setting power state to %d\n",
 				p_dev_pm->curr_pm_state);
+			mali_dev_pause();
 			ret = platform_device_pm_set_state(p_dev,
 				p_dev_pm->pm_states[
 				p_dev_pm->curr_pm_state]);
+			mali_dev_resume();
 			if (ret != 0) {
 				p_dev_pm->curr_pm_state = prev_pm_state;
 				mali_err(
@@ -248,9 +250,11 @@ static ssize_t dev_gpu_pm_write(struct file *filp, const char __user *ubuf,
 			p_dev_pm->curr_pm_state = control_value;
 			mali_dbg("DebugFS - PM Setting power state to %d\n",
 				p_dev_pm->curr_pm_state);
+			mali_dev_pause();
 			ret = platform_device_pm_set_state(p_dev,
 				p_dev_pm->pm_states[
 					p_dev_pm->curr_pm_state]);
+			mali_dev_resume();
 			if (ret != 0) {
 				p_dev_pm->curr_pm_state = prev_pm_state;
 				mali_err(
