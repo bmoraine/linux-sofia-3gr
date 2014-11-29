@@ -255,7 +255,7 @@ int sofia_vmm_init_secondary(void)
 	return sofia_vmm_map_vcpu_shmem();
 }
 
-static int __init sofia_vmm_init(void)
+int __init sofia_vmm_init(void)
 {
 	pr_debug("In sofia_vmm_init\n");
 
@@ -280,7 +280,6 @@ static int __init sofia_vmm_init(void)
 	return 0;
 }
 
-early_initcall(sofia_vmm_init);
 #endif
 
 inline unsigned int mv_gal_os_id(void)
