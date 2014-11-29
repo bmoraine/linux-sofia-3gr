@@ -243,7 +243,7 @@ static void mali_dev_do_dvfs(struct work_struct *work)
 	int ret;
 
 	if (mali_dev_pm.dvfs_off)
-		return;
+		goto end;
 
 	if ((util < GPU_THROTTLE_DOWN_THRESHOLD) &&
 		(mali_dev_pm.curr_pm_state > GPU_MIN_PM_STATE)) {
@@ -284,6 +284,7 @@ static void mali_dev_do_dvfs(struct work_struct *work)
 			}
 	}
 
+end:
 	kfree(work);
 }
 
