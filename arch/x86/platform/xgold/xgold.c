@@ -204,7 +204,10 @@ static void __init x86_xgold_time_init(void)
 /*
  * IO-APIC/LAPIC need to be initialized in native case
  * */
-#ifndef CONFIG_X86_INTEL_SOFIA
+
+#ifdef CONFIG_X86_INTEL_SOFIA
+	sofia_vmm_init();
+#else
 #ifndef CONFIG_SMP
 	physid_set_mask_of_physid(boot_cpu_physical_apicid,
 					 &phys_cpu_present_map);
