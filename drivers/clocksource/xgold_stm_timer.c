@@ -33,6 +33,7 @@ static unsigned long sched_clock_mult __read_mostly;
 #endif
 static DEFINE_SPINLOCK(stm_hw_lock);
 static int irq_nodes[2];
+cpumask_t stm_cpumask = CPU_MASK_NONE;
 
 struct xgold_stm_clkevt {
 	struct clock_event_device evt;
@@ -323,8 +324,12 @@ static void xgold_stm_clkevent_setup(void)
 	struct xgold_stm_clkevt *stm_clkevt = &__get_cpu_var(stm_events);
 	struct clock_event_device *levt = &stm_clkevt->evt;
 
-	/* Max STM counters currently hardcoded to 2 */
-	BUG_ON(cpu > 1);
+	if (!cpu_isset(cpu, stm_cpumask)) {
+		pr_debug("%s: Skip clkevent for CPU%d\n", __func__, cpu);
+		return;
+	} else
+		pr_info("%s: Setup clkevent for CPU%d\n", __func__, cpu);
+
 	if (levt->irq != 0)
 		return;
 
@@ -399,7 +404,7 @@ static int xgold_stm_cpu_notify(struct notifier_block *n,
 
 static void __init xgold_of_timer_map(struct device_node *np)
 {
-	int ret, i;
+	int ret, i, mask;
 	unsigned int faf, evt_rating;
 
 	stm_clk = of_clk_get_by_name(np, "kernel");
@@ -428,6 +433,18 @@ static void __init xgold_of_timer_map(struct device_node *np)
 		pr_info("%s:Clock event device rating set to %#x\n",
 							__func__, evt_rating);
 		xgold_stm_clockevent.rating = evt_rating;
+	}
+
+	ret = of_property_read_u32(np, "intel,stm-cpumask", &mask);
+	if (ret) {
+		/* property not defined, set stm_cpumask to default : CPU0/1 */
+		mask = 0x3;
+	}
+	while (mask) {
+		unsigned cpu = ffs(mask) - 1;
+		pr_info("%s: Masking cpu%d for STM usage\n", __func__, cpu);
+		cpu_set(cpu, stm_cpumask);
+		clear_bit(cpu, (unsigned long *)&mask);
 	}
 }
 
