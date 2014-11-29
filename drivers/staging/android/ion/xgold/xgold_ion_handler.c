@@ -15,6 +15,7 @@
 /*
  * Notes:
  * Oct 14 2014: IMC: created
+ * Nov 29 2014: IMC: switch to ION_HEAP_TYPE_SECURE
  */
 
 #include <linux/fs.h>
@@ -27,6 +28,7 @@
 #include <linux/of.h>
 
 #include "../ion_priv.h"
+#include <linux/xgold_ion.h>
 
 
 /* vbpipe designated for ion usage -- but currently borrowed ... */
@@ -183,7 +185,7 @@ static int xgold_ion_handler(void *data)
 		pr_debug("xgold_ion: handler thread - entering read loop\n");
 
 		while (!kthread_should_stop() && error == 0) {
-			pr_info("xg_ion: wait for request on vbpipe\n");
+			pr_debug("xg_ion: wait for request on vbpipe\n");
 
 			error = xgold_ion_vbpipe_handler(
 				xgold_ion_vbpipe_filep);
@@ -337,7 +339,7 @@ static int xgold_ion_handle_command(uint32_t cmd[], int cmd_len)
 	magic	= cmd[0];
 	command = cmd[1];
 
-	pr_info("xg_ion: magic 0x%08x, cmd %d\n", magic, command);
+	pr_debug("xg_ion: magic 0x%08x, cmd %d\n", magic, command);
 
 	switch (command) {
 	case VVPU_CMD_ION_ALLOC:
@@ -347,7 +349,7 @@ static int xgold_ion_handle_command(uint32_t cmd[], int cmd_len)
 
 		len = cmd[3];
 		i_handle = ion_alloc(xgold_ion_client, len,
-			16, ION_HEAP_TYPE_DMA_MASK, 0);
+			16, ION_HEAP_TYPE_SECURE_MASK, 0);
 
 		pr_debug("xg_ion: ion_alloc(clnt %p, l %ul, 16, DMA, 0) = %p\n",
 			xgold_ion_client, len, i_handle);
