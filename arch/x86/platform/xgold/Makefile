@@ -19,6 +19,5 @@ obj-$(CONFIG_X86_INTEL_XGOLD_EARLY_PRINTK) += early_printk_xgold.o
 ifeq ($(CONFIG_X86_INTEL_XGOLD_EXPERIMENTAL),y)
 obj-$(CONFIG_SUSPEND) += pm-suspend.o
 endif
-obj-$(CONFIG_XGOLD_CPUFREQ) += load-balance.o
 
 obj-y += pm/
