@@ -55,6 +55,24 @@ struct virq_info_s {
 	volatile uint16_t guest_index;
 	uint16_t virq_ring_buf[VCPU_VIRQ_RINGBUF_SIZE];
 };
+
+struct vcpu_stolen_cpu_time_stats {
+	/*
+	 * accumulated counter for cpu time taken away from vcpu
+	 * while it was active (preempted)
+	*/
+	volatile uint64_t active_stolen_cpu_count;
+
+	/*
+	 * accumulated counter for cpu time taken away from vcpu
+	 * while it was idle
+	*/
+	volatile uint64_t idle_stolen_cpu_count;
+
+	/* freqency for stolen cpu time counters */
+	uint32_t stolen_cpu_counter_freq;
+};
+;
 /**
  * @brief Shared data between the MobileVisor and the guest
  *
@@ -146,6 +164,14 @@ struct vmm_shared_data {
 	 * and finally invoke VMCALL_STOP_VCPU for each vcpu.
 	 */
 	const uint32_t system_reboot_action;
+
+	/** @brief VCPU stolen cpu time stats
+	 *
+	 * This gives stats of cpu time stolen from vcpu
+	 * while it was active/idle.
+	 */
+	struct vcpu_stolen_cpu_time_stats stolen_cpu_time_stats;
+
 };
 
 /** @brief Informs MobileVisor that the guest is now idle
