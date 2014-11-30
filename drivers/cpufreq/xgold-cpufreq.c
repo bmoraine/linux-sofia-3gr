@@ -15,24 +15,16 @@
 #include <linux/suspend.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
-#include <linux/reboot.h>
-#include <linux/platform_device.h>
-
-#ifdef CONFIG_PLATFORM_DEVICE_PM_VIRT
-#ifdef CONFIG_X86_INTEL_SOFIA
-#include <linux/vpower.h>
 #include <linux/interrupt.h>
 #include <linux/irqchip.h>
-#else
-#include <vlx/vpower_common.h>
-#include <vlx/vpower_prh.h>
-#endif
+#include <linux/platform_device.h>
+
+#ifdef CONFIG_X86_INTEL_SOFIA
+#include <sofia/cpu.h>
 #endif
 
 /*------Notification function------*/
-static void vcpufreq_notify(struct work_struct *work);
-static DECLARE_WORK(vcpufreq_pre, vcpufreq_notify);
-static irqreturn_t process_cpufreq(int irq, void *dev);
+static void vcpufreq_notify(unsigned long param);
 
 static DEFINE_MUTEX(cpufreq_lock);
 static bool frequency_locked;
@@ -45,6 +37,8 @@ struct xgold_cpufreq_info {
 	struct clk *bank_clk;
 	struct cpufreq_freqs freqs;
 	unsigned int irq;
+	unsigned int latency;
+	struct tasklet_struct tasklet_notify;
 };
 
 static struct xgold_cpufreq_info _xgold_cpufreq_info;
@@ -56,37 +50,76 @@ static struct of_device_id xgold_cpufreq_ids[] = {
 };
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM_VIRT
-static uint32_t cpufreq_old;
-static uint32_t cpufreq_new;
-struct cpufreq_policy *stat_policy;
+#ifdef CONFIG_PM
+static int xgold_cpu_freq_pm_notifier(struct notifier_block *nb,
+					unsigned long val, void *data);
+static struct notifier_block xgold_cpufreq_pm_notifier = {
+	.notifier_call = xgold_cpu_freq_pm_notifier
+};
 
-static void vcpufreq_notify(struct work_struct *work)
+static int xgold_cpu_freq_pm_notifier(struct notifier_block *nb,
+					unsigned long val, void *data)
+{
+	struct cpufreq_policy *policy =	cpufreq_cpu_get(0);
+	if (val == PM_SUSPEND_PREPARE) {
+		frequency_locked = true;
+		pr_debug("%s: callback notified\n", __func__);
+		cpufreq_driver_target(policy, policy->user_policy.min, 0);
+	} else if (val == PM_POST_SUSPEND) {
+		frequency_locked = false;
+	}
+
+	return 0;
+}
+#endif
+
+static void vcpufreq_notify(unsigned long param)
 {
 	struct cpufreq_freqs notif_freqs;
+	struct cpufreq_freqs *freqs = &xgold_cpu_info->freqs;
+	struct cpufreq_policy *policy =	(struct cpufreq_policy *)param;
+	struct sofia_cpu_freq_t shmem_freq;
 
-
+	pr_debug("cpufreq notify\n");
 	/* prepare data for notification */
-	notif_freqs.old = cpufreq_old;
-	notif_freqs.new = cpufreq_new;
+	notif_freqs.old = freqs->old;
+	sofia_get_cpu_frequency(&shmem_freq);
+	notif_freqs.new = shmem_freq.curfreq * 1000;
 	notif_freqs.flags = 0;
-	cpufreq_notify_transition(stat_policy,
+	/* notify prechange only if change comes from other VM */
+	if (notif_freqs.new != policy->cur) {
+		cpufreq_notify_transition(policy,
 				&notif_freqs,
 				CPUFREQ_PRECHANGE);
-	cpufreq_notify_transition(stat_policy,
+	}
+	cpufreq_notify_transition(policy,
 				&notif_freqs,
 				CPUFREQ_POSTCHANGE);
 
 	}
 
 
-static irqreturn_t process_cpufreq(int irq, void *dev)
+static irqreturn_t xgold_cpufreq_isr(int irq, void *dev)
 {
 	struct cpufreq_policy *policy = dev;
-	cpufreq_old = cpufreq_new;
-	cpufreq_new = vpower_system_get_cpu_freq() * 1000;
-	pr_debug("cpufreq: hirq, new freq is %d\n", cpufreq_new);
-	stat_policy = policy;
-	queue_work(system_nrt_wq, &vcpufreq_pre);
+	struct sofia_cpu_freq_t shmem_freq;
+
+	tasklet_schedule(&xgold_cpu_info->tasklet_notify);
+	sofia_get_cpu_frequency(&shmem_freq);
+	pr_debug("cpufreq hirq: shmem_freq = %d, policy_cur = %d\n",
+			shmem_freq.curfreq * 1000, policy->cur);
+	/* if min or max change need to update policy */
+	if ((policy->user_policy.min != (shmem_freq.minfreq * 1000))
+		|| (policy->user_policy.max != (shmem_freq.maxfreq * 1000))) {
+		pr_debug("other vm requested policy change, cpu is %d\n",
+				policy->cpu);
+		policy->user_policy.min = shmem_freq.minfreq * 1000;
+		policy->user_policy.max = shmem_freq.maxfreq * 1000;
+		schedule_work(&policy->update);
+	} else if (shmem_freq.curfreq * 1000 == policy->cur) {
+		pr_debug("%s: Spurious HIRQ detected!\n", __func__);
+	}
+
 	return IRQ_HANDLED;
 }
 #endif
@@ -99,9 +132,11 @@ static int xgold_cpufreq_verify(struct cpufreq_policy *policy)
 
 static unsigned int xgold_cpufreq_get(unsigned int cpu)
 {
-	pr_debug("cpufreq: get cpufre: %d\n", vpower_system_get_cpu_freq());
 #ifdef CONFIG_PLATFORM_DEVICE_PM_VIRT
-	return vpower_system_get_cpu_freq() * 1000;
+	struct sofia_cpu_freq_t shmem_freq;
+	sofia_get_cpu_frequency(&shmem_freq);
+	pr_debug("cpufreq: get cpufre: %d\n", shmem_freq.curfreq*1000);
+	return (shmem_freq.curfreq * 1000);
 
 #else
 	return clk_get_rate(xgold_cpu_info->core_clk) / 1000;
@@ -111,27 +146,6 @@ static unsigned int xgold_cpufreq_get(unsigned int cpu)
 static int xgold_cpufreq_cpu_init(struct cpufreq_policy *policy)
 {
 	int ret;
-
-	cpufreq_frequency_table_get_attr(xgold_cpu_info->freq_table,
-						policy->cpu);
-	/* TODO: Should we get the bootloader/kernel init frequency ? */
-
-	/*
-	   Set the transition latency value
-	   FIXME: Find out correct value
-	 */
-	policy->cpuinfo.transition_latency = 100000;
-
-	/*
-	 * XGOLD multi cores shares the same clock,
-	 * i.e. no individual clock settings possible
-	 */
-	if (num_online_cpus() == 1) {
-		cpumask_copy(policy->related_cpus, cpu_possible_mask);
-		cpumask_copy(policy->cpus, cpu_online_mask);
-	} else {
-		cpumask_setall(policy->cpus);
-	}
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	ret = clk_prepare(xgold_cpu_info->pll_clk);
 	if (ret) {
@@ -159,19 +173,38 @@ static int xgold_cpufreq_cpu_init(struct cpufreq_policy *policy)
 		}
 	}
 #endif
-	policy->cur = policy->min = policy->max =
-	    /* TODO : vmm to initialise shared mem variable */
-		/*xgold_cpufreq_get(policy->cpu);*/
-		1040000;
-	cpufreq_old = policy->cur;
-	cpufreq_new = policy->cur;
+	/*
+	 * XGOLD multi cores shares the same clock,
+	 * i.e. no individual clock settings possible
+	 */
+	if (num_online_cpus() == 1) {
+		cpumask_copy(policy->related_cpus, cpu_possible_mask);
+		cpumask_copy(policy->cpus, cpu_online_mask);
+	} else {
+		cpumask_setall(policy->cpus);
+	}
 
-	ret = cpufreq_frequency_table_cpuinfo(policy,
-				xgold_cpu_info->freq_table);
+	ret = cpufreq_generic_init(policy,
+			xgold_cpu_info->freq_table, xgold_cpu_info->latency);
+	/*
+	 * XGOLD multi cores shares the same clock,
+	 * i.e. no individual clock settings possible
+	 */
+	if (num_online_cpus() == 1) {
+		cpumask_copy(policy->related_cpus, cpu_possible_mask);
+		cpumask_copy(policy->cpus, cpu_online_mask);
+	} else {
+		cpumask_setall(policy->cpus);
+	}
 
-	ret |= request_irq(xgold_cpu_info->irq, process_cpufreq,
+
+	policy->cur = xgold_cpufreq_get(policy->cpu);
+
+	ret |= request_irq(xgold_cpu_info->irq, xgold_cpufreq_isr,
 			    IRQF_SHARED, "cpu_clk_change", policy);
 
+	tasklet_init(&xgold_cpu_info->tasklet_notify,
+		vcpufreq_notify, (unsigned long)policy);
 	return ret;
 }
 
@@ -186,7 +219,6 @@ static int xgold_cpufreq_target(struct cpufreq_policy *policy,
 	int ret = 0;
 
 	mutex_lock(&cpufreq_lock);
-
 	if (frequency_locked)
 		goto out;
 
@@ -206,13 +238,13 @@ static int xgold_cpufreq_target(struct cpufreq_policy *policy,
 	if (freqs->new == freqs->old)
 		goto out;
 
-#ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	cpufreq_notify_transition(policy, freqs, CPUFREQ_PRECHANGE);
+#ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	clk_set_rate(xgold_cpu_info->pll_clk, (freqs->new * 1000));
 	cpufreq_notify_transition(policy, freqs, CPUFREQ_POSTCHANGE);
 #else
 	pr_debug("cpufreq: ask vmm for %d frequency\n", freqs->new / 1000);
-	vpower_set_cpu_target_frequency(freqs->new / 1000);
+	sofia_set_cpu_frequency(freqs->new / 1000);
 #endif
 out:
 	mutex_unlock(&cpufreq_lock);
@@ -260,73 +292,12 @@ int xgold_cpufreq_resume(struct cpufreq_policy *policy)
 #endif
 	return 0;
 }
-/**
- * @notifier
- * @pm_event
- * @v
- *
- * While frequency_locked == true, target() ignores every frequency but
- * locking_frequency. The locking_frequency value is the initial frequency,
- * which is set by the bootloader. In order to eliminate possible
- * inconsistency in clock values, we save and restore frequencies during
- * suspend and resume and block CPUFREQ activities. Note that the standard
- * suspend/resume cannot be used as they are too deep (syscore_ops) for
- * regulator actions.
- */
-#ifdef CONFIG_PLATFORM_DEVICE_PM_VIRT
-static int xgold_cpufreq_pm_notifier(struct notifier_block *notifier,
-				       unsigned long pm_event, void *v)
-{
-
-
-	switch (pm_event) {
-	case PM_SUSPEND_PREPARE:
-		mutex_lock(&cpufreq_lock);
-		frequency_locked = true;
-		mutex_unlock(&cpufreq_lock);
-
-
-		break;
-
-	case PM_POST_SUSPEND:
-		mutex_lock(&cpufreq_lock);
-		frequency_locked = false;
-		mutex_unlock(&cpufreq_lock);
-		break;
-	default:
-	break;
-	}
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block xgold_cpufreq_nb = {
-	.notifier_call = xgold_cpufreq_pm_notifier,
-};
-
-static int xgold_cpufreq_reboot_notifier(struct notifier_block *this,
-						unsigned long code, void *_cmd)
-{
-
-	mutex_lock(&cpufreq_lock);
-
-	if (frequency_locked)
-		goto out;
-	frequency_locked = true;
-
-out:
-	mutex_unlock(&cpufreq_lock);
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block xgold_cpufreq_reboot_nb = {
-	.notifier_call = xgold_cpufreq_reboot_notifier,
-};
-#endif
 
 static int xgold_cpufreq_cpu_exit(struct cpufreq_policy *policy)
+
 {
 	cpufreq_frequency_table_put_attr(policy->cpu);
+	tasklet_kill(&xgold_cpu_info->tasklet_notify);
 	return 0;
 }
 
@@ -352,6 +323,7 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 	struct device_node *np;
 	int ret = -EINVAL, def_len, nr_freq, i;
 	unsigned *freq_table;
+	unsigned latency;
 	struct cpufreq_frequency_table *cpufreq_table;
 	struct property *prop;
 
@@ -403,6 +375,8 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 	cpufreq_table[nr_freq].frequency = CPUFREQ_TABLE_END;
 
 	kfree(freq_table);
+	of_property_read_u32(np, "intel,clock_latency", &latency);
+	xgold_cpu_info->latency = latency;
 
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	xgold_cpu_info->core_clk = of_clk_get_by_name(np, "core");
@@ -433,8 +407,6 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 	xgold_cpu_info->irq = platform_get_irq_byname(pdev, "CPU_CLK_CHANGE");
 	pr_info("%s:platform_get_irq_byname(CPU_CLK_CHANGE) (virq:%d)\n",
 			__func__, xgold_cpu_info->irq);
-	register_pm_notifier(&xgold_cpufreq_nb);
-	register_reboot_notifier(&xgold_cpufreq_reboot_nb);
 #endif
 	if (cpufreq_register_driver(&xgold_cpufreq_driver)) {
 		pr_err("Failed to register cpufreq driver\n");
@@ -442,11 +414,12 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 		goto err_cpufreq;
 #else
-		unregister_pm_notifier(&xgold_cpufreq_nb);
 		goto err_cpufreq3;
 #endif
 	}
-
+#ifdef CONFIG_PM
+	register_pm_notifier(&xgold_cpufreq_pm_notifier);
+#endif
 	return 0;
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 err_cpufreq:
