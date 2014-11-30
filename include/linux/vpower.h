@@ -64,10 +64,7 @@ ePOWER_SYSTEM_STATE_T;
 extern ePRH_RETURN_T vpower_call_prh(uint32_t, uint32_t,
 					uint32_t * const, uint32_t );
 
-extern void vpower_set_cpu_target_frequency(const int);
 extern void vpower_system_state_notify(const ePOWER_SYSTEM_STATE_T
 		allowed_state);
-extern uint32_t vpower_system_get_cpu_freq(void);
-extern int xgold_cpu_load_get(int cpuid);
 
 #endif /* VPOWER_H */
