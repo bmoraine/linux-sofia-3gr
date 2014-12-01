@@ -665,9 +665,9 @@ int intel_phy_kernel_trap_enable(bool value)
 /* LOCAL - DEBUGFS & TEST						*/
 /*----------------------------------------------------------------------*/
 static int intel_phy_debugfs_open(struct inode *inode, struct file *file);
-static ssize_t intel_phy_debugfs_read(
+static ssize_t intel_phy_debugfs_dbg_read(
 	struct file *file, char __user *ubuf, size_t count, loff_t *ppos);
-static ssize_t intel_phy_debugfs_write(
+static ssize_t intel_phy_debugfs_dbg_write(
 	struct file *file, const char __user *ubuf, size_t count, loff_t *ppos);
 
 /**
@@ -844,8 +844,8 @@ static int intel_phy_test_zero(struct intel_phy *iphy,
 	intel_phy_test_one(NULL, 0, 0, 0);
 	intel_phy_test_zero(NULL, 0, 0, 0);
 	intel_phy_debugfs_open(NULL, NULL);
-	intel_phy_debugfs_read(NULL, NULL, 0, NULL);
-	intel_phy_debugfs_write(NULL, NULL, 0, NULL);
+	intel_phy_debugfs_dbg_read(NULL, NULL, 0, NULL);
+	intel_phy_debugfs_dbg_write(NULL, NULL, 0, NULL);
 	intel_phy_debugfs_init(NULL);
 	intel_phy_debugfs_exit(NULL);
 
@@ -877,7 +877,7 @@ static int intel_phy_debugfs_open(struct inode *inode, struct file *file)
 /**
  * @todo: comment
  */
-static ssize_t intel_phy_debugfs_read(
+static ssize_t intel_phy_debugfs_dbg_read(
 	struct file *file, char __user *ubuf, size_t count, loff_t *ppos)
 {
 	struct intel_phy *iphy = NULL;
@@ -947,12 +947,12 @@ static ssize_t intel_phy_debugfs_read(
 /**
  * @todo: comment
  */
-static ssize_t intel_phy_debugfs_write(
+static ssize_t intel_phy_debugfs_dbg_write(
 	struct file *file, const char __user *ubuf, size_t count, loff_t *ppos)
 {
 	struct intel_phy *iphy = NULL;
 	char buf[32] = {0};
-	unsigned test, loop, t1, t2 = 0;
+	unsigned test, loop, t1, t2, end = 0;
 
 
 	if (IS_ERR_OR_NULL(file) || IS_ERR_OR_NULL(ubuf)
@@ -973,7 +973,7 @@ static ssize_t intel_phy_debugfs_write(
 		return intel_phy_kernel_trap();
 	}
 
-	if (sscanf(buf, "%u %u %u %u", &test, &loop, &t1, &t2) != 4) {
+	if (sscanf(buf, "%u %u %u %u %u", &test, &loop, &t1, &t2, &end) != 4) {
 		intel_phy_err("wrong parameter number!");
 		goto info;
 	}
@@ -1022,10 +1022,10 @@ info:
 /**
  * @todo: comment
  */
-const struct file_operations intel_phy_debugfs_fops = {
+static const struct file_operations intel_phy_debugfs_fops = {
 	.open = intel_phy_debugfs_open,
-	.read = intel_phy_debugfs_read,
-	.write = intel_phy_debugfs_write,
+	.read = intel_phy_debugfs_dbg_read,
+	.write = intel_phy_debugfs_dbg_write,
 };
 
 /**
@@ -1048,7 +1048,7 @@ static int intel_phy_debugfs_init(struct intel_phy *iphy)
 		return intel_phy_kernel_trap();
 	}
 
-	file = debugfs_create_file("debug", S_IRUGO | S_IWUSR,
+	file = debugfs_create_file("dbg", S_IRUGO | S_IWUSR,
 		root, iphy, &intel_phy_debugfs_fops);
 	if (IS_ERR_OR_NULL(file)) {
 		intel_phy_err("debugfs create file");

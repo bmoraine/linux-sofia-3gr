@@ -1042,41 +1042,12 @@ MODULE_ALIAS("platform:intel-phy-usb3");
 /* LOCAL - DEBUGFS & TEST						*/
 /*----------------------------------------------------------------------*/
 static int intel_usb3_debugfs_open(struct inode *inode, struct file *file);
-static ssize_t intel_usb3_debugfs_read(
+static ssize_t intel_usb3_debugfs_dbg_read(
 	struct file *file, char __user *ubuf, size_t count, loff_t *ppos);
-static ssize_t intel_usb3_debugfs_write(
+static ssize_t intel_usb3_debugfs_dbg_write(
 	struct file *file, const char __user *ubuf, size_t count, loff_t *ppos);
-
-/**
- * @todo: comment
- */
-static int intel_usb3_test_two(struct intel_usb3 *iusb3,
-	unsigned loop, unsigned t1, unsigned t2)
-{
-	if (IS_ERR_OR_NULL(iusb3)) {
-		intel_phy_err("invalid parameter");
-		return intel_phy_kernel_trap();
-	}
-
-	intel_usb3_phy_io_write(iusb3, t2, t1);
-	return 0;
-}
-
-/**
- * @todo: comment
- */
-static int intel_usb3_test_one(struct intel_usb3 *iusb3,
-	unsigned loop, unsigned t1, unsigned t2)
-{
-	if (IS_ERR_OR_NULL(iusb3)) {
-		intel_phy_err("invalid parameter");
-		return intel_phy_kernel_trap();
-	}
-
-	intel_phy_info("PHY[0x%02X] = 0x%08X", t1,
-			intel_usb3_phy_io_read(iusb3, t1));
-	return 0;
-}
+static ssize_t intel_usb3_debugfs_reg_write(
+	struct file *file, const char __user *ubuf, size_t count, loff_t *ppos);
 
 /**
  * @todo: comment
@@ -1131,12 +1102,11 @@ static int intel_usb3_test_zero(struct intel_usb3 *iusb3,
 	intel_usb3_remove(NULL);
 
 	/* debugfs and test */
-	intel_usb3_test_two(NULL, 0, 0, 0);
-	intel_usb3_test_one(NULL, 0, 0, 0);
 	intel_usb3_test_zero(NULL, 0, 0, 0);
 	intel_usb3_debugfs_open(NULL, NULL);
-	intel_usb3_debugfs_read(NULL, NULL, 0, NULL);
-	intel_usb3_debugfs_write(NULL, NULL, 0, NULL);
+	intel_usb3_debugfs_dbg_read(NULL, NULL, 0, NULL);
+	intel_usb3_debugfs_dbg_write(NULL, NULL, 0, NULL);
+	intel_usb3_debugfs_reg_write(NULL, NULL, 0, NULL);
 	intel_usb3_debugfs_init(NULL);
 	intel_usb3_debugfs_exit(NULL);
 
@@ -1168,7 +1138,7 @@ static int intel_usb3_debugfs_open(struct inode *inode, struct file *file)
 /**
  * @todo: comment
  */
-static ssize_t intel_usb3_debugfs_read(
+static ssize_t intel_usb3_debugfs_dbg_read(
 	struct file *file, char __user *ubuf, size_t count, loff_t *ppos)
 {
 	struct intel_usb3 *iusb3 = NULL;
@@ -1204,12 +1174,12 @@ static ssize_t intel_usb3_debugfs_read(
 /**
  * @todo: comment
  */
-static ssize_t intel_usb3_debugfs_write(
+static ssize_t intel_usb3_debugfs_dbg_write(
 	struct file *file, const char __user *ubuf, size_t count, loff_t *ppos)
 {
 	struct intel_usb3 *iusb3 = NULL;
 	char buf[16] = {0};
-	unsigned test, loop, t1, t2 = 0;
+	unsigned test, loop, t1, t2, end = 0;
 
 
 	if (IS_ERR_OR_NULL(file) || IS_ERR_OR_NULL(ubuf)
@@ -1230,7 +1200,7 @@ static ssize_t intel_usb3_debugfs_write(
 		return intel_phy_kernel_trap();
 	}
 
-	if (sscanf(buf, "%u %u %i %i", &test, &loop, &t1, &t2) != 4) {
+	if (sscanf(buf, "%u %u %u %u %u", &test, &loop, &t1, &t2, &end) != 4) {
 		intel_phy_err("wrong parameter number!");
 		goto info;
 	}
@@ -1248,12 +1218,6 @@ static ssize_t intel_usb3_debugfs_write(
 	case 0:
 		intel_usb3_test_zero(iusb3, loop, t1, t2);
 		break;
-	case 1:
-		intel_usb3_test_one(iusb3, loop, t1, t2);
-		break;
-	case 2:
-		intel_usb3_test_two(iusb3, loop, t1, t2);
-		break;
 	default:
 		intel_phy_err("test not defined!");
 		break;
@@ -1262,19 +1226,78 @@ static ssize_t intel_usb3_debugfs_write(
 	return count;
 info:
 	intel_phy_info("<test> <loop> <t1> <t2>");
-	intel_phy_info("test 0: test invalid parameter, boost coverage  ");
-	intel_phy_info("test 1: read  phy register <t1 = reg>           ");
-	intel_phy_info("test 2: write phy register <t1 = reg> <t2 = val>");
+	intel_phy_info("test 0: test invalid parameter, boost coverage");
 	return count;
 }
 
 /**
  * @todo: comment
  */
-const struct file_operations intel_usb3_debugfs_fops = {
+static const struct file_operations intel_usb3_debugfs_dbg_fops = {
 	.open = intel_usb3_debugfs_open,
-	.read = intel_usb3_debugfs_read,
-	.write = intel_usb3_debugfs_write,
+	.read = intel_usb3_debugfs_dbg_read,
+	.write = intel_usb3_debugfs_dbg_write,
+};
+
+/**
+ * @todo: comment
+ */
+static ssize_t intel_usb3_debugfs_reg_write(
+	struct file *file, const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct intel_usb3 *iusb3 = NULL;
+	char buf[16] = {0};
+	unsigned int cnt, reg, val, end = 0;
+
+
+	if (IS_ERR_OR_NULL(file) || IS_ERR_OR_NULL(ubuf)
+	|| (IS_ERR_OR_NULL(ppos))) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	if (IS_ERR_OR_NULL(file->private_data)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+
+	iusb3 = file->private_data;
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count))) {
+		intel_phy_err("copy from user");
+		return intel_phy_kernel_trap();
+	}
+
+	cnt = sscanf(buf, "%i %i %i", &reg, &val, &end);
+	if (1 != cnt && 2 != cnt) {
+		intel_phy_err("wrong parameter number!");
+		goto info;
+	}
+	/* fix KW warnings */
+	if (reg > UINT_MAX)
+		reg = UINT_MAX;
+	if (val > UINT_MAX)
+		val = UINT_MAX;
+
+	if (1 == cnt)
+		intel_phy_info("PHY[0x%02X] = 0x%08X", reg,
+				intel_usb3_phy_io_read(iusb3, reg));
+	 else
+		intel_usb3_phy_io_write(iusb3, val, reg);
+
+	return count;
+info:
+	intel_phy_info("<reg>       - read  phy register");
+	intel_phy_info("<reg> <val> - write phy register");
+	return count;
+}
+
+/**
+ * @todo: comment
+ */
+static const struct file_operations intel_usb3_debugfs_reg_fops = {
+	.open = intel_usb3_debugfs_open,
+	.write = intel_usb3_debugfs_reg_write,
 };
 
 /**
@@ -1297,11 +1320,19 @@ static int intel_usb3_debugfs_init(struct intel_usb3 *iusb3)
 		return intel_phy_kernel_trap();
 	}
 
-	file = debugfs_create_file("debug", S_IRUGO | S_IWUSR,
-		root, iusb3, &intel_usb3_debugfs_fops);
+	file = debugfs_create_file("dbg", S_IRUGO | S_IWUSR,
+		root, iusb3, &intel_usb3_debugfs_dbg_fops);
 	if (IS_ERR_OR_NULL(file)) {
 		intel_phy_err("debugfs create file");
 		debugfs_remove(root);
+		return intel_phy_kernel_trap();
+	}
+
+	file = debugfs_create_file("reg", S_IWUSR,
+		root, iusb3, &intel_usb3_debugfs_reg_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		intel_phy_err("debugfs create file");
+		debugfs_remove_recursive(root);
 		return intel_phy_kernel_trap();
 	}
 
