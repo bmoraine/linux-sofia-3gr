@@ -148,11 +148,11 @@
 					0x1E98 0x5>;    /* QoSEn */
 
 				intel,VPU-qos-settings = <
-					0x1D08 0xE      /* prio */
-					0x1D0C 0x3      /* mode regulator */
-					0x1D10 0x190    /* bandwidth */
-					0x1D14 0x9F     /* saturation */
-					0x1D18 0x5>;    /* QoSEn */
+					0x1D08 0x4      /* prio */
+					0x1D0C 0x2      /* mode regulator */
+					0x1D10 0xF6     /* bandwidth */
+					0x1D14 0x10     /* saturation */
+					0x1D18 0x4>;    /* QoSEn */
 
 				intel,CIF-qos-settings = <
 					0x1D88 0x4      /* prio */
