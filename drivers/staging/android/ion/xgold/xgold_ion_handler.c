@@ -71,7 +71,7 @@ int xgold_ion_handler_init(struct device_node *node, struct ion_device *idev)
 			(void *)idev, "ion_secvm_handler");
 
 		if (xgold_ion_task != NULL)
-			pr_info("xg_ion: thread started: %s\n",
+			pr_debug("xg_ion: thread started: %s\n",
 				xgold_ion_task->comm);
 		else {
 			pr_err("xg_ion: error starting secvm handler\n");
@@ -152,7 +152,7 @@ static int xgold_ion_handler(void *data)
 			set_fs(old_fs);
 
 			if (IS_ERR(fp)) {
-				pr_err("xg_ion: open vbpipe error %d\n",
+				pr_debug("xg_ion: open vbpipe error %d\n",
 					(int)fp);
 				xgold_ion_vbpipe_filep = NULL;
 
