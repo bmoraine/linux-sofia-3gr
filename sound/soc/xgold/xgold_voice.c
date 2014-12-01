@@ -138,10 +138,6 @@ static int xgold_voice_probe(struct platform_device *pdev)
 	if (voice_data_ptr == NULL)
 		return -ENOMEM;
 
-	voice_data_ptr = kzalloc(sizeof(struct xgold_voice), GFP_KERNEL);
-	if (voice_data_ptr == NULL)
-		return -ENOMEM;
-
 	ret = snd_soc_register_component(&pdev->dev, &xgold_voice_component,
 			&xgold_dai_voice, 1);
 
