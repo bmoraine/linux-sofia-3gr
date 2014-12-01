@@ -924,6 +924,7 @@ static int cif_isp20_v4l2_release(struct file *file)
 	int ret;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
+	struct cif_isp20_v4l2_fh *fh = file->private_data;
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
@@ -931,6 +932,7 @@ static int cif_isp20_v4l2_release(struct file *file)
 	if (IS_ERR_VALUE(ret))
 		cif_isp20_pltfrm_pr_err(dev->dev,
 			"failed with error %d\n", ret);
+	kfree(fh);
 	return ret;
 }
 
