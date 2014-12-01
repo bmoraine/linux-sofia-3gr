@@ -148,7 +148,7 @@ static int vvpu_vbpipe_init_int(struct device *dev, int locked)
 
 			vvpu_vbpipe_filep = NULL;
 		} else {
-			dev_info(dev, "vbpipe %s link 0x%p established",
+			dev_dbg(dev, "vbpipe %s link 0x%p established",
 				VVPU_VBPIPE, fp);
 
 			vvpu_vbpipe_filep = fp;
