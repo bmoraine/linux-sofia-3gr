@@ -169,3 +169,72 @@ static int32_t __init xgold_irq_hirq_of_init(struct device_node *np,
 }
 
 IRQCHIP_DECLARE(xgold_hirq_vpic, "intel,sofia-hirq", xgold_irq_hirq_of_init);
+
+static inline void xgold_irq_hirq_main_unmask(struct irq_data *data)
+{
+	return;
+}
+
+static inline void xgold_irq_hirq_main_mask(struct irq_data *data)
+{
+	return;
+}
+
+static void xgold_irq_hirq_main_enable(struct irq_data *data)
+{
+	return;
+}
+
+static void xgold_irq_hirq_main_disable(struct irq_data *data)
+{
+	return;
+}
+
+void xgold_irq_hirq_main_eoi(struct irq_data *data)
+{
+	return;
+}
+
+static struct irq_chip xgold_irq_hirq_main_chip = {
+	.name = "HIRQ MAIN",
+	.irq_mask = xgold_irq_hirq_main_mask,
+	.irq_unmask = xgold_irq_hirq_main_unmask,
+	.irq_enable = xgold_irq_hirq_main_enable,
+	.irq_disable = xgold_irq_hirq_main_disable,
+	.irq_eoi = xgold_irq_hirq_main_eoi,
+};
+
+static struct irq_domain_ops xgold_irq_hirq_main_domain_ops = {
+	.xlate = xgold_irq_domain_xlate,
+	.map = xgold_irq_domain_map,
+};
+
+static int32_t __init xgold_irq_hirq_main_of_init(struct device_node *np,
+					struct device_node *parent)
+{
+	int32_t ret = 0;
+	struct xgold_irq_chip_data *data;
+
+	data = kzalloc(sizeof(struct xgold_irq_chip_data), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	data->chip = &xgold_irq_hirq_main_chip;
+	data->type = XGOLD_IRQ_DOMAIN_N2N;
+
+	/* extract info form dt */
+	xgold_irq_of_get(np, data);
+
+	/* add linear domain */
+	ret |= xgold_irq_domain_add_linear(np,
+			data, &xgold_irq_hirq_main_domain_ops);
+
+	/* Parse, Map and Cascade */
+	if (parent)
+		ret |= xgold_irq_parse_map_and_cascade(np, data);
+
+	return ret;
+}
+
+IRQCHIP_DECLARE(xgold_hirq_main_vpic, "intel,sofia-main-hirq",
+		xgold_irq_hirq_main_of_init);
