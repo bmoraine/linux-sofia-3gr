@@ -541,6 +541,31 @@ static int ov9740_g_ctrl(struct ov_camera_module *cam_mod, u32 ctrl_id)
 	return ret;
 }
 
+static int ov9740_g_timings(struct ov_camera_module *cam_mod,
+		struct ov_camera_module_timings *timings)
+{
+	int ret = 0;
+
+	/*TODO: Intermediate quick solution for SMS06037039
+	 * Correct and full implementation in second step.*/
+	timings->coarse_integration_time_min = 0;
+	timings->coarse_integration_time_max_margin = 0;
+	timings->fine_integration_time_min = 0;
+	timings->fine_integration_time_max_margin = 0;
+	timings->frame_length_lines = 1;
+	timings->line_length_pck = 42;
+	timings->vt_pix_clk_freq_hz = 1000;
+	timings->sensor_output_width = 0;
+	timings->sensor_output_height = 0;
+	timings->crop_horizontal_start = 0; /* Sensor crop start cord. (x0,y0)*/
+	timings->crop_vertical_start = 0;
+	timings->crop_horizontal_end = 0; /* Sensor crop end cord. (x1,y1)*/
+	timings->crop_vertical_end = 0;
+	timings->binning_factor_x = 0;
+	timings->binning_factor_y = 0;
+
+	return ret;
+}
 
 /*--------------------------------------------------------------------------*/
 
@@ -758,6 +783,7 @@ static struct ov_camera_module_custom_config ov9740_custom_config = {
 	.s_ctrl = ov9740_s_ctrl,
 	.s_ext_ctrls = ov9740_s_ext_ctrls,
 	.g_ctrl = ov9740_g_ctrl,
+	.g_timings = ov9740_g_timings,
 	.check_camera_id = ov9740_check_camera_id,
 	.configs = ov9740_configs,
 	.num_configs = sizeof(ov9740_configs) / sizeof(ov9740_configs[0]),
