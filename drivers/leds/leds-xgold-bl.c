@@ -53,10 +53,10 @@
 #define PMIC_LED_CFG_DOWN	0x04
 
 /* LED BL Normal */
-#define SCU_K2_VAL	0xFF
-#define SCU_K1MAX_VAL	0xFB
+#define SCU_K2_VAL	0x143
+#define SCU_K1MAX_VAL	0x120
 #define SCU_K2MAX_VAL	0xFFFF
-#define SCU_LED_UP	0x116
+#define SCU_LED_UP	0x10104
 #define SCU_LED_DOWN	0x200
 #define SCU_SAFE_LED_UP	0x12
 
