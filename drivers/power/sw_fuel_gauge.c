@@ -96,6 +96,11 @@
 /* Scaling needed for battery temperature. POWER_SUPPLY_PROP_TEMP
 is in tenths of a degree. */
 #define SCALE_DECI_DEG_C			(10)
+
+/* Temperature of 0 Kelvins in deci-degrees Celcius to mark
+variable holding temperature as uninitialized */
+#define TEMP_0_KELVIN_DDEGC			(-2730)
+
 /* Multiplier / Divisor for milli-micro calculations. */
 #define SCALE_MILLI				(1000)
 
@@ -227,6 +232,7 @@ struct bat_temperature_data {
 	u32	bat_temperature_overflow_error_count;
 	u32	bat_temperature_io_error_count;
 	struct iio_channel *p_iio_tbat;
+	int	temperature_notif_ddegc;
 };
 
 /**
@@ -481,6 +487,7 @@ static struct sw_fuel_gauge_data sw_fuel_gauge_instance = {
 	.tbat = {
 		.bat_temperature_overflow_error_count = 0,
 		.bat_temperature_io_error_count = 0,
+		.temperature_notif_ddegc = TEMP_0_KELVIN_DDEGC,
 	},
 };
 
@@ -906,6 +913,9 @@ static void sw_fuel_gauge_set_temperature(int temperature_degc, bool valid)
 	struct power_supply_properties *p_properties =
 					&sw_fuel_gauge_instance.properties;
 
+	int *temperature_notified = &sw_fuel_gauge_instance.
+					tbat.temperature_notif_ddegc;
+
 	if (valid) {
 		/* Power Supply Class unit is tenths of a degree C. */
 		int temperature = SCALE_DECI_DEG_C * temperature_degc;
@@ -921,11 +931,26 @@ static void sw_fuel_gauge_set_temperature(int temperature_degc, bool valid)
 			SW_FUEL_GAUGE_DEBUG_PARAM(
 				SW_FUEL_GAUGE_DEBUG_SET_PROPERTY_TEMPERATURE,
 								temperature);
+
+			if (abs(*temperature_notified - temperature) >
+							1 * SCALE_DECI_DEG_C) {
+
+				*temperature_notified = temperature;
+
+				/* End of critical section for update. */
+				up(&p_properties->lock);
+
+				/* Inform power supply class of
+				property change. */
+				power_supply_changed(
+					&sw_fuel_gauge_instance.
+							power_supply_bat);
+
+				return;
+			}
+
 			/* End of critical section for update. */
 			up(&p_properties->lock);
-			/* Inform power supply class of property change. */
-			power_supply_changed(
-				&sw_fuel_gauge_instance.power_supply_bat);
 		}
 	} else {
 		/* Obtain lock on properties data to ensure atomic access. */
