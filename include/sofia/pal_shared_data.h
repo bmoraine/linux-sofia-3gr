@@ -45,29 +45,29 @@
 #endif
 
 struct pm_control_shared_data {
-	uint32_t emif_curr_freq;
-	uint32_t emif_clk_src;
-	uint32_t muxcpu_config_idx;
-	uint32_t muxnoc_config_idx;
-	uint32_t prh_param[20];
-	uint32_t pal_pow_sleep_disabled[4];
-	uint32_t vm_pow_state_param[20];
-	uint32_t vm_cpu_freq_param[20];
-	uint32_t prh_request_control_flag;
-	uint32_t prh_request_return_value;
-	uint32_t target_power_state;
-	uint32_t actual_power_state;
-	uint32_t modem_state;
-	uint32_t exit_latency;
-	uint32_t vm_blocker_id;
-	uint32_t vm_blocking_reason;
-	uint32_t calibration_state;
-	uint32_t gsm_sleep_timer_frames_in;
-	uint32_t gsm_sleep_timer_frames_out;
-	uint32_t cpu_drv_param;
-	uint32_t cpu_scaling_states[7];
-	uint32_t cpu_clk;
-	uint32_t vcpu_c0[12];
+       volatile uint32_t emif_curr_freq;
+       volatile uint32_t emif_clk_src;
+       volatile uint32_t prh_user_id;
+       volatile uint32_t prh_per_id;
+       volatile uint32_t prh_param[20];
+       volatile uint32_t pal_pow_sleep_disabled[4];
+       volatile uint32_t vm_pow_state_param[20];
+       volatile uint32_t vm_cpu_freq_param[20];
+       volatile uint32_t prh_request_control_flag;
+       volatile uint32_t prh_request_return_value;
+       volatile uint32_t target_power_state;
+       volatile uint32_t actual_power_state;
+       volatile uint32_t modem_state;
+       volatile uint32_t exit_latency;
+       volatile uint32_t vm_blocker_id;
+       volatile uint32_t vm_blocking_reason;
+       volatile uint32_t calibration_state;
+       volatile uint32_t gsm_sleep_timer_frames_in;
+       volatile uint32_t gsm_sleep_timer_frames_out;
+       volatile uint32_t cpu_drv_param;
+       volatile uint32_t cpu_scaling_states[7];
+       volatile uint32_t cpu_clk;
+       volatile uint32_t vcpu_c0[12];
 };
 
 #define PMIC_ACCESS_MAX_SIZE 64
@@ -125,7 +125,9 @@ enum vmm_pm_opcode {
 	PM_OMP_SET_POLICY = 17,
 	PM_GET_VCPU_C0 = 18,
 	PM_REQ_FREQ_CHNG = 19,
-	PM_OPCODE_END = 20,
+	PM_GSM_SLEEP_TIMER_START = 20,
+	PM_GSM_SLEEP_TIMER_STOP = 21,
+	PM_OPCODE_END = 22,
 };
 
 
