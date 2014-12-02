@@ -68,40 +68,23 @@
 
 #ifdef CONFIG_VUSB_DEBUG
 
-#define VUSB_SE_FE_INF(x...)\
-	do {\
-		pr_info("%s(INF) (%d)", VUSB_SE_FE_NAME, __LINE__);\
-		pr_info(x);\
-		pr_info("\n");\
-	} \
-	while (0)
-
-#define VUSB_SE_FE_LOG(x...)\
-	do {\
-		pr_info("%s(LOG) (%d) ", VUSB_SE_FE_NAME, __LINE__);\
-		pr_info(x);\
-		pr_info("\n");\
-	} \
-	while (0)
-
-#define VUSB_SE_FE_ERR(x...)\
-	do {\
-		pr_err("%s(ERR) (%d) ", VUSB_SE_FE_NAME, __LINE__);\
-		pr_err(x);\
-		pr_err("\n");\
-	} \
-	while (0)
+#define VUSB_SE_FE_INF(format, args...) \
+	pr_info("%s(INF) (%d)" format "\n", VUSB_SE_FE_NAME, __LINE__, ## args)
+#define VUSB_SE_FE_LOG(format, args...) \
+	pr_info("%s(LOG) (%d)" format "\n", VUSB_SE_FE_NAME, __LINE__, ## args)
+#define VUSB_SE_FE_ERR(format, args...) \
+	pr_info("%s(ERR) (%d)" format "\n", VUSB_SE_FE_NAME, __LINE__, ## args)
 
 #else
 
 static char vusbsefe_log_buff[VUSB_SE_FE_LOG_SIZE];
 
-#define VUSB_SE_FE_INF(x...) \
-	snprintf(vusbsefe_log_buff, VUSB_SE_FE_LOG_SIZE, x);
-#define VUSB_SE_FE_LOG(x...) \
-	snprintf(vusbsefe_log_buff, VUSB_SE_FE_LOG_SIZE, x);
-#define VUSB_SE_FE_ERR(x...) \
-	snprintf(vusbsefe_log_buff, VUSB_SE_FE_LOG_SIZE, x);
+#define VUSB_SE_FE_INF(format, args...) \
+	snprintf(vusbsefe_log_buff, VUSB_SE_FE_LOG_SIZE, format, ## args);
+#define VUSB_SE_FE_LOG(format, args...) \
+	snprintf(vusbsefe_log_buff, VUSB_SE_FE_LOG_SIZE, format, ## args);
+#define VUSB_SE_FE_ERR(format, args...) \
+	snprintf(vusbsefe_log_buff, VUSB_SE_FE_LOG_SIZE, format, ## args);
 
 #endif
 
