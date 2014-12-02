@@ -1,0 +1,230 @@
+regulator {
+	compatible = "intel,xgold-reg";
+	reg = < 0xE4700a40 0x4
+		0xE6500500 0x32 >;
+	reg-names = "spcu", "pmu";
+	lusb:ldo@0 {
+		compatible = "intel,ldo";
+		regulator-name = "lusb";
+		intel,table-len = < 4 >;
+		intel,table = < 0 2500000 2850000 3150000 >;
+		regulator-min-microvolt = < 2500000 >;
+		regulator-max-microvolt = < 3150000 >;
+		intel,enable = < 0x0 2 2 >;
+		intel,voltage = < 0x0 0 2 >;
+		intel,has-switch = < 0 >;
+	};
+	lcabb:ldo@1 {
+		compatible = "intel,ldo";
+		regulator-name = "lcabb";
+		intel,table-len = < 4 >;
+		intel,table = < 1000000 1120000 1160000 1200000 >;
+		regulator-min-microvolt = < 1000000 >;
+		regulator-max-microvolt = < 1200000 >;
+		intel,enable = < 0x4 2 2 >;
+		intel,voltage = < 0x4 0 2 >;
+		intel,has-switch = < 0 >;
+	};
+	lpll:ldo@2 {
+		compatible = "intel,ldo";
+		regulator-name = "lpll";
+		intel,table-len = < 4 >;
+		intel,table = < 1000000 1100000 1200000 1250000 >;
+		regulator-always-on;
+		regulator-min-microvolt = < 1000000 >;
+		regulator-max-microvolt = < 1250000 >;
+		intel,enable = < 0x8 2 2 >;
+		intel,voltage = < 0x8 0 2 >;
+		intel,has-switch = < 0 >;
+	};
+	lmem:ldo@3 {
+		compatible = "intel,ldo";
+		regulator-name = "lmem";
+		intel,table-len = < 4 >;
+		intel,table = < 1020000 1120000 1220000 1250000 >;
+		regulator-min-microvolt = < 1020000 >;
+		regulator-max-microvolt = < 1250000 >;
+		intel,enable = < 0xc 2 2 >;
+		intel,voltage = < 0xc 0 2 >;
+		intel,has-switch = < 0 >;
+		regulator-always-on;
+	};
+	lmipi:ldo@4 {
+		compatible = "intel,ldo";
+		regulator-name = "lmipi";
+		intel,table-len = < 4 >;
+		intel,table = < 0 1100000 1170000 0 >;
+		regulator-min-microvolt = < 1100000 >;
+		regulator-max-microvolt = < 1170000 >;
+		intel,enable = < 0x10 2 2 >;
+		intel,voltage = < 0x10 0 2 >;
+		intel,has-switch = < 0 >;
+	};
+	/*lmmc1:ldo@5 {
+		compatible = "intel,ldo";
+		regulator-name = "lmmc1";
+		intel,table-len = < 4 >;
+		intel,table = < 1200000 1800000 2850000 2900000 >;
+		regulator-min-microvolt = < 1200000 >;
+		regulator-max-microvolt = < 2900000 >;
+		intel,enable = < 0x14 2 2 >;
+		intel,voltage = < 0x14 0 2 >;
+		intel,has-switch = < 0 >;
+	}; */
+	laux1:ldo@6 {
+		compatible = "intel,ldo";
+		regulator-name = "laux1";
+		intel,table-len = < 4 >;
+		intel,table = < 1800000 2500000 2800000 2850000 >;
+		regulator-min-microvolt = < 1800000 >;
+		regulator-max-microvolt = < 2850000 >;
+		intel,enable = < 0x18 2 2 >;
+		intel,voltage = < 0x18 0 2 >;
+		intel,has-switch = < 0 >;
+	};
+	laux2:ldo@7 {
+		compatible = "intel,ldo";
+		regulator-name = "laux2";
+		intel,table-len = < 4 >;
+		intel,table = < 1800000 2500000 2800000 2850000 >;
+		regulator-min-microvolt = < 1800000 >;
+		regulator-max-microvolt = < 2850000 >;
+		intel,enable = < 0x1c 2 2 >;
+		intel,voltage = < 0x1c 0 2 >;
+		intel,has-switch = < 0 >;
+	};
+	laif:ldo@8 {
+		compatible = "intel,ldo";
+		regulator-name = "laif";
+		intel,table-len = < 4 >;
+		intel,table = < 0 1800000 2500000 0 >;
+		regulator-min-microvolt = < 1800000 >;
+		regulator-max-microvolt = < 2500000 >;
+		intel,enable = < 0x20 2 2 >;
+		intel,voltage = < 0x20 0 2 >;
+		intel,has-switch = < 0 >;
+		regulator-always-on;
+	};
+	lsim1:ldo@9 {
+		compatible = "intel,ldo";
+		regulator-name = "lsim1";
+		intel,table-len = < 4 >;
+		intel,table = < 1200000 1800000 2910000 0 >;
+		regulator-min-microvolt = < 1200000 >;
+		regulator-max-microvolt = < 2910000 >;
+		intel,enable = < 0x24 2 2 >;
+		intel,voltage = < 0x24 0 2 >;
+		intel,has-switch = < 0 >;
+	};
+	lsim2:ldo@10 {
+		compatible = "intel,ldo";
+		regulator-name = "lsim2";
+		intel,table-len = < 4 >;
+		intel,table = < 1200000 1800000 2910000 0 >;
+		regulator-min-microvolt = < 1200000 >;
+		regulator-max-microvolt = < 2910000 >;
+		intel,enable = < 0x28 2 2 >;
+		intel,voltage = < 0x28 0 2 >;
+		intel,has-switch = < 0 >;
+	};
+	vdd_video:pd@0 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_video";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 0 1 >;
+	};
+	vdd_usb_hs:pd@1 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_usb_hs";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 1 1 >;
+	};
+	vdd_aud:pd@2 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_aud";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 4 1 >;
+	};
+	vdd_g2:pd@3 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_g2";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 5 1 >;
+	};
+	vdd_audio_idi_on:pd@4 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_audio_idi_on";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 6 1 >;
+		intel,noinv = < 1 >;
+	};
+	vdd_sys_trace:pd@5 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_sys_trace";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 8 1 >;
+	};
+	vdd_etm_a5:pd@6 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_etm_a5";
+		regulator-always-on;
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 9 1 >;
+	};
+	vdd_cst:pd@7 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_cst";
+		regulator-always-on;
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 10 1 >;
+	};
+	vdd_usb_hs_dig_iso:pd@8 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_usb_hs_dig_iso";
+		intel,has-switch = < 1 >;
+		intel,noinv = < 1 >;
+		intel,enable = < 0x0 11 1 >;
+	};
+	vdd_csi1_ana_out_iso_en:pd@9 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_csi1_ana_out_iso_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 13 1 >;
+	};
+	vdd_csi2_ana_out_iso_en:pd@10 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_csi2_ana_out_iso_en";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 14 1 >;
+	};
+	vdd_g3_shutdown:pd@11 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_g3_shutdown";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 16 1 >;
+	};
+	vdd_g3_boot_req:pd@12 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_g3_boot_req";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 17 1 >;
+	};
+	vdd_cif:pd@13 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_cif";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 25 1 >;
+	};
+	vdd_gpu:pd@14 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_gpu";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 26 1 >;
+	};
+	vdd_nand:pd@15 {
+		compatible = "intel,ldo";
+		regulator-name = "vdd_nand";
+		intel,has-switch = < 1 >;
+		intel,enable = < 0x0 31 1 >;
+	};
+};

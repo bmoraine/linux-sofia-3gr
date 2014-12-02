@@ -1,0 +1,5 @@
+/* XGOLD IRQ DTSI */
+#include "xgold/sofia_3g_soc/irq-eint.dtsi"
+#include "xgold/sofia_3g_soc/irq-abb.dtsi"
+#include "xgold/sofia_3g_soc/irq-wake.dtsi"
+#include "xgold/agold620/irq-pmu.dtsi"

@@ -1,0 +1,212 @@
+/* Nodes mobilevisor/pal/inc/pal_vectors.h */
+eint:eint-interrupt-controller {
+	compatible = "intel,xgold_eint";
+	interrupt-controller;
+	interrupt-parent = <&pic>;
+	#interrupt-cells = <2>;
+	interrupts =
+		< EXI0 IRQ_TYPE_DEFAULT >, /* EXT_INT0 */
+		< EXI1 IRQ_TYPE_DEFAULT >, /* EXT_INT1 */
+		< EXI2 IRQ_TYPE_DEFAULT >, /* EXT_INT2 */
+		< EXI3 IRQ_TYPE_DEFAULT >, /* EXT_INT3 */
+		< EXI4 IRQ_TYPE_DEFAULT >, /* EXT_INT4 */
+		< EXI5 IRQ_TYPE_DEFAULT >, /* EXT_INT5 */
+		< EXI6 IRQ_TYPE_DEFAULT >, /* EXT_INT6 */
+		< EXI7 IRQ_TYPE_DEFAULT >, /* EXT_INT7 */
+		< EXI8 IRQ_TYPE_DEFAULT >, /* EXT_INT8 */
+		< EXI9 IRQ_TYPE_DEFAULT >, /* EXT_INT9 */
+		< EXI10 IRQ_TYPE_DEFAULT >, /* EXT_INT10 */
+		< EXI11 IRQ_TYPE_DEFAULT >, /* EXT_INT11 */
+		< EXI12 IRQ_TYPE_DEFAULT >, /* EXT_INT12 */
+		< EXI13 IRQ_TYPE_DEFAULT >, /* EXT_INT13 */
+		< EXI14 IRQ_TYPE_DEFAULT >, /* EXT_INT14 */
+		< EXI15 IRQ_TYPE_DEFAULT >, /* EXT_INT15 */
+		< USB_HS_RESUME IRQ_TYPE_DEFAULT >, /* USB_RESUME */
+		< SDMMC_DETECT IRQ_TYPE_DEFAULT >, /* SDMMC_DETECT */
+		< SDIO_DAT3 IRQ_TYPE_DEFAULT >, /* SDIO_DAT3 */
+		< SDIO_DAT1 IRQ_TYPE_DEFAULT >, /* SDIO_DAT1 */
+		< USIF1_WK IRQ_TYPE_DEFAULT >, /* USIF1_WK */
+		< USIF2_WK IRQ_TYPE_DEFAULT >, /* USIF2_WK */
+		< WUP_DBB IRQ_TYPE_DEFAULT >, /* WUP_DBB */
+		< U2H IRQ_TYPE_DEFAULT >, /* U2H */
+		< G3FP IRQ_TYPE_DEFAULT >, /* G3FP */
+		< DTXS IRQ_TYPE_DEFAULT >, /* DTXS */
+		< DRXS IRQ_TYPE_DEFAULT >, /* DRXS */
+		< WDT0 IRQ_TYPE_DEFAULT >, /* WDT0 */
+		< WDT1 IRQ_TYPE_DEFAULT >, /* WDT1 */
+		< USB_ID IRQ_TYPE_DEFAULT >; /* USB_ID */
+	reg = <0xe4800000 0x3000>;
+	reg-names = "eint-regs";
+	intel,virq,3 = <1>; /* EXT_INT3 */
+	intel,virq,4 = <1>; /* EXT_INT4 */
+	intel,virq,5 = <1>; /* EXT_INT5 */
+#ifndef SOFIA3G_ES2_TAB_SVB
+	intel,virq,6 = <1>; /* EXT_INT6 */
+#endif
+	intel,virq,7 = <1>; /* EXT_INT7 */
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+	intel,virq,8 = <0>; /* EXT_INT8 */
+#else
+	intel,virq,8 = <1>; /* EXT_INT8 */
+#endif
+	intel,virq,9 = <1>; /* EXT_INT9 */
+	intel,virq,10 = <1>; /* EXT_INT10 */
+#ifdef SOFIA3G_ES2_TAB_SVB
+	intel,virq,11 = <1>; /* EXT_INT11 */
+#endif
+	intel,virq,13 = <1>; /* EXT_INT13 */
+#if defined (SOFIA3G_MRD7S) || defined (SOFIA3G_MRD5S)
+	intel,virq,14 = <0>; /* EXT_INT14 */
+#else
+	intel,virq,14 = <1>; /* EXT_INT14 */
+#endif
+	intel,virq,15 = <1>; /* EXT_INT15 */
+	intel,virq,18 = <1>; /* SDIO_DAT3 */
+	intel,virq,19 = <1>; /* SDIO_DAT1 */
+	intel,virq,21 = <1>; /* USIF2_WK */
+	intel,virq,23 = <1>; /* U2H */
+	intel,virq,24 = <1>; /* G3FP */
+	intel,virq,25 = <1>; /* DTXS */
+	intel,virq,26 = <1>; /* DRXS */
+	intel,virq,27 = <1>; /* WDT0 */
+	intel,virq,28 = <1>; /* WDT1 */
+	intel,preack,20 = <1>; /* USIF1_WK */
+	intel,mask,0 = < 0x2150 0 1 >; /* EXT_INT0 */
+	intel,mask,1 = < 0x2150 1 1 >; /* EXT_INT1 */
+	intel,mask,2 = < 0x2150 2 1 >; /* EXT_INT2 */
+	intel,mask,3 = < 0x2150 3 1 >; /* EXT_INT3 */
+	intel,mask,4 = < 0x2150 4 1 >; /* EXT_INT4 */
+	intel,mask,5 = < 0x2150 5 1 >; /* EXT_INT5 */
+	intel,mask,6 = < 0x2150 6 1 >; /* EXT_INT6 */
+	intel,mask,7 = < 0x2150 7 1 >; /* EXT_INT7 */
+	intel,mask,8 = < 0x2150 8 1 >; /* EXT_INT8 */
+	intel,mask,9 = < 0x2150 9 1 >; /* EXT_INT9 */
+	intel,mask,10 = < 0x2150 10 1 >; /* EXT_INT10 */
+	intel,mask,11 = < 0x2150 11 1 >; /* EXT_INT11 */
+	intel,mask,12 = < 0x2150 12 1 >; /* EXT_INT12 */
+	intel,mask,13 = < 0x2150 13 1 >; /* EXT_INT13 */
+	intel,mask,14 = < 0x2150 14 1 >; /* EXT_INT14 */
+	intel,mask,15 = < 0x2150 15 1 >; /* EXT_INT15 */
+	intel,mask,16 = < 0x2150 16 1 >; /* USB_RESUME */
+	intel,mask,17 = < 0x2150 17 1 >; /* SDMMC_DETECT */
+	intel,mask,18 = < 0x2150 18 1 >; /* SDIO_DAT3 */
+	intel,mask,19 = < 0x2150 19 1 >; /* SDIO_DAT1 */
+	intel,mask,20 = < 0x2150 20 1 >; /* USIF1_WK */
+	intel,mask,21 = < 0x2150 21 1 >; /* USIF2_WK */
+	intel,mask,22 = < 0x2150 22 1 >; /* WUP_DBB */
+	intel,mask,23 = < 0x2150 23 1 >; /* U2H */
+	intel,mask,24 = < 0x2150 24 1 >; /* G3FP */
+	intel,mask,25 = < 0x2150 25 1 >; /* DTXS */
+	intel,mask,26 = < 0x2150 26 1 >; /* DRXS */
+	intel,mask,27 = < 0x2150 27 1 >; /* WDT0 */
+	intel,mask,28 = < 0x2150 28 1 >; /* WDT1 */
+	intel,mask,29 = < 0x2150 29 1 >; /* USB_ID */
+	intel,unmask,0 = < 0x2158 0 1 >; /* EXT_INT0 */
+	intel,unmask,1 = < 0x2158 1 1 >; /* EXT_INT1 */
+	intel,unmask,2 = < 0x2158 2 1 >; /* EXT_INT2 */
+	intel,unmask,3 = < 0x2158 3 1 >; /* EXT_INT3 */
+	intel,unmask,4 = < 0x2158 4 1 >; /* EXT_INT4 */
+	intel,unmask,5 = < 0x2158 5 1 >; /* EXT_INT5 */
+	intel,unmask,6 = < 0x2158 6 1 >; /* EXT_INT6 */
+	intel,unmask,7 = < 0x2158 7 1 >; /* EXT_INT7 */
+	intel,unmask,8 = < 0x2158 8 1 >; /* EXT_INT8 */
+	intel,unmask,9 = < 0x2158 9 1 >; /* EXT_INT9 */
+	intel,unmask,10 = < 0x2158 10 1 >; /* EXT_INT10 */
+	intel,unmask,11 = < 0x2158 11 1 >; /* EXT_INT11 */
+	intel,unmask,12 = < 0x2158 12 1 >; /* EXT_INT12 */
+	intel,unmask,13 = < 0x2158 13 1 >; /* EXT_INT13 */
+	intel,unmask,14 = < 0x2158 14 1 >; /* EXT_INT14 */
+	intel,unmask,15 = < 0x2158 15 1 >; /* EXT_INT15 */
+	intel,unmask,16 = < 0x2158 16 1 >; /* USB_RESUME */
+	intel,unmask,17 = < 0x2158 17 1 >; /* SDMMC_DETECT */
+	intel,unmask,18 = < 0x2158 18 1 >; /* SDIO_DAT3 */
+	intel,unmask,19 = < 0x2158 19 1 >; /* SDIO_DAT1 */
+	intel,unmask,20 = < 0x2158 20 1 >; /* USIF1_WK */
+	intel,unmask,21 = < 0x2158 21 1 >; /* USIF2_WK */
+	intel,unmask,22 = < 0x2158 22 1 >; /* WUP_DBB */
+	intel,unmask,23 = < 0x2158 23 1 >; /* U2H */
+	intel,unmask,24 = < 0x2158 24 1 >; /* G3FP */
+	intel,unmask,25 = < 0x2158 25 1 >; /* DTXS */
+	intel,unmask,26 = < 0x2158 26 1 >; /* DRXS */
+	intel,unmask,27 = < 0x2158 27 1 >; /* WDT0 */
+	intel,unmask,28 = < 0x2158 28 1 >; /* WDT1 */
+	intel,unmask,29 = < 0x2158 29 1 >; /* USB_ID */
+	intel,ack,0 = < 0x210C 0 1 >; /* EXT_INT0 */
+	intel,ack,1 = < 0x210C 1 1 >; /* EXT_INT1 */
+	intel,ack,2 = < 0x210C 2 1 >; /* EXT_INT2 */
+	intel,ack,3 = < 0x210C 3 1 >; /* EXT_INT3 */
+	intel,ack,4 = < 0x210C 4 1 >; /* EXT_INT4 */
+	intel,ack,5 = < 0x210C 5 1 >; /* EXT_INT5 */
+	intel,ack,6 = < 0x210C 6 1 >; /* EXT_INT6 */
+	intel,ack,7 = < 0x210C 7 1 >; /* EXT_INT7 */
+	intel,ack,8 = < 0x210C 8 1 >; /* EXT_INT8 */
+	intel,ack,9 = < 0x210C 9 1 >; /* EXT_INT9 */
+	intel,ack,10 = < 0x210C 10 1 >; /* EXT_INT10 */
+	intel,ack,11 = < 0x210C 11 1 >; /* EXT_INT11 */
+	intel,ack,12 = < 0x210C 12 1 >; /* EXT_INT12 */
+	intel,ack,13 = < 0x210C 13 1 >; /* EXT_INT13 */
+	intel,ack,14 = < 0x210C 14 1 >; /* EXT_INT14 */
+	intel,ack,15 = < 0x210C 15 1 >; /* EXT_INT15 */
+	intel,ack,16 = < 0x210C 16 1 >; /* USB_RESUME */
+	intel,ack,17 = < 0x210C 17 1 >; /* SDMMC_DETECT */
+	intel,ack,18 = < 0x210C 18 1 >; /* SDIO_DAT3 */
+	intel,ack,19 = < 0x210C 19 1 >; /* SDIO_DAT1 */
+	intel,ack,20 = < 0x210C 20 1 >; /* USIF1_WK */
+	intel,ack,21 = < 0x210C 21 1 >; /* USIF2_WK */
+	intel,ack,22 = < 0x210C 22 1 >; /* WUP_DBB */
+	intel,ack,23 = < 0x210C 23 1 >; /* U2H */
+	intel,ack,24 = < 0x210C 24 1 >; /* G3FP */
+	intel,ack,25 = < 0x210C 25 1 >; /* DTXS */
+	intel,ack,26 = < 0x210C 26 1 >; /* DRXS */
+	intel,ack,27 = < 0x210C 27 1 >; /* WDT0 */
+	intel,ack,28 = < 0x210C 28 1 >; /* WDT1 */
+	intel,ack,29 = < 0x210C 29 1 >; /* USB_ID */
+	intel,edge,0 = < 0x1020 4 2 >; /* EXT_INT0 */
+	intel,edge,1 = < 0x1024 4 2 >; /* EXT_INT1 */
+	intel,edge,2 = < 0x1028 4 2 >; /* EXT_INT2 */
+	intel,edge,3 = < 0x102C 4 2 >; /* EXT_INT3 */
+	intel,edge,4 = < 0x1030 4 2 >; /* EXT_INT4 */
+	intel,edge,5 = < 0x1034 4 2 >; /* EXT_INT5 */
+	intel,edge,6 = < 0x1038 4 2 >; /* EXT_INT6 */
+	intel,edge,7 = < 0x103C 4 2 >; /* EXT_INT7 */
+	intel,edge,8 = < 0x1040 4 2 >; /* EXT_INT8 */
+	intel,edge,9 = < 0x1044 4 2 >; /* EXT_INT9 */
+	intel,edge,10 = < 0x1048 4 2 >; /* EXT_INT10 */
+	intel,edge,11 = < 0x104C 4 2 >; /* EXT_INT11 */
+	intel,edge,12 = < 0x1050 4 2 >; /* EXT_INT12 */
+	intel,edge,13 = < 0x1054 4 2 >; /* EXT_INT13 */
+	intel,edge,14 = < 0x1058 4 2 >; /* EXT_INT14 */
+	intel,edge,15 = < 0x105C 4 2 >; /* EXT_INT15 */
+	intel,edge,16 = < 0x1060 4 2 >; /* USB_RESUME */
+	intel,edge,17 = < 0x1064 4 2 >; /* SDMMC_DETECT */
+	intel,edge,18 = < 0x106C 4 2 >; /* SDIO_DAT3 */
+	intel,edge,19 = < 0x1068 4 2 >; /* SDIO_DAT1 */
+	intel,edge,20 = < 0x1070 4 2 >; /* USIF1_WK */
+	intel,edge,21 = < 0x1074 4 2 >; /* USIF2_WK */
+	intel,edge,22 = < 0x1078 4 2 >; /* WUP_DBB */
+	intel,edge,29 = < 0x108C 4 2 >; /* USB_ID */
+	intel,level,0 = < 0x1020 2 2 >; /* EXT_INT0 */
+	intel,level,1 = < 0x1024 2 2 >; /* EXT_INT1 */
+	intel,level,2 = < 0x1028 2 2 >; /* EXT_INT2 */
+	intel,level,3 = < 0x102C 2 2 >; /* EXT_INT3 */
+	intel,level,4 = < 0x1030 2 2 >; /* EXT_INT4 */
+	intel,level,5 = < 0x1034 2 2 >; /* EXT_INT5 */
+	intel,level,6 = < 0x1038 2 2 >; /* EXT_INT6 */
+	intel,level,7 = < 0x103C 2 2 >; /* EXT_INT7 */
+	intel,level,8 = < 0x1040 2 2 >; /* EXT_INT8 */
+	intel,level,9 = < 0x1044 2 2 >; /* EXT_INT9 */
+	intel,level,10 = < 0x1048 2 2 >; /* EXT_INT10 */
+	intel,level,11 = < 0x104C 2 2 >; /* EXT_INT11 */
+	intel,level,12 = < 0x1050 2 2 >; /* EXT_INT12 */
+	intel,level,13 = < 0x1054 2 2 >; /* EXT_INT13 */
+	intel,level,14 = < 0x1058 2 2 >; /* EXT_INT14 */
+	intel,level,15 = < 0x105C 2 2 >; /* EXT_INT15 */
+	intel,level,16 = < 0x1060 2 2 >; /* USB_RESUME */
+	intel,level,17 = < 0x1064 2 2 >; /* SDMMC_DETECT */
+	intel,level,18 = < 0x106C 2 2 >; /* SDIO_DAT3 */
+	intel,level,19 = < 0x1068 2 2 >; /* SDIO_DAT1 */
+	intel,level,20 = < 0x1070 2 2 >; /* USIF1_WK */
+	intel,level,21 = < 0x1074 2 2 >; /* USIF2_WK */
+	intel,level,22 = < 0x1078 2 2 >; /* WUP_DBB */
+	intel,level,29 = < 0x108C 2 2 >; /* USB_ID */
+};

@@ -1,0 +1,87 @@
+/*
+	core: dwc_core 2.94a
+	phy: dwc high speed phy
+*/
+intel,dwc_params = <
+	0xffffffff	/* opt */
+	0x2		/* otg_cap */
+	0xffffffff	/* dma_enable */
+	0x0		/* dma_desc_enable */
+	0xffffffff	/* dma_burst_size */
+	0xffffffff	/* speed */
+	0xffffffff	/* host_support_fs_ls_low_power */
+	0xffffffff	/* host_ls_low_power_phy_clk */
+	0xffffffff	/* enable_dynamic_fifo */
+	0xffffffff	/* data_fifo_size */
+	1024		/* dev_rx_fifo_size */
+	512		/* dev_nperio_tx_fifo_size */
+
+	/* dev_perio_tx_fifo_size */
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+	0xffffffff
+
+	0xffffffff	/* host_rx_fifo_size */
+	0xffffffff	/* host_nperio_tx_fifo_size */
+	0xffffffff	/* host_perio_tx_fifo_size */
+	0xffffffff	/* max_transfer_size */
+	0xffffffff	/* max_packet_count */
+	0xffffffff	/* host_channels */
+	15		/* dev_endpoints */
+	0xffffffff	/* phy_type */
+	0xffffffff	/* phy_utmi_width */
+	0xffffffff	/* phy_ulpi_ddr */
+	0xffffffff	/* phy_ulpi_ext_vbus */
+	0xffffffff	/* i2c_enable */
+	0xffffffff	/* ulpi_fs_ls */
+	0xffffffff	/* ts_dline */
+	0xffffffff	/* en_multiple_tx_fifo */
+
+	/* dev_tx_fifo_size */
+	512
+	512
+	512
+	128
+	128
+	128
+	128
+	128
+	128
+	128
+	128
+	128
+	128
+	128
+	128
+
+	0xffffffff	/* thr_ctl */
+	0xffffffff	/* tx_thr_length */
+	0xffffffff	/* rx_thr_length */
+	0xffffffff	/* pti_enable */
+	0xffffffff	/* mpi_enable */
+	0xffffffff	/* lpm_enable */
+	0xffffffff	/* besl_enable */
+	0xffffffff	/* baseline_besl */
+	0xffffffff	/* deep_besl */
+	0xffffffff	/* ic_usb_cap */
+	0xffffffff	/* ahb_thr_ratio */
+	0xffffffff	/* power_down */
+	0xffffffff	/* reload_ctl */
+	0xffffffff	/* dev_out_nak */
+	0xffffffff	/* cont_on_bna */
+	0xffffffff	/* ahb_single */
+	0xffffffff	/* otg_ver */
+	0xffffffff	/* adp_enable */
+>;

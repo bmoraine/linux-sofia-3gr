@@ -1,0 +1,103 @@
+wake_irq:wake_irq {
+	compatible = "intel,xgold_irq_wake";
+	reg-names = "spcu",
+		"wake-C0-R0", "wake-C0-R1",
+		"wake-C1-R0", "wake-C1-R1";
+	reg = < 0xe4700000 0x1000
+		0x820 0x4 0x824 0x4
+		0x920 0x4 0x924 0x4>;
+	#intel-wake-cells = <3>;
+	intel,wake-only-cpu-0;
+	/* Offset/Domain/Vector */
+	intel,wake-map-0 = <
+		0 &pic KPD_INT
+		2 &pic USIM1_IN_INT
+		3 &pic USIM2_IN_INT
+		5 &pic OCT_INT
+		6 &pic CC0_T0INT
+		6 &pic CC0_T1INT
+		6 &pic CC0_CCINT0_7
+		6 &pic CC1_T0INT
+		6 &pic CC1_T1INT
+		6 &pic CC1_CCINT0_7
+		7 &pic _2GDSP_INT0
+		7 &pic _2GDSP_INT1
+		7 &pic _2GDSP_INT2
+		7 &pic _2GDSP_INT3
+		8 &pic G3FP
+		9 &eint EINT_EXI0
+		10 &eint EINT_EXI1
+		11 &eint EINT_EXI2
+		12 &eint EINT_EXI3
+		13 &eint EINT_EXI4
+		14 &eint EINT_EXI5
+		15 &eint EINT_EXI6
+		16 &eint EINT_EXI7
+		17 &eint EINT_EXI8
+		18 &eint EINT_EXI9
+		19 &eint EINT_EXI10
+		20 &eint EINT_EXI11
+		21 &eint EINT_EXI12
+		22 &eint EINT_EXI13
+		23 &eint EINT_EXI14
+		24 &eint EINT_EXI15
+		25 &eint EINT_USB_HS_RESUME
+		26 &eint EINT_SDMMC_DETECT
+		27 &eint EINT_SDIO_DAT3
+		28 &eint EINT_SDIO_DAT1
+		29 &eint EINT_USIF1_WK
+		30 &eint EINT_USIF2_WK
+		31 &eint EINT_WUP_DBB
+	>;
+	intel,wake-map-1 = <
+		5 &eint EINT_USB_ID
+	>;
+};
+
+abb_wake_irq:abb_wake_irq {
+	compatible = "intel,xgold_abb_irq_wake";
+	reg-names = "spcu", "wake-C0-R0";
+	reg = < 0xe6402000 0x60 0x0 0x4>;
+	intel,io-access-guest;
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&wup_agold_default_pins>;
+	pinctrl-1 = <&wup_agold_sleep_pins>;
+	pinctrl-2 = <&wup_agold_inactive_pins>;
+
+	#address-cells = < 0 >;
+	interrupts = < 0 >;
+	interrupt-parent = < &abb_wake_irq >;
+	#interrupt-cells = < 1 >;
+	interrupt-map = <
+		0 &eint EINT_WUP_DBB XGOLD_IRQ_TYPE_EDGE_RISING >;
+	interrupt-names = "wup_dbb";
+
+	#intel-wake-cells = <3>;
+	/* Offset/Domain/Vector */
+	intel,wake-map-0 = <
+		3 &ag620_pmu ABB_PMU_FOV
+		3 &ag620_pmu ABB_PMU_ONRE
+		3 &ag620_pmu ABB_PMU_ONFE
+		3 &ag620_pmu ABB_PMU_BUV
+		3 &ag620_pmu ABB_PMU_BRD
+		3 &ag620_pmu ABB_PMU_ACD1
+		3 &ag620_pmu ABB_PMU_ACD2
+		3 &ag620_pmu ABB_PMU_CI
+		3 &ag620_pmu ABB_PMU_CSTAT
+		3 &ag620_pmu ABB_PMU_DBM
+		3 &ag620_pmu ABB_PMU_TWARN
+		3 &ag620_pmu ABB_PMU_TSTOP
+		3 &ag620_pmu ABB_PMU_VICM
+		3 &ag620_pmu ABB_PMU_LPCL
+		3 &ag620_pmu ABB_PMU_LAXCL
+		3 &ag620_pmu ABB_PMU_LAX2CL
+		3 &ag620_pmu ABB_PMU_LAICL
+		3 &ag620_pmu ABB_PMU_LSCL
+		3 &ag620_pmu ABB_PMU_LSCL2
+		3 &ag620_pmu ABB_PMU_LMMCL
+		3 &ag620_pmu ABB_PMU_LUCL
+		3 &ag620_pmu ABB_PMU_LMICL
+		3 &ag620_pmu ABB_PMU_LMECL
+		3 &ag620_pmu ABB_PMU_CCCL
+	>;
+};
