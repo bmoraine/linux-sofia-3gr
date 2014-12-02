@@ -26,9 +26,23 @@
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <sofia/vvpu_vbpipe.h>
 #endif
-
+static struct ion_device *xgold_ion_idev;
 struct ion_mapper *xgold_user_mapper;
 struct ion_heap **heaps;
+
+struct ion_client *xgold_ion_client_create(const char *name)
+{
+	struct ion_device *dev = xgold_ion_idev;
+
+	if (dev == NULL) {
+		pr_err("%s: no ion device found\n", __func__);
+		return NULL;
+	}
+
+	return ion_client_create(dev, name);
+}
+EXPORT_SYMBOL(xgold_ion_client_create);
+
 
 static int xgold_ion_get_param(struct ion_client *client,
 					unsigned int cmd,
@@ -345,7 +359,7 @@ int xgold_ion_probe(struct platform_device *pdev)
 		kfree(heaps);
 		return PTR_ERR(idev);
 	}
-
+	xgold_ion_idev = idev;
 	/* create the heaps as specified in the board file */
 	for (i = 0; i < pdata->nr; i++) {
 		struct ion_platform_heap *heap_data =  &pdata->heaps[i];
@@ -414,6 +428,6 @@ static void ion_exit(void)
 	platform_driver_unregister(&ion_driver);
 }
 
-module_init(ion_init);
+subsys_initcall(ion_init);
 module_exit(ion_exit);
 
