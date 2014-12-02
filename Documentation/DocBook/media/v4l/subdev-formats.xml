@@ -306,10 +306,6 @@
 	      <entry>g<subscript>4</subscript></entry>
 	      <entry>g<subscript>3</subscript></entry>
 	    </row>
-<<<<<<< HEAD
-	    <row id="V4L2-MBUS-FMT-BGR565-2X8-BE">
-	      <entry>V4L2_MBUS_FMT_BGR565_2X8_BE</entry>
-=======
 	    <row id="MEDIA-BUS-FMT-RGB565-1X16">
 	      <entry>MEDIA_BUS_FMT_RGB565_1X16</entry>
 	      <entry>0x100f</entry>
@@ -334,7 +330,6 @@
 	    </row>
 	    <row id="MEDIA-BUS-FMT-BGR565-2X8-BE">
 	      <entry>MEDIA_BUS_FMT_BGR565_2X8_BE</entry>
->>>>>>> 4b3a81a... Add RGB444_1X12 and RGB565_1X16 media bus formats
 	      <entry>0x1005</entry>
 	      <entry></entry>
 	      &dash-ent-24;
@@ -469,8 +464,73 @@
 	      <entry>b<subscript>1</subscript></entry>
 	      <entry>b<subscript>0</subscript></entry>
 	    </row>
+<<<<<<< HEAD
 	    <row id="V4L2-MBUS-FMT-RGB888-1X24">
 	      <entry>V4L2_MBUS_FMT_RGB888_1X24</entry>
+=======
+	    <row id="MEDIA-BUS-FMT-BGR888-1X24">
+	      <entry>MEDIA_BUS_FMT_BGR888_1X24</entry>
+	      <entry>0x1013</entry>
+	      <entry></entry>
+	      &dash-ent-8;
+	      <entry>b<subscript>7</subscript></entry>
+	      <entry>b<subscript>6</subscript></entry>
+	      <entry>b<subscript>5</subscript></entry>
+	      <entry>b<subscript>4</subscript></entry>
+	      <entry>b<subscript>3</subscript></entry>
+	      <entry>b<subscript>2</subscript></entry>
+	      <entry>b<subscript>1</subscript></entry>
+	      <entry>b<subscript>0</subscript></entry>
+	      <entry>g<subscript>7</subscript></entry>
+	      <entry>g<subscript>6</subscript></entry>
+	      <entry>g<subscript>5</subscript></entry>
+	      <entry>g<subscript>4</subscript></entry>
+	      <entry>g<subscript>3</subscript></entry>
+	      <entry>g<subscript>2</subscript></entry>
+	      <entry>g<subscript>1</subscript></entry>
+	      <entry>g<subscript>0</subscript></entry>
+	      <entry>r<subscript>7</subscript></entry>
+	      <entry>r<subscript>6</subscript></entry>
+	      <entry>r<subscript>5</subscript></entry>
+	      <entry>r<subscript>4</subscript></entry>
+	      <entry>r<subscript>3</subscript></entry>
+	      <entry>r<subscript>2</subscript></entry>
+	      <entry>r<subscript>1</subscript></entry>
+	      <entry>r<subscript>0</subscript></entry>
+	    </row>
+	    <row id="MEDIA-BUS-FMT-GBR888-1X24">
+	      <entry>MEDIA_BUS_FMT_GBR888_1X24</entry>
+	      <entry>0x1014</entry>
+	      <entry></entry>
+	      &dash-ent-8;
+	      <entry>g<subscript>7</subscript></entry>
+	      <entry>g<subscript>6</subscript></entry>
+	      <entry>g<subscript>5</subscript></entry>
+	      <entry>g<subscript>4</subscript></entry>
+	      <entry>g<subscript>3</subscript></entry>
+	      <entry>g<subscript>2</subscript></entry>
+	      <entry>g<subscript>1</subscript></entry>
+	      <entry>g<subscript>0</subscript></entry>
+	      <entry>b<subscript>7</subscript></entry>
+	      <entry>b<subscript>6</subscript></entry>
+	      <entry>b<subscript>5</subscript></entry>
+	      <entry>b<subscript>4</subscript></entry>
+	      <entry>b<subscript>3</subscript></entry>
+	      <entry>b<subscript>2</subscript></entry>
+	      <entry>b<subscript>1</subscript></entry>
+	      <entry>b<subscript>0</subscript></entry>
+	      <entry>r<subscript>7</subscript></entry>
+	      <entry>r<subscript>6</subscript></entry>
+	      <entry>r<subscript>5</subscript></entry>
+	      <entry>r<subscript>4</subscript></entry>
+	      <entry>r<subscript>3</subscript></entry>
+	      <entry>r<subscript>2</subscript></entry>
+	      <entry>r<subscript>1</subscript></entry>
+	      <entry>r<subscript>0</subscript></entry>
+	    </row>
+	    <row id="MEDIA-BUS-FMT-RGB888-1X24">
+	      <entry>MEDIA_BUS_FMT_RGB888_1X24</entry>
+>>>>>>> 08c3845... Add BGR888_1X24 and GBR888_1X24 media bus formats
 	      <entry>0x100a</entry>
 	      <entry></entry>
 	      &dash-ent-8;
