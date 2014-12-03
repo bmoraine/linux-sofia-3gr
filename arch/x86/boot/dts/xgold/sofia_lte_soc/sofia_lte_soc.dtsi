@@ -78,9 +78,9 @@
 				stat,2 = "GPU";
 				stat,3 = "DCC2";
 				stat,4 = "EMIC";
-				
 
 				intel,qos-configs = "DCC2", "GPU";
+				intel,GPU-qos-owner;
 				intel,GPU-qos-settings = <
 					0x358C 0x1      /* GPU mode limiter */
 					0x3588 0x0      /* GPU rw/wr prio 0/0 */
@@ -88,6 +88,7 @@
 					0x3594 0x90     /* GPU saturation */
 					0x3598 0x5>;    /* GPU QoSEn */
 
+				intel,DCC2-qos-owner;
 				intel,DCC2-qos-settings = <
 					0x3608 0xE      /* DCC2 prio 2/3 */
 					0x360C 0x3      /* DCC2 mode regulator*/
