@@ -464,10 +464,6 @@
 	      <entry>b<subscript>1</subscript></entry>
 	      <entry>b<subscript>0</subscript></entry>
 	    </row>
-<<<<<<< HEAD
-	    <row id="V4L2-MBUS-FMT-RGB888-1X24">
-	      <entry>V4L2_MBUS_FMT_RGB888_1X24</entry>
-=======
 	    <row id="MEDIA-BUS-FMT-BGR888-1X24">
 	      <entry>MEDIA_BUS_FMT_BGR888_1X24</entry>
 	      <entry>0x1013</entry>
@@ -530,7 +526,6 @@
 	    </row>
 	    <row id="MEDIA-BUS-FMT-RGB888-1X24">
 	      <entry>MEDIA_BUS_FMT_RGB888_1X24</entry>
->>>>>>> 08c3845... Add BGR888_1X24 and GBR888_1X24 media bus formats
 	      <entry>0x100a</entry>
 	      <entry></entry>
 	      &dash-ent-8;
@@ -3004,8 +2999,50 @@
 	      <entry>u<subscript>1</subscript></entry>
 	      <entry>u<subscript>0</subscript></entry>
 	    </row>
+<<<<<<< HEAD
 	    <row id="V4L2-MBUS-FMT-YUV10-1X30">
 	      <entry>V4L2_MBUS_FMT_YUV10_1X30</entry>
+=======
+	    <row id="MEDIA-BUS-FMT-YUV8-1X24">
+	      <entry>MEDIA_BUS_FMT_YUV8_1X24</entry>
+	      <entry>0x2024</entry>
+	      <entry></entry>
+	      <entry>-</entry>
+	      <entry>-</entry>
+	      <entry>-</entry>
+	      <entry>-</entry>
+	      <entry>-</entry>
+	      <entry>-</entry>
+	      <entry>-</entry>
+	      <entry>-</entry>
+	      <entry>y<subscript>7</subscript></entry>
+	      <entry>y<subscript>6</subscript></entry>
+	      <entry>y<subscript>5</subscript></entry>
+	      <entry>y<subscript>4</subscript></entry>
+	      <entry>y<subscript>3</subscript></entry>
+	      <entry>y<subscript>2</subscript></entry>
+	      <entry>y<subscript>1</subscript></entry>
+	      <entry>y<subscript>0</subscript></entry>
+	      <entry>u<subscript>7</subscript></entry>
+	      <entry>u<subscript>6</subscript></entry>
+	      <entry>u<subscript>5</subscript></entry>
+	      <entry>u<subscript>4</subscript></entry>
+	      <entry>u<subscript>3</subscript></entry>
+	      <entry>u<subscript>2</subscript></entry>
+	      <entry>u<subscript>1</subscript></entry>
+	      <entry>u<subscript>0</subscript></entry>
+	      <entry>v<subscript>7</subscript></entry>
+	      <entry>v<subscript>6</subscript></entry>
+	      <entry>v<subscript>5</subscript></entry>
+	      <entry>v<subscript>4</subscript></entry>
+	      <entry>v<subscript>3</subscript></entry>
+	      <entry>v<subscript>2</subscript></entry>
+	      <entry>v<subscript>1</subscript></entry>
+	      <entry>v<subscript>0</subscript></entry>
+	    </row>
+	    <row id="MEDIA-BUS-FMT-YUV10-1X30">
+	      <entry>MEDIA_BUS_FMT_YUV10_1X30</entry>
+>>>>>>> 0fc63eb... Add YUV8_1X24 media bus format
 	      <entry>0x2016</entry>
 	      <entry></entry>
 	      <entry>-</entry>
