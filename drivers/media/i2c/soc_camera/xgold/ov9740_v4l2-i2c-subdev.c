@@ -26,6 +26,8 @@
 #include "ov_camera_module.h"
 
 #define OV9740_DRIVER_NAME "ov9740"
+#define XVCLK	26000000 /*26MHz external clock input*/
+#define COARSE_INTEGRATION_TIME_MARGIN	4
 
 /* Register addresses */
 #define OV9740_EXPL_ADDR 0x0203
@@ -36,6 +38,78 @@
 #define OV9740_PIDH_ADDR 0x300A
 #define OV9740_PIDL_ADDR 0x300B
 
+
+/* Integration time registers. */
+#define INTEGRATION_TIME_SUB_LINE_HIGH	0x0200 /*'Fine' integration time in unit
+						of pixel period, high byte*/
+#define INTEGRATION_TIME_SUB_LINE_LOW	0x0201 /*'Fine' integration time in unit
+						of pixel period, low byte*/
+#define INTEGRATION_TIME_LINE_HIGH	0x0202 /*'Corse' integration time in
+						unit of line period, high byte*/
+#define INTEGRATION_TIME_LINE_LOW	0x0203 /*'Corse' integration time in
+						unit of line period, low byte*/
+
+/* Clock configuration register */
+#define PIXEL_CLK_DIVIDER_PLL1_HIGH	0x0300 /*PLL1 video timing pixel clock
+						divider, high byte*/
+#define PIXEL_CLK_DIVIDER_PLL1_LOW	0x0301 /*PLL1 video timing pixel clock
+						divider, low byte*/
+#define SYSTEM_CLK_DIVIDER_PLL1_HIGH	0x0302 /*PLL1 video timing system clock
+						divider, high byte*/
+#define SYSTEM_CLK_DIVIDER_PLL1_LOW	0x0303 /*PLL1 video timing system clock
+						divider, low byte*/
+#define PRE_PLL_CLK_DIVIDER_PLL1_HIGH	0x0304 /*PLL1 pre PLL clock divider
+						value, high byte*/
+#define PRE_PLL_CLK_DIVIDER_PLL1_LOW	0x0305 /*PLL1 pre PLL clock divider
+						value, low byte*/
+#define PLL_MULTIPLIER_PLL1_HIGH	0x0306 /*PLL1 multiplier value,
+						high byte*/
+#define PLL_MULTIPLIER_PLL1_LOW		0x0307 /*PLL1 multiplier value,
+						low byte*/
+#define SCALE_DIVIDER_PLL1		0x3010 /*PLL1 scale divider*/
+#define PRE_PLL_CLK_DIVIDER_PLL2	0x300C /*PLL2 pre PLL clock divider
+						value*/
+#define PLL_MULTIPLIER_PLL2		0x300D /*PLL2 muliplier value*/
+#define SYSTEM_CLK_DIVIDER_PLL2		0x300E /*PLL2 video timing system clock
+						divider*/
+#define PLL_RST_SW			0x3104 /*PLL switch / RESET*/
+
+/* Frame timing registers */
+#define VERTICAL_TOTAL_LENGTH_HIGH	0x0340 /*Frame length in unit of line
+						period, high byte*/
+#define VERTICAL_TOTAL_LENGTH_LOW	0x0341 /*Frame length in unit of line
+						period, low byte*/
+#define HORIZONTAL_TOTAL_LENGTH_HIGH	0x0342 /*Line length in unit of line
+						period, high byte*/
+#define HORIZONTAL_TOTAL_LENGTH_LOW	0x0343 /*Line length in unit of line
+						period, low byte*/
+
+/* Image size registers */
+#define HORIZONTAL_START_HIGH	0x0344 /*X-address of the top left corner of the
+					visible pixel data, high byte*/
+#define HORIZONTAL_START_LOW	0x0345 /*X-address of the top left corner of the
+					visible pixel data, low byte*/
+#define VERTICAL_START_HIGH	0x0346 /*Y-address of the top left corner of the
+					visible pixel data, high byte*/
+#define VERTICAL_START_LOW	0x0347 /*Y-address of the top left corner of the
+					visible pixel data, low byte*/
+#define HORIZONTAL_END_HIGH	0x0348 /*X-address of the bottom right corner
+					of the visible pixel data, high byte*/
+#define HORIZONTAL_END_LOW	0x0349 /*X-address of the bottom right corner
+					of the visible pixel data, low byte*/
+#define VERTICAL_END_HIGH	0x034A /*Y-address of the bottom right corner
+					of the visible pixel data, high byte*/
+#define VERTICAL_END_LOW	0x034B /*Y-address of the bottom right corner
+					of the visible pixel data, low byte*/
+#define IMAGE_WIDTH_HIGH	0x034C /*Width of the image data output from
+					sensor, high byte*/
+#define IMAGE_WIDTH_LOW		0x034D /*Width of the image data output from
+					sensor, low byte*/
+#define IMAGE_HEIGHT_HIGH	0x034E /*Height of the image data output from
+					sensor, high byte*/
+#define IMAGE_HEIGHT_LOW	0x034F /*Height of the image data output from
+					sensor, low byte*/
+
 /* Bit masks */
 #define OV9740_AWB_ENABLE_BIT_MSK ((u8)0x01)
 #define OV9740_AEC_DISABLE_BIT_MSK ((u8)0x01)
@@ -45,15 +119,14 @@
 #define OV9740_FETCH_2ND_BYTE_EXP(VAL) ((VAL >> 8) & 0xFF)	/* 8 Bits */
 #define OV9740_FETCH_1ST_BYTE_EXP(VAL) (VAL & 0x000000FF)	/* 8 Bits */
 
-
 /* High byte of product ID */
 #define OV9740_PIDH_MAGIC 0x97
 /* Low byte of product ID  */
 #define OV9740_PIDL_MAGIC 0x40
 
-/* ======================================================================== */
+/* =============================================== */
 /* Base sensor configs */
-/* ======================================================================== */
+/* =============================================== */
 
 /* register initialization tables for ov8825 */
 static const struct ov_camera_module_reg ov9740_manual_wb_incandescent[] = {
@@ -411,7 +484,7 @@ static const struct ov_camera_module_reg ov9740_init_tab_720p_24fps[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x0105, 0x01}
 };
 
-/* ======================================================================== */
+/* =============================================== */
 
 static struct ov_camera_module_config ov9740_configs[] = {
 	{
@@ -437,6 +510,37 @@ static struct ov_camera_module_config ov9740_configs[] = {
 			sizeof(ov9740_init_tab_720p_24fps[0])
 	},
 };
+
+static int ov9740_g_VTS(struct ov_camera_module *cam_mod, u32 *vts)
+{
+	u32 msb, lsb;
+	int ret;
+
+	ret = ov_camera_module_read_reg_table(
+		cam_mod,
+		VERTICAL_TOTAL_LENGTH_HIGH,
+		&msb);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	ret = ov_camera_module_read_reg_table(
+		cam_mod,
+		VERTICAL_TOTAL_LENGTH_LOW,
+		&lsb);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	*vts = (msb << 8) | lsb;
+
+	ov_camera_module_pr_debug(cam_mod, "\n"
+				" VERTICAL_TOTAL_LENGTH: 0x%04X\n", *vts);
+	return 0;
+
+err:
+	ov_camera_module_pr_err(cam_mod,
+			"failed with error (%d)\n", ret);
+	return ret;
+}
 
 static int ov9740_write_wb_temperature(struct ov_camera_module *cam_mod)
 {
@@ -544,29 +648,263 @@ static int ov9740_g_ctrl(struct ov_camera_module *cam_mod, u32 ctrl_id)
 static int ov9740_g_timings(struct ov_camera_module *cam_mod,
 		struct ov_camera_module_timings *timings)
 {
-	int ret = 0;
+	u32 msb = 0;
+	u32 lsb = 0;
+	u32 integration_time_line = 0;
+	u32 integration_time_sub_line = 0;
+	u32 pixel_clk_divider_pll1 = 0;
+	u32 system_clk_divider_pll1 = 0;
+	u32 pre_pll_clk_divider_pll1 = 0;
+	u32 pll_multiplier_pll1 = 0;
+	u32 scale_divider_pll1 = 0;
+	u32 pre_pll_clk_divider_pll2 = 0;
+	u32 pll_multiplier_pll2 = 0;
+	u32 system_clk_divider_pll2 = 0;
+	u32 pll_rst_sw = 0;
+	u32 horizontal_total_length = 0;
+	u32 horizontal_start = 0;
+	u32 vertical_start = 0;
+	u32 horizontal_end = 0;
+	u32 vertical_end = 0;
+	u32 image_width = 0;
+	u32 image_height = 0;
 
-	/*TODO: Intermediate quick solution for SMS06037039
-	 * Correct and full implementation in second step.*/
-	timings->coarse_integration_time_min = 0;
-	timings->coarse_integration_time_max_margin = 0;
-	timings->fine_integration_time_min = 0;
+	/*Read integration time registers*/
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			INTEGRATION_TIME_LINE_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			INTEGRATION_TIME_LINE_LOW, &lsb)))
+		goto read_reg;
+	integration_time_line = (msb << 8) | lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			INTEGRATION_TIME_SUB_LINE_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			INTEGRATION_TIME_SUB_LINE_LOW, &lsb)))
+		goto read_reg;
+	integration_time_sub_line = (msb << 8) | lsb;
+
+	/*Read clock configuration registers*/
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			PIXEL_CLK_DIVIDER_PLL1_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			PIXEL_CLK_DIVIDER_PLL1_LOW, &lsb)))
+		goto read_reg;
+	pixel_clk_divider_pll1 = (msb << 8) | lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			SYSTEM_CLK_DIVIDER_PLL1_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			SYSTEM_CLK_DIVIDER_PLL1_LOW, &lsb)))
+		goto read_reg;
+	system_clk_divider_pll1 = (msb << 8) | lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			PRE_PLL_CLK_DIVIDER_PLL1_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			PRE_PLL_CLK_DIVIDER_PLL1_LOW, &lsb)))
+		goto read_reg;
+	pre_pll_clk_divider_pll1 = (msb << 8) | lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			PLL_MULTIPLIER_PLL1_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			PLL_MULTIPLIER_PLL1_LOW, &lsb)))
+		goto read_reg;
+	pll_multiplier_pll1 = (msb << 8) | lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			SCALE_DIVIDER_PLL1, &lsb)))
+		goto read_reg;
+	scale_divider_pll1 = lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			PRE_PLL_CLK_DIVIDER_PLL2, &lsb)))
+		goto read_reg;
+	pre_pll_clk_divider_pll2 = lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			PLL_MULTIPLIER_PLL2, &lsb)))
+		goto read_reg;
+	pll_multiplier_pll2 = lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			SYSTEM_CLK_DIVIDER_PLL2, &lsb)))
+		goto read_reg;
+	system_clk_divider_pll2 = lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			PLL_RST_SW, &lsb)))
+		goto read_reg;
+	pll_rst_sw = lsb;
+
+	/* Read Frame timing registers. */
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			HORIZONTAL_TOTAL_LENGTH_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			HORIZONTAL_TOTAL_LENGTH_LOW, &lsb)))
+		goto read_reg;
+	horizontal_total_length = (msb << 8) | lsb;
+
+	/* Read image size register. */
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			HORIZONTAL_START_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			HORIZONTAL_START_LOW, &lsb)))
+		goto read_reg;
+	horizontal_start = (msb << 8) | lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			VERTICAL_START_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			VERTICAL_START_LOW, &lsb)))
+		goto read_reg;
+	vertical_start = (msb << 8) | lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			HORIZONTAL_END_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			HORIZONTAL_END_LOW, &lsb)))
+		goto read_reg;
+	horizontal_end = (msb << 8) | lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			VERTICAL_END_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			VERTICAL_END_LOW, &lsb)))
+		goto read_reg;
+	vertical_end = (msb << 8) | lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			IMAGE_WIDTH_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			IMAGE_WIDTH_LOW, &lsb)))
+		goto read_reg;
+	image_width = (msb << 8) | lsb;
+
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			IMAGE_HEIGHT_HIGH, &msb)))
+		goto read_reg;
+	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
+			IMAGE_HEIGHT_LOW, &lsb)))
+		goto read_reg;
+	image_height = (msb << 8) | lsb;
+
+	/* Debug print. */
+	ov_camera_module_pr_debug(cam_mod, "\n"
+		"Integration time registers:\n"
+		" INTEGRATION_TIME_LINE: 0x%04X\n"
+		" INTEGRATION_TIME_SUB_LINE: 0x%04X\n"
+		"Clock configuration registers:\n"
+		" PIXEL_CLK_DIVIDER_PLL1: 0x%04X\n"
+		" SYSTEM_CLK_DIVIDER_PLL1: 0x%04X\n"
+		" PRE_PLL_CLK_DIVIDER_PLL1: 0x%04X\n"
+		" PLL_MULTIPLIER_PLL1: 0x%04X\n"
+		" SCALE_DIVIDER_PLL1: 0x%02X\n"
+		" PRE_PLL_CLK_DIVIDER_PLL2: 0x%02X\n"
+		" PLL_MULTIPLIER_PLL2: 0x%02X\n"
+		" SYSTEM_CLK_DIVIDER_PLL2: 0x%02X\n"
+		" PLL_RST_SW: 0x%02X\n"
+		"Frame timing registers:\n"
+		" HORIZONTAL_TOTAL_LENGTH: 0x%04X\n"
+		"Image size registers:\n"
+		" HORIZONTAL_START: 0x%04X\n"
+		" VERTICAL_START: 0x%04X\n"
+		" HORIZONTAL_END: 0x%04X\n"
+		" VERTICAL_END: 0x%04X\n"
+		" IMAGE_WIDTH: 0x%04X\n"
+		" IMAGE_HEIGHT: 0x%04X\n"
+		, integration_time_line, integration_time_sub_line
+		, pixel_clk_divider_pll1, system_clk_divider_pll1
+		, pre_pll_clk_divider_pll1, pll_multiplier_pll1
+		, scale_divider_pll1, pre_pll_clk_divider_pll2
+		, pll_multiplier_pll2, system_clk_divider_pll2, pll_rst_sw
+		, horizontal_total_length
+		, horizontal_start, vertical_start
+		, horizontal_end, vertical_end
+		, image_width, image_height);
+
+	/* Populate timings structure. */
+	timings->coarse_integration_time_min = integration_time_line;
+	timings->coarse_integration_time_max_margin =
+			COARSE_INTEGRATION_TIME_MARGIN;
+	timings->fine_integration_time_min = integration_time_sub_line;
 	timings->fine_integration_time_max_margin = 0;
-	timings->frame_length_lines = 1;
-	timings->line_length_pck = 42;
-	timings->vt_pix_clk_freq_hz = 1000;
-	timings->sensor_output_width = 0;
-	timings->sensor_output_height = 0;
-	timings->crop_horizontal_start = 0; /* Sensor crop start cord. (x0,y0)*/
-	timings->crop_vertical_start = 0;
-	timings->crop_horizontal_end = 0; /* Sensor crop end cord. (x1,y1)*/
-	timings->crop_vertical_end = 0;
-	timings->binning_factor_x = 0;
-	timings->binning_factor_y = 0;
+	if (IS_ERR_VALUE(ov9740_g_VTS(cam_mod, &timings->frame_length_lines)))
+		goto read_reg;
+	timings->line_length_pck = horizontal_total_length;
+	if (pre_pll_clk_divider_pll1 == 0 ||
+			system_clk_divider_pll1 == 0 ||
+			pixel_clk_divider_pll1 == 0){
+		ov_camera_module_pr_err(cam_mod, "Avoid devision by ZERO.\n");
+		goto error;
+	} else {
+		timings->vt_pix_clk_freq_hz = (XVCLK / pre_pll_clk_divider_pll1)
+				* pll_multiplier_pll1 / system_clk_divider_pll1
+				/ pixel_clk_divider_pll1;
+	}
+	timings->sensor_output_width = image_width;
+	timings->sensor_output_height = image_height;
+	timings->crop_horizontal_start = horizontal_start;
+	timings->crop_vertical_start = vertical_start;
+	timings->crop_horizontal_end = horizontal_end;
+	timings->crop_vertical_end = vertical_end;
+	timings->binning_factor_x = 1;
+	timings->binning_factor_y = 1;
 
-	return ret;
+	/* Debug print. */
+	ov_camera_module_pr_debug(cam_mod, "\n"
+		"Timings:\n"
+		" coarse_integration_time_min: %d\n"
+		" coarse_integration_time_max_margin: %d\n"
+		" fine_integration_time_min: %d\n"
+		" fine_integration_time_max_margin: %d\n"
+		" frame_length_lines: %d\n"
+		" line_length_pck: %d\n"
+		" vt_pix_clk_freq_hz: %d\n"
+		" sensor_output_width: %d\n"
+		" sensor_output_height: %d\n"
+		" crop_horizontal_start: %d\n"
+		" crop_vertical_start: %d\n"
+		" crop_horizontal_end: %d\n"
+		" crop_vertical_end: %d\n"
+		" binning_factor_x: %d\n"
+		" binning_factor_y: %d\n"
+		, timings->coarse_integration_time_min
+		, timings->coarse_integration_time_max_margin
+		, timings->fine_integration_time_min
+		, timings->fine_integration_time_max_margin
+		, timings->frame_length_lines
+		, timings->line_length_pck
+		, timings->vt_pix_clk_freq_hz
+		, timings->sensor_output_width
+		, timings->sensor_output_height
+		, timings->crop_horizontal_start
+		, timings->crop_vertical_start
+		, timings->crop_horizontal_end
+		, timings->crop_vertical_end
+		, timings->binning_factor_x
+		, timings->binning_factor_y);
+
+	return 0;
+
+read_reg:
+	ov_camera_module_pr_err(cam_mod, "Register read error.\n");
+error:
+	return -EINVAL;
 }
-
 /*--------------------------------------------------------------------------*/
 
 static int ov9740_s_ctrl(struct ov_camera_module *cam_mod, u32 ctrl_id)
@@ -752,9 +1090,9 @@ err:
 	return ret;
 }
 
-/* ======================================================================== */
+/* =============================================== */
 /* This part is platform dependent */
-/* ======================================================================== */
+/* =============================================== */
 
 static struct v4l2_subdev_core_ops ov9740_camera_module_core_ops = {
 	.g_ctrl = ov_camera_module_g_ctrl,
@@ -810,7 +1148,7 @@ err:
 	return ret;
 }
 
-/* ======================================================================== */
+/* =============================================== */
 
 static int __exit ov9740_remove(
 	struct i2c_client *client)
