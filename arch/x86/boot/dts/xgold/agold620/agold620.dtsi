@@ -32,7 +32,9 @@ agold {
 		#reset-cells = <1>;
 		intel,reset-set = <0>;
 		intel,reset-status = <0>;
-		intel,io-access-guest;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+		intel,vmm-secured-access;
+#endif
 	};
 
 	abb_pmx_core:pinmux@E6300000 {
@@ -45,6 +47,9 @@ agold {
 		pinctrl-single,register-width = <32>;
 		pinctrl-single,first-pin-offset = <0x20C>;
 		pinctrl-single,function-mask = <0xfffff>;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+		intel,vmm-secured-access;
+#endif
 		range_abb: gpio-range {
 			#pinctrl-single,gpio-range-cells = <3>;
 		};

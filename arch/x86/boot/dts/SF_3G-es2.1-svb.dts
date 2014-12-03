@@ -1,2 +1,3 @@
 #define SOFIA3G_ES21
+/* #define SOFIA_SECURED_VMM_ACCESS */
 #include "SF_3G-es2-svb.dts"
