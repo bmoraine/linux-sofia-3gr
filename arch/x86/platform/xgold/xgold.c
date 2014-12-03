@@ -43,18 +43,17 @@
 #define XGOLD_ENTER pr_info("--> %s\n", __func__)
 #define XGOLD_EXIT  pr_info("<-- %s\n", __func__)
 
-extern void setup_apic_timer(void);
-extern void xgold_setup_secondary_APIC_clock(void);
-extern void sofia_vmm_init_secondary(void);
-extern void sofia_vmm_init(void);
-
 static void __init xgold_soc_init(void)
 {
 	struct device_node *np = of_find_node_by_path("/xgold");
 	struct soc_device_attribute *soc_dev_attr;
 	struct soc_device *soc_dev;
 	struct device *parent;
+	void __iomem *read_addr = NULL;
 	void __iomem *hw_base = NULL;
+	uint32_t scu_base = 0;
+	struct resource res;
+	bool scu_acccess_vmm = false;
 	unsigned id = 0, rev = 0, id_mask = 0, rev_mask = 0;
 	unsigned ret = 0, tmp = 0, i = 0;
 	int of_ret;
@@ -72,17 +71,34 @@ static void __init xgold_soc_init(void)
 		goto bug;
 	}
 
-	hw_base = of_iomap(of_parse_phandle(np, "intel,scu-phys", 0), 0);
+	if (of_find_property(np, "intel,vmm-secured-access", NULL))
+		scu_acccess_vmm = true;
+
+	read_addr = of_parse_phandle(np, "intel,scu-phys", 0);
+	hw_base = of_iomap(read_addr, 0);
 	if (!hw_base) {
 		ret = -ENOMEM;
 		goto bug;
 	}
 
+	ret = of_address_to_resource(read_addr, 0, &res);
+
+	scu_base = (uint32_t)res.start;
+
 	/* Get chipid register from Device Tree */
 	of_ret = of_property_read_u32_array(np, "intel,chipid", reg, 3);
 	switch (of_ret) {
 	case 0:		/* property gives register offset/field/mask */
-		tmp = readl_relaxed(hw_base + reg[0]);
+#ifdef CONFIG_X86_INTEL_SOFIA
+		if (scu_acccess_vmm) {
+			if (mv_svc_reg_read(((uint32_t)scu_base + reg[0]),
+					(uint32_t *)&tmp, -1))
+				pr_err("mv_svc_reg_read fails at %#x",
+					(uint32_t)(scu_base + reg[0]));
+		} else
+#else
+			tmp = readl_relaxed(hw_base + reg[0]);
+#endif
 		for (i = 0; i < reg[2]; i++)
 			id_mask |= 1 << i;
 
@@ -101,8 +117,15 @@ static void __init xgold_soc_init(void)
 	/* Get revision register from Device Tree */
 	of_ret = of_property_read_u32_array(np, "intel,rev", reg, 3);
 	switch (of_ret) {
-	case 0:		/* property gives register offset/field/mask */
+	case 0:		/* property gives register reg[0]/field/mask */
+#ifdef CONFIG_X86_INTEL_SOFIA
+		if (mv_svc_reg_read((uint32_t)(scu_base + reg[0]),
+				(uint32_t *)&tmp, -1))
+			pr_err("mv_svc_reg_read fails at %#x\n",
+				(uint32_t)(scu_base + reg[0]));
+#else
 		tmp = readl_relaxed(hw_base + reg[0]);
+#endif
 		for (i = 0; i < reg[2]; i++)
 			rev_mask |= 1 << i;
 
@@ -403,7 +426,7 @@ void __init x86_xgold_early_setup(void)
 	x86_init.irqs.intr_init = sofia_init_irq;
 #endif
 #ifdef CONFIG_SMP
-	x86_cpuinit.early_percpu_clock_init = sofia_vmm_init_secondary;
+	x86_cpuinit.early_percpu_clock_init = (void *)sofia_vmm_init_secondary;
 #endif
 #endif
 	legacy_pic = &null_legacy_pic;
@@ -426,4 +449,3 @@ int __init __weak arch_early_irq_init(void)
 {
 	return 0;
 }
-

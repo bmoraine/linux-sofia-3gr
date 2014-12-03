@@ -26,6 +26,12 @@
 void mv_gal_init(struct vmm_shared_data *data);
 
 /*
+ * VMM initialization for primary and secondary
+*/
+int sofia_vmm_init(void);
+int sofia_vmm_init_secondary(void);
+
+/*
  * Returns OS ID of the guest
  */
 uint32_t mv_gal_os_id(void);
@@ -81,4 +87,7 @@ void mv_gal_panic(char *panic_msg);
 #else
 #define mv_gal_printk(format, s...)
 #endif
+
+
+
 #endif /* _MV_GAL_H */
