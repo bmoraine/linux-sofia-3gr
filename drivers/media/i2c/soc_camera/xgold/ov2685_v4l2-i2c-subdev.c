@@ -48,10 +48,10 @@
 #define OV2685_PIDL_ADDR     0x300B
 /*}}}*/
 
-#define OV8825_TIMING_HTS_HIGH_REG 0x380c   /* bit[7:0] -> HTS[15:8] */
-#define OV8825_TIMING_HTS_LOW_REG 0x380d    /* bit[7:0] -> HTS[7:0] */
-#define OV8825_TIMING_VTS_HIGH_REG 0x380e
-#define OV8825_TIMING_VTS_LOW_REG 0x380f
+#define OV2685_TIMING_HTS_HIGH_REG 0x380c   /* bit[7:0] -> HTS[15:8] */
+#define OV2685_TIMING_HTS_LOW_REG 0x380d    /* bit[7:0] -> HTS[7:0] */
+#define OV2685_TIMING_VTS_HIGH_REG 0x380e
+#define OV2685_TIMING_VTS_LOW_REG 0x380f
 
 /*{{{*/
 #define OV2685_INTEGRATION_TIME_MARGIN 0
@@ -641,31 +641,6 @@ static int ov2685_write_aec(struct ov_camera_module *cam_mod)
 
 /*--------------------------------------------------------------------------*/
 
-static int ov2685_g_ctrl(struct ov_camera_module *cam_mod, u32 ctrl_id)
-{/*{{{*/
-	int ret = 0;
-
-	ov_camera_module_pr_debug(cam_mod, "\n");
-
-	switch (ctrl_id) {
-	case V4L2_CID_GAIN:
-	case V4L2_CID_EXPOSURE:
-	case V4L2_CID_FLASH_LED_MODE:
-		/* nothing to be done here */
-		break;
-	default:
-		ret = -EINVAL;
-		break;
-	}
-
-	if (IS_ERR_VALUE(ret))
-		ov_camera_module_pr_debug(cam_mod,
-			"failed with error (%d)\n", ret);
-	return ret;
-} /*}}}*/
-
-/*--------------------------------------------------------------------------*/
-
 static int ov2685_g_timings(struct ov_camera_module *cam_mod,
 	struct ov_camera_module_timings *timings)
 {
@@ -677,26 +652,26 @@ static int ov2685_g_timings(struct ov_camera_module *cam_mod,
 
 	/*VTS*/
 	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
-					OV8825_TIMING_VTS_HIGH_REG, &reg_val)))
+					OV2685_TIMING_VTS_HIGH_REG, &reg_val)))
 		goto err;
 
 	timings->frame_length_lines = reg_val <<  8;
 
 	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
-		OV8825_TIMING_VTS_LOW_REG, &reg_val)))
+		OV2685_TIMING_VTS_LOW_REG, &reg_val)))
 		goto err;
 
 	timings->frame_length_lines |= reg_val;
 
 	/*HTS*/
 	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
-	OV8825_TIMING_HTS_HIGH_REG, &reg_val)))
+	OV2685_TIMING_HTS_HIGH_REG, &reg_val)))
 		goto err;
 
 	timings->line_length_pck = reg_val << 8;
 
 	if (IS_ERR_VALUE(ov_camera_module_read_reg(cam_mod, 1,
-	OV8825_TIMING_HTS_LOW_REG, &reg_val)))
+	OV2685_TIMING_HTS_LOW_REG, &reg_val)))
 		goto err;
 
 	timings->line_length_pck |= reg_val;
@@ -839,11 +814,6 @@ err:
 	return ret;
 }
 
-static int ov2685_g_wb(struct v4l2_subdev *sd, s32 *value)
-{
-	return 0;
-}
-
 static int ov2685_s_wb(struct ov_camera_module *cam_mod)
 {
 	u32 value = cam_mod->wb_config.preset_id;
@@ -928,6 +898,48 @@ static int ov2685_s_wb(struct ov_camera_module *cam_mod)
 
 static int ov2685_g_exposure(struct ov_camera_module *cam_mod, s32 *value)
 {
+	u16 shutter;
+	u32 expo_pk;
+
+	if (IS_ERR_OR_NULL(cam_mod->active_config))
+		return -1;
+
+	/* read shutter, in number of line period */
+	ov_camera_module_read_reg(cam_mod, 1,
+			OV2685_AEC_PK_LONG_EXPO_3RD_REG, &expo_pk);
+	shutter = expo_pk & 0xF;
+
+	ov_camera_module_read_reg(cam_mod, 1,
+			OV2685_AEC_PK_LONG_EXPO_2ND_REG, &expo_pk);
+	shutter = (shutter << 8) + (expo_pk & 0xFF);
+
+	ov_camera_module_read_reg(cam_mod, 1,
+			OV2685_AEC_PK_LONG_EXPO_1ST_REG, &expo_pk);
+	shutter = (shutter << 4) + ((expo_pk >> 4) & 0xF);
+
+	/* T = shutter * 65us */
+	*value = shutter * 65 / 1000;
+
+	ov_camera_module_pr_debug(cam_mod,
+			"exposure time: %dms shutter: %dus\n", *value, shutter);
+
+	return 0;
+}
+
+static int ov2685_g_iso(struct ov_camera_module *cam_mod, s32 *value)
+{
+	u32 gain16, reg;
+
+	ov_camera_module_read_reg(cam_mod, 1,
+			OV2685_AEC_PK_LONG_GAIN_HIGH_REG, &reg);
+	gain16 = reg & 0x07;
+	ov_camera_module_read_reg(cam_mod, 1,
+			OV2685_AEC_PK_LONG_GAIN_LOW_REG, &reg);
+	gain16 = (gain16 << 8) + (reg & 0xFF);
+
+	*value = gain16 / 16 * 100;
+	ov_camera_module_pr_debug(cam_mod, "iso %d\n", *value);
+
 	return 0;
 }
 
@@ -988,6 +1000,42 @@ static int ov2685_s_ctrl(struct ov_camera_module *cam_mod, u32 ctrl_id)
 		ov_camera_module_pr_debug(cam_mod,
 			"failed with error (%d) 0x%x\n", ret, ctrl_id);
 	return ret;
+}
+/*--------------------------------------------------------------------------*/
+
+int ov2685_g_ctrl(struct v4l2_subdev *sd,
+	struct v4l2_control *ctrl)
+{
+	int ret = 0;
+	struct ov_camera_module *cam_mod =
+		container_of(sd, struct ov_camera_module, sd);
+
+	ov_camera_module_pr_debug(cam_mod, "\n");
+
+	switch (ctrl->id) {
+	case V4L2_CID_GAIN:
+	case V4L2_CID_FLASH_LED_MODE:
+		/* nothing to be done here */
+		break;
+	case V4L2_CID_EXPOSURE:
+		ret = ov2685_g_exposure(cam_mod, &ctrl->value);
+		break;
+	case V4L2_CID_ISO_SENSITIVITY:
+		ret = ov2685_g_iso(cam_mod, &ctrl->value);
+		break;
+	default:
+		break;
+	}
+
+	if (IS_ERR_VALUE(ret))
+		ov_camera_module_pr_err(cam_mod,
+			"failed with error (%d)\n", ret);
+	return ret;
+}
+
+static int ov2685_get_ctrl(struct ov_camera_module *cam_mod, u32 ctrl_id)
+{
+	return 0;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1104,7 +1152,7 @@ err:
 /* ======================================================================== */
 
 static struct v4l2_subdev_core_ops ov2685_camera_module_core_ops = {
-	.g_ctrl = ov_camera_module_g_ctrl,
+	.g_ctrl = ov2685_g_ctrl,
 	.s_ctrl = ov_camera_module_s_ctrl,
 	.s_ext_ctrls = ov_camera_module_s_ext_ctrls,
 	.s_power = ov_camera_module_s_power,
@@ -1132,7 +1180,7 @@ static struct ov_camera_module_custom_config ov2685_custom_config = {/*{{{*/
 	.stop_streaming = ov2685_stop_streaming,
 	.s_ctrl = ov2685_s_ctrl,
 	.s_ext_ctrls = ov2685_s_ext_ctrls,
-	.g_ctrl = ov2685_g_ctrl,
+	.g_ctrl = ov2685_get_ctrl,
 	.g_timings = ov2685_g_timings,
 	.check_camera_id = ov2685_check_camera_id,
 	.configs = ov2685_configs,
