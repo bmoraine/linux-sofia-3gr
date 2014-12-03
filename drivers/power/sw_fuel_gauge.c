@@ -1493,6 +1493,9 @@ static void swfg_nvs_ready_work(int param)
 	/* unused */
 	(void)param;
 
+	SW_FUEL_GAUGE_DEBUG_NO_PARAM(
+			SW_FUEL_GAUGE_DEBUG_NVS_READY_CB);
+
 	/* Double check that we only calculate the capacity from
 	NVM in case that we are waiting for the initial SOC. */
 	if (SW_FUEL_GAUGE_STM_STATE_WAIT_FOR_INITIAL_SOC ==
@@ -1504,7 +1507,7 @@ static void swfg_nvs_ready_work(int param)
 }
 
 /**
- * sw_fuel_gauge_nvs_ready_cb -	Called by NVS when the NVS is initialized.
+ * Called when the NVS is initialized.
  */
 static void sw_fuel_gauge_nvs_ready_cb(void)
 {
