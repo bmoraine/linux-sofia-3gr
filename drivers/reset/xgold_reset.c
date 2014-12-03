@@ -84,7 +84,7 @@ static int xgold_rst_deassert(struct reset_controller_dev *rcdev,
 
 		reg &= ~BIT(id);
 		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= mv_svc_reg_write(addr, 0, reg);
+			ret |= mv_svc_reg_write(addr, reg, -1);
 		else
 			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
 	} else { /* XGOLD_RESET_USE_SET_CLEAR_REG */
