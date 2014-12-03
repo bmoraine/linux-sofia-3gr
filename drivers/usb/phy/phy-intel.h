@@ -83,12 +83,22 @@ enum usb_chg_state {
 	USB_CHG_STATE_DETECTED,
 };
 
+enum usb_scu_io_master {
+	SCU_IO_ACCESS_BY_VMM,
+	SCU_IO_ACCESS_BY_LNX
+};
+
+struct intel_usb_addr {
+	void __iomem			*logic_addr;
+	uint32_t			 phy_addr;
+	enum usb_scu_io_master		 scu_io_master;
+};
 /*
  * struct intel_usbphy: OTG/Phy driver data.
  * @phy: usb phy handle
  * @dev: device handle
  * @pm_states: platform device pm states handles
- * @scuregs: io_address of scu
+ * @scuregs: io_address of scu logical and physical
  * @sm_work: OTG state machine work
  * @sm_work_pending: Flag to ask for state machine work while in lpm
  * @id_irq: IRQ number used for ID pin detection
@@ -124,7 +134,7 @@ struct intel_usbphy {
 #define	USB_PMS_ENABLE_ISO		4
 #define USB_PMS_MAX			5
 	struct device_state_pm_state *pm_states[USB_PMS_MAX];
-	void __iomem	*scuregs;
+	struct intel_usb_addr scuregs;
 	struct work_struct sm_work;
 	bool sm_work_pending;
 	int id_irq;
