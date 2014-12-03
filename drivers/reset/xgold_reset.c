@@ -74,7 +74,6 @@ static int xgold_rst_deassert(struct reset_controller_dev *rcdev,
 	unsigned long flags;
 
 	spin_lock_irqsave(&xgrc->lock, flags);
-
 #if defined(CONFIG_X86_INTEL_SOFIA)
 	if (xgrc->write_mode == XGOLD_RESET_USE_RW_REG) {
 		addr = xgrc->ctrl_io_phys + xgrc->reg_set;
@@ -180,11 +179,10 @@ static int xgold_reset_parse_dt(struct reset_controller_dev *rcdev)
 		xgrc->write_mode = XGOLD_RESET_USE_SET_CLEAR_REG;
 		xgrc->reg_clear = val;
 	}
-	if (of_find_property(np, "intel,io-access-guest", NULL))
-		xgrc->io_master = SCU_IO_ACCESS_BY_LNX;
-	else
+	if (of_find_property(np, "intel,vmm-secured-access", NULL))
 		xgrc->io_master = SCU_IO_ACCESS_BY_VMM;
-
+	else
+		xgrc->io_master = SCU_IO_ACCESS_BY_LNX;
 	return 0;
 }
 
