@@ -24,6 +24,9 @@ agold {
 			"dma", "dma", "dma", "signal", "software",
 			"errors", "software", "software";
 
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+	intel,vmm-secured-access;
+#endif
 	#include "clock.dtsi"
 
 	abb_rst:reset-controller {
@@ -68,6 +71,9 @@ agold {
 		intel,gpiochip-base = <94>;
 		intel,gpiochip-id = <1>;
 		intel,gpiochip-num = <45>;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+		intel,vmm-secured-access;
+#endif
 	};
 	on_button:on_button {
 		compatible = "intel,agold620,on-button";
