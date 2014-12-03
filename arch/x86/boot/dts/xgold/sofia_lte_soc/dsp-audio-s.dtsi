@@ -12,6 +12,10 @@ dspaud_sb:dspaud_sb {
 	intel,dsp-mis = < 0x14 1 2 0 >;
 	intel,dsp-cf = <3 4 0x1F>; /* play1, record, tone */
 	reset-names = "dsp";
+	dmas = < &dma8ch 11
+		 &dma8ch 12
+		 &dma8ch 13 >;
+	dma-names = "play1", "play2", "record";
 	resets = <&dbb_rst3 8>;
 	intel,dsp-clc = < 4 >;
 	intel,dsp-pcm-offset = < 2530 2531 >;
