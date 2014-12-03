@@ -135,10 +135,10 @@ int xgold_sdhci_of_set_timing(struct sdhci_host *host, unsigned int uhs)
 #ifdef CONFIG_X86_INTEL_SOFIA
 		if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_VMM) {
 			if (mv_svc_reg_write((uint32_t)mmc_pdata->tap_reg,
-						mmc_pdata->tap_values[tap_index],
-						-1))
-				dev_err(&pdev->dev, "mv_svc_reg_write_service fails @%#x\n",
-						(uint32_t)mmc_pdata->tap_reg);
+					mmc_pdata->tap_values[tap_index],
+					-1))
+				dev_err(&pdev->dev, "mv_svc_reg_write_service fails @%p\n",
+						mmc_pdata->tap_reg);
 		} else
 #endif
 			iowrite32(mmc_pdata->tap_values[tap_index],
@@ -147,11 +147,12 @@ int xgold_sdhci_of_set_timing(struct sdhci_host *host, unsigned int uhs)
 		if (mmc_pdata->tap_reg2) {
 #ifdef CONFIG_X86_INTEL_SOFIA
 			if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_VMM) {
-				if (mv_svc_reg_write((uint32_t)mmc_pdata->tap_reg2,
-						mmc_pdata->tap_values2[tap_index],
-						-1))
-					dev_err(&pdev->dev, "mv_svc_reg_write_service fails @%#x\n",
-						(uint32_t)mmc_pdata->tap_reg2);
+				if (mv_svc_reg_write(
+					(uint32_t)mmc_pdata->tap_reg2,
+					mmc_pdata->tap_values2[tap_index],
+					-1))
+					dev_err(&pdev->dev, "mv_svc_reg_write_service fails @%p\n",
+						mmc_pdata->tap_reg2);
 			} else
 #endif
 				iowrite32(mmc_pdata->tap_values2[tap_index],
@@ -302,9 +303,9 @@ static irqreturn_t xgold_detect(int irq, void *dev_id)
  */
 bool xgold_sdhci_get_io_master(struct device_node *np)
 {
-	if (of_find_property(np, "intel,io-access-guest", NULL))
-		return SCU_IO_ACCESS_BY_LNX;
-	return SCU_IO_ACCESS_BY_VMM;
+	if (of_find_property(np, "intel,vmm-secured-access", NULL))
+		return SCU_IO_ACCESS_BY_VMM;
+	return SCU_IO_ACCESS_BY_LNX;
 }
 
 static int xgold_sdhci_probe(struct platform_device *pdev)
@@ -366,9 +367,13 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 			if (!of_property_read_u32_index(np,
 					"intel,corecfg_val", i , &offset)) {
 #ifdef CONFIG_X86_INTEL_SOFIA
-				if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_VMM) {
-					if (mv_svc_reg_write((uint32_t)corereg, offset, -1))
-						dev_err(&pdev->dev, "mv_svc_reg_write_service fails @%#x\n", (uint32_t)corereg);
+				if (mmc_pdata->io_master
+					== SCU_IO_ACCESS_BY_VMM) {
+					if (mv_svc_reg_write((uint32_t)corereg,
+						offset, -1))
+						dev_err(&pdev->dev,
+					   "mv_svc_reg_write_service fails @%p\n",
+					   corereg);
 				} else
 #endif
 					writel(offset, corereg);
