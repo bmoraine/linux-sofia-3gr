@@ -618,6 +618,37 @@ fmrx_set_force_mono_exit:
 	return err;
 }
 
+s16 fmrx_calculate_rssi_other_offset(
+	u32 frequency)
+{
+	s16 offset = 0;
+	struct rssi_offsets *data = 0;
+	bool is_external = ((ANTENNA_HS_SINGLEEND == fmrx_cfg->antenna) ||
+			(ANTENNA_EBD_SINGLEEND == fmrx_cfg->antenna));
+
+	data = is_external ? &fmrx_cfg->ext_ext_lna_offsets :
+				&fmrx_cfg->int_ext_lna_offsets;
+
+	if (frequency <= data->frequency1)
+		offset = data->offset1;
+	else if (frequency <= data->frequency2)
+		offset = data->offset2;
+	else if (frequency <= data->frequency3)
+		offset = data->offset3;
+	else if (frequency <= data->frequency4)
+		offset = data->offset4;
+	else if (frequency <= data->frequency5)
+		offset = data->offset5;
+	else
+		offset = data->offset6;
+
+	/* Add the RSSI other offset */
+	offset += (is_external ? fmrx_cfg->other_cfg.ext_rssi_other_offset :
+				fmrx_cfg->other_cfg.int_rssi_other_offset);
+
+	return offset;
+}
+
 int fmrx_station_tuning(
 		u32 frequency)
 {
@@ -630,6 +661,17 @@ int fmrx_station_tuning(
 		err = -ECHRNG;
 		fmtrx_sys_log
 			("%s: %s %d,Out of band frequency! %d\n",
+			FILE, __func__,
+			__LINE__, err);
+		goto fmrx_station_tuning_exit;
+	}
+
+	/* Update RSSI Other Offset (adds Ext LNA Offset as well) */
+	err = fmrx_hw_set_rssi_other_offset(
+			fmrx_calculate_rssi_other_offset(frequency));
+	if (0 != err) {
+		fmtrx_sys_log
+			("%s: %s %d,Set RSSI Other offset failed! %d\n",
 			FILE, __func__,
 			__LINE__, err);
 		goto fmrx_station_tuning_exit;
@@ -834,20 +876,10 @@ fmrx_station_seeking_exit1:
 	if ((-EALREADY != err) && (0 != tuned_frequency)) {
 		int err1 = 0;
 		/* Tune to the original/found channel */
-		err1 = fmrx_hw_channel_tune(tuned_frequency, fmrx_cfg->side,
-				0, fmrx_cfg->other_cfg.clk_switch_range_104);
+		err1 = fmrx_station_tuning(tuned_frequency);
 		if (0 != err1) {
 			fmtrx_sys_log
-				("%s: %s %d,Channel tune failed! %d\n",
-				FILE, __func__,
-				__LINE__, err1);
-		}
-
-		/* Reset RDS parameters */
-		err1 = fmrx_hw_rds_reset();
-		if (0 != err1) {
-			fmtrx_sys_log
-				("%s: %s %d,RDS reset failed! %d\n",
+				("%s: %s %d,Station tune failed! %d\n",
 				FILE, __func__,
 				__LINE__, err1);
 		}
@@ -1253,12 +1285,14 @@ int fmtrx_set_gain_rssi_offsets(
 	int err = 0;
 	struct rssi_offsets *cfg = 0;
 	bool is_external = false;
+	u32 tuned_frequency = 0;
 
 	/* Validate input arguments */
 	if (0 == data) {
 		err = -EINVAL;
 		fmtrx_sys_log
-			("%s: %s, Invalid arguments!\n", FILE, __func__);
+			("%s: %s %d, Invalid arguments!\n", FILE, __func__,
+				__LINE__);
 		goto fmtrx_set_gain_rssi_offsets_exit;
 	}
 
@@ -1266,7 +1300,8 @@ int fmtrx_set_gain_rssi_offsets(
 	if (ANTENNA_INVALID <= data->antenna) {
 		err = -EINVAL;
 		fmtrx_sys_log
-			("%s: %s, Invalid arguments!\n", FILE, __func__);
+			("%s: %s %d Invalid arguments!\n", FILE, __func__,
+			__LINE__);
 		goto fmtrx_set_gain_rssi_offsets_exit;
 	}
 
@@ -1288,7 +1323,18 @@ int fmtrx_set_gain_rssi_offsets(
 			data->offsets.frequency5 > fmrx_cfg->band_cfg.max))) {
 		err = -EINVAL;
 		fmtrx_sys_log
-			("%s: %s, Invalid arguments!\n", FILE, __func__);
+			("%s: %s %d Invalid arguments!\n", FILE, __func__,
+			__LINE__);
+		goto fmtrx_set_gain_rssi_offsets_exit;
+	}
+
+	/* Get current tuned frequency */
+	err = fmrx_get_channel_freq(&tuned_frequency);
+	if (0 != err) {
+		fmtrx_sys_log
+			("%s: %s %d,Get Channel inform failed! %d\n",
+			FILE, __func__,
+			__LINE__, err);
 		goto fmtrx_set_gain_rssi_offsets_exit;
 	}
 
@@ -1314,9 +1360,45 @@ int fmtrx_set_gain_rssi_offsets(
 		memcpy((u8 *)cfg, (u8 *)&data->offsets,
 					sizeof(struct rssi_offsets));
 		break;
+	case GAIN_OFFSET_EXT_LNA:
+		cfg = is_external ? &fmrx_cfg->ext_ext_lna_offsets :
+				&fmrx_cfg->int_ext_lna_offsets;
+		memcpy((u8 *)cfg, (u8 *)&data->offsets,
+					sizeof(struct rssi_offsets));
+		if (fmrx_cfg->antenna == data->antenna) {
+			/* Update RSSI Other Offset
+				(adds Ext LNA Offset as well) */
+			err = fmrx_hw_set_rssi_other_offset(
+				fmrx_calculate_rssi_other_offset(
+					tuned_frequency));
+			if (0 != err) {
+				fmtrx_sys_log
+				("%s: %s %d,Set RSSI Other offset failed! %d\n",
+				FILE, __func__,
+				__LINE__, err);
+				goto fmtrx_set_gain_rssi_offsets_exit;
+			}
+		}
+		break;
+
 	default:
 		err = -EINVAL;
 		break;
+	}
+
+	/* Tune back to current channel to update RSSI offsets */
+	if (0 != tuned_frequency) {
+		/* do the channel tune to get update of new rssi values. */
+		err = fmrx_hw_channel_tune(tuned_frequency,
+				fmrx_cfg->side, 0,
+				fmrx_cfg->other_cfg.clk_switch_range_104);
+		if (0 != err) {
+			fmtrx_sys_log
+				("%s: %s %d,Channel tune failed! %d\n",
+				FILE, __func__,
+				__LINE__, err);
+			goto fmtrx_set_gain_rssi_offsets_exit;
+		}
 	}
 
 fmtrx_set_gain_rssi_offsets_exit:
@@ -1353,6 +1435,12 @@ int fmtrx_get_gain_rssi_offsets(
 	case GAIN_OFFSET_RSSI:
 		cfg = is_external ? &fmrx_cfg->ext_rssi_offsets :
 					&fmrx_cfg->int_rssi_offsets;
+		memcpy((u8 *)&data->offsets, (u8 *)cfg,
+					sizeof(struct rssi_offsets));
+		break;
+	case GAIN_OFFSET_EXT_LNA:
+		cfg = is_external ? &fmrx_cfg->ext_ext_lna_offsets :
+					&fmrx_cfg->int_ext_lna_offsets;
 		memcpy((u8 *)&data->offsets, (u8 *)cfg,
 					sizeof(struct rssi_offsets));
 		break;
@@ -1694,9 +1782,7 @@ int fmrx_af_switch(
 	/* Loop around to find out the best AF to switch
 			based on the signal strength */
 	for (idx = 0; idx < data->count; idx++) {
-		err = fmrx_hw_channel_tune(data->freq_list[idx],
-				fmrx_cfg->side, 0,
-				fmrx_cfg->other_cfg.clk_switch_range_104);
+		err = fmrx_station_tuning(data->freq_list[idx]);
 		if (0 != err) {
 			fmtrx_sys_log
 				("%s: %s %d,Channel tune failed! %d\n",
@@ -1845,9 +1931,7 @@ fmrx_af_switch_exit1: {
 		/* Tune to original frequency if there is a failure */
 		if (0 != err) {
 			/* Tune to the original channel */
-			err1 = fmrx_hw_channel_tune(tuned_frequency,
-				   fmrx_cfg->side, 0,
-				   fmrx_cfg->other_cfg.clk_switch_range_104);
+			err1 = fmrx_station_tuning(tuned_frequency);
 			if (0 != err1) {
 				fmtrx_sys_log
 					("%s: %s %d,Channel tune failed! %d\n",

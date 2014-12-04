@@ -47,6 +47,16 @@
 #define RSSI_TO_0_25_DBUV(X) (X * 4)
 #define STEP_SIZE_TO_LINEAR(X) (X / 4)
 
+#define KHZ_TO_62_5_KHZ(X) (X * 10 / 625)
+#define KHZ_62_5_TO_KHZ(X) KHZ_ROUNDED((X * 625 / 10))
+#define KHZ_ROUNDED(X) (X - (X % 50))
+
+#define HZ_TO_62_5_HZ(X) KHZ_TO_62_5_KHZ(X)
+#define HZ_62_5_TO_HZ(X) KHZ_62_5_TO_KHZ(X)
+
+#define HZTOKHZ(X) (X / 1000)
+#define KHZTOHZ(X) (X * 1000)
+
 #ifdef FMR_HOST_TEST
 #define FMTRX_TIMEOUTS 0
 #define FMTRX_RDS_FAST_PI_TIMEOUTS 0
@@ -86,6 +96,7 @@ enum gain_offset_type {
 	GAIN_OFFSET_PPF,
 	GAIN_OFFSET_RSSI,
 	GAIN_OFFSET_CP_INIT,
+	GAIN_OFFSET_EXT_LNA,
 	GAIN_OFFSET_INVALID
 };
 
@@ -388,6 +399,8 @@ struct fmrx_config {
 	struct other_params	other_cfg;
 	struct rssi_offsets int_rssi_offsets;
 	struct rssi_offsets ext_rssi_offsets;
+	struct rssi_offsets int_ext_lna_offsets;
+	struct rssi_offsets ext_ext_lna_offsets;
 	u16 int_lna_offsets[MAX_OFFSETS];
 	u16 ext_lna_offsets[MAX_OFFSETS];
 	u16 int_ppf_offsets[MAX_OFFSETS];

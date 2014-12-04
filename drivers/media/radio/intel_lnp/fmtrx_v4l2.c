@@ -59,6 +59,7 @@ static struct video_device video_dev;
 static struct mutex interface_lock;
 static struct fmrx_config *fmrx_cfg;
 static u8 module_reference_count;
+static const u8 v4l2_freq_cap_flag = V4L2_TUNER_CAP_LOW;
 
 /*
 ** =============================================================================
@@ -840,7 +841,8 @@ static int fmtrx_v4l2_iops_gtuner(
 	/* Fill configurations that are fixed */
 	data->type = V4L2_TUNER_RADIO;
 	data->capability = V4L2_TUNER_CAP_RDS |
-					V4L2_TUNER_CAP_STEREO;
+					V4L2_TUNER_CAP_STEREO |
+					v4l2_freq_cap_flag;
 
 	data->capability = data->capability |
 			V4L2_TUNER_CAP_HWSEEK_WRAP |
@@ -866,9 +868,14 @@ static int fmtrx_v4l2_iops_gtuner(
 			__LINE__, err);
 		goto fmtrx_v4l2_iops_gtuner_exit;
 	}
-	data->rangelow = KHZ_TO_62_5_KHZ(band_cfg.min);
-	data->rangehigh = KHZ_TO_62_5_KHZ(band_cfg.max);
-
+	/* Convert frequency units based on cap flag */
+	if (V4L2_TUNER_CAP_LOW == v4l2_freq_cap_flag) {
+		data->rangelow = HZ_TO_62_5_HZ(KHZTOHZ(band_cfg.min));
+		data->rangehigh = HZ_TO_62_5_HZ(KHZTOHZ(band_cfg.max));
+	} else {
+		data->rangelow = KHZ_TO_62_5_KHZ(band_cfg.min);
+		data->rangehigh = KHZ_TO_62_5_KHZ(band_cfg.max);
+	}
 	/* Get current channel information */
 	err = fmrx_get_channel_info(&ch_info);
 	if (0 != err) {
@@ -959,8 +966,11 @@ static int fmtrx_v4l2_iops_sfrequency(
 		goto fmtrx_v4l2_iops_sfrequency_exit;
 	}
 
-	/* Convert to Hz */
-	frequency = KHZ_62_5_TO_KHZ(data->frequency);
+	/* Convert frequency units based on cap flag */
+	frequency =
+			(V4L2_TUNER_CAP_LOW == v4l2_freq_cap_flag) ?
+			HZTOKHZ(HZ_62_5_TO_HZ(data->frequency)) :
+			KHZ_62_5_TO_KHZ(data->frequency);
 
 	mutex_lock(&interface_lock);
 	err = fmrx_station_tuning(frequency);
@@ -1001,7 +1011,12 @@ static int fmtrx_v4l2_iops_gfrequency(
 			__LINE__, err);
 		goto fmtrx_v4l2_iops_gfrequency_exit;
 	}
-	data->frequency = KHZ_TO_62_5_KHZ(tuned_frequency);
+
+	/* Convert frequency units based on cap flag */
+	data->frequency =
+			(V4L2_TUNER_CAP_LOW == v4l2_freq_cap_flag) ?
+			HZ_TO_62_5_HZ(KHZTOHZ(tuned_frequency)) :
+			KHZ_TO_62_5_KHZ(tuned_frequency);
 
 fmtrx_v4l2_iops_gfrequency_exit:
 	return err;

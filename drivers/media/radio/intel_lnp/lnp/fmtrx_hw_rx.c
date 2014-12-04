@@ -352,6 +352,25 @@ int fmtrx_hw_set_gain_offsets(
 	case GAIN_OFFSET_RSSI:
 		cmd_pkt.cmd_id =
 				FMRX_CMD_CFG_RSSI_CH_OFFS;
+		/* Convert from dBuV to 0.25dBuV for FW */
+		cmd_pkt.cmd_params.offs_params.offset11 =
+				RSSI_TO_0_25_DBUV(cmd_pkt.cmd_params.
+					offs_params.offset11);
+		cmd_pkt.cmd_params.offs_params.offset12 =
+				RSSI_TO_0_25_DBUV(cmd_pkt.cmd_params.
+					offs_params.offset12);
+		cmd_pkt.cmd_params.offs_params.offset13 =
+				RSSI_TO_0_25_DBUV(cmd_pkt.cmd_params.
+					offs_params.offset13);
+		cmd_pkt.cmd_params.offs_params.offset14 =
+				RSSI_TO_0_25_DBUV(cmd_pkt.cmd_params.
+					offs_params.offset14);
+		cmd_pkt.cmd_params.offs_params.offset15 =
+				RSSI_TO_0_25_DBUV(cmd_pkt.cmd_params.
+					offs_params.offset15);
+		cmd_pkt.cmd_params.offs_params.offset16 =
+				RSSI_TO_0_25_DBUV(cmd_pkt.cmd_params.
+					offs_params.offset16);
 		break;
 	case GAIN_OFFSET_CP_INIT:
 		cmd_pkt.cmd_id =
@@ -381,6 +400,8 @@ int fmrx_hw_set_rssi_other_offset(
 		s16 rssi_other_offset)
 {
 	int err = 0;
+
+	rssi_other_offset = RSSI_TO_0_25_DBUV(rssi_other_offset);
 
 	err = fmtrx_sys_reg_write16(
 			FMR_RXMAIN_RSSI_OTHER_OFFS_ADDR,

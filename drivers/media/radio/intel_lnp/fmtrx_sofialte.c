@@ -336,6 +336,10 @@ static struct rssi_offsets int_rssi_offsets = { 108000,
 		108000, 108000, 108000, 108000, 0, 0, 0, 0, 0, 0 };
 static struct rssi_offsets ext_rssi_offsets = { 108000,
 		108000, 108000, 108000, 108000, 0, 0, 0, 0, 0, 0 };
+static struct rssi_offsets int_ext_lna_offsets = { 108000,
+		108000, 108000, 108000, 108000, 0, 0, 0, 0, 0, 0 };
+static struct rssi_offsets ext_ext_lna_offsets = { 108000,
+		108000, 108000, 108000, 108000, 0, 0, 0, 0, 0, 0 };
 
 /* IRQ activation flag */
 static bool irq_active;
@@ -1228,6 +1232,12 @@ int fmtrx_sys_get_rx_default_config(
 		       (u8 *) &int_rssi_offsets, sizeof(struct rssi_offsets));
 		memcpy((u8 *) &(data->ext_rssi_offsets),
 		       (u8 *) &ext_rssi_offsets, sizeof(struct rssi_offsets));
+		memcpy((u8 *) &(data->int_ext_lna_offsets),
+		       (u8 *) &int_ext_lna_offsets,
+		       sizeof(struct rssi_offsets));
+		memcpy((u8 *) &(data->ext_ext_lna_offsets),
+		       (u8 *) &ext_ext_lna_offsets,
+		       sizeof(struct rssi_offsets));
 
 		err = 0;
 	} else {
