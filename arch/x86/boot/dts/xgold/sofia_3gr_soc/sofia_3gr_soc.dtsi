@@ -1,5 +1,6 @@
 #define PREFERRED_LOCAL_APIC_USE
 #define BOOST_LOCAL_APIC_USE
+#include <dt-bindings/pwm/pwm.h>
 
 	cpus {
 		#address-cells = <1>;
@@ -260,22 +261,66 @@
 						pm,state-D0 = "enable";
 						pm,state-D3 = "disable";
 					};
-					i2c_2:i2c_2{
-						#size-cells = <1>;
-						#address-cells = <0>;
-						/*compatible = "intel,i2c";*/
-						reg = < 0xE1500000 0x100000 >;
-						clocks = <&clk_i2c2>, <&clk_ahb_per1>;
-						clock-names = "clk_kernel", "clk_ahb";
-						interrupts = < I2C2_INT IRQ_TYPE_DEFAULT >;
-					/*	intel,i2c,dma = "i2c2_txrx";*/
-						intel,i2c,b400 = < 1 30 13 0 >;
-						intel,i2c,b100 = < 1 256 0 0 >;
-						resets = <&dbb_rst1 8>;
-						reset-names = "i2c";
 
-						pm,class-name = "i2c_class";
-						pm,user-name = "i2c2";
+					pwm0: pwm@E1A00000 {
+						compatible = "rockchip,rk3288-pwm";
+						reg = <0xE1A00000 0x10>;
+						#pwm-cells = <3>;
+
+						clock-names = "pwm";
+						clock-frequency = <26000000>;
+						status = "disabled";
+
+						pm,class-name = "pwm_class";
+						pm,user-name = "pwm";
+						pm,state-D0 = "enable";
+						pm,state-D3 = "disable";
+					};
+					pwm1: pwm@E1A00010 {
+						compatible = "rockchip,rk3288-pwm";
+						reg = <0xE1A00010 0x10>;
+						#pwm-cells = <3>;
+						//pinctrl-names = "default";
+						//pinctrl-0 = <&pwm1_pin>;
+
+						clock-names = "pwm";
+						clock-frequency = <26000000>;
+						status = "disabled";
+
+						pm,class-name = "pwm_class";
+						pm,user-name = "pwm";
+						pm,state-D0 = "enable";
+						pm,state-D3 = "disable";
+					};
+					pwm2: pwm@E1A00020 {
+						compatible = "rockchip,rk3288-pwm";
+						reg = <0xE1A00020 0x10>;
+						#pwm-cells = <3>;
+						//pinctrl-names = "default";
+						//pinctrl-0 = <&pwm2_pin>;
+
+						clock-names = "pwm";
+						clock-frequency = <26000000>;
+						status = "disabled";
+
+						pm,class-name = "pwm_class";
+						pm,user-name = "pwm";
+						pm,state-D0 = "enable";
+						pm,state-D3 = "disable";
+					};
+					pwm3: pwm@E1A00030 {
+						compatible = "rockchip,rk3288-pwm";
+						reg = <0xE1A00030 0x10>;
+						#pwm-cells = <3>;
+						pinctrl-names = "default";
+						pinctrl-0 = <&pwm3_default_pins>;
+
+						clock-names = "pwm";
+						clock-frequency = <26000000>;
+						status = "disabled";
+
+						pm,class-name = "pwm_class";
+						pm,user-name = "pwm";
 						pm,state-D0 = "enable";
 						pm,state-D3 = "disable";
 					};
@@ -356,33 +401,23 @@
 							pm,state-D3 = "disable";
 						};
 					};
-					dcc: dcc{
-						compatible = "intel,dcc";
-						#address-cells = < 0 >;
-						reg = < 0xE1000000 0x100000 >;
-						reg-names = "registers";
-						clocks = <&clk_dcc>, <&clk_ahb_per1>, <&clk_x2>, <&D_0_1>;
-						clock-names = "clk_kernel", "clk_ahb", "clk_master", "clk_pll";
-						interrupts = < 0 1 2 >;
-						interrupt-parent = <&dcc>;
-						#interrupt-cells = < 1 >;
-						interrupt-map = <
-							0 &pic DIF_ERR_INT IRQ_TYPE_DEFAULT
-							1 &pic DCC_CMD_INT IRQ_TYPE_DEFAULT
-							2 &pic DCC_FRAME_INT IRQ_TYPE_DEFAULT>;
-						interrupt-names = "err", "cmd", "frame";
 
-						pm,class-name = "dcc_class";
-						pm,user-name = "dcc";
-						pm,state-D0 = "high_perf";
-						pm,state-D1 = "mid_perf";
-						pm,state-D2 = "low_perf";
-						pm,state-D3 = "disable";
-						intel,dcc-clkrate = <416000000>;
-						intel,dcc-gpio-reset = <&xgold_pmx_gpio 72 0>;
-						resets = < &dbb_rst1 18 >;
-						reset-names = "dcc";
-					};
+					vop: vop@E1000000 {
+						     compatible = "intel,sofia3gr-vop";
+						     reg = <0xE1000000 0x148>;
+						     interrupts = < VOP_INT IRQ_TYPE_DEFAULT >;
+
+						     pm,class-name = "dcc_class";
+						     pm,user-name = "dcc";
+						     pm,state-D0 = "high_perf";
+						     pm,state-D1 = "mid_perf";
+						     pm,state-D2 = "low_perf";
+						     pm,state-D3 = "disable";
+					     };
+
+					lvds: lvds {
+						      compatible = "intel,sofia3gr-lvds";
+					      };
 				};
 
 				ahb_per@2 {

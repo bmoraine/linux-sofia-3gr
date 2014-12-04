@@ -346,19 +346,19 @@ i2c3_sleep_pins:i2c3_sleep_pins {
 		0x22c 0x100	/* i2c3_scl */
 	>;
 };
-led_default_pins:led_default_pins {
+led_agold_default_pins:led_agold_default_pins {
 	pinctrl-single,pins = <
-		0x230 0x1470	/* led_pwm */
+		0x28c 0x700	/* led_en_agold */
 	>;
 };
-led_inactive_pins:led_inactive_pins {
+led_agold_inactive_pins:led_agold_inactive_pins {
 	pinctrl-single,pins = <
-		0x230 0x4100	/* led_pwm */
+		0x28c 0x4100	/* led_en_agold */
 	>;
 };
-led_sleep_pins:led_sleep_pins {
+led_agold_sleep_pins:led_agold_sleep_pins {
 	pinctrl-single,pins = <
-		0x230 0x4100	/* led_pwm */
+		0x28c 0x4100	/* led_en_agold */
 	>;
 };
 pwm0_default_pins:pwm0_default_pins {

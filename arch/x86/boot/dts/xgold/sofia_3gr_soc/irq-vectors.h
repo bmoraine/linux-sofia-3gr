@@ -59,6 +59,7 @@
 #define DIF_ERR_INT 37
 #define DCC_CMD_INT 38
 #define DCC_FRAME_INT 39
+#define VOP_INT 39
 #define I2C3_INT 40
 #define I2C4_INT 41
 #define PWM_INT 42

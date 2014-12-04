@@ -1,5 +1,5 @@
-#ifndef _SOFIA_3gr_soc_IRQ_H
-#define _SOFIA_3gr_soc_IRQ_H
+#ifndef _SOFIA_3G_SOC_IRQ_H
+#define _SOFIA_3G_SOC_IRQ_H
 
 #ifndef CONFIG_X86_INTEL_SOFIA
 /* HW nodes definitions based on HW attributions */
@@ -16,4 +16,4 @@
 #include "xgold/sofia_3gr_soc/irq-abb.h"
 #include "xgold/agold620/irq-pmu.h"
 
-#endif /* _SOFIA_3gr_soc_IRQ_H */
+#endif /* _SOFIA_3G_SOC_IRQ_H */
