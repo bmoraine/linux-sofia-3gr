@@ -236,9 +236,7 @@ void xgold_pcm_speech_io_point_a_interrupt_handler(void *dev)
 	rw_shm_data.p_data = xgold_stream->hwptr;
 
 	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-			xgold_ptr->dsp,
-			DSP_AUDIO_CONTROL_READ_SHM,
-			&rw_shm_data);
+			DSP_AUDIO_CONTROL_READ_SHM, (void *)&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
 	xgold_stream->periods++;
@@ -280,9 +278,7 @@ void xgold_pcm_speech_io_point_b_interrupt_handler(void *dev)
 	rw_shm_data.p_data = xgold_stream->hwptr;
 
 	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-			xgold_ptr->dsp,
-			DSP_AUDIO_CONTROL_READ_SHM,
-			&rw_shm_data);
+			DSP_AUDIO_CONTROL_READ_SHM, (void *)&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
 	xgold_stream->periods++;
@@ -323,11 +319,9 @@ void xgold_pcm_speech_io_point_c_interrupt_handler(void *dev)
 
 	rw_shm_data.len_in_bytes = 320;
 	rw_shm_data.p_data = xgold_stream->hwptr;
-
 	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-			xgold_ptr->dsp,
 			DSP_AUDIO_CONTROL_READ_SHM,
-			&rw_shm_data);
+			(void *)&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
 	xgold_stream->periods++;
@@ -367,11 +361,8 @@ void xgold_pcm_speech_io_point_d_interrupt_handler(void *dev)
 
 	rw_shm_data.len_in_bytes = 320; /* read the samples */
 	rw_shm_data.p_data = xgold_stream->hwptr;
-
 	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-			xgold_ptr->dsp,
-			DSP_AUDIO_CONTROL_READ_SHM,
-			&rw_shm_data);
+			DSP_AUDIO_CONTROL_READ_SHM, (void *)&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
 	xgold_stream->periods++;
@@ -413,9 +404,7 @@ void xgold_pcm_speech_io_point_e_interrupt_handler(void *dev)
 	rw_shm_data.p_data = xgold_stream->hwptr;
 
 	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-			xgold_ptr->dsp,
-			DSP_AUDIO_CONTROL_READ_SHM,
-			&rw_shm_data);
+			DSP_AUDIO_CONTROL_READ_SHM, (void *)&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
 	xgold_stream->periods++;
@@ -458,9 +447,7 @@ void xgold_pcm_speech_io_point_f_interrupt_handler(void *dev)
 	rw_shm_data.p_data = xgold_stream->hwptr;
 
 	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-			xgold_ptr->dsp,
-			DSP_AUDIO_CONTROL_READ_SHM,
-			&rw_shm_data);
+			DSP_AUDIO_CONTROL_READ_SHM, (void *)&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
 	xgold_stream->periods++;

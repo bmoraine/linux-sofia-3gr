@@ -61,6 +61,7 @@
 #define OFF 0
 
 #define SYSFS_INPUT_VAL_LEN (1)
+#define USE_NEW_DSP_API 1
 
 static unsigned int bt_init_en;
 
@@ -117,7 +118,9 @@ static struct snd_pcm_hardware xgold_pcm_record_cfg = {
 	.periods_max = 64,
 };
 
+static struct T_AUD_DSP_CMD_HW_PROBE hw_probe_par = { 0 };
 static u16 xgold_pcm_sysfs_attribute_value;
+
 
 static inline int i2s_set_pinctrl_state(struct device *dev,
 		struct pinctrl_state *state)
@@ -143,7 +146,7 @@ static inline int i2s_set_pinctrl_state(struct device *dev,
 }
 
 /* FIXME why not I2S8 ?*/
-/* Set I2S2 device details to DSP structure */
+/* Set I2S2 devcice details to DSP structure */
 static void i2s2_set_device_data(struct device *dev,
 	enum i2s_devices device)
 {
@@ -203,9 +206,7 @@ void setup_pcm_record_path(struct xgold_audio *xgold_ptr)
 	case XGOLD_PCM_ATTR_SEND_DSP_CMD:
 		xgold_debug("Setup PCM path\n");
 		xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-				xgold_ptr->dsp,
-				DSP_AUDIO_CONTROL_SET_REC_PATH,
-				NULL);
+				DSP_AUDIO_CONTROL_SET_REC_PATH, NULL);
 		break;
 	default:
 		break;
@@ -219,9 +220,7 @@ void setup_pcm_play_path(struct xgold_audio *xgold_ptr)
 	case XGOLD_PCM_ATTR_SEND_DSP_CMD:
 		xgold_debug("Setup PCM path\n");
 		xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-				xgold_ptr->dsp,
-				DSP_AUDIO_CONTROL_SET_PLAY_PATH,
-				NULL);
+				DSP_AUDIO_CONTROL_SET_PLAY_PATH, NULL);
 		break;
 	default:
 		break;
@@ -270,10 +269,9 @@ void xgold_dsp_hw_probe_a_handler(void *dev)
 
 	rw_shm_data.p_data = xgold_stream->hwptr;
 
-	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-			xgold_ptr->dsp,
-			DSP_AUDIO_CONTROL_READ_SHM,
-			&rw_shm_data);
+	xgold_ptr->dsp->p_dsp_common_data->ops->
+		set_controls(DSP_AUDIO_CONTROL_READ_SHM,
+				(void *)&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
 	xgold_stream->periods++;
@@ -325,10 +323,9 @@ void xgold_dsp_hw_probe_b_handler(void *dev)
 
 	rw_shm_data.p_data = xgold_stream->hwptr;
 
-	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-			xgold_ptr->dsp,
-			DSP_AUDIO_CONTROL_READ_SHM,
-			&rw_shm_data);
+	xgold_ptr->dsp->p_dsp_common_data->ops->
+		set_controls(DSP_AUDIO_CONTROL_READ_SHM,
+				(void *)&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
 	xgold_stream->periods++;
@@ -371,10 +368,9 @@ void xgold_dsp_pcm_rec_handler(void *dev)
 
 	rw_shm_data.len_in_bytes = 2;
 	rw_shm_data.p_data = &nof_bytes_to_read;
-	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-			xgold_ptr->dsp,
-			DSP_AUDIO_CONTROL_READ_SHM,
-			&rw_shm_data);
+	xgold_ptr->dsp->p_dsp_common_data->ops->
+		set_controls(DSP_AUDIO_CONTROL_READ_SHM,
+				(void *)&rw_shm_data);
 
 	/* read the samples */
 	rw_shm_data.word_offset =
@@ -385,10 +381,9 @@ void xgold_dsp_pcm_rec_handler(void *dev)
 		xgold_stream->stream->runtime->channels);
 
 	rw_shm_data.p_data = xgold_stream->hwptr;
-	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-			xgold_ptr->dsp,
-			DSP_AUDIO_CONTROL_READ_SHM,
-			&rw_shm_data);
+	xgold_ptr->dsp->p_dsp_common_data->ops->
+		set_controls(DSP_AUDIO_CONTROL_READ_SHM,
+					(void *)&rw_shm_data);
 
 	xgold_stream->hwptr_done++;
 	xgold_stream->periods++;
@@ -432,10 +427,9 @@ void xgold_dsp_pcm_play_handler(void *dev)
 		xgold_ptr->dsp->p_dsp_common_data->pcm_offset[0];
 	rw_shm_data.len_in_bytes = 2;
 	rw_shm_data.p_data = &remaining_block;
-	xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-			xgold_ptr->dsp,
-			DSP_AUDIO_CONTROL_READ_SHM,
-			&rw_shm_data);
+	xgold_ptr->dsp->p_dsp_common_data->ops->
+		set_controls(DSP_AUDIO_CONTROL_READ_SHM,
+				(void *)&rw_shm_data);
 
 	/* write the samples */
 	for (i = 0; i < remaining_block; i++) {
@@ -445,10 +439,9 @@ void xgold_dsp_pcm_play_handler(void *dev)
 			xgold_ptr->dsp->p_dsp_common_data->buf_sm_dl_offset;
 		rw_shm_data.len_in_bytes = length * 2;
 		rw_shm_data.p_data = xgold_stream->hwptr;
-		xgold_ptr->dsp->p_dsp_common_data->ops->set_controls(
-				xgold_ptr->dsp,
-				DSP_AUDIO_CONTROL_WRITE_SHM,
-				&rw_shm_data);
+		xgold_ptr->dsp->p_dsp_common_data->ops->
+			set_controls(DSP_AUDIO_CONTROL_WRITE_SHM,
+					(void *)&rw_shm_data);
 
 		xgold_stream->hwptr_done++;
 		xgold_stream->periods++;
@@ -596,6 +589,7 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct dsp_aud_cmd_data cmd_data;
 	char *substream_id = substream->pcm->id;
 	struct xgold_audio *xgold_ptr =
 		snd_soc_platform_get_drvdata(rtd->platform);
@@ -649,21 +643,48 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 		snd_soc_set_runtime_hwparams(substream, &xgold_pcm_record_cfg);
 
 		/*HW probe only extraction is supported*/
-		if (xgold_ptr->stream_type == HW_PROBE_A) {
-			xgold_debug("registering hw_probe_a callback\n");
-			register_dsp_audio_lisr_cb(
+		if (xgold_ptr->stream_type == HW_PROBE_B ||
+			xgold_ptr->stream_type == HW_PROBE_A) {
+
+			xgold_debug("registering hw_probe call back\n");
+
+			if (xgold_ptr->stream_type == HW_PROBE_A) {
+				hw_probe_par.probe_index = 0x3;
+
+				register_dsp_audio_lisr_cb(
 					DSP_LISR_CB_HW_PROBE_A,
 					xgold_dsp_hw_probe_a_handler,
 					(void *)xgold_ptr);
-			dsp_cmd_hw_probe(xgold_ptr->dsp, HW_PROBE_A);
+				/* Probe A tied to I/O buffer 1 */
+				hw_probe_par.sm_interface = 0x1;
 
-		} else if (xgold_ptr->stream_type == HW_PROBE_B) {
-			xgold_debug("registering hw_probe_b callback\n");
-			register_dsp_audio_lisr_cb(
+			} else {
+				hw_probe_par.probe_index = 0x4;
+
+				register_dsp_audio_lisr_cb(
 					DSP_LISR_CB_HW_PROBE_B,
 					xgold_dsp_hw_probe_b_handler,
 					(void *)xgold_ptr);
-			dsp_cmd_hw_probe(xgold_ptr->dsp, HW_PROBE_B);
+				/* Probe B tied to I/O buffer 2 */
+				hw_probe_par.sm_interface = 0x2;
+			}
+
+			/*TODO update hw_probe params using mixer ctl */
+			hw_probe_par.setting = 0x1;
+			hw_probe_par.mix_flag = 0x1;
+			hw_probe_par.injection_gain = 0x0;
+
+			cmd_data.command_id = DSP_AUD_HW_PROBE;
+			cmd_data.command_len =
+				sizeof(struct T_AUD_DSP_CMD_HW_PROBE);
+			cmd_data.p_data = (u16 *)&hw_probe_par;
+
+			xgold_debug("hardware probe configured\n");
+
+			xgold_ptr->dsp->p_dsp_common_data->ops->
+				set_controls(DSP_AUDIO_CONTROL_SEND_CMD,
+						(void *)&cmd_data);
+
 		} else
 			register_dsp_audio_lisr_cb(
 					DSP_LISR_CB_PCM_RECORDER,
@@ -826,7 +847,7 @@ static int xgold_pcm_play_dma_prepare(struct snd_pcm_substream *substream)
 		return -EIO;
 	}
 
-	shm_base = dsp_get_audio_shmem_base_addr(xgold_ptr->dsp) +
+	shm_base = dsp_get_audio_shmem_base_addr() +
 		xgold_ptr->dsp->p_dsp_common_data->buf_sm_dl_offset * 2;
 
 	/* Config DMA slave parameters */
@@ -970,6 +991,7 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
+
 		xgold_debug("%s: Trigger stop\n", __func__);
 
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -986,14 +1008,7 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			dsp_pcm_stop(dsp, xgold_ptr->stream_type);
 			dsp->p_dsp_common_data->ops->irq_deactivate(DSP_IRQ_3);
 		}
-
-		dsp_pcm_stop(dsp, xgold_ptr->stream_type);
 		xgold_debug("DSP stopped\n");
-
-		if (xgold_ptr->stream_type == HW_PROBE_B ||
-				xgold_ptr->stream_type == HW_PROBE_A)
-			dsp->p_dsp_common_data->ops->irq_deactivate(DSP_IRQ_3);
-
 
 		/* HW_AFE should be switched off before audio codec power
 		 * down */

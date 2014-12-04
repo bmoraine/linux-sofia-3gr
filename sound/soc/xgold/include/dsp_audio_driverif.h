@@ -168,7 +168,6 @@ enum dsp_err_code {
 */
 enum dsp_aud_cmds {
 	DSP_AUDIO_CMD_VB_HW_AFE    = 2,  /* start or to stop the firmware */
-	DSP_SBA_VB_HW_I2S2         = 22, /* start or to stop the I2S2 hw IF */
 	DSP_AUD_SET_SWM_AFE_OUT    = 27, /* set afe out switch matrix path */
 	DSP_AUD_SET_SWM_PCM_OUT    = 32, /* set pcm out switch matrix path */
 	DSP_AUD_SET_GAIN_HW        = 33, /* set dsp scheduler gains */
@@ -178,7 +177,6 @@ enum dsp_aud_cmds {
 	DSP_AUD_PCM_REC            = 59, /* start and stop a PCM recording */
 	DSP_AUD_SPEECH_PROBE       = 66, /* config/start/stop a speech I/O */
 	DSP_AUD_SET_SWM_MIX_MATRIX = 77, /* set the mix matrix coefficients */
-	DSP_AUD_VB_HW_I2S1         = 86,
 	DSP_AUD_HW_PROBE           = 100,
 	DSP_AUD_PCM2_PLAY          = 106, /* start and stop PCM2 playback */
 	DSP_AUD_SPEECH_PATH        = 26
@@ -314,7 +312,6 @@ enum dsp_err_code dsp_audio_cmd(
   @return enum dsp_err_code error
  */
 enum dsp_err_code dsp_audio_read_shm(
-	struct dsp_audio_device *dsp_dev,
 	U16    *p_dest,
 	U16    shm_word_offset,
 	U16    len_in_bytes
@@ -326,7 +323,7 @@ enum dsp_err_code dsp_audio_read_shm(
   @return base address of DSP shmem
 
  */
-dma_addr_t dsp_get_audio_shmem_base_addr(struct dsp_audio_device *dsp_dev);
+dma_addr_t dsp_get_audio_shmem_base_addr(void);
 
 
 /**
@@ -340,7 +337,6 @@ dma_addr_t dsp_get_audio_shmem_base_addr(struct dsp_audio_device *dsp_dev);
 
  */
 enum dsp_err_code dsp_audio_write_shm(
-	struct dsp_audio_device *dsp_dev,
 	U16   *p_src,
 	U16    shm_word_offset,
 	U16    len_in_bytes

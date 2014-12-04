@@ -47,8 +47,7 @@ enum i2s_devices {
 
 struct dsp_ops {
 	int (*open)(void);
-	int (*set_controls)(struct dsp_audio_device *dsp,
-			enum dsp_audio_controls cmd, void *arg);
+	int (*set_controls)(enum dsp_audio_controls cmd, void *arg);
 	int (*irq_activate)(enum dsp_irq_no);
 	int (*irq_deactivate)(enum dsp_irq_no);
 	int (*close)(void);
@@ -157,6 +156,5 @@ int dsp_pcm_rec(struct dsp_audio_device *, unsigned int, unsigned int, bool);
 int dsp_pcm_feed(struct dsp_audio_device *, enum xgold_pcm_stream_type,
 		unsigned int, unsigned int);
 int dsp_pcm_stop(struct dsp_audio_device *, enum xgold_pcm_stream_type);
-int dsp_cmd_hw_probe(struct dsp_audio_device *, enum xgold_pcm_stream_type);
 
 #endif /*__DSP_AUDIO_PLATFORM_H__ */
