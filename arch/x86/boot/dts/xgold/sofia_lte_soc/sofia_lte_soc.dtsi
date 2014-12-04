@@ -31,6 +31,7 @@
 		intel,rev = <0x60 0x0 0x8>;
 		intel,machine = "sofia_lte_soc-es1-svb";
 		intel,nodeepsleep;
+		intel,nosteal;
 
 		#include "xgold/sofia_lte_soc/irq-apic.dtsi"
 		#include "xgold/sofia_lte_soc/pm.dtsi"
