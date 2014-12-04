@@ -972,11 +972,19 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_STOP:
 		xgold_debug("%s: Trigger stop\n", __func__);
 
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
-				xgold_ptr->dma_mode) {
-			/* request DMA shutdown */
-			dmaengine_terminate_all(
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			if (xgold_ptr->dma_mode) {
+				/* request DMA shutdown */
+				dmaengine_terminate_all(
 				xgold_ptr->audio_dma_stream[STREAM_PLAY].dmach);
+			}
+
+			dsp_pcm_stop(dsp, STREAM_PLAY);
+		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+			dsp_pcm_stop(dsp, STREAM_REC);
+		else { /* HW_PROBE_B || HW_PROBE_A */
+			dsp_pcm_stop(dsp, xgold_ptr->stream_type);
+			dsp->p_dsp_common_data->ops->irq_deactivate(DSP_IRQ_3);
 		}
 
 		dsp_pcm_stop(dsp, xgold_ptr->stream_type);
