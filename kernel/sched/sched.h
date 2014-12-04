@@ -611,7 +611,7 @@ struct rq {
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 	u64 prev_irq_time;
 #endif
-#ifdef CONFIG_PARAVIRT
+#if defined CONFIG_PARAVIRT || defined CONFIG_X86_INTEL_SOFIA
 	u64 prev_steal_time;
 #endif
 #if defined CONFIG_PARAVIRT_TIME_ACCOUNTING || defined CONFIG_X86_INTEL_SOFIA

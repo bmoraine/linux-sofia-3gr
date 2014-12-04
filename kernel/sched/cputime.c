@@ -6,6 +6,9 @@
 #include <linux/context_tracking.h>
 #include "sched.h"
 
+#ifdef CONFIG_X86_INTEL_SOFIA
+#include <sofia/cpu.h>
+#endif
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 
@@ -254,26 +257,34 @@ void account_idle_time(cputime_t cputime)
 		cpustat[CPUTIME_IDLE] += (__force u64) cputime;
 }
 
+#if defined CONFIG_PARAVIRT || defined CONFIG_X86_INTEL_SOFIA
+static __always_inline bool _steal_account_process_tick(u64 steal)
+{
+	cputime_t steal_ct;
+
+	steal -= this_rq()->prev_steal_time;
+
+	/*
+	 * cputime_t may be less precise than nsecs (eg: if it's
+	 * based on jiffies). Lets cast the result to cputime
+	 * granularity and account the rest on the next rounds.
+	 */
+	steal_ct = nsecs_to_cputime(steal);
+	this_rq()->prev_steal_time += cputime_to_nsecs(steal_ct);
+
+	account_steal_time(steal_ct);
+	return steal_ct;
+}
+#endif
+
 static __always_inline bool steal_account_process_tick(void)
 {
-#ifdef CONFIG_PARAVIRT
+#if defined CONFIG_PARAVIRT || defined CONFIG_X86_INTEL_SOFIA
 	if (static_key_false(&paravirt_steal_enabled)) {
 		u64 steal;
-		cputime_t steal_ct;
 
 		steal = paravirt_steal_clock(smp_processor_id());
-		steal -= this_rq()->prev_steal_time;
-
-		/*
-		 * cputime_t may be less precise than nsecs (eg: if it's
-		 * based on jiffies). Lets cast the result to cputime
-		 * granularity and account the rest on the next rounds.
-		 */
-		steal_ct = nsecs_to_cputime(steal);
-		this_rq()->prev_steal_time += cputime_to_nsecs(steal_ct);
-
-		account_steal_time(steal_ct);
-		return steal_ct;
+		return _steal_account_process_tick(steal);
 	}
 #endif
 	return false;
