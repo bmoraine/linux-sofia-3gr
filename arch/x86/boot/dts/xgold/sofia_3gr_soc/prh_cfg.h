@@ -1,3 +1,4 @@
+#define SF_R_ES_1_0
 /**< Start indicator (reserved for PRH driver) */
 #define PRH_PER_GENERIC_MODE_START (0)
 /**< Disable generic peripheral power resources and enable power saving state */
@@ -455,6 +456,30 @@ performance support (178.3MHz) */
 #define PRH_PER_WLAN_MODE_END (PRH_PER_WLAN_IDLE + 1)
 
 /**< Start indicator (reserved for PRH driver) */
+#define PRH_PER_PWM_MODE_START (PRH_PER_WLAN_MODE_END + 1)
+/**< Disable PWM clock */
+#define PRH_PER_PWM_DISABLE (PRH_PER_PWM_MODE_START + 1)
+/**< Enable PWM Low clock  */
+#define PRH_PER_PWM_ENABLE (PRH_PER_PWM_DISABLE + 1)
+/**< Enable PWM Medium clock  */
+#define PRH_PER_PWM_ENABLE_PSV (PRH_PER_PWM_ENABLE + 1)
+/**< End indicator (reserved for PRH driver) */
+#define PRH_PER_PWM_MODE_END (PRH_PER_PWM_ENABLE_PSV + 1)
+
+/**< Start indicator (reserved for PRH driver) */
+#define PRH_PER_RGA_MODE_START (PRH_PER_PWM_MODE_END + 1)
+/**< Disable RGA clock */
+#define PRH_PER_RGA_DISABLE (PRH_PER_RGA_MODE_START + 1)
+/**< Enable RGA Low clock (104M) */
+#define PRH_PER_RGA_ENABLE_LOW_PERF (PRH_PER_RGA_DISABLE + 1)
+/**< Enable RGA Medium clock (156M) */
+#define PRH_PER_RGA_ENABLE_MID_PERF (PRH_PER_RGA_ENABLE_LOW_PERF + 1)
+/**< Enable RGA High clock (416M) */
+#define PRH_PER_RGA_ENABLE_HIGH_PERF (PRH_PER_RGA_ENABLE_MID_PERF + 1)
+/**< End indicator (reserved for PRH driver) */
+#define PRH_PER_RGA_MODE_END (PRH_PER_RGA_ENABLE_HIGH_PERF + 1)
+
+/**< Start indicator (reserved for PRH driver) */
 #define PRH_PER_USIF_CLK_START (0)
 /**< USIF 26 MHz kernel clock (Mode Not Supported) */
 #define PRH_PER_USIF_CLK_26MHZ (PRH_PER_USIF_CLK_START + 1)
@@ -555,8 +580,17 @@ performance support (178.3MHz) */
 #define PRH_USER_UTA (PRH_USER_GYROSCOPE + 1)
 /**< PRH user identifier for Frequency Manager */
 #define PRH_USER_FM_SUBSYS_PM (PRH_USER_UTA + 1)
+#if defined SF_R_ES_1_0
+
+#define PRH_USER_RGA (PRH_USER_FM_SUBSYS_PM + 1)
+
+#define PRH_USER_PWM (PRH_USER_RGA + 1)
+/**< PRH user dummy identifier */
+#define PRH_USER_DUMMY (PRH_USER_PWM + 1)
+#else
 /**< PRH user dummy identifier */
 #define PRH_USER_DUMMY (PRH_USER_FM_SUBSYS_PM + 1)
+#endif
 /**< End indicator */
 #define PRH_USER_NOF_ID (PRH_USER_DUMMY + 1)
 
@@ -786,8 +820,19 @@ performance support (178.3MHz) */
 #define PRH_PER_DCDC (PRH_PER_EXT_GYROSCOPE + 1)
 /**< PRH peripheral identifier for PMU Charge Pump from FM [SPECIFIC] */
 #define PRH_PER_CP (PRH_PER_DCDC + 1)
+#if defined SF_R_ES_1_0
+/**< PRH peripheral identifier for I2C4 [SPECIFIC] */
+#define PRH_PER_I2C4 (PRH_PER_CP + 1)
+/**< PRH peripheral identifier for PMU  from RGA */
+#define PRH_PER_RGA (PRH_PER_I2C4 + 1)
+/**< PRH peripheral identifier for PMU  from PWM */
+#define PRH_PER_PWM (PRH_PER_RGA + 1)
+/**< PRH peripheral dummy identifier  */
+#define PRH_PER_DUMMY (PRH_PER_PWM + 1)
+#else
 /**< PRH peripheral dummy identifier  */
 #define PRH_PER_DUMMY (PRH_PER_CP + 1)
+#endif
 /**< End indicator */
 #define PRH_PER_NOF_ID (PRH_PER_DUMMY + 1)
 
@@ -857,6 +902,15 @@ performance support (178.3MHz) */
 #define PRH_PER_TYPE_GNSS (PRH_PER_TYPE_ABB_BT + 1)
 /**< PRH peripheral identifier for WLAN peripheral */
 #define PRH_PER_TYPE_WLAN (PRH_PER_TYPE_GNSS + 1)
+#if defined SF_R_ES_1_0
+/**< PRH peripheral identifier for RGA peripheral */
+#define PRH_PER_TYPE_RGA (PRH_PER_TYPE_WLAN + 1)
+/**< PRH peripheral identifier for PWM peripheral */
+#define PRH_PER_TYPE_PWM (PRH_PER_TYPE_RGA + 1)
+/**< End indicator (reserved for PRH driver) */
+#define PRH_PER_NOF_TYPE (PRH_PER_TYPE_PWM + 1)
+#else
 /**< End indicator (reserved for PRH driver) */
 #define PRH_PER_NOF_TYPE (PRH_PER_TYPE_WLAN + 1)
+#endif
 

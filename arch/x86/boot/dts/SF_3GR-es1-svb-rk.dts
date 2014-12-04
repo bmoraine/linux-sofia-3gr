@@ -1,6 +1,4 @@
 /dts-v1/;
-#define SOFIA3G_ES2
-#define SOFIA3G_ES2_TAB_SVB
 #include "xgold/sofia_3gr_soc/irq.h"
 
 / {

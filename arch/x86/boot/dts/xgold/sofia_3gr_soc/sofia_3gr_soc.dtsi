@@ -18,7 +18,6 @@
 			reg = <2>;
 #endif
 		};
-#if 1
 		cpu@2 {
 			device_type = "cpu";
 			compatible = "intel,sofia";
@@ -29,7 +28,6 @@
 			compatible = "intel,sofia";
 			reg = <3>;
 		};
-#endif
 
 		 idle-states {
 
@@ -40,19 +38,11 @@
 			S0 {
 				compatible = "intel,sofia,idle-state";
 				desc = "WFE";
-#ifdef PREFERRED_LOCAL_APIC_USE
 				power-usage = <37>;
-#else
-				power-usage = <3>;
-#endif
 				exit-latency = <20>;
 				target-residency= <35>; /* 15+20 (entry+exit) */
 				flags = <1>;	/* CPUIDLE_FLAG_TIME_VALID */
-#ifdef PREFERRED_LOCAL_APIC_USE
 				vmm-id = <0>;
-#else
-				vmm-id = <1>;
-#endif
 			};
 		};
 	};
@@ -102,63 +92,17 @@
 				counter,nr = < 2 >;
 
 				probe,offset = < 0x1000 >;
-#ifdef SOFIA3G_ES2
 				probe,portsel,0 = "CIF", "CPU0", "DMA8C_2", "GPU";
 				probe,portsel,1 = "CPU1", "DCC1", "DCC2", "VPU";
 				probe,portsel,2 = "EMIC";
-#else
-				probe,portsel,0 = "CPU0", "DMA8C_2", "GPU";
-				probe,portsel,1 = "CPU1", "VPU";
-				probe,portsel,2 = "EMIC";
-#endif
 
 				clock,rate = <400000000>;
 				stat,0 = "CPU0";
 				stat,1 = "CPU1";
 				stat,2 = "EMIC";
 				stat,3 = "GPU";
-#ifdef SOFIA3G_ES2
 				stat,4 = "DCC2";
-#endif
 
-#if defined(SOFIA3G_ES21)
-				intel,qos-configs = "DCC2", "GPU", "CPU1", "VPU", "CIF";
-				intel,GPU-qos-settings = <
-					0x1C88 0x0      /* prio */
-					0x1C8C 0x1      /* mode limiter */
-					0x1C90 0x120    /* bandwidth */
-					0x1C94 0x90     /* saturation */
-					0x1C98 0x5>;    /* QoSEn */
-
-				intel,DCC2-qos-settings = <
-					0x1E08 0xE      /* prio */
-					0x1E0C 0x0      /* mode fixed */
-					0x1E10 0x9F     /* bandwidth */
-					0x1E14 0x90     /* saturation */
-					0x1E18 0x5>;    /* QoSEn */
-
-				intel,CPU1-qos-owner;
-				intel,CPU1-qos-settings = <
-					0x1E88 0xF      /* prio */
-					0x1E8C 0x0      /* mode fixed */
-					0x1E90 0xFFF    /* bandwidth */
-					0x1E94 0x0      /* saturation */
-					0x1E98 0x5>;    /* QoSEn */
-
-				intel,VPU-qos-settings = <
-					0x1D08 0xE      /* prio */
-					0x1D0C 0x3      /* mode regulator */
-					0x1D10 0x190    /* bandwidth */
-					0x1D14 0x9F     /* saturation */
-					0x1D18 0x5>;    /* QoSEn */
-
-				intel,CIF-qos-settings = <
-					0x1D88 0x4      /* prio */
-					0x1D8C 0x3      /* mode regulator */
-					0x1D90 0x100    /* bandwidth */
-					0x1D94 0x10     /* saturation */
-					0x1D98 0x5>;    /* QoSEn */
-#elif defined(SOFIA3G_ES2)
 				intel,qos-configs = "DCC2", "GPU";
 				intel,GPU-qos-settings = <
 					0x1C88 0x0      /* prio */
@@ -173,7 +117,6 @@
 					0x1E10 0x9F     /* bandwidth */
 					0x1E14 0x90     /* saturation */
 					0x1E18 0x5>;    /* QoSEn */
-#endif
 				#include "xgold/sofia_3gr_soc/NoC.dtsi"
 			};
 
@@ -200,16 +143,6 @@
 				stat,0 = "DMA4C";
 				stat,1 = "DMA8C_1";
 
-#if defined(SOFIA3G_ES21)
-				intel,qos-configs = "IDI";
-				intel,IDI-qos-owner;
-				intel,IDI-qos-settings = <
-					0x11888 0x4      /* prio */
-					0x1188C 0x3      /* mode limiter */
-					0x11880 0x18    /* bandwidth */
-					0x11894 0x10     /* saturation */
-					0x11898 0x0>;    /* QoSEn */
-#endif
 				#include "xgold/sofia_3gr_soc/NoC.dtsi"
 
 				ahb_per@0 {
@@ -326,11 +259,10 @@
 						pm,state-D0 = "enable";
 						pm,state-D3 = "disable";
 					};
-#ifndef SOFIA3G_ES2_TAB_SVB
 					i2c_2:i2c_2{
 						#size-cells = <1>;
 						#address-cells = <0>;
-						compatible = "intel,i2c";
+						/*compatible = "intel,i2c";*/
 						reg = < 0xE1500000 0x100000 >;
 						clocks = <&clk_i2c2>, <&clk_ahb_per1>;
 						clock-names = "clk_kernel", "clk_ahb";
@@ -346,7 +278,6 @@
 						pm,state-D0 = "enable";
 						pm,state-D3 = "disable";
 					};
-#endif
 					stsbc12:stsbc12 {
 						reg = <0xE2B00000 0x100000 >;
 					};
@@ -446,15 +377,8 @@
 						pm,state-D1 = "mid_perf";
 						pm,state-D2 = "low_perf";
 						pm,state-D3 = "disable";
-#ifdef SOFIA3G_ES2
 						intel,dcc-clkrate = <416000000>;
-#else
-						intel,dcc-clkrate = <312000000>;
-#endif
 						intel,dcc-gpio-reset = <&xgold_pmx_gpio 72 0>;
-#ifdef SOFIA3G_MRD7S
-						intel,lcd-bias-en = <&xgold_pmx_gpio 7 0>;
-#endif
 						resets = < &dbb_rst1 18 >;
 						reset-names = "dcc";
 					};
@@ -471,9 +395,7 @@
 					gpu{
 						compatible = "intel,mali";
 						reg = <0xE2E00000 0x100000>;
-#ifdef SOFIA3G_ES2
 						intel,mali,cores = < 2 >;
-#endif
 						clocks = <&clk_gpu>, <&clk_ahb_per2>;
 						clock-names = "clk_kernel", "clk_ahb";
 						interrupts = < GPU_INT IRQ_TYPE_DEFAULT >;
@@ -659,60 +581,6 @@
 					#size-cells = <1>;
 					ranges;
 					reg = <0xE4000000 0x800000>;
-#ifdef SF_3G_TAB
-					capcom0:capcom-interrupt-controller {
-						compatible = "intel,capcom";
-						reg = <0xE4000000 0x100000>;
-						reg-names = "capcom-regs";
-						clocks = <&clk_cap0>;
-						clock-names = "clk_kernel";
-						pm,class-name = "capcom_class";
-						pm,user-name = "capcom0";
-						pm,state-D0 = "enable"; /* enable_psv */
-						pm,state-D3 = "disable"; /* disable_psv */
-						interrupt-controller;
-						interrupt-parent = <&pic>;
-						#interrupt-cells = <2>;
-						interrupts =
-							< CC0_CCINT0_7 IRQ_TYPE_DEFAULT >,
-							< CC0_CCINT0_7 IRQ_TYPE_DEFAULT >,
-							< CC0_CCINT0_7 IRQ_TYPE_DEFAULT >,
-							< CC0_CCINT0_7 IRQ_TYPE_DEFAULT >,
-							< CC0_CCINT0_7 IRQ_TYPE_DEFAULT >,
-							< CC0_CCINT0_7 IRQ_TYPE_DEFAULT >,
-							< CC0_CCINT0_7 IRQ_TYPE_DEFAULT >,
-							< CC0_CCINT0_7 IRQ_TYPE_DEFAULT >;
-						intel,io-access-guest;
-						intel,mask,0 = < 0x84 0 1 >; /* CC0_CCINT0 */
-						intel,mask,1 = < 0x84 1 1 >; /* CC0_CCINT1 */
-						intel,mask,2 = < 0x84 2 1 >; /* CC0_CCINT2 */
-						intel,mask,3 = < 0x84 3 1 >; /* CC0_CCINT3 */
-						intel,mask,4 = < 0x84 4 1 >; /* CC0_CCINT4 */
-						intel,mask,5 = < 0x84 5 1 >; /* CC0_CCINT5 */
-						intel,mask,6 = < 0x84 6 1 >; /* CC0_CCINT6 */
-						intel,mask,7 = < 0x84 7 1 >; /* CC0_CCINT7 */
-						intel,ack,0 = < 0x8C 0 1 >; /* CC0_CCINT0 */
-						intel,ack,1 = < 0x8C 1 1 >; /* CC0_CCINT1 */
-						intel,ack,2 = < 0x8C 2 1 >; /* CC0_CCINT2 */
-						intel,ack,3 = < 0x8C 3 1 >; /* CC0_CCINT3 */
-						intel,ack,4 = < 0x8C 4 1 >; /* CC0_CCINT4 */
-						intel,ack,5 = < 0x8C 5 1 >; /* CC0_CCINT5 */
-						intel,ack,6 = < 0x8C 6 1 >; /* CC0_CCINT6 */
-						intel,ack,7 = < 0x8C 7 1 >; /* CC0_CCINT7 */
-						intel,edge,0 = < 0x14 0 3 >; /* CC0_CCINT0 */
-						intel,edge,1 = < 0x14 4 3 >; /* CC0_CCINT1 */
-						intel,edge,2 = < 0x14 8 3 >; /* CC0_CCINT2 */
-						intel,edge,3 = < 0x14 12 3 >; /* CC0_CCINT3 */
-						intel,edge,4 = < 0x18 0 3 >; /* CC0_CCINT4 */
-						intel,edge,5 = < 0x18 4 3 >; /* CC0_CCINT5 */
-						intel,edge,6 = < 0x18 8 3 >; /* CC0_CCINT6 */
-						intel,edge,7 = < 0x18 12 3 >; /* CC0_CCINT7 */
-					};
-					capcom1 {
-						compatible = "intel,capcom1";
-						reg = <0xE4100000 0x100000>;
-					};
-#endif
 					oct:oct{
 						compatible = "intel,oct";
 						reg = <0xE4D00000 0x00100000>;
@@ -732,9 +600,6 @@
 						interrupts = < STM_INT0 IRQ_TYPE_DEFAULT >,
 								< STM_INT1 IRQ_TYPE_DEFAULT >;
 						intel,faf = <0x319>;
-#ifndef PREFERRED_LOCAL_APIC_USE
-						intel,stm,evt,rating = <1000>;
-#endif
 					};
 					xgold_pmx_core: pinmux@E4600000 {
 						compatible = "pinctrl-single";

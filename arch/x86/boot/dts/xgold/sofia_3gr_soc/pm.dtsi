@@ -2,16 +2,11 @@
 core_pm:core_pm {
 	compatible = "intel,vpower";
 	intel,prh_mode = "async";
-
 	#address-cells = < 0 >;
 	interrupts = < 0 >;
 	interrupt-parent = <&core_pm>;
 	#interrupt-cells = < 1 >;
-#ifdef SOFIA3G_ES2_TAB_SVB
 	interrupt-map = < 0 &hirq HIRQ_PMIC_PRH_SIGNALING IRQ_TYPE_DEFAULT>;
-#else
-       interrupt-map = < 0 &hirq HIRQ_PRH_SIGNALING IRQ_TYPE_DEFAULT>;
-#endif
 	interrupt-names = "notification";
 };
 
@@ -549,6 +544,34 @@ arm11_clk_pm_user:arm11_clk_pm_user {
 	intel,user-id = <PRH_USER_CPU>;
 	intel,per-id = <PRH_PER_ARM11_CLK>;
 	intel,class = <&arm11_clk_pm_class>;
+};
+
+rga_pm_class:rga_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "rga_class";
+	intel,states-names =
+		"disable",
+		"low_perf",
+		"mid_perf",
+		"high_perf";
+	intel,states = <
+		PRH_PER_TYPE_RGA PRH_PER_RGA_DISABLE
+		PRH_PER_TYPE_RGA PRH_PER_RGA_ENABLE_LOW_PERF
+		PRH_PER_TYPE_RGA PRH_PER_RGA_ENABLE_MID_PERF
+		PRH_PER_TYPE_RGA PRH_PER_RGA_ENABLE_HIGH_PERF >;
+};
+
+pwm_pm_class:pwm_pm_class {
+	compatible = "intel,xgold_pm_class";
+	intel,name = "pwm_class";
+	intel,states-names =
+		"disable",
+		"enable",
+		"psv";
+	intel,states = <
+		PRH_PER_TYPE_PWM PRH_PER_PWM_DISABLE
+		PRH_PER_TYPE_PWM PRH_PER_PWM_ENABLE
+		PRH_PER_TYPE_PWM PRH_PER_PWM_ENABLE_PSV >;
 };
 
 dmac_2ch_pm_user:dmac_2ch_pm_user {
@@ -1453,5 +1476,29 @@ bnt_pm_user:bnt_pm_user {
 	intel,user-id = <0>;
 	intel,per-id = <0>;
 	intel,class = <&generic_pm_class>;
+};
+
+i2c4_pm_user:i2c4_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "i2c4";
+	intel,user-id = <PRH_USER_FM_SUBSYS_PM>;
+	intel,per-id = <PRH_PER_I2C4>;
+	intel,class = <&i2c_pm_class>;
+};
+
+rga_pm_user:rga_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "rga";
+	intel,user-id = <PRH_USER_FM_SUBSYS_PM>;
+	intel,per-id = <PRH_PER_RGA>;
+	intel,class = <&rga_pm_class>;
+};
+
+pwm_pm_user:pwm_pm_user {
+	compatible = "intel,xgold_pm_user";
+	intel,name = "pwm";
+	intel,user-id = <PRH_USER_FM_SUBSYS_PM>;
+	intel,per-id = <PRH_PER_PWM>;
+	intel,class = <&pwm_pm_class>;
 };
 

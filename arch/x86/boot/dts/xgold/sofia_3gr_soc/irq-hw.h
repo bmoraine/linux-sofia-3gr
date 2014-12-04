@@ -34,6 +34,8 @@
 #define WDT1 59
 #define PROF_ENV_INT 60
 #define PROF_CORE1_INT 61
+#define PROF_CORE2_INT 62
+#define PROF_CORE3_INT 63
 #define SDMMC_INT 64
 #define SDIO_INT 65
 #define DIF_RX_XREQ_INT 66
@@ -43,6 +45,9 @@
 #define DCC_CMD_INT 70
 #define DCC_FRAME_INT 71
 #define I2C3_INT 72
+#define I2C4_INT 73
+#define PWM_INT 74
+#define RGA_INT 75
 #define I2C2_INT 76
 #define DAP_WAKE_UP_INT 77
 #define SPCU_LEGACY_CORE0_WUP_INT 78
