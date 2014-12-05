@@ -1639,6 +1639,10 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	}
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
 
+	/* disable the USB reception multi-packet thresholding:
+	 * core starts reception when RX FIFO has space for at least 1 packet */
+	dwc3_writel(dwc->regs, DWC3_GRXTHRCFG, 0);
+
 	dwc->start_config_issued = false;
 
 	/* Start with SuperSpeed Default */
@@ -2878,6 +2882,10 @@ int dwc3_gadget_reinit(struct dwc3 *dwc)
 			}
 	}
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
+
+	/* disable the USB reception multi-packet thresholding:
+	 * core starts reception when RX FIFO has space for at least 1 packet */
+	dwc3_writel(dwc->regs, DWC3_GRXTHRCFG, 0);
 
 	dwc->start_config_issued = false;
 
