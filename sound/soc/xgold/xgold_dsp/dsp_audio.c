@@ -162,7 +162,7 @@ enum dsp_err_code dsp_audio_cmd(
 		if (0x7fff != is_command_id_supported) {
 			is_command_valid = 1;
 			dsp_add_audio_msg_2_dsp(dsp.dsp_fba,
-					command_id, command_len/2 +
+					command_id, command_len / 2 +
 					DSP_AUDIO_CMD_ID_LEN, p_command);
 		}
 
@@ -176,7 +176,7 @@ enum dsp_err_code dsp_audio_cmd(
 
 			is_command_valid = 1;
 			/* Enable I2S2 power&clock domain */
-			if (command_id == 22) {
+			if (command_id == DSP_SBA_VB_HW_I2S2) {
 				if (*p_command != 0)
 					dsp.dsp_sba->p_dsp_common_data->
 					i2s_set_power_state(
@@ -191,7 +191,7 @@ enum dsp_err_code dsp_audio_cmd(
 					0);
 			}
 			/* Enable I2S1 power&clock domain */
-			else if (command_id == 86) {
+			else if (command_id == DSP_AUD_VB_HW_I2S1) {
 				if (*p_command != 0) {
 					dsp.dsp_sba->p_dsp_common_data->
 					i2s_set_power_state(
@@ -208,7 +208,7 @@ enum dsp_err_code dsp_audio_cmd(
 			}
 
 			dsp_add_audio_msg_2_dsp(dsp.dsp_sba,
-					command_id, command_len/2 +
+					command_id, command_len / 2 +
 					DSP_AUDIO_CMD_ID_LEN, p_command);
 		}
 
@@ -235,18 +235,17 @@ EXPORT_SYMBOL(dsp_audio_cmd);
 				requested size
 ******************************************************************************/
 enum dsp_err_code dsp_audio_read_shm(
+	struct dsp_audio_device *dsp_dev,
 	U16 *p_dest,
 	U16 shm_word_offset,
 	U16 len_in_bytes)
 {
 	memcpy((U8 *) p_dest,
-		(U8 *) (((2 == dsp.num_dsp) ? dsp.dsp_sba->shm_mem
-		: dsp.dsp_fba->shm_mem) + shm_word_offset * 2),
+		(U8 *) (dsp_dev->shm_mem + shm_word_offset * 2),
 		len_in_bytes);
 
 	xgold_debug("%s: src %p, dst %p, len %d, val %x\n", __func__,
-		(U8 *) (((2 == dsp.num_dsp) ? dsp.dsp_sba->shm_mem
-		: dsp.dsp_fba->shm_mem) + shm_word_offset * 2),
+		(U8 *) (dsp_dev->shm_mem + shm_word_offset * 2),
 		(U8 *) p_dest, len_in_bytes, *p_dest);
 
 	return DSP_SUCCESS;
@@ -261,17 +260,16 @@ EXPORT_SYMBOL(dsp_audio_read_shm);
 				the shared memory
 ******************************************************************************/
 enum dsp_err_code dsp_audio_write_shm(
+	struct dsp_audio_device *dsp_dev,
 	U16 *p_src,
 	U16 shm_word_offset,
 	U16 len_in_bytes)
 {
 	xgold_debug("%s: dst %p, src %p, len %d\n", __func__,
-		(U8 *) (((2 == dsp.num_dsp) ? dsp.dsp_sba->shm_mem
-		: dsp.dsp_fba->shm_mem) + shm_word_offset * 2),
+		(U8 *) (dsp_dev->shm_mem + shm_word_offset * 2),
 		(U8 *) p_src, len_in_bytes);
 
-	memcpy((U8 *) (((2 == dsp.num_dsp) ? dsp.dsp_sba->shm_mem
-		: dsp.dsp_fba->shm_mem) + shm_word_offset * 2),
+	memcpy((U8 *) (dsp_dev->shm_mem + shm_word_offset * 2),
 		(U8 *) p_src, len_in_bytes);
 
 	return DSP_SUCCESS;
@@ -284,23 +282,28 @@ EXPORT_SYMBOL(dsp_audio_write_shm);
 * Returns:.... Base address of DSP shared memory
 * Description: This function returns the dsp shmem base address to the client.
 ******************************************************************************/
-dma_addr_t dsp_get_audio_shmem_base_addr(void)
+dma_addr_t dsp_get_audio_shmem_base_addr(struct dsp_audio_device *dsp_dev)
 {
-	return (2 == dsp.num_dsp) ? dsp.dsp_sba->shm_mem_phys
-		: dsp.dsp_fba->shm_mem_phys;
+	return dsp_dev->shm_mem_phys;
 }
 EXPORT_SYMBOL(dsp_get_audio_shmem_base_addr);
 
 #ifdef CONFIG_OF
-/* TODO */
+/*****************************************************************************
+* Function:... xgold_of_dsp_get_dmach
+* Parameters:. dsp struct pointer, request type
+* Returns:.... dma channel pointer, NULL in case of error
+* Description: This function returns the dsp channel associated to the type of
+* request.
+*******************************************************************************/
 struct dma_chan *xgold_of_dsp_get_dmach(
 		struct dsp_audio_device *dsp_dev, int req)
 {
 	switch (req) {
 	case STREAM_PLAY:
-		return dma_request_slave_channel(dsp.dsp_fba->dev, "play1");
+		return dma_request_slave_channel(dsp_dev->dev, "play1");
 	case STREAM_REC:
-		return dma_request_slave_channel(dsp.dsp_fba->dev, "record");
+		return dma_request_slave_channel(dsp_dev->dev, "record");
 	default:
 		return NULL;
 	}
