@@ -987,7 +987,6 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			dsp->p_dsp_common_data->ops->irq_deactivate(DSP_IRQ_3);
 		}
 
-		dsp_pcm_stop(dsp, xgold_ptr->stream_type);
 		xgold_debug("DSP stopped\n");
 
 		if (xgold_ptr->stream_type == HW_PROBE_B ||
