@@ -179,6 +179,24 @@
 				#include "xgold/sofia_3g_soc/NoC.dtsi"
 			};
 
+			audio_noc {
+				compatible = "intel,audionoc";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+				reg = <0xEF020000 0x2000>;
+
+				interrupts = < NOC_ERR_AUDIO_IDI IRQ_TYPE_DEFAULT >, < NOC_STATALARM IRQ_TYPE_DEFAULT >;
+				interrupt-names = "error", "stat_alarm";
+
+				probe,nr = < 2 >;
+				filter,nr = < 0 >;
+				counter,nr = < 0 >;
+
+				probe,offset = < 0x1000 >;
+
+			};
+
 			l2_noc {
 				compatible = "intel,l2noc";
 				#address-cells = <1>;
