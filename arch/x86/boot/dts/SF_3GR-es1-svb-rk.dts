@@ -301,24 +301,28 @@
 		compatible = "analog devices,ad5823-v4l2-i2c-subdev";
 		reg = < 0x0C >;
 	};
-
-
 #endif
-#ifndef RECOVERY_KERNEL
+};
 
-#endif
+
+
+&i2c_4 {
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&i2c4_default_pins>;
+	pinctrl-1 = <&i2c4_sleep_pins>;
+	pinctrl-2 = <&i2c4_inactive_pins>;
 #ifndef RECOVERY_KERNEL
 	touchscreen {
 		compatible = "VTL-TS";
 		reg = < 0x01 >;
 		interrupt-parent = <&eint>;
-		interrupts = < EINT_EXI0 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		interrupts = < EINT_EXI12 XGOLD_IRQ_TYPE_EDGE_FALLING >;
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&touch_default_pins>;
 		pinctrl-1 = <&touch_sleep_pins>;
 		pinctrl-2 = <&touch_inactive_pins>;
-		intel,ts-gpio-reset = <&xgold_pmx_gpio 32 0>;
-		intel,ts-gpio-irq = <&xgold_pmx_gpio 66 0>;
+		intel,ts-gpio-reset = <&xgold_pmx_gpio 19 0>;
+		intel,ts-gpio-irq = <&xgold_pmx_gpio 18 0>;
 		pm,class-name = "gt9xx_class";
 		pm,user-name = "tp";
 		pm,state-D0 = "enable";

@@ -262,6 +262,24 @@
 						pm,state-D3 = "disable";
 					};
 
+                                        i2c_4:i2c_4{
+                                                #size-cells = <1>;
+                                                #address-cells = <0>;
+                                                compatible = "intel,i2c";
+                                                reg = < 0xE1900000 0x100000 >;
+                                                clocks = <&clk_i2c4>, <&clk_ahb_per1>;
+                                                clock-names = "clk_kernel", "clk_ahb";
+                                                interrupts = < I2C4_INT IRQ_TYPE_DEFAULT >;
+                                                intel,i2c,b400 = < 1 54 13 0 >;
+                                                intel,i2c,b100 = < 1 256 0 0 >;
+                                                resets = <&dbb_rst1 10>;
+                                                reset-names = "i2c";
+
+                                                pm,class-name = "i2c_class";
+                                                pm,user-name = "i2c4";
+                                                pm,state-D0 = "enable";
+                                                pm,state-D3 = "disable";
+                                        };
 					pwm0: pwm@E1A00000 {
 						compatible = "rockchip,rk3288-pwm";
 						reg = <0xE1A00000 0x10>;

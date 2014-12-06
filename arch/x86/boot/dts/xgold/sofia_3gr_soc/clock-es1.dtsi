@@ -1364,6 +1364,22 @@ clocks {
 		intel,block-divider = <928 0 3 928 8 3 928 16 3>;
 		intel,block-divider-activate = <652 18 1>;
 	};
+	clk_i2c4:clk_i2c4 {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "clk_i2c4";
+		clocks = <&MUX_FIX1>;
+		clock-names = "mux";
+		intel,flags-divider_div_fix;
+		intel,frequency-banks = < 3 >;
+		intel,block-divider-default = < 2 2 2 >;
+		intel,block-status-enable = <540 15 1>;
+		intel,block-enable = <516 15 1>;
+		intel,block-divider-status = <672 6 3>;
+		intel,block-disable = <528 15 1>;
+		intel,block-divider = <936 0 3 936 8 3 936 16 3>;
+		intel,block-divider-activate = <656 30 1>;
+	};
 	clk_sdmmc:clk_sdmmc {
 		compatible = "intel,xgold-block-clock";
 		#clock-cells = <0>;
