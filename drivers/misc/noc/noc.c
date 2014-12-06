@@ -31,6 +31,7 @@
 #define XGOLD631_NOC_ERROR_ID 0x00FA1200
 #define XGOLD726_NOC_ERROR_ID 0x010C0C00
 
+
 /**
  * Tasklet called by interrupt when a measurement is finished.
  * @param data a pointer to the struct xgold_noc_probe which generated the
@@ -443,6 +444,8 @@ static struct of_device_id xgold_noc_of_match[] = {
 	 .compatible = "intel,l1noc",},
 	{
 	 .compatible = "intel,l2noc",},
+	{
+	 .compatible = "intel,audionoc",},
 	{},
 };
 
@@ -1462,7 +1465,7 @@ static int xgold_noc_probe(struct platform_device *pdev)
 
 	noc_device->clock = of_clk_get(np, 0);
 	if (IS_ERR_OR_NULL(noc_device->clock)) {
-		dev_err(mydev, "Error %d while getting clock\n",
+		dev_dbg(mydev, "Error %d while getting clock\n",
 			(int)noc_device->clock);
 	}
 
