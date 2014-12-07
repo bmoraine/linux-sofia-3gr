@@ -45,6 +45,17 @@
 				flags = <1>;	/* CPUIDLE_FLAG_TIME_VALID */
 				vmm-id = <0>;
 			};
+
+			S1 {
+				compatible = "intel,sofia,idle-state";
+				desc = "Shutdown";
+				power-usage = <3>;
+				exit-latency = <22>;
+				target-residency = <50>; /* 15+20 (entry+exit+broadcast overhead) */
+				flags = <5>;	/* CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TIMER_STOP */
+				vmm-id = <1>;
+			};
+
 		};
 	};
 	xgold {
