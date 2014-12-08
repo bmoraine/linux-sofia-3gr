@@ -428,6 +428,11 @@ static int vfb_mmap(struct fb_info *info,
 
 	pos = (unsigned long)info->fix.smem_start + offset;
 
+#ifdef CONFIG_ANDROID
+	/* fix adb screen capture problem */
+	vma->vm_flags |= VM_SHARED;
+#endif
+
 	while (size > 0) {
 		page = vmalloc_to_pfn((void *)pos);
 		if (remap_pfn_range(vma, start, page, PAGE_SIZE, PAGE_SHARED)) {
