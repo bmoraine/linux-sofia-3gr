@@ -1,3 +1,4 @@
+#define MAX_MODES 10
 struct xgold_mmc_pdata {
 	const char *kernel_clk_name;
 	const char *bus_clk_name;
@@ -6,10 +7,10 @@ struct xgold_mmc_pdata {
 	struct clk *master_clk;
 	unsigned int max_clock;
 	unsigned int min_clock;
-	unsigned int tap_values[6];
+	unsigned int tap_values[MAX_MODES];
 	int irq_wk;
 	void __iomem *tap_reg;
-	unsigned int tap_values2[6];
+	unsigned int tap_values2[MAX_MODES];
 	void __iomem *tap_reg2;
 	struct xgold_mmc_callbacks *mmc_cb;
 	unsigned char id;
