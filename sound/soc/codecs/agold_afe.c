@@ -833,6 +833,13 @@ static const char * const agold_afe_route_text[] = { "DSP", "FM" };
 static const char * const agold_afe_hsps_ramp[] = { "50ms", "100ms",
 						"200ms", "400ms" };
 
+#ifdef CONFIG_SND_SOC_AGOLD_620
+static const char * const agold_afe_dmic_path_text[] = {
+	"MIC1_P1_MIC2_P2", "MIC1_P1_MIC2_P1",
+	"MIC1_P2_MIC2_P2", "MIC1_P2_MIC2_P1"
+};
+#endif
+
 static const DECLARE_TLV_DB_SCALE(DGAINCR_TLV, -2400, 1200, 1);
 static const DECLARE_TLV_DB_SCALE(DGAINFR_TLV, -450, 0, 0);
 static const DECLARE_TLV_DB_SCALE(DGAINCL_TLV, -2400, 1200, 1);
@@ -864,6 +871,11 @@ SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(agold_afe_out_sel_text),
 
 static const struct soc_enum agold_afe_hs_sw_enum =
 SOC_ENUM_SINGLE(AGOLD_AFE_AUDOUTCTRL2, 12, 2, agold_afe_gen_sw_enum_text);
+
+#ifdef CONFIG_SND_SOC_AGOLD_620
+static const struct soc_enum agold_afe_dmic_path_enum =
+SOC_ENUM_SINGLE(AGOLD_AFE_DIGMIC_CONTROL1, 4, 4, agold_afe_dmic_path_text);
+#endif
 
 static const struct snd_kcontrol_new agold_afe_ep_sel =
 SOC_DAPM_ENUM("Route", agold_afe_ep_mux_enum);
@@ -976,6 +988,9 @@ static const struct snd_kcontrol_new agold_afe_snd_controls[] = {
 		.get = agold_afe_get_trigger_calibration,
 		.put = agold_afe_set_trigger_calibration,
 	}
+#endif
+#ifdef CONFIG_SND_SOC_AGOLD_620
+	,SOC_ENUM("DMIC Path", agold_afe_dmic_path_enum)
 #endif
 };
 
