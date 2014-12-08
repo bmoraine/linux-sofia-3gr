@@ -116,6 +116,11 @@ int xgold_irq_of_get(struct device_node *np, void *chipdata)
 	char comp[30];
 	struct resource regs;
 	data->np = np;
+	if (!name) {
+		/* This is not a good point, just warn at this time */
+		pr_warn("%s: no compatible found\n", __func__);
+	}
+
 	pr_info("%s: Looking for %s in dts\n", XGOLD_IRQ, name);
 	/* Get io resources */
 	if (of_address_to_resource(np, 0, &regs)) {
@@ -234,7 +239,8 @@ int xgold_irq_of_get(struct device_node *np, void *chipdata)
 	}
 	sprintf(comp, "intel,globalmask");
 	xgold_irq_of_parse(&data->globalmask[0], np, comp);
-	strncpy(data->name, name, MAX_NAME_LENGTH);
+	if (name)
+		strncpy(data->name, name, MAX_NAME_LENGTH);
 	/* Display captured device tree data */
 	xgold_display_irq_regs(data);
 	return 0;

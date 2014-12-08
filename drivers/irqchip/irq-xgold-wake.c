@@ -358,6 +358,8 @@ static inline struct xgold_irq_wake_data *xgold_irq_wake_get_driver_data(
 		const struct of_device_id *match;
 		match = of_match_node(xgold_irq_wake_of_match,
 				pdev->dev.of_node);
+		if (!match)
+			return NULL;
 		return (struct xgold_irq_wake_data *)match->data;
 	}
 	return NULL;

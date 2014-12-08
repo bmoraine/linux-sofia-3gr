@@ -265,8 +265,10 @@ static int __init xgold_capcom_probe(struct platform_device *pdev)
 
 	/* extract pm info */
 	pdata->pm_platdata = of_device_state_pm_setup(np);
-	if (IS_ERR(pdata->pm_platdata))
-		pdata->pm_platdata = NULL;
+	if (IS_ERR(pdata->pm_platdata)) {
+		dev_err(&pdev->dev, "no pm info available\n");
+		return -1;
+	}
 #endif
 
 	/* pm */
