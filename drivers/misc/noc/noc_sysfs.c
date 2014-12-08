@@ -406,49 +406,49 @@ int xgold_noc_debug_init(struct device *_dev)
 		reg = probe->main_ctl;
 		list_for_each_entry(bf, &reg->bitfields, link) {
 			debugfs_create_file(bf->name,
-					    S_IRUGO | S_IWUGO, probe_dir, bf,
+					    S_IRUGO | S_IWUSR, probe_dir, bf,
 					    &noc_debug_fops);
 		}
 
 		reg = probe->cfg_ctl;
 		list_for_each_entry(bf, &reg->bitfields, link) {
 			debugfs_create_file(bf->name,
-					    S_IRUGO | S_IWUGO, probe_dir, bf,
+					    S_IRUGO | S_IWUSR, probe_dir, bf,
 					    &noc_debug_fops);
 		}
 
 		reg = probe->trace_port_sel;
 		list_for_each_entry(bf, &reg->bitfields, link) {
 			debugfs_create_file(bf->name,
-					    S_IRUGO | S_IWUGO, probe_dir, bf,
+					    S_IRUGO | S_IWUSR, probe_dir, bf,
 					    &noc_debug_fops);
 		}
 
 		reg = probe->filter_lut;
 		list_for_each_entry(bf, &reg->bitfields, link) {
 			debugfs_create_file(bf->name,
-					    S_IRUGO | S_IWUGO, probe_dir, bf,
+					    S_IRUGO | S_IWUSR, probe_dir, bf,
 					    &noc_debug_fops);
 		}
 
 		reg = probe->stat_period;
 		list_for_each_entry(bf, &reg->bitfields, link) {
 			debugfs_create_file(bf->name,
-					    S_IRUGO | S_IWUGO, probe_dir, bf,
+					    S_IRUGO | S_IWUSR, probe_dir, bf,
 					    &noc_debug_fops);
 		}
 
 		reg = probe->stat_alarm_max;
 		list_for_each_entry(bf, &reg->bitfields, link) {
 			debugfs_create_file(bf->name,
-					    S_IRUGO | S_IWUGO, probe_dir, bf,
+					    S_IRUGO | S_IWUSR, probe_dir, bf,
 					    &noc_debug_fops);
 		}
 
 		reg = probe->stat_alarm_min;
 		list_for_each_entry(bf, &reg->bitfields, link) {
 			debugfs_create_file(bf->name,
-					    S_IRUGO | S_IWUGO, probe_dir, bf,
+					    S_IRUGO | S_IWUSR, probe_dir, bf,
 					    &noc_debug_fops);
 		}
 
@@ -466,7 +466,7 @@ int xgold_noc_debug_init(struct device *_dev)
 			reg = filter->route_id;
 			list_for_each_entry(bf, &reg->bitfields, link) {
 				debugfs_create_file(bf->name,
-						    S_IRUGO | S_IWUGO,
+						    S_IRUGO | S_IWUSR,
 						    filter_dir, bf,
 						    &noc_debug_fops);
 
@@ -487,7 +487,7 @@ int xgold_noc_debug_init(struct device *_dev)
 			reg = filter->security_base;
 			list_for_each_entry(bf, &reg->bitfields, link) {
 				debugfs_create_file(bf->name,
-						    S_IRUGO | S_IWUGO,
+						    S_IRUGO | S_IWUSR,
 						    filter_dir, bf,
 						    &noc_debug_fops);
 			}
@@ -495,7 +495,7 @@ int xgold_noc_debug_init(struct device *_dev)
 			reg = filter->op_code;
 			list_for_each_entry(bf, &reg->bitfields, link) {
 				debugfs_create_file(bf->name,
-						    S_IRUGO | S_IWUGO,
+						    S_IRUGO | S_IWUSR,
 						    filter_dir, bf,
 						    &noc_debug_fops);
 			}
@@ -503,38 +503,38 @@ int xgold_noc_debug_init(struct device *_dev)
 			reg = filter->status;
 			list_for_each_entry(bf, &reg->bitfields, link) {
 				debugfs_create_file(bf->name,
-						    S_IRUGO | S_IWUGO,
+						    S_IRUGO | S_IWUSR,
 						    filter_dir, bf,
 						    &noc_debug_fops);
 			}
 
 			bf = filter->addr_base;
 			debugfs_create_file("address_base",
-					    S_IRUGO | S_IWUGO, filter_dir, bf,
+					    S_IRUGO | S_IWUSR, filter_dir, bf,
 					    &noc_debug_fops);
 
 			bf = filter->window_size;
 			debugfs_create_file("window_size",
-					    S_IRUGO | S_IWUGO, filter_dir, bf,
+					    S_IRUGO | S_IWUSR, filter_dir, bf,
 					    &noc_debug_fops);
 
 			bf = filter->length;
 			debugfs_create_file("packet_length",
-					    S_IRUGO | S_IWUGO, filter_dir, bf,
+					    S_IRUGO | S_IWUSR, filter_dir, bf,
 					    &noc_debug_fops);
 			bf = filter->urgency;
 			debugfs_create_file("urgency_enable",
-					    S_IRUGO | S_IWUGO, filter_dir, bf,
+					    S_IRUGO | S_IWUSR, filter_dir, bf,
 					    &noc_debug_fops);
 
 			bf = filter->route_mask;
 			debugfs_create_file("route_mask",
-					    S_IRUGO | S_IWUGO, filter_dir, bf,
+					    S_IRUGO | S_IWUSR, filter_dir, bf,
 					    &noc_debug_fops);
 
 			bf = filter->security_mask;
 			debugfs_create_file("security_mask",
-					    S_IRUGO | S_IWUGO, filter_dir, bf,
+					    S_IRUGO | S_IWUSR, filter_dir, bf,
 					    &noc_debug_fops);
 
 		}

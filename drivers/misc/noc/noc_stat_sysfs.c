@@ -329,11 +329,11 @@ int xgold_noc_stat_debugfs_init(struct device *_dev)
 				&noc_stat_results_fops);
 	if (IS_ERR(d))
 		return PTR_ERR(d);
-	d = debugfs_create_file("config", S_IRUGO | S_IWOTH, dir, noc_device,
+	d = debugfs_create_file("config", S_IRUGO | S_IWUSR, dir, noc_device,
 				&noc_stat_config_fops);
 	if (IS_ERR(d))
 		return PTR_ERR(d);
-	d = debugfs_create_file("run", S_IRUGO | S_IWOTH, dir, noc_device,
+	d = debugfs_create_file("run", S_IRUGO | S_IWUSR, dir, noc_device,
 				&noc_stat_run_fops);
 	if (IS_ERR(d))
 		return PTR_ERR(d);
