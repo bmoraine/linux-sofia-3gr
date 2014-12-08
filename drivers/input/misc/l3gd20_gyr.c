@@ -512,7 +512,7 @@ static int l3gd20_gyr_get_data(struct l3gd20_gyr_status *stat,
 			     struct l3gd20_gyr_triple *data)
 {
 	int err;
-	unsigned char gyro_out[6];
+	u8 gyro_out[6] = { 0 };
 	/* y,p,r hardware data */
 	s32 hw_d[3] = { 0 };
 
@@ -855,13 +855,18 @@ static ssize_t attr_reg_set(struct device *dev,
 }
 
 static struct device_attribute attributes[] = {
-	__ATTR(pollrate_ms, 0666, attr_polling_rate_show,
-						attr_polling_rate_store),
-	__ATTR(enable_device, 0666, attr_enable_show, attr_enable_store),
-	__ATTR(enable_polling, 0666, attr_polling_mode_show,
-						attr_polling_mode_store),
-	__ATTR(reg, S_IRUGO, attr_reg_get,
-						attr_reg_set),
+	__ATTR(pollrate_ms, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			attr_polling_rate_show,
+			attr_polling_rate_store),
+	__ATTR(enable_device, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			attr_enable_show,
+			attr_enable_store),
+	__ATTR(enable_polling, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			attr_polling_mode_show,
+			attr_polling_mode_store),
+	__ATTR(reg, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			attr_reg_get,
+			attr_reg_set),
 };
 
 static int create_sysfs_interfaces(struct device *dev)
