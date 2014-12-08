@@ -586,8 +586,12 @@ static void intel_otg_start_peripheral(struct usb_otg *otg, int on)
 static int intel_usb2phy_set_peripheral(struct usb_otg *otg,
 		struct usb_gadget *gadget)
 {
-	struct intel_usbphy *iphy = container_of(otg->phy,
-			struct intel_usbphy, phy);
+	struct intel_usbphy *iphy;
+
+	if (!otg)
+		return -ENODEV;
+
+	iphy = container_of(otg->phy, struct intel_usbphy, phy);
 
 	/*
 	 * Fail peripheral registration if this board can support
@@ -598,9 +602,6 @@ static int intel_usb2phy_set_peripheral(struct usb_otg *otg,
 		dev_err(iphy->dev, "Peripheral mode is not supported\n");
 		return -ENODEV;
 	}
-
-	if (!otg)
-		return -ENODEV;
 
 	if (!gadget) {
 		if (otg->phy->state == OTG_STATE_B_PERIPHERAL) {
@@ -654,9 +655,13 @@ static void intel_otg_start_host(struct usb_otg *otg, int on)
 static int intel_usb2phy_set_host(struct usb_otg *otg,
 		struct usb_bus *host)
 {
-	struct intel_usbphy *iphy = container_of(otg->phy,
-			struct intel_usbphy, phy);
+	struct intel_usbphy *iphy;
 	struct usb_hcd *hcd;
+
+	if (!otg)
+		return -ENODEV;
+
+	iphy = container_of(otg->phy, struct intel_usbphy, phy);
 
 	/*
 	 * Fail host registration if this board can support
@@ -666,9 +671,6 @@ static int intel_usb2phy_set_host(struct usb_otg *otg,
 		dev_err(iphy->dev, "Host mode is not supported\n");
 		return -ENODEV;
 	}
-
-	if (!otg)
-		return -ENODEV;
 
 	if (!host) {
 		if (otg->phy->state == OTG_STATE_A_HOST) {
@@ -705,7 +707,7 @@ static int intel_usb2phy_notifier(struct notifier_block *nb,
 	int *vbus;
 
 	switch (event) {
-	case USB_EVENT_VBUS:
+	case INTEL_USB_EVENT_VBUS:
 		vbus = (int *) priv;
 		if (*vbus) {
 			dev_dbg(iphy->dev, "BSV set\n");
@@ -1431,8 +1433,11 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 			pm_platdata->pm_user_name);
 	if (ret) {
 		dev_err(&pdev->dev, "Error while setting the pm class\n");
+		kfree(pm_platdata);
 		return ret;
 	}
+
+	kfree(pm_platdata);
 
 	/* Get power states */
 	len = of_property_count_strings(np, "states-names");
@@ -1632,7 +1637,6 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 	wake_lock(&iphy->wlock);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-	kfree(pm_platdata);
 	return 0;
 }
 

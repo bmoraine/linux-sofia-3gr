@@ -7,6 +7,11 @@
  */
 
 enum intel_usb_events {
-	INTEL_USB_DRV_VBUS = 100,	/* drive vbus */
+	INTEL_USB_EVENT_NONE,		/* no events or cable disconnected */
+	INTEL_USB_EVENT_VBUS,		/* vbus valid event */
+	INTEL_USB_EVENT_ID,		/* id was grounded */
+	INTEL_USB_EVENT_CHARGER,	/* usb dedicated charger */
+	INTEL_USB_EVENT_ENUMERATED,	/* gadget driver enumerated */
+	INTEL_USB_DRV_VBUS,		/* drive vbus */
 	INTEL_USB_DRV_VBUS_ERR,		/* drive vbus error */
 };
