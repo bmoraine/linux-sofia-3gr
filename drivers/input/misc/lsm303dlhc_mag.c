@@ -457,7 +457,7 @@ static int lsm303dlhc_mag_get_data(struct lsm303dlhc_mag_status *stat, int *xyz)
 {
 	int err = -1;
 	/* Data bytes from hardware HxL, HxH, HyL, HyH, HzL, HzH */
-	u8 mag_data[6];
+	u8 mag_data[6] = { 0 };
 	/* x,y,z hardware data */
 	int hw_d[3] = { 0 };
 
@@ -676,8 +676,10 @@ static ssize_t attr_set_enable(struct device *dev,
 }
 
 static struct device_attribute attributes[] = {
-	__ATTR(pollrate_ms, 0666, attr_get_polling_rate, attr_set_polling_rate),
-	__ATTR(enable_device, 0666, attr_get_enable, attr_set_enable),
+	__ATTR(pollrate_ms, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			attr_get_polling_rate, attr_set_polling_rate),
+	__ATTR(enable_device, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			attr_get_enable, attr_set_enable),
 };
 
 static int create_sysfs_interfaces(struct device *dev)
