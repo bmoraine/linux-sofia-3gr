@@ -672,6 +672,8 @@ static ssize_t oct_write(struct file *p_file, const char __user *user_buffer,
 	mm_segment_t old_fs;
 	int result;
 	buffer = kmalloc(count+1, GFP_KERNEL);
+	if (!buffer)
+		return -ENOMEM;
 	result = copy_from_user(buffer, user_buffer, count);
 	if (result)
 		OCT_DBG("Error copy_from_user");
