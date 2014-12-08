@@ -325,7 +325,7 @@ void stop_this_cpu(void *dummy)
 	 * Remove this CPU:
 	 */
 	set_cpu_online(smp_processor_id(), false);
-	mv_stop_vcpu(mv_vcpu_id());
+	mv_stop_vcpu(smp_processor_id());
 	disable_local_APIC();
 
 	for (;;)
