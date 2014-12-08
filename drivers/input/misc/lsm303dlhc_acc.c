@@ -821,7 +821,7 @@ static int lsm303dlhc_acc_get_acceleration_data(
 {
 	int err = -1;
 	/* Data bytes from hardware xL, xH, yL, yH, zL, zH */
-	u8 acc_data[6];
+	u8 acc_data[6] = { 0 };
 	/* x,y,z hardware data */
 	s16 hw_d[3] = { 0 };
 
@@ -1252,11 +1252,14 @@ static ssize_t attr_get_threshold(struct device *dev,
 }
 
 static struct device_attribute attributes[] = {
-	__ATTR(pollrate_ms, 0666, attr_get_polling_rate, attr_set_polling_rate),
-	__ATTR(enable_device, 0666, attr_get_enable, attr_set_enable),
-	__ATTR(polling_threshold, S_IRUGO, attr_get_threshold,
-		attr_set_threshold),
-	__ATTR(dev_register, S_IRUGO, attr_show_registers, attr_set_register),
+	__ATTR(pollrate_ms, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			attr_get_polling_rate, attr_set_polling_rate),
+	__ATTR(enable_device, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			attr_get_enable, attr_set_enable),
+	__ATTR(polling_threshold, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			attr_get_threshold, attr_set_threshold),
+	__ATTR(dev_register, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			attr_show_registers, attr_set_register),
 };
 
 static int create_sysfs_interfaces(struct device *dev)
