@@ -68,7 +68,7 @@ const char *vm_command_line;
 struct vmm_shared_data *mv_gal_get_shared_data(void)
 {
 #ifdef VM_MULTIPLE_VCPUS
-	return vmm_shared_data[mv_vcpu_id()];
+	return vmm_shared_data[smp_processor_id()];
 #else
 	return vmm_shared_data[0];
 #endif
@@ -229,7 +229,7 @@ static int sofia_vmm_map_vcpu_shmem(void)
 		return -EINVAL;
 	}
 
-	vmm_shared_data[mv_vcpu_id()] = phys_to_virt((phys_addr_t)ptr);
+	vmm_shared_data[smp_processor_id()] = phys_to_virt((phys_addr_t)ptr);
 	pr_debug("ptr=0x%08X vmm_shared_data=0x%08X\n",
 		(unsigned int)ptr, (unsigned int)mv_gal_get_shared_data());
 
