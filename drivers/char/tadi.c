@@ -378,6 +378,8 @@ static ssize_t tadi_write(struct file *p_file, const char __user *user_buffer,
 
 	p_tadi_priv = (struct s_tadi_priv *)p_file->private_data;
 	buffer = kmalloc(count, GFP_KERNEL);
+	if (!buffer)
+		return -ENOMEM;
 	ret = copy_from_user(buffer, user_buffer, count);
 	if (ret)
 		pr_err("%s: %d have not been copied by copy_from_user\n",
@@ -399,6 +401,8 @@ int tadi_open(struct inode *p_inode, struct file *p_file)
 	/*pr_debug("Open fd: %x\n", (unsigned int) p_file);*/
 	/* allocate memory for .private_data */
 	p_file->private_data = kmalloc(sizeof(struct s_tadi_priv), GFP_KERNEL);
+	if (!p_file->private_data)
+		return -ENOMEM;
 
 	((struct s_tadi_priv *)p_file->private_data)->mt = INVALID_MSG_TYPE;
 	/*((struct s_tadi_priv *)p_file->private_data)->cmd = INVALID_CMD; */
@@ -441,12 +445,14 @@ static long tadi_ioctl(struct file *p_file, unsigned int cmnd,
 			&tadi_multiwrite,
 			(const void *)param,
 			sizeof(struct s_tadi_multi_write));
-	    tadi_multiwrite.handle = tadi_write_first_fifo(p_tadi_priv->mt);
-	    ret += copy_to_user(
+		tadi_multiwrite.handle = tadi_write_first_fifo(p_tadi_priv->mt);
+		ret += copy_to_user(
 			&((struct s_tadi_multi_write *)param)->handle,
 			&tadi_multiwrite.handle,
 			sizeof(tadi_multiwrite.handle));
 		buffer = kmalloc(tadi_multiwrite.len, GFP_KERNEL);
+		if (!buffer)
+			return -ENOMEM;
 		ret += copy_from_user(
 			buffer,
 			tadi_multiwrite.buff,
@@ -461,7 +467,7 @@ static long tadi_ioctl(struct file *p_file, unsigned int cmnd,
 		kfree(buffer);
 		break;
 	case CMD_WRITE_MUL_CONT:
-	    ret = copy_from_user(
+		ret = copy_from_user(
 			&tadi_multiwrite,
 			(const void *)param,
 			sizeof(struct s_tadi_multi_write));
@@ -471,7 +477,9 @@ static long tadi_ioctl(struct file *p_file, unsigned int cmnd,
 		}
 
 		buffer = kmalloc(tadi_multiwrite.len, GFP_KERNEL);
-	    ret += copy_from_user(buffer,
+		if (!buffer)
+			return -ENOMEM;
+		ret += copy_from_user(buffer,
 				tadi_multiwrite.buff, tadi_multiwrite.len);
 		tadi_write_cont_fifo(tadi_multiwrite.handle,
 						buffer,
@@ -491,7 +499,7 @@ static long tadi_ioctl(struct file *p_file, unsigned int cmnd,
 			break;
 		}
 		buffer = kmalloc(tadi_multiwrite.len, GFP_KERNEL);
-	    ret += copy_from_user(buffer,
+		ret += copy_from_user(buffer,
 				tadi_multiwrite.buff, tadi_multiwrite.len);
 		tadi_write_end_fifo(tadi_multiwrite.handle,
 						buffer,
@@ -508,7 +516,7 @@ static long tadi_ioctl(struct file *p_file, unsigned int cmnd,
 					__func__, ret);
 		break;
 	default:
-	    TADI_DBG(" Error - Invalid command\n");
+		TADI_DBG(" Error - Invalid command\n");
 		break;
 	}
 	return 0;
@@ -543,6 +551,8 @@ ssize_t tadi_aio_write(struct kiocb *iocb, const struct iovec *iov,
 			return -1;
 		}
 		buffer = kmalloc(iov[i].iov_len, GFP_KERNEL);
+		if (!buffer)
+			return -ENOMEM;
 		ret = copy_from_user(buffer, iov[i].iov_base, iov[i].iov_len);
 		if (ret)
 			pr_err("%s: %d have not been copied by copy_from_user\n",
