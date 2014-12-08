@@ -808,7 +808,7 @@ static ssize_t apds990x_store_enable_ps_sensor(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(enable_ps_sensor, 0777,
+static DEVICE_ATTR(enable_ps_sensor, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
 		apds990x_show_enable_ps_sensor,
 		apds990x_store_enable_ps_sensor);
 
@@ -915,7 +915,7 @@ static ssize_t apds990x_store_enable_als_sensor(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(enable_als_sensor, 0777,
+static DEVICE_ATTR(enable_als_sensor, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
 		apds990x_show_enable_als_sensor,
 		apds990x_store_enable_als_sensor);
 
@@ -945,7 +945,8 @@ static ssize_t apds990x_chip_id_show(struct device *dev,
 			"APDS990x proximity and light sensor", id);
 }
 
-static DEVICE_ATTR(chip_id, S_IRUGO, apds990x_chip_id_show, NULL);
+static DEVICE_ATTR(chip_id, S_IRUSR | S_IRGRP | S_IROTH,
+		apds990x_chip_id_show, NULL);
 
 static ssize_t apds990x_reg_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
@@ -1128,7 +1129,9 @@ static ssize_t apds990x_reg_set(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(reg, 0777, apds990x_reg_show, apds990x_reg_set);
+static DEVICE_ATTR(reg, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+		apds990x_reg_show,
+		apds990x_reg_set);
 
 static ssize_t apds990x_lux_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
@@ -1141,7 +1144,7 @@ static ssize_t apds990x_lux_show(struct device *dev,
 			data->als_gain, data->atime);
 }
 
-static DEVICE_ATTR(lux, S_IRUGO, apds990x_lux_show, NULL);
+static DEVICE_ATTR(lux, S_IRUSR | S_IRGRP | S_IROTH, apds990x_lux_show, NULL);
 
 static struct attribute *apds990x_attributes[] = {
 	&dev_attr_enable_ps_sensor.attr,
