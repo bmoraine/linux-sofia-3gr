@@ -32,7 +32,6 @@ enum iio_chan_type {
 	IIO_PRESSURE,
 	IIO_HUMIDITYRELATIVE,
 	IIO_RESISTANCE,
-	IIO_COMPOSITE,
 };
 
 enum iio_modifier {
@@ -84,6 +83,5 @@ enum iio_event_direction {
 #define IIO_VAL_INT_PLUS_MICRO_DB 4
 #define IIO_VAL_FRACTIONAL 10
 #define IIO_VAL_FRACTIONAL_LOG2 11
-#define IIO_VAL_COMPOSITE 20
 
 #endif /* _IIO_TYPES_H_ */

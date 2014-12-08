@@ -120,17 +120,9 @@ struct iio_channel
  * Note raw reads from iio channels are in adc counts and hence
  * scale will need to be applied if standard units required.
  */
-int iio_read_channel_raw(struct iio_channel *chan,
-				int *val);
 
-/**
- * iio_read_channel_raw_mask() - read from a given channel
- * @channel:            The channel being queried.
- * @val:                Value read back.
- * @mask:               Type of read
- */
-int iio_read_channel_raw_mask(struct iio_channel *chan,
-				int *val, long mask);
+int iio_read_channel_raw(struct iio_channel *chan,
+			 int *val);
 
 /**
  * iio_read_channel_processed() - read processed value from a given channel
@@ -148,15 +140,15 @@ int iio_read_channel_raw_mask(struct iio_channel *chan,
 int iio_read_channel_processed(struct iio_channel *chan, int *val);
 
 /**
- * iio_read_channel_raw_with_precision() - read composite values
+ * iio_channel_read() - read raw value
  * from a give channel.
  * @channel:           The channel being queried.
  * @val:               Value read back.
- * @val2:              Precision
+ * @val2:              value read back
+ * @info:              IIO channel type info
  */
-int iio_read_channel_composite_raw(struct iio_channel *chan,
-				   int *val,
-				   int *val2);
+int iio_channel_read(struct iio_channel *chan, int *val, int *val2,
+	enum iio_chan_info_enum info);
 
 /**
  * iio_get_channel_type() - get the type of a channel
