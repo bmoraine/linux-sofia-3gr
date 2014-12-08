@@ -50,7 +50,7 @@ struct pm_control_shared_data {
        volatile uint32_t prh_user_id;
        volatile uint32_t prh_per_id;
        volatile uint32_t prh_param[20];
-       volatile uint32_t pal_pow_sleep_disabled[4];
+       volatile uint32_t reserved0[4];
        volatile uint32_t vm_pow_state_param[20];
        volatile uint32_t vm_cpu_freq_param[20];
        volatile uint32_t prh_request_control_flag;
@@ -127,7 +127,8 @@ enum vmm_pm_opcode {
 	PM_REQ_FREQ_CHNG = 19,
 	PM_GSM_SLEEP_TIMER_START = 20,
 	PM_GSM_SLEEP_TIMER_STOP = 21,
-	PM_OPCODE_END = 22,
+	PM_GSM_SLEEP_FRAME_QUERY = 22,
+	PM_OPCODE_END = 23,
 };
 
 
