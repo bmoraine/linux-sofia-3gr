@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
 /* from mobilevisor/pal/inc/pal_interrupt_lines.h */
 /* We could have some misalignement in names w/ irq-vectors.h  */
 
