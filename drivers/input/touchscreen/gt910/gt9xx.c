@@ -334,7 +334,7 @@ static ssize_t gtp_ts_store_enable(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(enable, 0777,
+static DEVICE_ATTR(enable, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
 		gtp_ts_show_enable,
 		gtp_ts_store_enable);
 
