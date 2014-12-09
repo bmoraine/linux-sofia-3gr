@@ -391,6 +391,7 @@ tdip_pm_class:tdip_pm_class {
 _3g_subsys_pm_class:_3g_subsys_pm_class {
 	compatible = "intel,xgold_pm_class";
 	intel,name = "_3g_subsys_class";
+	intel,sync = < 0 0 0 >;
 	intel,states-names =
 		"disable",
 		"enable",
