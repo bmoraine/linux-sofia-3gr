@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/mmc/host.h>
+#include <linux/pm_runtime.h>
 #include "sdhci-pltfm.h"
 #include "sdhci-of-imc.h"
 #include <linux/of_address.h>
@@ -308,6 +309,14 @@ bool xgold_sdhci_get_io_master(struct device_node *np)
 	return SCU_IO_ACCESS_BY_LNX;
 }
 
+bool xgold_sdhci_is_rpm_enabled(struct device_node *np)
+{
+	u32 rpm_enabled;
+	if (of_property_read_u32(np, "intel,rpm_enabled", &rpm_enabled))
+		return !!rpm_enabled;
+	return 0;
+}
+
 static int xgold_sdhci_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -334,6 +343,7 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no address base for tap values\n");
 
 	mmc_pdata->io_master = xgold_sdhci_get_io_master(np);
+	mmc_pdata->rpm_enabled = xgold_sdhci_is_rpm_enabled(np);
 	if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_LNX)
 		scu_base = devm_ioremap(&pdev->dev, res.start,
 				resource_size(&res));
@@ -486,6 +496,16 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	sdhci_xgold_pdata.quirks |= quirktab[0];
 	sdhci_xgold_pdata.quirks2 |= quirktab[1];
 	ret = sdhci_pltfm_register(pdev, &sdhci_xgold_pdata, 0);
+
+	/* enable runtime pm support per slot */
+	if (mmc_pdata->rpm_enabled) {
+		pm_runtime_put_noidle(&pdev->dev);
+		pm_runtime_allow(&pdev->dev);
+		pm_runtime_set_autosuspend_delay(&pdev->dev, 50);
+		pm_runtime_use_autosuspend(&pdev->dev);
+		pm_suspend_ignore_children(&pdev->dev, 1);
+	}
+
 err_end:
 	return ret;
 }
@@ -533,6 +553,17 @@ static struct device_state_pm_state *xgold_sdhci_ctrl_get_initial_state(
 
 static int xgold_sdhci_remove(struct platform_device *pdev)
 {
+	struct xgold_mmc_pdata *mmc_pdata =
+		(struct xgold_mmc_pdata *)pdev->dev.platform_data;
+
+	if (mmc_pdata && mmc_pdata->rpm_enabled) {
+		pm_runtime_forbid(&pdev->dev);
+		pm_runtime_get_noresume(&pdev->dev);
+	} else {
+		pr_err("platform data not found.\n");
+		return -EINVAL;
+	}
+
 	return sdhci_pltfm_unregister(pdev);
 }
 

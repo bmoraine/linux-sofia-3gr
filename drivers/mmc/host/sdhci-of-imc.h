@@ -30,6 +30,7 @@ struct xgold_mmc_pdata {
 	struct device_pm_platdata *pm_platdata_clock_ctrl;
 	struct regulator *regulator;
 #endif
+	bool rpm_enabled;
 };
 
 
