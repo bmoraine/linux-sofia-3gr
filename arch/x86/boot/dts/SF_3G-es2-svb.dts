@@ -29,7 +29,7 @@
 		compatible = "intel,xgold-cpufreq";
 		clocks = <&clk_cpu>,<&MUX_CPU>,<&B_0_1>,<&G_0_1>;
 		clock-names = "core","mux","pll","bank";
-		intel,cpufreq-table = <416000 728000 1040000>;
+		intel,cpufreq-table = <312000 416000 728000>;
 		intel,clock_latency = <350000>;
 		#address-cells = < 0 >;
 		interrupts = < 0 >;
