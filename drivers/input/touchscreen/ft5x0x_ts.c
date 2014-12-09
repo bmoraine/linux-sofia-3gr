@@ -395,7 +395,7 @@ static ssize_t ft5x0x_ts_store_enable(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(enable, 0777,
+static DEVICE_ATTR(enable, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
 		ft5x0x_ts_show_enable,
 		ft5x0x_ts_store_enable);
 
@@ -524,7 +524,8 @@ static u16 ft5x0x_convert_x(struct i2c_client *client, u16 value)
 		(ft5x0x_pdata->x_pos_max - ft5x0x_pdata->x_pos_min);
 }
 
-static bool ft5x0x_check_position(struct i2c_client *client, u16 x_val, u16 y_val)
+static bool ft5x0x_check_position(struct i2c_client *client,
+		u16 x_val, u16 y_val)
 {
 	struct ft5x0x_ts_platform_data *ft5x0x_pdata =
 			client->dev.platform_data;
@@ -596,6 +597,7 @@ static int ft5x0x_read_data(struct i2c_client *client)
 		event->touch_ID5 = (s16) (buf[0x1D] & 0xF0) >> 4;
 		if (status == 1)
 			ft5x0x_ts_release(client);
+		/* fallthrough */
 	case 4:
 		event->x4 = (s16) (buf[0x15] & 0x0F) << 8 | (s16) buf[0x16];
 		event->y4 = (s16) (buf[0x17] & 0x0F) << 8 | (s16) buf[0x18];
@@ -603,6 +605,7 @@ static int ft5x0x_read_data(struct i2c_client *client)
 		event->touch_ID4 = (s16) (buf[0x17] & 0xF0) >> 4;
 		if (status == 1)
 			ft5x0x_ts_release(client);
+		/* fallthrough */
 	case 3:
 		event->x3 = (s16) (buf[0x0f] & 0x0F) << 8 | (s16) buf[0x10];
 		event->y3 = (s16) (buf[0x11] & 0x0F) << 8 | (s16) buf[0x12];
@@ -610,6 +613,7 @@ static int ft5x0x_read_data(struct i2c_client *client)
 		event->touch_ID3 = (s16) (buf[0x11] & 0xF0) >> 4;
 		if (status == 1)
 			ft5x0x_ts_release(client);
+		/* fallthrough */
 	case 2:
 		event->x2 = (s16) (buf[9] & 0x0F) << 8 | (s16) buf[10];
 		event->y2 = (s16) (buf[11] & 0x0F) << 8 | (s16) buf[12];
@@ -617,6 +621,7 @@ static int ft5x0x_read_data(struct i2c_client *client)
 		event->touch_ID2 = (s16) (buf[0x0b] & 0xF0) >> 4;
 		if (status == 1)
 			ft5x0x_ts_release(client);
+		/* fallthrough */
 	case 1:
 		event->x1 = (s16) (buf[3] & 0x0F) << 8 | (s16) buf[4];
 		event->y1 = (s16) (buf[5] & 0x0F) << 8 | (s16) buf[6];
@@ -673,6 +678,7 @@ static void ft5x0x_report_value(struct i2c_client *client)
 					event->x5, event->y5);
 			nbreport++;
 		}
+		/* fallthrough */
 	case 4:
 		if (ft5x0x_check_position(client, event->x4, event->y4)) {
 			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
@@ -690,6 +696,7 @@ static void ft5x0x_report_value(struct i2c_client *client)
 					event->x4, event->y4);
 			nbreport++;
 		}
+		/* fallthrough */
 	case 3:
 		if (ft5x0x_check_position(client, event->x3, event->y3)) {
 			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
@@ -707,6 +714,7 @@ static void ft5x0x_report_value(struct i2c_client *client)
 					event->x3, event->y3);
 			nbreport++;
 		}
+		/* fallthrough */
 	case 2:
 		if (ft5x0x_check_position(client, event->x2, event->y2)) {
 			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
@@ -724,6 +732,7 @@ static void ft5x0x_report_value(struct i2c_client *client)
 					event->x2, event->y2);
 			nbreport++;
 		}
+		/* fallthrough */
 	case 1:
 		key_value = ft5x0x_is_button(client, event->x1, event->y1);
 		if (key_value) {
@@ -736,7 +745,8 @@ static void ft5x0x_report_value(struct i2c_client *client)
 			spin_unlock_irqrestore(&data->btn_lock, flags);
 			dev_dbg(&client->dev, "*** x1 = %d, y1 = %d ***\n",
 					event->x1, event->y1);
-		} else if (ft5x0x_check_position(client, event->x1, event->y1)) {
+		} else if (ft5x0x_check_position(client,
+					event->x1, event->y1)) {
 			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
 					 event->touch_ID1);
 			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
@@ -752,6 +762,7 @@ static void ft5x0x_report_value(struct i2c_client *client)
 					event->x1, event->y1);
 			nbreport++;
 		}
+		/* fallthrough */
 	default:
 		dev_dbg(&client->dev, "touch_point default\n");
 		break;
@@ -858,14 +869,17 @@ out:
 }
 
 #ifdef CONFIG_PM
-static int ft5x0x_ts_suspend(struct i2c_client *client, pm_message_t mesg)
+static int ft5x0x_ts_suspend(struct device *dev)
 {
+	struct i2c_client *client = to_i2c_client(dev);
+
 	dev_dbg(&client->dev, "%s\n", __func__);
 	return ft5x0x_ts_power_off(client);
 }
 
-static int ft5x0x_ts_resume(struct i2c_client *client)
+static int ft5x0x_ts_resume(struct device *dev)
 {
+	struct i2c_client *client = to_i2c_client(dev);
 	int ret;
 
 	dev_dbg(&client->dev, "%s\n", __func__);
@@ -878,7 +892,16 @@ static int ft5x0x_ts_resume(struct i2c_client *client)
 
 	return ft5x06_ts_reset(client, false);
 }
+#else
+
+#define ft5x0x_ts_suspend	NULL
+#define ft5x0x_ts_resume	NULL
+
 #endif /* CONFIG_PM */
+
+static const struct dev_pm_ops ft5x0x_ts_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(ft5x0x_ts_suspend, ft5x0x_ts_resume)
+};
 
 static int ft5x0x_ts_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
@@ -1093,11 +1116,10 @@ static struct i2c_driver ft5x0x_ts_driver = {
 	.probe = ft5x0x_ts_probe,
 	.remove = ft5x0x_ts_remove,
 	.id_table = ft5x0x_ts_id,
-	.suspend = ft5x0x_ts_suspend,
-	.resume = ft5x0x_ts_resume,
 	.driver = {
 		.name = FT5X0X_NAME,
 		.owner = THIS_MODULE,
+		.pm = &ft5x0x_ts_pm,
 	},
 };
 
