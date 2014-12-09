@@ -286,7 +286,7 @@ battery_write(struct rk818 *rk818, u8 reg, u8 const buf[], unsigned len)
 	return ret;
 }
 
-/*static void dump_gauge_register(struct battery_info *di)
+static void dump_gauge_register(struct battery_info *di)
 {
 	int i = 0;
 	char buf;
@@ -296,9 +296,9 @@ battery_write(struct rk818 *rk818, u8 reg, u8 const buf[], unsigned len)
 		DBG(" the register is  0x%02x, the value is 0x%02x\n ", i, buf);
 	}
 	DBG("demp end!\n");
-}*/
+}
 
-/*static void dump_charger_register(struct battery_info *di)
+static void dump_charger_register(struct battery_info *di)
 {
 
 	int i = 0;
@@ -310,7 +310,7 @@ battery_write(struct rk818 *rk818, u8 reg, u8 const buf[], unsigned len)
 	}
 	DBG("demp end!\n");
 
-}*/
+}
 
 #define BATT_NUM  11
 
@@ -1157,7 +1157,7 @@ rk818_battery_usb_get_property(struct power_supply *psy,
 
 static void set_charge_current(struct battery_info *di, int charge_current);
 
-/*static int rk818_enable_charging(struct battery_info *di, bool enable)
+static int rk818_enable_charging(struct battery_info *di, bool enable)
 {
 	u8 chr_reg;
 
@@ -1172,7 +1172,7 @@ static void set_charge_current(struct battery_info *di, int charge_current);
 	battery_write(di->rk818, CHRG_CTRL_REG1, &chr_reg, 1);
 
 	return 0;
-}*/
+}
 
 static int
 rk818_battery_usb_set_property(struct power_supply *psy,
@@ -2489,7 +2489,7 @@ int battery_notifier_call_chain(unsigned long val)
 		== NOTIFY_BAD) ? -EINVAL : 0;
 }
 EXPORT_SYMBOL_GPL(battery_notifier_call_chain);
-#if 0
+
 static void poweron_lowerpoer_handle(struct battery_info *di)
 {
 
@@ -2501,8 +2501,8 @@ static void poweron_lowerpoer_handle(struct battery_info *di)
 	}
 #endif
 }
-#endif
-/*static int
+
+static int
 battery_notifier_call(struct notifier_block *nb,
 		      unsigned long event, void *data)
 {
@@ -2533,7 +2533,7 @@ battery_notifier_call(struct notifier_block *nb,
 		return NOTIFY_OK;
 	}
 	return NOTIFY_OK;
-}*/
+}
 
 int count = 0;
 static void disable_vbat_low_irq(struct battery_info *di)
