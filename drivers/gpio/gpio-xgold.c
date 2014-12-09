@@ -24,7 +24,7 @@
 #define gpio_err(fmt, arg...)	pr_err("gpio: "  fmt, ##arg)
 #define gpio_info(fmt, arg...)	pr_info("gpio: "  fmt, ##arg)
 #define gpio_dbg(fmt, arg...)	pr_debug("gpio: "  fmt, ##arg)
-#define MAX_GPIO_IRQS		32
+#define MAX_GPIO_IRQS		16
 
 struct xgold_pcl_field {
 	char *name;
@@ -145,7 +145,8 @@ static int xgold_gpio_direction_output(struct gpio_chip *chip, unsigned offset,
 
 static int xgold_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
-	u32 i, eint = -1, irq;
+	u32 i, irq;
+	int eint = -1;
 	struct xgold_pcl_gpio *xgold_gpio = to_xgold_pcl_gpio(chip);
 	struct irq_domain *domain = xgold_irq_eint_get_domain();
 
@@ -155,6 +156,7 @@ static int xgold_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 			break;
 		}
 	}
+
 	if (eint < 0) {
 		pr_err("%s: Can't bind gpio to interrupt\n", __func__);
 		return -EINVAL;
@@ -195,7 +197,7 @@ static int xgold_gpio_probe(struct platform_device *pdev)
 	u32 ngpios;
 	struct resource *res;
 	u32 array[3], i;
-	u32 tab_irq[MAX_GPIO_IRQS];
+	u32 tab_irq[2 * MAX_GPIO_IRQS];
 
 	struct xgold_pcl_gpio *xgold_gpio;
 	/* find pinctrl node devicetree */
@@ -235,7 +237,7 @@ static int xgold_gpio_probe(struct platform_device *pdev)
 		}
 		if (xgold_gpio->nirqs > 0) {
 			ret = of_property_read_u32_array(np, GPIO_TO_IRQ,
-				&tab_irq[0], xgold_gpio->nirqs*2);
+				&tab_irq[0], xgold_gpio->nirqs * 2);
 			if (ret) {
 				gpio_err("error parsing %s property table\n",
 					GPIO_TO_IRQ);
@@ -243,8 +245,8 @@ static int xgold_gpio_probe(struct platform_device *pdev)
 			}
 		}
 		for (i = 0; i < xgold_gpio->nirqs; i++) {
-			xgold_gpio->gpio_irq[i].gpio = tab_irq[i*2];
-			xgold_gpio->gpio_irq[i].irq = tab_irq[i*2+1];
+			xgold_gpio->gpio_irq[i].gpio = tab_irq[i * 2];
+			xgold_gpio->gpio_irq[i].irq = tab_irq[i * 2 + 1];
 		}
 		pchip->to_irq = xgold_gpio_to_irq;
 	}
