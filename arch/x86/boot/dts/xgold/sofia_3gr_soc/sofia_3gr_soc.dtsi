@@ -188,7 +188,7 @@
 					reg = <0xE1000000 0x1000000>;
 					usif1:usif1{
 						#address-cells = < 0 >;
-						compatible = "intel,usif-serial";
+						/* compatible = "intel,usif-serial"; */
 						reg = <0xE1100000 0x100000>;
 						intel,serial-port = < 0 >;
 						wakeup-source;
@@ -212,7 +212,7 @@
 					};
 
 					usif2:usif2{
-						/* compatible = "intel,usif-serial"; */
+						compatible = "intel,usif-serial";
 						#address-cells = <0>;
 						reg = <0xE1200000 0x100000>;
 						interrupts = <0 1>;
