@@ -32,30 +32,23 @@
 #include <linux/platform_device.h>
 #include <sofia/vmm_pmic.h>
 
-
 #if 0
-#define DBG(fmt, arg...) \
-	pr_debug("RK818: " fmt, ##arg)
+#define DBG(x...)	pr_info(x)
 #else
 #define DBG(x...)
 #endif
-
 #define PM_CONTROL
 
 struct rk818 *g_rk818;
 
 static struct mfd_cell rk818s[] = {
 	{
-		.name = "rk818-rtc",
-	},
+	 .name = "rk818-rtc",
+	 },
 
 	{
-		.name = "rk818-battery",
-	},
-	/*	{
-		.name = "rk818-power",
-	},
-	*/
+	 .name = "rk818-battery",
+	 },
 };
 
 #define RK818_VMM_I2C_ADDR (0x1c << 24)
@@ -77,7 +70,7 @@ int rk818_i2c_read(struct rk818 *rk818, u8 reg, int count, u8 *dest)
 }
 EXPORT_SYMBOL_GPL(rk818_i2c_read);
 
-int rk818_i2c_write(struct rk818 *rk818, u8 reg, int count,  u8 src)
+int rk818_i2c_write(struct rk818 *rk818, u8 reg, int count, u8 src)
 {
 	int err = 0;
 	uint32_t vmm_reg_address = RK818_VMM_I2C_ADDR | reg;
@@ -165,7 +158,7 @@ out:
 EXPORT_SYMBOL_GPL(rk818_clear_bits);
 
 static inline int rk818_set_pinctrl_state(struct pinctrl *pinctrl,
-		struct pinctrl_state *state)
+					  struct pinctrl_state *state)
 {
 	int ret = 0;
 
@@ -180,62 +173,80 @@ static inline int rk818_set_pinctrl_state(struct pinctrl *pinctrl,
 
 #if 1
 static ssize_t rk818_test_store(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf, size_t n)
+				struct kobj_attribute *attr,
+				const char *buf, size_t n)
 {
 	u32 getdata[8];
-	u16 regaddr;
+	u16 regAddr;
 	u8 data;
+	int ret;
 	char cmd;
 	const char *buftmp = buf;
 	struct rk818 *rk818 = g_rk818;
 	/**
 	* W Addr(8Bit) regAddr(8Bit) data0(8Bit) data1(8Bit) data2(8Bit) data3(8Bit)
-	*		:data can be less than 4 byte
+	* data can be less than 4 byte
 	* R regAddr(8Bit)
 	* C gpio_name(poweron/powerhold/sleep/boot0/boot1) value(H/L)
 	*/
-	regaddr = (u16)(getdata[0] & 0xff);
+	regAddr = (u16) (getdata[0] & 0xff);
 	if (strncmp(buf, "start", 5) == 0) {
-		} else if (strncmp(buf, "stop", 4 == 0)) {
-			} else {
-		if (sscanf(buftmp, "%c ", &cmd) != 1)
-			return -EINVAL;
+		DBG("start\n");
+	} else if (strncmp(buf, "stop", 4 == 0)) {
+		DBG("stop\n");
+	} else {
+		ret = sscanf(buftmp, "%c ", &cmd);
 		pr_info("------zhangqing: get cmd = %c\n", cmd);
 		switch (cmd) {
+
 		case 'w':
-if (sscanf(buftmp, "%c %x %x ", &cmd, &getdata[0], &getdata[1]) != 3)
-			return -EINVAL;
-		regaddr = (u16)(getdata[0] & 0xff);
-		data = (u8)(getdata[1] & 0xff);
-		pr_info("get value = %x\n", data);
+			ret = sscanf(buftmp, "%c %x %x ", &cmd, &getdata[0],
+			       &getdata[1]);
+			regAddr = (u16) (getdata[0] & 0xff);
+			data = (u8) (getdata[1] & 0xff);
+			pr_info("get value = %x\n", data);
 
-		rk818_i2c_write(rk818, regaddr, 1, data);
-		rk818_i2c_read(rk818, regaddr, 1, &data);
-		pr_info("%x   %x\n", getdata[1], data);
+			rk818_i2c_write(rk818, regAddr, 1, data);
+			rk818_i2c_read(rk818, regAddr, 1, &data);
+			pr_info("%x   %x\n", getdata[1], data);
 
-		break;
+			break;
 
 		case 'r':
-		if (sscanf(buftmp, "%c %x ", &cmd, &getdata[0]) != 2)
-			return -EINVAL;
-		pr_info("CMD : %c %x\n", cmd, getdata[0]);
+			ret = sscanf(buftmp, "%c %x ", &cmd, &getdata[0]);
+			pr_info("CMD : %c %x\n", cmd, getdata[0]);
 
-		regaddr = (u16)(getdata[0] & 0xff);
-		rk818_i2c_read(rk818, regaddr, 1, &data);
-		pr_info("%x %x\n", getdata[0], data);
+			regAddr = (u16) (getdata[0] & 0xff);
+			rk818_i2c_read(rk818, regAddr, 1, &data);
+			pr_info("%x %x\n", getdata[0], data);
 
-		break;
+			break;
+
+		case 't':
+			ret = sscanf(buftmp, "%c %x ", &cmd, &getdata[0]);
+			pr_info("CMD : %c %x\n", cmd, getdata[0]);
+			if (getdata[0] == 1) {
+				rk818->bat_test_mode = 1;
+				pr_info(
+					"You open battery test mode, capacity will always report fixed value\n"
+					);
+			} else{
+				rk818->bat_test_mode = 0;
+				pr_info("close battery test mode\n");
+			}
+			break;
 
 		default:
-		pr_info("Unknown command\n");
-		break;
+			pr_info("Unknown command\n");
+			break;
 		}
 	}
 	return n;
 
 }
+
 static ssize_t rk818_test_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
+			       struct kobj_attribute *attr, char *buf)
 {
 	char *s = buf;
 	buf = "hello";
@@ -244,25 +255,26 @@ static ssize_t rk818_test_show(struct kobject *kobj,
 
 static struct kobject *rk818_kobj;
 struct rk818_attribute {
-	struct attribute	attr;
-	ssize_t (*show)(struct kobject *kobj, struct kobj_attribute *attr,
-			char *buf);
-	ssize_t (*store)(struct kobject *kobj, struct kobj_attribute *attr,
-			const char *buf, size_t n);
+	struct attribute attr;
+	 ssize_t (*show)(struct kobject *kobj, struct kobj_attribute *attr,
+			 char *buf);
+	 ssize_t (*store)(struct kobject *kobj, struct kobj_attribute *attr,
+			  const char *buf, size_t n);
 };
 
 static struct rk818_attribute rk818_attrs[] = {
-	/*  node_name,permision,show_func,store_func */
+	/*node_name   permision   show_func   store_func */
 	__ATTR(rk818_test, S_IRUGO | S_IWUSR, rk818_test_show,
-			rk818_test_store),
+	       rk818_test_store),
 };
 #endif
 
 #ifdef CONFIG_OF
 static struct of_device_id rk818_of_match[] = {
-	{ .compatible = "rockchip,rk818"},
-	{ },
+	{.compatible = "rockchip,rk818"},
+	{},
 };
+
 MODULE_DEVICE_TABLE(of, rk818_of_match);
 #endif
 
@@ -283,25 +295,22 @@ static struct rk818_board *rk818_parse_dt(struct rk818 *rk818)
 
 	/* pinctrl */
 	/*pdata->pinctrl = devm_pinctrl_get(rk818->dev);
-	if (IS_ERR(pdata->pinctrl)) {
-		PTR_ERR(pdata->pinctrl);
-		dev_err(rk818->dev, "could not get pinctrl\n");
-	}
-
-	pdata->pins_default = pinctrl_lookup_state(
-			pdata->pinctrl, PINCTRL_STATE_DEFAULT);
-	if (IS_ERR(pdata->pins_default))
-		dev_err(rk818->dev, "could not get default pinstate\n");
-
-	pdata->pins_sleep = pinctrl_lookup_state(
-			pdata->pinctrl, PINCTRL_STATE_SLEEP);
-	if (IS_ERR(pdata->pins_sleep))
-		dev_err(rk818->dev, "could not get sleep pinstate\n");
-
-	pdata->pins_inactive = pinctrl_lookup_state(
-			pdata->pinctrl, "inactive");
-	if (IS_ERR(pdata->pins_inactive))
-		dev_err(rk818->dev, "could not get inactive pinstate\n");*/
+	 * if (IS_ERR(pdata->pinctrl)) {
+	 * PTR_ERR(pdata->pinctrl);
+	 * dev_err(rk818->dev, "could not get pinctrl\n");
+	 * }
+	 * pdata->pins_default = pinctrl_lookup_state(
+	 * pdata->pinctrl, PINCTRL_STATE_DEFAULT);
+	 * if (IS_ERR(pdata->pins_default))
+	 * dev_err(rk818->dev, "could not get default pinstate\n");
+	 * pdata->pins_sleep = pinctrl_lookup_state(
+	 * pdata->pinctrl, PINCTRL_STATE_SLEEP);
+	 * if (IS_ERR(pdata->pins_sleep))
+	 * dev_err(rk818->dev, "could not get sleep pinstate\n");
+	 * pdata->pins_inactive = pinctrl_lookup_state(
+	 * pdata->pinctrl, "inactive");
+	 * if (IS_ERR(pdata->pins_inactive))
+	 * dev_err(rk818->dev, "could not get inactive pinstate\n"); */
 
 	pdata->irq = irq_of_parse_and_map(rk818_pmic_np, 0);
 	pr_info("rk818 irq number: %d\n", pdata->irq);
@@ -323,18 +332,25 @@ void rk818_device_shutdown(void)
 
 	pr_info("%s\n", __func__);
 	/*close rtc int when power off*/
-	ret = rk818_set_bits(rk818, RK818_INT_STS_MSK_REG1, (0x3<<5), (0x3<<5));
-	/*close rtc int when power off*/
-	ret = rk818_clear_bits(rk818, RK818_RTC_INT_REG, (0x3<<2));
+	ret = rk818_set_bits(rk818, RK818_INT_STS_MSK_REG1,
+			(0x3 << 5), (0x3 << 5));
+	ret = rk818_clear_bits(rk818, RK818_RTC_INT_REG, (0x3 << 2));
 	ret = rk818_reg_read(rk818, RK818_DEVCTRL_REG);
-	ret = rk818_set_bits(rk818, RK818_DEVCTRL_REG, (0x1<<0), (0x1<<0));
+	ret = rk818_set_bits(rk818, RK818_DEVCTRL_REG, (0x1 << 0), (0x1 << 0));
+	/*ret = rk818_set_bits(rk818, RK818_DEVCTRL_REG,(0x1<<4),(0x1<<4));*/
 	if (ret < 0)
 		pr_err("rk818 power off error!\n");
 }
 EXPORT_SYMBOL_GPL(rk818_device_shutdown);
 
-__weak void  rk818_device_suspend(void) {}
-__weak void  rk818_device_resume(void) {}
+__weak void rk818_device_suspend(void)
+{
+}
+
+__weak void rk818_device_resume(void)
+{
+}
+
 #ifdef CONFIG_PM
 static int rk818_suspend(struct platform_device *client, pm_message_t mesg)
 {
@@ -365,11 +381,11 @@ static int rk818_pre_init(struct rk818 *rk818)
 	pr_info("%s,line=%d\n", __func__, __LINE__);
 
 	/*close charger when usb low then 3.4V*/
-	ret = rk818_set_bits(rk818, 0xa1, (0x7<<4), (0x7<<4));
+	ret = rk818_set_bits(rk818, 0xa1, (0x7 << 4), (0x7 << 4));
 	/*no action when vref*/
-	ret = rk818_set_bits(rk818, 0x52, (0x1<<1), (0x1<<1));
+	ret = rk818_set_bits(rk818, 0x52, (0x1 << 1), (0x1 << 1));
 
-	/*set vbat low*/
+	/****************set vbat low **********/
 	val = rk818_reg_read(rk818, RK818_VB_MON_REG);
 	val &= (~(VBAT_LOW_VOL_MASK | VBAT_LOW_ACT_MASK));
 	val |= (RK818_VBAT_LOW_3V5 | EN_VBAT_LOW_IRQ);
@@ -378,34 +394,33 @@ static int rk818_pre_init(struct rk818 *rk818)
 		pr_err("Unable to write RK818_VB_MON_REG reg\n");
 		return ret;
 	}
+	/**************************************/
 
-	/*mask int*/
+	/**********mask int****************/
 	val = rk818_reg_read(rk818, RK818_INT_STS_MSK_REG1);
-	/*mask vout_lo_int*/
-	val |= (0x1<<0);
+	val |= (0x1 << 0);	/*mask vout_lo_int*/
 	ret = rk818_reg_write(rk818, RK818_INT_STS_MSK_REG1, val);
 	if (ret < 0) {
 		pr_err("Unable to write RK818_INT_STS_MSK_REG1 reg\n");
 		return ret;
 	}
+	/**********enable clkout2****************/
+	ret = rk818_reg_write(rk818, RK818_CLK32OUT_REG, 0x01);
+	if (ret < 0) {
+		pr_err("Unable to write RK818_CLK32OUT_REG reg\n");
+		return ret;
+	}
 
-	/*enable clkout2*/
-		ret = rk818_reg_write(rk818, RK818_CLK32OUT_REG, 0x01);
-		if (ret < 0) {
-				pr_err("Unable to write RK818_CLK32OUT_REG reg\n");
-				return ret;
-		}
-
-	ret = rk818_clear_bits(rk818, RK818_INT_STS_MSK_REG1, (0x3<<5));
 	/*open rtc int when power on*/
-	ret = rk818_set_bits(rk818, RK818_RTC_INT_REG, (0x1<<3), (0x1<<3));
+	ret = rk818_clear_bits(rk818, RK818_INT_STS_MSK_REG1, (0x3 << 5));
+	ret = rk818_set_bits(rk818, RK818_RTC_INT_REG, (0x1 << 3), (0x1 << 3));
 	return 0;
 }
 
 int rk818_remap_ioset(int pin, int value)
 {
 	unsigned int *vadd;
-	vadd = (unsigned long)ioremap_nocache(0xE4600200, 0x1000);
+	vadd = (unsigned long) ioremap_nocache(0xE4600200, 0x1000);
 
 	iowrite32(value, vadd + pin);
 
@@ -420,12 +435,14 @@ static int rk818_probe(struct platform_device *client)
 	int ret, i = 0;
 
 	rk818_remap_ioset(50, 0x3004);
-	pr_info("%s,line=%d, hard code for INT pull up\n", __func__, __LINE__);
+	pr_info("%s,line=%d, here we add a hard code to make INT pull up\n",
+	       __func__, __LINE__);
 
 	if (client->dev.of_node) {
 		match = of_match_device(rk818_of_match, &client->dev);
 		if (!match) {
-			dev_err(&client->dev, "Failed to find matching dt id\n");
+			dev_err(&client->dev,
+				"Failed to find matching dt id\n");
 			return -EINVAL;
 		}
 	}
@@ -453,20 +470,17 @@ static int rk818_probe(struct platform_device *client)
 	}
 	if (rk818->dev->of_node)
 		pdev = rk818_parse_dt(rk818);
-	/*rk818_set_pinctrl_state(pdev->pinctrl, pdev->pins_default);*/
 
 	ret = rk818_irq_init(rk818, PARAMETER_NO_USE, pdev);
 	if (ret < 0)
 		goto err;
 	ret = mfd_add_devices(rk818->dev, -1,
-			      rk818s, ARRAY_SIZE(rk818s),
-			      NULL, 0, NULL);
+			      rk818s, ARRAY_SIZE(rk818s), NULL, 0, NULL);
 
 	g_rk818 = rk818;
-	if (pdev->pm_off && !pm_power_off)
+	if (!pm_power_off)
 		pm_power_off = rk818_device_shutdown;
-
-	#if 1
+#if 1
 	rk818_kobj = kobject_create_and_add("rk818", NULL);
 	if (!rk818_kobj)
 		return -ENOMEM;
@@ -477,7 +491,7 @@ static int rk818_probe(struct platform_device *client)
 			return ret;
 		}
 	}
-	#endif
+#endif
 
 	return 0;
 
@@ -487,7 +501,7 @@ err:
 
 }
 
-static int  rk818_remove(struct platform_device *client)
+static int rk818_remove(struct platform_device *client)
 {
 	struct rk818 *rk818 = dev_get_drvdata(&client->dev);
 
@@ -499,16 +513,16 @@ static int  rk818_remove(struct platform_device *client)
 
 static struct platform_driver rk818_platform_driver = {
 	.driver = {
-		.name = "rk818",
-		.owner = THIS_MODULE,
-		.of_match_table = of_match_ptr(rk818_of_match),
-	},
-	.probe    = rk818_probe,
-	.remove   = rk818_remove,
-	#ifdef CONFIG_PM
-	.suspend	= rk818_suspend,
-	.resume		= rk818_resume,
-	#endif
+		   .name = "rk818",
+		   .owner = THIS_MODULE,
+		   .of_match_table = of_match_ptr(rk818_of_match),
+		   },
+	.probe = rk818_probe,
+	.remove = rk818_remove,
+#ifdef CONFIG_PM
+	.suspend = rk818_suspend,
+	.resume = rk818_resume,
+#endif
 };
 
 static int __init rk818_module_init(void)
@@ -520,15 +534,15 @@ static int __init rk818_module_init(void)
 	return ret;
 }
 
-subsys_initcall_sync(rk818_module_init);
+late_initcall(rk818_module_init);
 
 static void __exit rk818_module_exit(void)
 {
 	platform_driver_unregister(&rk818_platform_driver);
 }
+
 module_exit(rk818_module_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("zhangqing <zhangqing@rock-chips.com>");
 MODULE_DESCRIPTION("rk818 PMIC driver");
-

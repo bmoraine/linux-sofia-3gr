@@ -24,46 +24,9 @@
 #include <linux/irqdomain.h>
 #include <linux/regmap.h>
 
-#define VOUT_LO_INT 0
-#define VB_LO_INT 296
-#define PWRON_INT 0
-#define PWRON_LP_INT 0
-#define HOTDIE_INT 0
-#define RTC_ALARM_INT 0
-#define RTC_PERIOD_INT 0
-#define USB_OV_INT 0
-
-#define PLUG_IN_INT 297
-#define PLUG_OUT_INT 298
-#define CHGOK_INT 0
-#define CHGTE_INT 0
-#define CHGTS1_INT 0
-#define TS2_INT 0
-#define CHG_CVTLIM_INT 0
-#define DISCHG_ILIM_INT 0
-static int rk818_irq_num[16] = {
-VOUT_LO_INT,
-VB_LO_INT,
-PWRON_INT,
-PWRON_LP_INT,
-HOTDIE_INT,
-RTC_ALARM_INT,
-RTC_PERIOD_INT,
-USB_OV_INT,
-PLUG_IN_INT,
-PLUG_OUT_INT,
-CHGOK_INT,
-CHGTE_INT,
-CHGTS1_INT,
-TS2_INT,
-CHG_CVTLIM_INT,
-DISCHG_ILIM_INT
-};
-
-static inline int irq_to_rk818_irq(struct rk818 *rk818,
-							int irq)
+static inline int irq_to_rk818_irq(struct rk818 *rk818, int irq)
 {
-	return irq - rk818->chip_irq;
+	return irq - rk818->irq_base;
 }
 
 /*
@@ -96,7 +59,7 @@ static irqreturn_t rk818_irq(int irq, void *irq_data)
 
 	irq_sts &= ~irq_mask;
 
-	pr_debug("irq_sts = 0x%2x, irq_mask = 0x%2x\n", irq_sts, irq_mask);
+	pr_info("irq_sts = 0x%2x, irq_mask = 0x%2x\n", irq_sts, irq_mask);
 
 	if (!irq_sts) {
 		wake_unlock(&rk818->irq_wake);
@@ -108,7 +71,7 @@ static irqreturn_t rk818_irq(int irq, void *irq_data)
 		if (!(irq_sts & (1 << i)))
 			continue;
 
-		handle_nested_irq(rk818_irq_num[i]);
+		handle_nested_irq(rk818->irq_base + i);
 	}
 
 	/* Write the STS register back to clear IRQs we handled */
@@ -142,7 +105,9 @@ static void rk818_irq_sync_unlock(struct irq_data *data)
 
 	if (rk818->irq_mask != reg_mask) {
 		reg = rk818->irq_mask & 0xff;
+		/*rk818_i2c_write(rk818, RK818_INT_STS_MSK_REG1, 1, reg);*/
 		reg = rk818->irq_mask >> 8 & 0xff;
+		/*rk818_i2c_write(rk818, RK818_INT_STS_MSK_REG2, 1, reg);*/
 	}
 	mutex_unlock(&rk818->irq_lock);
 }
@@ -180,30 +145,9 @@ static struct irq_chip rk818_irq_chip = {
 	.irq_set_wake = rk818_irq_set_wake,
 };
 
-static int rk818_irq_domain_map(struct irq_domain *d, unsigned int irq,
-					irq_hw_number_t hw)
-{
-	struct rk818 *rk818 = d->host_data;
-
-	irq_set_chip_data(irq, rk818);
-	irq_set_chip_and_handler(irq, &rk818_irq_chip, handle_edge_irq);
-	irq_set_nested_thread(irq, 1);
-#ifdef CONFIG_ARM
-	set_irq_flags(irq, IRQF_VALID);
-#else
-	irq_set_noprobe(irq);
-#endif
-	return 0;
-}
-
-static struct irq_domain_ops rk818_irq_domain_ops = {
-	.map = rk818_irq_domain_map,
-};
-
 int rk818_irq_init(struct rk818 *rk818, int irq, struct rk818_board *pdata)
 {
-	struct irq_domain *domain;
-	int ret, flags = 0;
+	int ret, flags = 0, cur_irq = 0;
 	u8 reg;
 
 	if (!irq) {
@@ -227,18 +171,32 @@ int rk818_irq_init(struct rk818 *rk818, int irq, struct rk818_board *pdata)
 	rk818->irq_num = RK818_NUM_IRQ;
 	rk818->chip_irq = pdata->irq;
 
-	domain = irq_domain_add_linear(NULL, RK818_NUM_IRQ,
-					&rk818_irq_domain_ops, rk818);
-	if (!domain) {
-		dev_err(rk818->dev, "could not create irq domain\n");
-		return -ENODEV;
+	rk818->irq_base = irq_alloc_descs(-1, 0, rk818->irq_num, 0);
+	if (rk818->irq_base < 0) {
+		pr_err("Failed to allocate IRQs: %d\n", rk818->irq_base);
+		rk818->irq_base = 0;
 	}
-	rk818->irq_domain = domain;
 
+	/* Register with genirq */
+	for (cur_irq = rk818->irq_base;
+	     cur_irq < rk818->irq_num + rk818->irq_base; cur_irq++) {
+		irq_set_chip_data(cur_irq, rk818);
+		irq_set_chip_and_handler(cur_irq, &rk818_irq_chip,
+					 handle_edge_irq);
+		irq_set_nested_thread(cur_irq, 1);
 
-	ret = request_threaded_irq(rk818->chip_irq, NULL,
-			rk818_irq, flags | IRQF_ONESHOT, "rk818", rk818);
+		/* ARM needs us to explicitly flag the IRQ as valid
+		 * and will set them noprobe when we do so. */
+#ifdef CONFIG_ARM
+		set_irq_flags(cur_irq, IRQF_VALID);
+#else
+		irq_set_noprobe(cur_irq);
+#endif
+	}
+	ret = request_threaded_irq(rk818->chip_irq, NULL, rk818_irq,
+				   flags | IRQF_ONESHOT, "rk818", rk818);
 
+	/*enable_irq_wake(rk818->chip_irq);*/
 	if (ret != 0)
 		dev_err(rk818->dev, "Failed to request IRQ: %d\n", ret);
 
