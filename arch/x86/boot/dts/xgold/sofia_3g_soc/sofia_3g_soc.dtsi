@@ -152,7 +152,7 @@
 					0x1D0C 0x2      /* mode regulator */
 					0x1D10 0xF6     /* bandwidth */
 					0x1D14 0x10     /* saturation */
-					0x1D18 0x4>;    /* QoSEn */
+					0x1D18 0x5>;    /* QoSEn */
 
 				intel,CIF-qos-settings = <
 					0x1D88 0x4      /* prio */
