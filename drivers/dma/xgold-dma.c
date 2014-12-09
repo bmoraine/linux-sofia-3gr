@@ -339,8 +339,7 @@ static struct xgold_dma_platdata *xgold_dma_get_platdata(
 				goto out;
 			}
 
-			if (data[0] < 0 || data[0] > 15 ||
-					data[1] < 0 || data[1] > 15) {
+			if (data[0] > 15 || data[1] > 15) {
 				dev_err(dev, "Error %s of %s node\n",
 						OF_SLAVE_LIMITS, child->name);
 				ret = -ERANGE;
