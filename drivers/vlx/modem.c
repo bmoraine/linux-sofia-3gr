@@ -125,7 +125,7 @@ static ssize_t modem_sys_state_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(modem_state, 0666,
+static DEVICE_ATTR(modem_state, 0664,
 		modem_sys_state_show, modem_sys_state_store);
 
 
