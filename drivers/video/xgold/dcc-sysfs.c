@@ -45,7 +45,7 @@ static ssize_t dcc_sys_hw_show(struct device *dev,
 	return sprintf(buf, "Hardware DCC IP version : 0x%x\n", pdata->id);
 }
 
-static DEVICE_ATTR(hw, 0444, dcc_sys_hw_show, NULL);
+static DEVICE_ATTR(hw, S_IRUSR, dcc_sys_hw_show, NULL);
 
 /**
  * Memory Informations
@@ -89,7 +89,7 @@ static ssize_t dcc_sys_mem_show(struct device *dev,
 	return i;
 }
 
-static DEVICE_ATTR(mem, 0444, dcc_sys_mem_show, NULL);
+static DEVICE_ATTR(mem, S_IRUSR, dcc_sys_mem_show, NULL);
 /**
  * Frame update request number
  */
@@ -118,8 +118,9 @@ static ssize_t dcc_sys_frame_update_number_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(frame_update_number, 0666, dcc_sys_frame_update_number_show,
-			 dcc_sys_frame_update_number_store);
+static DEVICE_ATTR(frame_update_number, S_IRUGO | S_IWUSR,
+			dcc_sys_frame_update_number_show,
+			dcc_sys_frame_update_number_store);
 
 
 static ssize_t dcc_sys_dif_rate_show(struct device *dev,
@@ -147,7 +148,7 @@ static ssize_t dcc_sys_dif_rate_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(dif_rate, 0666, dcc_sys_dif_rate_show,
+static DEVICE_ATTR(dif_rate, S_IWUSR | S_IRUSR, dcc_sys_dif_rate_show,
 			 dcc_sys_dif_rate_store);
 
 static ssize_t dcc_sys_display_power_store(struct device *dev,
@@ -168,7 +169,7 @@ static ssize_t dcc_sys_display_power_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(display_power, 0222, NULL, dcc_sys_display_power_store);
+static DEVICE_ATTR(display_power, S_IWUSR, NULL, dcc_sys_display_power_store);
 
 
 static ssize_t dcc_sys_display_sleep_store(struct device *dev,
@@ -189,7 +190,7 @@ static ssize_t dcc_sys_display_sleep_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(display_sleep, 0222, NULL, dcc_sys_display_sleep_store);
+static DEVICE_ATTR(display_sleep, S_IWUSR, NULL, dcc_sys_display_sleep_store);
 
 #define DCC_SYSFS_GET_SET_VAL(_name_, _var_) \
 static ssize_t dcc_sys_##_name_##_show(struct device *dev, \
@@ -211,7 +212,7 @@ static ssize_t dcc_sys_##_name_##_store(struct device *dev, \
 	return count; \
 } \
 \
-static DEVICE_ATTR(_name_, 0666, dcc_sys_##_name_##_show, \
+static DEVICE_ATTR(_name_, S_IWUSR | S_IRUSR, dcc_sys_##_name_##_show, \
 			 dcc_sys_##_name_##_store);
 
 #define DCC_SYSFS_GET_SET_LLVAL(_name_, _var_) \
@@ -234,7 +235,7 @@ static ssize_t dcc_sys_##_name_##_store(struct device *dev, \
 	return count; \
 } \
 \
-static DEVICE_ATTR(_name_, 0666, dcc_sys_##_name_##_show, \
+static DEVICE_ATTR(_name_, S_IWUSR | S_IRUSR, dcc_sys_##_name_##_show, \
 			 dcc_sys_##_name_##_store);
 
 
@@ -253,7 +254,7 @@ static ssize_t dcc_sys_vsyncts0_show(struct device *dev,
 	return sprintf(buf, "%llu\n", pdata->vsync_ts);
 }
 
-static DEVICE_ATTR(vsyncts0, 0444, dcc_sys_vsyncts0_show,
+static DEVICE_ATTR(vsyncts0, S_IRUGO, dcc_sys_vsyncts0_show,
 			 NULL);
 
 static ssize_t dcc_sys_enable_show(struct device *dev,
@@ -281,7 +282,8 @@ static ssize_t dcc_sys_enable_store(struct device *dev,
 
 	return count;
 }
-static DEVICE_ATTR(enable, 0666, dcc_sys_enable_show, dcc_sys_enable_store);
+static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR,
+		dcc_sys_enable_show, dcc_sys_enable_store);
 
 
 static struct device_attribute *dcc_attrs[] = {
@@ -336,7 +338,7 @@ static ssize_t dcc_sys_##_name_##_store(struct kobject *kobj, \
 	return count; \
 } \
 \
-KOBJ_ATTR(_name_, 0666, \
+KOBJ_ATTR(_name_, S_IWUSR | S_IRUSR, \
 		dcc_sys_##_name_##_show, dcc_sys_##_name_##_store)
 
 
