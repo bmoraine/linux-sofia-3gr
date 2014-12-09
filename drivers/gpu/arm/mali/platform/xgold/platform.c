@@ -223,6 +223,16 @@ static int mali_platform_memory_layout(struct mali_gpu_device_data *gpu_data)
 		gpu_data->fb_size = 0;
 	}
 
+	/* protected memory (secvm) */
+	ret = of_property_read_u32_array(ngraphics, "intel,prot-mem", array, 2);
+	if (ret && ret != -EINVAL) {
+		/* property was specified, error occurred while reading */
+		mali_err("could not read prot-mem property, err=%d", ret);
+	} else {
+		gpu_data->fb_start = array[0];
+		gpu_data->fb_size = array[1];
+	}
+
 	/* dedicated memory */
 	ret = of_property_read_u32_array(ngraphics,
 					"intel,gpu-rsvd-mem", array, 2);
