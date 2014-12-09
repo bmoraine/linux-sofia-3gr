@@ -68,7 +68,9 @@ const char *vm_command_line;
 struct vmm_shared_data *mv_gal_get_shared_data(void)
 {
 #ifdef VM_MULTIPLE_VCPUS
-	return vmm_shared_data[smp_processor_id()];
+	unsigned cpu = get_cpu();
+	put_cpu();
+	return vmm_shared_data[cpu];
 #else
 	return vmm_shared_data[0];
 #endif
