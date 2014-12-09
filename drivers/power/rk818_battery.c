@@ -2642,6 +2642,10 @@ static int rk818_battery_parse_dt(struct rk818 *rk818)
 	data->cell_cfg = cell_cfg;
 	rk818->battery_data = data;
 
+	/* fixed battery capacity */
+	if (of_find_property(regs, "battery-test-mode", NULL))
+		rk818->bat_test_mode = 1;
+
 	DBG("max_charge_currentmA :%d\n", data->max_charger_currentmA);
 	DBG("max_charge_voltagemV :%d\n", data->max_charger_voltagemV);
 	DBG("design_capacity :%d\n", cell_cfg->design_capacity);
@@ -2741,7 +2745,6 @@ static int battery_probe(struct platform_device *pdev)
 	}
 
 	di->rk818 = chip;
-
 	DBG("%s(0): the battery OCV TABLE size : %d\n", __func__,
 	    chip->battery_data->ocv_size);
 	DBG("%s(0): the battery OCV TABLE :\n", __func__);
