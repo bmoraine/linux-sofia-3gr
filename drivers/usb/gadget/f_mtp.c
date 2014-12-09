@@ -221,7 +221,14 @@ static struct usb_endpoint_descriptor mtp_superspeed_out_desc = {
 	.bDescriptorType        = USB_DT_ENDPOINT,
 	.bEndpointAddress       = USB_DIR_OUT,
 	.bmAttributes           = USB_ENDPOINT_XFER_BULK,
+#if !defined(CONFIG_USB_DWC3_GADGET)
 	.wMaxPacketSize         = __constant_cpu_to_le16(1024),
+#else
+	/* MTP app still enqueues 512 bytes packets in SS mode
+	 * this size conflicts with Synopsys HW buffer size rules
+	 * TODO: MTP app has to enqueue a wMaxPacketSize multiple */
+	.wMaxPacketSize         = __constant_cpu_to_le16(512),
+#endif
 };
 
 static struct usb_ss_ep_comp_descriptor mtp_superspeed_in_comp_desc = {
