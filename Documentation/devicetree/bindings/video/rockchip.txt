@@ -1,0 +1,4 @@
+compatible = "rockchip,rockchip-fb"
+compatible = "rockchip,rockchip-screen"
+compatible = "rockchip,rockchip-vop"
+

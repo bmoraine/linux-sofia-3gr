@@ -68,6 +68,7 @@ mosaixtech	Mosaix Technologies, Inc.
 national	National Semiconductor
 neonode		Neonode Inc.
 nintendo	Nintendo
+nanosilicon	Nanosilicon Inc.
 nvidia	NVIDIA
 nxp	NXP Semiconductors
 omnivision	Omnivision Technologies
