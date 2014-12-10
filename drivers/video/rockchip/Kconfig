@@ -1,0 +1,14 @@
+menuconfig FB_ROCKCHIP
+	tristate "Rockchip Framebuffer Display support"
+	select FB
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	select FB_MODE_HELPERS
+	select VIDEOMODE_HELPERS
+	default n
+	help
+	  Enable Rockchip Framebuffer Display driver
+	  for sofia 3gr platform.
+	  Please choose Y to enable rockchip
+	  framebuffer driver.
