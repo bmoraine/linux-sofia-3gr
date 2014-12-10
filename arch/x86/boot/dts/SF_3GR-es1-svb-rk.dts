@@ -38,20 +38,6 @@
 	};
 
 
-	cpufreq:cpufreq {
-		compatible = "intel,xgold-cpufreq";
-		clocks = <&clk_cpu>,<&MUX_CPU>,<&B_0_1>,<&G_0_1>;
-		clock-names = "core","mux","pll","bank";
-		intel,cpufreq-table = <208000 312000 728000 1040000>;
-/*		intel,cpufreq-table = <208000 312000 416000>;*/
-		#address-cells = < 0 >;
-		interrupts = < 0 >;
-		interrupt-parent = <&cpufreq>;
-		#interrupt-cells = < 1 >;
-		interrupt-map = < 0 &hirq HIRQ_CPU_CLK_CHANGE IRQ_TYPE_DEFAULT>;
-		interrupt-names = "CPU_CLK_CHANGE";
-	};
-
 	vmodem {
 		compatible = "intel,vmodem";
 		reg = < 0x3c000000 0x04000000 >;

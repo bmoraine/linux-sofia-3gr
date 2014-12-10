@@ -14,6 +14,7 @@
 	#include "xgold/sofia_3g_soc/clock-es2.dtsi"
 	#include "xgold/sofia_3g_soc/regulator.dtsi"
 	#include "xgold/sofia_3g_soc/device-pm-reg.dtsi"
+	#include "xgold/sofia_3g_soc/cpufreq.dtsi"
 	#include "xgold/pmic/granite.dtsi"
 	chosen {
 	};
@@ -24,20 +25,6 @@
 	memory {
 		device_type = "memory";
 		reg = <0x800000 0x1800000>;
-	};
-
-	cpufreq:cpufreq {
-		compatible = "intel,xgold-cpufreq";
-		clocks = <&clk_cpu>,<&MUX_CPU>,<&B_0_1>,<&G_0_1>;
-		clock-names = "core","mux","pll","bank";
-		intel,cpufreq-table = <208000 312000 728000 1040000>;
-		#address-cells = < 0 >;
-		interrupts = < 0 >;
-	        interrupt-parent = <&cpufreq>;
-	        #interrupt-cells = < 1 >;
-	        interrupt-map = < 0 &hirq HIRQ_CPU_CLK_CHANGE IRQ_TYPE_DEFAULT>;
-	        interrupt-names = "CPU_CLK_CHANGE";
-
 	};
 
 	ion {
