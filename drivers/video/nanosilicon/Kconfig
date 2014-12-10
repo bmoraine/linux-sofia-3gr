@@ -1,0 +1,17 @@
+menuconfig TRSM_NANOSILICON
+	bool "Nanosilicon display transmitter support"
+	depends on FB_ROCKCHIP
+	help
+	  Nanosilicon display transmitter support.
+	  It is used by rockchip framebuffer driver.
+	  Say Y here if you use
+	  Nanosilicon display transmitter.
+
+config LVDS_NANOSILICON
+	bool "Nanosilicon lvds transmitter support"
+	depends on TRSM_NANOSILICON
+	help
+	  Nanosilicon lvds transmitter support
+	  It is used by rockchip framebuffer driver.
+	  Say y to use
+	  Nanosilicon LVDS transmitter.
