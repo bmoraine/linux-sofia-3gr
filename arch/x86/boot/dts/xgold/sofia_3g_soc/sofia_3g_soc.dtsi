@@ -613,7 +613,7 @@
 						intel,chrgdet = < 0x904 12 1 >;
 						intel,chrgdet-value = < 0 1 >;
 						intel,trim = < 0x908 0 32 >;
-						intel,trim-value = < 0x900c0 0x900c0 >;
+						intel,trim-value = < 0x538352 0x538352 >;
 						intel,power_budget = < 500 >;
 						resets = < &dbb_rst2 0x3 >, < &dbb_rst2 0x4 >;
 						reset-names = "usb", "bus";
