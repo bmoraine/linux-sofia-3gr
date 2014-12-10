@@ -116,13 +116,13 @@
 	};*/
 #endif
 	fb {
-		compatible = "intel,sofia-fb";
-		intel,disp-mode = <NO_DUAL>;
-		intel,uboot-logo-on = <0>;
+		compatible = "rockchip,rockchip-fb";
+		rockchip,disp-mode = <NO_DUAL>;
+		rockchip,uboot-logo-on = <0>;
 	};
 
 	screen {
-		compatible = "intel,sofia-screen";
+		compatible = "rockchip,rockchip-screen";
 		pm,class-name = "generic_class";
 		pm,user-name = "lcd";
 		pm,state-D0 = "enable";
@@ -370,7 +370,7 @@
 
 &vop {
 	status = "okay";
-	intel,fb-win-map = <FB_DEFAULT_ORDER>;
+	rockchip,fb-win-map = <FB_DEFAULT_ORDER>;
 };
 
 &lvds {

@@ -432,7 +432,7 @@
 					};
 
 					vop: vop@E1000000 {
-						     compatible = "intel,sofia3gr-vop";
+						     compatible = "rockchip,rockchip-vop";
 						     reg = <0xE1000000 0x148>;
 						     interrupts = < VOP_INT IRQ_TYPE_DEFAULT >;
 
@@ -445,7 +445,7 @@
 					     };
 
 					lvds: lvds {
-						      compatible = "intel,sofia3gr-lvds";
+						      compatible = "nanosilicon,nanosilicon-lvds";
 					      };
 				};
 
