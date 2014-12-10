@@ -28,6 +28,9 @@ enum display_flags {
 	DISPLAY_FLAGS_INTERLACED	= BIT(8),
 	DISPLAY_FLAGS_DOUBLESCAN	= BIT(9),
 	DISPLAY_FLAGS_DOUBLECLK		= BIT(10),
+	DISPLAY_FLAGS_SWAP_GB		= BIT(11),
+	DISPLAY_FLAGS_SWAP_RG		= BIT(12),
+	DISPLAY_FLAGS_SWAP_RB		= BIT(13),
 };
 
 /*
@@ -71,6 +74,11 @@ struct display_timing {
 	struct timing_entry vsync_len;		/* ver. sync len */
 
 	enum display_flags flags;		/* display flags */
+	u16 screen_type;			/* screen type */
+	u16 lvds_format;			/* lvds data format */
+	u16 face;				/* display output format */
+	u16 color_mode;				/* input color mode */
+	u32 *dsp_lut;
 };
 
 /*
