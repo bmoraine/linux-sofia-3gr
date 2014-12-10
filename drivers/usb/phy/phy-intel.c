@@ -1063,7 +1063,9 @@ static void intel_otg_sm_work(struct work_struct *w)
 			intel_otg_notify_charger(iphy, 0);
 			iphy->chg_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
 			pm_runtime_put_noidle(otg->phy->dev);
-			pm_runtime_suspend(otg->phy->dev);
+			/* Wait for gadget to be quite */
+			pm_runtime_mark_last_busy(otg->phy->dev);
+			pm_runtime_autosuspend(otg->phy->dev);
 		}
 		break;
 	case OTG_STATE_B_PERIPHERAL:
@@ -1684,6 +1686,8 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 	usb_register_notifier(&iphy->phy, &iphy->usb_nb);
 	device_init_wakeup(&pdev->dev, true);
 	wake_lock(&iphy->wlock);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, PHY_AUTO_SUSPEND_DEALY);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	return 0;

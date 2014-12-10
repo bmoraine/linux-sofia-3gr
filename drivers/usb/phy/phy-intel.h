@@ -19,6 +19,8 @@
 #define TA_WAIT_VRISE	100	/* ( - 100)  */
 #define TA_WAIT_VFALL	500	/* ( - 1000) */
 
+#define PHY_AUTO_SUSPEND_DEALY 150 /* ms */
+
 /*
  * This option is set for embedded hosts or OTG devices in which leakage
  * currents are very minimal.
