@@ -606,14 +606,6 @@ static void intel_otg_start_peripheral(struct usb_otg *otg, int on)
 	if (!otg->gadget)
 		return;
 
-	if (on) {
-		dev_dbg(otg->phy->dev, "gadget on\n");
-		usb_gadget_vbus_connect(otg->gadget);
-	} else {
-		dev_dbg(otg->phy->dev, "gadget off\n");
-		usb_gadget_vbus_disconnect(otg->gadget);
-	}
-
 	/*
 	 * Assert vbus valid and B-Valid
 	 * to indicate a B session
@@ -622,6 +614,15 @@ static void intel_otg_start_peripheral(struct usb_otg *otg, int on)
 	usb_enable_bvalid(iphy, on);
 	usb_enable_vbusvalid(iphy, on);
 	usb_enable_sessend(iphy, !on);
+
+	if (on) {
+		dev_dbg(otg->phy->dev, "gadget on\n");
+		usb_gadget_vbus_connect(otg->gadget);
+	} else {
+		dev_dbg(otg->phy->dev, "gadget off\n");
+		usb_gadget_vbus_disconnect(otg->gadget);
+	}
+
 }
 
 static int intel_usb2phy_set_peripheral(struct usb_otg *otg,
