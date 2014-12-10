@@ -1,0 +1,8 @@
+config ROCKCHIP_VOP
+        tristate "rockchip vop support"
+        depends on FB_ROCKCHIP
+        help
+          Driver for rockchip vop controller.
+	  It is used on sofia 3gr platform.
+	  Please select Y to enable the
+	  rockchip vop driver

@@ -12,3 +12,5 @@ menuconfig FB_ROCKCHIP
 	  for sofia 3gr platform.
 	  Please choose Y to enable rockchip
 	  framebuffer driver.
+
+source "drivers/video/rockchip/vop/Kconfig"
