@@ -107,6 +107,13 @@ static unsigned int oct_read_ptr;
 static unsigned int data_available;
 struct device_pm_platdata *pm_platdata;
 
+static struct file *oct_open_gadget(char *gadget_name);
+
+#define OCT_OFFLOG
+#ifdef OCT_OFFLOG
+#include "oct_offlog.c"
+#endif
+
 /* power management section */
 
 static int pm_suspend_fct(struct device *dev)
@@ -290,9 +297,11 @@ static struct file *oct_open_gadget(char *gadget_name)
 	while (!kthread_should_stop()) {
 		old_fs = get_fs();
 		set_fs(KERNEL_DS);
-		{
+		if (oct_out_path == OCT_PATH_TTY)
 			fp = filp_open(gadget_name, O_RDWR, 0);
-		}
+		else if (oct_out_path == OCT_PATH_FILE)
+			fp = filp_open(gadget_name, O_RDWR | O_CREAT |
+					O_TRUNC, 0666);
 		set_fs(old_fs);
 		if (NULL == fp) {
 			OCT_LOG("NULL Gadget File Handle");
@@ -304,7 +313,8 @@ static struct file *oct_open_gadget(char *gadget_name)
 			continue;
 		} else {
 			OCT_LOG("Gadget %s open succeeded.", gadget_name);
-			oct_set_raw_gadget(fp);
+			if (oct_out_path == OCT_PATH_TTY)
+				oct_set_raw_gadget(fp);
 			break;
 		}
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -509,10 +519,16 @@ static void oct_write_data_to_usb(void *ptr, int num_bytes)
 static int oct_thread(void *param)
 {
 	unsigned int num_bytes = 0, wptr_un = 0;
+	struct device_node *np = (struct device_node *)param;
 	OCT_DBG("Enter thread");
 
-	/* if (oct_out_path == OCT_PATH_TTY) */
-	fp = oct_open_gadget(USB_CH_NAME);
+	#ifdef OCT_OFFLOG
+	/* do it config file is found */
+	oct_offlog_config(np);
+	#endif
+
+	if (oct_out_path == OCT_PATH_TTY)
+		fp = oct_open_gadget(USB_CH_NAME);
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(oct_wq, oct_events);
@@ -542,18 +558,24 @@ static int oct_thread(void *param)
 				if (write_ptr == read_ptr)
 					oct_ext_mem_full++;
 			}
+			/* Sync cache */
+			dma_sync_single_for_cpu(NULL, phy_base_addr +
+				oct_read_ptr, num_bytes, DMA_FROM_DEVICE);
 			if (oct_out_path == OCT_PATH_TTY) {
-				/* Sync cache */
-				dma_sync_single_for_cpu(NULL, phy_base_addr +
-					oct_read_ptr, num_bytes,
-					DMA_FROM_DEVICE);
-
 				/* call subscribed function to forward data */
 				oct_write_data_to_usb((char *)
 				(&((char *)oct_ext_rbuff_ptr)[oct_read_ptr]),
 					num_bytes);
-				OCT_DBG("Sent out %d bytes", num_bytes);
 			}
+			#ifdef OCT_OFFLOG
+			else if (oct_out_path == OCT_PATH_FILE) {
+				/* call subscribed function to forward data */
+				oct_write_data_to_file((char *)
+				(&((char *)oct_ext_rbuff_ptr)[oct_read_ptr]),
+					num_bytes);
+			}
+			#endif
+			OCT_DBG("Sent out %d bytes", num_bytes);
 		} else /* if no data available*/
 			OCT_DBG("NO data available to be sent out");
 
@@ -888,7 +910,6 @@ static const struct file_operations oct_fops = {
 static int oct_driver_probe(struct platform_device *pdev)
 {
 	int result = 0;
-	int data = 0;
 	struct device *dev_oct;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
@@ -971,7 +992,7 @@ static int oct_driver_probe(struct platform_device *pdev)
 	oct_ext_mem_full = 0;
 	init_waitqueue_head(&oct_wq);
 	init_waitqueue_head(&oct_poll_wq);
-	task = kthread_run(oct_thread, (void *)&data, "OCT Thread");
+	task = kthread_run(oct_thread, (void *)np, "OCT Thread");
 	OCT_DBG("Kernel OCT Thread: %s", task->comm);
 
 	oct_int = platform_get_irq_byname(pdev, "OCT_INT");

@@ -45,7 +45,8 @@ enum e_oct_mode {
 enum e_oct_path {
 	OCT_PATH_NONE = 0, /* for background traces */
 	OCT_PATH_APP_POLL,
-	OCT_PATH_TTY
+	OCT_PATH_TTY,
+	OCT_PATH_FILE
 };
 
 struct s_oct_info {
