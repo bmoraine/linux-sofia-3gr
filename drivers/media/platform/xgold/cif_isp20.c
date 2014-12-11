@@ -4698,7 +4698,7 @@ void cif_isp20_destroy(
 	struct cif_isp20_device *dev)
 {
 	cif_isp20_pltfrm_pr_dbg(NULL, "\n");
-	if (IS_ERR_OR_NULL(dev))
+	if (!IS_ERR_OR_NULL(dev))
 		kfree(dev);
 }
 
