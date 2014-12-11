@@ -70,7 +70,7 @@ abb_wake_irq:abb_wake_irq {
 	#interrupt-cells = < 1 >;
 	interrupt-map = <
 		0 &eint EINT_WUP_DBB XGOLD_IRQ_TYPE_EDGE_RISING >;
-	interrupt-names = "wup_dbb";
+/*	interrupt-names = "wup_dbb"; */
 
 	#intel-wake-cells = <3>;
 	/* Offset/Domain/Vector */
