@@ -2845,6 +2845,7 @@ int dwc2_hcd_init(struct dwc2_hsotg *hsotg, int irq,
 	u32 hcfg;
 	int i, num_channels;
 	int retval;
+	bool add_host = true;
 
 	if (usb_disabled())
 		return -ENODEV;
@@ -3001,14 +3002,30 @@ int dwc2_hcd_init(struct dwc2_hsotg *hsotg, int irq,
 	/* Don't support SG list at this point */
 	hcd->self.sg_tablesize = 0;
 
+	/* Save irq number */
+	hcd->irq = irq;
+
 	/*
 	 * Finish generic HCD initialization and start the HCD. This function
 	 * allocates the DMA buffer pool, registers the USB bus, requests the
 	 * IRQ line, and calls hcd_start method.
+	 * If a phy driver is present, let it handle the hcd initialization.
 	 */
-	retval = usb_add_hcd(hcd, irq, IRQF_SHARED);
-	if (retval < 0)
-		goto error3;
+	if (!IS_ERR_OR_NULL(hsotg->uphy)) {
+		retval = otg_set_host(hsotg->uphy->otg, &hcd->self);
+		if (retval) {
+			if (retval != -ENOTSUPP)
+				goto error3;
+		} else {
+			add_host = false;
+		}
+	}
+
+	if (add_host) {
+		retval = usb_add_hcd(hcd, irq, IRQF_SHARED);
+		if (retval)
+			goto error3;
+	}
 
 	device_wakeup_enable(hcd->self.controller);
 
