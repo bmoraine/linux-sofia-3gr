@@ -3064,7 +3064,8 @@ EXPORT_SYMBOL_GPL(dwc2_hcd_init);
 void dwc2_hcd_remove(struct dwc2_hsotg *hsotg)
 {
 	struct usb_hcd *hcd;
-
+	bool remove_host = true;
+	int retval;
 	dev_dbg(hsotg->dev, "DWC OTG HCD REMOVE\n");
 
 	hcd = dwc2_hsotg_to_hcd(hsotg);
@@ -3076,7 +3077,14 @@ void dwc2_hcd_remove(struct dwc2_hsotg *hsotg)
 		return;
 	}
 
-	usb_remove_hcd(hcd);
+	if (!IS_ERR_OR_NULL(hsotg->uphy)) {
+		retval = otg_set_host(hsotg->uphy->otg, NULL);
+		if (!retval)
+			remove_host = false;
+	}
+
+	if (remove_host)
+		usb_remove_hcd(hcd);
 	hsotg->priv = NULL;
 	dwc2_hcd_release(hsotg);
 	usb_put_hcd(hcd);
