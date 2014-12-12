@@ -15,6 +15,7 @@ struct regulator_device_pm_data {
 	struct regulator_dev *dev;
 	int current_state;
 	int disabled_state;
+	int enabled_state;
 	const char **state_names;
 	bool is_enabled;
 };
@@ -43,6 +44,7 @@ static int _device_pm_set_state(struct regulator_dev *rdev, unsigned sel)
 	int ret;
 
 	state_name = data->state_names[sel];
+	dev_dbg(&rdev->dev, "Set state %s state\n", state_name);
 
 	ret = device_state_pm_set_state_by_name(&rdev->dev, state_name);
 	if (ret) {
@@ -55,8 +57,10 @@ static int _device_pm_set_state(struct regulator_dev *rdev, unsigned sel)
 
 	if (data->disabled_state == sel)
 		data->is_enabled = false;
-	else
+	else {
 		data->is_enabled = true;
+		data->enabled_state = sel;
+	}
 
 	return ret;
 }
@@ -75,7 +79,6 @@ static int device_pm_set_voltage_sel(struct regulator_dev *rdev, unsigned sel)
 		return 0;
 	}
 	ret = _device_pm_set_state(rdev, sel);
-
 
 	return ret;
 }
@@ -98,7 +101,7 @@ static int device_pm_enable(struct regulator_dev *rdev)
 {
 	struct regulator_device_pm_data *data = rdev_get_drvdata(rdev);
 
-	return _device_pm_set_state(rdev, data->current_state);
+	return _device_pm_set_state(rdev, data->enabled_state);
 }
 
 static int device_pm_disable(struct regulator_dev *rdev)
@@ -107,7 +110,6 @@ static int device_pm_disable(struct regulator_dev *rdev)
 
 	return _device_pm_set_state(rdev, data->disabled_state);
 }
-
 
 static struct regulator_ops device_pm_voltage_ops = {
 	.get_voltage_sel = device_pm_get_voltage_sel,
@@ -163,7 +165,6 @@ of_get_regulator_device_pm_config(struct device *dev)
 		dev_err(dev, "Error while reading the voltages table\n");
 		return ERR_PTR(-EINVAL);
 	}
-
 
 	n_states = of_property_count_strings(np, PROP_STATE_NAMES);
 	config->state_names = devm_kzalloc(dev, n_states * sizeof(char *),
