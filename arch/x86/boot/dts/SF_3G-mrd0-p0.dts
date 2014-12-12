@@ -59,14 +59,6 @@
 		pm,state-D3 = "disable";
 	};
 
-	lcd:lcd {
-		compatible = "intel,lcd";
-		pm,class-name = "generic_class";
-		pm,user-name = "lcd";
-		pm,state-D0 = "enable";
-		pm,state-D3 = "disable";
-	};
-
 	graphics {
 		compatible = "intel,graphics";
 		intel,gpu-shared-mem = <0x20000000>;
@@ -84,6 +76,7 @@
 		intel,display-preinit = <0>;
 		intel,display-if = <&mipi_dsi>;
 		intel,display-if-rate = <390000000>;
+		lcd-supply = <&pm_lcd>;
 		/include/ "xgold/display/OTM1283.dtsi"
 		mipi_dsi:mipi-dsi {
 				intel,display-if-min = <104000000>;

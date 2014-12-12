@@ -53,14 +53,6 @@
 		pm,state-D3 = "disable";
 	};
 
-	lcd:lcd {
-		compatible = "intel,lcd";
-		pm,class-name = "generic_class";
-		pm,user-name = "lcd";
-		pm,state-D0 = "enable";
-		pm,state-D3 = "disable";
-	};
-
 	graphics {
 		compatible = "intel,graphics";
 		intel,dcc-mem = < 0x00200000 >;
@@ -79,6 +71,7 @@
 		intel,display-preinit = <1>;
 		intel,display-if = <&mipi_dsi>;
 		intel,display-if-rate = <351000000>;
+		lcd-supply = <&pm_lcd>;
 		/include/ "xgold/display/RM68180-inverted.dtsi"
 		mipi_dsi:mipi-dsi {
 				intel,display-if-min = <104000000>;
