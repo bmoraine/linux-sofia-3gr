@@ -958,11 +958,16 @@ int dcc_main_probe(struct platform_device *pdev)
 
 	ret = platform_device_pm_set_state_by_name(pdev,
 			pdata->pm_platdata->pm_state_D0_name);
-#endif
 	if (ret) {
 		dcc_err("Error during state transition to D0\n");
 		return ret;
 	}
+
+	if (pdata->pm_lcd) {
+		regulator_enable(pdata->pm_lcd);
+		regulator_set_voltage(pdata->pm_lcd, 2800000, 3000000);
+	}
+#endif
 
 	ret = dcc_core_probe(pdev);
 	if (ret) {
@@ -1059,9 +1064,12 @@ static int dcc_main_suspend(struct device *dev)
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	ret = platform_device_pm_set_state_by_name(pdev,
 			pdata->pm_platdata->pm_state_D3_name);
-#endif
 	if (ret)
 		dcc_err("Error during state transition to D3\n");
+
+	if (pdata->pm_lcd)
+		regulator_disable(pdata->pm_lcd);
+#endif
 
 	reset_control_assert(pdata->reset);
 	diffus = measdelay_stop(NULL, &begin);
@@ -1099,6 +1107,7 @@ static int dcc_main_resume(struct device *dev)
 	measdelay_start(&begin);
 	reset_control_deassert(pdata->reset);
 #ifdef CONFIG_PLATFORM_DEVICE_PM
+	regulator_enable(pdata->pm_lcd);
 	ret = platform_device_pm_set_state_by_name(pdev,
 			pdata->pm_platdata->pm_state_D0_name);
 #endif

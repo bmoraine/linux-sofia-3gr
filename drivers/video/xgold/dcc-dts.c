@@ -439,6 +439,8 @@ int dcc_of_parse_dcc(struct platform_device *pdev, struct device_node *ndcc)
 			supply->name, supply->voltage);
 		}
 	}
+#else
+	pdata->pm_lcd =	regulator_get(pdata->dev, "lcd");
 #endif
 
 	/* clock */

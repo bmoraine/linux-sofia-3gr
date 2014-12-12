@@ -238,6 +238,7 @@ struct dcc_drvdata {
 	struct dcc_test_t test;	/* tests configuration */
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	struct device_pm_platdata *pm_platdata;
+	struct regulator *pm_lcd;
 #endif
 	long long unsigned vsync_ts;  /* vsync timestamp */
 	long long vsync_us; /* vsync period */
