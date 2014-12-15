@@ -81,7 +81,7 @@
 		intel,display-ramless = <1>;
 		intel,display-preinit = <0>;
 		intel,display-if = <&mipi_dsi>;
-		intel,display-if-rate = <390000000>;
+		intel,display-if-rate = <385000000>;
 		lcd-supply = <&pm_lcd>;
 		/include/ "xgold/display/OTM1283.dtsi"
 		mipi_dsi:mipi-dsi {
