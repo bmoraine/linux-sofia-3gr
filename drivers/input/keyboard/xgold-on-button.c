@@ -104,69 +104,77 @@ static int32_t pmic_btn_init(struct device *dev)
 }
 
 #define pmic_btn_lvl_log(btn)\
-	dev_info(dev, "%s button %s\n", btn, level ?\
+	dev_dbg(dev, "%s button %s\n", btn, level ?\
 				"released" : "pressed")
 #define pmic_btn_time_log(btn)\
-	dev_info(dev, "%s button held for %d secs\n", btn, time)\
+	dev_dbg(dev, "%s button held for %d secs\n", btn, time)\
 
-static irqreturn_t pmic_btn_isr(int32_t irq, void *d)
+static irqreturn_t _pmic_on_button_isr(int32_t irq, void *d)
 {
 	int32_t ret = 0;
 	struct xgold_on_button_pdata *data = (struct xgold_on_button_pdata *)d;
 	struct platform_device *pdev = data->pdev;
 	struct device *dev = &pdev->dev;
-	uint32_t irqstatus, status, level = 0, count = 0;
-	ret = vmm_pmic_reg_read(PBIRQ_REG(PMIC_DEV1_ADDR), &irqstatus);
+	uint32_t status, level = 0;
 
-	if (PBIRQ_REG_PBTN(irqstatus)) {
-		/*  Clear interrupt */
-		ret |= vmm_pmic_reg_write(PBIRQ_REG(PMIC_DEV1_ADDR),
-				PBIRQ_REG_PBTN_IA);
-		/* Get level & hold time */
-		ret |= vmm_pmic_reg_read(PBSTATUS_REG(PMIC_DEV1_ADDR),
-				&status);
-		level = PBSTATUS_REG_PBLVL(status);
-		pmic_btn_lvl_log("Power");
-		if (level) { /* Released */
-			uint32_t time = PBSTATUS_REG_PBHT(status);
-			if (time > 0)
-				pmic_btn_time_log("Power");
-		} else { /* Pressed */
-			ret |= vmm_pmic_reg_write(PBSTATUS_REG(PMIC_DEV1_ADDR),
-				PBSTATUS_REG_CLRHT_MASK);
-		}
-		count++;
-	}
-	if (data->utility && PBIRQ_REG_UBTN(irqstatus)) {
-		/*  Clear interrupt */
-		ret |= vmm_pmic_reg_write(PBIRQ_REG(PMIC_DEV1_ADDR),
-				PBIRQ_REG_UBTN_IA);
-		/* Get level & hold time */
-		ret |= vmm_pmic_reg_read(UBSTATUS_REG(PMIC_DEV1_ADDR),
-				&status);
-		level = UBSTATUS_REG_UBLVL(status);
-		pmic_btn_lvl_log("Utility");
-		if (level) { /* Released */
-			uint32_t time = UBSTATUS_REG_UBHT(status);
-			if (time > 0)
-				pmic_btn_time_log("Utility");
-		} else { /* Pressed */
-			ret |= vmm_pmic_reg_write(PBSTATUS_REG(PMIC_DEV1_ADDR),
-				PBSTATUS_REG_CLRHT_MASK);
-		}
-		count++;
-	}
-	if (count) {
-		input_report_key(data->input_dev, KEY_POWER, !level);
-		input_sync(data->input_dev);
+	/* Get level & hold time */
+	ret = vmm_pmic_reg_read(PBSTATUS_REG(PMIC_DEV1_ADDR),
+			&status);
+
+	if (ret)
 		return IRQ_HANDLED;
-	} else {
-		dev_err(&data->pdev->dev, "No PMIC BTN IRQ pending found..\n");
-		return IRQ_NONE;
+
+	level = PBSTATUS_REG_PBLVL(status);
+	pmic_btn_lvl_log("Power");
+#if 0
+	if (level) { /* Released */
+		uint32_t time = PBSTATUS_REG_PBHT(status);
+		if (time > 0)
+			pmic_btn_time_log("Power");
+	} else { /* Pressed */
+		ret |= vmm_pmic_reg_write(PBSTATUS_REG(PMIC_DEV1_ADDR),
+			PBSTATUS_REG_CLRHT_MASK);
 	}
+#endif
+	input_report_key(data->input_dev, KEY_POWER, !level);
+	input_sync(data->input_dev);
+	return IRQ_HANDLED;
 }
 
-static irqreturn_t _on_button_1_isr(int32_t irq, void *d)
+static irqreturn_t _pmic_ui_button_isr(int32_t irq, void *d)
+{
+	int32_t ret = 0;
+	struct xgold_on_button_pdata *data = (struct xgold_on_button_pdata *)d;
+	struct platform_device *pdev = data->pdev;
+	struct device *dev = &pdev->dev;
+	uint32_t status, level = 0;
+
+	/* Get level & hold time */
+	ret |= vmm_pmic_reg_read(UBSTATUS_REG(PMIC_DEV1_ADDR),
+			&status);
+
+	if (ret)
+		return IRQ_HANDLED;
+
+	level = UBSTATUS_REG_UBLVL(status);
+	pmic_btn_lvl_log("Utility");
+#if 0
+	if (level) { /* Released */
+		uint32_t time = UBSTATUS_REG_UBHT(status);
+		if (time > 0)
+			pmic_btn_time_log("Utility");
+	} else { /* Pressed */
+		ret |= vmm_pmic_reg_write(PBSTATUS_REG(PMIC_DEV1_ADDR),
+			PBSTATUS_REG_CLRHT_MASK);
+	}
+#endif
+
+	input_report_key(data->input_dev, KEY_POWER, !level);
+	input_sync(data->input_dev);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t _on_button_press_isr(int32_t irq, void *d)
 {
 	struct xgold_on_button_pdata *data = (struct xgold_on_button_pdata *)d;
 	struct platform_device *pdev = data->pdev;
@@ -180,7 +188,7 @@ static irqreturn_t _on_button_1_isr(int32_t irq, void *d)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t _on_button_0_isr(int32_t irq, void *d)
+static irqreturn_t _on_button_release_isr(int32_t irq, void *d)
 {
 	struct xgold_on_button_pdata *data = (struct xgold_on_button_pdata *)d;
 	struct platform_device *pdev = data->pdev;
@@ -202,9 +210,9 @@ static irqreturn_t on_button_0_isr(int32_t irq, void *d)
 	struct device *dev = &pdev->dev;
 	dev_dbg(dev, "%s\n", __func__);
 	if (of_device_is_compatible(np, PROP_PMIC_ON_BUTTON))
-		return pmic_btn_isr(irq, d);
+		return _pmic_on_button_isr(irq, d);
 	else
-		return _on_button_0_isr(irq, d);
+		return _on_button_release_isr(irq, d);
 }
 
 static irqreturn_t on_button_1_isr(int32_t irq, void *d)
@@ -213,11 +221,11 @@ static irqreturn_t on_button_1_isr(int32_t irq, void *d)
 	struct device_node *np = data->pdev->dev.of_node;
 	struct platform_device *pdev = data->pdev;
 	struct device *dev = &pdev->dev;
-	if (of_device_is_compatible(np, PROP_PMIC_ON_BUTTON)) {
-		dev_err(dev, "PMIC is not supposed to have this interrupt\n");
-		return IRQ_NONE;
-	} else
-		return _on_button_1_isr(irq, d);
+	dev_dbg(dev, "%s\n", __func__);
+	if (of_device_is_compatible(np, PROP_PMIC_ON_BUTTON))
+		return _pmic_ui_button_isr(irq, d);
+	else
+		return _on_button_press_isr(irq, d);
 }
 
 #ifdef CONFIG_PM
@@ -298,9 +306,9 @@ static int32_t xgold_on_button_probe(struct platform_device *pdev)
 			goto fail_irq0;
 		}
 		irq_count++;
-	} else {
+	} else
 		dev_dbg(dev, "on_button_0 irq not found\n");
-	}
+
 	/* Register on_button_1 interrupt */
 	data->irq[irq_count] = platform_get_irq_byname(pdev, ON_BUTTON_1);
 	if (!IS_ERR_VALUE(data->irq[irq_count])) {
@@ -314,9 +322,9 @@ static int32_t xgold_on_button_probe(struct platform_device *pdev)
 			goto fail_irq1;
 		}
 		irq_count++;
-	} else {
+	} else
 		dev_dbg(dev, "on_button_1 irq not found\n");
-	}
+
 	/* Check irq_count */
 	if (!irq_count || irq_count > MAX_ON_BUTTON_IRQ) {
 		dev_err(dev, "Wrong IRQ number (%d) registered\n", irq_count);
