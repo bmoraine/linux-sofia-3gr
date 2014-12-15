@@ -565,7 +565,7 @@ static inline unsigned int afe_reg_read_cache(struct snd_soc_codec *codec,
 
 	u32 reg_address = 0;
 	u32 data = 0;
-	u8 ret = 0;
+	int ret = 0;
 	if (reg >= AFE_REG_END)
 		/* TODO: Optimise by using cache as done on sf_3g */
 		return -EIO;
