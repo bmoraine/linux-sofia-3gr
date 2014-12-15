@@ -688,8 +688,7 @@ int fmrx_set_agc_gain_cfg(struct fmrx_agc *gain_cfg)
 	int rc = -EIO;
 
 	if (NULL != gain_cfg) {
-		if (gain_cfg->gain_idx <= AGC_GAIN_INDEX_15 &&
-		    gain_cfg->gain_idx >= AGC_GAIN_INDEX_0) {
+		if (gain_cfg->gain_idx <= AGC_GAIN_INDEX_15) {
 			struct fmrx_msgbox_buff rx_msg;
 			rx_msg.event = FMRX_EVENT_SET_AGC_GAIN;
 			rx_msg.params.p_agc_gain_cfg = gain_cfg;
