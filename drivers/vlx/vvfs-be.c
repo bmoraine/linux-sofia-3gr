@@ -465,6 +465,9 @@ vvfs_be_get_major (vvfs_be_t* vvfs_be)
         (VVFS_NUM_IDE_MAJORS + VVFS_NUM_SCSI_MAJORS +
          VVFS_NUM_FD_MAJORS + VVFS_NUM_MMC_MAJORS);
     break;
+    default:
+	ETRACE("Unsupported major index %d\n", major_idx);
+	return;
     }
 
     /* Construct an appropriate device name */
