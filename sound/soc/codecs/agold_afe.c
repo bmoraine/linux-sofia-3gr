@@ -615,7 +615,7 @@ static int agold_afe_calibrate_hsosc_channel(
 	reg = snd_soc_read(codec, AGOLD_AFE_AUDOUTCTRL1);
 	reg |= 1 << AFE_AUDOUTCTRL1_HSOCSOC_OFFSET;
 	snd_soc_write(codec, AGOLD_AFE_AUDOUTCTRL1, reg);
-	while (true != found) {
+	while (true != found && index < AFE_NOF_HSOSC_TRIM_VALUES) {
 		if (RIGHT_CHANNEL == channel) {
 			/* Set calibratration index */
 			hssoccalr = hs_ofs_conv[index];
@@ -1888,6 +1888,9 @@ static int agold_afe_codec_probe(struct snd_soc_codec *codec)
 	if (agold_afe != NULL) {
 		agold_afe->codec = codec;
 		agold_afe_set_private_data(agold_afe);
+	} else {
+		afe_err("NULL pointer check failed for agold_afe\n");
+		return -EINVAL;
 	}
 
 	if (*audio_native) {
@@ -2428,9 +2431,11 @@ static int agold_afe_device_probe(struct idi_peripheral_device *pdev,
 	clk_prepare(agold_afe->clk);
 
 	/* AFE reset toggling */
-	reset_control_assert(agold_afe->aferst);
-	udelay(100);
-	reset_control_deassert(agold_afe->aferst);
+	if (agold_afe->aferst != NULL) {
+		reset_control_assert(agold_afe->aferst);
+		udelay(100);
+		reset_control_deassert(agold_afe->aferst);
+	}
 
 	clk_enable(agold_afe->clk);
 #endif
