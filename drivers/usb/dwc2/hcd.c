@@ -355,6 +355,9 @@ void dwc2_hcd_stop(struct dwc2_hsotg *hsotg)
 	/* Turn off the vbus power */
 	dev_dbg(hsotg->dev, "PortPower off\n");
 	writel(0, hsotg->regs + HPRT0);
+
+	/* Turn off interrupts */
+	dwc2_disable_global_interrupts(hsotg);
 }
 
 /* Caller must hold driver lock */
@@ -2309,6 +2312,9 @@ static int _dwc2_hcd_start(struct usb_hcd *hcd)
 
 	dev_dbg(hsotg->dev, "DWC OTG HCD START\n");
 
+	/* Initialize the Core for Host mode */
+	dwc2_core_init(hsotg, true, -1);
+
 	spin_lock_irqsave(&hsotg->lock, flags);
 	hsotg->lx_state = DWC2_L0;
 	hcd->state = HC_STATE_RUNNING;
@@ -2319,6 +2325,7 @@ static int _dwc2_hcd_start(struct usb_hcd *hcd)
 		return 0;	/* why 0 ?? */
 	}
 
+	dwc2_enable_global_interrupts(hsotg);
 	dwc2_hcd_reinit(hsotg);
 
 	/* Initialize and connect root hub if one is not already attached */
