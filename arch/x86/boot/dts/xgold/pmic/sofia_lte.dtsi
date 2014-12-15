@@ -192,13 +192,15 @@ pmic {
 		/* PBTN-UBTN */
 		on_button:on_button {
 			compatible = "intel,pmic,on-button";
+			intel,utility-button;
 			#address-cells = <0>;
-			interrupts = <0>;
+			interrupts = <0 1>;
 			interrupt-parent = <&on_button>;
 			#interrupt-cells = <1>;
 			interrupt-map = <
-				0 &hirq HIRQ_PMIC_PWR_BUTTON IRQ_TYPE_DEFAULT >;
-			interrupt-names = "on_button0";
+				0 &hirq HIRQ_PMIC_PWR_BUTTON IRQ_TYPE_DEFAULT
+				1 &hirq HIRQ_PMIC_UI_BUTTON IRQ_TYPE_DEFAULT >;
+			interrupt-names = "on_button0", "on_button1";
 			linux,keymap = <0x00000074>; /* KEY_POWER */
 		};
 
