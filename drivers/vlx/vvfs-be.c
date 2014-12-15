@@ -529,7 +529,8 @@ vvfs_get_devid (vvfs_be_t* vvfs_be)
     }
 
 error:
-    vvfs_free_reply (vvfs_be->link, reply);
+    if (reply)
+	vvfs_free_reply(vvfs_be->link, reply);
     return diag;
 }
 
@@ -572,7 +573,8 @@ vvfs_set_devinfo (vvfs_be_t* vvfs_be)
     diag = reply->retcode;
 
 error:
-    vvfs_free_reply (vvfs_be->link, reply);
+    if (reply)
+	vvfs_free_reply(vvfs_be->link, reply);
     return diag;
 }
 
