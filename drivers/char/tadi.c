@@ -667,8 +667,6 @@ static int tadi_init(void)
 		return 0;
 	}
 
-	register_console(&td_cons);
-
 	TADI_DBG("registered char device, major number=%i\n"
 			 , tadi_major_number);
 
@@ -703,7 +701,6 @@ static int tadi_driver_probe(struct platform_device *_dev)
 {
 	struct resource *mem;
 	int size;
-	pr_info("%s: -->\n", __func__);
 	mem = platform_get_resource_byname(_dev,
 			IORESOURCE_MEM, "trace-port");
 	if (!mem) {
@@ -719,12 +716,13 @@ static int tadi_driver_probe(struct platform_device *_dev)
 		release_mem_region(mem->start, size);
 		return 0;
 	}
+	pr_info("%s: Register %s console\n", __func__, td_cons.name);
+	register_console(&td_cons);
 	return 0;
 }
 
 static int tadi_driver_remove(struct platform_device *_dev)
 {
-	pr_info("%s is there\n", __func__);
 	iounmap((void __iomem *)fifo_start);
 	return 0;
 }
