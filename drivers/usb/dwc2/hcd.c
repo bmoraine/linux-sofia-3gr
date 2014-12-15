@@ -2279,8 +2279,10 @@ static int _dwc2_hcd_start(struct usb_hcd *hcd)
 
 	dev_dbg(hsotg->dev, "DWC OTG HCD START\n");
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	/* Initialize the Core for Host mode */
+	dwc2_core_init(hsotg, false, -1);
 
+	spin_lock_irqsave(&hsotg->lock, flags);
 	hcd->state = HC_STATE_RUNNING;
 
 	if (dwc2_is_device_mode(hsotg)) {
@@ -2288,6 +2290,7 @@ static int _dwc2_hcd_start(struct usb_hcd *hcd)
 		return 0;	/* why 0 ?? */
 	}
 
+	dwc2_enable_global_interrupts(hsotg);
 	dwc2_hcd_reinit(hsotg);
 
 	/* Initialize and connect root hub if one is not already attached */
