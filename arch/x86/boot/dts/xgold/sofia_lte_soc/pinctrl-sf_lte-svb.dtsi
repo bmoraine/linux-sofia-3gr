@@ -22,7 +22,9 @@
 	/* sparse GPIO range could be supported */
 		/*first pin / nb pins / value */
 	pinctrl-single,gpio-range =
-		<&range 0 14 0x100>,
+		<&range 0 8 0x100>,
+		<&range 9 1 0x1500>,	/* torch */
+		<&range 10 5 0x100>,
 		<&range 15 1 0x1700>,   /* dif_reset */
 		<&range 16 55 0x100>,
 		<&range 71 1 0x1700>,   /* gnss_poweron */
@@ -35,7 +37,8 @@
 		<&range 109 1 0x100>,
 		<&range 110 1 0x1500>,  /* touch_reset */
 		<&range 111 1 0x01500>,	/* cam2_pd */
-		<&range 112 32 0x100>;
+		<&range 112 1 0x01500>,	/* flash */
+		<&range 113 31 0x100>;
 
 	pinctrl-names = "default", "sleep", "deactivate"; /*"activate", "sleep", "deactivate" */
 	/* map here static pins (do not need any dynamic config) */
@@ -963,16 +966,22 @@
 	cam1_function_B_active_pins:cam1_function_B_active_pins {
 		pinctrl-single,pins = <
 			0x803b0 0x1500	/* cam1_pd */
+			0x803C0 0x1500	/* cam_flash */
+			0x80224 0x1500	/* cam_torch */
 		>;
 	};
 	cam1_function_B_inactive_pins:cam1_function_B_inactive_pins {
 		pinctrl-single,pins = <
 			0x803b0 0x4100	/* cam1_pd */
+			0x803C0 0x4100	/* cam_flash */
+			0x80224 0x4100	/* cam_torch */
 		>;
 	};
 	cam1_function_B_sleep_pins:cam1_function_B_sleep_pins {
 		pinctrl-single,pins = <
 			0x803b0 0x4100	/* cam1_pd */
+			0x803C0 0x4100	/* cam_flash */
+			0x80224 0x4100	/* cam_torch */
 		>;
 	};
 	s50_default_pins:s50_default_pins {
