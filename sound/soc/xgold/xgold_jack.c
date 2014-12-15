@@ -353,12 +353,6 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 		if (strcmp(res[i].name, "acd1") == 0)
 			jack->jack_irq = res[i].start;
 
-	if (jack->jack_irq < 0) {
-		xgold_err("no headset plug irq defined\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
 	jack->iio_client = iio_channel_get(NULL, "ACCID_SENSOR");
 	if (IS_ERR(jack->iio_client)) {
 		xgold_err("iio channel error\n");
@@ -382,12 +376,6 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 	for (i = 0; i < num_irq; i++)
 		if (strcmp(res[i].name, "acd2") == 0)
 			jack->button_irq = res[i].start;
-
-	if (jack->button_irq < 0) {
-		xgold_err("no irq_hook irq defined\n");
-		ret = -EINVAL;
-		goto out;
-	}
 
 	ret = devm_request_threaded_irq(&(pdev->dev), jack->button_irq,
 			NULL,

@@ -582,7 +582,8 @@ static int dsp_audio_dev_set_controls(struct dsp_audio_device *dsp_dev,
 
 	xgold_debug("In :%s, cmd:%d\n", __func__, cmd);
 
-	if (NULL == arg && cmd <= DSP_AUDIO_CONTROL_WRITE_SHM)
+	if ((NULL == arg && cmd <= DSP_AUDIO_CONTROL_WRITE_SHM) ||
+		(NULL == arg && cmd == DSP_AUDIO_POWER_REQ))
 		return -EINVAL;
 
 	switch (cmd) {
@@ -1464,6 +1465,10 @@ static int dsp_init(struct dsp_audio_device *dsp, unsigned mcu_cmd_offset,
 	for (i = 0; i < 3; i++) {
 		struct xgold_dsp_pipe *pipe;
 		pipe = kmalloc(sizeof(struct xgold_dsp_pipe), GFP_KERNEL);
+		if (pipe == NULL) {
+			xgold_err("Failed to allocate memory for pipe\n");
+			return -ENOMEM;
+		}
 		list_add_tail(&pipe->pipe, &dsp->pipe);
 		pipe->cmd_active = NULL;
 		pipe->id = i;
@@ -2290,7 +2295,7 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 	}
 
 	/* Enable dsp power when in native mode */
-	if (dsp_dev->p_dsp_common_data->native_mode) {
+	if (dsp_dev->p_dsp_common_data->native_mode && dsp_dev->pm_platdata) {
 		ret = platform_device_pm_set_state_by_name(pdev,
 				dsp_dev->pm_platdata->pm_state_D0_name);
 		if (ret < 0)

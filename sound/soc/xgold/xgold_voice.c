@@ -141,6 +141,7 @@ static int xgold_voice_probe(struct platform_device *pdev)
 	dsp_of_node = of_parse_phandle(np, "intel,dsp", 0);
 	if (!dsp_of_node) {
 		xgold_err("Unable to get dsp node\n");
+		kzfree(voice_data_ptr);
 		return -EINVAL;
 	}
 
@@ -148,6 +149,7 @@ static int xgold_voice_probe(struct platform_device *pdev)
 #endif
 	if (!voice_data_ptr->dsp) {
 		xgold_err("Cannot register as dsp client\n");
+		kzfree(voice_data_ptr);
 		return -EPROBE_DEFER;
 	}
 
@@ -198,6 +200,7 @@ skip_pinctrl:
 		if (ret < 0) {
 			xgold_err("%s: failed to set PM class error %d\n",
 					__func__, ret);
+			kzfree(voice_data_ptr);
 			return ret;
 		}
 

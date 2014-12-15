@@ -1187,6 +1187,7 @@ static int xgold_pcm_probe(struct platform_device *pdev)
 	dsp_of_node = of_parse_phandle(np, "intel,dsp", 0);
 	if (!dsp_of_node) {
 		xgold_err("Unable to get dsp node\n");
+		kzfree(pcm_data_ptr);
 		return -EINVAL;
 	}
 
@@ -1194,6 +1195,7 @@ static int xgold_pcm_probe(struct platform_device *pdev)
 #endif
 	if (!pcm_data_ptr->dsp) {
 		xgold_err("Cannot register as dsp client\n");
+		kzfree(pcm_data_ptr);
 		return -EPROBE_DEFER;
 	}
 
