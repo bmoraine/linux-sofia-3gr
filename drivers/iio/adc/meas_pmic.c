@@ -134,6 +134,16 @@ struct meas_pmic_vbat_cal_data {
 };
 
 /**
+ * meas_adc_irq_info - Contains PMIC adc irq number and irq name
+ * @irq_num: irq number
+ * @irq_name: irq_name
+ */
+struct meas_adc_irq_info {
+	int irq_num;
+	char *irq_name;
+};
+
+/**
  * meas_pmic_state - A structure representing the internal meas_pmic_state of
  *			the MEAS HAL.
  *
@@ -147,7 +157,7 @@ struct meas_pmic_vbat_cal_data {
  *			channels.
  * @vbat_cal:	 Structure for vbat calibration data
  * @p_platform_device:	Pointer to platform device
- * @irq_num:		IRQ number for underlying HW. It comes from device data.
+ * @adc_irq_info:	Contains ADC IRQ related information.
  * @meas_done:		Completion used to wait for measurement done.
  * @operation_done_cb:	Pointer to HAL callback.
  * @meas_pending:	measurement pending status.
@@ -162,7 +172,7 @@ struct meas_pmic_state_data {
 		*p_channel_data[ADC_MAX_NO_OF_CHANNELS];
 	struct meas_pmic_vbat_cal_data vbat_cal;
 	struct platform_device *p_platform_device;
-	int irq_num;
+	struct meas_adc_irq_info adc_irq_info[ADC_STA_IRQ_MAX];
 	struct completion meas_done;
 	adc_hal_cb_t operation_done_cb;
 	bool meas_pending;
@@ -173,6 +183,16 @@ static struct meas_pmic_state_data meas_pmic_state = {
 	.suspended = false,
 	.active_channel = ADC_MAX_NO_OF_CHANNELS,
 	.meas_pending = false,
+	.adc_irq_info =  {
+		{0, "ADC_USBID_IRQ"},
+		{0, NULL},
+		{0, "ADC_BATTEMP_IRQ"},
+		{0, "ADC_SYSTEMP_IRQ"},
+		{0, "ADC_BATTID_IRQ"},
+		{0, "ADC_VBATT_IRQ"},
+		{0, "ADC_GPMEAS_IRQ"},
+		{0, NULL},
+	}
 };
 
 /**
@@ -324,29 +344,7 @@ static int32_t meas_pmic_reg_read(uint32_t addr, uint32_t *val)
 */
 static void meas_pmic_dump_register(void)
 {
-	int vmm_pmic_err = 0;
-	uint32_t read_value = 0;
-
-	/* Start dumping relevant register content */
-	vmm_pmic_err = meas_pmic_reg_read(IRQLVL1_REG_ADDR, &read_value);
-	pr_err("vmm_erro=%d IRQLVL1_REG_ADDR=0x%08x\n",
-		vmm_pmic_err, read_value);
-
-	vmm_pmic_err = meas_pmic_reg_read(GPADCIRQ_REG_ADDR, &read_value);
-	pr_err("vmm_erro=%d GPADCIRQ_REG_ADDR=0x%08x\n",
-		vmm_pmic_err, read_value);
-
-	vmm_pmic_err = meas_pmic_reg_read(GPADCREQ_REG_ADDR, &read_value);
-	pr_err("vmm_erro=%d GPADCREQ_REG_ADDR=0x%08x\n",
-		vmm_pmic_err, read_value);
-
-	vmm_pmic_err = meas_pmic_reg_read(MADCIRQ_REG_ADDR, &read_value);
-	pr_err("vmm_erro=%d MADCIRQ_REG_ADDR=0x%08x\n",
-		vmm_pmic_err, read_value);
-
-	vmm_pmic_err = meas_pmic_reg_read(MADCIRQ_REG_ADDR, &read_value);
-	pr_err("vmm_erro=%d MIRQLVL1_REG_ADDR=0x%08x\n",
-		vmm_pmic_err, read_value);
+/* This can be used to dump debug register in future.*/
 }
 
 
@@ -485,6 +483,9 @@ static void meas_pmic_read_raw(int reg_channel,
 		if (IS_ERR_VALUE(vmm_pmic_err))
 			pr_err("%s %d VMM PMIC write error %d\n",
 				 __func__, __LINE__, vmm_pmic_err);
+
+		enable_irq(meas_pmic_state.adc_irq_info[
+			meas_pmic_adc_reg[reg_channel].adc_sta_bit].irq_num);
 
 		/* Enable the MEAS irq */
 		meas_pmic_irq_enable(true, reg_channel);
@@ -931,36 +932,17 @@ static void meas_pmic_read_vbat_cal_data(int *p_gec, int *p_oec)
 static irqreturn_t meas_pmic_irq_handler(int irq, void *data)
 {
 	struct meas_pmic_state_data *st = (struct meas_pmic_state_data *)data;
-	unsigned int adc_irq_value = 0;
 	int reg_channel;
-	uint32_t irqlvl1_value = 0;
-	int32_t vmm_pmic_err = 0;
-
-	BUG_ON(st->irq_num != irq);
 
 	if (meas_pmic_state.active_channel >= ADC_MAX_NO_OF_CHANNELS)
 		return IRQ_NONE;
 
-	vmm_pmic_err = meas_pmic_reg_read(IRQLVL1_REG_ADDR, &irqlvl1_value);
-	if (IS_ERR_VALUE(vmm_pmic_err)) {
-		pr_err("%s %d VMM PMIC write error %d\n", __func__,
-			__LINE__, vmm_pmic_err);
-	}
-	if (!(irqlvl1_value & (1 << IRQLVL1_REG_ADC_BIT_POS)))
-		return IRQ_NONE;
-
-	vmm_pmic_err = meas_pmic_reg_read(GPADCIRQ_REG_ADDR, &adc_irq_value);
-	if (IS_ERR_VALUE(vmm_pmic_err)) {
-		pr_err("%s %d VMM PMIC write error %d\n", __func__,
-			__LINE__, vmm_pmic_err);
-	}
-
 	reg_channel =
 		meas_pmic_state.p_channel_data[
 		meas_pmic_state.active_channel]->phy_channel_num;
-	if (!(adc_irq_value &
-			(1 << (meas_pmic_adc_reg[reg_channel].adc_sta_bit))))
-		return IRQ_NONE;
+
+	disable_irq_nosync(meas_pmic_state.adc_irq_info[
+			meas_pmic_adc_reg[reg_channel].adc_sta_bit].irq_num);
 
 	/* First of all, clear the IRQ bit to avoid other interrupts */
 	meas_pmic_irq_enable(false, reg_channel);
@@ -1105,7 +1087,7 @@ static int meas_pmic_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct intel_adc_hal_pdata *pdata;
 	struct adc_hal_channel_info *p_channel_info;
-	int ret, chan;
+	int ret, chan, count = 0, count_2 = 0;
 
 	meas_pmic_state.p_platform_device = pdev;
 
@@ -1128,21 +1110,41 @@ static int meas_pmic_probe(struct platform_device *pdev)
 			&p_channel_info->p_data[chan];
 	}
 
-	meas_pmic_state.irq_num = platform_get_irq_byname(pdev,
-					"PMIC_ADC_HIRQ");
-	if (IS_ERR_VALUE(meas_pmic_state.irq_num)) {
-		pr_err("(%s) failed to get irq no\n", __func__);
-		ret = meas_pmic_state.irq_num;
-		goto err_request_irq;
-	}
+	for (count = 0; count < ADC_STA_IRQ_MAX; count++) {
+		if (meas_pmic_state.adc_irq_info[count].irq_name != NULL) {
+			meas_pmic_state.adc_irq_info[count].irq_num =
+				platform_get_irq_byname(
+				pdev,
+				meas_pmic_state.adc_irq_info[count].irq_name);
 
-	/* Request and enable the MEAS irq */
-	ret = request_threaded_irq(meas_pmic_state.irq_num, NULL,
-		 meas_pmic_irq_handler, IRQF_SHARED | IRQF_ONESHOT,
-		"pmic_adc_irq", &meas_pmic_state);
-	if (IS_ERR_VALUE(ret)) {
-		pr_err("(%s) failed requesting interrupt\n", __func__);
-		goto err_request_irq;
+			pr_info("%s irq_num =%d\n", __func__,
+				meas_pmic_state.adc_irq_info[count].irq_num);
+
+			if (IS_ERR_VALUE(
+				meas_pmic_state.adc_irq_info[count].irq_num)) {
+				pr_err("(%s) failed to get irq no\n",
+					__func__);
+				ret =
+				meas_pmic_state.adc_irq_info[count].irq_num;
+				goto err_request_irq;
+			}
+
+			/* Request and enable the MEAS irq */
+			ret = request_threaded_irq(
+				meas_pmic_state.adc_irq_info[count].irq_num,
+				NULL,
+				meas_pmic_irq_handler,
+				IRQF_SHARED | IRQF_ONESHOT,
+				meas_pmic_state.adc_irq_info[count].irq_name,
+				&meas_pmic_state);
+			if (IS_ERR_VALUE(ret)) {
+				pr_err("(%s) failed requesting interrupt\n",
+					__func__);
+				goto err_request_irq;
+			}
+			disable_irq_nosync(
+				meas_pmic_state.adc_irq_info[count].irq_num);
+		}
 	}
 
 	/* Unmask ADC bit in first level interrupt register */
@@ -1190,8 +1192,15 @@ static int meas_pmic_probe(struct platform_device *pdev)
 	return 0;
 
 err_register_hal:
-	free_irq(meas_pmic_state.irq_num, &meas_pmic_state);
+	for (count = 0; count < ADC_STA_IRQ_MAX; count++)
+		if (meas_pmic_state.adc_irq_info[count].irq_name != NULL)
+			free_irq(meas_pmic_state.adc_irq_info[count].irq_num,
+				&meas_pmic_state);
 err_request_irq:
+	for (count_2 = 0; count_2 < count; count_2++)
+		if (meas_pmic_state.adc_irq_info[count].irq_name != NULL)
+			free_irq(meas_pmic_state.adc_irq_info[count].irq_num,
+				&meas_pmic_state);
 	kfree(pdata);
 	dev->platform_data = NULL;
 err_kzalloc:
@@ -1207,7 +1216,13 @@ err_kzalloc:
  */
 static int meas_pmic_remove(struct platform_device *pdev)
 {
+	int count = 0;
 	struct device *dev = &pdev->dev;
+
+	for (count = 0; count < ADC_STA_IRQ_MAX; count++)
+		if (meas_pmic_state.adc_irq_info[count].irq_name != NULL)
+			free_irq(meas_pmic_state.adc_irq_info[count].irq_num,
+				&meas_pmic_state);
 
 	/* De-register the ADC HAL */
 	adc_unregister_hal(&meas_pmic_adc_hal_interface, dev);

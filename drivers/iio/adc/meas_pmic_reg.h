@@ -209,7 +209,8 @@ enum intel_adcirg_status_reg_bit {
 	ADC_STA_BATID     = 4,
 	ADC_STA_VBAT      = 5,
 	ADC_STA_GPMEAS    = 6,
-	ADC_STA_CCTICK    = 7
+	ADC_STA_CCTICK    = 7,
+	ADC_STA_IRQ_MAX   = 8
 };
 
 /* Bit position of meausrement type inside
@@ -222,7 +223,8 @@ enum intel_gpadc_req_reg_bit {
 	ADC_REQ_BATID     = 4,
 	ADC_REQ_VBAT      = 5,
 	ADC_REQ_GPMEAS    = 6,
-	ADC_REQ_PEAK      = 7
+	ADC_REQ_PEAK      = 7,
+	ADC_REQ_IRQ_MAX   = 8
 };
 
 /* Re-definition of the ADC physical channels to abstract HW version specific
@@ -241,7 +243,7 @@ enum intel_adc_phy_channel {
 	ADC_PHY_AGND      = 10,
 	ADC_PHY_VREF      = 11,
 	ADC_PHY_OCV       = 12,
-	ADC_PHY_MAX
+	ADC_PHY_MAX       = 13
 	};
 
 #endif /* __MEAS_PMIC_REG_H__ */
