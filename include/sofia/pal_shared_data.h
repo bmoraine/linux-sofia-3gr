@@ -64,6 +64,7 @@ struct pm_control_shared_data {
        volatile uint32_t calibration_state;
        volatile uint32_t gsm_sleep_timer_frames_in;
        volatile uint32_t gsm_sleep_timer_frames_out;
+       volatile uint32_t gsm_sleep_timer_stopped;
        volatile uint32_t cpu_drv_param;
        volatile uint32_t cpu_scaling_states[7];
        volatile uint32_t cpu_clk;
@@ -127,8 +128,9 @@ enum vmm_pm_opcode {
 	PM_REQ_FREQ_CHNG = 19,
 	PM_GSM_SLEEP_TIMER_START = 20,
 	PM_GSM_SLEEP_TIMER_STOP = 21,
-	PM_GSM_SLEEP_FRAME_QUERY = 22,
-	PM_OPCODE_END = 23,
+	PM_GSM_SLEEP_TIMER_GET_SLEPT_FRAMES = 22,
+	PM_GSM_SLEEP_TIMER_IS_STOPPED = 23,
+	PM_OPCODE_END = 24,
 };
 
 
