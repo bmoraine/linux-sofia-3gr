@@ -55,7 +55,7 @@ int32_t pmic_reg_set_field(uint32_t reg_address,
 	if (ret)
 		goto out;
 
-	reg_val &= ~(mask);
+	reg_val &= (uint32_t) ~(mask);
 	field_val = data & mask;
 	reg_val |= field_val;
 
