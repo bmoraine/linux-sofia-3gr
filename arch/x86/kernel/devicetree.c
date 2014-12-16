@@ -274,6 +274,10 @@ void * __init x86_fdt_header(void)
 			(u64)sizeof(struct boot_param_header));
 
 	dt = early_memremap(initial_dtb, map_len);
+	if (!dt) {
+		pr_err("Error: early_memremap of devictree failed.\n");
+		return NULL;
+	}
 	size = be32_to_cpu(dt->totalsize);
 	if (map_len < size) {
 		early_iounmap(dt, map_len);
@@ -296,6 +300,10 @@ static void __init x86_flattree_get_config(void)
 			(u64)sizeof(struct boot_param_header));
 
 	dt = early_memremap(initial_dtb, map_len);
+	if (!dt) {
+		pr_err("Error: early_memremap of devicetree failed.\n");
+		return;
+	}
 	size = be32_to_cpu(dt->totalsize);
 	if (map_len < size) {
 		early_iounmap(dt, map_len);
