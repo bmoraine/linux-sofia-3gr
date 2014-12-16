@@ -48,18 +48,20 @@ static int xgold_rst_assert(struct reset_controller_dev *rcdev,
 #if defined(CONFIG_X86_INTEL_SOFIA)
 	addr = xgrc->ctrl_io_phys + xgrc->reg_set;
 	if (xgrc->write_mode == XGOLD_RESET_USE_RW_REG) {
-		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= mv_svc_reg_read(addr, &reg, -1);
-		else
+		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM) {
+			ret |= mv_svc_reg_write(addr, BIT(id), BIT(id));
+		} else {
 			reg = ioread32(xgrc->ctrl_io + xgrc->reg_set);
-		reg |= BIT(id);
+			reg |= BIT(id);
+			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
+		}
 	} else { /* XGOLD_RESET_USE_SET_CLEAR_REG */
 		reg = BIT(id);
+		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
+			ret |= mv_svc_reg_write_only(addr, reg, reg);
+		else
+			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
 	}
-	if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-		ret |= mv_svc_reg_write(addr, reg, -1);
-	else
-		iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
 #endif
 	spin_unlock_irqrestore(&xgrc->lock, flags);
 	return ret == 0 ? 0 : -EPERM;
@@ -77,21 +79,18 @@ static int xgold_rst_deassert(struct reset_controller_dev *rcdev,
 #if defined(CONFIG_X86_INTEL_SOFIA)
 	if (xgrc->write_mode == XGOLD_RESET_USE_RW_REG) {
 		addr = xgrc->ctrl_io_phys + xgrc->reg_set;
-		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= mv_svc_reg_read(addr, &reg, -1);
-		else
+		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM) {
+			ret |= mv_svc_reg_write(addr, 0, BIT(id));
+		} else {
 			reg = ioread32(xgrc->ctrl_io + xgrc->reg_set);
-
-		reg &= ~BIT(id);
-		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= mv_svc_reg_write(addr, reg, -1);
-		else
+			reg &= ~BIT(id);
 			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
+		}
 	} else { /* XGOLD_RESET_USE_SET_CLEAR_REG */
 		addr = xgrc->ctrl_io_phys + xgrc->reg_clear;
 		reg = BIT(id);
 		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= mv_svc_reg_write(addr, reg, -1);
+			ret |= mv_svc_reg_write_only(addr, reg, reg);
 		else
 			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_clear);
 	}
