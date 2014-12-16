@@ -231,12 +231,19 @@ pmic {
 			#io-channel-cells = <1>;
 			io-channel-ranges;
 			#address-cells = < 0 >;
-			interrupts = < 0 >;
+			interrupts = < 0 1 2 3 4 5 >;
 			interrupt-parent = <&meas_pmic>;
 			#interrupt-cells = < 1 >;
 			#size-cells = <1>;
-			interrupt-map = < 0 &hirq HIRQ_PMIC_ADC_USBID IRQ_TYPE_DEFAULT >;
-			interrupt-names = "PMIC_ADC_HIRQ";
+			interrupt-map = < 0 &hirq HIRQ_PMIC_ADC_USBID IRQ_TYPE_DEFAULT
+					  1 &hirq HIRQ_PMIC_ADC_BATTEMP IRQ_TYPE_DEFAULT
+					  2 &hirq HIRQ_PMIC_ADC_SYSTEMP IRQ_TYPE_DEFAULT
+					  3 &hirq HIRQ_PMIC_ADC_BATTID IRQ_TYPE_DEFAULT
+					  4 &hirq HIRQ_PMIC_ADC_VBATT IRQ_TYPE_DEFAULT
+					  5 &hirq HIRQ_PMIC_ADC_GPMEAS IRQ_TYPE_DEFAULT >;
+			interrupt-names = "ADC_USBID_IRQ",   "ADC_BATTEMP_IRQ",
+					  "ADC_SYSTEMP_IRQ", "ADC_BATTID_IRQ",
+					  "ADC_VBATT_IRQ",   "ADC_GPMEAS_IRQ";
 		};
 
 		adc_sensors:adc_sensors {
