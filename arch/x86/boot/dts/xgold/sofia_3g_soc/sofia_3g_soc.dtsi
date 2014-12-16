@@ -395,6 +395,7 @@
 #if defined(SOFIA_SECURED_VMM_ACCESS)
 						 intel,vmm-secured-access;
 #endif
+						intel,rpm_enabled = < 1 >;
 						/* QUIRK_CAP_CLOCK_BASE_BROKEN: bit 25 + QUIRKS2_HOST_PRESET_VALUE_BROKEN: bit 3 + LED_BROKEN: bit 14*/
 						intel,quirks = < 0x2000000 0x4008 >;
 						intel,is_8_bits = < 1 >;
@@ -436,6 +437,7 @@
 #if defined(SOFIA_SECURED_VMM_ACCESS)
 						intel,vmm-secured-access;
 #endif
+						intel,rpm_enabled = < 1 >;
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_DISABLE_UHS: bit17 */
 						intel,quirks = < 0 0x4008 >;
@@ -450,7 +452,7 @@
 							pm,class-name = "sdhci_class";
 							pm,user-name = "usd";
 							pm,state-D0 = "high_perf";
-							pm,state-D0i2 = "high_perf";
+							pm,state-D0i2 = "mid_perf";
 							pm,state-D3 = "disable";
 						};
 					};
