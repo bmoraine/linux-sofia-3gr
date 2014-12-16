@@ -30,7 +30,7 @@
 extern struct ion_handle *ion_handle_get_by_id(struct ion_client *client,
 						int id);
 extern int xgold_ion_handler_init(struct device_node *node,
-	struct ion_device *idev);
+	struct ion_device *idev, struct ion_platform_data *pdata);
 extern void xgold_ion_handler_exit(void);
 #endif
 

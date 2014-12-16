@@ -16,6 +16,7 @@
  * Notes:
  * Oct 14 2014: IMC: created
  * Nov 29 2014: IMC: switch to ION_HEAP_TYPE_SECURE
+ * Dec 16 2014: IMC: determine heap type dynamically
  */
 
 #include <linux/fs.h>
@@ -30,7 +31,6 @@
 #include "../ion_priv.h"
 #include <linux/xgold_ion.h>
 
-
 /* vbpipe designated for ion usage -- but currently borrowed ... */
 #define XGOLD_ION_VBPIPE  "/dev/vbpipe11"
 
@@ -43,6 +43,9 @@ static struct task_struct *xgold_ion_task;
 static struct ion_client  *xgold_ion_client;
 static struct file	  *xgold_ion_vbpipe_filep;
 
+static unsigned int xgold_ion_heap_type_mask;
+static uint32_t	    xgold_ion_heap_capacity;
+
 /*
  * internal functions
  */
@@ -54,33 +57,73 @@ static int xgold_ion_handle_command(uint32_t cmd[], int len);
 /*
  * initialize/start handler thread
  */
-int xgold_ion_handler_init(struct device_node *node, struct ion_device *idev)
+int xgold_ion_handler_init(struct device_node *node, struct ion_device *idev,
+	struct ion_platform_data *pdata)
 {
+	int i;
+
+	/*
+	 * determine heap and size to be used:
+	 * - defaults to ION_HEAP_TYPE_DMA_MASK
+	 * - switch to ION_HEAP_TYPE_SECURE, if present
+	 *   store size accordingly
+	 */
+	/* default settings */
+	xgold_ion_heap_type_mask = ION_HEAP_TYPE_DMA_MASK;
+	xgold_ion_heap_capacity	 = 0;
+
+	if (pdata != NULL) {
+		for (i = 0; i < pdata->nr; i++) {
+			struct ion_platform_heap *heap_data =  &pdata->heaps[i];
+
+			if (heap_data == NULL)
+				continue;
+
+			pr_debug("xg_ion_h: heap %s type %u id %u size %u\n",
+				heap_data->name, heap_data->type,
+				heap_data->id, heap_data->size);
+
+			/* secure heap is present; use this one */
+			if (heap_data->type == ION_HEAP_TYPE_DMA &&
+				heap_data->id == ION_HEAP_TYPE_SECURE) {
+				xgold_ion_heap_type_mask =
+					ION_HEAP_TYPE_SECURE_MASK;
+
+				xgold_ion_heap_capacity = heap_data->size;
+
+				pr_info("xg_ion VPU uses %s size %u\n",
+					heap_data->name,
+					xgold_ion_heap_capacity);
+			}
+		}
+	}
+
 	if (of_property_read_bool(node, "secvm-handler")) {
-		pr_debug("xg_ion: Init secure vm handler\n");
+		pr_debug("xg_ion Init secure vm handler\n");
+
 
 		xgold_ion_client = ion_client_create(idev, "secure_vm");
 		if (xgold_ion_client == NULL) {
-			pr_err("xg_ion: cannot create ion client\n");
-			pr_err("xg_ion: cannot create secvm handler\n");
+			pr_err("xg_ion cannot create ion client\n");
+			pr_err("xg_ion cannot create secvm handler\n");
 
 			goto end;
 		}
 
-		pr_debug("xg_ion: created client for secure vm\n");
+		pr_debug("xg_ion created client for secure vm\n");
 
 		xgold_ion_task = kthread_run(&xgold_ion_handler,
 			(void *)idev, "ion_secvm_handler");
 
 		if (xgold_ion_task != NULL)
-			pr_debug("xg_ion: thread started: %s\n",
+			pr_debug("xg_ion thread started: %s\n",
 				xgold_ion_task->comm);
 		else {
-			pr_err("xg_ion: error starting secvm handler\n");
+			pr_err("xg_ion error starting secvm handler\n");
 			ion_client_destroy(xgold_ion_client);
 		}
 	} else
-		pr_debug("xg_ion: no secvm handler\n");
+		pr_debug("xg_ion no secvm handler\n");
 
 end:
 	return 0;
@@ -92,14 +135,14 @@ end:
 void xgold_ion_handler_exit(void)
 {
 	if (xgold_ion_task != NULL) {
-		pr_info("xg_ion: terminate secvm handler\n");
+		pr_info("xg_ion terminate secvm handler\n");
 		kthread_stop(xgold_ion_task);
 
 		xgold_ion_task = NULL;
 	}
 
 	if (xgold_ion_client != NULL) {
-		pr_info("xg_ion: delete ion client \"secure_vm\"\n");
+		pr_info("xg_ion delete ion client \"secure_vm\"\n");
 		ion_client_destroy(xgold_ion_client);
 
 		xgold_ion_client = NULL;
@@ -131,7 +174,7 @@ static int xgold_ion_handler(void *data)
 
 	/* struct ion_device *idev = (struct ion_device *)data; */
 
-	pr_debug("xg_ion: starting handler thread\n");
+	pr_debug("xg_ion starting handler thread\n");
 
 	while (!kthread_should_stop()) {
 
@@ -147,14 +190,14 @@ static int xgold_ion_handler(void *data)
 			old_fs = get_fs();
 			set_fs(KERNEL_DS);
 
-			pr_debug("xg_ion: handler thread - open vbpipe");
+			pr_debug("xg_ion handler thread - open vbpipe\n");
 
 			fp = filp_open(XGOLD_ION_VBPIPE, O_RDWR, 0);
 
 			set_fs(old_fs);
 
 			if (IS_ERR(fp)) {
-				pr_debug("xg_ion: open vbpipe error %d\n",
+				pr_debug("xg_ion open vbpipe error %d\n",
 					(int)fp);
 				xgold_ion_vbpipe_filep = NULL;
 
@@ -164,7 +207,7 @@ static int xgold_ion_handler(void *data)
 				msleep(2000);
 
 			} else {
-				pr_info("xg_ion: %s link 0x%p established\n",
+				pr_info("xg_ion %s link 0x%p established\n",
 					XGOLD_ION_VBPIPE, fp);
 
 				/*
@@ -185,7 +228,7 @@ static int xgold_ion_handler(void *data)
 		pr_debug("xgold_ion: handler thread - entering read loop\n");
 
 		while (!kthread_should_stop() && error == 0) {
-			pr_debug("xg_ion: wait for request on vbpipe\n");
+			pr_debug("xg_ion wait for request on vbpipe\n");
 
 			if (xgold_ion_vbpipe_filep != NULL)
 				error = xgold_ion_vbpipe_handler(
@@ -207,7 +250,7 @@ static int xgold_ion_handler(void *data)
 
 			set_fs(old_fs);
 
-			pr_info("xg_ion: vbpipe closed (%d)", ret);
+			pr_info("xg_ion vbpipe closed (%d)", ret);
 		}
 
 	} /* the big loop */
@@ -248,7 +291,7 @@ static int xgold_ion_vbpipe_handler(struct file *filep)
 		set_fs(old_fs);
 
 		if (done < 0) {
-			pr_err("xg_ion: error %d reading vbpipe", done);
+			pr_err("xg_ion error %d reading vbpipe", done);
 			ret = -1;
 			break;
 		}
@@ -283,7 +326,7 @@ static int xgold_ion_vbpipe_handler(struct file *filep)
 			set_fs(old_fs);
 
 			if (done < 0) {
-				pr_err("xg_ion: error %d writing vbpipe",
+				pr_err("xg_ion error %d writing vbpipe",
 					done);
 				ret = -2;
 				break;
@@ -333,14 +376,14 @@ static int xgold_ion_handle_command(uint32_t cmd[], int cmd_len)
 	int ret = 0;
 	uint32_t magic;
 	uint32_t command;
-	size_t len;
+	ssize_t len;
 	struct ion_handle *i_handle;
 	ion_phys_addr_t phys_addr;
 
 	magic	= cmd[0];
 	command = cmd[1];
 
-	pr_debug("xg_ion: magic 0x%08x, cmd %d\n", magic, command);
+	pr_debug("xg_ion magic 0x%08x, cmd %d\n", magic, command);
 
 	switch (command) {
 	case VVPU_CMD_ION_ALLOC:
@@ -348,27 +391,40 @@ static int xgold_ion_handle_command(uint32_t cmd[], int cmd_len)
 		cmd[4] = 0;
 		cmd[5] = 0;
 
-		len = cmd[3];
-		i_handle = ion_alloc(xgold_ion_client, len,
-			16, ION_HEAP_TYPE_SECURE_MASK, 0);
+		len = (ssize_t)cmd[3];
 
-		pr_debug("xg_ion: ion_alloc(clnt %p, l %ul, 16, DMA, 0) = %p\n",
+		/* if req len == -1, allocate whole heap */
+		if (len == -1) {
+
+			if (xgold_ion_heap_capacity != 0) {
+				len = (ssize_t) xgold_ion_heap_capacity;
+				pr_debug("xg_ion req len = -1 adjust to %d\n",
+					len);
+			} else
+				pr_err("xg_ion len = -1 not supported\n");
+		}
+
+		i_handle = ion_alloc(xgold_ion_client, len,
+			16, xgold_ion_heap_type_mask, 0);
+
+		pr_debug("xg_ion ion_alloc(clnt %p, l %ul, 16, DMA, 0) = %p\n",
 			xgold_ion_client, len, i_handle);
 
 		if (IS_ERR(i_handle))
-			pr_err("xg_ion: error ion_alloc() == 0x%p\n", i_handle);
+			pr_err("xg_ion error ion_alloc() == 0x%p\n", i_handle);
 		else {
 			if (ion_phys(xgold_ion_client, i_handle, &phys_addr,
 					&len) == 0) {
 				cmd[2] = 0; /* alloc and map OK */
 
+				cmd[3] = (uint32_t)len; /* return size */
 				cmd[4] = (uint32_t)phys_addr;
 				cmd[5] = (uint32_t)i_handle;
 
-				pr_debug("xg_ion: alloc l %d, 0x%08lx, h 0x%p\n",
+				pr_debug("xg_ion alloc l %d, 0x%08lx, h 0x%p\n",
 					len, phys_addr, i_handle);
 			} else {
-				pr_err("xg_ion: mapping error; handle 0x%p\n",
+				pr_err("xg_ion mapping error; handle 0x%p\n",
 					i_handle);
 
 				ion_free(xgold_ion_client, i_handle);
@@ -380,7 +436,7 @@ static int xgold_ion_handle_command(uint32_t cmd[], int cmd_len)
 	case VVPU_CMD_ION_FREE:
 		i_handle = (struct ion_handle *)cmd[5];
 
-		pr_debug("xg_ion: free handle 0x%p\n", i_handle);
+		pr_debug("xg_ion free handle 0x%p\n", i_handle);
 
 		ion_free(xgold_ion_client, i_handle);
 		i_handle = 0;
@@ -389,7 +445,7 @@ static int xgold_ion_handle_command(uint32_t cmd[], int cmd_len)
 		break;
 
 	default:
-		pr_err("xg_ion: invalid command %d from secure vm\n", command);
+		pr_err("xg_ion invalid command %d from secure vm\n", command);
 
 	}
 

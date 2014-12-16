@@ -392,7 +392,7 @@ int xgold_ion_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, idev);
 
-	xgold_ion_handler_init(pdev->dev.of_node, idev);
+	xgold_ion_handler_init(pdev->dev.of_node, idev, pdata);
 
 	return 0;
 err:
