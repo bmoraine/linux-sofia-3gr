@@ -38,7 +38,7 @@ int sofia_get_steal_time(uint64_t *total_time, uint64_t *active_stolen_time,
 						uint64_t *idle_stolen_time)
 {
 	struct vmm_shared_data *mv_shm = mv_gal_get_shared_data();
-	int ret;
+	int ret = 0;
 	u32 sampling_period;
 	u64 active_stolen_again;
 	BUG_ON(mv_shm == NULL);
