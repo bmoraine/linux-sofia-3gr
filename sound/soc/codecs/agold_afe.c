@@ -981,23 +981,7 @@ static const struct snd_kcontrol_new agold_afe_snd_controls[] = {
 
 void afe_writel(struct snd_soc_codec *codec, unsigned int value, void *addr)
 {
-#ifdef CONFIG_X86_INTEL_SOFIA_ERRATA_002
-	struct agold_afe_data *agold_afe;
-	struct idi_controller_device *controller;
-
-	if (!codec)
-		goto skip_send_break;
-
-	agold_afe = snd_soc_codec_get_drvdata(codec);
-	controller = agold_afe->dev->controller;
-	if (controller->send_break) {
-		afe_debug("%s send break\n", __func__);
-		controller->send_break(controller, 3);
-	}
-skip_send_break:
-#endif
 	afe_debug("@0x%p wr 0x%x\n", addr, value);
-
 	iowrite32(value, addr);
 }
 
@@ -1647,14 +1631,10 @@ static int agold_afe_configure_idi_channel(struct snd_soc_codec *codec)
 		(struct agold_afe_data *)snd_soc_codec_get_drvdata(codec);
 
 	if (agold_afe) {
-#ifndef CONFIG_X86_INTEL_SOFIA_ERRATA_002
 		afe_debug("%s: Trying to configure IDI rx channel\n", __func__);
 		ret = idi_set_channel_config(agold_afe->dev,
 				&agold_afe->rx_config);
 
-#else
-		ret = 0;
-#endif
 		if (ret)
 			goto out;
 
@@ -1898,11 +1878,6 @@ static int agold_afe_codec_probe(struct snd_soc_codec *codec)
 			agold_afe->dev->controller->send_break(
 				agold_afe->dev->controller, 3);
 
-		if (agold_afe->cgu) {
-			iowrite32(0xFF, agold_afe->cgu + 0x1120);
-			iowrite32(0xFF, agold_afe->cgu + 0x1124);
-		}
-
 		/* Prepare AFE registers */
 		agold_afe->aud2idictrl_cfg = BIT(31);
 
@@ -1915,7 +1890,6 @@ static int agold_afe_codec_probe(struct snd_soc_codec *codec)
 			(0 << 1) |	/* HS amplifiers on/off */
 			(1 << 0);	/* EP amplifier on/off */
 
-#ifndef CONFIG_X86_INTEL_SOFIA_ERRATA_002
 		agold_afe->bcon_cfg =
 			(1 << 31) |	/* Switch on central biasing */
 			(0 << 19) |	/* No direct path to FMR */
@@ -1929,21 +1903,7 @@ static int agold_afe_codec_probe(struct snd_soc_codec *codec)
 			(4 << 2) |	/* Audio out rate 48kHz */
 			(0 << 1) |	/* Audio out enabled */
 			(0 << 0);	/* AFE on */
-#else
-		/* AFE out must be on before DSP VB_HW_AFE command is issued,
-		 * otherwise IDI bus get stuck */
-		agold_afe->bcon_cfg =
-			(1 << 31) |	/* Switch on central biasing */
-			(0 << 19) |	/* No direct path to FMR */
-			(1 << 16) |	/* Auto mute disabled */
-			(1 << 15) |	/* Power on AFE */
-			(1 << 8) |	/* Audio in clock LowPow mode (2MHz) */
-			(0 << 6) |	/* Audio in rate 8kHz */
-			(0 << 5) |	/* Audio in Enabled */
-			(4 << 2) |	/* Audio out rate 48kHz */
-			(1 << 1) |	/* Audio out enabled */
-			(1 << 0);	/* AFE on */
-#endif
+
 		agold_afe->audoutctrl1_cfg =
 			(0 << 30) |	/* Trace off */
 			(0 << 26) |	/* HS pop suppression ramp delay 50ms */
@@ -2413,21 +2373,17 @@ static int agold_afe_device_probe(struct idi_peripheral_device *pdev,
 	/* clock */
 	agold_afe->clk = of_clk_get_by_name(np, "clk_afe");
 	if (IS_ERR(agold_afe->clk)) {
-		afe_err("AFE clk not found\n");
+		afe_debug("AFE clk not found\n");
 		agold_afe->clk = NULL;
 	}
 
 	/* Reset */
 	agold_afe->aferst = reset_control_get(&pdev->device, "aferst");
 	if (IS_ERR(agold_afe->aferst)) {
-		afe_err("AFE reset bit not found\n");
+		afe_debug("AFE reset bit not found\n");
 		agold_afe->aferst = NULL;
 	}
 
-	/* FIXME */
-	agold_afe->cgu = of_iomap(of_parse_phandle(np, "intel,cgu-phys", 0), 0);
-
-#ifndef CONFIG_X86_INTEL_SOFIA_ERRATA_002
 	clk_prepare(agold_afe->clk);
 
 	/* AFE reset toggling */
@@ -2438,11 +2394,8 @@ static int agold_afe_device_probe(struct idi_peripheral_device *pdev,
 	}
 
 	clk_enable(agold_afe->clk);
-#endif
 
-#ifndef CONFIG_X86_INTEL_SOFIA_ERRATA_002
 	idi_set_channel_config(pdev, &agold_afe->rx_config);
-#endif
 	idi_set_channel_config(pdev, &agold_afe->tx_config);
 
 	/* pinctrl */

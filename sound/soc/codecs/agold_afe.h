@@ -200,7 +200,6 @@ struct agold_afe_data {
 	struct clk *clk;
 	struct xgold_afe_reg rst;
 	struct reset_control *aferst;
-	void __iomem *cgu;
 	/* Shadow registers */
 	unsigned power_cfg;
 	unsigned bcon_cfg;
