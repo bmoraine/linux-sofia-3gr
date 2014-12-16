@@ -84,11 +84,12 @@ static ssize_t noc_stat_run_write(struct file *filp, const char __user *ubuf,
 static ssize_t noc_stat_run_read(struct file *filp, char __user *ubuf,
 				 size_t cnt, loff_t *ppos)
 {
+#define RUN_STR_SIZE 11
 	struct xgold_noc_device *noc_device = filp->private_data;
-	char buf[10 + 1];
+	char buf[RUN_STR_SIZE];
 	int r;
 
-	r = sprintf(buf, "%i\n", noc_device->stat->run);
+	r = snprintf(buf, RUN_STR_SIZE, "%i\n", noc_device->stat->run);
 
 	return simple_read_from_buffer(ubuf, cnt, ppos, buf, r);
 }
@@ -137,11 +138,11 @@ static ssize_t noc_stat_results_read(struct file *filp, char __user *ubuf,
 				     size_t cnt, loff_t *ppos)
 {
 	struct xgold_noc_device *noc_device = filp->private_data;
-	struct xgold_noc_stat *stat = noc_device->stat;
+	struct xgold_noc_stat *stat;
 	struct xgold_noc_stat_probe *stat_probe;
 	struct xgold_noc_stat_measure *stat_measure;
 	u64 meas_min, meas_max, meas_mean, meas_now;
-	u64 clock_noc = (u64) stat->clock_rate;
+	u64 clock_noc;
 	struct clk *myclk;
 	char *buf1;
 	char buf2[SIZE_SMALL_BUF + 2];
@@ -152,8 +153,13 @@ static ssize_t noc_stat_results_read(struct file *filp, char __user *ubuf,
 	if (noc_device == NULL)
 		return -ENODEV;
 
+	stat = noc_device->stat;
+	if (!stat)
+		return -ENODEV;
+	clock_noc = (u64) stat->clock_rate;
+
 	buf1 = kzalloc(sizeof(*buf1) * SIZE_BIG_BUF, GFP_KERNEL);
-	if (IS_ERR(buf1))
+	if (!buf1)
 		return -ENODEV;
 
 	myclk = noc_device->clock;

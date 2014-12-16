@@ -54,8 +54,8 @@ static struct xgold_noc_stat_measure *new_stat_measure(struct
 
 	stat_measure = kzalloc(sizeof(struct xgold_noc_stat_measure),
 			       GFP_KERNEL);
-	if (IS_ERR(stat_measure))
-		return stat_measure;
+	if (!stat_measure)
+		return ERR_PTR(-ENOMEM);
 	INIT_LIST_HEAD(&stat_measure->link);
 	spin_lock_init(&stat_measure->lock);
 	stat_measure->idx_trace_port_sel = idx_trace_port_sel;
@@ -92,8 +92,8 @@ static struct xgold_noc_stat_probe *new_stat_probe(struct xgold_noc_stat
 	unsigned long flags;
 
 	stat_probe = kzalloc(sizeof(struct xgold_noc_stat_probe), GFP_KERNEL);
-	if (IS_ERR(stat_probe))
-		return stat_probe;
+	if (!stat_probe)
+		return ERR_PTR(-ENOMEM);
 
 	INIT_LIST_HEAD(&stat_probe->measure);
 	INIT_LIST_HEAD(&stat_probe->link);
@@ -139,14 +139,15 @@ static int new_probe_and_measure(struct xgold_noc_device *noc_device,
 
 	index = 0;
 	of_property_for_each_string(np, name, prop, s)
-	    str[index++] = s;
+		str[index++] = s;
 
 	/* Search which probe can be used with TracePortSel equal to
 	 * first value in dts */
 	for (i = 0; i < noc_device->nr_probes; i++) {
 		probe = &noc_device->probes[i];
 		for (j = 0; probe->available_portsel[j] != NULL; j++) {
-			if (strcmp(str[0], probe->available_portsel[j]) == 0)
+			if (str[0] && strcmp(str[0],
+				probe->available_portsel[j]) == 0)
 				break;
 		}
 		if (probe->available_portsel[j] != NULL)
@@ -171,8 +172,9 @@ static int new_probe_and_measure(struct xgold_noc_device *noc_device,
 				/* FIXME hardcoded */
 				i = 0;
 				while (bf->lut[i] != NULL) {
-					if (strcmp(str[IDX_INIT_FLOW],
-						   bf->lut[i]) == 0) {
+					if (str[IDX_INIT_FLOW] &&
+						strcmp(str[IDX_INIT_FLOW],
+						bf->lut[i]) == 0) {
 						idx_init_flow = i;
 						break;
 					}
@@ -183,8 +185,9 @@ static int new_probe_and_measure(struct xgold_noc_device *noc_device,
 				/* FIXME string is hardcoded */
 				i = 0;
 				while (bf->lut[i] != NULL) {
-					if (strcmp(str[IDX_TARGET_FLOW],
-						   bf->lut[i]) == 0) {
+					if (str[IDX_TARGET_FLOW] &&
+						strcmp(str[IDX_TARGET_FLOW],
+						bf->lut[i]) == 0) {
 						idx_target_flow = i;
 						break;
 					}
@@ -534,7 +537,7 @@ int xgold_noc_stat_init(struct device *_dev)
 
 	/* Create a stat device. */
 	noc_stat = kzalloc(sizeof(struct xgold_noc_stat), GFP_KERNEL);
-	if (IS_ERR(noc_stat))
+	if (!noc_stat)
 		return -ENOMEM;
 	noc_device->stat = noc_stat;
 	noc_stat->run = false;

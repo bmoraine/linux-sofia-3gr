@@ -281,10 +281,10 @@ static struct xgold_register *xgold_new_register(struct device *parent,
 
 static void xgold_free_register(struct xgold_register *reg)
 {
-	struct xgold_bitfield *bf;
+	struct xgold_bitfield *bf, *tmp;
 
-	list_for_each_entry(bf, &reg->bitfields, link)
-	    xgold_free_bitfield(bf);
+	list_for_each_entry_safe(bf, tmp, &reg->bitfields, link)
+		xgold_free_bitfield(bf);
 
 	kfree(reg->name);
 	kfree(reg);
@@ -505,7 +505,7 @@ static int xgold_noc_error_init(struct device *_dev)
 	void __iomem *base = noc_device->hw_base;
 	char reg_name[16];
 	struct xgold_register *reg;
-	int i, ret;
+	int i, found = false;
 	/* FIXME: Should come from the DTS */
 	unsigned err_log_lut[] = {
 		0,
@@ -519,12 +519,13 @@ static int xgold_noc_error_init(struct device *_dev)
 		scnprintf(reg_name, ARRAY_SIZE(reg_name), "ErrorLogger%d",
 			  err_log_lut[i]);
 		list_for_each_entry(reg, &noc_device->registers, link) {
-			ret = strcmp(reg_name, reg->name);
-			if (ret == 0)
+			if (!strcmp(reg_name, reg->name)) {
+				found = true;
 				break;
+			}
 		}
 
-		if (ret) {
+		if (!found) {
 			dev_err(_dev, "%s register not found !\n", reg_name);
 			return -EINVAL;
 		}
