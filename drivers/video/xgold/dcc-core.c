@@ -165,6 +165,9 @@ static inline int dcc_set_pinctrl_state(struct device *dev,
 	int ret = 0;
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
 
+	if (!pdata)
+		return -EINVAL;
+
 	if (!IS_ERR(state)) {
 		ret = pinctrl_select_state(pdata->pinctrl, state);
 		if (ret)
@@ -181,7 +184,7 @@ int dcc_core_probe(struct platform_device *pdev)
 	struct dcc_drvdata *pdata =
 		(struct dcc_drvdata *)platform_get_drvdata(pdev);
 
-	if (!dev)
+	if (!dev || !pdata)
 		return -EINVAL;
 
 	init_completion(&pdata->sync.dsifin);
@@ -362,6 +365,9 @@ int dcc_core_suspend(struct platform_device *pdev)
 	int ret;
 	struct dcc_drvdata *pdata =
 		(struct dcc_drvdata *)platform_get_drvdata(pdev);
+
+	if (!pdata)
+		return -EINVAL;
 
 	flush_workqueue(pdata->acq_wq);
 	flush_workqueue(pdata->vsync_wq);

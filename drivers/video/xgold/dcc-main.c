@@ -489,6 +489,9 @@ static int dcc_fb_init(struct platform_device *pdev)
 	unsigned int width, height;
 	struct dcc_drvdata *pdata = dev_get_drvdata(&pdev->dev);
 
+	if (!pdata)
+		return -EINVAL;
+
 	info = framebuffer_alloc(sizeof(struct dcc_fb), &pdev->dev);
 	if (info == NULL) {
 		ret = -ENOMEM;
@@ -1094,7 +1097,7 @@ static int dcc_main_resume(struct device *dev)
 
 	pdata = (struct dcc_drvdata *)platform_get_drvdata(pdev);
 	if (!pdata)
-		return -1;
+		return -EINVAL;
 
 	if (pdata->drv_state == DRV_DCC_ENABLED) {
 		DCC_DBG2("already enabled\n");
@@ -1102,7 +1105,7 @@ static int dcc_main_resume(struct device *dev)
 	}
 
 	if (down_interruptible(&pdata->sem))
-		return -1;
+		return -EINVAL;
 
 	measdelay_start(&begin);
 	reset_control_deassert(pdata->reset);
@@ -1118,9 +1121,6 @@ static int dcc_main_resume(struct device *dev)
 	ret = dcc_core_resume(pdev);
 	if (ret)
 		dcc_err("Unable to resume core\n");
-
-	/* release semaphore */
-	pdata = (struct dcc_drvdata *)platform_get_drvdata(pdev);
 
 	dcc_clearscreen(pdata);
 	up(&pdata->sem);

@@ -42,6 +42,9 @@ static ssize_t dcc_sys_hw_show(struct device *dev,
 {
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
 
+	if (!pdata)
+		return 0;
+
 	return sprintf(buf, "Hardware DCC IP version : 0x%x\n", pdata->id);
 }
 
@@ -57,6 +60,9 @@ static ssize_t dcc_sys_mem_show(struct device *dev,
 	int n = 0;
 	char str[128];
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
+
+	if (!pdata)
+		return 0;
 
 	n = sprintf(str, "Video Memory Informations\n");
 	strcpy(&buf[i], str);
@@ -100,6 +106,9 @@ static ssize_t dcc_sys_frame_update_number_show(struct device *dev,
 	struct timeval timestamp;
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
 
+	if (!pdata)
+		return 0;
+
 	measdelay_start(&timestamp);
 
 	return sprintf(buf, "%d t:%ld.%06ld\n",
@@ -112,9 +121,16 @@ static ssize_t dcc_sys_frame_update_number_store(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
+	int ret;
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
 
-	sscanf(buf, "%d", &pdata->debug.frame_update_number);
+	if (!pdata)
+		return 0;
+
+	ret = sscanf(buf, "%u", &pdata->debug.frame_update_number);
+	if (!ret)
+		return 0;
+
 	return count;
 }
 
@@ -130,6 +146,9 @@ static ssize_t dcc_sys_dif_rate_show(struct device *dev,
 	int rate;
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
 
+	if (!pdata)
+		return 0;
+
 	rate = pdata->display.get_rate(&pdata->display);
 	return sprintf(buf, "Display interface rate : %d\n", rate);
 }
@@ -141,6 +160,9 @@ static ssize_t dcc_sys_dif_rate_store(struct device *dev,
 
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
 	int rate;
+
+	if (!pdata)
+		return 0;
 
 	sscanf(buf, "%d", &rate);
 	pdata->display.set_rate(&pdata->display, rate);
@@ -158,6 +180,9 @@ static ssize_t dcc_sys_display_power_store(struct device *dev,
 
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
 	int en;
+
+	if (!pdata)
+		return 0;
 
 	sscanf(buf, "%d", &en);
 
@@ -180,6 +205,9 @@ static ssize_t dcc_sys_display_sleep_store(struct device *dev,
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
 	int en;
 
+	if (!pdata)
+		return 0;
+
 	sscanf(buf, "%d", &en);
 
 	if (en)
@@ -199,6 +227,9 @@ static ssize_t dcc_sys_##_name_##_show(struct device *dev, \
 { \
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev); \
 \
+	if (!pdata) \
+		return 0; \
+\
 	return sprintf(buf, "%d\n", _var_); \
 } \
 \
@@ -207,6 +238,9 @@ static ssize_t dcc_sys_##_name_##_store(struct device *dev, \
 				      const char *buf, size_t count) \
 { \
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev); \
+\
+	if (!pdata) \
+		return 0; \
 \
 	sscanf(buf, "%d", &_var_); \
 	return count; \
@@ -222,6 +256,9 @@ static ssize_t dcc_sys_##_name_##_show(struct device *dev, \
 { \
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev); \
 \
+	if (!pdata) \
+		return 0; \
+\
 	return sprintf(buf, "%lli\n", _var_); \
 } \
 \
@@ -230,6 +267,9 @@ static ssize_t dcc_sys_##_name_##_store(struct device *dev, \
 				      const char *buf, size_t count) \
 { \
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev); \
+\
+	if (!pdata) \
+		return 0; \
 \
 	sscanf(buf, "%lli", &_var_); \
 	return count; \
@@ -251,6 +291,10 @@ static ssize_t dcc_sys_vsyncts0_show(struct device *dev,
 				     char *buf)
 {
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
+
+	if (!pdata)
+		return 0;
+
 	return sprintf(buf, "%llu\n", pdata->vsync_ts);
 }
 
@@ -262,6 +306,10 @@ static ssize_t dcc_sys_enable_show(struct device *dev,
 				     char *buf)
 {
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
+
+	if (!pdata)
+		return 0;
+
 	return sprintf(buf, "%d\n",
 			(pdata->drv_state == DRV_DCC_SUSPENDED) ? 1 : 0);
 }
@@ -272,6 +320,9 @@ static ssize_t dcc_sys_enable_store(struct device *dev,
 {
 	int en;
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
+
+	if (!pdata)
+		return 0;
 
 	sscanf(buf, "%d", &en);
 
@@ -395,6 +446,9 @@ int dcc_sysfs_create(struct device *dev)
 {
 	int i;
 	struct dcc_drvdata *pdata = dev_get_drvdata(dev);
+
+	if (!pdata)
+		return -EINVAL;
 
 	DCC_DBG2("sysfs initialization\n");
 

@@ -158,6 +158,9 @@ int dcc_of_parse_irq(struct platform_device *pdev, struct device_node *ndcc)
 	struct dcc_drvdata *pdata =
 		(struct dcc_drvdata *)platform_get_drvdata(pdev);
 
+	if (!pdata)
+		return -EINVAL;
+
 	OF_FIND_MAP_IRQ(ndcc, "rx", pdata->irq.rx);
 	OF_FIND_MAP_IRQ(ndcc, "tx", pdata->irq.tx);
 	OF_FIND_MAP_IRQ(ndcc, "err", pdata->irq.err);
@@ -180,6 +183,9 @@ int dcc_of_parse_graphics(struct platform_device *pdev,
 	struct device_node *nif;
 	struct dcc_drvdata *pdata =
 		(struct dcc_drvdata *)platform_get_drvdata(pdev);
+
+	if (!pdata)
+		return -EINVAL;
 
 	/* dedicated ram */
 	of_property_for_each_u32(ngraphics, "intel,dcc-mem",
@@ -387,11 +393,14 @@ int dcc_of_parse_dcc(struct platform_device *pdev, struct device_node *ndcc)
 	struct dcc_drvdata *pdata =
 	    (struct dcc_drvdata *)platform_get_drvdata(pdev);
 
+	if (!pdata)
+		return -EINVAL;
+
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	pdata->pm_platdata = of_device_state_pm_setup(ndcc);
 	if (IS_ERR(pdata->pm_platdata)) {
 		dcc_err("Error during device state pm init\n");
-		return -1;
+		return -EINVAL;
 	}
 #endif
 
@@ -709,6 +718,9 @@ int dcc_of_parse_display(struct platform_device *pdev,
 	struct dcc_drvdata *pdata =
 	    (struct dcc_drvdata *)platform_get_drvdata(pdev);
 	struct dcc_display *display = &pdata->display;
+
+	if (!pdata)
+		return -EINVAL;
 
 	/* resolution */
 	ret = of_property_read_u32_array(ndisplay,
