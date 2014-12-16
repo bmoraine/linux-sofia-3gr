@@ -261,9 +261,45 @@ static void xgold_sdhci_of_resume(struct sdhci_host *host)
 }
 
 #endif
+#ifdef CONFIG_PM_RUNTIME
+
+static void xgold_sdhci_of_runtime_suspend(struct sdhci_host *host)
+{
+	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
+	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
+#if defined CONFIG_PLATFORM_DEVICE_PM && defined CONFIG_PLATFORM_DEVICE_PM_VIRT
+	if (device_state_pm_set_state_by_name(&mmc_pdata->dev,
+			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0i2_name))
+		dev_err(&pdev->dev, "set pm state D0i2 during runtime suspend failed !\n");
+#endif
+}
+
+static void xgold_sdhci_of_runtime_resume(struct sdhci_host *host)
+{
+	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
+	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
+#if defined CONFIG_PLATFORM_DEVICE_PM && defined CONFIG_PLATFORM_DEVICE_PM_VIRT
+	if (device_state_pm_set_state_by_name(&mmc_pdata->dev,
+			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name))
+		dev_err(&pdev->dev, "set pm state D0 during runtime resume  failed !\n");
+#endif
+}
+
+#endif
+
+bool xgold_sdhci_is_rpm_enabled(struct device_node *np)
+{
+	u32 rpm_enabled;
+	if (!of_property_read_u32(np, "intel,rpm_enabled", &rpm_enabled))
+		return !!rpm_enabled;
+	return 0;
+}
+
+
 static void xgold_sdhci_of_init(struct sdhci_host *host)
 {
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
+	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
 	struct device_node *np = pdev->dev.of_node;
 	unsigned int bits;
 	if ((of_property_read_u32(np, "intel,is_8_bits", &bits) == 0) &&
@@ -273,6 +309,22 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 	if ((of_property_read_u32(np, "intel,is_non_removable", &bits) == 0) &&
 		bits == 1)
 		host->mmc->caps |= MMC_CAP_NONREMOVABLE;
+
+	mmc_pdata->rpm_enabled = xgold_sdhci_is_rpm_enabled(np);
+	pr_info("sdhci: %s, rpm = %d\n", dev_name(&pdev->dev), mmc_pdata->rpm_enabled);
+	/* enable runtime pm support per slot */
+	if (mmc_pdata->rpm_enabled) {
+		pm_runtime_put_noidle(&pdev->dev);
+		pm_runtime_allow(&pdev->dev);
+		pm_runtime_enable(&pdev->dev);
+		pm_runtime_set_autosuspend_delay(&pdev->dev, 50);
+		pm_runtime_use_autosuspend(&pdev->dev);
+		pm_suspend_ignore_children(&pdev->dev, 1);
+		/*host->mmc->caps |= MMC_CAP_RUNTIME_RESUME |
+			MMC_CAP_AGGRESSIVE_PM;*/
+	}
+
+
 }
 
 static struct sdhci_ops xgold_sdhci_ops = {
@@ -283,6 +335,10 @@ static struct sdhci_ops xgold_sdhci_ops = {
 #ifdef CONFIG_PM
 	.platform_suspend = xgold_sdhci_of_suspend,
 	.platform_resume = xgold_sdhci_of_resume,
+#ifdef CONFIG_PM_RUNTIME
+	.platform_runtime_suspend = xgold_sdhci_of_runtime_suspend,
+	.platform_runtime_resume = xgold_sdhci_of_runtime_resume,
+#endif
 #endif
 	.platform_init = xgold_sdhci_of_init,
 };
@@ -307,14 +363,6 @@ bool xgold_sdhci_get_io_master(struct device_node *np)
 	if (of_find_property(np, "intel,vmm-secured-access", NULL))
 		return SCU_IO_ACCESS_BY_VMM;
 	return SCU_IO_ACCESS_BY_LNX;
-}
-
-bool xgold_sdhci_is_rpm_enabled(struct device_node *np)
-{
-	u32 rpm_enabled;
-	if (of_property_read_u32(np, "intel,rpm_enabled", &rpm_enabled))
-		return !!rpm_enabled;
-	return 0;
 }
 
 static int xgold_sdhci_probe(struct platform_device *pdev)
@@ -343,7 +391,7 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no address base for tap values\n");
 
 	mmc_pdata->io_master = xgold_sdhci_get_io_master(np);
-	mmc_pdata->rpm_enabled = xgold_sdhci_is_rpm_enabled(np);
+
 	if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_LNX)
 		scu_base = devm_ioremap(&pdev->dev, res.start,
 				resource_size(&res));
@@ -497,16 +545,7 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	sdhci_xgold_pdata.quirks2 |= quirktab[1];
 	ret = sdhci_pltfm_register(pdev, &sdhci_xgold_pdata, 0);
 
-	/* enable runtime pm support per slot */
-	if (mmc_pdata->rpm_enabled) {
-		pm_runtime_put_noidle(&pdev->dev);
-		pm_runtime_allow(&pdev->dev);
-		pm_runtime_set_autosuspend_delay(&pdev->dev, 50);
-		pm_runtime_use_autosuspend(&pdev->dev);
-		pm_suspend_ignore_children(&pdev->dev, 1);
-	}
-
-err_end:
+	err_end:
 	return ret;
 }
 
@@ -555,15 +594,14 @@ static int xgold_sdhci_remove(struct platform_device *pdev)
 {
 	struct xgold_mmc_pdata *mmc_pdata =
 		(struct xgold_mmc_pdata *)pdev->dev.platform_data;
-
 	if (mmc_pdata && mmc_pdata->rpm_enabled) {
 		pm_runtime_forbid(&pdev->dev);
 		pm_runtime_get_noresume(&pdev->dev);
+		pm_runtime_disable(&pdev->dev);
 	} else {
 		pr_err("platform data not found.\n");
 		return -EINVAL;
 	}
-
 	return sdhci_pltfm_unregister(pdev);
 }
 
