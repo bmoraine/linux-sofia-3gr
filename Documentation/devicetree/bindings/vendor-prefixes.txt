@@ -65,6 +65,7 @@ marvell	Marvell Technology Group Ltd.
 maxim	Maxim Integrated Products
 microchip	Microchip Technology Inc.
 mosaixtech	Mosaix Technologies, Inc.
+nanosilicon	Nano Silicon Pty Ltd.
 national	National Semiconductor
 neonode		Neonode Inc.
 nintendo	Nintendo
