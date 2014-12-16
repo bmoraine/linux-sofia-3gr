@@ -119,6 +119,19 @@ static struct snd_pcm_hardware xgold_pcm_record_cfg = {
 
 static u16 xgold_pcm_sysfs_attribute_value;
 
+/* Info function for pcm rec path select control */
+int xgold_pcm_rec_path_sel_ctl_info(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
+{
+	xgold_debug("%s :\n", __func__);
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 1;
+	return 0;
+}
+
 static inline int i2s_set_pinctrl_state(struct device *dev,
 		struct pinctrl_state *state)
 {
@@ -959,7 +972,7 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 
 			dsp_pcm_rec(dsp, substream->runtime->channels,
 					substream->runtime->rate,
-					false);
+					false, xgold_stream->path_select);
 		}
 		/* HW_AFE should be sent after audio codec is powered up */
 		if (xgold_pcm_sysfs_attribute_value ==
@@ -1136,6 +1149,50 @@ static void xgold_pcm_register_sysfs_attr(struct device *dev)
 			dev_attr_xgold_pcm_sysfs_attribute.attr.name);
 }
 
+/* Get function for the pcm rec path select control */
+static int xgold_pcm_rec_path_sel_ctl_get(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_audio *pcm = snd_soc_dai_get_drvdata(cpu_dai);
+	struct xgold_audio_stream *xgold_stream =
+		&pcm->audio_stream[STREAM_REC];
+
+	xgold_debug("%s - get value %d\n",
+		__func__, (int)xgold_stream->path_select);
+	ucontrol->value.integer.value[0] = (int)xgold_stream->path_select;
+	return 0;
+}
+
+/* Set function for the pcm rec path select control */
+static int xgold_pcm_rec_path_sel_ctl_set(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_audio *pcm = snd_soc_dai_get_drvdata(cpu_dai);
+	struct xgold_audio_stream *xgold_stream =
+		&pcm->audio_stream[STREAM_REC];
+
+	xgold_debug("%s - set value %d\n",
+		__func__, (int)ucontrol->value.integer.value[0]);
+	xgold_stream->path_select =
+		(unsigned int)ucontrol->value.integer.value[0];
+	return 0;
+}
+
+/* Soc xgold pcm controls */
+static const struct snd_kcontrol_new xgold_pcm_controls[] = {
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "PCM Rec path select",
+		.info = xgold_pcm_rec_path_sel_ctl_info,
+		.get = xgold_pcm_rec_path_sel_ctl_get,
+		.put = xgold_pcm_rec_path_sel_ctl_set,
+	},
+};
+
 static int xgold_pcm_soc_probe(struct snd_soc_platform *platform)
 {
 	int ret = 0;
@@ -1144,6 +1201,22 @@ static int xgold_pcm_soc_probe(struct snd_soc_platform *platform)
 
 	if (bt_init_en)
 		ret = xgold_bt_sco_soc_init(platform);
+
+	if (ret < 0) {
+		xgold_err("%s: Unable to initialize xgold bt sco soc\n",
+		__func__);
+		return ret;
+	}
+
+	ret = snd_soc_add_platform_controls(platform, xgold_pcm_controls,
+		ARRAY_SIZE(xgold_pcm_controls));
+
+	if (ret < 0) {
+		xgold_err("%s: Unable to add pcm platform controls\n",
+		__func__);
+		return -ENODEV;
+	}
+
 	return ret;
 }
 

@@ -41,6 +41,7 @@ struct xgold_audio_stream {
 	unsigned int hwptr_done;
 	unsigned int periods;
 	unsigned int period_size_bytes;
+	unsigned int path_select;
 	struct snd_pcm_substream *stream;
 };
 
