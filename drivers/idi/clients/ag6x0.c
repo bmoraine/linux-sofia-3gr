@@ -28,6 +28,8 @@
 /*FIXME: The include should not be exported*/
 #include "../controllers/imc_idi.h"
 
+#include <sofia/mv_svc_hypercalls.h>
+
 #define AG6X0_SCU_RES_NAME	"scu"
 /*
  * FIXME: Should we include complete SCU headers def ?
@@ -53,12 +55,24 @@
 #define AG6x0_ENTER pr_debug("--> %s\n", __func__)
 #define AG6x0_EXIT pr_debug("<-- %s\n", __func__)
 
+enum ag6x0_scu_io_master {
+	SCU_IO_ACCESS_BY_VMM,
+	SCU_IO_ACCESS_BY_LNX
+};
+
+struct intel_ag6x0_scu_addr {
+	void __iomem			*scu_addr;
+	uint32_t			 scu_phy_addr;
+	enum ag6x0_scu_io_master		 scu_io_master;
+};
+
+
 struct ag6x0_client {
 	struct idi_client_device *client_device;
 	struct idi_controller_device *controller_device;
 
 	void __iomem *ctrl_io;
-	void __iomem *scu_io;
+	struct intel_ag6x0_scu_addr scu_io;
 
 	spinlock_t sw_lock;
 	spinlock_t hw_lock;
@@ -89,8 +103,49 @@ struct ag6x0_client {
 	u32 extcon_cfg;
 };
 
+static inline uint32_t abb_ioread32_scu(long offset,
+					struct intel_ag6x0_scu_addr addrs) {
+
+#ifdef CONFIG_X86_INTEL_SOFIA
+	uint32_t tmp = 0;
+	if (SCU_IO_ACCESS_BY_VMM == addrs.scu_io_master) {
+		if (mv_svc_reg_read(((uint32_t)addrs.scu_phy_addr) + offset,
+					&tmp, -1)) {
+			pr_err("%s: mv_svc_reg_read fails @%p\n",
+				__func__,
+				(void *)(addrs.scu_phy_addr + offset));
+			return -1;
+		}
+	} else
+#endif
+		tmp = ioread32(addrs.scu_addr + offset);
+	return tmp;
+}
+
+static inline int abb_iowrite32_scu(uint32_t value,
+				long offset,
+				struct intel_ag6x0_scu_addr addrs) {
+
+#ifdef CONFIG_X86_INTEL_SOFIA
+	if (SCU_IO_ACCESS_BY_VMM == addrs.scu_io_master) {
+		if (mv_svc_reg_write(((uint32_t)addrs.scu_phy_addr) + offset,
+					value, -1)) {
+			pr_err("%s: mv_svc_reg_write fails @%p\n",
+				__func__,
+				(void *)(addrs.scu_phy_addr + offset));
+			return -1;
+		}
+	} else
+#endif
+		iowrite32(value, addrs.scu_addr + offset);
+	return 0;
+}
+
+
+
+
 #ifdef CONFIG_X86_INTEL_SOFIA_ERRATA_002
-#define abb_ioread32(_x_) 0; pr_err("abb_ioread %p", _x_); BUG();
+#define abb_ioread32(_x_)  { 0; pr_err("abb_ioread %p", _x_); BUG(); }
 #else
 #define abb_ioread32(_x_) ioread32(_x_)
 #endif
@@ -1075,6 +1130,9 @@ static int ag6x0_probe(struct idi_client_device *client,
 	struct idi_controller_device *controller;
 	struct resource *io_ctrl_resource, *scu_res;
 	u32 reg, scu_sp_pur , chipid = 0;
+	struct device *dev = &client->device;
+	struct device_node *np = dev->of_node;
+
 
 	AG6x0_ENTER;
 
@@ -1105,12 +1163,21 @@ static int ag6x0_probe(struct idi_client_device *client,
 		goto fail_request_scu;
 	}
 
-	ag6x0->scu_io = ioremap(scu_res->start, resource_size(scu_res));
+	ag6x0->scu_io.scu_addr = ioremap(scu_res->start,
+						resource_size(scu_res));
+	ag6x0->scu_io.scu_phy_addr = scu_res->start;
 
-	if (ag6x0->scu_io == NULL) {
+	if (ag6x0->scu_io.scu_addr == NULL) {
 		err = -ENODEV;
 		goto fail_request_scu;
 	}
+	/* Get SCU I/O access mode */
+	if (of_find_property(np, "intel,vmm-secured-access", NULL))
+		ag6x0->scu_io.scu_io_master = SCU_IO_ACCESS_BY_VMM;
+	else
+		ag6x0->scu_io.scu_io_master = SCU_IO_ACCESS_BY_LNX;
+
+
 
 #ifdef CONFIG_X86_INTEL_SOFIA_ERRATA_002
 	/* Force AG620 detection as ID must not be read */
@@ -1128,14 +1195,14 @@ static int ag6x0_probe(struct idi_client_device *client,
 	case 0:
 	case 1:
 	case 2:
-		dev_dbg(&client->device, "Unsupported device %d\n",
+		dev_err(&client->device, "Unsupported device %d\n",
 			reg & 0x000000FF);
 		err = -ENODEV;
 		goto no_match;
 	case 3:
 		dev_dbg(&client->device, "found an AG610\n");
 		/*Read the CHIP ID from SCU required by GNSS driver*/
-		chipid = abb_ioread32(SCU_CHIP_ID(ag6x0->scu_io));
+		chipid = abb_ioread32_scu(SCU_CHIP_ID_OFFSET, ag6x0->scu_io);
 		/*15:8 : Chip Identification Num ,7:0 -> Chip Revision Num*/
 		chipid &= (SCU_CHIP_ID_CHID_MASK | SCU_CHIP_ID_CHREV_MASK);
 		dev_dbg(&client->device, "AG610 Chip ID is %x\n", chipid);
@@ -1143,11 +1210,11 @@ static int ag6x0_probe(struct idi_client_device *client,
 	case 4:
 		dev_dbg(&client->device, "found an AG620\n");
 		/* DMA Request from WLAN is cleared */
-		scu_sp_pur = abb_ioread32(SCU_SP_PUR(ag6x0->scu_io));
+		scu_sp_pur = abb_ioread32_scu(SCU_SP_PUR_OFFSET, ag6x0->scu_io);
 		scu_sp_pur |= BIT(1);
-		iowrite32(scu_sp_pur, SCU_SP_PUR(ag6x0->scu_io));
+		abb_iowrite32_scu(scu_sp_pur, SCU_SP_PUR_OFFSET, ag6x0->scu_io);
 		/*Read the CHIP ID from SCU required by GNSS driver*/
-		chipid = abb_ioread32(SCU_CHIP_ID(ag6x0->scu_io));
+		chipid = abb_ioread32_scu(SCU_CHIP_ID_OFFSET, ag6x0->scu_io);
 		/*15:8 -> Chip Identification Num ,7:0 -> Chip Revision Num*/
 		chipid &= (SCU_CHIP_ID_CHID_MASK | SCU_CHIP_ID_CHREV_MASK);
 		dev_dbg(&client->device, "AG620 Chip ID is %x\n", chipid);
@@ -1190,7 +1257,7 @@ no_match:
 	iounmap(ag6x0->ctrl_io);
 
 fail_request_scu:
-	iounmap(ag6x0->scu_io);
+	iounmap(ag6x0->scu_io.scu_addr);
 
 no_ioremap:
 	kfree(ag6x0);
@@ -1217,7 +1284,7 @@ static int ag6x0_remove(struct idi_client_device *client)
 	ag6x0_free_irqs(client);
 	tasklet_kill(&ag6x0->isr_tasklet);
 	iounmap(ag6x0->ctrl_io);
-	iounmap(ag6x0->scu_io);
+	iounmap(ag6x0->scu_io.scu_addr);
 	kzfree(ag6x0);
 
 	return 0;
