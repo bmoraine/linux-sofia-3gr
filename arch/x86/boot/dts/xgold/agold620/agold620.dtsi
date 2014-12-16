@@ -199,7 +199,6 @@ agold {
 			resets = <&abb_rst 0x16>;
 			reset-names = "aferst";
 			intel,scu-phys = <&ABB_scu>;
-			intel,cgu-phys = <&ABB_cgu>;
 			intel,afe,id = "AG620";
 			idi-channels = < 5 >;
 
