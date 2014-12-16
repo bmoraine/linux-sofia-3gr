@@ -365,11 +365,14 @@ vmm_paddr_t mv_gal_vlink_lookup(const char *name, vmm_paddr_t plnk)
 {
 	struct vmm_vlink *vlink;
 	vmm_paddr_t paddr = mv_get_vlink_db();
+	char *vname;
 
 	if (!name)
 		return 0;
 
 	vlink = (struct vmm_vlink *) mv_gal_ptov(paddr);
+	if (!vlink)
+		return 0;
 
 	if (plnk) {
 		while (paddr && paddr != plnk) {
@@ -384,9 +387,13 @@ vmm_paddr_t mv_gal_vlink_lookup(const char *name, vmm_paddr_t plnk)
 	}
 
 	while (paddr && vlink) {
-		if (vlink->name &&
-		strcmp(mv_gal_ptov((vmm_paddr_t) vlink->name), name) == 0)
-			return paddr;
+		if (vlink->name) {
+			vname = (char *) mv_gal_ptov((vmm_paddr_t) vlink->name);
+			if (!vname)
+				return 0;
+			if (strcmp(vname, name) == 0)
+				return paddr;
+		}
 		paddr = vlink->next;
 		vlink = (struct vmm_vlink *) mv_gal_ptov(paddr);
 	}
