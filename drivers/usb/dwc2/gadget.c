@@ -1327,7 +1327,7 @@ static void s3c_hsotg_rx_data(struct dwc2_hsotg *hsotg, int ep_idx, int size)
 		u32 epctl = readl(hsotg->regs + DOEPCTL(ep_idx));
 		int ptr;
 
-		dev_warn(hsotg->dev,
+		dev_dbg(hsotg->dev,
 			 "%s: FIFO %d bytes on ep%d but no req (DXEPCTl=0x%08x)\n",
 			 __func__, size, ep_idx, epctl);
 
@@ -1996,30 +1996,23 @@ static void s3c_hsotg_irq_enumdone(struct dwc2_hsotg *hsotg)
  * @hsotg: The device state.
  * @ep: The endpoint the requests may be on.
  * @result: The result code to use.
- * @force: Force removal of any current requests
  *
  * Go through the requests on the given endpoint and mark them
  * completed with the given result code.
  */
 static void kill_all_requests(struct dwc2_hsotg *hsotg,
 			      struct s3c_hsotg_ep *ep,
-			      int result, bool force)
+			      int result)
 {
 	struct s3c_hsotg_req *req, *treq;
 	unsigned size;
 
-	list_for_each_entry_safe(req, treq, &ep->queue, queue) {
-		/*
-		 * currently, we can't do much about an already
-		 * running request on an in endpoint
-		 */
+	ep->req = NULL;
 
-		if (ep->req == req && ep->dir_in && !force)
-			continue;
-
+	list_for_each_entry_safe(req, treq, &ep->queue, queue)
 		s3c_hsotg_complete_request(hsotg, ep, req,
 					   result);
-	}
+
 	if (!hsotg->dedicated_fifos)
 		return;
 	size = (readl(hsotg->regs + DTXFSTS(ep->index)) & 0xffff) * 4;
@@ -2047,10 +2040,10 @@ void s3c_hsotg_disconnect(struct dwc2_hsotg *hsotg)
 	for (ep = 0; ep < hsotg->num_of_eps; ep++) {
 		if (hsotg->eps_in[ep])
 			kill_all_requests(hsotg, hsotg->eps_in[ep],
-						-ESHUTDOWN, true);
+								-ESHUTDOWN);
 		if (hsotg->eps_out[ep])
 			kill_all_requests(hsotg, hsotg->eps_out[ep],
-						-ESHUTDOWN, true);
+								-ESHUTDOWN);
 	}
 
 	call_gadget(hsotg, disconnect);
@@ -2355,7 +2348,7 @@ irq_retry:
 				       msecs_to_jiffies(200))) {
 
 				kill_all_requests(hsotg, hsotg->eps_out[0],
-							  -ECONNRESET, true);
+							  -ECONNRESET);
 
 				s3c_hsotg_core_init_disconnected(hsotg);
 				s3c_hsotg_core_connect(hsotg);
@@ -2643,7 +2636,7 @@ static int s3c_hsotg_ep_disable(struct usb_ep *ep)
 	s3c_hsotg_ctrl_epint(hsotg, hs_ep->index, hs_ep->dir_in, 0);
 
 	/* terminate all requests with shutdown */
-	kill_all_requests(hsotg, hs_ep, -ESHUTDOWN, true);
+	kill_all_requests(hsotg, hs_ep, -ESHUTDOWN);
 
 	spin_unlock_irqrestore(&hsotg->lock, flags);
 	return 0;
@@ -3044,7 +3037,7 @@ static int s3c_hsotg_vbus_session(struct usb_gadget *gadget, int is_active)
 
 	if (is_active) {
 		/* Kill any ep0 requests as controller will be reinitialized */
-		kill_all_requests(hsotg, hsotg->eps_out[0], -ECONNRESET, true);
+		kill_all_requests(hsotg, hsotg->eps_out[0], -ECONNRESET);
 		s3c_hsotg_core_init_disconnected(hsotg);
 		if (hsotg->enabled)
 			s3c_hsotg_core_connect(hsotg);
