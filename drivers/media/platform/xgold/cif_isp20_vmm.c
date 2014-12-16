@@ -627,7 +627,7 @@ int cif_isp20_pltfrm_reg_trace_printf(
 	rem_size = cif_isp20_reg_trace.reg_trace_max_size -
 		cif_isp20_reg_trace.reg_trace_write_pos;
 
-	if (rem_size == 0) {
+	if (rem_size <= 0) {
 		if (!in_irq())
 			spin_unlock_irqrestore(
 				&cif_isp20_reg_trace.lock, flags);
@@ -640,13 +640,13 @@ int cif_isp20_pltfrm_reg_trace_printf(
 		rem_size,
 		fmt, args);
 	va_end(args);
-	if (i == rem_size) {/* buffer full */
-		if (!in_irq())
-			spin_unlock_irqrestore(
-				&cif_isp20_reg_trace.lock, flags);
-		return 0;
-	}
-	cif_isp20_reg_trace.reg_trace_write_pos += i;
+	if (i == rem_size) /* buffer full */
+		i = 0;
+	else if (i < 0)
+		cif_isp20_pltfrm_pr_err(dev,
+			"error writing trace buffer, error %d\n", i);
+	else
+		cif_isp20_reg_trace.reg_trace_write_pos += i;
 	if (!in_irq())
 		spin_unlock_irqrestore(&cif_isp20_reg_trace.lock, flags);
 	return i;
@@ -666,23 +666,37 @@ static ssize_t cif_isp20_dbgfs_reg_trace_read(
 	loff_t *pos)
 {
 	ssize_t bytes;
+	size_t available = cif_isp20_reg_trace.reg_trace_write_pos -
+		cif_isp20_reg_trace.reg_trace_read_pos;
+	size_t rem = count;
 	unsigned long flags = 0;
 
 	if (!in_irq())
 		spin_lock_irqsave(&cif_isp20_reg_trace.lock, flags);
 
-	bytes = simple_read_from_buffer(
-		out, count, &cif_isp20_reg_trace.reg_trace_read_pos,
-		cif_isp20_reg_trace.reg_trace,
-		cif_isp20_reg_trace.reg_trace_write_pos -
-		cif_isp20_reg_trace.reg_trace_read_pos);
-
-	if (!bytes)
+	if (!available)
 		cif_isp20_reg_trace.reg_trace_read_pos = 0;
+
+	while (rem && available) {
+		bytes = simple_read_from_buffer(
+			out + (count - rem), count,
+			&cif_isp20_reg_trace.reg_trace_read_pos,
+			cif_isp20_reg_trace.reg_trace,
+			cif_isp20_reg_trace.reg_trace_write_pos);
+		if (bytes < 0) {
+			cif_isp20_pltfrm_pr_err(dev,
+				"buffer read failed with error %d\n",
+				bytes);
+			return bytes;
+		}
+		rem -= bytes;
+		available = cif_isp20_reg_trace.reg_trace_write_pos -
+			cif_isp20_reg_trace.reg_trace_read_pos;
+	}
 
 	if (!in_irq())
 		spin_unlock_irqrestore(&cif_isp20_reg_trace.lock, flags);
-	return bytes;
+	return count - rem;
 }
 
 static ssize_t cif_isp20_dbgfs_reg_trace_write(
@@ -847,13 +861,21 @@ void cif_isp20_pltfrm_write_reg(
 			spin_lock_irqsave(&cif_isp20_reg_trace.lock, flags);
 		if ((cif_isp20_reg_trace.reg_trace_write_pos +
 			(20 * sizeof(char))) <
-			cif_isp20_reg_trace.reg_trace_max_size)
-			cif_isp20_reg_trace.reg_trace_write_pos +=
+			cif_isp20_reg_trace.reg_trace_max_size) {
+			int bytes =
 				sprintf(cif_isp20_reg_trace.reg_trace +
 					cif_isp20_reg_trace.reg_trace_write_pos,
 					"%04x %08x\n",
 					addr - cif_isp20_reg_trace.base_addr,
 					data);
+			if (bytes > 0)
+				cif_isp20_reg_trace.reg_trace_write_pos +=
+					bytes;
+			else
+				cif_isp20_pltfrm_pr_err(dev,
+					"error writing trace buffer, error %d\n",
+					bytes);
+		}
 		if (!in_irq())
 			spin_unlock_irqrestore(
 				&cif_isp20_reg_trace.lock, flags);

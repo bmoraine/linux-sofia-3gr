@@ -76,13 +76,28 @@ inline u32 cif_isp20_pltfrm_read_reg(
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr);
 
 #define cif_iowrite32(d, a) \
-	cif_isp20_pltfrm_write_reg(NULL, d, a)
+	cif_isp20_pltfrm_write_reg(NULL, d, a);
 #define cif_ioread32(a) \
 	cif_isp20_pltfrm_read_reg(NULL, a)
 #define cif_iowrite32OR(d, a) \
 	cif_isp20_pltfrm_write_reg_OR(NULL, d, a)
 #define cif_iowrite32AND(d, a) \
 	cif_isp20_pltfrm_write_reg_AND(NULL, d, a)
+/* BUG: Register write seems to fail sometimes w/o read before write. */
+#define cif_iowrite32_verify(d, a, mask) \
+	{ \
+		unsigned i = 0; \
+		do { \
+			iowrite32(d, a); \
+			udelay(1); \
+			if (i++ == 50) { \
+				pr_err("Error in writing %x@0x%p, read %x\n", \
+					(d) & (mask), a, ioread32(a)); \
+					BUG(); \
+			} \
+		} while ((ioread32(a) & mask) != ((d) & mask)); \
+	}
+
 
 #ifdef CONFIG_CIF_ISP20_REG_TRACE
 int
