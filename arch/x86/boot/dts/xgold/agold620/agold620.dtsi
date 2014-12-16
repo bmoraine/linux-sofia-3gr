@@ -496,7 +496,7 @@ agold {
 				adc,log-channel-id = <ADC_ID_PCB>;
 				adc,phy-channel-num = <ADC_PHY_M3>;
 				adc,autoscaling-on;
-				adc,adc-bias-na = <0>;
+				adc,adc-bias-na = <4500>;
 				adc,max-signal-settling-time-ms = <0>;
 				adc,average-sample = <ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM>;
 				adc,iio-type = <IIO_RESISTANCE>;
