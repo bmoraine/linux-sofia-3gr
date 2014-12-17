@@ -1237,9 +1237,6 @@ int cif_isp20_pltfrm_pinctrl_set_state(
 	int ret = 0;
 	struct cif_isp20_pltfrm_data *pdata = dev_get_platdata(dev);
 
-	if (IS_ERR_OR_NULL(pdata->pinctrl))
-		return 0;
-
 	cif_isp20_pltfrm_pr_dbg(dev,
 		"set pinctrl state to %d\n", pinctrl_state);
 
@@ -1249,6 +1246,9 @@ int cif_isp20_pltfrm_pinctrl_set_state(
 		ret = -EINVAL;
 		goto err;
 	}
+	if (IS_ERR_OR_NULL(pdata->pinctrl))
+		return 0;
+
 
 	switch (pinctrl_state) {
 	case CIF_ISP20_PINCTRL_STATE_SLEEP:
