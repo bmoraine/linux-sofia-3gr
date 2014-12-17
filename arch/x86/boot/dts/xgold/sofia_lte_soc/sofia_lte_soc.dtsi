@@ -807,8 +807,7 @@
 						compatible = "intel,xgold-reset";
 						reg = <0xE4900218 0x4>;
 						#reset-cells = <1>;
-						intel,reset-set = <0>;
-						intel,reset-status = <0>;
+						intel,reset-rw = <0>;
 						intel,io-access-guest;
 					};
 
@@ -816,8 +815,7 @@
 						compatible = "intel,xgold-reset";
 						reg = <0xE490021C 0x4>;
 						#reset-cells = <1>;
-						intel,reset-set = <0>;
-						intel,reset-status = <0>;
+						intel,reset-rw = <0>;
 						intel,io-access-guest;
 					};
 
@@ -825,8 +823,7 @@
 						compatible = "intel,xgold-reset";
 						reg = <0xE4900220 0x4>;
 						#reset-cells = <1>;
-						intel,reset-set = <0>;
-						intel,reset-status = <0>;
+						intel,reset-rw = <0>;
 						intel,io-access-guest;
 					};
 
@@ -834,8 +831,7 @@
 						compatible = "intel,xgold-reset";
 						reg = <0xE4900224 0x4>;
 						#reset-cells = <1>;
-						intel,reset-set = <0>;
-						intel,reset-status = <0>;
+						intel,reset-rw = <0>;
 						intel,io-access-guest;
 					};
 

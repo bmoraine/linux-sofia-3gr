@@ -33,8 +33,7 @@ agold {
 		compatible = "intel,xgold-reset";
 		reg = <0xE6A00100 0x4>;
 		#reset-cells = <1>;
-		intel,reset-set = <0>;
-		intel,reset-status = <0>;
+		intel,reset-rw = <0>;
 #if defined(SOFIA_SECURED_VMM_ACCESS)
 		intel,vmm-secured-access;
 #endif

@@ -732,18 +732,18 @@
 						compatible = "intel,xgold-reset";
 						reg = <0xE4801000 0xC>;
 						#reset-cells = <1>;
-						intel,reset-set = <0>;
-						intel,reset-clear = <4>;
-						intel,reset-status = <8>;
+						intel,reset-wo = <0>;
+						intel,reset-wc = <4>;
+						intel,reset-ro = <8>;
 						intel,io-access-guest;
 					};
 					dbb_rst2:reset-controller2 {
 						compatible = "intel,xgold-reset";
 						reg = <0xE4801010 0xC>;
 						#reset-cells = <1>;
-						intel,reset-set = <0>;
-						intel,reset-clear = <4>;
-						intel,reset-status = <8>;
+						intel,reset-wo = <0>;
+						intel,reset-wc = <4>;
+						intel,reset-ro = <8>;
 						intel,io-access-guest;
 					};
 					keypad:keypad {
