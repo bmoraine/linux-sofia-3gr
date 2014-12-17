@@ -339,12 +339,11 @@ int hcd_init(struct platform_device *_dev)
 	 */
 	hcd = usb_create_hcd(&dwc_otg_hc_driver,
 			&_dev->dev, dev_name(&_dev->dev));
-	hcd->has_tt = 1;
 	if (!hcd) {
 		retval = -ENOMEM;
 		goto error1;
 	}
-
+	hcd->has_tt = 1;
 	hcd->regs = otg_dev->os_dep.base;
 
 	/* Initialize the DWC OTG HCD. */

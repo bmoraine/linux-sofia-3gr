@@ -188,16 +188,22 @@ static void kill_urbs_in_qh_list(dwc_otg_hcd_t * hcd, dwc_list_link_t * qh_list)
 					 &qh->qtd_list, qtd_list_entry) {
 			qtd = DWC_CIRCLEQ_FIRST(&qh->qtd_list);
 			if (qtd->urb != NULL) {
-				if(!qtd->urb->priv) {
+				if (!qtd->urb->priv) {
 					DWC_ERROR("urb->priv is NULL !!!!\n");
 					return;
 				}
-				if(!hcd->fops)
+				if (!hcd->fops) {
 					DWC_ERROR("hcd->fops is NULL !!!!!\n");
-				if(!hcd->fops->complete)
-					DWC_ERROR("fops->complete is NULL !!!!\n");
+					goto skip_complete_cb;
+				}
+				if (!hcd->fops->complete) {
+					DWC_ERROR(
+					"fops->complete is NULL !!!!\n");
+					goto skip_complete_cb;
+				}
 				hcd->fops->complete(hcd, qtd->urb->priv,
 						    qtd->urb, -DWC_E_TIMEOUT);
+skip_complete_cb:
 				dwc_otg_hcd_qtd_remove_and_free(hcd, qtd, qh);
 			}
 
