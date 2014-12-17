@@ -46,7 +46,7 @@ static void ov_camera_module_reset(
 	cam_mod->wb_config.auto_wb = false;
 	cam_mod->hflip = false;
 	cam_mod->vflip = false;
-	cam_mod->auto_adjust_fps = false;
+	cam_mod->auto_adjust_fps = true;
 	cam_mod->rotation = 0;
 	cam_mod->ctrl_updt = 0;
 	cam_mod->state = OV_CAMERA_MODULE_POWER_OFF;
