@@ -187,8 +187,9 @@ static int xgold_ion_handler(void *data)
 		while (!kthread_should_stop() && error == 0) {
 			pr_debug("xg_ion: wait for request on vbpipe\n");
 
-			error = xgold_ion_vbpipe_handler(
-				xgold_ion_vbpipe_filep);
+			if (xgold_ion_vbpipe_filep != NULL)
+				error = xgold_ion_vbpipe_handler(
+						xgold_ion_vbpipe_filep);
 		} /* main handler loop */
 
 
