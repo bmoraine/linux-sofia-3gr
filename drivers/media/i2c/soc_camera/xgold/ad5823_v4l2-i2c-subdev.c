@@ -203,6 +203,8 @@ static int __init ad5823_probe(
 	dev_info(&client->dev, "probing...\n");
 
 	sd = devm_kzalloc(&client->dev, sizeof(struct v4l2_subdev), GFP_KERNEL);
+	if (!sd)
+		return -ENOMEM;
 	v4l2_i2c_subdev_init(sd, client, &ad5823_ops);
 
 	dev_info(&client->dev, "probing successful\n");
