@@ -1,4 +1,11 @@
 /*
+ * Copyright (C) 2015 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Jan 14 2014: IMC: Change page cache strategy on x86 when
+ *                   mapping/unmapping memory
+ */
+/*
  *
  * (C) COPYRIGHT ARM Limited. All rights reserved.
  *
@@ -141,6 +148,11 @@ void kbase_mem_allocator_term(struct kbase_mem_allocator *allocator)
 		dma_unmap_page(allocator->kbdev->dev, kbase_dma_addr(p),
 			       PAGE_SIZE,
 			       DMA_BIDIRECTIONAL);
+
+#ifdef CONFIG_X86
+		set_pages_wb(p, 1);
+#endif
+
 		ClearPagePrivate(p);
 		__free_page(p);
 	}
@@ -219,6 +231,10 @@ mali_error kbase_mem_allocator_alloc(struct kbase_mem_allocator *allocator, size
 			goto err_out_roll_back;
 		}
 
+#ifdef CONFIG_X86
+		set_pages_wc(p, 1);
+#endif
+
 		SetPagePrivate(p);
 		kbase_set_dma_addr(p, dma_addr);
 		pages[i] = PFN_PHYS(page_to_pfn(p));
@@ -235,6 +251,11 @@ err_out_roll_back:
 		dma_unmap_page(allocator->kbdev->dev, kbase_dma_addr(p),
 			       PAGE_SIZE,
 			       DMA_BIDIRECTIONAL);
+
+#ifdef CONFIG_X86
+		set_pages_wb(p, 1);
+#endif
+
 		ClearPagePrivate(p);
 		__free_page(p);
 	}
@@ -270,6 +291,11 @@ void kbase_mem_allocator_free(struct kbase_mem_allocator *allocator, size_t nr_p
 			dma_unmap_page(allocator->kbdev->dev, kbase_dma_addr(p),
 				       PAGE_SIZE,
 				       DMA_BIDIRECTIONAL);
+
+#ifdef CONFIG_X86
+			set_pages_wb(p, 1);
+#endif
+
 			ClearPagePrivate(p);
 			pages[i] = (phys_addr_t)0;
 			__free_page(p);

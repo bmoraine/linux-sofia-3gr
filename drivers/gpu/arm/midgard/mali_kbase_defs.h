@@ -1,4 +1,11 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Dec 17 2014: IMC: Remove CONFIG_HAVE_CLK define as source does not compile
+ *                   when element clock does not exists
+ */
+/*
  *
  * (C) COPYRIGHT ARM Limited. All rights reserved.
  *
@@ -638,9 +645,7 @@ struct kbase_device {
 		int irq;
 		int flags;
 	} irqs[3];
-#ifdef CONFIG_HAVE_CLK
 	struct clk *clock;
-#endif
 	char devname[DEVNAME_SIZE];
 
 #ifdef CONFIG_MALI_NO_MALI

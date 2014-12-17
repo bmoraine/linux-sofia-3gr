@@ -1,4 +1,11 @@
 /*
+ * Copyright (C) 2015 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Jan 14 2014: IMC: Change page cache strategy on x86 when
+ *                   mapping/unmapping carveout memory
+ */
+/*
  *
  * (C) COPYRIGHT ARM Limited. All rights reserved.
  *
@@ -81,6 +88,10 @@ static struct page *kbase_carveout_get_page(struct kbase_mem_allocator *allocato
 			goto out;
 		}
 
+#ifdef CONFIG_X86
+		set_pages_wc(p, 1);
+#endif
+
 		kbase_set_dma_addr(p, dma_addr);
 		BUG_ON(dma_addr != PFN_PHYS(page_to_pfn(p)));
 		atomic_inc(&kbase_carveout_system_pages);
@@ -102,6 +113,11 @@ static void kbase_carveout_put_page(struct page *p,
 		dma_unmap_page(allocator->kbdev->dev, kbase_dma_addr(p),
 				PAGE_SIZE,
 				DMA_BIDIRECTIONAL);
+
+#ifdef CONFIG_X86
+		set_pages_wb(p, 1);
+#endif
+
 		ClearPagePrivate(p);
 		__free_page(p);
 		atomic_dec(&kbase_carveout_system_pages);
@@ -148,6 +164,10 @@ static int kbase_carveout_init(struct device *dev)
 		if (dma_mapping_error(dev, dma_addr))
 			goto out_rollback;
 
+#ifdef CONFIG_X86
+		set_pages_wc(p, 1);
+#endif
+
 		kbase_set_dma_addr(p, dma_addr);
 		BUG_ON(dma_addr != PFN_PHYS(page_to_pfn(p)));
 
@@ -169,6 +189,11 @@ out_rollback:
 		dma_unmap_page(dev, kbase_dma_addr(p),
 				PAGE_SIZE,
 				DMA_BIDIRECTIONAL);
+
+#ifdef CONFIG_X86
+		set_pages_wb(p, 1);
+#endif
+
 		ClearPagePrivate(p);
 		list_del(&p->lru);
 	}
