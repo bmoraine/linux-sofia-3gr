@@ -1456,7 +1456,7 @@ int dcc_rq_acquire_and_compose(struct dcc_drvdata *p,
 	struct dcc_acq_fence_work *work;
 	unsigned int i;
 #if defined(CONFIG_SYNC)
-	unsigned int fence;
+	int fence;
 #endif
 
 	DCC_DBG2("rq updt_pt=%d\n", updt_pt);

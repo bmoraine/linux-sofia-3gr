@@ -571,6 +571,9 @@ int dcc_of_parse_display_reset(struct platform_device *pdev,
 	}
 
 	array = devm_kzalloc(&pdev->dev, length*sizeof(int), GFP_KERNEL);
+	if (!array)
+		return -ENOMEM;
+
 	ret = of_property_read_u32_array(n, "intel,display-reset",
 					array, length);
 	if (ret) { /* already checked few lines before but does not hurt */
