@@ -5,11 +5,11 @@ agold {
 	ranges;
 	compatible = "intel,abb";
 
-	reg = <0xE6200000 0x02000000>,
-		<0xE6600000 0x100000>,
-		<0xE6A00000 0x100000>;
+	reg = 	<0xE6600000 0x100000>,
+		<0xE6A00000 0x100000>,
+		<0xE6500000 0x100000>;
 
-	reg-names = "abb", "idi", "scu";
+	reg-names = "idi", "scu", "pmu";
 
 	interrupt-parent = <&abb>;
 	interrupts =	<ABB_IDIABB_ERR_SRQ0	XGOLD_IRQ_TYPE_NONE>,
