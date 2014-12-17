@@ -31,17 +31,17 @@
 #include <sofia/mv_svc_hypercalls.h>
 
 #define AG6X0_SCU_RES_NAME	"scu"
+#define AG6X0_PMU_RES_NAME	"pmu"
+
 /*
  * FIXME: Should we include complete SCU headers def ?
 */
-#define SCU_SP_PUR_OFFSET	  0x108
 #define SCU_SP_PUR(_base) ((_base) + 0x108)
 	#define SCU_SP_PUR_SP_PUR_OFFSET 0x0
 	#define SCU_SP_PUR_SP_PUR_WIDTH 0x20
 	#define SCU_SP_PUR_SP_PUR_MASK 0xffffffff
 	#define SCU_SP_PUR_SP_PUR(_reg) (((_reg) & 0xffffffff) >> 0x0)
 
-#define SCU_CHIP_ID_OFFSET	  0x128
 #define SCU_CHIP_ID(_base) ((_base) + 0x128)
 	#define SCU_CHIP_ID_CHREV_OFFSET 0x0
 	#define SCU_CHIP_ID_CHREV_WIDTH 0x8
@@ -55,28 +55,27 @@
 #define AG6x0_ENTER pr_debug("--> %s\n", __func__)
 #define AG6x0_EXIT pr_debug("<-- %s\n", __func__)
 
-enum ag6x0_scu_io_master {
-	SCU_IO_ACCESS_BY_VMM,
-	SCU_IO_ACCESS_BY_LNX
-};
+#define AG6X0_NATIVE_IO_ACCESS BIT(0)
+#define AG6X0_SECURE_IO_ACCESS BIT(1)
 
-struct intel_ag6x0_scu_addr {
-	void __iomem			*scu_addr;
-	uint32_t			 scu_phy_addr;
-	enum ag6x0_scu_io_master		 scu_io_master;
+struct ag6x0_io {
+	struct resource *res;
+	void __iomem	*vaddr;
 };
-
 
 struct ag6x0_client {
 	struct idi_client_device *client_device;
 	struct idi_controller_device *controller_device;
 
 	void __iomem *ctrl_io;
-	struct intel_ag6x0_scu_addr scu_io;
+	unsigned scu_io_phys;
+	struct ag6x0_io *io_map;
+	int num_io_region;
 
 	spinlock_t sw_lock;
 	spinlock_t hw_lock;
 
+	unsigned flags;
 	/*
 	 * Software controlled channels.
 	 */
@@ -103,53 +102,6 @@ struct ag6x0_client {
 	u32 extcon_cfg;
 };
 
-static inline uint32_t abb_ioread32_scu(long offset,
-					struct intel_ag6x0_scu_addr addrs) {
-
-#ifdef CONFIG_X86_INTEL_SOFIA
-	uint32_t tmp = 0;
-	if (SCU_IO_ACCESS_BY_VMM == addrs.scu_io_master) {
-		if (mv_svc_reg_read(((uint32_t)addrs.scu_phy_addr) + offset,
-					&tmp, -1)) {
-			pr_err("%s: mv_svc_reg_read fails @%p\n",
-				__func__,
-				(void *)(addrs.scu_phy_addr + offset));
-			return -1;
-		}
-	} else
-#endif
-		tmp = ioread32(addrs.scu_addr + offset);
-	return tmp;
-}
-
-static inline int abb_iowrite32_scu(uint32_t value,
-				long offset,
-				struct intel_ag6x0_scu_addr addrs) {
-
-#ifdef CONFIG_X86_INTEL_SOFIA
-	if (SCU_IO_ACCESS_BY_VMM == addrs.scu_io_master) {
-		if (mv_svc_reg_write(((uint32_t)addrs.scu_phy_addr) + offset,
-					value, -1)) {
-			pr_err("%s: mv_svc_reg_write fails @%p\n",
-				__func__,
-				(void *)(addrs.scu_phy_addr + offset));
-			return -1;
-		}
-	} else
-#endif
-		iowrite32(value, addrs.scu_addr + offset);
-	return 0;
-}
-
-
-
-
-#ifdef CONFIG_X86_INTEL_SOFIA_ERRATA_002
-#define abb_ioread32(_x_)  { 0; pr_err("abb_ioread %p", _x_); BUG(); }
-#else
-#define abb_ioread32(_x_) ioread32(_x_)
-#endif
-
 static inline struct idi_client_device *to_idi_client(struct ag6x0_client
 						      *ag6x0)
 {
@@ -160,7 +112,7 @@ static unsigned ag6x0_set_irq_channel_mask(void __iomem *ctrl,
 					   unsigned channel, bool set)
 {
 	unsigned reg;
-	reg = abb_ioread32(ctrl);
+	reg = ioread32(ctrl);
 	if (set)
 		reg |= (1 << channel);
 	else
@@ -221,7 +173,7 @@ static unsigned ag6x0_rmw_imsc(struct ag6x0_client *ag6x0,
 	unsigned reg;
 	void __iomem *ctrl = ag6x0->ctrl_io;
 
-	reg = abb_ioread32(IMC_IDI_IMSC(ctrl));
+	reg = ioread32(IMC_IDI_IMSC(ctrl));
 	if (set_not_clear)
 		reg |= imsc;
 	else
@@ -276,8 +228,8 @@ __acquires(&ag6x0->hw_lock) __releases(&ag6x0->hw_lock)
 	   transfered out of the ABB FIFOs */
 	if (mis_status & IMC_IDI_MIS_RX) {
 		if (ag6x0->rxcon_cfg & IMC_IDI_RXCON_EN_CH) {
-			ch_mask = abb_ioread32(IMC_IDI_RXMASK_CON(ctrl));
-			xfer_status = abb_ioread32(IMC_IDI_RXIRQ_STAT(ctrl));
+			ch_mask = ioread32(IMC_IDI_RXMASK_CON(ctrl));
+			xfer_status = ioread32(IMC_IDI_RXIRQ_STAT(ctrl));
 			xfer_status &= ch_mask;
 
 			mask = 1;
@@ -300,8 +252,8 @@ __acquires(&ag6x0->hw_lock) __releases(&ag6x0->hw_lock)
 
 	if (mis_status & IMC_IDI_MIS_TX) {
 		if (ag6x0->txcon_cfg & IMC_IDI_TXCON_EN_CH) {
-			ch_mask = abb_ioread32(IMC_IDI_TXMASK_CON(ctrl));
-			xfer_status = abb_ioread32(IMC_IDI_TXIRQ_STAT(ctrl));
+			ch_mask = ioread32(IMC_IDI_TXMASK_CON(ctrl));
+			xfer_status = ioread32(IMC_IDI_TXIRQ_STAT(ctrl));
 			xfer_status &= ch_mask;
 
 			mask = 1;
@@ -677,12 +629,9 @@ static int ag6x0_set_addr_size(struct idi_client_device *client,
 		 */
 		if (trans->t_type == IDI_TRANS_WRITE) {
 			unsigned stat;
-#ifdef CONFIG_X86_INTEL_SOFIA_ERRATA_002
-			stat = 0;
-#else
-			stat = abb_ioread32(IMC_IDI_RXCH_RD_CON(ctrl,
+			stat = ioread32(IMC_IDI_RXCH_RD_CON(ctrl,
 						trans->channel));
-#endif			/*
+			/*
 			 * FIXME:
 			 * Define the policy in case
 			 * a pending request is active
@@ -704,12 +653,8 @@ static int ag6x0_set_addr_size(struct idi_client_device *client,
 				  IMC_IDI_RXCH_IRQ_CON(ctrl, trans->channel));
 		} else {	/* read */
 			unsigned stat;
-#ifdef CONFIG_X86_INTEL_SOFIA_ERRATA_002
-			stat = 0;
-#else
-			stat = abb_ioread32(IMC_IDI_TXCH_WR_CON(ctrl,
+			stat = ioread32(IMC_IDI_TXCH_WR_CON(ctrl,
 						trans->channel));
-#endif
 			if (stat & IMC_IDI_TXCH_RD_STAT_DAT)
 				dev_err(&client->device,
 					"A pending request on TX CH %d will be cleared\n",
@@ -745,17 +690,17 @@ static void ag6x0_dump_channel(struct idi_client_device *client,
 	ctrl = ag6x0->ctrl_io;
 
 	if (tx_not_rx) {
-		base = abb_ioread32(IMC_IDI_RXCH_BASE(ctrl, channel));
-		size = abb_ioread32(IMC_IDI_RXCH_SIZE(ctrl, channel));
-		control = abb_ioread32(IMC_IDI_RXCH_RD_CON(ctrl, channel));
-		irq = abb_ioread32(IMC_IDI_RXCH_IRQ_CON(ctrl, channel));
-		stat = abb_ioread32(IMC_IDI_RXCH_WR_STAT(ctrl, channel));
+		base = ioread32(IMC_IDI_RXCH_BASE(ctrl, channel));
+		size = ioread32(IMC_IDI_RXCH_SIZE(ctrl, channel));
+		control = ioread32(IMC_IDI_RXCH_RD_CON(ctrl, channel));
+		irq = ioread32(IMC_IDI_RXCH_IRQ_CON(ctrl, channel));
+		stat = ioread32(IMC_IDI_RXCH_WR_STAT(ctrl, channel));
 	} else {
-		base = abb_ioread32(IMC_IDI_TXCH_BASE(ctrl, channel));
-		size = abb_ioread32(IMC_IDI_TXCH_SIZE(ctrl, channel));
-		control = abb_ioread32(IMC_IDI_TXCH_WR_CON(ctrl, channel));
-		irq = abb_ioread32(IMC_IDI_TXCH_IRQ_CON(ctrl, channel));
-		stat = abb_ioread32(IMC_IDI_TXCH_RD_STAT(ctrl, channel));
+		base = ioread32(IMC_IDI_TXCH_BASE(ctrl, channel));
+		size = ioread32(IMC_IDI_TXCH_SIZE(ctrl, channel));
+		control = ioread32(IMC_IDI_TXCH_WR_CON(ctrl, channel));
+		irq = ioread32(IMC_IDI_TXCH_IRQ_CON(ctrl, channel));
+		stat = ioread32(IMC_IDI_TXCH_RD_STAT(ctrl, channel));
 	}
 
 	dev_dbg(dev, "\t Base: %x\n", base);
@@ -832,7 +777,7 @@ __acquires(&ag6x0->hw_lock) __releases(&ag6x0->hw_lock)
 		iowrite32(IMC_IDI_RXCH_RD_CON_RST |
 				IMC_IDI_RXCH_RD_CON_RST_INT,
 				IMC_IDI_RXCH_RD_CON(ctrl, channel));
-		mis_status = abb_ioread32(IMC_IDI_MIS(ctrl));
+		mis_status = ioread32(IMC_IDI_MIS(ctrl));
 		spin_unlock_irqrestore(&ag6x0->hw_lock, flags);
 		break;
 	case IDI_TRANS_READ:
@@ -840,7 +785,7 @@ __acquires(&ag6x0->hw_lock) __releases(&ag6x0->hw_lock)
 		iowrite32(IMC_IDI_TXCH_WR_CON_RST |
 				IMC_IDI_TXCH_WR_CON_RST_INT,
 				IMC_IDI_TXCH_WR_CON(ctrl, channel));
-		mis_status = abb_ioread32(IMC_IDI_MIS(ctrl));
+		mis_status = ioread32(IMC_IDI_MIS(ctrl));
 		spin_unlock_irqrestore(&ag6x0->hw_lock, flags);
 		break;
 	default:
@@ -872,6 +817,79 @@ __acquires(&ag6x0->hw_lock) __releases(&ag6x0->hw_lock)
 	return 0;
 }
 
+void __iomem *ag6x0_io_phys_to_virt(struct ag6x0_client *ag6x0,
+					unsigned addr)
+
+{
+	unsigned i;
+	struct ag6x0_io *io_map = ag6x0->io_map;
+
+	if (io_map == NULL)
+		return NULL;
+
+	for (i = 0; i < ag6x0->num_io_region; i++) {
+		struct resource *res = io_map[i].res;
+		if ((addr >= res->start) && (addr <= res->end))
+			return (io_map[i].vaddr +
+					((resource_size(res) - 1) & addr));
+	}
+
+	return NULL;
+}
+
+static int ag6x0_ioread(struct idi_client_device *client,
+					unsigned addr, unsigned *reg)
+{
+	int ret = 0;
+	struct ag6x0_client *ag6x0;
+
+	ag6x0 = dev_get_drvdata(&client->device);
+	if (ag6x0 == NULL)
+		return -ENODEV;
+
+	if (ag6x0->flags & AG6X0_SECURE_IO_ACCESS) {
+		ret = mv_svc_reg_read(addr, reg, -1);
+		dev_dbg(&client->device,
+			"Secure read access @%x--> %x:", addr, *reg);
+	} else {
+		void __iomem *vaddr = ag6x0_io_phys_to_virt(ag6x0, addr);
+		if (vaddr == NULL)
+			return -EINVAL;
+		*reg = ioread32(vaddr);
+		dev_dbg(&client->device,
+			"Native read access @%x,%p --> %x:", addr, vaddr, *reg);
+	}
+
+	return ret;
+}
+
+static int ag6x0_iowrite(struct idi_client_device *client,
+					unsigned addr, unsigned reg)
+{
+	int ret = 0;
+	struct ag6x0_client *ag6x0;
+
+	ag6x0 = dev_get_drvdata(&client->device);
+	if (ag6x0 == NULL)
+		return -ENODEV;
+
+	if (ag6x0->flags & AG6X0_SECURE_IO_ACCESS) {
+		dev_dbg(&client->device,
+			"Secure write access %x@%x:", reg, addr);
+		ret = mv_svc_reg_write_only(addr, reg, -1);
+
+	} else {
+		void __iomem *vaddr = ag6x0_io_phys_to_virt(ag6x0, addr);
+		if (vaddr == NULL)
+			return -EINVAL;
+		iowrite32(reg, vaddr);
+		dev_dbg(&client->device,
+			"Native write access %x@%x,%p:", reg, addr, vaddr);
+	}
+
+	return ret;
+}
+
 static int ag6x0_dev_setup(struct idi_client_device *client,
 			   struct ag6x0_client *ag6x0)
 {
@@ -891,6 +909,9 @@ static int ag6x0_dev_setup(struct idi_client_device *client,
 	client->set_interrupt = ag6x0_set_interrupt;
 	client->flush_buffer = ag6x0_buffer_flush;
 	client->streaming_channel_flush = ag6x0_streaming_channel_flush;
+	client->ioread = ag6x0_ioread;
+	client->iowrite = ag6x0_iowrite;
+
 	dev_set_drvdata(&client->device, ag6x0);
 
 	return 0;
@@ -1007,7 +1028,7 @@ static irqreturn_t ag6x0_isr(int irq, void *dev_id)
 	AG6x0_ENTER;
 
 	spin_lock(&ag6x0->hw_lock);
-	mis_status = abb_ioread32(IMC_IDI_MIS(ctrl));
+	mis_status = ioread32(IMC_IDI_MIS(ctrl));
 	dev_dbg(&client->device, "MIS %x, mis_status %x\n", mis_status,
 		ag6x0->mis_status);
 
@@ -1116,6 +1137,60 @@ static void ag6x0_free_irqs(struct idi_client_device *client)
 	}
 }
 
+static void ag6x0_unmap_io(struct idi_client_device *device,
+				struct ag6x0_client *ag6x0)
+{
+	int i;
+
+	for (i = 0; i < ag6x0->num_io_region; i++)
+		iounmap(ag6x0->io_map[i].vaddr);
+
+	kfree(ag6x0->io_map);
+}
+
+static int ag6x0_map_io(struct idi_client_device *client,
+			struct ag6x0_client *ag6x0)
+{
+	struct idi_resource *idi_res = &client->idi_res;
+	int i , j = 0;
+	struct ag6x0_io *io_map;
+	for (i = 0; i < idi_res->num_resources; i++)
+		if (IORESOURCE_MEM == resource_type(&idi_res->resource[i]))
+			j++;
+
+	if (j == 0)
+		return -ENODEV;
+
+	io_map = kzalloc(sizeof(struct ag6x0_io) * j, GFP_KERNEL);
+	if (io_map == NULL)
+		return -ENOMEM;
+
+	for (i = 0, j = 0; i < idi_res->num_resources; i++) {
+		struct resource *r = &idi_res->resource[i];
+
+		if (IORESOURCE_MEM == resource_type(r)) {
+			io_map[j].res = r;
+			io_map[j].vaddr = ioremap(r->start, resource_size(r));
+			if (io_map[j].vaddr == NULL)
+				goto unmap;
+			if (!strcmp(r->name, AG6X0_SCU_RES_NAME))
+				ag6x0->scu_io_phys = r->start;
+			j++;
+
+		}
+	}
+
+	ag6x0->num_io_region = j;
+	ag6x0->io_map = io_map;
+	return 0;
+
+unmap:
+	for (i = 0; i < j; i++)
+		iounmap(io_map[i].vaddr);
+	kfree(io_map);
+	return -EINVAL;
+}
+
 /**
  * ag6x0_probe - Probe function to init the AG6x0.
  * @dev: client device
@@ -1128,7 +1203,7 @@ static int ag6x0_probe(struct idi_client_device *client,
 	int err = 0, i;
 	struct ag6x0_client *ag6x0;
 	struct idi_controller_device *controller;
-	struct resource *io_ctrl_resource, *scu_res;
+	struct resource *io_ctrl_resource;
 	u32 reg, scu_sp_pur , chipid = 0;
 	struct device *dev = &client->device;
 	struct device_node *np = dev->of_node;
@@ -1156,71 +1231,20 @@ static int ag6x0_probe(struct idi_client_device *client,
 		goto no_ioremap;
 	}
 
-	scu_res = idi_get_resource_byname(&client->idi_res,
-					IORESOURCE_MEM, AG6X0_SCU_RES_NAME);
-	if (!scu_res) {
-		err = -ENODEV;
-		goto fail_request_scu;
+
+	if (ag6x0_map_io(client, ag6x0)) {
+		dev_err(&client->device, "Error while io mapping\n");
+		goto no_ioremap;
 	}
 
-	ag6x0->scu_io.scu_addr = ioremap(scu_res->start,
-						resource_size(scu_res));
-	ag6x0->scu_io.scu_phy_addr = scu_res->start;
-
-	if (ag6x0->scu_io.scu_addr == NULL) {
-		err = -ENODEV;
-		goto fail_request_scu;
-	}
 	/* Get SCU I/O access mode */
-	if (of_find_property(np, "intel,vmm-secured-access", NULL))
-		ag6x0->scu_io.scu_io_master = SCU_IO_ACCESS_BY_VMM;
-	else
-		ag6x0->scu_io.scu_io_master = SCU_IO_ACCESS_BY_LNX;
-
-
-
-#ifdef CONFIG_X86_INTEL_SOFIA_ERRATA_002
-	/* Force AG620 detection as ID must not be read */
-	reg = 4;
-	scu_sp_pur = 0xFFFF0000 | BIT(1);
-	iowrite32(scu_sp_pur, SCU_SP_PUR(ag6x0->scu_io));
-	/* Read the CHIP ID from SCU required by GNSS driver*/
-	chipid = 0x5710; /* ES1.1 */
-	/* 15:8 -> Chip Identification Num ,7:0 -> Chip Revision Num*/
-	chipid &= (SCU_CHIP_ID_CHID_MASK | SCU_CHIP_ID_CHREV_MASK);
-	dev_info(&client->device, "AG620 Chip ID is %x\n", chipid);
-#else
-	reg = abb_ioread32(IMC_IDI_ID(ag6x0->ctrl_io));
-	switch (reg & 0x000000FF) {
-	case 0:
-	case 1:
-	case 2:
-		dev_err(&client->device, "Unsupported device %d\n",
-			reg & 0x000000FF);
-		err = -ENODEV;
-		goto no_match;
-	case 3:
-		dev_dbg(&client->device, "found an AG610\n");
-		/*Read the CHIP ID from SCU required by GNSS driver*/
-		chipid = abb_ioread32_scu(SCU_CHIP_ID_OFFSET, ag6x0->scu_io);
-		/*15:8 : Chip Identification Num ,7:0 -> Chip Revision Num*/
-		chipid &= (SCU_CHIP_ID_CHID_MASK | SCU_CHIP_ID_CHREV_MASK);
-		dev_dbg(&client->device, "AG610 Chip ID is %x\n", chipid);
-		break;
-	case 4:
-		dev_dbg(&client->device, "found an AG620\n");
-		/* DMA Request from WLAN is cleared */
-		scu_sp_pur = abb_ioread32_scu(SCU_SP_PUR_OFFSET, ag6x0->scu_io);
-		scu_sp_pur |= BIT(1);
-		abb_iowrite32_scu(scu_sp_pur, SCU_SP_PUR_OFFSET, ag6x0->scu_io);
-		/*Read the CHIP ID from SCU required by GNSS driver*/
-		chipid = abb_ioread32_scu(SCU_CHIP_ID_OFFSET, ag6x0->scu_io);
-		/*15:8 -> Chip Identification Num ,7:0 -> Chip Revision Num*/
-		chipid &= (SCU_CHIP_ID_CHID_MASK | SCU_CHIP_ID_CHREV_MASK);
-		dev_dbg(&client->device, "AG620 Chip ID is %x\n", chipid);
-		break;
+	if (of_find_property(np, "intel,vmm-secured-access", NULL)) {
+		dev_info(&client->device, "AGold using secure access\n");
+		ag6x0->flags |= AG6X0_SECURE_IO_ACCESS;
+	} else {
+		dev_info(&client->device, "AGold using native access\n");
+		ag6x0->flags |= AG6X0_NATIVE_IO_ACCESS;
 	}
-#endif
 
 	ag6x0->client_device = client;
 	spin_lock_init(&ag6x0->sw_lock);
@@ -1228,8 +1252,6 @@ static int ag6x0_probe(struct idi_client_device *client,
 	tasklet_init(&ag6x0->isr_tasklet, ag6x0_isr_tasklet,
 		     (unsigned long)ag6x0);
 
-	/*chipid will be zero if above switch case falls to default*/
-	ag6x0->client_device->chipid = chipid;
 
 	for (i = 0; i < IDI_MAX_CHANNEL; i++)
 		ag6x0->sw_channel[i] = IDI_MAX_CHANNEL;
@@ -1246,6 +1268,47 @@ static int ag6x0_probe(struct idi_client_device *client,
 	ag6x0_dev_setup(client, ag6x0);
 	ag6x0_register_setup(ag6x0);
 
+	reg = ioread32(IMC_IDI_ID(ag6x0->ctrl_io));
+	switch (reg & 0x000000FF) {
+	case 0:
+	case 1:
+	case 2:
+		dev_err(&client->device, "Unsupported device %d\n",
+			reg & 0x000000FF);
+		err = -ENODEV;
+		goto no_match;
+	case 3:
+		dev_dbg(&client->device, "found an AG610\n");
+		/*Read the CHIP ID from SCU required by GNSS driver*/
+		ag6x0_ioread(client, SCU_CHIP_ID(ag6x0->scu_io_phys), &chipid);
+		/*15:8 : Chip Identification Num ,7:0 -> Chip Revision Num*/
+		chipid &= (SCU_CHIP_ID_CHID_MASK | SCU_CHIP_ID_CHREV_MASK);
+		dev_dbg(&client->device, "AG610 Chip ID is %x\n", chipid);
+		break;
+	case 4:
+		dev_dbg(&client->device, "found an AG620\n");
+		/* DMA Request from WLAN is cleared */
+		ag6x0_ioread(client,
+				SCU_SP_PUR(ag6x0->scu_io_phys),
+				&scu_sp_pur);
+		scu_sp_pur |= BIT(1);
+		ag6x0_iowrite(client,
+				SCU_SP_PUR(ag6x0->scu_io_phys),
+				scu_sp_pur);
+		/*Read the CHIP ID from SCU required by GNSS driver*/
+		ag6x0_ioread(client,
+				SCU_CHIP_ID(ag6x0->scu_io_phys),
+				&chipid);
+
+		/*15:8 -> Chip Identification Num ,7:0 -> Chip Revision Num*/
+		chipid &= (SCU_CHIP_ID_CHID_MASK | SCU_CHIP_ID_CHREV_MASK);
+		dev_dbg(&client->device, "AG620 Chip ID is %x\n", chipid);
+		break;
+	}
+
+	/*chipid will be zero if above switch case falls to default*/
+	ag6x0->client_device->chipid = chipid;
+
 	err = ag6x0_request_irqs(client);
 	if (err)
 		pr_err("\nError in setting up AGOLD620 irq's\n");
@@ -1256,10 +1319,8 @@ static int ag6x0_probe(struct idi_client_device *client,
 no_match:
 	iounmap(ag6x0->ctrl_io);
 
-fail_request_scu:
-	iounmap(ag6x0->scu_io.scu_addr);
-
 no_ioremap:
+	ag6x0_unmap_io(client, ag6x0);
 	kfree(ag6x0);
 
 	AG6x0_EXIT;
@@ -1283,8 +1344,8 @@ static int ag6x0_remove(struct idi_client_device *client)
 	dev_set_drvdata(&client->device, NULL);
 	ag6x0_free_irqs(client);
 	tasklet_kill(&ag6x0->isr_tasklet);
+	ag6x0_unmap_io(client, ag6x0);
 	iounmap(ag6x0->ctrl_io);
-	iounmap(ag6x0->scu_io.scu_addr);
 	kzfree(ag6x0);
 
 	return 0;
