@@ -464,6 +464,8 @@ static int pcs_get_function(struct pinctrl_dev *pctldev, unsigned pin,
 	const struct pinctrl_setting_mux *setting;
 	unsigned fselector;
 
+	if (!pdesc)
+		return -ENOTSUPP;
 	/* If pin is not described in DTS & enabled, mux_setting is NULL. */
 	setting = pdesc->mux_setting;
 	if (!setting)
@@ -1758,6 +1760,8 @@ static void pcs_irq_chain_handler(unsigned int irq, struct irq_desc *desc)
 	int res;
 
 	chip = irq_get_chip(irq);
+	if (!chip)
+		return;
 	chained_irq_enter(chip, desc);
 	res = pcs_irq_handle(pcs_soc);
 	/* REVISIT: export and add handle_bad_irq(irq, desc)? */
