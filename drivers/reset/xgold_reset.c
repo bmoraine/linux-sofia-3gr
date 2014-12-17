@@ -9,24 +9,23 @@
 #include <sofia/mv_svc_hypercalls.h>
 #endif
 
-#define SCU_IO_ACCESS_BY_VMM 0
-#define SCU_IO_ACCESS_BY_LNX 1
-
-enum xgold_reset_write_mode {
-	XGOLD_RESET_USE_RW_REG = 0,
-	XGOLD_RESET_USE_SET_CLEAR_REG,
-};
+#define XGOLD_RESET_HAS_RW_REG			BIT(0)
+#define XGOLD_RESET_HAS_WO_REG			BIT(1)
+#define XGOLD_RESET_HAS_WC_REG			BIT(2)
+#define XGOLD_RESET_HAS_RO_REG			BIT(3)
+#define XGOLD_RESET_NATIVE_ACCESS		BIT(4)
+#define XGOLD_RESET_USE_HYPERCALL_ACCESS	BIT(5)
 
 struct xgold_reset_ctrl {
 	struct reset_controller_dev rcdev;
 	void __iomem *ctrl_io;
 	uint32_t ctrl_io_phys;
-	unsigned reg_status;
-	unsigned reg_set;
-	unsigned reg_clear;
+	unsigned reg_rw;
+	unsigned reg_wo;
+	unsigned reg_wc;
+	unsigned reg_ro;
 	spinlock_t lock;
-	int write_mode;
-	bool io_master;
+	unsigned flags;
 };
 
 
@@ -34,35 +33,118 @@ static struct of_device_id xgold_reset_ids[] = {
 	{ .compatible = "intel,xgold-reset" },
 };
 
+static int xgold_rst_write(struct xgold_reset_ctrl *xgrc,
+			unsigned value,
+			unsigned offset)
+{
+	int ret = 0;
+
+	if (xgrc->flags & XGOLD_RESET_NATIVE_ACCESS)
+		iowrite32(value, xgrc->ctrl_io + offset);
+	else if (xgrc->flags & XGOLD_RESET_USE_HYPERCALL_ACCESS)
+		ret = mv_svc_reg_write(xgrc->ctrl_io_phys + offset,
+						value,
+						-1);
+	else
+		ret = -EINVAL;
+
+	return ret;
+}
+
+static int xgold_rst_write_only(struct xgold_reset_ctrl *xgrc,
+			unsigned value,
+			unsigned offset)
+{
+	int ret = 0;
+
+	if (xgrc->flags & XGOLD_RESET_NATIVE_ACCESS)
+		iowrite32(value, xgrc->ctrl_io + offset);
+	else if (xgrc->flags & XGOLD_RESET_USE_HYPERCALL_ACCESS)
+		ret = mv_svc_reg_write_only(xgrc->ctrl_io_phys + offset,
+						value,
+						-1);
+	else
+		ret = -EINVAL;
+
+	return ret;
+}
+
+
+static int xgold_rst_read(struct xgold_reset_ctrl *xgrc,
+			unsigned *value,
+			unsigned offset)
+{
+	int ret = 0;
+
+	if (xgrc->flags & XGOLD_RESET_NATIVE_ACCESS)
+		*value = ioread32(xgrc->ctrl_io + offset);
+	else if (xgrc->flags & XGOLD_RESET_USE_HYPERCALL_ACCESS)
+		ret = mv_svc_reg_read(xgrc->ctrl_io_phys + offset,
+						value,
+						-1);
+	else
+		ret = -EINVAL;
+
+	return ret;
+}
+
+static int xgold_rst_wait_for_update(struct xgold_reset_ctrl *xgrc,
+					unsigned mask,
+					unsigned value)
+{
+	int ret;
+	unsigned reg, timeout = 50;
+
+	do {
+		if (timeout-- == 0) {
+			ret = -ETIMEDOUT;
+			pr_err("%s: Time out while polling for %x/%x reset status bit\n",
+							__func__, mask, value);
+			break;
+		}
+
+		if (xgrc->flags & XGOLD_RESET_HAS_RW_REG)
+			ret = xgold_rst_read(xgrc, &reg, xgrc->reg_rw);
+		else
+			ret = xgold_rst_read(xgrc, &reg, xgrc->reg_ro);
+
+		udelay(1);
+	} while ((reg & mask) != value);
+
+	return ret;
+}
+
+
 static int xgold_rst_assert(struct reset_controller_dev *rcdev,
 							 unsigned long id)
 {
 	struct xgold_reset_ctrl *xgrc =
 			container_of(rcdev, struct xgold_reset_ctrl, rcdev);
-	uint32_t reg, addr;
+	uint32_t reg;
 	unsigned long flags;
 	int32_t ret = 0;
 
 	spin_lock_irqsave(&xgrc->lock, flags);
 
 #if defined(CONFIG_X86_INTEL_SOFIA)
-	addr = xgrc->ctrl_io_phys + xgrc->reg_set;
-	if (xgrc->write_mode == XGOLD_RESET_USE_RW_REG) {
-		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM) {
-			ret |= mv_svc_reg_write(addr, BIT(id), BIT(id));
-		} else {
-			reg = ioread32(xgrc->ctrl_io + xgrc->reg_set);
-			reg |= BIT(id);
-			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
-		}
-	} else { /* XGOLD_RESET_USE_SET_CLEAR_REG */
+	if (xgrc->flags & XGOLD_RESET_HAS_RW_REG) {
+		ret = xgold_rst_read(xgrc, &reg, xgrc->reg_rw);
+		if (ret)
+			goto error;
+		reg |= BIT(id);
+		ret = xgold_rst_write(xgrc, reg, xgrc->reg_rw);
+		if (ret)
+			goto error;
+	} else {
 		reg = BIT(id);
-		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= mv_svc_reg_write_only(addr, reg, reg);
-		else
-			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
+		ret = xgold_rst_write_only(xgrc, reg, xgrc->reg_wo);
+		if (ret)
+			goto error;
 	}
+
 #endif
+	ret = xgold_rst_wait_for_update(xgrc, BIT(id), BIT(id));
+error:
 	spin_unlock_irqrestore(&xgrc->lock, flags);
 	return ret == 0 ? 0 : -EPERM;
 }
@@ -72,48 +154,25 @@ static int xgold_rst_deassert(struct reset_controller_dev *rcdev,
 {
 	struct xgold_reset_ctrl *xgrc =
 			container_of(rcdev, struct xgold_reset_ctrl, rcdev);
-	unsigned ret = 0, reg, addr, timeout;
+	unsigned ret = 0, reg;
 	unsigned long flags;
 
 	spin_lock_irqsave(&xgrc->lock, flags);
 #if defined(CONFIG_X86_INTEL_SOFIA)
-	if (xgrc->write_mode == XGOLD_RESET_USE_RW_REG) {
-		addr = xgrc->ctrl_io_phys + xgrc->reg_set;
-		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM) {
-			ret |= mv_svc_reg_write(addr, 0, BIT(id));
-		} else {
-			reg = ioread32(xgrc->ctrl_io + xgrc->reg_set);
-			reg &= ~BIT(id);
-			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_set);
-		}
-	} else { /* XGOLD_RESET_USE_SET_CLEAR_REG */
-		addr = xgrc->ctrl_io_phys + xgrc->reg_clear;
+	if (xgrc->flags & XGOLD_RESET_HAS_RW_REG) {
+		ret = xgold_rst_read(xgrc, &reg, xgrc->reg_rw);
+		if (ret)
+			goto error;
+		reg &= ~BIT(id);
+		ret = xgold_rst_write(xgrc, reg, xgrc->reg_rw);
+	} else {
 		reg = BIT(id);
-		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= mv_svc_reg_write_only(addr, reg, reg);
-		else
-			iowrite32(reg, xgrc->ctrl_io + xgrc->reg_clear);
+		ret = xgold_rst_write_only(xgrc, reg, xgrc->reg_wc);
 	}
 
-	timeout = 50;
-	addr = xgrc->ctrl_io_phys + xgrc->reg_status;
-
-	do {
-		if (timeout-- == 0) {
-			ret = -ETIMEDOUT;
-			pr_err("%s: Time out while polling for %lu reset status bit\n",
-							__func__, BIT(id));
-			break;
-		}
-
-		if (xgrc->io_master == SCU_IO_ACCESS_BY_VMM)
-			ret |= mv_svc_reg_read(addr, &reg, -1);
-		else
-			reg = ioread32(xgrc->ctrl_io + xgrc->reg_status);
-
-		udelay(1);
-	} while ((reg & BIT(id)));
+	ret = xgold_rst_wait_for_update(xgrc, BIT(id), 0);
 #endif
+error:
 	spin_unlock_irqrestore(&xgrc->lock, flags);
 	return ret == 0 ? 0 : -EPERM;
 }
@@ -135,6 +194,27 @@ static struct reset_control_ops xgold_rst_ctrl_ops = {
 	.deassert = xgold_rst_deassert,
 };
 
+static inline bool xgold_reset_do_sanity(struct xgold_reset_ctrl *xgrc)
+{
+	if (xgrc->flags & XGOLD_RESET_HAS_RW_REG) {
+		pr_info("%s: Using R/W register access scheme\n", __func__);
+		return 0;
+	}
+
+	if (xgrc->flags & (XGOLD_RESET_HAS_WO_REG
+				| XGOLD_RESET_HAS_WC_REG
+				| XGOLD_RESET_HAS_RO_REG)) {
+		pr_info("%s: Using WO/WC/RO register access scheme\n",
+				__func__);
+		return 0;
+	}
+
+	pr_err("%s: Invalid register access scheme (%x)\n",
+			__func__, xgrc->flags);
+
+	return -EINVAL;
+}
+
 static int xgold_reset_parse_dt(struct reset_controller_dev *rcdev)
 {
 	struct device_node *np = rcdev->of_node;
@@ -144,20 +224,28 @@ static int xgold_reset_parse_dt(struct reset_controller_dev *rcdev)
 	struct resource regs;
 
 #define PROPERTY_MISSING "xgold-reset: \"%s\" property is missing.\n"
-
-	if (of_property_read_u32(np, "intel,reset-set", &val)) {
-		pr_err(PROPERTY_MISSING, "intel,reset-set");
-		return -EINVAL;
+	if (!of_property_read_u32(np, "intel,reset-rw", &val)) {
+		xgrc->flags |= XGOLD_RESET_HAS_RW_REG;
+		xgrc->reg_rw = val;
 	}
 
-	xgrc->reg_set = val;
-
-	if (of_property_read_u32(np, "intel,reset-status", &val)) {
-		pr_err(PROPERTY_MISSING, "intel,reset-status");
-		return -EINVAL;
+	if (!of_property_read_u32(np, "intel,reset-wo", &val)) {
+		xgrc->flags |= XGOLD_RESET_HAS_WO_REG;
+		xgrc->reg_wo = val;
 	}
 
-	xgrc->reg_status = val;
+	if (!of_property_read_u32(np, "intel,reset-wc", &val)) {
+		xgrc->flags |= XGOLD_RESET_HAS_WC_REG;
+		xgrc->reg_wc = val;
+	}
+
+	if (!of_property_read_u32(np, "intel,reset-ro", &val)) {
+		xgrc->flags |= XGOLD_RESET_HAS_RO_REG;
+		xgrc->reg_ro = val;
+	}
+
+	if (xgold_reset_do_sanity(xgrc))
+		return -EINVAL;
 
 	if (of_address_to_resource(np, 0, &regs)) {
 		pr_err(PROPERTY_MISSING, "reg");
@@ -171,17 +259,11 @@ static int xgold_reset_parse_dt(struct reset_controller_dev *rcdev)
 		return -EINVAL;
 	}
 
-	/* Optional parameters */
-	if (of_property_read_u32(np, "intel,reset-clear", &val)) {
-		xgrc->write_mode = XGOLD_RESET_USE_RW_REG;
-	} else {
-		xgrc->write_mode = XGOLD_RESET_USE_SET_CLEAR_REG;
-		xgrc->reg_clear = val;
-	}
 	if (of_find_property(np, "intel,vmm-secured-access", NULL))
-		xgrc->io_master = SCU_IO_ACCESS_BY_VMM;
+		xgrc->flags |= XGOLD_RESET_USE_HYPERCALL_ACCESS;
 	else
-		xgrc->io_master = SCU_IO_ACCESS_BY_LNX;
+		xgrc->flags |= XGOLD_RESET_NATIVE_ACCESS;
+
 	return 0;
 }
 
