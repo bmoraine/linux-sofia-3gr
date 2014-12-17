@@ -424,5 +424,7 @@ int idi_software_write(struct idi_peripheral_device *,
 int idi_software_read(struct idi_peripheral_device *, struct idi_transaction *);
 int idi_set_power_state(struct idi_peripheral_device *, void *, bool);
 int idi_set_power_state_by_name(struct idi_peripheral_device *, char *, bool);
+int idi_client_ioread(struct idi_peripheral_device *, unsigned, unsigned *);
+int idi_client_iowrite(struct idi_peripheral_device *, unsigned, unsigned);
 
 #endif

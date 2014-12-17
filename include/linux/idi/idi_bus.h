@@ -75,6 +75,8 @@ struct idi_client_device {
 	int (*flush_buffer)(struct idi_client_device *,
 			struct idi_transaction *);
 	int (*streaming_channel_flush)(struct idi_client_device *, u32);
+	int (*ioread)(struct idi_client_device *, unsigned, unsigned *);
+	int (*iowrite)(struct idi_client_device *, unsigned, unsigned);
 };
 struct idi_client_device_info {
 	enum idi_channel_type channels[IDI_MAX_CHANNEL];

@@ -734,3 +734,43 @@ int idi_get_client_id(struct idi_peripheral_device *peripheral, u32 *chipid)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(idi_get_client_id);
+
+int idi_client_ioread(struct idi_peripheral_device *peripheral,
+					unsigned addr, unsigned *reg)
+{
+	struct idi_client_device *client;
+
+	if (peripheral == NULL)
+		return -EINVAL;
+
+	client = to_idi_client_device(peripheral->device.parent);
+	if (client == NULL)
+		return -ENODEV;
+
+	if (client->ioread == NULL)
+		return -ENODEV;
+
+	return client->ioread(client, addr, reg);
+
+}
+EXPORT_SYMBOL_GPL(idi_client_ioread);
+
+int idi_client_iowrite(struct idi_peripheral_device *peripheral,
+					unsigned addr, unsigned value)
+{
+	struct idi_client_device *client;
+
+	if (peripheral == NULL)
+		return -EINVAL;
+
+	client = to_idi_client_device(peripheral->device.parent);
+	if (client == NULL)
+		return -ENODEV;
+
+	if (client->iowrite == NULL)
+		return -ENODEV;
+
+	return client->iowrite(client, addr, value);
+
+}
+EXPORT_SYMBOL_GPL(idi_client_iowrite);
