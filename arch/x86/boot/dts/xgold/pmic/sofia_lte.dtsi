@@ -276,6 +276,15 @@ pmic {
 
 			interrupt-names = "rd", "wr", "err";
 		};
+
+		pmic_usb_det:pmic_usb_det {
+			compatible = "intel,pmic_usb_det";
+			interrupt-parent = <&hirq>;
+			interrupts = < HIRQ_PMIC_VBUSDET IRQ_TYPE_DEFAULT
+				HIRQ_PMIC_CTYP IRQ_TYPE_DEFAULT>;
+			interrupt-names = "vbusdet", "ctype";
+
+		};
 	};
 
 	dev@4 {
