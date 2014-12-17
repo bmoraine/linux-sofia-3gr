@@ -3094,9 +3094,7 @@ static void cif_isp20_init_stream(
 		break;
 	case CIF_ISP20_STREAM_DMA:
 		stream = &dev->dma_stream;
-		dev->stop_dma = false;
 		dev->config.mi_config.dma.busy = false;
-		cif_isp20_pltfrm_event_clear(dev->dev, &dev->dma_done);
 		break;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
@@ -3110,6 +3108,8 @@ static void cif_isp20_init_stream(
 	stream->next_buf = NULL;
 	stream->curr_buf = NULL;
 	stream->updt_cfg = false;
+	stream->stop = false;
+	cif_isp20_pltfrm_event_clear(dev->dev, &stream->done);
 	stream->state = CIF_ISP20_STATE_INACTIVE;
 }
 
@@ -3560,7 +3560,8 @@ static void cif_isp20_dma_next_buff(
 {
 	cif_isp20_pltfrm_pr_dbg(NULL, "\n");
 
-	if (!list_empty(&dev->dma_stream.buf_queue) && !dev->stop_dma) {
+	if (!list_empty(&dev->dma_stream.buf_queue) &&
+		!dev->dma_stream.stop) {
 		if (dev->dma_stream.curr_buf != NULL)
 			BUG();
 		dev->dma_stream.curr_buf =
@@ -3578,7 +3579,8 @@ static void cif_isp20_dma_next_buff(
 			dev->sp_stream.curr_buf)
 			dev->config.mi_config.sp.busy = true;
 		if ((dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) &&
-			dev->mp_stream.curr_buf)
+			dev->mp_stream.curr_buf &&
+			!dev->mp_stream.stop)
 			dev->config.mi_config.mp.busy = true;
 		cif_iowrite32(CIF_MI_DMA_START_ENABLE,
 			dev->config.base_addr + CIF_MI_DMA_START);
@@ -3602,7 +3604,7 @@ static void cif_isp20_dma_ready(
 	wake_up(&dev->dma_stream.curr_buf->done);
 	dev->dma_stream.curr_buf = NULL;
 	dev->config.mi_config.dma.busy = false;
-	cif_isp20_pltfrm_event_signal(dev->dev, &dev->dma_done);
+	cif_isp20_pltfrm_event_signal(dev->dev, &dev->dma_stream.done);
 }
 
 static int cif_isp20_mi_frame_end_async(
@@ -3901,7 +3903,8 @@ static void cif_isp20_stop_mi(
 			dev->config.base_addr + CIF_MI_ICR);
 		cif_iowrite32AND(~CIF_MI_CTRL_SP_ENABLE,
 			dev->config.base_addr + CIF_MI_CTRL);
-		if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)
+		if ((dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) &&
+			!dev->config.mi_config.async_updt)
 			cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
 				dev->config.base_addr + CIF_ISP_CTRL);
 		else
@@ -3918,12 +3921,58 @@ static void cif_isp20_stop_mi(
 			CIF_MI_CTRL_JPEG_ENABLE |
 			CIF_MI_CTRL_RAW_ENABLE),
 			dev->config.base_addr + CIF_MI_CTRL);
-		if (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)
+		if ((dev->sp_stream.state == CIF_ISP20_STATE_STREAMING) &&
+			!dev->config.mi_config.async_updt)
 			cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
 				dev->config.base_addr + CIF_ISP_CTRL);
-		else
+		else if (dev->sp_stream.state != CIF_ISP20_STATE_STREAMING)
 			cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
 				dev->config.base_addr + CIF_MI_INIT);
+	}
+}
+
+#ifdef NOT_YET
+static void cif_isp20_stop_sp(
+	struct cif_isp20_device *dev)
+{
+	int ret;
+	if ((dev->mp_stream.state ==
+		CIF_ISP20_STATE_STREAMING) &&
+		(dev->sp_stream.state ==
+		CIF_ISP20_STATE_STREAMING)) {
+		dev->sp_stream.stop = true;
+	ret = cif_isp20_pltfrm_event_wait_timeout(dev->dev,
+		&dev->sp_stream.done,
+		!dev->config.mi_config.sp.busy,
+		1000000);
+	}
+}
+#endif
+
+static void cif_isp20_stop_mp(
+	struct cif_isp20_device *dev)
+{
+	int ret;
+	if ((dev->mp_stream.state ==
+		CIF_ISP20_STATE_STREAMING) &&
+		(dev->sp_stream.state ==
+		CIF_ISP20_STATE_STREAMING)) {
+		dev->mp_stream.stop = true;
+		ret = cif_isp20_pltfrm_event_wait_timeout(dev->dev,
+			&dev->mp_stream.done,
+			!dev->config.mi_config.mp.busy &&
+			!dev->config.jpeg_config.busy,
+			1000000);
+		dev->mp_stream.stop = false;
+		if (IS_ERR_VALUE(ret)) {
+			cif_isp20_pltfrm_pr_warn(NULL,
+				"waiting on event returned with error %d\n",
+				ret);
+		}
+		if (dev->config.mi_config.mp.busy ||
+		dev->config.jpeg_config.busy)
+			cif_isp20_pltfrm_pr_warn(NULL,
+				"MP path still active while stopping it\n");
 	}
 }
 
@@ -3934,9 +3983,9 @@ static void cif_isp20_stop_dma(
 	if (dev->dma_stream.state ==
 		CIF_ISP20_STATE_STREAMING) {
 		/* we should not stop during an active DMA transfer */
-		dev->stop_dma = true;
+		dev->dma_stream.stop = true;
 		(void)cif_isp20_pltfrm_event_wait_timeout(dev->dev,
-			&dev->dma_done,
+			&dev->dma_stream.done,
 			!dev->config.mi_config.dma.busy,
 			50000);
 		/* intentionally NOT checking dma.busy again */
@@ -3946,7 +3995,7 @@ static void cif_isp20_stop_dma(
 		dev->dma_stream.state = CIF_ISP20_STATE_READY;
 	}
 	spin_lock_irqsave(&dev->vbq_lock, flags);
-	if (dev->stop_dma && (dev->dma_stream.curr_buf != NULL)) {
+	if (dev->dma_stream.stop && (dev->dma_stream.curr_buf != NULL)) {
 		list_add(&dev->dma_stream.curr_buf->queue,
 			&dev->dma_stream.buf_queue);
 		dev->dma_stream.curr_buf->state = VIDEOBUF_QUEUED;
@@ -3970,12 +4019,10 @@ static int cif_isp20_stop(
 		stop_sp,
 		stop_mp);
 
-	local_irq_save(flags);
 	if (!((stop_mp &&
 		(dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)) ||
 		(stop_sp &&
 		(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)))) {
-		local_irq_restore(flags);
 		return 0;
 	}
 
@@ -3987,6 +4034,7 @@ static int cif_isp20_stop(
 
 		cif_isp20_stop_dma(dev);
 
+		local_irq_save(flags);
 		/* stop and clear MI, MIPI, and ISP interrupts */
 		cif_iowrite32(0, dev->config.base_addr + CIF_MIPI_IMSC);
 		cif_iowrite32(~0, dev->config.base_addr + CIF_MIPI_ICR);
@@ -4020,9 +4068,16 @@ static int cif_isp20_stop(
 			cif_isp20_pltfrm_pr_dbg(dev->dev,
 			"unable to put CIF into standby\n");
 	} else if (stop_sp) {
+		local_irq_save(flags);
 		cif_isp20_stop_mi(dev, true, false);
 	} else /* stop_mp */ {
-		cif_isp20_stop_mi(dev, false, true);
+		if (dev->config.mi_config.async_updt &&
+			(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)) {
+			cif_isp20_stop_mp(dev);
+		} else {
+			local_irq_save(flags);
+			cif_isp20_stop_mi(dev, false, true);
+		}
 	}
 	local_irq_restore(flags);
 
@@ -4160,7 +4215,7 @@ static int cif_isp20_start(
 		cif_isp20_pltfrm_reg_trace_printf(dev->dev,
 			"starting DMA...\n");
 		dev->dma_stream.state = CIF_ISP20_STATE_STREAMING;
-		dev->stop_dma = false;
+		dev->dma_stream.stop = false;
 		cif_isp20_dma_next_buff(dev);
 	}
 
@@ -4242,7 +4297,7 @@ static int cif_isp20_mi_isr(void *cntxt)
 		dev->mp_stream.first_frame = false;
 		dev->config.mi_config.mp.busy = false;
 		if (!IS_ERR_VALUE(cif_isp20_mi_frame_end(dev,
-			CIF_ISP20_STREAM_MP)))
+			CIF_ISP20_STREAM_MP)) && !dev->mp_stream.stop)
 			cif_isp20_update_mi_mp(dev);
 		cif_iowrite32(CIF_MI_MP_FRAME,
 			dev->config.base_addr + CIF_MI_ICR);
@@ -4267,6 +4322,14 @@ static int cif_isp20_mi_isr(void *cntxt)
 		to do a synchronised update */
 	if (!CIF_ISP20_MI_IS_BUSY(dev) &&
 		!dev->config.jpeg_config.busy) {
+
+		if (dev->mp_stream.stop) {
+			cif_isp20_stop_mi(dev, false, true);
+			dev->mp_stream.state = CIF_ISP20_STATE_READY;
+			cif_isp20_pltfrm_event_signal(dev->dev,
+				&dev->mp_stream.done);
+		}
+
 		if (dev->config.mi_config.async_updt)
 			cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
 				dev->config.base_addr + CIF_MI_INIT);
@@ -4284,7 +4347,8 @@ static int cif_isp20_mi_isr(void *cntxt)
 				dev->config.mi_config.sp.busy = true;
 			if ((dev->mp_stream.state ==
 				CIF_ISP20_STATE_STREAMING) &&
-				dev->mp_stream.curr_buf)
+				dev->mp_stream.curr_buf &&
+				!dev->mp_stream.stop)
 				dev->config.mi_config.mp.busy = true;
 		}
 	}
@@ -4716,7 +4780,9 @@ struct cif_isp20_device *cif_isp20_create(
 	dev->mp_stream.state = CIF_ISP20_STATE_DISABLED;
 	dev->dma_stream.state = CIF_ISP20_STATE_DISABLED;
 	dev->config.mi_config.async_updt = false;
-	cif_isp20_pltfrm_event_init(dev->dev, &dev->dma_done);
+	cif_isp20_pltfrm_event_init(dev->dev, &dev->dma_stream.done);
+	cif_isp20_pltfrm_event_init(dev->dev, &dev->sp_stream.done);
+	cif_isp20_pltfrm_event_init(dev->dev, &dev->mp_stream.done);
 
 	/* TBD: clean this up */
 	init_output_formats();

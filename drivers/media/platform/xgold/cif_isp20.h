@@ -426,6 +426,9 @@ struct cif_isp20_stream {
 	bool updt_cfg;
 	bool stall;
 	bool first_frame;
+	bool stop;
+	CIF_ISP20_PLTFRM_EVENT done;
+
 };
 
 struct cif_isp20_jpeg_config {
@@ -501,8 +504,6 @@ struct cif_isp20_device {
 	struct cif_isp20_stream sp_stream;
 	struct cif_isp20_stream mp_stream;
 	struct cif_isp20_stream dma_stream;
-	bool stop_dma;
-	CIF_ISP20_PLTFRM_EVENT dma_done;
 	struct timeval curr_frame_time; /* updated each frame */
 #ifdef SOFIA_ES1_BU_PM_NATIVE
 	struct clk *clk_kernel;
