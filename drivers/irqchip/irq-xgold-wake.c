@@ -32,6 +32,8 @@
 /* Max Number of cores supporting the wakeup */
 #define NR_OF_CORES 2
 
+#define MAX_WAKE_LENGTH 20
+
 struct xgold_irq_wake_table {
 	uint32_t reg_id;
 	uint32_t offset;
@@ -147,9 +149,9 @@ static int32_t __init xgold_irq_wake_fill_table(struct device_node *np,
 	struct device_node *intpar;
 	const __be32 *imap, *icell;
 	int32_t imaplen, i, j = 0, cell, nr;
-	char comp[20];
+	char comp[MAX_WAKE_LENGTH];
 
-	sprintf(comp, "intel,wake-map-%d", reg_id);
+	snprintf(comp, MAX_WAKE_LENGTH, "intel,wake-map-%d", reg_id);
 	imap = of_get_property(np, comp, &imaplen);
 	if (!imap) {
 		pr_err("%s: no %s prop, exit...\n", __func__, comp);
@@ -384,7 +386,7 @@ static int32_t xgold_irq_wake_probe(struct platform_device *pdev)
 	struct resource *mem_res;
 	struct resource *res[NR_OF_CORES][NR_OF_REGS];
 	struct xgold_irq_wake_data *data;
-	char comp[20];
+	char comp[MAX_WAKE_LENGTH];
 	uint32_t i, j;
 	int32_t ret;
 	dev_dbg(_dev, "Probe\n");
@@ -451,7 +453,7 @@ static int32_t xgold_irq_wake_probe(struct platform_device *pdev)
 
 	for (i = 0; i < NR_OF_CORES; i++) {
 		for (j = 0; j < NR_OF_REGS; j++) {
-			sprintf(comp, "wake-C%d-R%d", i, j);
+			snprintf(comp, MAX_WAKE_LENGTH, "wake-C%d-R%d", i, j);
 			res[i][j] = platform_get_resource_byname(pdev,
 				IORESOURCE_MEM, comp);
 			if (!res[i][j])
