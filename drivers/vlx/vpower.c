@@ -103,7 +103,8 @@ static int of_vpower_parse(void)
 		BUG();
 	}
 
-	ret = request_irq(hirq_prh, vmm_prh_irq, 0, "vmm hirq prh", NULL);
+	ret = request_irq(hirq_prh, vmm_prh_irq,
+			IRQF_NO_SUSPEND, "vmm hirq prh", NULL);
 	if (ret) {
 		pr_err("Installing HIRQ PRQ (%d) handler failed (%d)\n",
 				hirq_prh, ret);
