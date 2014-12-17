@@ -1099,9 +1099,9 @@ static int ft5x0x_ts_remove(struct i2c_client *client)
 	ft5x0x_set_pinctrl_state(&client->dev, pdata->pins_inactive);
 	free_irq(client->irq, ft5x0x_ts);
 	input_unregister_device(ft5x0x_ts->input_dev);
-	kfree(ft5x0x_ts);
 	cancel_delayed_work(&ft5x0x_ts->pen_event_work);
 	destroy_workqueue(ft5x0x_ts->ts_workqueue);
+	kfree(ft5x0x_ts);
 	i2c_set_clientdata(client, NULL);
 	return 0;
 }
