@@ -706,7 +706,7 @@
 			0x2b8 0x3011	/* sdmmc_dat2 */
 			0x2bc 0x3011	/* sdmmc_dat3 */
 			0x2c0 0x1011	/* sdmmc_clk */
-			0x2c4 0x2001	/* sdmmc_card_detect */
+			0x2c4 0x2003	/* sdmmc_card_detect */
 		>;
 	};
 	sdmmc_open_drain_function_B_active_pins:sdmmc_open_drain_function_B_active_pins {
