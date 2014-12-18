@@ -607,9 +607,9 @@ agold {
 			idi-id-subdevice = <0xA>;
 			idi-channels = < 15 >;
 			#address-cells = < 0 >;
-			reg = < 0xE6500C00 0x4
-				0xE6501038 0x4 >;
-			reg-names = "pmu_bat_det", "pmu_c0_fs";
+			reg = < 0xE6500000 0x2000>;
+			reg-names = "pmu";
+
 			interrupts = < 0 >;
 			interrupt-parent = <&bat_hal>;
 			#interrupt-cells = < 1 >;
