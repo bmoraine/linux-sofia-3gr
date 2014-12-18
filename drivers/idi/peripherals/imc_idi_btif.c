@@ -332,13 +332,25 @@ static inline void imc_idi_btif_wakeup_bt(struct imc_idi_btif_port *p_btif,
 					  bool wake)
 {
 	unsigned reg;
-	reg = ioread32(SCU_BT_CTL(p_btif->scu_io));
+
+	if (idi_client_ioread(p_btif->p_dev,
+			(unsigned)SCU_BT_CTL(p_btif->scu_io), &reg)) {
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi read error %p\n", __func__,
+				SCU_BT_CTL(p_btif->scu_io));
+		return;
+	}
+
 	reg &= ~SCU_BT_CTL_WAKEUP_BT_MASK;
 
 	if (wake)
 		reg |= SCU_BT_CTL_WAKEUP_BT_WUP_REQ;
 
-	iowrite32(reg, SCU_BT_CTL(p_btif->scu_io));
+	if (idi_client_iowrite(p_btif->p_dev,
+			(unsigned)SCU_BT_CTL(p_btif->scu_io), reg))
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi write error %p\n", __func__,
+				SCU_BT_CTL(p_btif->scu_io));
 }
 
 static inline void imc_idi_btif_set_rts(struct imc_idi_btif_port *p_btif,
@@ -398,27 +410,49 @@ static void _imc_btip_wait_clk(struct imc_idi_btif_port *p_btif)
 	unsigned reg;
 
 	/* waiting that clocks are delivered to BT macro */
-	while (!
-	       (reg =
-		SCU_BT_STAT_CLK78REQ(ioread32(SCU_BT_STAT(p_btif->scu_io))))) {
-		mdelay(1);
-		if (timeout-- < 0) {
-			pr_err("BT 78M clk not requested\n");
+	do {
+		if (idi_client_ioread(p_btif->p_dev,
+					(unsigned)SCU_BT_STAT(p_btif->scu_io),
+					&reg)) {
+			dev_err(&p_btif->p_dev->device,
+					"%s: idi read error %p\n",
+					__func__, SCU_BT_STAT(p_btif->scu_io));
 			return;
 		}
-	}
+
+		reg = SCU_BT_STAT_CLK78REQ(reg);
+
+		if (!reg) {
+			mdelay(1);
+			if (timeout-- < 0) {
+				pr_err("BT 78M clk not requested\n");
+				return;
+			}
+		}
+	} while (!reg);
 
 #ifdef IMC_IDI_BTIF_PARANOID
 	timeout = 50;
-	while (!
-	       (reg =
-		SCU_BT_STAT_CLK104REQ(ioread32(SCU_BT_STAT(p_btif->scu_io))))) {
-		mdelay(1);
-		if (timeout-- < 0) {
-			pr_err("BT 104M clk not requested\n");
+	do {
+		if (idi_client_ioread(p_btif->p_dev,
+					(unsigned)SCU_BT_STAT(p_btif->scu_io),
+					&reg)) {
+			dev_err(&p_btif->p_dev->device,
+					"%s: idi read error %p\n",
+					__func__, SCU_BT_STAT(p_btif->scu_io));
 			return;
 		}
-	}
+
+		reg = SCU_BT_STAT_CLK104REQ(reg);
+
+		if (!reg) {
+			mdelay(1);
+			if (timeout-- < 0) {
+				pr_err("BT 104M clk not requested\n");
+				return;
+			}
+		}
+	} while (!reg);
 #endif
 }
 
@@ -490,6 +524,7 @@ static void imc_btip_configure_fw(struct imc_idi_btif_port *p_btif,
 				  bool disable_signaling)
 {
 	unsigned reg;
+
 #define _16_BIT_HCI_ALIGNMENT_ALIVE_INDICATION_HANDLING_OFF (0<<0)
 #define _16_BIT_HCI_ALIGNMENT_ALIVE_INDICATION_HANDLING_ON (1<<0)
 #define NOKIA_MODE_FOR_INFINEON_SPECIFIC_EVENTS_OFF (0<<1)
@@ -505,7 +540,13 @@ static void imc_btip_configure_fw(struct imc_idi_btif_port *p_btif,
 #define HIGH_SPEED_ARC_CLOCK (1<<6)
 #define HIGH_SPEED_PLL_CLOCK (1<<7)
 
-	reg = ioread32(SCU_BT_FWCTL(p_btif->scu_io));
+	if (idi_client_ioread(p_btif->p_dev,
+				(unsigned)SCU_BT_FWCTL(p_btif->scu_io), &reg)) {
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi read error %p\n", __func__,
+				SCU_BT_FWCTL(p_btif->scu_io));
+		return;
+	}
 
 	reg |= HIGH_SPEED_ARC_CLOCK;
 	reg |= HIGH_SPEED_PLL_CLOCK;
@@ -516,7 +557,11 @@ static void imc_btip_configure_fw(struct imc_idi_btif_port *p_btif,
 	else
 		reg |= WAKEUP_HOST_ACCORDING_H4N;
 
-	iowrite32(reg, SCU_BT_FWCTL(p_btif->scu_io));
+	if (idi_client_iowrite(p_btif->p_dev,
+				(unsigned)SCU_BT_FWCTL(p_btif->scu_io), reg))
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi write error %p\n", __func__,
+				SCU_BT_FWCTL(p_btif->scu_io));
 }
 
 static void imc_btip_init(struct imc_idi_btif_port *p_btif)
@@ -532,7 +577,11 @@ static void imc_btip_init(struct imc_idi_btif_port *p_btif)
 
 	reg |= SCU_BT_CTL_ARC_START_START;
 
-	iowrite32(reg, SCU_BT_CTL(p_btif->scu_io));
+	if (idi_client_iowrite(p_btif->p_dev,
+				(unsigned)SCU_BT_CTL(p_btif->scu_io), reg))
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi write error %p\n", __func__,
+				SCU_BT_CTL(p_btif->scu_io));
 }
 
 /*
@@ -1094,29 +1143,72 @@ static void imc_idi_btip_host_wakeup_clear_mask(
 	unsigned reg;
 
 	if (clear) { /* Clear */
-		iowrite32(SCU_C3_IRQSC_BT_WUP_CLEAR_INTERRUPT,
-			SCU_C3_IRQSC(p_btif->scu_io));
-		ioread32(SCU_RIS(p_btif->scu_io)); /* Dummy read */
+		if (idi_client_iowrite(p_btif->p_dev,
+				(unsigned)SCU_C3_IRQSC(p_btif->scu_io),
+				SCU_C3_IRQSC_BT_WUP_CLEAR_INTERRUPT)) {
+			dev_err(&p_btif->p_dev->device,
+					"%s: idi write error %p\n",
+					__func__, SCU_C3_IRQSC(p_btif->scu_io));
+			return;
+		}
+
+		/* Dummy read */
+		if (idi_client_ioread(p_btif->p_dev,
+				(unsigned)SCU_RIS(p_btif->scu_io), &reg)) {
+			dev_err(&p_btif->p_dev->device,
+					"%s: idi read error %p\n",
+					__func__, SCU_RIS(p_btif->scu_io));
+			return;
+		}
 	}
 
-	if (mask) { /* Mask */
-		iowrite32(SCU_C3_IRQSM_BT_WUP_DISABLED,
-					SCU_C3_IRQSM(p_btif->scu_io));
-		ioread32(SCU_C3_IRQSM(p_btif->scu_io)); /* Dummy read */
-	} else { /* Unmask */
-
-		/* Unmask the host wakeup interrupt at C3 */
-		iowrite32(SCU_C3_IRQSM_BT_WUP_ENABLED,
-					SCU_C3_IRQSM(p_btif->scu_io));
-		ioread32(SCU_C3_IRQSM(p_btif->scu_io)); /* Dummy read */
-
-		/* Unmask the C3 at SCU */
-		reg = ioread32(SCU_IMSC(p_btif->scu_io));
-		iowrite32(reg | SCU_IMSC_C3_ENABLED, SCU_IMSC(p_btif->scu_io));
-		ioread32(SCU_IMSC(p_btif->scu_io)); /* Dummy read */
-
+	/* Mask/Unmask */
+	if (idi_client_iowrite(p_btif->p_dev,
+			(unsigned)SCU_C3_IRQSM(p_btif->scu_io),
+			(mask) ? SCU_C3_IRQSM_BT_WUP_DISABLED :
+			SCU_C3_IRQSM_BT_WUP_ENABLED)) {
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi write error %p\n",
+				__func__, SCU_C3_IRQSM(p_btif->scu_io));
+		return;
 	}
 
+	/* Dummy read */
+	if (idi_client_ioread(p_btif->p_dev,
+			(unsigned)SCU_C3_IRQSM(p_btif->scu_io), &reg)) {
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi read error %p\n",
+				__func__, SCU_C3_IRQSM(p_btif->scu_io));
+		return;
+	}
+
+	if (mask)
+		return;
+
+	/* Unmask the C3 at SCU */
+	if (idi_client_ioread(p_btif->p_dev,
+			(unsigned)SCU_IMSC(p_btif->scu_io), &reg)) {
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi read error %p\n",
+				__func__, SCU_IMSC(p_btif->scu_io));
+		return;
+	}
+
+	if (idi_client_iowrite(p_btif->p_dev,
+			(unsigned)SCU_IMSC(p_btif->scu_io),
+			reg | SCU_IMSC_C3_ENABLED)) {
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi write error %p\n",
+				__func__, SCU_IMSC(p_btif->scu_io));
+		return;
+	}
+
+	 /* Dummy read */
+	if (idi_client_ioread(p_btif->p_dev,
+			(unsigned)SCU_IMSC(p_btif->scu_io), &reg))
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi read error %p\n",
+				__func__, SCU_IMSC(p_btif->scu_io));
 }
 
 static irqreturn_t imc_idi_btif_src_isr_bh(int irq, void *dev_id)
@@ -1225,10 +1317,18 @@ static irqreturn_t imc_idi_btip_host_wakeup_isr_bh(int irq, void *dev_id)
 {
 	struct imc_idi_btif_port *p_btif = (struct imc_idi_btif_port *)dev_id;
 	struct device *dev = &p_btif->p_dev->device;
+	unsigned reg;
 
 	IMC_IDI_BTIF_ENTER;
 
-	if (SCU_BT_STAT_BT_WAKEUP_HOST(ioread32(SCU_BT_STAT(p_btif->scu_io)))) {
+	if (idi_client_ioread(p_btif->p_dev,
+			(unsigned)SCU_BT_STAT(p_btif->scu_io), &reg)) {
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi read error %p\n",
+				__func__, SCU_BT_STAT(p_btif->scu_io));
+	}
+
+	if (SCU_BT_STAT_BT_WAKEUP_HOST(reg)) {
 		dev_dbg(dev, "Got host wakeup high interrupt\n");
 
 		if (unlikely(p_btif->first_wakeup)) {
@@ -1262,7 +1362,7 @@ static irqreturn_t imc_idi_btip_host_wakeup_isr_bh(int irq, void *dev_id)
 static void __iomem *imc_idi_request_io_byname(
 		struct idi_peripheral_device *p_device,
 		const char *name,
-		bool request)
+		bool request, bool remap)
 {
 
 #ifndef CONFIG_NKERNEL
@@ -1288,7 +1388,11 @@ static void __iomem *imc_idi_request_io_byname(
 				 dev_name(&p_device->device))))
 		return NULL;
 
-	io = ioremap(res->start, resource_size(res));
+	if (remap)
+		io = ioremap(res->start, resource_size(res));
+	else
+		io = (void __iomem *)res->start;
+
 	if (!io && request)
 		release_mem_region(res->start, resource_size(res));
 
@@ -1670,7 +1774,12 @@ static void btif_update_temperature(struct work_struct *work)
 	/* Scaled up and then down to avoid floating point operation */
 	temp_val /= IMC_IDI_BTIF_TEMP_MEAS_KT_SCALE;
 
-	iowrite32((signed short) temp_val, SCU_BT_TEMPMEAS(p_btif->scu_io));
+	if (idi_client_iowrite(p_btif->p_dev,
+				(unsigned)SCU_BT_TEMPMEAS(p_btif->scu_io),
+				(signed short)temp_val))
+		dev_err(&p_btif->p_dev->device,
+				"%s: idi write error %p\n",
+				__func__, SCU_BT_TEMPMEAS(p_btif->scu_io));
 }
 
 static void btif_temp_meas_timer_expired(unsigned long data)
@@ -1950,6 +2059,7 @@ static int btif_ioctl(struct uart_port *port, unsigned int cmd,
 			imc_idi_btif_get_platdata(p_btif);
 	struct idi_peripheral_device *p_device = p_btif->p_dev;
 	struct device *dev = &p_btif->p_dev->device;
+	unsigned reg;
 	int ret = 0;
 
 	IMC_IDI_BTIF_ENTER;
@@ -1979,8 +2089,19 @@ static int btif_ioctl(struct uart_port *port, unsigned int cmd,
 							, true);
 				break;
 			case D0I3:
-				if (SCU_BT_STAT_BT_WAKEUP_HOST(ioread32(
-						SCU_BT_STAT(p_btif->scu_io)))) {
+				ret = idi_client_ioread(p_btif->p_dev,
+					(unsigned)SCU_BT_STAT(p_btif->scu_io),
+					&reg);
+
+				if (ret) {
+					dev_err(&p_btif->p_dev->device,
+						"%s: idi read error %p\n",
+						__func__,
+						SCU_BT_STAT(p_btif->scu_io));
+					return ret;
+				}
+
+				if (SCU_BT_STAT_BT_WAKEUP_HOST(reg)) {
 					dev_dbg(dev, "HWUP HIGH, skip D0I3\n");
 					ret = -EBUSY;
 					break;
@@ -2082,9 +2203,18 @@ static int btif_ioctl(struct uart_port *port, unsigned int cmd,
 #endif
 		break;
 	case IMC_IDI_BT_GET_HOST_WUP:
-		ret =
-		    SCU_BT_STAT_BT_WAKEUP_HOST(ioread32
-					       (SCU_BT_STAT(p_btif->scu_io)));
+		ret = idi_client_ioread(p_btif->p_dev,
+			(unsigned)SCU_BT_STAT(p_btif->scu_io),
+			&reg);
+
+		if (ret) {
+			dev_err(&p_btif->p_dev->device,
+					"%s: idi read error %p\n", __func__,
+					SCU_BT_STAT(p_btif->scu_io));
+			return ret;
+		}
+
+		ret = SCU_BT_STAT_BT_WAKEUP_HOST(reg);
 		break;
 	case IMC_IDI_BT_SET_RTS:
 #ifdef IMC_IDI_BTIF_PARANOID
@@ -2138,12 +2268,24 @@ static int btif_ioctl(struct uart_port *port, unsigned int cmd,
 		break;
 	case IMC_IDI_BT_SET_SCU_FWCTL:
 		dev_dbg(dev, "Setting BT SCU FWCTL %lu\n", arg);
-		iowrite32(arg, SCU_BT_FWCTL(p_btif->scu_io));
+		if (idi_client_iowrite(p_btif->p_dev,
+				(unsigned)SCU_BT_FWCTL(p_btif->scu_io), arg))
+			dev_err(&p_btif->p_dev->device,
+					"%s: idi write error %p\n",
+					__func__, SCU_BT_FWCTL(p_btif->scu_io));
 		break;
 	case IMC_IDI_BT_GET_SCU_FWCTL:
-		ret =
-		    SCU_BT_FWCTL_HOST2BT(ioread32
-					 (SCU_BT_FWCTL(p_btif->scu_io)));
+		ret = idi_client_ioread(p_btif->p_dev,
+				(unsigned)SCU_BT_FWCTL(p_btif->scu_io), &reg);
+
+		if (ret) {
+			dev_err(&p_btif->p_dev->device,
+					"%s: idi read error %p\n",
+					__func__, SCU_BT_FWCTL(p_btif->scu_io));
+			return ret;
+		}
+
+		ret = SCU_BT_FWCTL_HOST2BT(reg);
 		break;
 	default:
 		ret = -ENOIOCTLCMD;
@@ -2340,10 +2482,12 @@ static int imc_idi_btif_probe(struct idi_peripheral_device *p_device,
 #endif
 
 	p_btif->ctrl_io = imc_idi_request_io_byname(p_device,
-						    BTIF_REG_RES_NAME, false);
+						    BTIF_REG_RES_NAME, false,
+						    true);
 
 	p_btif->scu_io = imc_idi_request_io_byname(p_device,
-						   BTIF_SCU_RES_NAME, true);
+						   BTIF_SCU_RES_NAME, true,
+						   false);
 
 #ifdef IMC_IDI_BTIF_PARANOID
 	if ((!p_btif->ctrl_io) || (!p_btif->scu_io)) {
@@ -2473,7 +2617,7 @@ static int imc_idi_btif_remove(struct idi_peripheral_device *p_device)
 				  BTIF_REG_RES_NAME, p_btif->ctrl_io, false);
 
 	imc_idi_release_io_byname(p_device,
-				  BTIF_SCU_RES_NAME, p_btif->scu_io, false);
+				  BTIF_SCU_RES_NAME, p_btif->scu_io, true);
 
 #if defined(CONFIG_OF)
 	kfree(imc_idi_btif_get_platdata(p_btif));
