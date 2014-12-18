@@ -28,7 +28,6 @@
 #include <linux/kernel.h>
 #include <linux/kfifo.h>
 #include <linux/module.h>
-#include <linux/io.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/idi/idi_interface.h>
@@ -43,6 +42,9 @@
 #include "bprofile_dts_parser.h"
 
 #define SYSFS_INPUT_VAL_LEN (1)
+
+#define PMU_AG6X0_BAT_DET	0xC00
+#define PMU_AG6X0_C0_FS		0x1038
 
 /* BIT position in C0_FS register for BatRemovalDet (read only) */
 #define PMU_AG6X0_C0_FS_BIT				(0x4)
@@ -355,8 +357,7 @@ struct bat_drv_hal_data {
 	struct bat_drv_hal_presence_stm_debug presence_stm_debug;
 	struct debounce_data debouncing;
 	struct bat_drv_hal_work_fifo work;
-	void __iomem *p_pmu_batrm_det;
-	void __iomem *p_pmu_c0_fs;
+	struct resource *pmu_res;
 	bool breg_state;
 	int irq;
 
@@ -376,6 +377,43 @@ static struct bat_drv_hal_data bat_drv_hal_instance = {
 static struct bat_drv_hal_debug_data bat_drv_hal_debug_info = {
 	.printk_logs_en = 0,
 };
+
+static unsigned bat_drv_pmu_ioread(struct bat_drv_hal_data *bat_drv_hal,
+					unsigned offset)
+{
+	int ret = 0;
+	unsigned reg;
+	unsigned addr;
+
+	if (unlikely(bat_drv_hal == NULL))
+		BUG();
+
+	addr = bat_drv_hal->pmu_res->start + offset;
+
+	ret = idi_client_ioread(bat_drv_hal->p_idi_device, addr, &reg);
+	if (ret)
+		BUG();
+
+	return reg;
+}
+
+static void bat_drv_pmu_iowrite(struct bat_drv_hal_data *bat_drv_hal,
+					unsigned offset,
+					unsigned data)
+{
+	int ret = 0;
+	unsigned addr;
+
+	if (unlikely(bat_drv_hal == NULL))
+		BUG();
+
+	addr = bat_drv_hal->pmu_res->start + offset;
+
+	ret = idi_client_iowrite(bat_drv_hal->p_idi_device, addr, data);
+	if (ret)
+		BUG();
+}
+
 
 /* Forwward declaration */
 static irqreturn_t bat_drv_hal_presence_change_cb(int irq, void *dev);
@@ -501,10 +539,11 @@ static bool bat_drv_hal_get_presence_state(void)
 {
 	bool presence;
 	u32 c0_fs, batrm_det;
+	struct bat_drv_hal_data *hal_data = &bat_drv_hal_instance;
 
 	/* Read C0_FS and BATRM_DET registers */
-	c0_fs = ioread32(bat_drv_hal_instance.p_pmu_c0_fs);
-	batrm_det = ioread32(bat_drv_hal_instance.p_pmu_batrm_det);
+	c0_fs = bat_drv_pmu_ioread(hal_data, PMU_AG6X0_C0_FS);
+	batrm_det = bat_drv_pmu_ioread(hal_data, PMU_AG6X0_BAT_DET);
 
 	/*
 	* Read from the C0_FS Register (floating status) and not the
@@ -602,12 +641,14 @@ static void bat_drv_hal_enable_presence_detect_interrupt(bool bat_present)
 			bat_drv_hal_instance.pm_state_en, true);
 
 	{
-		u32 batrm_det = ioread32(bat_drv_hal_instance.p_pmu_batrm_det);
+		u32 batrm_det = bat_drv_pmu_ioread(&bat_drv_hal_instance,
+				PMU_AG6X0_BAT_DET);
 		batrm_det &= ~PMU_AG6X0_BATRM_DET_BREG_SET;
 		batrm_det |= (false == bat_present) ?
 				PMU_AG6X0_BATRM_DET_BREG_SET : 0;
 
-		iowrite32(batrm_det, bat_drv_hal_instance.p_pmu_batrm_det);
+		bat_drv_pmu_iowrite(&bat_drv_hal_instance,
+					PMU_AG6X0_BAT_DET, batrm_det);
 	}
 
 	bat_hal_set_pm_state(bat_drv_hal_instance.p_idi_device,
@@ -1355,7 +1396,6 @@ static inline void bat_drv_hal_release_pdata(struct bat_drv_hal_data *hal)
 static int __init bat_drv_hal_probe(struct idi_peripheral_device *ididev,
 				const struct idi_device_id *id)
 {
-	struct resource *pmu_bat_det, *pmu_c0_fs;
 	struct device *dev = &ididev->device;
 	struct resource *res;
 	int ret = 0;
@@ -1397,34 +1437,16 @@ static int __init bat_drv_hal_probe(struct idi_peripheral_device *ididev,
 	if (ret)
 		return ret;
 
-	pmu_bat_det =
+	res =
 		idi_get_resource_byname(&ididev->resources, IORESOURCE_MEM,
-								"pmu_bat_det");
-	if (pmu_bat_det == NULL) {
+								"pmu");
+	if (res == NULL) {
 		pr_err("getting PMU's 'BATRM_DET' resource failed!\n");
 		ret = -EINVAL;
 		goto res_fail;
 	}
 
-	pmu_c0_fs =
-		idi_get_resource_byname(&ididev->resources, IORESOURCE_MEM,
-								"pmu_c0_fs");
-	if (pmu_c0_fs == NULL) {
-		pr_err("getting PMU's 'C0_FS' resource failed!\n");
-		ret = -EINVAL;
-		goto res_fail;
-	}
-
-	/* Obtain the IO addresses for the PMU registers. */
-	bat_drv_hal_instance.p_pmu_batrm_det =
-		ioremap(pmu_bat_det->start, resource_size(pmu_bat_det));
-
-	BUG_ON(NULL == bat_drv_hal_instance.p_pmu_batrm_det);
-
-	bat_drv_hal_instance.p_pmu_c0_fs =
-		ioremap(pmu_c0_fs->start, resource_size(pmu_c0_fs));
-
-	BUG_ON(NULL == bat_drv_hal_instance.p_pmu_c0_fs);
+	bat_drv_hal_instance.pmu_res = res;
 
 	res = idi_get_resource_byname(&ididev->resources,
 					IORESOURCE_IRQ, "brd");
@@ -1500,9 +1522,12 @@ static int __init bat_drv_hal_probe(struct idi_peripheral_device *ididev,
 	}
 
 	{
-		u32 batrm_det = ioread32(bat_drv_hal_instance.p_pmu_batrm_det);
+
+		u32 batrm_det = bat_drv_pmu_ioread(&bat_drv_hal_instance,
+				PMU_AG6X0_BAT_DET);
 		batrm_det = batrm_det | PMU_AG6X0_BATRM_DET_EBRM_SET;
-		iowrite32(batrm_det, bat_drv_hal_instance.p_pmu_batrm_det);
+		bat_drv_pmu_iowrite(&bat_drv_hal_instance,
+					PMU_AG6X0_BAT_DET, batrm_det);
 	}
 	bat_hal_set_pm_state(bat_drv_hal_instance.p_idi_device,
 			bat_drv_hal_instance.pm_state_dis, false);
@@ -1523,8 +1548,6 @@ static int __init bat_drv_hal_probe(struct idi_peripheral_device *ididev,
 	return 0;
 
 set_pm_state_fail:
-	iounmap(bat_drv_hal_instance.p_pmu_batrm_det);
-	iounmap(bat_drv_hal_instance.p_pmu_c0_fs);
 	destroy_workqueue(bat_drv_hal_instance.work.p_work_queue);
 res_fail:
 	bat_drv_hal_release_pdata(hal);
@@ -1546,9 +1569,6 @@ static int __exit bat_drv_hal_remove(struct idi_peripheral_device *ididev)
 		bat_drv_hal_batrm_det_enable(false);
 
 		(void)del_timer(&bat_drv_hal_instance.debouncing.timer);
-
-		iounmap(bat_drv_hal_instance.p_pmu_batrm_det);
-		iounmap(bat_drv_hal_instance.p_pmu_c0_fs);
 
 		bat_drv_hal_release_pdata(&bat_drv_hal_instance);
 	}
