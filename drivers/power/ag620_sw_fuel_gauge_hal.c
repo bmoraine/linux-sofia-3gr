@@ -20,7 +20,6 @@
 
 #define DRIVER_NAME					"ag620_swfgh"
 #define pr_fmt(fmt) DRIVER_NAME": "fmt
-#include <linux/io.h>
 #include <linux/device.h>
 #include <linux/cpu.h>
 #include <linux/err.h>
@@ -178,8 +177,8 @@ struct sw_fuel_gauge_hal_data {
 	struct sw_fuel_gauge_platform_data platform_data;
 	/* Wake lock to prevent suspend in critical sections. */
 	struct wake_lock suspend_lock;
-	/* Virtual address of PMU Coulomb Counter registers. */
-	void __iomem *p_pmu_cc_base;
+	/* PMU Coulomb Counter IO resource */
+	struct resource *pmu_cc_res;
 	/* Base timestamp for accumulated error. */
 	time_t error_base_rtc_sec;
 	/* Base count for accumulated error in charge IN to battery. */
@@ -202,6 +201,40 @@ struct sw_fuel_gauge_hal_data {
 	/* Coulomb counter interrupt */
 	int irq;
 };
+
+static unsigned pmu_ioread(struct sw_fuel_gauge_hal_data *sw_fg_hal,
+					unsigned offset)
+{
+	int ret = 0;
+	unsigned reg;
+	unsigned addr;
+
+	if (unlikely(sw_fg_hal == NULL))
+		BUG();
+
+	addr = sw_fg_hal->pmu_cc_res->start + offset;
+	ret = idi_client_ioread(sw_fg_hal->p_idi_device, addr, &reg);
+	if (ret)
+		BUG();
+
+	return reg;
+}
+
+static void pmu_iowrite(struct sw_fuel_gauge_hal_data *sw_fg_hal,
+					unsigned offset,
+					unsigned data)
+{
+	int ret = 0;
+	unsigned addr;
+
+	if (unlikely(sw_fg_hal == NULL))
+		BUG();
+
+	addr = sw_fg_hal->pmu_cc_res->start + offset;
+	ret = idi_client_iowrite(sw_fg_hal->p_idi_device, addr, data);
+	if (ret)
+		BUG();
+}
 
 
 /**
@@ -252,10 +285,8 @@ static void sw_fuel_gauge_hal_get_coulomb_counts(u32 *cc_up_counts,
 	sw_fg_hal_set_pm_state(sw_fg_hal->p_idi_device,
 				sw_fg_hal->pm_state_en, true);
 
-	*cc_up_counts =
-		ioread32(sw_fg_hal->p_pmu_cc_base + PMU_AG620_CC_UP_CNT);
-	*cc_down_counts =
-		ioread32(sw_fg_hal->p_pmu_cc_base + PMU_AG620_CC_DOWN_CNT);
+	*cc_up_counts = pmu_ioread(sw_fg_hal, PMU_AG620_CC_UP_CNT);
+	*cc_down_counts = pmu_ioread(sw_fg_hal, PMU_AG620_CC_DOWN_CNT);
 
 	sw_fg_hal_set_pm_state(sw_fg_hal->p_idi_device,
 				sw_fg_hal->pm_state_dis, false);
@@ -382,8 +413,7 @@ static int sw_fuel_gauge_hal_read_battery_current(void)
 	sw_fg_hal_set_pm_state(sw_fg_hal->p_idi_device,
 					sw_fg_hal->pm_state_en, true);
 
-	ibat_reg =
-		ioread32(sw_fg_hal->p_pmu_cc_base + PMU_AG620_CC_BAT_CURRENT);
+	ibat_reg = pmu_ioread(sw_fg_hal, PMU_AG620_CC_BAT_CURRENT);
 
 	sw_fg_hal_set_pm_state(sw_fg_hal->p_idi_device,
 					sw_fg_hal->pm_state_dis, false);
@@ -767,9 +797,8 @@ static void sw_fuel_gauge_hal_set_delta_threshold(int delta_threshold_mc)
 			sw_fuel_gauge_hal_instance.pm_state_en, true);
 
 	/* Write the calculated value into the CC_THR register */
-	iowrite32(delta_threshold_cc_thr,
-		(sw_fuel_gauge_hal_instance.p_pmu_cc_base +
-						PMU_AG620_CC_THR));
+	pmu_iowrite(&sw_fuel_gauge_hal_instance,
+			PMU_AG620_CC_THR, delta_threshold_cc_thr);
 
 	sw_fg_hal_set_pm_state(sw_fuel_gauge_hal_instance.p_idi_device,
 			sw_fuel_gauge_hal_instance.pm_state_dis, false);
@@ -1140,12 +1169,7 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 		return -EINVAL;
 	}
 
-	/* Obtain the IO addresses for the coulomb counter PMU registers. */
-	sw_fuel_gauge_hal_instance.p_pmu_cc_base =
-		ioremap(pmu_cc_res->start, resource_size(pmu_cc_res));
-	BUG_ON(NULL == sw_fuel_gauge_hal_instance.p_pmu_cc_base);
-	SW_FUEL_GAUGE_HAL_DEBUG_PARAM(SW_FUEL_GAUGE_DEBUG_HAL_IOREMAP,
-				sw_fuel_gauge_hal_instance.p_pmu_cc_base);
+	sw_fuel_gauge_hal_instance.pmu_cc_res = pmu_cc_res;
 
 	/* Set up the wake lock to prevent suspend between multiple register
 	accesses. */
@@ -1163,14 +1187,12 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 	}
 
 	/* Switch on the coulomb counter */
-	iowrite32(PMU_AG620_CC_CTRL_ENABLE,
-			(sw_fuel_gauge_hal_instance.p_pmu_cc_base +
-						PMU_AG620_CC_CTRL));
+	pmu_iowrite(&sw_fuel_gauge_hal_instance,
+			PMU_AG620_CC_CTRL, PMU_AG620_CC_CTRL_ENABLE);
 
 	/* Clear the coulomb counter delta threshold */
-	iowrite32(PMU_AG620_CC_CTRL2_CLEAR,
-		(sw_fuel_gauge_hal_instance.p_pmu_cc_base +
-			PMU_AG620_CC_CTRL2));
+	pmu_iowrite(&sw_fuel_gauge_hal_instance,
+			PMU_AG620_CC_CTRL2, PMU_AG620_CC_CTRL2_CLEAR);
 
 	sw_fg_hal_set_pm_state(ididev, sw_fuel_gauge_hal_instance.pm_state_dis,
 					false);
