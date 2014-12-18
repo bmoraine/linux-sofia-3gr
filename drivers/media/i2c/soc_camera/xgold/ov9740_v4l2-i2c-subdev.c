@@ -111,9 +111,9 @@
 					sensor, low byte*/
 
 /* Bit masks */
-#define OV9740_AWB_ENABLE_BIT_MSK ((u8)0x01)
-#define OV9740_AEC_DISABLE_BIT_MSK ((u8)0x01)
-#define OV9740_AGC_DISABLE_BIT_MSK ((u8)0x02)
+#define OV9740_AWB_ENABLE_BIT_MSK ((u32)0x01)
+#define OV9740_AEC_DISABLE_BIT_MSK ((u32)0x01)
+#define OV9740_AGC_DISABLE_BIT_MSK ((u32)0x02)
 
 #define OV9740_FETCH_3RD_BYTE_EXP(VAL) ((VAL >> 16) & 0xF)	/* 4 Bits */
 #define OV9740_FETCH_2ND_BYTE_EXP(VAL) ((VAL >> 8) & 0xFF)	/* 8 Bits */

@@ -395,7 +395,7 @@ int __gc_g_exposure(struct v4l2_subdev *sd, s32 *value)
 			dev->product_info->reg_expo_coarse + 1, &reg_val_l);
 	if (ret)
 		return ret;
-	coarse |= reg_val_l;
+	coarse |= (u16)reg_val_l;
 
 	/* Switch to Page 1 */
 	ret = gc_write_reg(client, GC_8BIT,
@@ -414,7 +414,7 @@ int __gc_g_exposure(struct v4l2_subdev *sd, s32 *value)
 			dev->product_info->reg_expo_div + 1, &reg_val_l);
 	if (ret)
 		return ret;
-	div |= reg_val_l;
+	div |= (u16)reg_val_l;
 
 	/* Switch back to Page 0 */
 	ret = gc_write_reg(client, GC_8BIT,
