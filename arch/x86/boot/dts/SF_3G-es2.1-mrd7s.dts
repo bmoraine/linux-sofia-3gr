@@ -1,0 +1,2 @@
+#define SOFIA3G_ES21
+#include "SF_3G-mrd7s.dts"
