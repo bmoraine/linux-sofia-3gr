@@ -198,6 +198,7 @@
 
 				probe,offset = < 0x1000 >;
 
+				#include "xgold/sofia_3g_soc/NoC.dtsi"
 			};
 
 			l2_noc {
