@@ -99,6 +99,10 @@ static int xgold_irq_eint_set_type(struct irq_data *data, unsigned int type)
 	if ((!chipdata->edge[irq]) || (!chipdata->level[irq]))
 		return 0;
 
+	/* do not configure as !Linux interrupt */
+	if (chipdata->virq[irq])
+		return 0;
+
 	switch (type) {
 	case IRQ_TYPE_EDGE_RISING:
 		pr_debug("%s: IRQ_TYPE_EDGE_RISING\n", __func__);
