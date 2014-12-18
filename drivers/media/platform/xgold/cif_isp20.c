@@ -3289,7 +3289,7 @@ static int cif_isp20_update_mi_mp(
 				dev->config.jpeg_config.busy = true;
 			} else if (dev->config.mi_config.async_updt) {
 				if (dev->config.mi_config.mp.next_buff_addr !=
-				CIF_ISP20_INVALID_BUFF_ADDR)
+					CIF_ISP20_INVALID_BUFF_ADDR)
 					cif_isp20_mi_update_buff_addr(dev,
 						CIF_ISP20_STREAM_MP);
 				dev->config.mi_config.mp.curr_buff_addr =
@@ -3579,8 +3579,7 @@ static void cif_isp20_dma_next_buff(
 			dev->sp_stream.curr_buf)
 			dev->config.mi_config.sp.busy = true;
 		if ((dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) &&
-			dev->mp_stream.curr_buf &&
-			!dev->mp_stream.stop)
+			dev->mp_stream.curr_buf)
 			dev->config.mi_config.mp.busy = true;
 		cif_iowrite32(CIF_MI_DMA_START_ENABLE,
 			dev->config.base_addr + CIF_MI_DMA_START);
@@ -4323,9 +4322,11 @@ static int cif_isp20_mi_isr(void *cntxt)
 	if (!CIF_ISP20_MI_IS_BUSY(dev) &&
 		!dev->config.jpeg_config.busy) {
 
-		if (dev->mp_stream.stop) {
+		if (dev->mp_stream.stop &&
+			(dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)) {
 			cif_isp20_stop_mi(dev, false, true);
 			dev->mp_stream.state = CIF_ISP20_STATE_READY;
+			dev->mp_stream.stop = false;
 			cif_isp20_pltfrm_event_signal(dev->dev,
 				&dev->mp_stream.done);
 		}
@@ -4347,8 +4348,7 @@ static int cif_isp20_mi_isr(void *cntxt)
 				dev->config.mi_config.sp.busy = true;
 			if ((dev->mp_stream.state ==
 				CIF_ISP20_STATE_STREAMING) &&
-				dev->mp_stream.curr_buf &&
-				!dev->mp_stream.stop)
+				dev->mp_stream.curr_buf)
 				dev->config.mi_config.mp.busy = true;
 		}
 	}
@@ -5378,6 +5378,17 @@ int marvin_isp_isr(void *cntxt)
 
 	if (isp_mis & CIF_ISP_FRAME) {
 		do_gettimeofday(&dev->curr_frame_time);
+
+		if ((dev->mp_stream.state == CIF_ISP20_STATE_STREAMING) &&
+			!dev->mp_stream.curr_buf &&
+			!list_empty(&dev->mp_stream.buf_queue) &&
+			dev->config.jpeg_config.enable) {
+			/* stream has run out of buffers, but a new
+			one is available in buffer queue */
+			cif_iowrite32(CIF_MI_MP_FRAME,
+				dev->config.base_addr + CIF_MI_ISR);
+		}
+
 		/* Clear Frame In (ISP) */
 		cif_iowrite32(CIF_ISP_FRAME
 			      | CIF_ISP_FRAME_IN
