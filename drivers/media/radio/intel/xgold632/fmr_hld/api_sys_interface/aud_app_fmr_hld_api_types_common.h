@@ -65,7 +65,6 @@ enum fmtrx_unit {
 	MHZ   = 1000000 /* 1M */
 };
 
-
 /*
  * @brief
  * Enumeration for Max and Min RSSI levels

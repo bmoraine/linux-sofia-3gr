@@ -197,9 +197,6 @@ int fmr_set_gain_offsets(struct fmrx_state *state,
 {
 	int rc = 0;
 
-	if (gain_offs == NULL)
-		return -EINVAL;
-
 	/* Validate input arguments */
 	if (off_type > GAIN_OFFSET_INVALID || gain_offs == NULL || size == 0) {
 		rc = -EINVAL;
@@ -231,13 +228,6 @@ int fmr_set_gain_offsets(struct fmrx_state *state,
 		fmtrx_rf_poweron(state);
 		break;
 
-	case GAIN_OFFSET_RSSI:
-		rc = fmtrx_send_cmd(FMRX_CMD_CFG_RSSI_CH_OFFS,
-				    (u16 *)gain_offs,
-				    sizeof(struct fmrx_rssi_ch_offs_cmd) / 2,
-				    FMR_IR_CMD2_DONE);
-		break;
-
 	default:
 		rc = -EINVAL;
 		break;
@@ -245,8 +235,44 @@ int fmr_set_gain_offsets(struct fmrx_state *state,
 
 	if (0 != rc)
 		fmdrv_err("Offset configure command failed! rc: %d\n", rc);
+	else
+		fmr_evaluate_channel(state, state->freq, RSSI_MIN);
 
 fmr_set_gain_offsets_err:
+	return rc;
+}
+
+int fmr_set_rssi_gain_offsets(struct fmrx_state *state,
+	struct rssi_offs *gain_offs)
+{
+	struct rssi_offs rssi_offsets;
+	int rc = 0;
+
+	if (gain_offs == NULL)
+		return -EINVAL;
+
+	rssi_offsets.frequency1 = HZ_TO_KHZ(gain_offs->frequency1);
+	rssi_offsets.frequency2 = HZ_TO_KHZ(gain_offs->frequency2);
+	rssi_offsets.frequency3 = HZ_TO_KHZ(gain_offs->frequency3);
+	rssi_offsets.frequency4 = HZ_TO_KHZ(gain_offs->frequency4);
+	rssi_offsets.frequency5 = HZ_TO_KHZ(gain_offs->frequency5);
+
+	rssi_offsets.offset1 = RSSI_TO_INT(gain_offs->offset1);
+	rssi_offsets.offset2 = RSSI_TO_INT(gain_offs->offset2);
+	rssi_offsets.offset3 = RSSI_TO_INT(gain_offs->offset3);
+	rssi_offsets.offset4 = RSSI_TO_INT(gain_offs->offset4);
+	rssi_offsets.offset5 = RSSI_TO_INT(gain_offs->offset5);
+	rssi_offsets.offset6 = RSSI_TO_INT(gain_offs->offset6);
+
+	rc = fmtrx_send_cmd(FMRX_CMD_CFG_RSSI_CH_OFFS,
+			    (u16 *)&rssi_offsets,
+			    sizeof(struct fmrx_rssi_ch_offs_cmd) / 2,
+			    FMR_IR_CMD2_DONE);
+	if (0 != rc)
+		fmdrv_err("RSSI Gain Offset config failed! rc: %d\n", rc);
+	else
+		fmr_evaluate_channel(state, state->freq, RSSI_MIN);
+
 	return rc;
 }
 
@@ -454,19 +480,14 @@ int fmr_start_receiver(struct fmrx_state *state)
 		rssi_cfg.rssi_ppf_offs = state->cfg->ppf_offs_ext_ant;
 
 		/* channel frequency dependent RSSI offset configuration */
-		fmtrx_send_cmd(FMRX_CMD_CFG_RSSI_CH_OFFS,
-			       (u16 *)&state->cfg->rssi_offs_ext_ant,
-			       sizeof(state->cfg->rssi_offs_ext_ant) / 2,
-			       FMR_IR_CMD2_DONE);
+		fmr_set_rssi_gain_offsets(state,
+					  &state->cfg->rssi_offs_ext_ant);
 	} else {
 		rssi_cfg.rssi_lna_offs = state->cfg->lna_offs_int_ant;
 		rssi_cfg.rssi_ppf_offs = state->cfg->ppf_offs_int_ant;
 
-		/* channel frequency dependent RSSI offset configuration */
-		fmtrx_send_cmd(FMRX_CMD_CFG_RSSI_CH_OFFS,
-			       (u16 *)&state->cfg->rssi_offs_int_ant,
-			       sizeof(state->cfg->rssi_offs_int_ant) / 2,
-			       FMR_IR_CMD2_DONE);
+		fmr_set_rssi_gain_offsets(state,
+					  &state->cfg->rssi_offs_int_ant);
 	}
 
 	rssi_cfg.rssi_other_offset = fmr_calc_rssi_other_offs(state);
@@ -795,20 +816,14 @@ void fmr_ant_switch(struct fmrx_state *state)
 		rssi_cfg.rssi_lna_offs = state->cfg->lna_offs_ext_ant;
 		rssi_cfg.rssi_ppf_offs = state->cfg->ppf_offs_ext_ant;
 
-		/* channel frequency dependent RSSI offset configuration */
-		fmtrx_send_cmd(FMRX_CMD_CFG_RSSI_CH_OFFS,
-			       (u16 *)&state->cfg->rssi_offs_ext_ant,
-			       sizeof(state->cfg->rssi_offs_ext_ant) / 2,
-			       FMR_IR_CMD2_DONE);
+		fmr_set_rssi_gain_offsets(state,
+					  &state->cfg->rssi_offs_ext_ant);
 	} else {
 		rssi_cfg.rssi_lna_offs = state->cfg->lna_offs_int_ant;
 		rssi_cfg.rssi_ppf_offs = state->cfg->ppf_offs_int_ant;
 
-		/* channel frequency dependent RSSI offset configuration */
-		fmtrx_send_cmd(FMRX_CMD_CFG_RSSI_CH_OFFS,
-			       (u16 *)&state->cfg->rssi_offs_int_ant,
-			       sizeof(state->cfg->rssi_offs_int_ant) / 2,
-			       FMR_IR_CMD2_DONE);
+		fmr_set_rssi_gain_offsets(state,
+					  &state->cfg->rssi_offs_int_ant);
 	}
 
 	/* Copy LNA RSSI offsets to FW */

@@ -16,7 +16,6 @@
 
 /* INCLUDE STATEMENTS */
 #include <linux/err.h>
-
 #include <aud_app_fmr_hld.h>
 #include <aud_app_fmr_hld_rx.h>
 #include <aud_app_fmr_sys.h>
@@ -334,8 +333,10 @@ int fmrx_set_band(struct fmtrx_band *fmrx_band)
 	if (NULL != fmrx_band) {
 		if (fmrx_band->max > fmrx_band->min) {
 			struct fmrx_msgbox_buff rx_msg;
+
 			rx_msg.event = FMRX_EVENT_SET_BAND;
 			rx_msg.params.p_set_freq_band = fmrx_band;
+
 			rc = fmrx_event_dispatcher(&rx_msg);
 		} else {
 			rc = -EINVAL;
@@ -688,7 +689,8 @@ int fmrx_set_agc_gain_cfg(struct fmrx_agc *gain_cfg)
 	int rc = -EIO;
 
 	if (NULL != gain_cfg) {
-		if (gain_cfg->gain_idx <= AGC_GAIN_INDEX_15) {
+		if (gain_cfg->gain_idx <= AGC_GAIN_INDEX_15 &&
+		    gain_cfg->gain_idx >= AGC_GAIN_INDEX_0) {
 			struct fmrx_msgbox_buff rx_msg;
 			rx_msg.event = FMRX_EVENT_SET_AGC_GAIN;
 			rx_msg.params.p_agc_gain_cfg = gain_cfg;
@@ -741,13 +743,13 @@ int fmrx_get_ext_lna_rssi_comp(struct fmrx_ext_lna_cfg *lna_cfg,
 {
 	int rc = -EIO;
 
-	fmdrv_dbg("LNA for ant type : %u\n", ant_type);
-
 	if (ant_type < FMR_ANT_TYPE_END && NULL != lna_cfg) {
 		struct fmrx_msgbox_buff rx_msg;
+
 		rx_msg.event = FMRX_EVENT_GET_EXT_LNA_RSSI_COMPEN;
 		rx_msg.params.get_ext_lna_rssi_comp.ant_type = ant_type;
 		rx_msg.params.get_ext_lna_rssi_comp.lna_cfg = lna_cfg;
+
 		rc = fmrx_event_dispatcher(&rx_msg);
 	} else {
 		rc = -EINVAL;

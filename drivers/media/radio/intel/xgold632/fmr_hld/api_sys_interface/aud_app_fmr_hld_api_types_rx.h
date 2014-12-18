@@ -55,7 +55,8 @@
 /* The maximum possible number of valid RDS groups in ring-buffer */
 #define RDS_MAX_VALID_GROUPS (RDS_RING_BUFFER_SIZE - 1)
 
-#define MAX_FREQ_SPLIT 5
+#define MAX_FREQ_SPLIT		5
+#define MAX_FREQ_OFFS_LEN	(MAX_FREQ_SPLIT + 1)
 
 /*
 ** ============================================================================
@@ -255,12 +256,11 @@ struct fmrx_ext_lna_cfg {
 	 * into several ranges */
 	u32 band_split[MAX_FREQ_SPLIT];
 
-	/* Stores the ext. LNA gain offsets corresponding to the ranges defined
-	 * in ext_lna_band_split[] */
-	s8 offsets[MAX_FREQ_SPLIT];
+	/* Stores the ext. LNA gain offsets in dBuV corresponding to the ranges
+	 * defined in ext_lna_band_split[] */
+	s8 offsets[MAX_FREQ_OFFS_LEN];
 
-	/* Indicates how many items are avilable in ext_lna_band_split &
-	 * ext_lna_tab_len */
+	/* Indicates how many items are avilable in offsets table */
 	u8 tab_len;
 } __packed;
 

@@ -26,12 +26,12 @@ PROJECTFOLDER  := xmm6321a2
 ccflags-y += -I$(FMR_DRV_PATH)
 
 ## FM Radio Rx Firmware
-ccflags-y += -I$(FMR_DRV_PATH)/$(CHIP_ID)/FMR_FW
+ccflags-y += -I$(FMR_DRV_PATH)/$(CHIP_ID)/fmr_fw
 
 ## FM Radio driver
-ccflags-y += -I$(FMR_DRV_PATH)/$(CHIP_ID)/FMR_LLD
-ccflags-y += -I$(FMR_DRV_PATH)/$(CHIP_ID)/FMR_HLD
-ccflags-y += -I$(FMR_DRV_PATH)/$(CHIP_ID)/FMR_HLD/api_sys_interface
+ccflags-y += -I$(FMR_DRV_PATH)/$(CHIP_ID)/fmr_lld
+ccflags-y += -I$(FMR_DRV_PATH)/$(CHIP_ID)/fmr_hld
+ccflags-y += -I$(FMR_DRV_PATH)/$(CHIP_ID)/fmr_hld/api_sys_interface
 
 ## V4L2
 ccflags-y    += -Iarch/arm/mach-xgold
@@ -44,14 +44,14 @@ FMROBJS         := fmdrv_xgold.o
 FMROBJS         += fmdrv_xgold_sys.o
 
 ## FM Radio LLD driver
-FMROBJS         += $(CHIP_ID)/FMR_LLD/aud_app_fmr_lld_api.o
-FMROBJS         += $(CHIP_ID)/FMR_LLD/aud_app_fmr_lld_basic_rw.o
-FMROBJS         += $(CHIP_ID)/FMR_LLD/aud_app_fmr_lld_rx_rf.o
+FMROBJS         += $(CHIP_ID)/fmr_lld/aud_app_fmr_lld_api.o
+FMROBJS         += $(CHIP_ID)/fmr_lld/aud_app_fmr_lld_basic_rw.o
+FMROBJS         += $(CHIP_ID)/fmr_lld/aud_app_fmr_lld_rx_rf.o
 
 ## FM Radio HLD driver
-FMROBJS         += $(CHIP_ID)/FMR_HLD/aud_app_fmr_hld.o
-FMROBJS         += $(CHIP_ID)/FMR_HLD/aud_app_fmr_hld_rx.o
-FMROBJS         += $(CHIP_ID)/FMR_HLD/aud_app_fmr_hld_rx_api.o
+FMROBJS         += $(CHIP_ID)/fmr_hld/aud_app_fmr_hld.o
+FMROBJS         += $(CHIP_ID)/fmr_hld/aud_app_fmr_hld_rx.o
+FMROBJS         += $(CHIP_ID)/fmr_hld/aud_app_fmr_hld_rx_api.o
 
 ## FM Radio defines
 #ccflags-y   += -DDEBUG_FMR_HLD

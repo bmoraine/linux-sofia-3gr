@@ -401,10 +401,6 @@ static int xgold_fmdrv_fmrx_rds(u16 filled_cnt, u16 overflow_cnt)
 	unsigned long flags = 0;
 	struct fmtrx_rds_buff_t buf_desc;
 
-	/* fmdrv_dbg("Filled RDS groups: %d and Discarded RDS groups: %d\n",
-	 *	filled_cnt, overflow_cnt);
-	 */
-
 	if (filled_cnt == 0) {
 		rc = 0;
 		goto xgold_fmdrv_fmrx_rds_err;
@@ -1746,7 +1742,8 @@ static long xgold_fmdrv_priv_ctrls(struct file *file, void *fh,
 			enum fmtrx_ant_type ant_type = FMR_ANT_TYPE_END;
 
 			if (ext_lna_cfg->ant_type >= FMRADIO_ANT_INVALID ||
-			    ext_lna_cfg->lna_cfg.tab_len > MAX_FREQ_SPLIT) {
+			    ext_lna_cfg->lna_cfg.tab_len > MAX_FREQ_OFFS_LEN) {
+				fmdrv_warn("Invalid ext LNA config\n");
 				rc = -EINVAL;
 				break;
 			}
@@ -1772,14 +1769,12 @@ static long xgold_fmdrv_priv_ctrls(struct file *file, void *fh,
 				/* Band split parameter copy */
 				memcpy(lna_cfg.band_split,
 				       ext_lna_cfg->lna_cfg.band_split,
-				       ext_lna_cfg->lna_cfg.tab_len *
-				       sizeof(u32));
+				       sizeof(lna_cfg.band_split));
 
 				/* ext. LNA gain offsets copy */
 				memcpy(lna_cfg.offsets,
 				       ext_lna_cfg->lna_cfg.offsets,
-				       ext_lna_cfg->lna_cfg.tab_len *
-				       sizeof(s8));
+				       sizeof(lna_cfg.offsets));
 			} else {
 				fmdrv_dbg("External LNA is not present\n");
 				rc = -EIO;
@@ -1843,14 +1838,11 @@ static long xgold_fmdrv_priv_ctrls(struct file *file, void *fh,
 
 			ext_lna_cfg->lna_cfg.tab_len = lna_cfg.tab_len;
 
-			/* Band split parameter copy */
 			memcpy(ext_lna_cfg->lna_cfg.band_split,
-			       lna_cfg.band_split,
-			       lna_cfg.tab_len * sizeof(u32));
+			       lna_cfg.band_split, sizeof(lna_cfg.band_split));
 
-			/* ext. LNA gain offsets copy */
 			memcpy(ext_lna_cfg->lna_cfg.offsets, lna_cfg.offsets,
-			       lna_cfg.tab_len * sizeof(s8));
+			       sizeof(lna_cfg.offsets));
 		} else {
 			rc = -EFAULT;
 			fmdrv_warn("Invalid args for IOCTL cmd: %u\n", cmd);
@@ -2352,6 +2344,7 @@ static int xgold_remove_fmdrv(struct idi_peripheral_device *idi_per_dev)
 	fmdrv_err("Frequency manager notification error code %d\n",
 		  iui_fm_notify_frequency(IUI_FM_MACRO_ID_FMR, NULL));
 #endif
+
 	kfree(fmdev);
 	fmdev = NULL;
 	fmdrv_dbg("Module release successful\n");

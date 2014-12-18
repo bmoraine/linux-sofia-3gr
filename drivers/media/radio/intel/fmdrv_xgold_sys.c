@@ -80,8 +80,8 @@ struct fmtrx_int_ev_info {
 
 #define XGOLD_FMR_WAIT_EV	1
 #define XGOLD_FMR_TRIG_EV	0
+#define TIMEOUT_CMD_COMPLETE	5000
 
-#define TIMEOUT_CMD_ACK	50 /* timeout for mini dsp to ack command */
 /*
 ** ============================================================================
 **
@@ -106,27 +106,6 @@ static wait_queue_head_t wait_msg;
 static u8 fmr_cmd_wait_event = XGOLD_FMR_WAIT_EV;
 static u8 fmr_cmd2_wait_event = XGOLD_FMR_WAIT_EV;
 static struct fmrx_cfg *rx_cfg;
-
-static struct rssi_offs rssi_offs_int_ant = {108000, 108000,
-	108000, 108000, 108000, 34, 0, 0, 0, 0, 0};
-
-static struct rssi_offs rssi_offs_ext_ant = {108000, 108000,
-	108000, 108000, 108000, -12, 0, 0, 0, 0, 0};
-
-static s16 ppf_offs_int_ant[MAX_OFFSETS] = {304, 296, 288, 82, 273, 267, 258,
-	251, 243, 238, 230, 223, 217, 212, 206, 201};
-
-static s16 ppf_offs_ext_ant[MAX_OFFSETS] = {310, 302, 295, 87, 280, 272, 264,
-	257, 249, 243, 236, 230, 224, 217, 212, 208};
-
-static s16 lna_offs_int_ant[MAX_OFFSETS] = {205, 202, 198, 96, 193, 189, 187,
-	183, 179, 176, 172, 168, 164, 159, 155, 150};
-
-static s16 lna_offs_ext_ant[MAX_OFFSETS] = {229, 225, 220, 15, 210, 205, 202,
-	196, 192, 187, 182, 178, 172, 166, 158, 150};
-
-static u16 cp_init_offs[MAX_OFFSETS] = {950, 850, 800, 750, 700, 650, 600, 550,
-	500, 450, 450, 450, 350, 350, 300, 250};
 
 /*
 ** ============================================================================
@@ -559,7 +538,7 @@ void fmr_sys_trigger_event(enum fmtrx_trigger_events event_id)
 		return;
 	}
 
-	wake_up(&wait_msg);
+	wake_up_interruptible(&wait_msg);
 }
 
 s32 fmr_sys_wait_for_event(enum fmtrx_trigger_events event_id)
@@ -568,17 +547,19 @@ s32 fmr_sys_wait_for_event(enum fmtrx_trigger_events event_id)
 
 	switch (event_id) {
 	case FMR_IR_CMD_DONE:
-		rc = wait_event_timeout(wait_msg,
-			   (fmr_cmd_wait_event != XGOLD_FMR_WAIT_EV),
-			   (TIMEOUT_CMD_ACK * HZ));
+		rc = wait_event_interruptible_timeout(wait_msg,
+			(fmr_cmd_wait_event != XGOLD_FMR_WAIT_EV),
+			msecs_to_jiffies(TIMEOUT_CMD_COMPLETE));
+
 		if (rc)
 			fmr_cmd_wait_event = XGOLD_FMR_WAIT_EV;
 		break;
 
 	case FMR_IR_CMD2_DONE:
-		rc = wait_event_timeout(wait_msg,
-			   (fmr_cmd2_wait_event != XGOLD_FMR_WAIT_EV),
-			   (TIMEOUT_CMD_ACK * HZ));
+		rc = wait_event_interruptible_timeout(wait_msg,
+			(fmr_cmd2_wait_event != XGOLD_FMR_WAIT_EV),
+			msecs_to_jiffies(TIMEOUT_CMD_COMPLETE));
+
 		if (rc)
 			fmr_cmd2_wait_event = XGOLD_FMR_WAIT_EV;
 		break;
@@ -587,6 +568,9 @@ s32 fmr_sys_wait_for_event(enum fmtrx_trigger_events event_id)
 		fmdrv_dbg("event wait failed. Invalid event ID\n");
 		rc = -EINVAL;
 	}
+
+	if (rc >= 1)
+		rc = 0;
 
 	return rc;
 }
@@ -832,9 +816,41 @@ int fmr_sys_get_cfg(struct fmrx_cfg **cfg)
 	}
 
 	if (rc == 0) {
+		fmdrv_dbg("Using configuration data from config file\n");
 		memcpy(rx_cfg, fw->data, fw->size);
 		release_firmware(fw);
 	} else {
+		struct rssi_offs rssi_offs_int_ant = {108000000, 108000000,
+			108000000, 108000000, 108000000, 34, 0, 0, 0, 0, 0};
+
+		struct rssi_offs rssi_offs_ext_ant = {108000000, 108000000,
+			108000000, 108000000, 108000000, 0, 0, 0, 0, 0, 0};
+
+		s16 ppf_offs_int_ant[MAX_OFFSETS] = {304, 296, 288, 82, 273,
+			267, 258, 251, 243, 238, 230, 223, 217, 212, 206, 201};
+
+		s16 ppf_offs_ext_ant[MAX_OFFSETS] = {310, 302, 295, 87, 280,
+			272, 264, 257, 249, 243, 236, 230, 224, 217, 212, 208};
+
+		s16 lna_offs_int_ant[MAX_OFFSETS] = {205, 202, 198, 96, 193,
+			189, 187, 183, 179, 176, 172, 168, 164, 159, 155, 150};
+
+		s16 lna_offs_ext_ant[MAX_OFFSETS] = {229, 225, 220, 15, 210,
+			205, 202, 196, 192, 187, 182, 178, 172, 166, 158, 150};
+
+		u16 cp_init_offs[MAX_OFFSETS] = {950, 850, 800, 750, 700, 650,
+			600, 550, 500, 450, 450, 450, 350, 350, 300, 250};
+
+		struct fmrx_ext_lna_cfg ext_lna_cfg_int_ant = {
+			{82000000, 88000000, 94000000, 101000000, 108000000},
+			{0, 0, 0, 0, 0, 0},
+			6};
+
+		struct fmrx_ext_lna_cfg ext_lna_cfg_ext_ant = {
+			{82000000, 88000000, 94000000, 101000000, 108000000},
+			{0, 0, 0, 0, 0, 0},
+			6};
+
 		fmdrv_err("Config from userspace failed. Using default cfg\n");
 
 		/* Put as in xml file */
@@ -887,8 +903,13 @@ int fmr_sys_get_cfg(struct fmrx_cfg **cfg)
 		memcpy(rx_cfg->cp_init_offs, cp_init_offs,
 		       sizeof(cp_init_offs));
 
+		memcpy(&rx_cfg->ext_lna_cfg[FMR_ANT_EBD_DE],
+		       &ext_lna_cfg_int_ant, sizeof(struct fmrx_ext_lna_cfg));
+
+		memcpy(&rx_cfg->ext_lna_cfg[FMR_ANT_HS_SE],
+		       &ext_lna_cfg_ext_ant, sizeof(struct fmrx_ext_lna_cfg));
+
 		rc = 0;
-		release_firmware(fw);
 	}
 
 	*cfg = rx_cfg;

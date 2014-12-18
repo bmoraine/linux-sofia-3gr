@@ -61,7 +61,6 @@
 #define RSSI_TO_EXT(x)		(x / 4)	/* Conversion to dBuV */
 #define RSSI_TO_INT(x)		(x * 4)	/* Conversion to 1/4 of dBuV */
 
-
 /* The fast mode of PhaseNoise estimate */
 #if !defined(PN_EST_FAST)
 #define PN_EST_FAST 512
@@ -110,13 +109,9 @@
 /* Value by which the RSSI threshold shall be increased per step of the
  * PPFCTRL_2ND. Unit is [dBuV*4] */
 #define RSSI_THR_NF_PPF2ND  (1)
+#define HZ_TO_KHZ(freq)	((freq) / 1000)
+#define KHZ_TO_HZ(freq)	((freq) * 1000)
 
-/* Band width of ??? in Hz */
-#define IF_BW  (800000)
-#define BL_BW  (200000)
-
-#define HZ_TO_KHZ(freq)           (freq / 1000)
-#define KHZ_TO_HZ(freq)           (freq * 1000)
 
 /*
 ** ============================================================================
@@ -338,6 +333,8 @@ enum fmrx_ch_search_status fmr_check_ch_search_status(
 void fmrx_get_ch_status(struct fmrx_state *state);
 int fmr_set_gain_offsets(struct fmrx_state *state,
 	enum gain_offset_type off_type, s16 *gain_offs, u32 size);
+int fmr_set_rssi_gain_offsets(struct fmrx_state *state,
+	struct rssi_offs *gain_offs);
 int fmrx_set_fw_state(enum fmrx_sm_state state);
 
 #endif  /* AUD_APP_FMR_HLD_RX_RF_H */

@@ -34,10 +34,10 @@
 /* GLOBAL DEFINITIONS */
 #define FMRX_SWEEP_BAND_MIN_FREQ	(65  * 1000000)	/* in Hz */
 #define FMRX_SWEEP_BAND_MAX_FREQ	(200 * 1000000)	/* in Hz */
-#define FMRX_SWEEP_BAND_STEP_SIZE	(1 * 50000)	/* in Hz */
+#define FMRX_SWEEP_BAND_STEP_SIZE	(50000)	/* in Hz */
 #define RDS_MAX_VALID_GRPS		(FMRX_RDS_MAX_VALID_GRPS * 4)
-#define FMTRX_IP_REG_START_ADD		FMR_RXMAIN_HOSTIF_BUF_ADDR
-#define FMTRX_IP_REG_END_ADD		0x8780
+#define FMTRX_IP_REG_START_ADD		(FMR_RXMAIN_HOSTIF_BUF_ADDR)
+#define FMTRX_IP_REG_END_ADD		(0x8780)
 
 /* LOCAL FUNCTION DECLARATIONS */
 
@@ -367,6 +367,8 @@ int fmtrx_set_gain_rssi_offsets(struct rssi_offsets *gain_cfg)
 	int rc = 0;
 	struct rssi_offs *rssi_offs = NULL;
 	bool is_ext = false;
+	u32 band_min = rx_state.cfg->band.min;
+	u32 band_max = rx_state.cfg->band.max;
 
 	/* Validate input arguments */
 	if (gain_cfg == NULL)
@@ -376,16 +378,16 @@ int fmtrx_set_gain_rssi_offsets(struct rssi_offsets *gain_cfg)
 	    gain_cfg->off_type != GAIN_OFFSET_RSSI)
 		return -EINVAL;
 
-	if (!(gain_cfg->offsets.frequency1 >= rx_state.cfg->band.min &&
-	      gain_cfg->offsets.frequency1 <= rx_state.cfg->band.max &&
-	      gain_cfg->offsets.frequency2 >= rx_state.cfg->band.min &&
-	      gain_cfg->offsets.frequency2 <= rx_state.cfg->band.max &&
-	      gain_cfg->offsets.frequency3 >= rx_state.cfg->band.min &&
-	      gain_cfg->offsets.frequency3 <= rx_state.cfg->band.max &&
-	      gain_cfg->offsets.frequency4 >= rx_state.cfg->band.min &&
-	      gain_cfg->offsets.frequency4 <= rx_state.cfg->band.max &&
-	      gain_cfg->offsets.frequency5 >= rx_state.cfg->band.min &&
-	      gain_cfg->offsets.frequency5 <= rx_state.cfg->band.max)) {
+	if (!(gain_cfg->offsets.frequency1 >= band_min &&
+	      gain_cfg->offsets.frequency1 <= band_max &&
+	      gain_cfg->offsets.frequency2 >= band_min &&
+	      gain_cfg->offsets.frequency2 <= band_max &&
+	      gain_cfg->offsets.frequency3 >= band_min &&
+	      gain_cfg->offsets.frequency3 <= band_max &&
+	      gain_cfg->offsets.frequency4 >= band_min &&
+	      gain_cfg->offsets.frequency4 <= band_max &&
+	      gain_cfg->offsets.frequency5 >= band_min &&
+	      gain_cfg->offsets.frequency5 <= band_max)) {
 		rc = -EINVAL;
 		fmdrv_err("Invalid arguments!\n");
 		goto fmtrx_set_gain_rssi_offsets_err;
@@ -394,9 +396,7 @@ int fmtrx_set_gain_rssi_offsets(struct rssi_offsets *gain_cfg)
 	is_ext = (FMR_ANT_HS_SE == gain_cfg->antenna) ? true : false;
 
 	if (rx_state.cfg->antenna == gain_cfg->antenna) {
-		rc = fmr_set_gain_offsets(&rx_state, GAIN_OFFSET_RSSI,
-					  (s16 *)&gain_cfg->offsets,
-					  sizeof(struct rssi_offs));
+		rc = fmr_set_rssi_gain_offsets(&rx_state, &gain_cfg->offsets);
 		if (0 != rc)
 			goto fmtrx_set_gain_rssi_offsets_err;
 	}
@@ -478,23 +478,6 @@ static int fmrx_idle(struct fmrx_msgbox_buff *p_msg)
 	case FMRX_EVENT_SET_CONFIG_DATA:
 		rc = fmrx_set_config(p_msg->params.p_set_cfg);
 		break;
-
-	case FMRX_EVENT_GET_EXT_LNA_RSSI_COMPEN: {
-		enum fmtrx_ant_type ant_type =
-			p_msg->params.get_ext_lna_rssi_comp.ant_type;
-
-		fmdrv_dbg("LNA for ant type : %u\n", ant_type);
-
-		if (ant_type >= FMR_ANT_TYPE_END) {
-			rc = -EINVAL;
-			goto fmrx_idle_err;
-		}
-
-		memcpy(p_msg->params.get_ext_lna_rssi_comp.lna_cfg,
-		       &rx_state.cfg->ext_lna_cfg[ant_type],
-		       sizeof(struct fmrx_ext_lna_cfg));
-		break;
-	}
 
 	default:
 #ifdef DEBUG_FMR_HLD
@@ -671,8 +654,7 @@ static int fmrx_normal_receive(struct fmrx_msgbox_buff *p_msg)
 		struct fmtrx_msg_params msg_params = {0};
 
 		fmr_receiving_exit_actions(&rx_state);
-		rx_state.seek_mode =
-			p_msg->params.p_seek_station->seek_mode;
+		rx_state.seek_mode = p_msg->params.p_seek_station->seek_mode;
 		rx_state.seek_start = rx_state.freq;
 		rx_state.scan_status = SCAN_ONGOING;
 
@@ -733,8 +715,7 @@ static int fmrx_normal_receive(struct fmrx_msgbox_buff *p_msg)
 			}
 
 			/* callback to up-layer */
-			misc_cfg.fmrx_cbs->p_ch_tuned_cb(tuned,
-				rx_state.freq,
+			misc_cfg.fmrx_cbs->p_ch_tuned_cb(tuned, rx_state.freq,
 				RSSI_TO_EXT(rx_state.ch_info.rssi_eff),
 				rx_state.ch_info.inj_side);
 		}
@@ -1351,13 +1332,11 @@ static int fmrx_normal_receive(struct fmrx_msgbox_buff *p_msg)
 				   rx_state.cfg->rf_force_sb);
 
 			/* restore the sb with the default setting */
-			if (FMR_SB_SEL_TMP ==
-				p_msg->params.rf_sb_sel.sb_sel)
+			if (FMR_SB_SEL_TMP == p_msg->params.rf_sb_sel.sb_sel)
 				rx_state.cfg->rf_force_sb = sb;
 		} else {
 			/* When GTI wants to set SB, for the next tuning */
-			if (FMR_SB_SEL_PERST ==
-				p_msg->params.rf_sb_sel.sb_sel)
+			if (FMR_SB_SEL_PERST == p_msg->params.rf_sb_sel.sb_sel)
 				rx_state.cfg->rf_force_sb =
 					p_msg->params.rf_sb_sel.inj_side;
 		}
@@ -1791,8 +1770,7 @@ static int fmrx_seek(struct fmrx_msgbox_buff *p_msg)
 
 		p_msg->params.p_get_freq_band->min = rx_state.cfg->band.min;
 		p_msg->params.p_get_freq_band->max = rx_state.cfg->band.max;
-		p_msg->params.p_get_freq_band->step =
-			rx_state.seek_step;
+		p_msg->params.p_get_freq_band->step = rx_state.seek_step;
 	}
 	break;
 
@@ -2130,7 +2108,7 @@ static int fmrx_auto_evaluate(struct fmrx_msgbox_buff *p_msg)
 
 	case FMRX_EVENT_GET_EXT_LNA_RSSI_COMPEN: {
 		enum fmtrx_ant_type ant_type;
-		if (p_msg->params.get_ext_lna_rssi_comp.ant_type >=
+		if (p_msg->params.get_ext_lna_rssi_comp.ant_type >
 			FMR_ANT_TYPE_END) {
 			rc = -ERANGE;
 			goto fmrx_auto_evaluate_err;
@@ -2151,8 +2129,7 @@ static int fmrx_auto_evaluate(struct fmrx_msgbox_buff *p_msg)
 
 		p_msg->params.p_get_freq_band->min = rx_state.cfg->band.min;
 		p_msg->params.p_get_freq_band->max = rx_state.cfg->band.max;
-		p_msg->params.p_get_freq_band->step =
-			rx_state.seek_step;
+		p_msg->params.p_get_freq_band->step = rx_state.seek_step;
 	}
 	break;
 
@@ -2280,7 +2257,7 @@ static int fmrx_auto_evaluate(struct fmrx_msgbox_buff *p_msg)
 		/* Mark all the unused items in report array as invalid */
 		while (rx_state.scan_idx < rx_state.scan_max) {
 			rx_state.scan_array[rx_state.scan_idx].freq =
-				rx_state.cfg->band.min;
+							rx_state.cfg->band.min;
 			rx_state.scan_array[rx_state.scan_idx].rssi =
 				RSSI_MIN;
 			rx_state.scan_idx++;
@@ -2479,7 +2456,7 @@ static void fmrx_timer_cb(void *args)
 	scan_array.rssi = RSSI_TO_EXT(fmrx_get_rssi());
 
 	/* Restore original configuration before AF evaluation */
-	rx_state.freq	= rx_state.seek_start;
+	rx_state.freq = rx_state.seek_start;
 	rx_state.scan_status = SCAN_FAILURE;
 	rx_state.af_eval_state = false;
 	rx_state.cfg->rds_cfg.mode = rx_state.rds_en_bkp;
