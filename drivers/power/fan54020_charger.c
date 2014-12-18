@@ -32,7 +32,6 @@
 #include <linux/debugfs.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
-#include <linux/io.h>
 #include <linux/semaphore.h>
 #include <linux/uaccess.h>
 #include <linux/pinctrl/consumer.h>
@@ -343,7 +342,7 @@ struct fan54020_charger {
 
 	struct delayed_work charging_work;
 	struct delayed_work boost_work;
-	void __iomem *ctrl_io;
+	struct resource *ctrl_io_res;
 	struct usb_phy *otg_handle;
 
 	struct power_supply usb_psy;
@@ -1931,7 +1930,7 @@ static int fan54020_configure_pmu_regs(struct fan54020_charger *chrgr)
 	int ret;
 
 
-	if (!chrgr->ctrl_io || !chrgr->ididev)
+	if (!chrgr->ididev)
 		return -EINVAL;
 
 	pm_state_en =
@@ -1959,7 +1958,8 @@ static int fan54020_configure_pmu_regs(struct fan54020_charger *chrgr)
 		return -EIO;
 	}
 
-	regval = ioread32(CHARGER_CONTROL(chrgr->ctrl_io));
+	ret = idi_client_ioread(chrgr->ididev,
+			CHARGER_CONTROL(chrgr->ctrl_io_res->start), &regval);
 
 	/* ChargerIRQEdge - CHARGER_CONTROL_CIEDG_FALLING */
 	regval &= ~(CHARGER_CONTROL_CIEDG_M << CHARGER_CONTROL_CIEDG_O);
@@ -1987,13 +1987,20 @@ static int fan54020_configure_pmu_regs(struct fan54020_charger *chrgr)
 	regval |= (CHARGER_CONTROL_IRQ_DEBOUNCE_DISABLE <<
 						CHARGER_CONTROL_CIDBT_O);
 
-	iowrite32(regval, CHARGER_CONTROL(chrgr->ctrl_io));
+	ret = idi_client_iowrite(chrgr->ididev,
+			CHARGER_CONTROL(chrgr->ctrl_io_res->start), regval);
 
 	/* charger control WR strobe */
-	iowrite32((1 << CHARGER_CONTROL_WR_WS_O),
-					CHARGER_CONTROL_WR(chrgr->ctrl_io));
-	iowrite32((1 << CHARGER_CONTROL_WR_WS_O),
-					CHARGER_CONTROL_WR(chrgr->ctrl_io));
+	ret = idi_client_iowrite(chrgr->ididev,
+			CHARGER_CONTROL_WR(chrgr->ctrl_io_res->start),
+			BIT(CHARGER_CONTROL_WR_WS_O));
+
+	/* This second triggering of the write strobe is intentional
+	 * to make sure CHARGER_CTRL value is propagated to HW properly
+	 */
+	ret = idi_client_iowrite(chrgr->ididev,
+			CHARGER_CONTROL_WR(chrgr->ctrl_io_res->start),
+			BIT(CHARGER_CONTROL_WR_WS_O));
 
 	ret = idi_set_power_state(chrgr->ididev, pm_state_dis, false);
 
@@ -2273,10 +2280,6 @@ static int fan54020_i2c_probe(struct i2c_client *client,
 	}
 	chrgr->otg_handle = otg_handle;
 
-	/* Wait for fan5420 idi device to map io */
-	if (chrgr->ctrl_io == NULL)
-		BUG();
-
 	/*
 	 * Get interrupt from device tree
 	 */
@@ -2492,7 +2495,6 @@ static int fan54020_idi_probe(struct idi_peripheral_device *ididev,
 					const struct idi_device_id *id)
 {
 	struct resource *res;
-	void __iomem *ctrl_io;
 	struct fan54020_charger *chrgr = &chrgr_data;
 	int ret = 0;
 
@@ -2508,14 +2510,7 @@ static int fan54020_idi_probe(struct idi_peripheral_device *ididev,
 		pr_err("getting PMU's Charger registers resources failed!\n");
 		return -EINVAL;
 	}
-
-	ctrl_io = ioremap(res->start, resource_size(res));
-
-	if (!ctrl_io) {
-		pr_err("mapping PMU's Charger registers failed!\n");
-		return -EINVAL;
-	}
-	chrgr->ctrl_io = ctrl_io;
+	chrgr->ctrl_io_res = res;
 
 	chrgr->ididev = ididev;
 
@@ -2534,7 +2529,6 @@ static int __exit fan54020_idi_remove(struct idi_peripheral_device *ididev)
 	CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_IDI_REMOVE, 0, 0);
 	pr_info("%s\n", __func__);
 
-	iounmap(chrgr_data.ctrl_io);
 	return 0;
 }
 
