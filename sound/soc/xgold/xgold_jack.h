@@ -22,7 +22,6 @@
 #include <sound/jack.h>
 #include <linux/platform_device.h>
 
-
 struct xgold_jack {
 	struct snd_soc_jack *hs_jack;
 	struct iio_channel *iio_client;
@@ -31,7 +30,13 @@ struct xgold_jack {
 	void __iomem *mmio_base;
 	unsigned base_phys;
 	int buttons_enabled;
+	unsigned long flags;
+	/* PMIC only */
+	char pmic_addr;
+	char pmic_irq_addr; /* FIXME: controlled by vmm */
 };
+
+#define XGOLD_JACK_PMIC		BIT(0)
 
 struct xgold_jack *of_xgold_jack_probe(struct platform_device *,
 		struct device_node *, struct snd_soc_jack *);

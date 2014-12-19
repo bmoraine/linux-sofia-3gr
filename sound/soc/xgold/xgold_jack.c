@@ -35,6 +35,8 @@
 #include <sofia/mv_svc_hypercalls.h>
 #endif
 
+#include <sofia/vmm_pmic.h>
+
 #include "xgold_jack.h"
 
 /* FIXME */
@@ -89,6 +91,23 @@ struct hs_key_cfg {
 #define XGOLD_DETECT_REMOVAL_HOOK	0xCAF3
 #define XGOLD_DETECT_HOOK_RELEASE	0xC2F3
 
+/* PMIC register offset */
+/* IRQ registers offsets */
+#define IRQMULT_REG			0x1e
+#define MIRQMULT_REG			0x1f
+
+/* Masks and bits */
+#define IRQMULT_ACCDET1_M		0x01
+#define IRQMULT_ACCDET2_M		0x02
+#define IRQMULT_ACCDETAUX_M		0x04
+#define IRQMULT_ACCDETALL_M \
+	(IRQMULT_ACCDET1_M | IRQMULT_ACCDET2_M | IRQMULT_ACCDETAUX_M)
+
+/* PMIC registers offsets */
+#define ACC_DET_LOW_REG			0x21
+#define ACC_DET_HIGH_REG		0x20
+#define ACC_DET_AUX_REG			0x23
+
 #define VBIAS_SETTLING_TIME_MS		20
 
 /* Headset keymap */
@@ -106,6 +125,30 @@ static int jack_write(struct xgold_jack *jack, unsigned val)
 	iowrite(val, jack->mmio_base);
 	return 0;
 #endif
+}
+
+/* PMIC reg accesses */
+static int xgold_jack_pmic_reg_read(u32 dev_addr, u32 reg_addr,
+		u8 *p_reg_val)
+{
+	u32 vmm_addr, reg_val = 0;
+	int ret;
+
+	vmm_addr = ((dev_addr & 0xFF) << 24) | (reg_addr & 0xFF);
+	ret = vmm_pmic_reg_read(vmm_addr, &reg_val);
+	*p_reg_val = (u8)(reg_val & 0xFF);
+	xgold_debug("%s: read @%X return %X\n", __func__, reg_addr, reg_val);
+
+	return ret;
+}
+
+static int xgold_jack_pmic_reg_write(u32 dev_addr, u32 reg_addr, u8 reg_val)
+{
+	u32 vmm_addr, val = reg_val;
+
+	vmm_addr = ((dev_addr & 0xFF) << 24) | (reg_addr & 0xFF);
+	xgold_debug("%s: write @%X value %X\n", __func__, reg_addr, val);
+	return vmm_pmic_reg_write(vmm_addr, val);
 }
 
 /* Call to AFE to change the VBIAS settings */
@@ -134,7 +177,12 @@ static void configure_vbias(enum xgold_vbias state)
 		return;
 	}
 
-	if (agold_afe_set_acc_det_with_lock(acc_det_par))
+	if (jack->flags & XGOLD_JACK_PMIC)
+		ret = afe_set_acc_det_with_lock(acc_det_par);
+	else
+		ret = agold_afe_set_acc_det_with_lock(acc_det_par);
+
+	if (ret)
 		xgold_err("Error when setting VBIAS!\n");
 
 	xgold_debug("<-- %s\n", __func__);
@@ -160,6 +208,34 @@ static u32 read_state(struct xgold_jack *jack)
 		return XGOLD_HEADSET_REMOVED;
 	else
 		return XGOLD_INVALID;
+}
+
+static void xgold_jack_acc_det_write(struct xgold_jack *jack,
+		unsigned val)
+{
+	int ret;
+
+	xgold_debug("%s: write val 0x%X, mode %s\n", __func__, val,
+			(jack->flags & XGOLD_JACK_PMIC) ? "PMIC" : "IO");
+
+	if (jack->flags & XGOLD_JACK_PMIC) {
+		ret = xgold_jack_pmic_reg_write(jack->pmic_addr,
+				ACC_DET_HIGH_REG, (val >> 8) & 0xFF);
+		if (ret) {
+			xgold_err("%s: cannot write ACC_DET_HIGH\n",
+					__func__);
+			return;
+		}
+
+		ret = xgold_jack_pmic_reg_write(jack->pmic_addr,
+				ACC_DET_LOW_REG, val & 0xFF);
+		if (ret) {
+			xgold_err("%s: cannot write ACC_DET_LOW\n",
+					__func__);
+			return;
+		}
+	} else
+		jack_write(jack, val);
 }
 
 static void xgold_jack_check(struct xgold_jack *jack)
@@ -218,7 +294,7 @@ static void xgold_jack_check(struct xgold_jack *jack)
 
 	/* Check if there really is a state change */
 	if (status != (jack->hs_jack->status & SND_JACK_HEADSET)) {
-		jack_write(jack, detect);
+		xgold_jack_acc_det_write(jack, detect);
 		snd_soc_jack_report(jack->hs_jack, status, SND_JACK_HEADSET);
 	}
 }
@@ -276,7 +352,7 @@ static void xgold_button_check(struct xgold_jack *jack)
 
 	if (key_index > -1) {
 		snd_soc_jack_report(jack->hs_jack, status, type);
-		jack_write(jack, detect);
+		xgold_jack_acc_det_write(jack, detect);
 	}
 }
 
@@ -323,6 +399,7 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 	struct resource regs;
 	struct resource *res;
 	int num_irq, i, ret;
+	unsigned value;
 
 	jack = devm_kzalloc(&pdev->dev, sizeof(*jack), GFP_ATOMIC);
 	if (!jack) {
@@ -335,21 +412,51 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 	jack->jack_irq = jack->button_irq = -1;
 	jack->hs_jack = hs_jack;
 
-	if (of_address_to_resource(np, 0, &regs)) {
-		ret = -ENOENT;
-		goto out;
-	}
+	if (of_device_is_compatible(np, "intel,headset,pmic"))
+		jack->flags |= XGOLD_JACK_PMIC;
 
-	jack->mmio_base = devm_ioremap(
-			&pdev->dev, regs.start, resource_size(&regs));
-	if (jack->mmio_base == NULL) {
-		xgold_err("failed to remap I/O memory\n");
-		ret = -ENXIO;
-		goto out;
-	}
-	jack->base_phys = regs.start;
+	if (jack->flags & XGOLD_JACK_PMIC) {
+		/* PMIC device address */
+		ret = of_property_read_u32_index(np, "intel,reg", 0, &value);
+		if (ret)
+			goto out;
 
-	xgold_debug("ioremap %p\n", jack->mmio_base);
+		if (value > 0xFF) {
+			ret = -ERANGE;
+			goto out;
+		}
+
+		jack->pmic_addr = (unsigned char)value;
+
+		/* FIXME: should be handled by VMM, not linux driver */
+		/* PMIC device address for IRQ handling */
+		ret = of_property_read_u32_index(np, "intel,irq-reg", 0,
+				&value);
+		if (ret)
+			goto out;
+
+		if (value > 0xFF) {
+			ret = -ERANGE;
+			goto out;
+		}
+
+		jack->pmic_irq_addr = (unsigned char)value;
+	} else {
+		if (of_address_to_resource(np, 0, &regs)) {
+			ret = -ENOENT;
+			goto out;
+		}
+
+		jack->mmio_base = devm_ioremap(
+				&pdev->dev, regs.start, resource_size(&regs));
+		if (jack->mmio_base == NULL) {
+			xgold_err("failed to remap I/O memory\n");
+			ret = -ENXIO;
+			goto out;
+		}
+		jack->base_phys = regs.start;
+		xgold_debug("ioremap %p\n", jack->mmio_base);
+	}
 
 	num_irq = of_irq_count(np);
 	if (!num_irq) {
@@ -377,7 +484,7 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 	}
 
 	/* Configure the Accessory settings to detect Insertion */
-	jack_write(jack, XGOLD_DETECT_INSERTION);
+	xgold_jack_acc_det_write(jack, XGOLD_DETECT_INSERTION);
 
 	ret = devm_request_threaded_irq(&(pdev->dev), jack->jack_irq,
 			NULL,
@@ -403,6 +510,39 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 		goto out;
 	}
 
+	/* FIXME: below code should be handled by irqchip level/vmm, when
+	 * requesting for the PMIC ACD interrupt, and not in this driver */
+	if (jack->flags & XGOLD_JACK_PMIC) {
+		int tries;
+		char val;
+
+		/* Unmask IRQMULT interrupt */
+		xgold_err("%s: Warning! may apply changes to MIRQMULT register\n",
+				__func__);
+
+		xgold_jack_pmic_reg_read(jack->pmic_irq_addr,
+				MIRQMULT_REG, &val);
+		tries = 0;
+		while ((val & IRQMULT_ACCDETALL_M) && tries++ < 20) {
+			xgold_jack_pmic_reg_write(jack->pmic_irq_addr,
+					MIRQMULT_REG,
+					val & ~IRQMULT_ACCDETALL_M);
+
+			/* read again to ensure Mask is correctly configured */
+			xgold_jack_pmic_reg_read(jack->pmic_irq_addr,
+					MIRQMULT_REG, &val);
+			xgold_debug("%s: MIRQMULT is 0x%02X\n", __func__, val);
+		}
+
+		if (tries >= 20) {
+			ret = -EIO;
+			goto out;
+		}
+
+		xgold_err("%s MIRQLVL1 is 0x%02X\n", __func__, val);
+	}
+	/* end of FIXME */
+
 	return jack;
 
 out:
@@ -411,6 +551,6 @@ out:
 
 void xgold_jack_remove(struct xgold_jack *jack)
 {
-	if (jack && jack->iio_client)
+	if (jack && !IS_ERR(jack->iio_client))
 		iio_channel_release(jack->iio_client);
 }
