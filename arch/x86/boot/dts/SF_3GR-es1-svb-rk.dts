@@ -13,6 +13,8 @@
 	#include "xgold/sofia_3gr_soc/regulator.dtsi"
 	#include "xgold/sofia_3gr_soc/device-pm-reg.dtsi"
 	#include "xgold/pmic/granite.dtsi"
+	#include "xgold/sofia_3gr_soc/cpufreq.dtsi"
+
 	chosen {
 	};
 
