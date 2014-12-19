@@ -29,39 +29,31 @@ enum xgold_pcm_stream_type {
 	NR_STREAM
 };
 
-struct xgold_dma_pcm_stream {
-	struct scatterlist *dma_sgl;
-	struct dma_chan *dmach;
-	dma_cookie_t dma_cookie;
-	spinlock_t lock;
-};
-
-struct xgold_audio_stream {
-	unsigned short *hwptr;
-	unsigned int hwptr_done;
-	unsigned int periods;
-	unsigned int period_size_bytes;
-	unsigned int path_select;
-	struct snd_pcm_substream *stream;
-};
-
-/*FIXME*/
-#define MAX_PCM_DEVICE_NUMBER 20
-
-struct xgold_audio {
+struct xgold_pcm {
 	struct device *dev;
 	struct dsp_audio_device *dsp;
 	bool dma_mode;
-	/* FIXME: union */
-	struct xgold_audio_stream audio_stream[NR_STREAM];
-	struct xgold_dma_pcm_stream audio_dma_stream[NR_STREAM];
-	enum xgold_pcm_stream_type stream_type;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
 	struct device_pm_platdata *pm_platdata;
+	unsigned int path_select;
 };
 
+struct xgold_runtime_data {
+	struct xgold_pcm *pcm;
+	struct snd_pcm_substream *stream;
+	enum xgold_pcm_stream_type stream_type;
+	unsigned short *hwptr;
+	unsigned int hwptr_done;
+	unsigned int periods;
+	unsigned int period_size_bytes;
+	/* DMA stream */
+	struct scatterlist *dma_sgl;
+	struct dma_chan *dmach;
+	dma_cookie_t dma_cookie;
+	spinlock_t lock;
+};
 
 #endif /* __XGOLD_PCM_H__ */

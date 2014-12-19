@@ -48,6 +48,14 @@
 #define	xgold_debug(fmt, arg...) \
 		pr_debug("snd: speech: "fmt, ##arg)
 
+struct xgold_audio_stream {
+	unsigned short *hwptr;
+	unsigned int hwptr_done;
+	unsigned int periods;
+	unsigned int period_size_bytes;
+	struct snd_pcm_substream *stream;
+};
+
 struct xgold_audio_speech_probe {
 	struct device *dev;
 	struct dsp_audio_device *dsp;

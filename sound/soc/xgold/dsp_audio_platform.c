@@ -46,7 +46,7 @@ static int dsp_audio_rw_shm_control_get(
 	struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
-	struct xgold_audio *pcm = snd_soc_dai_get_drvdata(cpu_dai);
+	struct xgold_pcm *pcm = snd_soc_dai_get_drvdata(cpu_dai);
 	struct dsp_audio_device *dsp = pcm->dsp;
 	int ret = 0;
 
@@ -75,7 +75,7 @@ static int dsp_audio_rw_shm_control_set(
 	struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
-	struct xgold_audio *pcm = snd_soc_dai_get_drvdata(cpu_dai);
+	struct xgold_pcm *pcm = snd_soc_dai_get_drvdata(cpu_dai);
 	struct dsp_audio_device *dsp = pcm->dsp;
 	int ret = 0;
 
@@ -114,7 +114,7 @@ static int dsp_audio_send_cmd_control_set(
 	struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
-	struct xgold_audio *pcm = snd_soc_dai_get_drvdata(cpu_dai);
+	struct xgold_pcm *pcm = snd_soc_dai_get_drvdata(cpu_dai);
 	struct dsp_audio_device *dsp = pcm->dsp;
 	int ret = 0;
 

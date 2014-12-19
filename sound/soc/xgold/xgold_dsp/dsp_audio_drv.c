@@ -2033,7 +2033,7 @@ int dsp_pcm_play(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type,
 	pcm_par.rate = get_dsp_pcm_rate(rate);
 	pcm_par.req = (dma_mode == true) ? 1 : 0;
 
-	xgold_debug("PCM %s cmd mode %d rate %d req %s",
+	xgold_debug("PCM %s cmd mode %d rate %d req %s\n",
 			(type == STREAM_PLAY) ? "PLAY1" : "PLAY2",
 			pcm_par.mode, pcm_par.rate,
 			(dma_mode == true) ? "DMA" : "PIO");
@@ -2061,8 +2061,8 @@ int dsp_pcm_rec(struct dsp_audio_device *dsp, unsigned int channels,
 	pcm_rec_par.req = (dma_mode == true) ? 1 : 0;
 	pcm_rec_par.path_select = path_select;
 
-	xgold_debug("PCM REC cmd mode %d rate %d",
-			pcm_rec_par.mode, pcm_rec_par.rate);
+	xgold_debug("PCM REC cmd mode %d rate %d path %d\n",
+			pcm_rec_par.mode, pcm_rec_par.rate, path_select);
 
 	cmd_data.command_id = DSP_AUD_PCM_REC;
 	cmd_data.command_len = sizeof(struct T_AUD_DSP_CMD_PCM_REC_PAR);
