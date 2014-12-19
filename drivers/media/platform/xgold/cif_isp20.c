@@ -451,7 +451,7 @@ static const char *cif_isp20_state_string(
 }
 
 static const char *cif_isp20_pm_state_string(
-	enum cif_isp20_state pm_state)
+	enum cif_isp20_pm_state pm_state)
 {
 	switch (pm_state) {
 	case CIF_ISP20_PM_STATE_OFF:
