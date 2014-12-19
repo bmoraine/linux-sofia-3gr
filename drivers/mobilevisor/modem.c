@@ -25,7 +25,6 @@
 #include <sofia/vmcalls.h>
 #include <sofia/mv_svc_hypercalls.h>
 #include <linux/proc_fs.h>
-#include <sofia/nk_sofia_bridge.h>
 #include <sofia/mv_gal.h>
 
 #define NVM_ADDR_SHIFT	(0x3D100000 - 0x3C000000)
@@ -53,7 +52,7 @@ static unsigned int mex_loadaddr;
 static unsigned int mex_loadsize;
 vmm_paddr_t p_shared_mem_phy_addr;
 
-
+/*
 static void linux2secvm_vlink_init(void)
 {
 	vmm_paddr_t paddr;
@@ -79,7 +78,7 @@ static void linux2secvm_vlink_init(void)
 	p_shared_mem_addr =
 		(struct shared_secure_data *)mv_gal_ptov(p_shared_mem_phy_addr);
 }
-
+*/
 static void modem_state_work(struct work_struct *ws)
 {
 	struct vmodem_drvdata *pdata =
@@ -105,10 +104,12 @@ static void modem_state_work(struct work_struct *ws)
 	}
 }
 
-static void modem_state_sysconf_hdl(void *arg, NkXIrq xirq)
+static irqreturn_t modem_state_sysconf_hdl(int xirq, void *arg)
 {
 	struct vmodem_drvdata *p = (struct vmodem_drvdata *)arg;
 	queue_work(p->wq, &p->work);
+
+	return IRQ_HANDLED;
 }
 
 static ssize_t modem_sys_state_show(struct device *dev,
@@ -183,9 +184,9 @@ static ssize_t modem_sys_state_store(struct device *dev,
 	if (en != 0) {
 		reload_nvm(p);
 		load_secpack(p_shared_mem_addr->secpack);
-		mv_start_vm(1);
+		mv_vm_start(1);
 	} else {
-		mv_stop_vm(1);
+		mv_vm_stop(1);
 	}
 
 	return count;
@@ -227,7 +228,6 @@ int vmodem_probe(struct platform_device *pdev)
 	struct vmodem_drvdata *pdata;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	NkXIrqId sysconf_id;
 	int ret;
 	/* Allocate driver data record */
 	pdata = devm_kzalloc(dev,
@@ -276,17 +276,14 @@ int vmodem_probe(struct platform_device *pdev)
 	pdata->wq = alloc_ordered_workqueue(
 		"vmodem_wq", WQ_NON_REENTRANT | WQ_HIGHPRI);
 
-	sysconf_id =
-		nkops.nk_xirq_attach(NK_XIRQ_SYSCONF,
-				modem_state_sysconf_hdl, pdata);
-	if (!sysconf_id) {
-		dev_err(dev, "nk_xirq_attach failed\n");
-		return -EINVAL;
-	}
+	mv_gal_register_hirq_callback(512, modem_state_sysconf_hdl,
+					pdata);
 	mv_svc_security_getvm_loadinfo(1, &mex_loadaddr, &mex_loadsize);
-	linux2secvm_vlink_init();
-	p_shared_mem_addr->vm_id = 1;
-	p_shared_mem_addr->image_startaddr = mex_loadaddr;
+	/* 
+	  linux2secvm_vlink_init();
+	  p_shared_mem_addr->vm_id = 1;
+	  p_shared_mem_addr->image_startaddr = mex_loadaddr;
+	*/
 	dev_dbg(dev, "modem device initialized");
 	return 0;
 }

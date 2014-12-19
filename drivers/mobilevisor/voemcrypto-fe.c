@@ -29,18 +29,15 @@
 #include <linux/init.h>
 #include <linux/uaccess.h>
 #include <linux/miscdevice.h>
-
-#ifdef CONFIG_X86_INTEL_SOFIA
-#include <sofia/nk_sofia_bridge.h>
-#endif
-
-
-#include "vrpc.h"
-#include "voemcrypto_common.h"
-
 #include <linux/mm.h>
 #include <linux/mm_types.h>
 #include <linux/sched.h>
+#include <linux/wait.h>
+
+#include <sofia/mv_gal.h>
+#include <sofia/mv_ipc.h>
+
+#include "voemcrypto_common.h"
 
 #if 1
 #define VOEMCRYPTO_DEBUG
@@ -66,10 +63,27 @@ enum voemcrypto_devstate_t {
 	VOEMCRYPTO_DEVICE_WAITING_FOR_READ,
 };
 
+enum voec_ctl_status
+{
+	VOEC_CTL_STATUS_CONNECT = 0,
+	VOEC_CTL_STATUS_DISCONNECT
+};
+
+enum voec_ctl_event
+{
+	VOEC_CTL_EVENT_CALL = 0,
+	VOEC_CTL_EVENT_RESERVED
+};
 struct voemcrypto_t {
 	/* Internal */
-	struct vrpc_t *vrpc;
-	void *vrpc_data;
+	uint32_t token;
+	enum voec_ctl_status status;
+	uint32_t share_data_size;
+	unsigned char *share_data;
+	char *cmdline;
+	uint32_t  respond;
+	wait_queue_head_t client_wait;
+	wait_queue_head_t open_wait;
 	struct mutex call_mutex;
 };
 
@@ -86,41 +100,40 @@ static enum voemcrypto_devstate_t device_state = VOEMCRYPTO_DEVICE_IDLE;
 /****** Basic VRPC call function *******/
 /* Need to add support for multiple arguments */
 /* Calls need to be atomic to prevent corrupting the shared mem */
-vrpc_size_t
-voemcrypto_call_ext(struct voemcrypto_t *voemcrypto, const vrpc_size_t size0)
+uint32_t
+voemcrypto_call_ext(struct voemcrypto_t *p_voemcrypto, const uint32_t size0)
 {
-	struct vrpc_t *vrpc = voemcrypto->vrpc;
-	/* pointer to default pmem owned by vlink */
-	vrpc_size_t size;
-
 	/* check for invalid size */
-	if (size0 > vrpc_maxsize(vrpc))
+	if (size0 > p_voemcrypto->share_data_size)
 		return 0;
 
 	/* Acquire mutex */
-	if (mutex_lock_interruptible(&voemcrypto->call_mutex))
+	if (mutex_lock_interruptible(&p_voemcrypto->call_mutex))
+		return 0;
+
+	/* wait for open */
+	if(wait_event_interruptible(p_voemcrypto->open_wait,
+			p_voemcrypto->status == VOEC_CTL_STATUS_CONNECT))
 		return 0;
 
 	/* cmd+data is formatted beforehand to shared mem. */
 	/* Up to 11 arguments in OEMCrypto interfaces. */
-	size = size0;
 
-	for (;;) {
-		if (!vrpc_call(vrpc, &size))
-			break;
+	p_voemcrypto->respond = 0;
 
-		ETRACE("Lost backend. Closing and reopening.\n");
-		vrpc_close(vrpc);
-		if (vrpc_client_open(vrpc, 0, 0))
-			BUG();
+	/* inform server */
+	mv_ipc_mbox_post(p_voemcrypto->token, VOEC_CTL_EVENT_CALL);
 
-		TRACE("Re-established backend link.\n");
-	}
+	/* wait for server respond */
+	if(wait_event_interruptible(p_voemcrypto->client_wait,
+			p_voemcrypto->respond == 1))
+		return 0;
+
 	/* at this stage, vrpc_call has returned with data in pmem */
 
-	mutex_unlock(&voemcrypto->call_mutex);
+	mutex_unlock(&p_voemcrypto->call_mutex);
 
-	return size;
+	return size0;
 }
 
 
@@ -303,11 +316,11 @@ static ssize_t dev_read(struct file *fl,
 
 	/* For now we assume only shared mem is used.
 	 * If not sufficient, we may need to kalloc extra */
-	if ((*off+size) > vrpc_maxsize(voemcrypto_data->vrpc))
+	if ((*off+size) > voemcrypto_data->share_data_size)
 		return -EINVAL;
 
 	/* Data is waiting in pmem and waiting to be read */
-	copy_to_user(buf, voemcrypto_data->vrpc_data + (*off), size);
+	copy_to_user(buf, voemcrypto_data->share_data + (*off), size);
 
 	/* device is ready for next command */
 	device_state = VOEMCRYPTO_DEVICE_IDLE;
@@ -326,10 +339,10 @@ static ssize_t dev_write(struct file *fl,
 		return -EBUSY; /* Shared mem is still being used!*/
 	/* For now we assume only shared mem is used.
 	 * If not sufficient, we may need to kalloc extra */
-	if ((*off+size) > vrpc_maxsize(voemcrypto_data->vrpc))
+	if ((*off+size) > voemcrypto_data->share_data_size)
 		return -EINVAL;
 
-	copy_from_user(voemcrypto_data->vrpc_data + (*off), buf, size);
+	copy_from_user(voemcrypto_data->share_data + (*off), buf, size);
 
 	TRACE("Write %d success.\n", size);
 
@@ -343,7 +356,7 @@ static ssize_t dev_write(struct file *fl,
 static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 {
 	size_t ret_size = 0;
-	void *data = (void *)voemcrypto_data->vrpc_data;
+	void *data = (void *)voemcrypto_data->share_data;
 
 	/*===================================================================*/
 	/* this ioctl should always be executed, as it does not use
@@ -1348,62 +1361,76 @@ static struct miscdevice voemcrypto_miscdev = {
 	.fops	= &voemcrypto_fops,
 };
 
-
-static void voemcrypto_ready(void *cookie)
+static void voemcrypto_on_connect(uint32_t token, void *cookie)
 {
-	struct voemcrypto_t *voemc = (struct voemcrypto_t *)cookie;
-	struct voemcrypto_req_t *req = voemc->vrpc_data;
-
-	/* clear shared mem */
-	memset(req, 0, vrpc_maxsize(voemc->vrpc));
-	TRACE("voemcrypto_ready.\n");
-
-	return;
+	struct voemcrypto_t *p_voemcrypto = (struct voemcrypto_t *)cookie;
+	p_voemcrypto->status = VOEC_CTL_STATUS_CONNECT;
+	wake_up_interruptible(&p_voemcrypto->open_wait);
 }
 
+static void voemcrypto_on_disconnect(uint32_t token, void *cookie)
+{
+	struct voemcrypto_t *p_voemcrypto = (struct voemcrypto_t *)cookie;
+	p_voemcrypto->status = VOEC_CTL_STATUS_DISCONNECT;
+}
+
+static void voemcrypto_on_event(uint32_t token, uint32_t event_id, void *cookie)
+{
+	struct voemcrypto_t *p_voemcrypto = (struct voemcrypto_t *)cookie;
+	switch (event_id) {
+		case VOEC_CTL_EVENT_CALL:
+		p_voemcrypto->respond = 1;
+		wake_up_interruptible(&p_voemcrypto->client_wait);
+		break;
+		default:
+		break;
+	}
+}
+
+static struct mbox_ops voemcrypto_ops = {
+	.on_connect    = voemcrypto_on_connect,
+	.on_disconnect = voemcrypto_on_disconnect,
+	.on_event      = voemcrypto_on_event
+};
 
 static int __init voemcrypto_init(void)
 {
 	int ret;
-	struct voemcrypto_t *voemcrypto;
-	struct vrpc_t *vrpc = vrpc_client_lookup(VOEMCRYPTO_VRPC_NAME, 0);
+	struct voemcrypto_t *p_voemcrypto;
+
 
 	TRACE("Initializing.\n");
 
-	if (!vrpc) {
-		ETRACE("No vrpc link.\n");
-		return -ENODEV;
-	}
-
-	voemcrypto = kzalloc(sizeof(struct voemcrypto_t), GFP_KERNEL);
-	if (!voemcrypto) {
+	p_voemcrypto = kzalloc(sizeof(struct voemcrypto_t), GFP_KERNEL);
+	if (!p_voemcrypto) {
 		ETRACE("Out of memory.\n");
 		return -ENOMEM;
 	}
 
-	mutex_init(&voemcrypto->call_mutex);
+	mutex_init(&p_voemcrypto->call_mutex);
+	init_waitqueue_head(&p_voemcrypto->client_wait);
+	init_waitqueue_head(&p_voemcrypto->open_wait);
 
-	voemcrypto->vrpc = vrpc;
-	voemcrypto->vrpc_data = vrpc_data(vrpc);
+	p_voemcrypto->token = mv_ipc_mbox_get_info("security",
+						"oec_ctl",
+						&voemcrypto_ops,
+						&(p_voemcrypto->share_data),
+						&(p_voemcrypto->share_data_size),
+						&(p_voemcrypto->cmdline),
+						(void *)p_voemcrypto);
 
 	/* compare with largest struct */
-	if (vrpc_maxsize(vrpc) < sizeof(struct voemc_loadkeys_t)) {
-		ETRACE("vrpc_maxsize() too small.\n");
+	if (p_voemcrypto->share_data_size < sizeof(struct voemc_loadkeys_t)) {
+		ETRACE("share data size too small.\n");
 		ret = -EINVAL;
 		goto error;
 	}
 
 	/* store the new allocated struct for later use. */
-	voemcrypto_data = voemcrypto;
+	voemcrypto_data = p_voemcrypto;
 
-	ret = vrpc_client_open(vrpc, voemcrypto_ready, voemcrypto);
-	if (ret) {
-		ETRACE("Could not open VRPC client (%d).\n", ret);
-		goto error;
-	}
-
-	/* create procfs device */
 #if 0
+	/* create procfs device */
 	proc_file_entry = proc_create("voemcrypto", 0666,
 				NULL, &voemcrypto_fops);
 
@@ -1421,20 +1448,19 @@ static int __init voemcrypto_init(void)
 		ret = -ENOMEM;
 		goto error;
 	}
+	p_voemcrypto->status = VOEC_CTL_STATUS_DISCONNECT;
+	mv_mbox_set_online(p_voemcrypto->token);
 
 	TRACE("Initialized.\n");
 	return 0;
 error:
-	kfree(voemcrypto);
+	kfree(p_voemcrypto);
 	return ret;
 }
 
 #if 0
 static void __exit voemcrypto_exit(void)
 {
-	vrpc_close(voemcrypto_data->vrpc);
-	vrpc_release(voemcrypto_data->vrpc);
-
 	kfree(voemcrypto_data);
 	if (proc_file_entry)
 		proc_remove(proc_file_entry);

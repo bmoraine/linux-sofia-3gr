@@ -1,6 +1,5 @@
 #
-#  Copyright (C) 2012-2013 Intel Mobile Communications
-#  Copyright (C) 2011, Red Bend Ltd.
+#  Copyright (C) 2014 Intel Mobile Communications
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License Version 2
@@ -15,70 +14,35 @@
 #
 
 #
-# Input device configuration
+# Mobilevisor vdriver configuration
 #
 
-if NKERNEL_DDI
+if MOBILEVISOR_VDRIVER
 
-menu "VLX virtual device support"
+menu "Mobilevisor virtual driver support"
 
-config VBPIPE
-        tristate "Virtual bidirectional pipe for inter OS communication"
-        default n
+config MOBILEVISOR_VDRIVER_PIPE
+        tristate "bi-directional pipe for inter OS communication"
+        default y
         help
-          Virtual bidirectional pipe for inter OS communication.
+          Virtual bi-directional pipe for inter OS communication.
 
-          To compile this driver as a module, choose M here: the
-          module will be called vbpipe.
 
-config VMQ
-	tristate "Virtual Messages Queues inter-guest communication module"
-	default n
-
-config VVFS_BE
-        tristate "Virtual VFS backend interface"
-        default n
-	select VMQ
+config MOBILEVISOR_VDRIVER_NVM
+        tristate "VNVM driver"
+        default y
         help
-          Virtual VFS backend
+          VNVM driver
 
-          To compile this driver as a module, choose M here: the
-          module will be called vvfs-be.
-
-config VLX_VRPC
-	tristate "Virtual RPC inter-guest communication module"
-	default n
-
-config VPOWER
+config MOBILEVISOR_VDRIVER_POWER
 	bool "Virtual Power management frontend interface"
-	select VLX_VRPC
 	default y
 	help
 	  Power management support for the native device drivers
 	  in a virtualized environment.
 
-config VPOWER_STUB
-	bool "Virtual Power management frontend interface stub"
-	depends on VPOWER
-	default n
-	help
-	  Do not forward the power request to the guest OS implementing
-	  the power firmware. Select this option if you are in
-	  development and want to get your driver using VPOWER probing
-	  despite the lack of PM FW running.
-
-config VRTC_FE
-	tristate "Virtual Real Time Clock frontend interface"
-	select RTC_CLASS
-	select VLX_VRPC
-	default y
-	help
-	  To compile this driver as a module, choose M here: the
-	  module will be called vrtc-fe.
-
-config VOEMCRYPTO_FE
+config MOBILEVISOR_VDRIVER_OEMCRYPTO
 	tristate "Virtual OEMCrypto frontend interface"
-	select VLX_VRPC
 	default y
 	help
 	  Virtualized OEMCrypto library support for Widevine DRM
@@ -86,16 +50,7 @@ config VOEMCRYPTO_FE
 	  To compile this driver as a module, choose M here: the
 	  module will be called voemcrypto-fe.
 
-config VREBOOT
-        tristate "VREBOOT Driver"
-        default y
-        help
-          To support all variants of linux reboot command.
-
-          To compile this driver as a module, choose M here: the
-          module will be called vreboot.
-
-config VDUMP
+config MOBILEVISOR_VDRIVER_DUMP
 	tristate "VDUMP Driver"
 	default y
 	help
@@ -104,9 +59,9 @@ config VDUMP
 	  To compile this driver as a module, choose M here: the
 	  module will be called vdump.
 
-config VUSB_SIO_EXTENDER
+config MOBILEVISOR_VDRIVER_USB
 	tristate "Virtual USB SIO Extender Front End"
-	default n
+	default y
 	help
 	 usb sio extender front end allows sending AT
 	 commands to modem vm over usb acm.
@@ -115,17 +70,22 @@ config VUSB_SIO_EXTENDER
 	 To compile this driver as a module, choose M here: the
 	 module will be called vusb_se_fe
 
-config NKERNEL_VETH
-        tristate "VLX Virtual Ethernet driver"
+config MOBILEVISOR_VDRIVER_ETHERNET
+        tristate "Virtual Ethernet driver"
         depends on NETDEVICES
-        default n
+        default y
         help
-          VLX virtual Ethernet driver.
           This driver emulates Ethernet communication with a back-end driver
           running in another partition.
 
           To compile this driver as a module, choose M here: the
           module will be called veth.
+
+config MOBILEVISOR_VDRIVER_MODEM_CTL
+        tristate "Virtual modem control driver"
+        default y
+        help
+          This driver provides interface to load, start and stop modem.
 
 config SYSTEM_PROFILING
         tristate "Virtual System Profiling backend interface"
@@ -136,7 +96,7 @@ config SYSTEM_PROFILING
 
 config TEE_RPC
         tristate "TEE RPC driver for Sofia sec_vm"
-	select VLX_VRPC
+	select VSEC_RPC
 	default n
         help
           TEE RPC driver for dispatching RPC calls to the secure vm

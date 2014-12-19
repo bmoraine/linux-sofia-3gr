@@ -15,6 +15,8 @@
 #ifndef __VSEC_H_
 #define __VSEC_H_
 
+#define VSEC_SUCCESS 0
+#define VSEC_FAILURE 1
 #define MAX_VLINK_NAME_SIZE 8
 
 enum t_vsec_vm_id {

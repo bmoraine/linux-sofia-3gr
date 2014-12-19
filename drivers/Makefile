@@ -52,7 +52,7 @@ obj-y				+= amba/
 obj-$(CONFIG_DMADEVICES)	+= dma/
 
 obj-$(CONFIG_VIRTIO)		+= virtio/
-obj-$(CONFIG_NKERNEL_DDI)       += vlx/
+obj-$(CONFIG_MOBILEVISOR_VDRIVER) += mobilevisor/
 obj-$(CONFIG_XEN)		+= xen/
 
 # idi early, since some subsystems needs to access register though it

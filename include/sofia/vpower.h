@@ -17,13 +17,6 @@
 #ifndef VPOWER__H
 #define VPOWER__H
 
-#ifdef CONFIG_X86_INTEL_SOFIA
-#include <sofia/nk_sofia_bridge.h>
-#else
-#include <nk/nkern.h>
-#include <vlx/vpower_prh.h>
-#endif
-
 typedef enum {
 	PRH_OK                              =  0,   /**< All things are ok */
 	PRH_ERR_INV_USER_ID                 = -1,   /**< Invalid user driver identifier */

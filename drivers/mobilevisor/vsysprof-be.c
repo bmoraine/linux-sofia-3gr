@@ -34,21 +34,12 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 
-#ifdef CONFIG_X86_INTEL_SOFIA
-#include <sofia/nk_sofia_bridge.h>
+#include <sofia/mv_gal.h>
+#include <sofia/mv_ipc.h>
 #include <sofia/mv_svc_hypercalls.h>
-#else
-#include <nk/nkern.h>
-#include <nk/nkdev.h>
-#include <nk/nk.h>
-#endif
-
 
 #define TRACE(x...)   pr_notice("VSYSPROF-BE: " x)
 #define ETRACE(x...)  pr_err("VSYSPROF-BE: Error: " x)
-
-
-#define VSYSPROF_NAME               "vsysprof"
 
 #define MAX_TASK_NAME_SZ            80          /* inclusive of '\0' */
 #define MAX_IRQ_NAME_SZ             20		/* inclusive of '\0' */
@@ -111,13 +102,19 @@ struct vsysprof_shared {
 	} u;
 };
 
+enum vsysprof_status
+{
+	VSYSPROF_STATUS_CONNECT = 0,
+	VSYSPROF_STATUS_DISCONNECT
+};
+
 struct vsysprof_struct {
-	NkDevVlink              *vlink;
-	NkXIrq                  sxirq;
-	NkXIrq                  cxirq;
-	NkXIrqId                sxid;
-	NkPhAddr                pshared;
+	uint32_t token;
+	char *cmdline;
+	uint32_t share_data_size;
 	struct vsysprof_shared  *vshared;
+	enum vsysprof_status status;
+
 	struct work_struct      cmd_work;
 	struct completion       entity_completion;
 };
@@ -272,8 +269,7 @@ static void vsysprof_get_task_list(struct vsysprof_struct *pvsysprof)
 	do_each_thread(grp, tsk) {
 		/* Trigger XIRQ after filling shared memory with entity info */
 		if (pvsysprof->vshared->opcode == SYSPROF_ENTITY_INFO) {
-			nkops.nk_xirq_trigger(pvsysprof->cxirq,
-							pvsysprof->vlink->c_id);
+			mv_ipc_mbox_post(pvsysprof->token, 0);
 
 			/* wait for front-end driver to finisg reading entity */
 			wait_for_completion(&pvsysprof->entity_completion);
@@ -299,7 +295,7 @@ static void vsysprof_get_task_list(struct vsysprof_struct *pvsysprof)
 
 	/* Trigger XIRQ to send the info of the last task */
 	pvsysprof->vshared->u.entity_info.id |= SYSPROF_LAST_ENTITY_INFO;
-	nkops.nk_xirq_trigger(pvsysprof->cxirq, pvsysprof->vlink->c_id);
+	mv_ipc_mbox_post(pvsysprof->token, 0);
 }
 
 static void vsysprof_get_irq_list(struct vsysprof_struct *pvsysprof)
@@ -315,7 +311,7 @@ static void vsysprof_get_irq_list(struct vsysprof_struct *pvsysprof)
 		strncpy(pvsysprof->vshared->u.entity_info.name,
 				interrupt_list[irq].name, MAX_IRQ_NAME_SZ);
 		pvsysprof->vshared->opcode = SYSPROF_ENTITY_INFO;
-		nkops.nk_xirq_trigger(pvsysprof->cxirq,	pvsysprof->vlink->c_id);
+		mv_ipc_mbox_post(pvsysprof->token, 0);
 
 		/* wait for front-end driver to finish reading entity */
 		wait_for_completion(&pvsysprof->entity_completion);
@@ -331,8 +327,7 @@ static void vsysprof_get_irq_list(struct vsysprof_struct *pvsysprof)
 
 		/* Trigger XIRQ after filling shared memory with IRQ info */
 		if (pvsysprof->vshared->opcode == SYSPROF_ENTITY_INFO) {
-			nkops.nk_xirq_trigger(pvsysprof->cxirq,
-							pvsysprof->vlink->c_id);
+			mv_ipc_mbox_post(pvsysprof->token, 0);
 
 			/* wait for front-end driver to finish reading entity */
 			wait_for_completion(&pvsysprof->entity_completion);
@@ -359,7 +354,7 @@ static void vsysprof_get_irq_list(struct vsysprof_struct *pvsysprof)
 
 	/* Trigger XIRQ to send the info of the last task */
 	pvsysprof->vshared->u.entity_info.id |= SYSPROF_LAST_ENTITY_INFO;
-	nkops.nk_xirq_trigger(pvsysprof->cxirq, pvsysprof->vlink->c_id);
+	mv_ipc_mbox_post(pvsysprof->token, 0);
 }
 
 static void vsysprof_cmd_work(struct work_struct *work)
@@ -373,10 +368,10 @@ static void vsysprof_cmd_work(struct work_struct *work)
 	if (pcmd->opcode == SYSPROF_TRACE_START) {
 		vsysprof_set_trace_address(pcmd->u.setup.trace_paddr);
 		vsysprof_set_trace_mask(pcmd->u.setup.trace_mask);
-		nkops.nk_xirq_trigger(pvsysprof->cxirq, pvsysprof->vlink->c_id);
+		mv_ipc_mbox_post(pvsysprof->token, 0);
 	} else if (pcmd->opcode == SYSPROF_TRACE_STOP) {
 		vsysprof_set_trace_mask(0);
-		nkops.nk_xirq_trigger(pvsysprof->cxirq, pvsysprof->vlink->c_id);
+		mv_ipc_mbox_post(pvsysprof->token, 0);
 	} else if (pcmd->opcode == SYSPROF_TASK_LIST_REQ) {
 		vsysprof_get_task_list(pvsysprof);
 	} else if (pcmd->opcode == SYSPROF_IRQ_LIST_REQ) {
@@ -384,13 +379,24 @@ static void vsysprof_cmd_work(struct work_struct *work)
 	}
 }
 
-static void vsysprof_sxirq_hdlr(void *dev, NkXIrq xirq)
+static void vsysprof_on_connect(uint32_t token, void *cookie)
 {
 	struct vsysprof_struct *pvsysprof;
+	pvsysprof = (struct vsysprof_struct *) cookie;
+	pvsysprof->status = VSYSPROF_STATUS_CONNECT;
+}
 
-	(void) xirq;
+static void vsysprof_on_disconnect(uint32_t token, void *cookie)
+{
+	struct vsysprof_struct *pvsysprof;
+	pvsysprof = (struct vsysprof_struct *) cookie;
+	pvsysprof->status = VSYSPROF_STATUS_DISCONNECT;
+}
 
-	pvsysprof = (struct vsysprof_struct *) dev;
+static void vsysprof_on_event(uint32_t token, uint32_t event_id, void *cookie)
+{
+	struct vsysprof_struct *pvsysprof;
+	pvsysprof = (struct vsysprof_struct *) cookie;
 
 	switch (pvsysprof->vshared->opcode) {
 	case SYSPROF_TRACE_START:
@@ -409,56 +415,31 @@ static void vsysprof_sxirq_hdlr(void *dev, NkXIrq xirq)
 	}
 }
 
+static struct mbox_ops vsysprof_ops = {
+	.on_connect    = vsysprof_on_connect,
+	.on_disconnect = vsysprof_on_disconnect,
+	.on_event      = vsysprof_on_event
+};
+
 static int __init vsysprof_init(void)
 {
-	NkPhAddr plink = 0;
-	bool found = false;
-	int i, j;
+	uint32_t i,j;
+	unsigned char *pshare_mem;
+	struct vsysprof_struct *p_vsysprof = &vsysprof;
 
-	while ((plink = nkops.nk_vlink_lookup(VSYSPROF_NAME, plink)) != 0) {
-		vsysprof.vlink = nkops.nk_ptov(plink);
-		if (vsysprof.vlink->link == 0) {
-			if (vsysprof.vlink->s_id == nkops.nk_id_get()) {
-				found = true;
-				break;
-			}
-		}
+	p_vsysprof->token = mv_ipc_mbox_get_info("sysprof",
+						 "m-s",
+						 &vsysprof_ops,
+						 &pshare_mem,
+						 &(p_vsysprof->share_data_size),
+						 &(p_vsysprof->cmdline),
+						 (void *)p_vsysprof);
+
+	if (p_vsysprof->share_data_size < sizeof(struct vsysprof_shared)) {
+		return -EFAULT;
 	}
 
-	if (!found) {
-		ETRACE("vlink lookup fail\n");
-		return -1;
-	}
-
-	vsysprof.pshared = nkops.nk_pmem_alloc(plink, 1,
-						sizeof(struct vsysprof_shared));
-
-	if (!vsysprof.pshared) {
-		ETRACE("pmem alloc fail\n");
-		return -1;
-	}
-
-	vsysprof.vshared = (void *) nkops.nk_mem_map(vsysprof.pshared,
-						sizeof(struct vsysprof_shared));
-	if (!vsysprof.vshared) {
-		ETRACE("pmem mapping fail\n");
-		return -1;
-	}
-
-	vsysprof.sxirq = nkops.nk_pxirq_alloc(plink, 0,
-						vsysprof.vlink->s_id, 1);
-	vsysprof.cxirq = nkops.nk_pxirq_alloc(plink, 1,
-						vsysprof.vlink->c_id, 1);
-
-	if (vsysprof.sxirq == 0) {
-		ETRACE("server xirq alloc fail\n");
-		return -1;
-	}
-
-	if (vsysprof.cxirq == 0) {
-		ETRACE("client xirq alloc fail\n");
-		return -1;
-	}
+	p_vsysprof->vshared = pshare_mem;
 
 	for (i = 0; i < SYSPROF_NOF_PHYSICAL_CORES; i++) {
 		sys_prof_trace_addr[i] = 0;
@@ -471,8 +452,9 @@ static int __init vsysprof_init(void)
 	INIT_WORK(&vsysprof.cmd_work, vsysprof_cmd_work);
 	init_completion(&vsysprof.entity_completion);
 
-	vsysprof.sxid = nkops.nk_xirq_attach(vsysprof.sxirq,
-					vsysprof_sxirq_hdlr, &vsysprof);
+	/* Set on line */
+	p_vsysprof->status = VSYSPROF_STATUS_DISCONNECT;
+	mv_mbox_set_online(p_vsysprof->token);
 
 	TRACE("Initialized.\n");
 	return 0;
@@ -480,8 +462,6 @@ static int __init vsysprof_init(void)
 
 static void __exit vsysprof_exit(void)
 {
-	nkops.nk_xirq_detach(vsysprof.sxid);
-
 	TRACE("Module unloaded.\n");
 }
 

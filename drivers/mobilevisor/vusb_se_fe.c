@@ -96,7 +96,7 @@
 /* VBPIPE Setup         */
 /************************/
 
-#define VUSB_SE_FE_VBPIPE_GENERIC_NAME  "/dev/vbpipe%d"
+#define VUSB_SE_FE_VBPIPE_GENERIC_NAME  "/dev/mvpipe-sedat%d"
 
 /************************/
 /* Gadget Setup         */
@@ -255,7 +255,7 @@ static void vusb_se_fe_log_ktermios(int gadget, struct ktermios *pattr);
 static char *vusb_se_fe_ersatz_strtok(char *text, char *seps);
 static unsigned int vusb_se_fe_ersatz_strtoi(char *text);
 
-static struct file *vusb_se_fe_open_vbpipe(int pipe);
+static struct file *vusb_se_fe_open_vbpipe(bool is_cmd, int pipe);
 static struct file *vusb_se_fe_open_gadget(int gadget);
 static void vusb_se_fe_close_gadget(struct file *fp, int gadget);
 
@@ -598,7 +598,7 @@ static unsigned int vusb_se_fe_ersatz_strtoi(char *text)
 /* Description: Opens the vbpipe nominated by the pipe number                */
 /*****************************************************************************/
 
-static struct file *vusb_se_fe_open_vbpipe(int pipe)
+static struct file *vusb_se_fe_open_vbpipe(bool is_cmd, int pipe)
 {
 	char vbpipe_name[32];
 
@@ -606,7 +606,10 @@ static struct file *vusb_se_fe_open_vbpipe(int pipe)
 
 	mm_segment_t old_fs;
 
-	sprintf(vbpipe_name, VUSB_SE_FE_VBPIPE_GENERIC_NAME, pipe);
+	if (is_cmd)
+	  sprintf(vbpipe_name, "/dev/mvpipe-secmd");
+	else
+	  sprintf(vbpipe_name, VUSB_SE_FE_VBPIPE_GENERIC_NAME, pipe);
 
 	VUSB_SE_FE_LOG("Opening VBPIPE[%s]", vbpipe_name);
 
@@ -1087,7 +1090,7 @@ static void vusb_se_fe_handle_start_threads(void)
 		 * configuration!
 		 */
 		vusb_se_fe_link_vbpipe_fp[pval[0]] =
-		    vusb_se_fe_open_vbpipe(pval[1]);
+		    vusb_se_fe_open_vbpipe(false, pval[1]);
 
 		vusb_se_fe_link_gadget_fp[pval[0]] =
 		    vusb_se_fe_open_gadget(pval[4]);
@@ -1489,7 +1492,7 @@ static int vusb_se_fe_command_thread(void *d)
 	 */
 	VUSB_SE_FE_LOG("Opening Command VBPIPE %d", pipe);
 
-	vusb_se_fe_command_vbpipe_fp = vusb_se_fe_open_vbpipe(pipe);
+	vusb_se_fe_command_vbpipe_fp = vusb_se_fe_open_vbpipe(true, pipe);
 
 	/* check for the NULL pointer return. purely for klocwork.
 	 */

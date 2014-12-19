@@ -132,7 +132,7 @@ source "drivers/hv/Kconfig"
 
 source "drivers/xen/Kconfig"
 
-source "drivers/vlx/Kconfig"
+source "drivers/mobilevisor/Kconfig"
 
 source "drivers/staging/Kconfig"
 

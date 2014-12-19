@@ -32,8 +32,7 @@
 #include <linux/of_irq.h>
 #include <linux/device_state_pm.h>
 
-#include <sofia/nk_sofia_bridge.h>
-#include <linux/vpower.h>
+#include <sofia/vpower.h>
 #include <sofia/mv_hypercalls.h>
 #include <sofia/pal_shared_data.h>
 #include <sofia/mv_svc_hypercalls.h>

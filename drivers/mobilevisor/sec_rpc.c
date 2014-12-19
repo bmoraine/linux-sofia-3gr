@@ -17,7 +17,6 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include "sec_rpc.h"
-#include "vrpc.h"
 
 enum rpc_action {
 	RPC_ALLOC,
