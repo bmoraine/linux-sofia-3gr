@@ -210,7 +210,7 @@ struct T_AUD_DSP_CMD_PCM_REC_PAR {
 */
 struct T_AUD_DSP_CMD_SPEECH_PROBE_PAR {
 	U16 on_off;
-	U16 setting;
+	U16 select;
 	U16 mode;
 	U16 gain1;
 	U16 gain2;

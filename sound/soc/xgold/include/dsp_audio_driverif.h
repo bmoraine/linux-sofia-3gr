@@ -115,11 +115,12 @@ enum dsp_irq_comm_flag {
 	DSP_IRQ_COMM_FLAG_12,
 	DSP_IRQ_COMM_FLAG_13,
 	DSP_IRQ_COMM_FLAG_14,
-	DSP_IRQ_COMM_FLAG_15
+	DSP_IRQ_COMM_FLAG_15,
+	DSP_IRQ_COMM_FLAG_END
 };
 
 /**
-    \brief Enumeration holding all the interrupts the ARM can give
+    \brief Enumeration holding all the interrupts the MCU can give
 	to the Audio DSP.
 */
 enum dsp_irq_no {
@@ -136,8 +137,15 @@ enum dsp_irq_no {
 	DSP_IRQ_10,
 	DSP_IRQ_11,
 	DSP_IRQ_12,
+	DSP_IRQ_13,
+	DSP_IRQ_14,
+	DSP_IRQ_15,
+	DSP_FBA_IRQ_0,
+	DSP_FBA_IRQ_1,
+	DSP_FBA_IRQ_2,
+	DSP_FBA_IRQ_3,
+	DSP_IRQ_END
 };
-
 
 /**
  * @enum DSP_ERROR_CODES
@@ -241,7 +249,7 @@ enum dsp_err_code dsp_audio_irq_deactivate(struct dsp_audio_device *dsp,
 enum dsp_err_code dsp_audio_irq_ack(struct dsp_audio_device *dsp,
 			enum dsp_irq_no irq_no);
 /**
-  \brief Sets a communication flag between the ARM and frame based audio DSP.
+  \brief Sets a communication flag between the MCU and frame based audio DSP.
   \param dsp_device pointer to dsp device
   \param DSP_AUDIO_FBA_DSP_COMM_FLAG comm_flag: Which communication flag to set
   \return none
@@ -250,7 +258,7 @@ void dsp_set_audio_dsp_communication_flag(struct dsp_audio_device *dsp,
 			enum dsp_irq_comm_flag);
 
 /**
-  \brief Resets a communication flag between the ARM and frame based audio DSP.
+  \brief Resets a communication flag between the MCU and frame based audio DSP.
   \param dsp_device pointer to dsp device
   \param dsp_irq_comm_flag comm_flag: Which communication flag to reset
   \return none
@@ -259,7 +267,7 @@ void dsp_reset_audio_dsp_communication_flag(struct dsp_audio_device *dsp,
 			enum dsp_irq_comm_flag);
 
 /**
-  \brief Reads the value of a communication flag between the ARM and
+  \brief Reads the value of a communication flag between the MCU and
    audio DSP.
   \param dsp_device pointer to dsp device
   \param DSP_AUDIO_DSP_COMM_FLAG comm_flag: Which communication flag to read
@@ -360,8 +368,15 @@ enum dsp_lisr_cb {
 	DSP_LISR_CB_SPEECH_IO_POINT_E,
 	DSP_LISR_CB_SPEECH_IO_POINT_F,
 	DSP_LISR_CB_PCM_PLAYER_A,
+	/* 10 */
 	DSP_LISR_CB_HW_PROBE_A,
 	DSP_LISR_CB_HW_PROBE_B,
+	DSP_LISR_CB_SPEECH_IO_INJECT_A,
+	DSP_LISR_CB_SPEECH_IO_INJECT_B,
+	DSP_LISR_CB_SPEECH_IO_INJECT_C,
+	DSP_LISR_CB_SPEECH_IO_INJECT_D,
+	DSP_LISR_CB_SPEECH_IO_INJECT_E,
+	DSP_LISR_CB_SPEECH_IO_INJECT_F,
 	DSP_LISR_CB_END
 };
 
@@ -380,7 +395,7 @@ struct dsp_lisr_cb_conf {
 
   @return enum dsp_err_code error
  */
-const struct dsp_lisr_cb_conf *dsp_audio_get_lisr_db(enum dsp_irq_no);
+const struct dsp_lisr_cb_conf *dsp_audio_get_lisr_cb(enum dsp_irq_no);
 /*@}*/
 #endif /* _DSP_AUDIO_DRIVERIF_H */
 /*@}*/

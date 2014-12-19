@@ -273,6 +273,11 @@ void xgold_dsp_hw_probe_a_handler(void *dev)
 	rw_shm_data.word_offset =
 		xgold_pcm->dsp->p_dsp_common_data->buf_sm_hw_probe_a_offset;
 
+	/* TODO: could we use same calculation as for playback and speech probes?
+		length = xrtd->stream->runtime->period_size *
+		xrtd->stream->runtime->channels;
+		rw_shm_data.len_in_bytes = length * 2;
+	*/
 	rw_shm_data.len_in_bytes =
 		(2 * 240 * xrtd->stream->runtime->channels);
 
@@ -379,6 +384,7 @@ void xgold_dsp_pcm_rec_handler(void *dev)
 	rw_shm_data.word_offset =
 		xgold_pcm->dsp->p_dsp_common_data->buf_sm_ul_offset;
 
+	/* TODO: does nof_bytes_to_read really mean nof words... ? */
 	rw_shm_data.len_in_bytes =
 		(2 * nof_bytes_to_read * xrtd->stream->runtime->channels);
 

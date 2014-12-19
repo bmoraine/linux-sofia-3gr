@@ -165,7 +165,7 @@ int register_dsp_audio_lisr_cb(enum dsp_lisr_cb lisr_type,
 	if (lisr_type >= DSP_LISR_CB_END)
 		return -EINVAL;
 
-	xgold_debug("Registering %d type\n", lisr_type);
+	xgold_debug("%segistering lisr_cb: %d\n", (NULL == p_func ? "De-r" : "R"), lisr_type);
 	down_write(&dsp_audio_cb_rwsem);
 	g_dsp_audio_cb_list[lisr_type].p_func = p_func;
 	g_dsp_audio_cb_list[lisr_type].dev = dev;
@@ -174,50 +174,85 @@ int register_dsp_audio_lisr_cb(enum dsp_lisr_cb lisr_type,
 }
 
 /* Function to invoke the registered callbacks for interrupts */
-static void dsp_audio_lisr_cb_handler(enum dsp_irq_no intr_no,
+static void dsp_audio_hisr_cb_handler(enum dsp_irq_no intr_no,
 				      void *dsp_dev)
 {
 	int comm_flag = 0;
 	int i = 0;
-	const struct dsp_lisr_cb_conf *p_dsp_aud_lisr_db;
+	static int debug_log_cnt = 9;
+	bool comm_flag_clear[DSP_IRQ_COMM_FLAG_END] = {false};
+	const struct dsp_lisr_cb_conf *p_dsp_aud_lisr_cb;
 
-	xgold_debug("in %s intr no: %d\n", __func__, intr_no);
+	debug_log_cnt++;
+	if (debug_log_cnt == 10)
+		xgold_debug("enter func - intr no: %d\n", intr_no);
 
 	down_read(&dsp_audio_cb_rwsem);
-	p_dsp_aud_lisr_db = dsp_audio_get_lisr_db(intr_no);
+	p_dsp_aud_lisr_cb = dsp_audio_get_lisr_cb(intr_no);
 
-/* find the set communication flag and call the registered callback function */
-	if (p_dsp_aud_lisr_db != NULL) {
-		while (p_dsp_aud_lisr_db[i].lisr_cb_type !=
-			DSP_LISR_CB_END) {
-			comm_flag =
-		dsp_read_audio_dsp_communication_flag(
-		(struct dsp_audio_device *)dsp_dev,
-			p_dsp_aud_lisr_db[i].comm_flag_no);
-			if (comm_flag) {
-				dsp_reset_audio_dsp_communication_flag(
+	/* find the set communication flag and call the registered callback function */
+	if (p_dsp_aud_lisr_cb == NULL) {
+		xgold_debug("p_dsp_aud_lisr_cb == NULL\n");
+		up_read(&dsp_audio_cb_rwsem);
+		return;
+	}
+
+	while (p_dsp_aud_lisr_cb[i].lisr_cb_type != DSP_LISR_CB_END) {
+		/* only read comm flag if a cb function has been registered for the
+		     current cb type */
+		if (g_dsp_audio_cb_list
+			[p_dsp_aud_lisr_cb[i].lisr_cb_type].p_func != NULL) {
+			comm_flag = dsp_read_audio_dsp_communication_flag(
 				(struct dsp_audio_device *)dsp_dev,
-					p_dsp_aud_lisr_db[i].comm_flag_no);
-				if (g_dsp_audio_cb_list
-				[p_dsp_aud_lisr_db[i].lisr_cb_type].
-				p_func != NULL) {
-					(g_dsp_audio_cb_list
-					 [p_dsp_aud_lisr_db[i].lisr_cb_type].
-					 p_func) (g_dsp_audio_cb_list
-						[p_dsp_aud_lisr_db[i].
-						lisr_cb_type].dev);
-				}
+				p_dsp_aud_lisr_cb[i].comm_flag_no);
+			if (debug_log_cnt == 10)
+				xgold_debug("p_dsp_aud_lisr_cb[%d].lisr_cb_type: %d, comm_flag_no: %d, comm_flag: %d\n", i,
+					p_dsp_aud_lisr_cb[i].lisr_cb_type,
+					p_dsp_aud_lisr_cb[i].comm_flag_no,
+					comm_flag);
+			/* TODO: Support interrupts with no comm flag (lte voice memo)
+			     maybe use p_dsp_aud_lisr_cb[i].lisr_cb_type].comm_flag_no with wildcard
+			     flag... */
+			if (comm_flag) {
+				/* mark comm flag to be cleared after while loop ends */
+				comm_flag_clear[p_dsp_aud_lisr_cb[i].comm_flag_no] = true;
+				if (debug_log_cnt == 10)
+					xgold_debug("call interrupt handler - lisr_cb_type: %d\n",
+						p_dsp_aud_lisr_cb[i].lisr_cb_type);
+				(g_dsp_audio_cb_list
+				 [p_dsp_aud_lisr_cb[i].lisr_cb_type].
+				 p_func) (g_dsp_audio_cb_list
+					[p_dsp_aud_lisr_cb[i].
+					lisr_cb_type].dev);
 			}
-			i++;
+		}
+		i++;
+	}
+
+	/* clear the relevant comm flags now */
+	for (i=0; i < DSP_IRQ_COMM_FLAG_END; i++) {
+		if (true == comm_flag_clear[i]) {
+			dsp_reset_audio_dsp_communication_flag(
+				(struct dsp_audio_device *)dsp_dev,
+				i);
+			if (debug_log_cnt == 10) {
+				xgold_debug("cleared comm flag: %d\n", i);
+			}
 		}
 	}
+
+	if (debug_log_cnt == 10) {
+		xgold_debug("exit func\n");
+		debug_log_cnt = 0;
+	}
+
 	up_read(&dsp_audio_cb_rwsem);
 }
 
 /* LISR for DSP_INT1 */
 static irqreturn_t dsp_audio_int1_lisr(int irq, void *dsp_dev)
 {
-	xgold_debug("In %s\n", __func__);
+	xgold_debug("enter func\n");
 	/* clear the interrupt */
 	dsp_audio_irq_ack((struct dsp_audio_device *)dsp_dev, DSP_IRQ_1);
 
@@ -227,7 +262,7 @@ static irqreturn_t dsp_audio_int1_lisr(int irq, void *dsp_dev)
 /* LISR for DSP_INT2 */
 static irqreturn_t dsp_audio_int2_lisr(int irq, void *dsp_dev)
 {
-	xgold_debug("In %s\n", __func__);
+	xgold_debug("enter func\n");
 	/* clear the interrupt */
 	dsp_audio_irq_ack((struct dsp_audio_device *)dsp_dev, DSP_IRQ_2);
 
@@ -237,23 +272,23 @@ static irqreturn_t dsp_audio_int2_lisr(int irq, void *dsp_dev)
 /* HISR for DSP_INT1 */
 static irqreturn_t dsp_audio_int1_hisr(int irq, void *dev)
 {
-	xgold_debug("In %s\n", __func__);
-	dsp_audio_lisr_cb_handler(DSP_IRQ_1, dev);
+	xgold_debug("enter func\n");
+	dsp_audio_hisr_cb_handler(DSP_IRQ_1, dev);
 	return IRQ_HANDLED;
 }
 
 /* HISR for DSP_INT2 */
 static irqreturn_t dsp_audio_int2_hisr(int irq, void *dev)
 {
-	xgold_debug("In %s\n", __func__);
-	dsp_audio_lisr_cb_handler(DSP_IRQ_2, dev);
+	xgold_debug("enter func\n");
+	dsp_audio_hisr_cb_handler(DSP_IRQ_2, dev);
 	return IRQ_HANDLED;
 }
 
 /* LISR for DSP_INT3 */
 static irqreturn_t dsp_audio_int3_lisr(int irq, void *dsp_dev)
 {
-	xgold_debug("In %s\n", __func__);
+	xgold_debug("enter func\n");
 	/* clear the interrupt */
 	dsp_audio_irq_ack((struct dsp_audio_device *)dsp_dev, DSP_IRQ_3);
 
@@ -263,27 +298,27 @@ static irqreturn_t dsp_audio_int3_lisr(int irq, void *dsp_dev)
 /* HISR for DSP_INT3 */
 static irqreturn_t dsp_audio_int3_hisr(int irq, void *dev)
 {
-	xgold_debug("In %s\n", __func__);
-	dsp_audio_lisr_cb_handler(DSP_IRQ_3, dev);
+	xgold_debug("enter func\n");
+	dsp_audio_hisr_cb_handler(DSP_IRQ_3, dev);
 	return IRQ_HANDLED;
 }
 
 #if 0 /* BU_hack , speech probe interrupt not enabled in MV */
-/* LISR for DSP_INT6 */
-static irqreturn_t dsp_audio_int6_lisr(int irq, void *dsp_dev)
+/* LISR for DSP_FBA_INT2 */
+static irqreturn_t dsp_audio_fba_int2_lisr(int irq, void *dsp_dev)
 {
 	xgold_debug("In %s\n", __func__);
 	/* clear the interrupt */
-	dsp_audio_irq_ack((struct dsp_audio_device *)dsp_dev, DSP_IRQ_6);
+	dsp_audio_irq_ack((struct dsp_audio_device *)dsp_dev, DSP_FBA_IRQ_2);
 
 	return IRQ_WAKE_THREAD;
 }
 
-/* HISR for DSP_INT6 */
-static irqreturn_t dsp_audio_int6_hisr(int irq, void *dev)
+/* HISR for DSP_FBA_INT2 */
+static irqreturn_t dsp_audio_fba_int2_hisr(int irq, void *dev)
 {
 	xgold_debug("In %s\n", __func__);
-	dsp_audio_lisr_cb_handler(DSP_IRQ_6, dev);
+	dsp_audio_hisr_cb_handler(DSP_FBA_IRQ_2, dev);
 	return IRQ_HANDLED;
 }
 #endif
@@ -352,7 +387,7 @@ static int dsp_audio_xgold_set_pcm_path(bool pcm_dir)
 
 	p_dsp_cmd = kzalloc(MAX_DSP_CMD_LEN_BYTES, GFP_KERNEL);
 
-	xgold_debug("%s pcm_dir %d\n", __func__, pcm_dir);
+	xgold_debug(" pcm_dir %d\n", pcm_dir);
 
 	if (p_dsp_cmd == NULL) {
 		xgold_err("Failed to allocate memory for DSP cmds\n");
@@ -2054,8 +2089,9 @@ int dsp_pcm_rec(struct dsp_audio_device *dsp, unsigned int channels,
 	pcm_rec_par.req = (dma_mode == true) ? 1 : 0;
 	pcm_rec_par.path_select = path_select;
 
-	xgold_debug("PCM REC cmd mode %d rate %d path %d\n",
-			pcm_rec_par.mode, pcm_rec_par.rate, path_select);
+	xgold_debug("PCM_REC setting %d, cmd mode %d, rate %d, path_select %d",
+			pcm_rec_par.setting, pcm_rec_par.mode,
+			pcm_rec_par.rate, pcm_rec_par.path_select);
 
 	cmd_data.command_id = DSP_AUD_PCM_REC;
 	cmd_data.command_len = sizeof(struct T_AUD_DSP_CMD_PCM_REC_PAR);
@@ -2144,9 +2180,15 @@ int dsp_cmd_hw_probe(struct dsp_audio_device *dsp,
 	struct T_AUD_DSP_CMD_HW_PROBE hw_probe_par = { 0 };
 	struct dsp_aud_cmd_data cmd_data;
 
-	hw_probe_par.probe_index = (type == HW_PROBE_A) ? 0x3 : 0x4;
-	/* Probe A tied to I/O buffer 1
-	 * Probe B tied to I/O buffer 2 */
+	/* for now use the probes for afe in/out on xg642 / Sofia 3G,
+	   and use for I2S on other projects (Sofia LTE)
+	   TODO: Create mixer control to dynamically change this
+	   using tinymix or IMAS. */
+	if (dsp->id == XGOLD_DSP_XG642)
+		hw_probe_par.probe_index = (type == HW_PROBE_A) ? 0x1 : 0x2;
+	else
+		hw_probe_par.probe_index = (type == HW_PROBE_A) ? 0x3 : 0x4;
+
 	hw_probe_par.sm_interface = (type == HW_PROBE_A) ? 0x1 : 0x2;
 
 	/* TODO update hw_probe params using mixer ctl */
@@ -2348,8 +2390,8 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 	if (dsp_dev->interrupts[SPEECH_PROBES]) {
 		interrupt = dsp_dev->interrupts[SPEECH_PROBES];
 		ret = request_threaded_irq(DSP_INT_GET_ID(interrupt),
-				dsp_audio_int6_lisr,
-				dsp_audio_int6_hisr,
+				dsp_audio_fba_int2_lisr,
+				dsp_audio_fba_int2_hisr,
 				IRQF_TRIGGER_RISING, "dsp_int6",
 				dsp_dev);
 

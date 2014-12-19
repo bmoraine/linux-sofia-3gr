@@ -151,26 +151,26 @@ static struct snd_soc_dai_link xgold_dai[] = {
 		.ignore_suspend = 1,
 	},
 
-#ifdef CONFIG_SND_SOC_XGOLD632_SPEECH_PROBE
+#ifdef CONFIG_SND_SOC_XGOLD_SPEECH_PROBE
 	/* Speech probe front end devices */
 	{
 		.name = "XGOLD_SPEECH_PROBE_A",
-		.stream_name = "Speech Probe_A",
+		.stream_name = "XGOLD_SPEECH_PROBE_A",
 		.ignore_suspend = 1,
 	},
 	{
 		.name = "XGOLD_SPEECH_PROBE_B",
-		.stream_name = "Speech Probe_B",
+		.stream_name = "XGOLD_SPEECH_PROBE_B",
 		.ignore_suspend = 1,
 	},
 	{
 		.name = "XGOLD_SPEECH_PROBE_C",
-		.stream_name = "Speech Probe_C",
+		.stream_name = "XGOLD_SPEECH_PROBE_C",
 		.ignore_suspend = 1,
 	},
 	{
 		.name = "XGOLD_SPEECH_PROBE_D",
-		.stream_name = "Speech Probe_D",
+		.stream_name = "XGOLD_SPEECH_PROBE_D",
 		.ignore_suspend = 1,
 	},
 	/* ALSA allows only 8 pcm devices with
@@ -178,12 +178,12 @@ static struct snd_soc_dai_link xgold_dai[] = {
 #ifdef CONFIG_INCREASE_PCM_DEVICE
 	{
 		.name = "XGOLD_SPEECH_PROBE_E",
-		.stream_name = "Speech Probe_E",
+		.stream_name = "XGOLD_SPEECH_PROBE_E",
 		.ignore_suspend = 1,
 	},
 	{
 		.name = "XGOLD_SPEECH_PROBE_F",
-		.stream_name = "Speech Probe_F",
+		.stream_name = "XGOLD_SPEECH_PROBE_F",
 		.ignore_suspend = 1,
 	}
 #endif
@@ -254,8 +254,8 @@ static int xgold_mc_probe(struct platform_device *pdev)
 				dai_link->codec_dai_name = codec_dai_name;
 
 			} else if (!strncmp(dai_link->stream_name,
-						"Speech Probe",
-						strlen("Speech Probe"))) {
+						"XGOLD_SPEECH_PROBE_",
+						strlen("XGOLD_SPEECH_PROBE_"))) {
 				dai_link->cpu_of_node =
 					dai_link->platform_of_node =
 					of_parse_phandle(np, "intel,speech", 0);
@@ -300,8 +300,8 @@ static int xgold_mc_probe(struct platform_device *pdev)
 				 * snd-soc-dummy */
 				dai_link->cpu_of_node = of_parse_phandle(np,
 						"intel,pcm-voice", 0);
-			else if (!strncmp(dai_link->stream_name, "Speech Probe",
-						strlen("Speech Probe")))
+			else if (!strncmp(dai_link->stream_name, "XGOLD_SPEECH_PROBE_",
+						strlen("XGOLD_SPEECH_PROBE_")))
 				dai_link->cpu_of_node =
 					dai_link->platform_of_node =
 					of_parse_phandle(np, "intel,speech", 0);

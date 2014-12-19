@@ -25,52 +25,84 @@
 #include "dsp_audio_internal.h"
 
 /* Interrupt callback list for DSP_INT_0 */
-const struct dsp_lisr_cb_conf lisr_int0_db[] = {
+const struct dsp_lisr_cb_conf lisr_int0_cb[] = {
 	{DSP_LISR_CB_TONE, DSP_IRQ_COMM_FLAG_3},
 	{DSP_LISR_CB_END, (enum dsp_irq_comm_flag)-1},
 };
 
 /* Interrupt callback list for DSP_INT_1 */
-const struct dsp_lisr_cb_conf lisr_int1_db[] = {
+const struct dsp_lisr_cb_conf lisr_int1_cb[] = {
 	{DSP_LISR_CB_PCM_PLAYER, DSP_IRQ_COMM_FLAG_3},
 	{DSP_LISR_CB_PCM_PLAYER_A, DSP_IRQ_COMM_FLAG_5},
 	{DSP_LISR_CB_END, (enum dsp_irq_comm_flag)-1},
 };
 
 /* Interrupt callback list for DSP_INT_2 */
-const struct dsp_lisr_cb_conf lisr_int2_db[] = {
+const struct dsp_lisr_cb_conf lisr_int2_cb[] = {
 	{DSP_LISR_CB_PCM_RECORDER, DSP_IRQ_COMM_FLAG_4},
-	{DSP_LISR_CB_END, (enum dsp_irq_comm_flag)-1},
-};
-
-/* Interrupt callback list for DSP_INT_3 */
-const struct dsp_lisr_cb_conf lisr_int3_db[] = {
-	{DSP_LISR_CB_HW_PROBE_A, DSP_IRQ_COMM_FLAG_1},
-	{DSP_LISR_CB_HW_PROBE_B, DSP_IRQ_COMM_FLAG_2},
-	{DSP_LISR_CB_END, (enum dsp_irq_comm_flag)-1},
-};
-
-/* Interrupt callback list for DSP_INT_6 */
-const struct dsp_lisr_cb_conf lisr_int6_db[] = {
 	{DSP_LISR_CB_SPEECH_IO_POINT_A, DSP_IRQ_COMM_FLAG_8},
 	{DSP_LISR_CB_SPEECH_IO_POINT_B, DSP_IRQ_COMM_FLAG_9},
 	{DSP_LISR_CB_SPEECH_IO_POINT_C, DSP_IRQ_COMM_FLAG_10},
 	{DSP_LISR_CB_SPEECH_IO_POINT_D, DSP_IRQ_COMM_FLAG_11},
 	{DSP_LISR_CB_SPEECH_IO_POINT_E, DSP_IRQ_COMM_FLAG_12},
 	{DSP_LISR_CB_SPEECH_IO_POINT_F, DSP_IRQ_COMM_FLAG_13},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_A, DSP_IRQ_COMM_FLAG_8},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_B, DSP_IRQ_COMM_FLAG_9},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_C, DSP_IRQ_COMM_FLAG_10},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_D, DSP_IRQ_COMM_FLAG_11},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_E, DSP_IRQ_COMM_FLAG_12},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_F, DSP_IRQ_COMM_FLAG_13},
+	{DSP_LISR_CB_END, (enum dsp_irq_comm_flag)-1},
+};
+
+/* Interrupt callback list for DSP_INT_3 */
+const struct dsp_lisr_cb_conf lisr_int3_cb[] = {
+	{DSP_LISR_CB_HW_PROBE_A, DSP_IRQ_COMM_FLAG_1},
+	{DSP_LISR_CB_HW_PROBE_B, DSP_IRQ_COMM_FLAG_2},
+	{DSP_LISR_CB_END, (enum dsp_irq_comm_flag)-1},
+};
+
+/* Interrupt callback list for DSP_FBA_INT_2 */
+const struct dsp_lisr_cb_conf lisr_fba_int2_cb[] = {
+	{DSP_LISR_CB_SPEECH_IO_POINT_A, DSP_IRQ_COMM_FLAG_8},
+	{DSP_LISR_CB_SPEECH_IO_POINT_B, DSP_IRQ_COMM_FLAG_9},
+	{DSP_LISR_CB_SPEECH_IO_POINT_C, DSP_IRQ_COMM_FLAG_10},
+	{DSP_LISR_CB_SPEECH_IO_POINT_D, DSP_IRQ_COMM_FLAG_11},
+	{DSP_LISR_CB_SPEECH_IO_POINT_E, DSP_IRQ_COMM_FLAG_12},
+	{DSP_LISR_CB_SPEECH_IO_POINT_F, DSP_IRQ_COMM_FLAG_13},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_A, DSP_IRQ_COMM_FLAG_8},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_B, DSP_IRQ_COMM_FLAG_9},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_C, DSP_IRQ_COMM_FLAG_10},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_D, DSP_IRQ_COMM_FLAG_11},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_E, DSP_IRQ_COMM_FLAG_12},
+	{DSP_LISR_CB_SPEECH_IO_INJECT_F, DSP_IRQ_COMM_FLAG_13},
 	{DSP_LISR_CB_END, (enum dsp_irq_comm_flag)-1},
 };
 
 /* Interrupt callback list for DSP interrupts */
 
-const struct dsp_lisr_cb_conf *p_lisr_db[DSP_IRQ_7] = {
-	lisr_int0_db,
-	lisr_int1_db,
-	lisr_int2_db,
-	lisr_int3_db,
+const struct dsp_lisr_cb_conf *p_lisr_cb[DSP_IRQ_END] = {
+	lisr_int0_cb,
+	lisr_int1_cb,
+	lisr_int2_cb,
+	lisr_int3_cb,
 	NULL,
 	NULL,
-	lisr_int6_db,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	lisr_fba_int2_cb,
+	NULL, /* TODO: Add voice memo handler if required...
+				Note VM has no comm flag... */
 };
 
 /* FUNCTION-DESCRIPTION
@@ -83,11 +115,11 @@ const struct dsp_lisr_cb_conf *p_lisr_db[DSP_IRQ_7] = {
  * RETURN VALUE: None
  *
  */
-const struct dsp_lisr_cb_conf *dsp_audio_get_lisr_db(enum dsp_irq_no irq_no)
+const struct dsp_lisr_cb_conf *dsp_audio_get_lisr_cb(enum dsp_irq_no irq_no)
 {
-	if (irq_no > DSP_IRQ_7)
+	if (irq_no >= DSP_IRQ_END)
 		return NULL;
-	return (const struct dsp_lisr_cb_conf *)p_lisr_db[irq_no];
+	return (const struct dsp_lisr_cb_conf *)p_lisr_cb[irq_no];
 }
 
 /* FUNCTION-DESCRIPTION
@@ -108,17 +140,17 @@ enum dsp_err_code dsp_audio_irq_activate(struct dsp_audio_device *dsp,
 {
 	U32 reg;
 
-	if (irq_no > DSP_IRQ_7)
+	if (irq_no >= DSP_IRQ_END)
 		return DSP_ERR_INVALID_IRQ;
+
+	/* For LTE IRQs are split beween 2 dsps
+	 * FBA has [0..3] which are listed in second part of dsp_irq_no */
+	if (irq_no >= DSP_FBA_IRQ_0)
+		irq_no = irq_no - DSP_FBA_IRQ_0;
+
 	/* Read IMSC register for sba DSP */
 	reg = dsp_get_audio_imsc(dsp);
 	/* Check if the interrupt is disabled */
-
-	/* For LTE IRQs are split beween 2 dsps [0..3]*/
-
-	if ((XGOLD_DSP_XG742_SBA == dsp->id) ||
-		(XGOLD_DSP_XG742_FBA == dsp->id))
-		irq_no = irq_no % 4;
 
 	if (!(reg & BIT(irq_no))) {
 		/* Set bit in IMSC register for intended interrupt */
@@ -149,8 +181,14 @@ enum dsp_err_code dsp_audio_irq_deactivate(struct dsp_audio_device *dsp,
 {
 	enum dsp_err_code ret = DSP_SUCCESS;
 	U32 reg;
-	if (irq_no > DSP_IRQ_7)
+	if (irq_no >= DSP_IRQ_END)
 		return DSP_ERR_INVALID_IRQ;
+
+	/* For LTE IRQs are split beween 2 dsps
+	 * FBA has [0..3] which are listed in second part of dsp_irq_no */
+	if (irq_no >= DSP_FBA_IRQ_0)
+		irq_no = irq_no - DSP_FBA_IRQ_0;
+
 	/* Read IMSC register for modem DSP */
 	reg = dsp_get_audio_imsc(dsp);
 	if (0 != (reg & (1 << irq_no))) {
@@ -179,13 +217,13 @@ enum dsp_err_code dsp_audio_irq_ack(struct dsp_audio_device *dsp_dev,
 {
 	enum dsp_err_code ret = DSP_SUCCESS;
 
-	if (irq_no > DSP_IRQ_7)
+	if (irq_no >= DSP_IRQ_END)
 		return DSP_ERR_INVALID_IRQ;
 
-	/* For LTE IRQs are split beween 2 dsps [0..3]*/
-	if ((XGOLD_DSP_XG742_SBA == dsp_dev->id) ||
-		(XGOLD_DSP_XG742_FBA == dsp_dev->id))
-		irq_no = irq_no % 4;
+	/* For LTE IRQs are split beween 2 dsps
+	 * FBA has [0..3] which are listed in second part of dsp_irq_no */
+	if (irq_no >= DSP_FBA_IRQ_0)
+		irq_no = irq_no - DSP_FBA_IRQ_0;
 
 	/* Set the ICR register */
 	dsp_set_audio_icr(dsp_dev, 1 << irq_no);
