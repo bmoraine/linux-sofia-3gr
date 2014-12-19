@@ -26,7 +26,7 @@ agold {
 			"errors", "software", "software";
 
 #if defined(SOFIA_SECURED_VMM_ACCESS)
-	intel,vmm-secured-access;
+/*	intel,vmm-secured-access; */
 #endif
 	#include "clock.dtsi"
 
