@@ -27,6 +27,8 @@
 #ifndef _VRPC_H_
 #define _VRPC_H_
 
+#include <sofia/nk_sofia_bridge.h>
+
 typedef unsigned int vrpc_size_t;
 
 struct vrpc_t;

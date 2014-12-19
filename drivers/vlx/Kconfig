@@ -134,6 +134,16 @@ config SYSTEM_PROFILING
           Enable instrumentation for ExactProfiling in Linux
           to generate traces for post-processing.
 
+config TEE_RPC
+        tristate "TEE RPC driver for Sofia sec_vm"
+	select VLX_VRPC
+	default n
+        help
+          TEE RPC driver for dispatching RPC calls to the secure vm
+
+          The driver's name is tee_rpc.
+
+          If unsure, select N.
 endmenu
 
 endif

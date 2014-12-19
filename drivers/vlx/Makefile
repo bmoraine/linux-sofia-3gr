@@ -52,3 +52,8 @@ obj-$(CONFIG_NKERNEL_VETH)      += veth.o
 #VLX virtual System Profiling
 obj-$(CONFIG_SYSTEM_PROFILING) += vsysprof-be.o
 obj-$(CONFIG_VBPIPE) += modem.o
+
+#RPC driver interface
+obj-$(CONFIG_TEE_RPC) += tee_rpc.o
+tee_rpc-objs := tee_rpc_driver.o tee_rpc_ioctl.o tee_rpc_memory.o sec_rpc.o vsec.o
+
