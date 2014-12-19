@@ -31,6 +31,7 @@
 #include <linux/power/battery_id.h>
 
 /* Masks and offsets for BAT_UV_DET register bits */
+#define BAT_UV_DET_OFFSET	0xC20
 /* EnablePMUShutdown */
 #define BAT_UV_DET_EPSD_O	(25)
 
@@ -46,6 +47,7 @@
 #define BAT_UV_DET_EBUV_O	(0)
 
 /* Masks and offsets for BAT_SUPERVISION register bits */
+#define BAT_SUPERV_OFFSET	0xC04
 /* SYSOFF_Debounce */
 #define BAT_SUPERV_SOFFDB_O	(6)
 #define BAT_SUPERV_SOFFDB_M	(0x7)
@@ -62,6 +64,7 @@
 #define SYSOFF_ENABLE_ALL	(0x3)
 
 /* Masks and offsets for BAT_SUPERVISION register bits */
+#define BAT_SUPERV_WR_OFFSET	0xC10
 /* Write Strobe to accept written values */
 #define BAT_SUPERV_WR_WS_O	(0)
 
@@ -71,12 +74,48 @@ struct brown_out_drv_data {
 	struct device_state_pm_state *pm_state_en;
 	struct device_state_pm_state *pm_state_dis;
 
-	void __iomem *p_pmu_bat_uv_det;
-	void __iomem *p_pmu_bat_superv;
-	void __iomem *p_pmu_bat_superv_wr;
+	struct resource *pmu_res;
 };
 
 static struct brown_out_drv_data bnt_drv_data;
+
+static unsigned brown_out_pmu_ioread(struct brown_out_drv_data *hal_data,
+					unsigned offset)
+{
+	int ret = 0;
+	unsigned reg;
+	unsigned addr;
+
+	if (unlikely(hal_data == NULL))
+		BUG();
+
+	addr = hal_data->pmu_res->start + offset;
+
+	ret = idi_client_ioread(hal_data->p_idi_device, addr, &reg);
+	if (ret)
+		BUG();
+
+	return reg;
+}
+
+static void brown_out_pmu_iowrite(struct brown_out_drv_data *hal_data,
+					unsigned offset,
+					unsigned data)
+{
+	int ret = 0;
+	unsigned addr;
+
+	if (unlikely(hal_data == NULL))
+		BUG();
+
+	addr = hal_data->pmu_res->start + offset;
+
+	ret = idi_client_iowrite(hal_data->p_idi_device, addr, data);
+	if (ret)
+		BUG();
+}
+
+
 
 /**
  * brown_out_drv_probe - Initialises the driver, when the device has been found.
@@ -84,7 +123,7 @@ static struct brown_out_drv_data bnt_drv_data;
 static int __init brown_out_drv_probe(struct idi_peripheral_device *ididev,
 						const struct idi_device_id *id)
 {
-	struct resource *pmu_bat_uv_det, *pmu_bat_superv, *pmu_bat_superv_wr;
+	struct resource *pmu_res;
 	u32 bat_uv_det, bat_supervision, bat_supervision_wr;
 	int ret;
 
@@ -116,51 +155,15 @@ static int __init brown_out_drv_probe(struct idi_peripheral_device *ididev,
 
 	pr_info("%s: Getting PM state handlers: OK\n", __func__);
 
-	pmu_bat_uv_det =
+	pmu_res =
 		idi_get_resource_byname(&ididev->resources, IORESOURCE_MEM,
-					"pmu_bat_uv_det");
-	if (pmu_bat_uv_det == NULL) {
-		pr_err("getting PMU's 'BAT_UV_DET' resource failed!\n");
+					"pmu");
+	if (pmu_res == NULL) {
+		pr_err("getting PMU resource failed!\n");
 		return -EINVAL;
 	}
 
-	pmu_bat_superv =
-		idi_get_resource_byname(&ididev->resources, IORESOURCE_MEM,
-					"pmu_bat_superv");
-	if (pmu_bat_superv == NULL) {
-		pr_err("getting PMU's 'BAT_SUPERVISION' resource failed!\n");
-		return -EINVAL;
-	}
-
-	pmu_bat_superv_wr =
-		idi_get_resource_byname(&ididev->resources, IORESOURCE_MEM,
-					"pmu_bat_superv_wr");
-	if (pmu_bat_superv_wr == NULL) {
-		pr_err("getting PMU's 'BAT_SUPERVISION_WR' resource failed!\n");
-		return -EINVAL;
-	}
-
-	/* Obtain the IO addresses for the PMU registers. */
-	bnt_drv_data.p_pmu_bat_uv_det = ioremap(pmu_bat_uv_det->start,
-						resource_size(pmu_bat_uv_det));
-	if (NULL == bnt_drv_data.p_pmu_bat_uv_det)
-		return -EINVAL;
-
-	bnt_drv_data.p_pmu_bat_superv = ioremap(pmu_bat_superv->start,
-						resource_size(pmu_bat_superv));
-	if (NULL == bnt_drv_data.p_pmu_bat_superv) {
-		iounmap(bnt_drv_data.p_pmu_bat_uv_det);
-		return -EINVAL;
-	}
-
-	bnt_drv_data.p_pmu_bat_superv_wr = ioremap(pmu_bat_superv_wr->start,
-							resource_size
-							(pmu_bat_superv_wr));
-	if (NULL == bnt_drv_data.p_pmu_bat_superv_wr) {
-		iounmap(bnt_drv_data.p_pmu_bat_uv_det);
-		iounmap(bnt_drv_data.p_pmu_bat_superv);
-		return -EINVAL;
-	}
+	bnt_drv_data.pmu_res = pmu_res;
 
 	ret = idi_set_power_state(bnt_drv_data.p_idi_device,
 					bnt_drv_data.pm_state_en, true);
@@ -177,20 +180,22 @@ static int __init brown_out_drv_probe(struct idi_peripheral_device *ididev,
 	ESSD (EnableSIMShutdown) =enable
 	BULVL (BUV Detection Level) =3.05V
 	EBUV (BUVEnable) =enable */
-	bat_uv_det = ioread32(bnt_drv_data.p_pmu_bat_uv_det);
+	bat_uv_det = brown_out_pmu_ioread(&bnt_drv_data, BAT_UV_DET_OFFSET);
+
 	bat_uv_det |= (1 << BAT_UV_DET_EPSD_O) |
 		(1 << BAT_UV_DET_ESSD_O) | (1 << BAT_UV_DET_EBUV_O);
 
 	bat_uv_det &= ~(BAT_UV_DET_BULVL_M << BAT_UV_DET_BULVL_O);
 	bat_uv_det |= (BUV_DET_LEVEL_3050MV << BAT_UV_DET_BULVL_O);
 
-	iowrite32(bat_uv_det, bnt_drv_data.p_pmu_bat_uv_det);
+	brown_out_pmu_iowrite(&bnt_drv_data, BAT_UV_DET_OFFSET, bat_uv_det);
 
 	/* Configuring Battery Supervision to:
 	SYSOFFDB (System Off Debounce time) =1ms
 	SYSOFFLV (System Off Level) =2.95V
 	SYSOFFEN (System Off Enable) =enable all */
-	bat_supervision = ioread32(bnt_drv_data.p_pmu_bat_superv);
+	bat_supervision = brown_out_pmu_ioread(&bnt_drv_data,
+						BAT_SUPERV_OFFSET);
 
 	bat_supervision &= ~(BAT_SUPERV_SOFFDB_M << BAT_SUPERV_SOFFDB_O |
 				BAT_SUPERV_SOFFLV_M << BAT_SUPERV_SOFFLV_O |
@@ -200,12 +205,17 @@ static int __init brown_out_drv_probe(struct idi_peripheral_device *ididev,
 	bat_supervision |= (SYSTEMOFF_LEVEL_2900MV << BAT_SUPERV_SOFFLV_O);
 	bat_supervision |= (SYSOFF_ENABLE_ALL << BAT_SUPERV_SOFFEN_O);
 
-	iowrite32(bat_supervision, bnt_drv_data.p_pmu_bat_superv);
+	brown_out_pmu_iowrite(&bnt_drv_data,
+				BAT_SUPERV_OFFSET, bat_supervision);
+
 
 	/* Issuing Battery Supervision Write Strobe */
-	bat_supervision_wr = ioread32(bnt_drv_data.p_pmu_bat_superv_wr);
+	bat_supervision_wr = brown_out_pmu_ioread(&bnt_drv_data,
+						BAT_SUPERV_WR_OFFSET);
+
 	bat_supervision_wr |= (1 << BAT_SUPERV_WR_WS_O);
-	iowrite32(bat_supervision_wr, bnt_drv_data.p_pmu_bat_superv_wr);
+	brown_out_pmu_iowrite(&bnt_drv_data,
+				BAT_SUPERV_WR_OFFSET, bat_supervision_wr);
 
 	ret = idi_set_power_state(bnt_drv_data.p_idi_device,
 					bnt_drv_data.pm_state_dis, false);
@@ -218,9 +228,6 @@ static int __init brown_out_drv_probe(struct idi_peripheral_device *ididev,
 	return 0;
 
 set_pm_state_fail:
-	iounmap(bnt_drv_data.p_pmu_bat_uv_det);
-	iounmap(bnt_drv_data.p_pmu_bat_superv);
-	iounmap(bnt_drv_data.p_pmu_bat_superv_wr);
 
 	return ret;
 }
@@ -230,8 +237,6 @@ set_pm_state_fail:
  */
 static int __exit brown_out_drv_remove(struct idi_peripheral_device *ididev)
 {
-	/* Delete allocated resources and mark driver as uninitialised. */
-	iounmap(bnt_drv_data.p_pmu_bat_uv_det);
 
 	return 0;
 }
