@@ -191,7 +191,7 @@ static int mali_platform_memory_layout(struct mali_gpu_device_data *gpu_data)
 	struct property *prop;
 	const __be32 *p;
 	unsigned int val;
-	u32 array[2];
+	u32 array[2] = {0, 0};
 	struct device_node *ngraphics =
 		of_find_matching_node(NULL, xgold_graphics_of_match);
 
@@ -217,20 +217,20 @@ static int mali_platform_memory_layout(struct mali_gpu_device_data *gpu_data)
 		}
 	}
 
-	if (!use_fbapi || (length != 2)) {
-		mali_dbg("Framebuffer memory region not defined\n");
-		gpu_data->fb_start = 0;
-		gpu_data->fb_size = 0;
-	}
-
-	/* protected memory (secvm) */
-	ret = of_property_read_u32_array(ngraphics, "intel,prot-mem", array, 2);
-	if (ret && ret != -EINVAL) {
-		/* property was specified, error occurred while reading */
-		mali_err("could not read prot-mem property, err=%d", ret);
-	} else {
-		gpu_data->fb_start = array[0];
-		gpu_data->fb_size = array[1];
+	/* protected memory (secvm)
+	 * only considered if FB not set */
+	if ((array[0] == 0) && (array[1] == 0)) {
+		ret = of_property_read_u32_array(
+				ngraphics, "intel,prot-mem", array, 2);
+		if (ret && ret != -EINVAL) {
+			/* property was specified, error
+			 * occurred while reading */
+			mali_err("could not read prot-mem property, err=%d",
+					ret);
+		} else {
+			gpu_data->fb_start = array[0];
+			gpu_data->fb_size = array[1];
+		}
 	}
 
 	/* dedicated memory */
