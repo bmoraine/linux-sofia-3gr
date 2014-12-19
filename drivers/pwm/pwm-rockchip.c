@@ -196,6 +196,11 @@ static void rockchip_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct rockchip_pwm_chip *pc = to_rockchip_pwm_chip(chip);
 
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+	device_state_pm_set_state_by_name(pc->pdev,
+		pc->pm_platdata->pm_state_D0_name);
+#endif
+
 	pc->data->set_enable(chip, pwm, false);
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
