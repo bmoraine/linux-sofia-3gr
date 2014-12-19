@@ -97,7 +97,10 @@ inline u32 cif_isp20_pltfrm_read_reg(
 			} \
 		} while ((ioread32(a) & mask) != ((d) & mask)); \
 	}
-
+#define cif_iowrite32OR_verify(d, a, mask) \
+	cif_iowrite32_verify((d) | cif_ioread32(a), a, mask)
+#define cif_iowrite32AND_verify(d, a, mask) \
+	cif_iowrite32_verify((d) & cif_ioread32(a), a, mask)
 
 #ifdef CONFIG_CIF_ISP20_REG_TRACE
 int
