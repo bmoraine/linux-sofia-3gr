@@ -38,6 +38,7 @@ struct rockchip_pwm_chip {
 	struct device *pdev;
 	u64 clk_rate;
 	struct device_pm_platdata *pm_platdata;
+	atomic_t pm_count;
 #else
 	struct clk *clk;
 #endif
@@ -60,6 +61,46 @@ struct rockchip_pwm_data {
 	void (*set_enable)(struct pwm_chip *chip,
 			   struct pwm_device *pwm, bool enable);
 };
+
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+static int rockchip_pwm_enable_clk(struct rockchip_pwm_chip *pc)
+{
+	int ret = 0;
+
+	if (1 == atomic_inc_return(&pc->pm_count)) {
+		ret = device_state_pm_set_state_by_name(pc->pdev,
+				pc->pm_platdata->pm_state_D0_name);
+		if (ret) {
+			atomic_dec(&pc->pm_count);
+			dev_err(pc->pdev, "%s, enable PM state fail %d\n",
+					__func__, ret);
+		}
+	}
+
+	dev_dbg(pc->pdev, "%s, pm_count %d\n", __func__,
+				atomic_read(&pc->pm_count));
+	return ret;
+}
+
+static int rockchip_pwm_disable_clk(struct rockchip_pwm_chip *pc)
+{
+	int ret = 0;
+
+	if (0 == atomic_dec_return(&pc->pm_count)) {
+		ret = device_state_pm_set_state_by_name(pc->pdev,
+				pc->pm_platdata->pm_state_D3_name);
+		if (ret) {
+			atomic_inc(&pc->pm_count);
+			dev_err(pc->pdev, "%s, disable PM state fail %d\n",
+					__func__, ret);
+		}
+	}
+
+	dev_dbg(pc->pdev, "%s, pm_count %d\n", __func__,
+				atomic_read(&pc->pm_count));
+	return ret;
+}
+#endif
 
 static inline struct rockchip_pwm_chip *to_rockchip_pwm_chip(struct pwm_chip *c)
 {
@@ -134,10 +175,9 @@ static int rockchip_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	duty = div;
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
-	ret = device_state_pm_set_state_by_name(pc->pdev,
-		pc->pm_platdata->pm_state_D0_name);
+	ret = rockchip_pwm_enable_clk(pc);
 	if (ret)
-		dev_err(pc->pdev, "Set state return %d\n", ret);
+		return ret;
 #else
 	ret = clk_enable(pc->clk);
 	if (ret)
@@ -149,8 +189,9 @@ static int rockchip_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	writel(0, pc->base + pc->data->regs.cntr);
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
-	ret = device_state_pm_set_state_by_name(pc->pdev,
-		pc->pm_platdata->pm_state_D3_name);
+	ret = rockchip_pwm_disable_clk(pc);
+	if (ret)
+		dev_err(pc->pdev, "Set state return %d\n", ret);
 #else
 	clk_disable(pc->clk);
 #endif
@@ -177,10 +218,9 @@ static int rockchip_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	int ret;
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
-	ret = device_state_pm_set_state_by_name(pc->pdev,
-			pc->pm_platdata->pm_state_D0_name);
+	ret = rockchip_pwm_enable_clk(pc);
 	if (ret)
-		dev_err(pc->pdev, "Set state return %d\n", ret);
+		return ret;
 #else
 	ret = clk_enable(pc->clk);
 	if (ret)
@@ -189,6 +229,7 @@ static int rockchip_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	pc->data->set_enable(chip, pwm, true);
 
+	dev_dbg(pc->pdev, "%s\n", __func__);
 	return 0;
 }
 
@@ -196,19 +237,15 @@ static void rockchip_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct rockchip_pwm_chip *pc = to_rockchip_pwm_chip(chip);
 
-#ifdef CONFIG_PLATFORM_DEVICE_PM
-	device_state_pm_set_state_by_name(pc->pdev,
-		pc->pm_platdata->pm_state_D0_name);
-#endif
-
 	pc->data->set_enable(chip, pwm, false);
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
-	device_state_pm_set_state_by_name(pc->pdev,
-		pc->pm_platdata->pm_state_D3_name);
+	rockchip_pwm_disable_clk(pc);
 #else
 	clk_disable(pc->clk);
 #endif
+
+	dev_dbg(pc->pdev, "%s\n", __func__);
 }
 
 static const struct pwm_ops rockchip_pwm_ops_v1 = {
