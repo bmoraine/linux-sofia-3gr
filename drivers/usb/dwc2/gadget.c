@@ -1528,7 +1528,7 @@ static void s3c_hsotg_handle_rx(struct dwc2_hsotg *hsotg)
 			"SetupDone (Frame=0x%08x, DOPEPCTL=0x%08x)\n",
 			s3c_hsotg_read_frameno(hsotg),
 			readl(hsotg->regs + DOEPCTL(0)));
-		/* XferCmpl is used to complete the transfers */
+		/* OutDone is used to complete the transfers */
 		break;
 
 	case GRXSTS_PKTSTS_OUTRX:
@@ -1808,54 +1808,40 @@ static void s3c_hsotg_epint(struct dwc2_hsotg *hsotg, unsigned int idx,
 	dev_dbg(hsotg->dev, "%s: ep%d(%s) DxEPINT=0x%08x\n",
 		__func__, idx, dir_in ? "in" : "out", ints);
 
+	/* Don't process XferCompl interrupt if it is a setup packet */
+	if (ints & DXEPINT_SETUP || ints & DXEPINT_SETUP_RCVD)
+		ints &= ~DXEPINT_XFERCOMPL;
+
 	if (ints & DXEPINT_XFERCOMPL) {
-		if (ints & DXEPINT_SETUP_RCVD) {  /* Setup or Timeout */
-			dev_dbg(hsotg->dev, "%s: Setup/Timeout\n",  __func__);
+		if (hs_ep->isochronous && hs_ep->interval == 1) {
+			if (ctrl & DXEPCTL_EOFRNUM)
+				ctrl |= DXEPCTL_SETEVENFR;
+			else
+				ctrl |= DXEPCTL_SETODDFR;
+			writel(ctrl, hsotg->regs + epctl_reg);
+		}
 
-			if (using_dma(hsotg) && idx == 0) {
-				/*
-				 * this is the notification we've received a
-				 * setup packet. In non-DMA mode we'd get this
-				 * from the RXFIFO, instead we need to process
-				 * the setup here.
-				 */
+		dev_dbg(hsotg->dev,
+			"%s: XferCompl: DxEPCTL=0x%08x, DXEPTSIZ=%08x\n",
+			__func__, readl(hsotg->regs + epctl_reg),
+			readl(hsotg->regs + epsiz_reg));
 
-				if (dir_in)
-					WARN_ON_ONCE(1);
-				else
-					s3c_hsotg_handle_outdone(hsotg, 0);
-			}
-		} else {
-			if (hs_ep->isochronous && hs_ep->interval == 1) {
-				if (ctrl & DXEPCTL_EOFRNUM)
-					ctrl |= DXEPCTL_SETEVENFR;
-				else
-					ctrl |= DXEPCTL_SETODDFR;
-				writel(ctrl, hsotg->regs + epctl_reg);
-			}
+		/*
+		 * we get OutDone from the FIFO, so we only need to look
+		 * at completing IN requests here
+		 */
+		if (dir_in) {
+			s3c_hsotg_complete_in(hsotg, hs_ep);
 
-			dev_dbg(hsotg->dev,
-				"%s: XferCompl:DxEPCTL=0x%08x,DXEPTSIZ=%08x\n",
-				__func__, readl(hsotg->regs + epctl_reg),
-				readl(hsotg->regs + epsiz_reg));
-
+			if (idx == 0 && !hs_ep->req)
+				s3c_hsotg_enqueue_setup(hsotg);
+		} else if (using_dma(hsotg)) {
 			/*
-			 * we get OutDone from the FIFO, so we only need to look
-			 * at completing IN requests here
+			 * We're using DMA, we need to fire an OutDone here
+			 * as we ignore the RXFIFO.
 			 */
-			if (dir_in) {
-				s3c_hsotg_complete_in(hsotg, hs_ep);
 
-				if (idx == 0 && !hs_ep->req)
-					s3c_hsotg_enqueue_setup(hsotg);
-			} else if (using_dma(hsotg)) {
-				/*
-				 * We're using DMA, we need to fire an OutDone
-				 *  here as we ignore the RXFIFO.
-				 */
-
-				s3c_hsotg_handle_outdone(hsotg, idx);
-			}
+			s3c_hsotg_handle_outdone(hsotg, idx);
 		}
 	}
 
@@ -1879,6 +1865,24 @@ static void s3c_hsotg_epint(struct dwc2_hsotg *hsotg, unsigned int idx,
 
 	if (ints & DXEPINT_AHBERR)
 		dev_dbg(hsotg->dev, "%s: AHBErr\n", __func__);
+
+	if (ints & DXEPINT_SETUP) {  /* Setup or Timeout */
+		dev_dbg(hsotg->dev, "%s: Setup/Timeout\n",  __func__);
+
+		if (using_dma(hsotg) && idx == 0) {
+			/*
+			 * this is the notification we've received a
+			 * setup packet. In non-DMA mode we'd get this
+			 * from the RXFIFO, instead we need to process
+			 * the setup here.
+			 */
+
+			if (dir_in)
+				WARN_ON_ONCE(1);
+			else
+				s3c_hsotg_handle_outdone(hsotg, 0);
+		}
+	}
 
 	if (ints & DXEPINT_BACK2BACKSETUP)
 		dev_dbg(hsotg->dev, "%s: B2BSetup/INEPNakEff\n", __func__);
