@@ -102,6 +102,19 @@ inline u32 cif_isp20_pltfrm_read_reg(
 #define cif_iowrite32AND_verify(d, a, mask) \
 	cif_iowrite32_verify((d) & cif_ioread32(a), a, mask)
 
+#define cif_isp20_pltfrm_event_init(_dev, _event) \
+	init_waitqueue_head(_event)
+
+#define cif_isp20_pltfrm_event_clear(_dev, _event)
+
+#define cif_isp20_pltfrm_event_signal(_dev, _event) \
+	wake_up_interruptible(_event)
+
+#define cif_isp20_pltfrm_event_wait_timeout( \
+	_dev, _event, _condition, _timeout_us) \
+	wait_event_interruptible_timeout( \
+		*(_event), _condition, (_timeout_us * HZ) / 1000000)
+
 #ifdef CONFIG_CIF_ISP20_REG_TRACE
 int
 cif_isp20_pltfrm_reg_trace_printf(
@@ -168,23 +181,5 @@ const char *cif_isp20_pltfrm_get_device_type(
 
 const char *cif_isp20_pltfrm_dev_string(
 	struct device *dev);
-
-void cif_isp20_pltfrm_event_init(
-	struct device *dev,
-	wait_queue_head_t *event);
-
-void cif_isp20_pltfrm_event_clear(
-	struct device *dev,
-	wait_queue_head_t *event);
-
-void cif_isp20_pltfrm_event_signal(
-	struct device *dev,
-	wait_queue_head_t *event);
-
-int cif_isp20_pltfrm_event_wait_timeout(
-	struct device *dev,
-	wait_queue_head_t *event,
-	bool condition,
-	unsigned long timeout_us);
 
 #endif

@@ -1445,36 +1445,6 @@ const char *cif_isp20_pltfrm_dev_string(
 	return dev_driver_string(dev);
 }
 
-void cif_isp20_pltfrm_event_init(
-	struct device *dev,
-	wait_queue_head_t *event)
-{
-	init_waitqueue_head(event);
-}
-
-void cif_isp20_pltfrm_event_clear(
-	struct device *dev,
-	wait_queue_head_t *event)
-{
-}
-
-void cif_isp20_pltfrm_event_signal(
-	struct device *dev,
-	wait_queue_head_t *event)
-{
-	wake_up_interruptible(event);
-}
-
-int cif_isp20_pltfrm_event_wait_timeout(
-	struct device *dev,
-	wait_queue_head_t *event,
-	bool condition,
-	unsigned long timeout_us)
-{
-	return wait_event_interruptible_timeout(
-		*event, condition, (timeout_us * HZ) / 1000000);
-}
-
 struct device *cif_isp20_pltfrm_get_img_src_device(
 	struct device *dev,
 	enum cif_isp20_inp inp)
