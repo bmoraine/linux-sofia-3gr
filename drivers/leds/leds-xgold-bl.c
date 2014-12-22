@@ -252,7 +252,7 @@ static inline int xgold_led_set_pinctrl_state(struct device *dev,
 	int ret = 0;
 	struct xgold_led_bl_device *pdata = dev_get_drvdata(dev);
 
-	if (!IS_ERR(state)) {
+	if (!IS_ERR_OR_NULL(state)) {
 		ret = pinctrl_select_state(pdata->pinctrl, state);
 		if (ret)
 			dev_err(dev, "%d:could not set pins\n", __LINE__);
@@ -576,7 +576,10 @@ static int xgold_led_bl_suspend(struct device *dev)
 	struct xgold_led_bl_device *led_bl = dev_get_drvdata(dev);
 
 	xgold_led_set_pinctrl_state(dev, led_bl->pins_sleep);
-	return led_bl->set_clk(dev, FALSE);
+	if (led_bl->set_clk)
+		return led_bl->set_clk(dev, FALSE);
+	else
+		return 0;
 }
 
 static int xgold_led_bl_resume(struct device *dev)
