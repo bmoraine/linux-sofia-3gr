@@ -51,6 +51,8 @@
 		cma-heap {
 			memory-region = <&cma_default_region>;
 		};
+		system-heap {
+		};
 	};
 
 	backlight {
