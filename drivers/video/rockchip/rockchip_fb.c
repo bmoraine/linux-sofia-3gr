@@ -38,8 +38,10 @@
 #include <linux/highmem.h>
 #endif
 
+#define H_USE_FENCE	1
+#define ION_HEAP(bit) (1 << (bit))
+
 static bool hdmi_switch_complete;
-static int fence_wait_begin;
 struct list_head saved_list;
 static struct platform_device *fb_pdev;
 static struct rockchip_fb_trsm_ops *trsm_lvds_ops;
@@ -183,6 +185,85 @@ struct rockchip_fb_trsm_ops *rockchip_fb_trsm_ops_get(u16 type)
 	return ops;
 }
 
+static int rockchip_fb_get_pixel_width(int data_format)
+{
+	int pixel_width;
+
+	switch (data_format) {
+	case XBGR888:
+	case ABGR888:
+	case ARGB888:
+		pixel_width = 4 * 8;
+		break;
+	case RGB888:
+		pixel_width = 3 * 8;
+		break;
+	case RGB565:
+		pixel_width = 2 * 8;
+		break;
+	case YUV422:
+	case YUV420:
+	case YUV444:
+		pixel_width = 1 * 8;
+		break;
+	case YUV422_A:
+	case YUV420_A:
+	case YUV444_A:
+		pixel_width = 8;
+		break;
+	default:
+		pr_err("%s:un supported format:0x%x\n", __func__, data_format);
+		return -EINVAL;
+	}
+	return pixel_width;
+}
+
+static int rockchip_fb_get_data_fmt(int data_format)
+{
+	int fb_data_fmt;
+
+	switch (data_format) {
+	case HAL_PIXEL_FORMAT_RGBX_8888:
+		fb_data_fmt = XBGR888;
+		break;
+	case HAL_PIXEL_FORMAT_RGBA_8888:
+		fb_data_fmt = ABGR888;
+		break;
+	case HAL_PIXEL_FORMAT_BGRA_8888:
+		fb_data_fmt = ARGB888;
+		break;
+	case HAL_PIXEL_FORMAT_RGB_888:
+		fb_data_fmt = RGB888;
+		break;
+	case HAL_PIXEL_FORMAT_RGB_565:
+		fb_data_fmt = RGB565;
+		break;
+	case HAL_PIXEL_FORMAT_YCbCr_422_SP:	/* yuv422 */
+		fb_data_fmt = YUV422;
+		break;
+	case HAL_PIXEL_FORMAT_YCrCb_NV12:	/* YUV420---uvuvuv */
+		fb_data_fmt = YUV420;
+		break;
+	case HAL_PIXEL_FORMAT_YCrCb_444:	/* yuv444 */
+		fb_data_fmt = YUV444;
+		break;
+	case HAL_PIXEL_FORMAT_YCrCb_NV12_10:	/* yuv444 */
+		fb_data_fmt = YUV420_A;
+		break;
+	case HAL_PIXEL_FORMAT_YCbCr_422_SP_10:	/* yuv444 */
+		fb_data_fmt = YUV422_A;
+		break;
+	case HAL_PIXEL_FORMAT_YCrCb_420_SP_10:	/* yuv444 */
+		fb_data_fmt = YUV444_A;
+		break;
+	default:
+		pr_err("%s:un supported format:0x%x\n", __func__, data_format);
+		return -EINVAL;
+	}
+
+	return fb_data_fmt;
+}
+
 int rockchip_fb_calc_fps(struct rockchip_screen *screen, u32 pixclock)
 {
 	u32 x, y;
@@ -297,8 +378,20 @@ bool rockchip_fb_poll_wait_frame_complete(void)
 	return true;
 }
 
-void rockchip_fb_fence_wait(struct rockchip_vop_driver *dev_drv,
-			struct sync_fence *fence)
+static int rockchip_fb_get_list_stat(struct rockchip_vop_driver *dev_drv)
+{
+	int i, j;
+
+	i = list_empty(&dev_drv->update_regs_list);
+	j = list_empty(&saved_list);
+	if ((i == 1) && (j == 1))
+		return 1;
+	else
+		return 0;
+}
+
+static void rockchip_fb_fence_wait(struct rockchip_vop_driver *dev_drv,
+			       struct sync_fence *fence)
 {
 	int err = sync_fence_wait(fence, 1000);
 
@@ -311,50 +404,380 @@ void rockchip_fb_fence_wait(struct rockchip_vop_driver *dev_drv,
 		dev_err(dev_drv->dev, "error waiting on fence\n");
 }
 
-void rockchip_fb_free_dma_buf(struct rockchip_fb_dma_buf_data *dma_buf_data)
+static int rockchip_fb_check_config_var(struct rockchip_fb_area_par *area_par,
+				    struct rockchip_screen *screen)
 {
-	if (dma_buf_data->acq_fence)
-		sync_fence_put(dma_buf_data->acq_fence);
+	if ((area_par->x_offset + area_par->xact > area_par->xvir) ||
+	    (area_par->xact <= 0) || (area_par->yact <= 0) ||
+	    (area_par->xvir <= 0) || (area_par->yvir <= 0)) {
+		pr_err("check config var fail 0:\n"
+		       "x_offset=%d,xact=%d,xvir=%d\n",
+		       area_par->x_offset, area_par->xact, area_par->xvir);
+		return -EINVAL;
+	}
 
-	memset(dma_buf_data, 0, sizeof(struct rockchip_fb_dma_buf_data));
+	if ((area_par->xpos + area_par->xsize > screen->mode.xres) ||
+	    (area_par->ypos + area_par->ysize > screen->mode.yres) ||
+	    (area_par->xsize <= 0) || (area_par->ysize <= 0)) {
+		pr_err("check config var fail 1:\n"
+		       "xpos=%d,xsize=%d,xres=%d\n"
+		       "ypos=%d,ysize=%d,yres=%d\n",
+		       area_par->xpos, area_par->xsize, screen->mode.xres,
+		       area_par->ypos, area_par->ysize, screen->mode.yres);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static void rockchip_fb_free_dma_buf(struct rockchip_vop_driver *dev_drv,
+				 struct rockchip_vop_win *win)
+{
+	int i;
+	struct rockchip_vop_win_area *area;
+	struct rockchip_fb *sfb_info = platform_get_drvdata(fb_pdev);
+
+	if (unlikely(!dev_drv) || unlikely(!win))
+		return;
+
+	for (i = 0; i < win->area_num; i++) {
+		area = &win->area[i];
+
+		if (area->ion_hdl)
+			ion_free(sfb_info->ion_client, area->ion_hdl);
+
+		if (area->acq_fence)
+			sync_fence_put(area->acq_fence);
+	}
+	memset(win, 0, sizeof(*win));
+}
+
+static void rockchip_fb_free_last_regs(struct rockchip_vop_driver *dev_drv,
+				   struct rockchip_fb_reg_data *regs)
+{
+	int i = 0;
+	struct rockchip_vop_win *win = NULL;
+
+	if (unlikely(!dev_drv) || unlikely(!regs))
+		return;
+
+	mutex_lock(&dev_drv->regs_lock);
+
+	for (i = 0; i < regs->win_num; i++) {
+		win = &regs->vop_win[i];
+		rockchip_fb_free_dma_buf(dev_drv, win);
+	}
+	kfree(regs);
+
+	mutex_unlock(&dev_drv->regs_lock);
+}
+
+static int rockchip_fb_set_win_par(struct fb_info *info,
+			       struct rockchip_fb_win_par *win_par,
+			       struct rockchip_vop_win *vop_win)
+{
+	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)info->par;
+	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
+	struct rockchip_screen *screen = dev_drv->cur_screen;
+	struct rockchip_screen pmy_screen;
+	struct fb_fix_screeninfo *fix = &info->fix;
+	u8 pixel_width = 0;
+	u32 vir_width_bit;
+	u32 stride, uv_stride;
+	u32 stride_32bit_1 = 0;
+	u32 stride_32bit_2 = 0;
+	u32 xvir = 0, yvir = 0;
+	u32 xoffset = 0, yoffset = 0;
+	u16 uv_x_off, uv_y_off, uv_y_act;
+	bool is_pic_yuv = false;
+	u8 ppixel_a = 0, global_a = 0;
+	int i = 0;
+
+	vop_win->id = win_par->win_id;
+	vop_win->z_order = win_par->z_order;
+
+	rockchip_get_prmry_screen(&pmy_screen);
+	for (i = 0; i < vop_win->area_num; i++) {
+		vop_win->area[i].format = rockchip_fb_get_data_fmt(
+				win_par->area_par[i].data_format);
+		pixel_width = rockchip_fb_get_pixel_width(
+				vop_win->area[i].format);
+
+		rockchip_fb_check_config_var(
+				&win_par->area_par[i], &pmy_screen);
+
+		/* visiable pos in panel */
+		vop_win->area[i].xpos = win_par->area_par[i].xpos;
+		vop_win->area[i].ypos = win_par->area_par[i].ypos;
+
+		/* realy size in panel */
+		vop_win->area[i].xsize = win_par->area_par[i].xsize;
+		vop_win->area[i].ysize = win_par->area_par[i].ysize;
+
+		/* active size in panel */
+		vop_win->area[i].xact = win_par->area_par[i].xact;
+		vop_win->area[i].yact = win_par->area_par[i].yact;
+
+		xoffset = win_par->area_par[i].x_offset;	/* buf offset */
+		yoffset = win_par->area_par[i].y_offset;
+		xvir = win_par->area_par[i].xvir;
+		yvir = win_par->area_par[i].yvir;
+
+		vop_win->area[i].xvir = xvir;
+		vop_win->area[i].yvir = yvir;
+
+		vir_width_bit = pixel_width * xvir;
+		stride_32bit_1 =  ALIGN_N_TIMES(vir_width_bit, 32) / 8;
+		stride_32bit_2 =  ALIGN_N_TIMES(vir_width_bit * 2, 32) / 8;
+
+		stride = stride_32bit_1;	/* default rgb */
+		fix->line_length = stride;
+		vop_win->area[i].y_vir_stride = stride >> 2;
+
+		if (screen->interlace == 1)
+			vop_win->area[i].y_offset =
+				yoffset * stride * 2 +
+				xoffset * pixel_width / 8;
+		else
+			vop_win->area[i].y_offset =
+				yoffset * stride + xoffset * pixel_width / 8;
+	}
+
+	/* update alpha config */
+	ppixel_a = ((vop_win->area[0].format == ARGB888) ||
+		    (vop_win->area[0].format == ABGR888)) ? 1 : 0;
+	global_a = (win_par->g_alpha_val == 0) ? 0 : 1;
+	vop_win->alpha_en = ppixel_a | global_a;
+	vop_win->g_alpha_val = win_par->g_alpha_val;
+	vop_win->alpha_mode = win_par->alpha_mode;
+
+	/* only win0 support yuv and win0 only have a area */
+	switch (vop_win->area[0].format) {
+	case YUV422:
+	case YUV422_A:
+		is_pic_yuv = true;
+		stride = stride_32bit_1;
+		uv_stride = stride_32bit_1 >> 1;
+		uv_x_off = xoffset >> 1;
+		uv_y_off = yoffset;
+		fix->line_length = stride;
+		uv_y_act = win_par->area_par[0].yact >> 1;
+		break;
+	case YUV420:
+	case YUV420_A:
+		is_pic_yuv = true;
+		stride = stride_32bit_1;
+		uv_stride = stride_32bit_1;
+		uv_x_off = xoffset;
+		uv_y_off = yoffset >> 1;
+		fix->line_length = stride;
+		uv_y_act = win_par->area_par[0].yact >> 1;
+		break;
+	case YUV444:
+	case YUV444_A:
+		is_pic_yuv = true;
+		stride = stride_32bit_1;
+		uv_stride = stride_32bit_2;
+		uv_x_off = xoffset * 2;
+		uv_y_off = yoffset;
+		fix->line_length = stride << 2;
+		uv_y_act = win_par->area_par[0].yact;
+		break;
+	default:
+		break;
+	}
+
+	if (is_pic_yuv) {
+		vop_win->area[0].cbr_start =
+			vop_win->area[0].smem_start + xvir * yvir;
+		vop_win->area[0].uv_vir_stride = uv_stride >> 2;
+
+		if (screen->interlace == 1) {
+			vop_win->area[0].c_offset =
+				uv_y_off * uv_stride * 2 +
+				uv_x_off * pixel_width / 8;
+		} else {
+			vop_win->area[0].c_offset =
+				uv_y_off * uv_stride +
+				uv_x_off * pixel_width / 8;
+		}
+	}
+
+	return 0;
+}
+
+static int rockchip_fb_set_win_buffer(struct fb_info *info,
+				  struct rockchip_fb_win_par *win_par,
+				  struct rockchip_vop_win *vop_win)
+{
+	struct rockchip_fb *sfb_info = platform_get_drvdata(fb_pdev);
+	struct ion_handle *hdl;
+	ion_phys_addr_t phy_addr;
+	int ion_fd, acq_fence_fd;
+	size_t len;
+	int ret = 0, i = 0;
+
+	vop_win->area[0].smem_start = 0;
+	vop_win->area_num = 0;
+
+	if (win_par->area_par[0].phy_addr == 0) {
+		for (i = 0; i < SFA_WIN_MAX_AREA; i++) {
+			ion_fd = win_par->area_par[i].ion_fd;
+			if (ion_fd <= 0)
+				continue;
+
+			hdl = ion_import_dma_buf(sfb_info->ion_client,
+						 ion_fd);
+			if (IS_ERR(hdl)) {
+				pr_info("%s: Could not import handle: %d\n",
+					__func__, (int)hdl);
+				/*return -EINVAL; */
+				break;
+			}
+			vop_win->area_num++;
+			vop_win->area[i].ion_hdl = hdl;
+
+			ret = ion_phys(sfb_info->ion_client, hdl, &phy_addr,
+				       &len);
+			if (ret < 0) {
+				pr_err("%s:ion map to get phy addr failed\n",
+				       __func__);
+				ion_free(sfb_info->ion_client, hdl);
+				return -ENOMEM;
+			}
+			vop_win->area[i].smem_start = phy_addr;
+			vop_win->area_buf_num++;
+		}
+	} else {
+		vop_win->area[0].smem_start = win_par->area_par[0].phy_addr;
+		vop_win->area_num = 1;
+	}
+
+	if (vop_win->area[0].smem_start == 0 || vop_win->area_num == 0)
+		return 0;
+
+	for (i = 0; i < vop_win->area_num; i++) {
+		acq_fence_fd = win_par->area_par[i].acq_fence_fd;
+		if (acq_fence_fd > 0)
+			vop_win->area[i].acq_fence =
+				sync_fence_fdget(acq_fence_fd);
+	}
+
+	return 0;
+}
+
+static int rockchip_fb_get_win_from_regs(struct rockchip_fb_reg_data *regs,
+				     struct rockchip_vop_win *vop_win)
+{
+	int i;
+	struct rockchip_vop_win *regs_win = NULL;
+
+	if (unlikely(!regs) || unlikely(!vop_win))
+		return 0;
+
+	for (i = 0; i < regs->win_num; i++) {
+		if (regs->vop_win[i].id == vop_win->id) {
+			regs_win = &regs->vop_win[i];
+			break;
+		}
+	}
+	if (regs_win == NULL)
+		return -EINVAL;
+
+	memcpy(vop_win, regs_win, sizeof(*regs_win));
+	return 0;
 }
 
 static void rockchip_fb_update_reg(struct rockchip_vop_driver *dev_drv,
-			       struct rockchip_reg_data *regs)
+			       struct rockchip_fb_reg_data *regs)
 {
-	int i, ret = 0;
+	int i, j, ret;
+	struct rockchip_vop_win *win;
 	ktime_t timestamp = dev_drv->vsync_info.timestamp;
+	bool wait_for_vsync;
+	int count = 100;
+	unsigned int dsp_addr[4];
+	long timeout;
+	u32 new_start, reg_start;
 
-	if (dev_drv->ops->lcdc_reg_update)
-		dev_drv->ops->lcdc_reg_update(dev_drv);
-
-	if (dev_drv->wait_fs == 0) {
-		ret = wait_event_interruptible_timeout(dev_drv->vsync_info.wait,
-				!ktime_equal(timestamp,
-					     dev_drv->vsync_info.timestamp),
-				msecs_to_jiffies(dev_drv->cur_screen->ft + 5));
-	}
-
-	sw_sync_timeline_inc(dev_drv->timeline, 1);
-
-	if (dev_drv->win_data.acq_fence_fd[0] >= 0) {
-		for (i = 0; i < SFA_MAX_LAYER_SUPPORT; i++) {
-			if (dev_drv->win_data.acq_fence_fd[i] > 0) {
-				put_unused_fd(
-					dev_drv->win_data.acq_fence_fd[i]);
-				dev_err(dev_drv->dev, "acq_fd=%d\n",
-					dev_drv->win_data.acq_fence_fd[i]);
-			}
-			rockchip_fb_free_dma_buf(&regs->dma_buf_data[i]);
+	/* acq_fence wait */
+	for (i = 0; i < regs->win_num; i++) {
+		win = &regs->vop_win[i];
+		for (j = 0; j < SFA_WIN_MAX_AREA; j++) {
+			if (win->area[j].acq_fence)
+				rockchip_fb_fence_wait(dev_drv,
+						   win->area[j].acq_fence);
 		}
 	}
+
+	for (i = 0; i < dev_drv->num_win; i++) {
+		win = dev_drv->win[i];
+		ret = rockchip_fb_get_win_from_regs(regs, win);
+
+		if (ret == 0) {
+			mutex_lock(&dev_drv->win_cfg_lock);
+			win->state = 1;
+			dev_drv->ops->set_par(dev_drv, i);
+			dev_drv->ops->pan_display(dev_drv, i);
+			mutex_unlock(&dev_drv->win_cfg_lock);
+		} else {
+			win->z_order = -1;
+			win->state = 0;
+		}
+	}
+
+	dev_drv->ops->ovl_mgr(dev_drv, 0, 1);
+	dev_drv->ops->cfg_done(dev_drv);
+
+	do {
+		timestamp = dev_drv->vsync_info.timestamp;
+		timeout = wait_event_interruptible_timeout(
+				dev_drv->vsync_info.wait,
+				ktime_compare(
+					dev_drv->vsync_info.timestamp,
+					timestamp) > 0,
+				msecs_to_jiffies(25));
+
+		dev_drv->ops->get_dsp_addr(dev_drv, dsp_addr);
+		wait_for_vsync = false;
+		for (i = 0; i < dev_drv->num_win; i++) {
+			if (dev_drv->win[i]->state == 1) {
+				new_start =
+					dev_drv->win[i]->area[0].smem_start +
+					dev_drv->win[i]->area[0].y_offset;
+				reg_start = dsp_addr[i];
+
+				if (unlikely(new_start != reg_start)) {
+					wait_for_vsync = true;
+					dev_dbg(dev_drv->dev,
+						 "win%d:new_addr:0x%08x cur_addr:0x%08x--%d\n",
+						 i,
+						 new_start,
+						 reg_start,
+						 101 - count);
+					break;
+				}
+			}
+		}
+	} while (wait_for_vsync && count--);
+
+#ifdef H_USE_FENCE
+	sw_sync_timeline_inc(dev_drv->timeline, 1);
+#endif
+
+	if (dev_drv->last_regs)
+		rockchip_fb_free_last_regs(dev_drv, dev_drv->last_regs);
+
+	mutex_lock(&dev_drv->regs_lock);
+	dev_drv->last_regs = regs;
+	mutex_unlock(&dev_drv->regs_lock);
 }
 
 static void rockchip_fb_update_regs_handler(struct kthread_work *work)
 {
 	struct rockchip_vop_driver *dev_drv =
 	    container_of(work, struct rockchip_vop_driver, update_regs_work);
-	struct rockchip_reg_data *data, *next;
+	struct rockchip_fb_reg_data *data, *next;
+	/* struct list_head saved_list; */
 
 	mutex_lock(&dev_drv->update_regs_list_lock);
 	saved_list = dev_drv->update_regs_list;
@@ -364,20 +787,130 @@ static void rockchip_fb_update_regs_handler(struct kthread_work *work)
 	list_for_each_entry_safe(data, next, &saved_list, list) {
 		rockchip_fb_update_reg(dev_drv, data);
 		list_del(&data->list);
-		kfree(data);
 	}
+
+	if (dev_drv->wait_fs && list_empty(&dev_drv->update_regs_list))
+		wake_up(&dev_drv->update_regs_wait);
 }
 
-static int rockchip_fb_get_list_stat(struct rockchip_vop_driver *dev_drv)
+static int rockchip_fb_update_win_config(struct fb_info *info,
+				     struct rockchip_fb_win_cfg_data *win_data)
 {
-	int i, j;
+	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)info->par;
+	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
+	struct rockchip_fb_reg_data *regs;
+	struct rockchip_fb_win_par *win_par;
+	struct rockchip_vop_win *vop_win;
+	int ret = 0, i = 0, j = 0;
+	int list_is_empty = 0;
 
-	i = list_empty(&dev_drv->update_regs_list);
-	j = list_empty(&saved_list);
-	if ((i == 1) && (j == 1))
-		return 1;
-	else
-		return 0;
+#ifdef H_USE_FENCE
+	struct sync_fence *release_fence[SFA_MAX_BUF_NUM];
+	struct sync_fence *retire_fence;
+	struct sync_pt *release_sync_pt[SFA_MAX_BUF_NUM];
+	struct sync_pt *retire_sync_pt;
+	char fence_name[20];
+#endif
+
+	regs = kzalloc(sizeof(*regs), GFP_KERNEL);
+	if (!regs) {
+		pr_info("kmalloc rockchip_fb_reg_data failed\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < dev_drv->num_win; i++) {
+		win_par = &win_data->win_par[i];
+		vop_win = &regs->vop_win[j];
+		if (win_par->win_id >= dev_drv->num_win) {
+			pr_err("error:win_id bigger than vop win_num\n");
+			continue;
+		}
+
+		ret = rockchip_fb_set_win_buffer(info, win_par, vop_win);
+		if (ret < 0)
+			return -ENOMEM;
+
+		ret = rockchip_fb_set_win_par(info, win_par, vop_win);
+		regs->win_num++;
+		regs->buf_num += vop_win->area_buf_num;
+		j++;
+	}
+
+	mutex_lock(&dev_drv->cfg_lock);
+	if (!(dev_drv->suspend_flag == 0)) {
+		rockchip_fb_update_reg(dev_drv, regs);
+		pr_info("%s: suspend_flag = 1\n", __func__);
+		goto err_out;
+	}
+
+	dev_drv->timeline_max++;
+#ifdef H_USE_FENCE
+	for (i = 0; i < SFA_MAX_BUF_NUM; i++) {
+		if (i < regs->buf_num) {
+			sprintf(fence_name, "fence%d", i);
+			win_data->rel_fence_fd[i] = get_unused_fd();
+			if (win_data->rel_fence_fd[i] < 0) {
+				pr_info("get fence fd failed,rel_fence_fd=%d\n",
+					win_data->rel_fence_fd[i]);
+				ret = -EFAULT;
+				goto err_out;
+			}
+			release_sync_pt[i] =
+			    sw_sync_pt_create(dev_drv->timeline,
+					      dev_drv->timeline_max);
+			release_fence[i] =
+			    sync_fence_create(fence_name, release_sync_pt[i]);
+			sync_fence_install(release_fence[i],
+					   win_data->rel_fence_fd[i]);
+		} else {
+			win_data->rel_fence_fd[i] = -1;
+		}
+	}
+
+	win_data->ret_fence_fd = get_unused_fd();
+	if (win_data->ret_fence_fd < 0) {
+		pr_info("ret_fence_fd=%d\n", win_data->ret_fence_fd);
+		ret = -EFAULT;
+		goto err_out;
+	}
+	retire_sync_pt =
+	    sw_sync_pt_create(dev_drv->timeline, dev_drv->timeline_max);
+	retire_fence = sync_fence_create("ret_fence", retire_sync_pt);
+	sync_fence_install(retire_fence, win_data->ret_fence_fd);
+#else
+	for (i = 0; i < SFA_MAX_BUF_NUM; i++)
+		win_data->rel_fence_fd[i] = -1;
+
+	win_data->ret_fence_fd = -1;
+#endif
+
+	if (dev_drv->wait_fs == 0) {
+		mutex_lock(&dev_drv->update_regs_list_lock);
+		list_add_tail(&regs->list, &dev_drv->update_regs_list);
+		mutex_unlock(&dev_drv->update_regs_list_lock);
+		queue_kthread_work(&dev_drv->update_regs_worker,
+				   &dev_drv->update_regs_work);
+	} else {
+		mutex_lock(&dev_drv->update_regs_list_lock);
+		list_is_empty = rockchip_fb_get_list_stat(dev_drv);
+		mutex_unlock(&dev_drv->update_regs_list_lock);
+		if (!list_is_empty) {
+			ret = wait_event_timeout(dev_drv->update_regs_wait,
+					rockchip_fb_get_list_stat(dev_drv),
+					msecs_to_jiffies(60));
+			if (ret > 0)
+				rockchip_fb_update_reg(dev_drv, regs);
+			else
+				pr_info("%s: wait update_regs_wait timeout\n",
+					__func__);
+		} else if (ret == 0) {
+			rockchip_fb_update_reg(dev_drv, regs);
+		}
+	}
+
+err_out:
+	mutex_unlock(&dev_drv->cfg_lock);
+	return ret;
 }
 
 static int rockchip_fb_open(struct fb_info *info, int user)
@@ -453,10 +986,10 @@ static ssize_t rockchip_fb_read(struct fb_info *info, char __user *buf,
 	win = dev_drv->win[win_id];
 
 	/* only read the current frame buffer */
-	if (win->format == RGB565)
-		total_size = win->xact * win->yact << 1;
+	if (win->area[0].format == RGB565)
+		total_size = win->area[0].xact * win->area[0].yact << 1;
 	else
-		total_size = win->xact * win->yact << 2;
+		total_size = win->area[0].xact * win->area[0].yact << 2;
 
 	if (p >= total_size)
 		return 0;
@@ -471,7 +1004,7 @@ static ssize_t rockchip_fb_read(struct fb_info *info, char __user *buf,
 	if (!buffer)
 		return -ENOMEM;
 
-	src = (u8 __iomem *)(info->screen_base + p + win->y_offset);
+	src = (u8 __iomem *)(info->screen_base + p + win->area[0].y_offset);
 
 	while (count) {
 		c = (count > PAGE_SIZE) ? PAGE_SIZE : count;
@@ -515,10 +1048,10 @@ static ssize_t rockchip_fb_write(struct fb_info *info, const char __user *buf,
 	win = dev_drv->win[win_id];
 
 	/* write the current frame buffer */
-	if (win->format == RGB565)
-		total_size = win->xact * win->yact << 1;
+	if (win->area[0].format == RGB565)
+		total_size = win->area[0].xact * win->area[0].yact << 1;
 	else
-		total_size = win->xact * win->yact << 2;
+		total_size = win->area[0].xact * win->area[0].yact << 2;
 
 	if (p > total_size)
 		return -EFBIG;
@@ -539,7 +1072,7 @@ static ssize_t rockchip_fb_write(struct fb_info *info, const char __user *buf,
 	if (!buffer)
 		return -ENOMEM;
 
-	dst = (u8 __iomem *)(info->screen_base + p + win->y_offset);
+	dst = (u8 __iomem *)(info->screen_base + p + win->area[0].y_offset);
 
 	while (count) {
 		c = (count > PAGE_SIZE) ? PAGE_SIZE : count;
@@ -654,51 +1187,102 @@ static int rockchip_fb_set_par(struct fb_info *info)
 	/* calculate y_offset,c_offset,line_length,cblen and crlen  */
 	switch (data_format) {
 	case HAL_PIXEL_FORMAT_RGBX_8888:
-		win->format = XBGR888;
-		fix->line_length = 4 * xvir;
-		win->y_offset = (yoffset * xvir + xoffset) * 4;
+		win->area[0].format = XBGR888;
+		stride = 4 * xvir;
+		fix->line_length = stride;
+		if (screen->interlace == 1)
+			win->area[0].y_offset =
+				yoffset * stride * 2 + xoffset * 4;
+		else
+			win->area[0].y_offset = yoffset * stride + xoffset * 4;
 		break;
 	case HAL_PIXEL_FORMAT_RGBA_8888:
-		win->format = ABGR888;
-		fix->line_length = 4 * xvir;
-		win->y_offset = (yoffset * xvir + xoffset) * 4;
+		win->area[0].format = ABGR888;
+		stride = 4 * xvir;
+		fix->line_length = stride;
+		if (screen->interlace == 1)
+			win->area[0].y_offset =
+				yoffset * stride * 2 + xoffset * 4;
+		else
+			win->area[0].y_offset = yoffset * stride + xoffset * 4;
 		break;
 	case HAL_PIXEL_FORMAT_BGRA_8888:
-		win->format = ARGB888;
-		fix->line_length = 4 * xvir;
-		win->y_offset = (yoffset * xvir + xoffset) * 4;
+		win->area[0].format = ARGB888;
+		stride = 4 * xvir;
+		fix->line_length = stride;
+		if (screen->interlace == 1)
+			win->area[0].y_offset =
+				yoffset * stride * 2 + xoffset * 4;
+		else
+			win->area[0].y_offset = yoffset * stride + xoffset * 4;
 		break;
 	case HAL_PIXEL_FORMAT_RGB_888:
-		win->format = RGB888;
-		fix->line_length = 3 * xvir;
-		win->y_offset = (yoffset * xvir + xoffset) * 3;
+		win->area[0].format = RGB888;
+		stride = 3 * xvir;
+		fix->line_length = stride;
+		if (screen->interlace == 1)
+			win->area[0].y_offset =
+				yoffset * stride * 2 + xoffset * 3;
+		else
+			win->area[0].y_offset = yoffset * stride + xoffset * 3;
 		break;
 	case HAL_PIXEL_FORMAT_RGB_565:
-		win->format = RGB565;
-		fix->line_length = 2 * xvir;
-		win->y_offset = (yoffset * xvir + xoffset) * 2;
+		win->area[0].format = RGB565;
+		stride = 2 * xvir;
+		fix->line_length = stride;
+		if (screen->interlace == 1)
+			win->area[0].y_offset =
+				yoffset * stride * 2 + xoffset * 2;
+		else
+			win->area[0].y_offset = yoffset * stride + xoffset * 2;
 		break;
 	case HAL_PIXEL_FORMAT_YCbCr_422_SP:
-		win->format = YUV422;
-		fix->line_length = xvir;
+		win->area[0].format = YUV422;
+		stride = xvir;
+		uv_stride = stride >> 1;
+		fix->line_length = stride;
 		cblen = (xvir * yvir) >> 1;
 		crlen = cblen;
-		win->y_offset = yoffset * xvir + xoffset;
-		win->c_offset = win->y_offset;
+		if (screen->interlace == 1) {
+			win->area[0].y_offset = yoffset * stride * 2 + xoffset;
+			win->area[0].c_offset =
+				yoffset * uv_stride * 2 + (xoffset >> 1);
+		} else {
+			win->area[0].y_offset = yoffset * stride + xoffset;
+			win->area[0].c_offset =
+				yoffset * uv_stride + (xoffset >> 1);
+		}
 		break;
 	case HAL_PIXEL_FORMAT_YCrCb_NV12:
-		win->format = YUV420;
-		fix->line_length = xvir;
+		win->area[0].format = YUV420;
+		stride = xvir;
+		uv_stride = stride;
+		fix->line_length = stride;
 		cblen = (xvir * yvir) >> 2;
 		crlen = cblen;
-		win->y_offset = yoffset * xvir + xoffset;
-		win->c_offset = (yoffset >> 1) * xvir + xoffset;
+		if (screen->interlace == 1) {
+			win->area[0].y_offset = yoffset * stride * 2 + xoffset;
+			win->area[0].c_offset = yoffset  * uv_stride + xoffset;
+		} else {
+			win->area[0].y_offset = yoffset * stride + xoffset;
+			win->area[0].c_offset =
+				(yoffset >> 1) * uv_stride + xoffset;
+		}
 		break;
 	case HAL_PIXEL_FORMAT_YCrCb_444:
-		win->format = 5;
-		fix->line_length = xvir << 2;
-		win->y_offset = yoffset * xvir + xoffset;
-		win->c_offset = yoffset * 2 * xvir + (xoffset << 1);
+		win->area[0].format = YUV444;
+		stride = xvir;
+		uv_stride = stride << 1;
+		fix->line_length = stride << 2;
+		if (screen->interlace == 1) {
+			win->area[0].y_offset = yoffset * stride * 2 + xoffset;
+			win->area[0].c_offset =
+				yoffset * uv_stride * 2 + (xoffset << 1);
+		} else {
+			win->area[0].y_offset = yoffset * stride + xoffset;
+			win->area[0].c_offset =
+				yoffset * uv_stride + (xoffset << 1);
+		}
 		cblen = (xvir * yvir);
 		crlen = cblen;
 		break;
@@ -708,20 +1292,19 @@ static int rockchip_fb_set_par(struct fb_info *info)
 		return -EINVAL;
 	}
 
-	stride = fix->line_length;
-	win->y_vir_stride = stride >> 2;
-	win->uv_vir_stride = uv_stride >> 2;
-	win->xpos = xpos;
-	win->ypos = ypos;
-	win->xsize = xsize;
-	win->ysize = ysize;
+	win->area[0].y_vir_stride = stride >> 2;
+	win->area[0].uv_vir_stride = uv_stride >> 2;
+	win->area[0].xpos = xpos;
+	win->area[0].ypos = ypos;
+	win->area[0].xsize = xsize;
+	win->area[0].ysize = ysize;
 
-	win->smem_start = fix->smem_start;
-	win->cbr_start = fix->mmio_start;
-	win->xact = var->xres;	/* winx active window height and width */
-	win->yact = var->yres;
-	win->xvir = var->xres_virtual;	/* virtual resolution stride */
-	win->yvir = var->yres_virtual;
+	win->area[0].smem_start = fix->smem_start;
+	win->area[0].cbr_start = fix->mmio_start;
+	win->area[0].xact = var->xres;
+	win->area[0].yact = var->yres;
+	win->area[0].xvir = var->xres_virtual;	/* virtual resolution stride */
+	win->area[0].yvir = var->yres_virtual;
 
 	dev_drv->ops->set_par(dev_drv, win_id);
 
@@ -746,29 +1329,29 @@ static int rockchip_fb_pan_display(struct fb_var_screeninfo *var,
 
 	win = dev_drv->win[win_id];
 
-	switch (win->format) {
+	switch (win->area[0].format) {
 	case XBGR888:
 	case ARGB888:
 	case ABGR888:
-		win->y_offset = (yoffset * xvir + xoffset) * 4;
+		win->area[0].y_offset = (yoffset * xvir + xoffset) * 4;
 		break;
 	case RGB888:
-		win->y_offset = (yoffset * xvir + xoffset) * 3;
+		win->area[0].y_offset = (yoffset * xvir + xoffset) * 3;
 		break;
 	case RGB565:
-		win->y_offset = (yoffset * xvir + xoffset) * 2;
+		win->area[0].y_offset = (yoffset * xvir + xoffset) * 2;
 		break;
 	case YUV422:
-		win->y_offset = yoffset * xvir + xoffset;
-		win->c_offset = win->y_offset;
+		win->area[0].y_offset = yoffset * xvir + xoffset;
+		win->area[0].c_offset = win->area[0].y_offset;
 		break;
 	case YUV420:
-		win->y_offset = yoffset * xvir + xoffset;
-		win->c_offset = (yoffset >> 1) * xvir + xoffset;
+		win->area[0].y_offset = yoffset * xvir + xoffset;
+		win->area[0].c_offset = (yoffset >> 1) * xvir + xoffset;
 		break;
 	case YUV444:
-		win->y_offset = yoffset * xvir + xoffset;
-		win->c_offset = yoffset * 2 * xvir + (xoffset << 1);
+		win->area[0].y_offset = yoffset * xvir + xoffset;
+		win->area[0].c_offset = yoffset * 2 * xvir + (xoffset << 1);
 		break;
 	default:
 		dev_err(dev_drv->dev, "un supported format:0x%x\n",
@@ -777,79 +1360,6 @@ static int rockchip_fb_pan_display(struct fb_var_screeninfo *var,
 	}
 
 	dev_drv->ops->pan_display(dev_drv, win_id);
-
-	return 0;
-}
-
-static int rockchip_fb_config_done(struct fb_info *info)
-{
-	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)info->par;
-	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
-	struct rockchip_reg_data *regs;
-	struct sync_fence *release_fence;
-	struct sync_fence *retire_fence;
-	struct sync_pt *release_sync_pt;
-	struct sync_pt *retire_sync_pt;
-	struct sync_fence *layer2_fence;
-	struct sync_pt *layer2_pt;
-
-	if ((fence_wait_begin == 1) && (!dev_drv->suspend_flag)) {
-		dev_drv->win_data.rel_fence_fd[0] = get_unused_fd();
-		if (dev_drv->win_data.rel_fence_fd[0] < 0) {
-			dev_info(info->dev, "rel_fence_fd=%d\n",
-				 dev_drv->win_data.rel_fence_fd[0]);
-			return -EFAULT;
-		}
-
-		dev_drv->win_data.rel_fence_fd[1] = get_unused_fd();
-		if (dev_drv->win_data.rel_fence_fd[1] < 0) {
-			dev_info(info->dev, "rel_fence_fd=%d\n",
-				 dev_drv->win_data.rel_fence_fd[1]);
-			return -EFAULT;
-		}
-
-		dev_drv->win_data.ret_fence_fd = get_unused_fd();
-		if (dev_drv->win_data.ret_fence_fd < 0) {
-			dev_info(info->dev, "ret_fence_fd=%d\n",
-				 dev_drv->win_data.ret_fence_fd);
-			return -EFAULT;
-		}
-		mutex_lock(&dev_drv->update_regs_list_lock);
-		dev_drv->timeline_max++;
-		release_sync_pt =
-		    sw_sync_pt_create(dev_drv->timeline, dev_drv->timeline_max);
-		release_fence = sync_fence_create("rel_fence", release_sync_pt);
-		sync_fence_install(release_fence,
-				   dev_drv->win_data.rel_fence_fd[0]);
-
-		layer2_pt =
-		    sw_sync_pt_create(dev_drv->timeline, dev_drv->timeline_max);
-		layer2_fence = sync_fence_create("rel2_fence", layer2_pt);
-		sync_fence_install(layer2_fence,
-				   dev_drv->win_data.rel_fence_fd[1]);
-
-		retire_sync_pt =
-		    sw_sync_pt_create(dev_drv->timeline, dev_drv->timeline_max);
-		retire_fence = sync_fence_create("ret_fence", retire_sync_pt);
-		sync_fence_install(retire_fence,
-				   dev_drv->win_data.ret_fence_fd);
-
-		regs = kzalloc(sizeof(*regs), GFP_KERNEL);
-		if (dev_drv->wait_fs == 1) {
-			rockchip_fb_update_reg(dev_drv, regs);
-			kfree(regs);
-			mutex_unlock(&dev_drv->update_regs_list_lock);
-		} else {
-			list_add_tail(&regs->list, &dev_drv->update_regs_list);
-			mutex_unlock(&dev_drv->update_regs_list_lock);
-
-			queue_kthread_work(&dev_drv->update_regs_worker,
-					   &dev_drv->update_regs_work);
-		}
-	} else {
-		if (dev_drv->ops->lcdc_reg_update)
-			dev_drv->ops->lcdc_reg_update(dev_drv);
-	}
 
 	return 0;
 }
@@ -866,10 +1376,17 @@ static int rockchip_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	int ovl;	/* overlay:	0:win1 on the top of win0
 			 *		1:win0 on the top of win1 */
 	int num_buf;	/* buffer number */
-	int ret;
 	void __user *argp = (void __user *)arg;
 	unsigned int dsp_addr[2];
 	int list_stat;
+	struct rockchip_fb_win_cfg_data *win_data;
+#if defined(CONFIG_ION_XGOLD)
+	struct rockchip_fb *sfb_info = platform_get_drvdata(fb_pdev);
+	struct ion_handle *hdl;
+	ion_phys_addr_t phy_addr;
+	size_t len;
+	int fd;
+#endif
 
 	switch (cmd) {
 	case SFA_FBIOSET_YUV_ADDR:
@@ -903,7 +1420,7 @@ static int rockchip_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (copy_from_user(&num_buf, argp, sizeof(num_buf)))
 			return -EFAULT;
 		dev_drv->num_buf = num_buf;
-		dev_info(info->dev, "rockchip3gr fb use %d buffers\n", num_buf);
+		dev_info(info->dev, "rockchip fb use %d buffers\n", num_buf);
 		break;
 	case SFA_FBIOSET_VSYNC_ENABLE:
 		if (copy_from_user(&enable, argp, sizeof(enable)))
@@ -920,20 +1437,62 @@ static int rockchip_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (copy_to_user(argp, &list_stat, sizeof(list_stat)))
 			return -EFAULT;
 		break;
-	case SFA_FBIOSET_CONFIG_DONE:
-		ret = copy_from_user(&dev_drv->win_data,
-				(struct rockchip_fb_win_cfg_data __user *)argp,
-				sizeof(dev_drv->win_data));
-		dev_drv->wait_fs = dev_drv->win_data.wait_fs;
-		fence_wait_begin = dev_drv->win_data.fence_begin;
-		rockchip_fb_config_done(info);
 
-		if (copy_to_user
-		    ((struct rockchip_fb_win_cfg_data __user *)arg,
-		     &dev_drv->win_data, sizeof(dev_drv->win_data))) {
-			ret = -EFAULT;
-			break;
+#if defined(CONFIG_ION_XGOLD)
+	case SFA_FBIOSET_DMABUF_FD:
+		if (copy_from_user(&fd, argp, sizeof(fd)))
+			return -EFAULT;
+		if (fd < 0) {
+			dev_err(info->dev, "dmabuf fd is error\n");
+			return -EFAULT;
 		}
+		hdl = ion_import_dma_buf(sfb_info->ion_client, fd);
+		if (IS_ERR_OR_NULL(hdl)) {
+			dev_err(info->dev, "import dma buf ion handle error\n");
+			return PTR_ERR(hdl);
+		}
+		ion_phys(sfb_info->ion_client, hdl, &phy_addr, &len);
+		fix->smem_start = phy_addr;
+		break;
+	case SFA_FBIOGET_DMABUF_FD:
+		fd = -1;
+		if (IS_ERR_OR_NULL(fb_par->ion_hdl)) {
+			dev_err(info->dev,
+				"get dma_buf fd failed,ion handle is err\n");
+			return PTR_ERR(fb_par->ion_hdl);
+		}
+		fd = ion_share_dma_buf_fd(sfb_info->ion_client,
+					  fb_par->ion_hdl);
+		if (fd < 0) {
+			dev_err(info->dev,
+				"ion_share_dma_buf_fd failed\n");
+			return fd;
+		}
+		if (copy_to_user(argp, &fd, sizeof(fd)))
+			return -EFAULT;
+		break;
+#endif
+	case SFA_FBIOSET_CONFIG_DONE:
+		win_data = kzalloc(sizeof(*win_data), GFP_KERNEL);
+		if (NULL == win_data)
+			return -ENOMEM;
+
+		if (copy_from_user(win_data,
+				(struct rockchip_fb_win_cfg_data __user *)argp,
+				sizeof(*win_data))) {
+			kfree(win_data);
+			return -EFAULT;
+		};
+
+		dev_drv->wait_fs = win_data->wait_fs;
+		rockchip_fb_update_win_config(info, win_data);
+
+		if (copy_to_user((struct rockchip_fb_win_cfg_data __user *)arg,
+				 win_data, sizeof(*win_data))) {
+			kfree(win_data);
+			return -EFAULT;
+		}
+		kfree(win_data);
 		break;
 	default:
 		dev_drv->ops->ioctl(dev_drv, cmd, arg, win_id);
@@ -1186,7 +1745,7 @@ int rockchip_fb_disp_scale(u8 scale_x, u8 scale_y, u8 vop_id)
 }
 
 #if defined(CONFIG_ION_XGOLD)
-static int rockchip_fb_alloc_by_ion(struct fb_info *fbi,
+static int rockchip_fb_alloc_buffer_by_ion(struct fb_info *fbi,
 				       unsigned long fb_mem_size)
 {
 	struct rockchip_fb *sfb_info = platform_get_drvdata(fb_pdev);
@@ -1196,8 +1755,13 @@ static int rockchip_fb_alloc_by_ion(struct fb_info *fbi,
 	size_t len;
 	int ret = 0;
 
+	if (IS_ERR_OR_NULL(sfb_info->ion_client)) {
+		pr_err("%s: ion client is err or null\n", __func__);
+		return -ENODEV;
+	}
+
 	handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
-			   ION_HEAP_TYPE_DMA_MASK, 0);
+			   ION_HEAP(ION_HEAP_TYPE_DMA), 0);
 	if (IS_ERR(handle)) {
 		dev_err(fbi->dev, "failed to ion_alloc:%ld\n", PTR_ERR(handle));
 		return -ENOMEM;
@@ -1261,7 +1825,7 @@ static int rockchip_fb_alloc_buffer(struct fb_info *fbi, int fb_id)
 	if (!strcmp(fbi->fix.id, "fb0")) {
 		fb_mem_size = get_fb_size();
 #if defined(CONFIG_ION_XGOLD)
-		if (rockchip_fb_alloc_by_ion(fbi, fb_mem_size) < 0)
+		if (rockchip_fb_alloc_buffer_by_ion(fbi, fb_mem_size) < 0)
 			return -ENOMEM;
 #else
 		if (rockchip_fb_alloc_dma_buffer(fbi, fb_mem_size) < 0)
@@ -1272,7 +1836,8 @@ static int rockchip_fb_alloc_buffer(struct fb_info *fbi, int fb_id)
 			/* fb_mem_size = get_rotate_fb_size(); */
 			fb_mem_size = get_fb_size();
 #if defined(CONFIG_ION_XGOLD)
-			if (rockchip_fb_alloc_by_ion(fbi, fb_mem_size) < 0)
+			if (rockchip_fb_alloc_buffer_by_ion(
+						fbi, fb_mem_size) < 0)
 				return -ENOMEM;
 #else
 			if (rockchip_fb_alloc_dma_buffer(fbi, fb_mem_size) < 0)
@@ -1370,6 +1935,9 @@ static int init_vop_device_driver(struct rockchip_vop_driver *dev_drv,
 	init_completion(&dev_drv->frame_done);
 	spin_lock_init(&dev_drv->cpl_lock);
 	mutex_init(&dev_drv->fb_win_id_mutex);
+	mutex_init(&dev_drv->win_cfg_lock);
+	mutex_init(&dev_drv->cfg_lock);
+	mutex_init(&dev_drv->regs_lock);
 	dev_drv->ops->fb_win_remap(dev_drv, dev_drv->fb_win_map);
 	dev_drv->first_frame = 1;
 
@@ -1477,8 +2045,15 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 		fbi->flags = FBINFO_FLAG_DEFAULT;
 		fbi->pseudo_palette = dev_drv->win[i]->pseudo_pal;
 
-		if (i == 0)	/* only alloc memory for main fb */
-			rockchip_fb_alloc_buffer(fbi, 0);
+		if (i == 0) {	/* only alloc memory for main fb */
+			ret = rockchip_fb_alloc_buffer(fbi, 0);
+			if (ret < 0) {
+				dev_err(&fb_pdev->dev,
+					"%s fb%d alloc buffer fail!\n",
+					__func__, sfb_info->num_fb);
+				return ret;
+			}
+		}
 
 		ret = register_framebuffer(fbi);
 		if (ret < 0) {
@@ -1542,6 +2117,7 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 		struct fb_info *main_fbi = sfb_info->fb[0];
 
 		main_fbi->fbops->fb_open(main_fbi, 1);
+
 		if (support_uboot_display())
 			return 0;
 		main_fbi->fbops->fb_set_par(main_fbi);
@@ -1558,7 +2134,7 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 		}
 #endif
 		main_fbi->fbops->fb_pan_display(&main_fbi->var, main_fbi);
-		main_fbi->fbops->fb_ioctl(main_fbi, SFA_FBIOSET_CONFIG_DONE, 0);
+		dev_drv->ops->cfg_done(dev_drv);
 	}
 #endif
 	return 0;
@@ -1611,17 +2187,17 @@ static int rockchip_fb_probe(struct platform_device *pdev)
 	sfb_info = devm_kzalloc(&pdev->dev, sizeof(struct rockchip_fb),
 				GFP_KERNEL);
 	if (!sfb_info) {
-		dev_err(&pdev->dev, "kmalloc for rockchip3gr fb fail!");
+		dev_err(&pdev->dev, "kmalloc for rockchip fb fail!");
 		return -ENOMEM;
 	}
 	platform_set_drvdata(pdev, sfb_info);
+	fb_pdev = pdev;
 
 	if (!of_property_read_u32(np, "rockchip,disp-mode", &mode)) {
 		sfb_info->disp_mode = mode;
-
 	} else {
-		dev_err(&pdev->dev, "no disp-mode node found!");
-		return -ENODEV;
+		dev_err(&pdev->dev, "no disp-mode node found! Set NO_DUAL mode\n");
+		sfb_info->disp_mode = NO_DUAL;
 	}
 
 	if (!of_property_read_u32(np, "rockchip,uboot-logo-on", &uboot_logo_on))
@@ -1630,14 +2206,13 @@ static int rockchip_fb_probe(struct platform_device *pdev)
 	dev_set_name(&pdev->dev, "rockchip-fb");
 #if defined(CONFIG_ION_XGOLD)
 	sfb_info->ion_client = xgold_ion_client_create("rockchip-fb");
-	if (IS_ERR(sfb_info->ion_client)) {
+	if (IS_ERR_OR_NULL(sfb_info->ion_client)) {
 		dev_err(&pdev->dev,
 			"failed to create ion client for rockchip fb");
 		return PTR_ERR(sfb_info->ion_client);
 	}
 #endif
 
-	fb_pdev = pdev;
 	dev_info(&pdev->dev, "rockchip framebuffer driver probe\n");
 	return 0;
 }
@@ -1667,7 +2242,7 @@ static const struct of_device_id rockchip_fb_dt_ids[] = {
 	{}
 };
 
-static struct platform_driver rockchip_fb_driver = {
+struct platform_driver rockchip_fb_driver = {
 	.probe = rockchip_fb_probe,
 	.remove = rockchip_fb_remove,
 	.driver = {
@@ -1677,5 +2252,3 @@ static struct platform_driver rockchip_fb_driver = {
 		   },
 	.shutdown = rockchip_fb_shutdown,
 };
-
-module_platform_driver(rockchip_fb_driver);

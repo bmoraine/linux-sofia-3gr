@@ -29,8 +29,10 @@
 #include <linux/kthread.h>
 
 #define SFA_MAX_VOP_SUPPORT	2
-#define SFA_MAX_LAYER_SUPPORT	8
-#define SFA_MAX_FB_SUPPORT	8
+#define SFA_MAX_WIN_SUPPORT	5
+#define SFA_MAX_FB_SUPPORT	5
+#define SFA_MAX_BUF_NUM		11
+#define SFA_WIN_MAX_AREA	4
 
 #define SFA_FBIOSET_HWC_ADDR			0x4624
 #define SFA_FBIOPUT_NUM_BUFFERS			0x4625
@@ -167,6 +169,12 @@ enum data_format {
 	YUV444_A,
 };
 
+enum {
+	SCALE_NONE = 0x0,
+	SCALE_UP   = 0x1,
+	SCALE_DOWN = 0x2
+};
+
 enum bcsh_bcs_mode {
 	BRIGHTNESS = 0x0,
 	CONTRAST = 0x1,
@@ -210,34 +218,68 @@ struct rockchip_vop_bcsh {
 	u16 cos_hue;
 };
 
-struct rockchip_vop_win {
-	char name[5];
-	int id;
-	bool state;		/* on or off */
-	bool last_state;	/* on or off */
-	u32 pseudo_pal[16];
-	int z_order;		/* win sel layer */
+struct rockchip_vop_post_cfg {
+	u32 xpos;
+	u32 ypos;
+	u32 xsize;
+	u32 ysize;
+};
+
+struct rockchip_fb_area_par {
+	u8  data_format;        /* area data fmt */
+	short ion_fd;
+	unsigned long phy_addr;
+	short acq_fence_fd;
+	u16 x_offset;
+	u16 y_offset;
+	u16 xpos;	/* start point in panel */
+	u16 ypos;
+	u16 xsize;	/* display window width/height */
+	u16 ysize;
+	u16 xact;	/* origin display window size */
+	u16 yact;
+	u16 xvir;	/* virtual width/height */
+	u16 yvir;
+	u8  fbdc_en;
+	u8  fbdc_cor_en;
+	u8  fbdc_data_format;
+	u16 reserved0;
+	u32 reserved1;
+};
+
+struct rockchip_fb_win_par {
+	u8  win_id;
+	u8  z_order;		/*win sel layer*/
+	u8  alpha_mode;
+	u16 g_alpha_val;
+	u8  mirror_en;
+	struct rockchip_fb_area_par area_par[SFA_WIN_MAX_AREA];
+	u32 reserved0;
+};
+
+struct rockchip_fb_win_cfg_data {
+	u8 wait_fs;
+	short ret_fence_fd;
+	short rel_fence_fd[SFA_MAX_BUF_NUM];
+	struct  rockchip_fb_win_par win_par[SFA_MAX_WIN_SUPPORT];
+	struct  rockchip_vop_post_cfg post_cfg;
+};
+
+struct rockchip_vop_win_area {
+	bool state;
 	enum data_format format;
 	u8 fmt_cfg;
 	u8 swap_rb;
-
 	u32 y_offset;		/* yuv/rgb offset -->LCDC_WINx_YRGB_MSTx */
 	u32 c_offset;		/* cb cr offset -->LCDC_WINx_CBR_MSTx */
-	u32 xpos;		/* start point in panel -->LCDC_WINx_DSP_ST */
-	u32 ypos;
+	u16 xpos;		/* start point in panel -->LCDC_WINx_DSP_ST */
+	u16 ypos;
 	u16 xsize;		/* display window width/height */
 	u16 ysize;
 	u16 xact;		/* origin display window size */
 	u16 yact;
 	u16 xvir;		/* virtual width/height -->LCDC_WINx_VIR */
 	u16 yvir;
-	unsigned long smem_start;
-	unsigned long cbr_start;	/* Cbr memory start address */
-#if defined(CONFIG_ION_XGOLD)
-	struct ion_handle *ion_hdl;
-	int dma_buf_fd;
-	struct dma_buf *dma_buf;
-#endif
 
 	u32 dsp_stx;
 	u32 dsp_sty;
@@ -245,6 +287,28 @@ struct rockchip_vop_win {
 	u32 uv_vir_stride;
 	u32 y_addr;
 	u32 uv_addr;
+
+	unsigned long smem_start;
+	unsigned long cbr_start;	/* Cbr memory start address */
+#if defined(CONFIG_ION)
+	struct ion_handle *ion_hdl;
+	int dma_buf_fd;
+	struct dma_buf *dma_buf;
+#endif
+
+	struct sync_fence *acq_fence;
+};
+
+struct rockchip_vop_win {
+	char name[5];
+	int id;
+	bool state;		/* on or off */
+	bool last_state;	/* on or off */
+	u32 pseudo_pal[16];
+	int z_order;		/* win sel layer */
+
+	u8 area_num;
+	u8 area_buf_num;
 
 	u32 scale_yrgb_x;
 	u32 scale_yrgb_y;
@@ -258,7 +322,16 @@ struct rockchip_vop_win {
 	u32 color_key_val;
 	u8 csc_mode;
 
+	struct rockchip_vop_win_area area[SFA_WIN_MAX_AREA];
+	struct rockchip_vop_post_cfg post_cfg;
 	u32 reserved;
+};
+
+struct rockchip_fb_reg_data {
+	int win_num;
+	int buf_num;
+	struct rockchip_vop_win vop_win[SFA_MAX_WIN_SUPPORT];
+	struct list_head list;
 };
 
 struct rockchip_fb_trsm_ops {
@@ -319,26 +392,10 @@ struct rockchip_vop_drv_ops {
 
 	int (*dump_reg)(struct rockchip_vop_driver *dev_drv);
 	int (*cfg_done)(struct rockchip_vop_driver *dev_drv);
-	int (*lvds_reg_writel)(struct rockchip_vop_driver *dev_drv, u32 offset,
-			       u32 val);
-	int (*lvds_reg_readl)(struct rockchip_vop_driver *dev_drv, u32 offset);
-};
-
-struct rockchip_fb_win_cfg_data {
-	int ret_fence_fd;
-	int rel_fence_fd[SFA_MAX_LAYER_SUPPORT];
-	int acq_fence_fd[SFA_MAX_LAYER_SUPPORT];
-	bool wait_fs;
-	u8 fence_begin;
-};
-
-struct rockchip_fb_dma_buf_data {
-	struct sync_fence *acq_fence;
-};
-
-struct rockchip_reg_data {
-	struct list_head list;
-	struct rockchip_fb_dma_buf_data dma_buf_data[SFA_MAX_LAYER_SUPPORT];
+	int (*mmu_en)(struct rockchip_vop_driver *dev_drv);
+	int (*reg_writel)(struct rockchip_vop_driver *dev_drv, u32 offset,
+			  u32 val);
+	u32 (*reg_readl)(struct rockchip_vop_driver *dev_drv, u32 offset);
 };
 
 struct rockchip_vop_driver {
@@ -348,7 +405,7 @@ struct rockchip_vop_driver {
 	bool suspend_flag;
 	struct device *dev;
 
-	struct rockchip_vop_win *win[SFA_MAX_FB_SUPPORT];
+	struct rockchip_vop_win *win[SFA_MAX_WIN_SUPPORT];
 	u8 num_win;		/* the number of win */
 	u8 num_buf;		/* the numer of buffer */
 	u8 atv_layer_cnt;	/* active win number */
@@ -373,6 +430,9 @@ struct rockchip_vop_driver {
 	int iommu_enabled;
 
 	struct mutex fb_win_id_mutex;	/* mutex when set fb win map*/
+	struct mutex win_cfg_lock;	/* mutex when config win */
+	struct mutex cfg_lock;
+	struct mutex regs_lock;		/* mutex when update regs */
 	struct completion frame_done;	/* sync for pan_display,when we set a
 					 * new frame address to vop register,
 					 * we must make sure the frame begain
@@ -393,6 +453,10 @@ struct rockchip_vop_driver {
 	struct task_struct *update_regs_thread;
 	struct kthread_work update_regs_work;
 	wait_queue_head_t update_regs_wait;
+	/*
+	 * last_regs means this config is scanning on the devices.
+	 */
+	struct rockchip_fb_reg_data *last_regs;
 
 	struct rockchip_vop_drv_ops *ops;
 	struct rockchip_fb_trsm_ops *trsm_ops;
