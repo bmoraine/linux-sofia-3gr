@@ -142,7 +142,7 @@ int gc_write_reg(struct i2c_client *client, u16 data_length, u16 reg, u16 val)
 	if (ret)
 		dev_err(&client->dev, "[gcdriver]: i2c write failed\n");
 
-	/* pltfrm_camera_module_pr_info(sd,
+	/* pltfrm_camera_module_pr_debug(sd,
 		"%s %d %d: %d\n", client->name, reg, val, ret); */
 	return ret;
 }
@@ -425,8 +425,9 @@ int __gc_g_exposure(struct v4l2_subdev *sd, s32 *value)
 	/* Compute exposure time */
 	*value = (coarse*10) / div;
 
-	pltfrm_camera_module_pr_info(sd, "expos time: %dms(coarse:%d div:%d)\n",
-			*value, coarse, div);
+	pltfrm_camera_module_pr_debug(sd,
+		"expos time: %dms(coarse:%d div:%d)\n",
+		*value, coarse, div);
 
 	return 0;
 }
@@ -455,7 +456,7 @@ int __gc_g_iso(struct v4l2_subdev *sd, s32 *value)
 	col_code = reg_val & 0x7; /* [2:0] col_code */
 	*value = col_code == 0 ? 100 : col_code*200;
 
-	pltfrm_camera_module_pr_info(sd, "iso: %d(col:%d)\n",
+	pltfrm_camera_module_pr_debug(sd, "iso: %d(col:%d)\n",
 			*value, col_code);
 
 	return 0;
@@ -877,7 +878,7 @@ int gc_set_streaming(struct v4l2_subdev *sd, int enable)
 	int ret;
 	struct gc_device *dev = to_gc_sensor(sd);
 
-	pltfrm_camera_module_pr_info(sd, "power:%d, streaming:%d, on:%d\n",
+	pltfrm_camera_module_pr_debug(sd, "power:%d, streaming:%d, on:%d\n",
 				dev->power, dev->streaming, enable);
 
 	if ((0 == dev->power) && (1 == dev->streaming)) {
@@ -888,11 +889,11 @@ int gc_set_streaming(struct v4l2_subdev *sd, int enable)
 
 	if (enable) {
 		if (0 == dev->streaming) {
-			pltfrm_camera_module_pr_info(sd,
+			pltfrm_camera_module_pr_debug(sd,
 				"Started writing stream-on regs.\n");
 			ret = __gc_program_ctrl_table(sd, GC_SETTING_STREAM, 1);
 			dev->streaming = 1;
-			pltfrm_camera_module_pr_info(sd,
+			pltfrm_camera_module_pr_debug(sd,
 				"Writing stream-on regs done.\n");
 
 		} else {
@@ -902,7 +903,7 @@ int gc_set_streaming(struct v4l2_subdev *sd, int enable)
 		if (0 == dev->streaming) {
 			ret = 0;
 		} else {
-			pltfrm_camera_module_pr_info(sd,
+			pltfrm_camera_module_pr_debug(sd,
 				"Started writing stream-off regs.\n");
 			ret = __gc_program_ctrl_table(sd, GC_SETTING_STREAM, 0);
 			dev->streaming = 0;
@@ -914,7 +915,7 @@ int gc_set_streaming(struct v4l2_subdev *sd, int enable)
 				mdelay(1000 /
 				dev->curr_res_table[dev->fmt_idx].fps + 1);
 
-			pltfrm_camera_module_pr_info(sd,
+			pltfrm_camera_module_pr_debug(sd,
 				"Writing stream-off regs done.\n");
 		}
 	}
@@ -940,12 +941,12 @@ int gc_init_common(struct v4l2_subdev *sd)
 		return 0;
 	}
 
-	pltfrm_camera_module_pr_info(sd, "Started writing init_settings.\n");
+	pltfrm_camera_module_pr_debug(sd, "Started writing init_settings.\n");
 
 	ret = gc_write_reg_array(client,
 		dev->product_info->mode_info->init_settings);
 
-	pltfrm_camera_module_pr_info(sd, "Writing init_settings done.\n");
+	pltfrm_camera_module_pr_debug(sd, "Writing init_settings done.\n");
 
 	return 0;
 }
@@ -1031,14 +1032,14 @@ int gc_s_mbus_fmt(struct v4l2_subdev *sd,
 	int ret;
 	int mbus_fmt_idx;
 
-	pltfrm_camera_module_pr_info(sd, "start\n");
-	pltfrm_camera_module_pr_info(sd,
+	pltfrm_camera_module_pr_debug(sd, "start\n");
+	pltfrm_camera_module_pr_debug(sd,
 		"fmt->width:%d fmt->height:%d fmt->code:0x%x\n",
 		fmt->width, fmt->height, fmt->code);
 
 	ret = gc_try_mbus_fmt(sd, fmt);
 	if (ret) {
-		pltfrm_camera_module_pr_info(sd, "gc_try_mbus_fmt: %d\n", ret);
+		pltfrm_camera_module_pr_err(sd, "gc_try_mbus_fmt: %d\n", ret);
 		return ret;
 	}
 
@@ -1047,7 +1048,7 @@ int gc_s_mbus_fmt(struct v4l2_subdev *sd,
 	dev->fmt_idx = get_resolution_index(sd, fmt->width, fmt->height);
 	/* Sanity check */
 	if (unlikely(dev->fmt_idx == -1)) {
-		pltfrm_camera_module_pr_info(sd,
+		pltfrm_camera_module_pr_err(sd,
 			"get_resolution_index: %d\n", dev->fmt_idx);
 		ret = -EINVAL;
 		goto out;
@@ -1055,9 +1056,9 @@ int gc_s_mbus_fmt(struct v4l2_subdev *sd,
 
 	gc_mode_reg_table = dev->curr_res_table[dev->fmt_idx].regs;
 
-	pltfrm_camera_module_pr_info(sd, "Started writing res regs.\n");
+	pltfrm_camera_module_pr_debug(sd, "Started writing res regs.\n");
 	ret = gc_write_reg_array(client, gc_mode_reg_table);
-	pltfrm_camera_module_pr_info(sd, "Writing res regs done.\n");
+	pltfrm_camera_module_pr_debug(sd, "Writing res regs done.\n");
 
 	if (ret)
 		goto out;
@@ -1080,9 +1081,9 @@ int gc_s_mbus_fmt(struct v4l2_subdev *sd,
 
 	gc_mode_reg_table = dev->product_info->mbus_formats[mbus_fmt_idx].regs;
 
-	pltfrm_camera_module_pr_info(sd, "Started writing format regs.\n");
+	pltfrm_camera_module_pr_debug(sd, "Started writing format regs.\n");
 	ret = gc_write_reg_array(client, gc_mode_reg_table);
-	pltfrm_camera_module_pr_info(sd, "Writing format regs done.\n");
+	pltfrm_camera_module_pr_debug(sd, "Writing format regs done.\n");
 
 	if (ret)
 		goto out;
@@ -1138,7 +1139,7 @@ int gc_enum_framesizes(struct v4l2_subdev *sd,
 	unsigned int index = fsize->index;
 	struct gc_device *dev = to_gc_sensor(sd);
 
-	pltfrm_camera_module_pr_info(sd, "\n");
+	pltfrm_camera_module_pr_debug(sd, "\n");
 
 
 	if (index >= dev->entries_curr_table)
@@ -1161,7 +1162,7 @@ int gc_enum_frameintervals(struct v4l2_subdev *sd,
 	const struct gc_resolution *tmp_res = NULL;
 #endif
 
-	pltfrm_camera_module_pr_info(sd,
+	pltfrm_camera_module_pr_debug(sd,
 		"fival->width: %d, fival->height:%d\n",
 		fival->width, fival->height);
 #if 0
@@ -1191,7 +1192,7 @@ int gc_enum_frameintervals(struct v4l2_subdev *sd,
 	/* [WR] Tell CIF this sensor's supported pixel format */
 	fival->pixel_format = V4L2_MBUS_FMT_UYVY8_2X8;
 
-	pltfrm_camera_module_pr_info(sd,
+	pltfrm_camera_module_pr_debug(sd,
 		"type: %d width: %d, height:%d, numerator:%d, denominator: %d\n",
 		fival->type, fival->width, fival->height,
 		fival->discrete.numerator, fival->discrete.denominator);
@@ -1205,7 +1206,7 @@ int gc_s_frame_interval(struct v4l2_subdev *sd,
 	struct gc_device *dev = to_gc_sensor(sd);
 	int ret = 0;
 
-	pltfrm_camera_module_pr_info(sd, "\n");
+	pltfrm_camera_module_pr_debug(sd, "\n");
 
 	if ((30 != interval->interval.denominator) ||
 	(1 != interval->interval.numerator)) {
@@ -1365,7 +1366,7 @@ int gc_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	int i;
 	int ret = 0;
 
-	pltfrm_camera_module_pr_info(sd,
+	pltfrm_camera_module_pr_debug(sd,
 			"id:%x val:%x\n", ctrl->id, ctrl->value);
 
 	for (i = 0; i < dev->product_info->num_ctrls; i++) {
@@ -1388,7 +1389,7 @@ int gc_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	int i;
 	int ret = 0;
 
-	pltfrm_camera_module_pr_info(sd,
+	pltfrm_camera_module_pr_debug(sd,
 			"id:%x val:%x", ctrl->id, ctrl->value);
 
 	for (i = 0; i < dev->product_info->num_ctrls; i++) {

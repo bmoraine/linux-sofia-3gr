@@ -107,7 +107,7 @@ static int gc0310_power_up(struct v4l2_subdev *sd)
 	}
 
 	msleep(20);
-	pltfrm_camera_module_pr_info(sd, "gc0310 power-up done.\n");
+	pltfrm_camera_module_pr_debug(sd, "gc0310 power-up done.\n");
 	return ret;
 
 fail_power:
@@ -122,7 +122,7 @@ static int __gc_s_power(struct v4l2_subdev *sd, int on)
 	struct gc_device *dev = to_gc_sensor(sd);
 	int ret = 0;
 
-	pltfrm_camera_module_pr_info(sd, "power:%d, streaming:%d, on:%d\n",
+	pltfrm_camera_module_pr_debug(sd, "power:%d, streaming:%d, on:%d\n",
 	dev->power, dev->streaming, on);
 
 #ifdef WR_GC_NEVER_POWER_DOWN
@@ -287,7 +287,7 @@ static int gc_probe(struct i2c_client *client,
 		goto out_pltfrm_data_free;
 	}
 
-	pltfrm_camera_module_pr_info(&(dev->sd), "%s %d-%04x\n",
+	pltfrm_camera_module_pr_debug(&(dev->sd), "%s %d-%04x\n",
 		dev->product_info->name,
 		i2c_adapter_id(client->adapter), client->addr);
 
