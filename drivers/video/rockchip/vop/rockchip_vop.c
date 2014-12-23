@@ -188,13 +188,13 @@ static void vop_read_reg_defalut_cfg(struct vop_device *vop_dev)
 	for (reg = 0; reg < VOP_FRC_LOWER11_1; reg += 4) {
 		val = vop_readl(vop_dev, reg);
 		if (reg == VOP_WIN0_ACT_INFO) {
-			win0->xact = (val & M_ACT_WIDTH) + 1;
-			win0->yact = ((val & M_ACT_HEIGHT) >> 16) + 1;
+			win0->area[0].xact = (val & M_ACT_WIDTH) + 1;
+			win0->area[0].yact = ((val & M_ACT_HEIGHT) >> 16) + 1;
 		}
 
 		if (reg == VOP_WIN1_ACT_INFO) {
-			win1->xact = (val & M_DSP_WIDTH) + 1;
-			win1->yact = ((val & M_DSP_HEIGHT) >> 16) + 1;
+			win1->area[0].xact = (val & M_DSP_WIDTH) + 1;
+			win1->area[0].yact = ((val & M_DSP_HEIGHT) >> 16) + 1;
 		}
 	}
 	spin_unlock(&vop_dev->reg_lock);
@@ -204,15 +204,15 @@ static int rockchip_vop_alpha_cfg(struct vop_device *vop_dev)
 {
 	int win0_top = 0;
 	u32 mask, val;
-	enum data_format win0_format = vop_dev->driver.win[0]->format;
-	enum data_format win1_format = vop_dev->driver.win[1]->format;
+	struct rockchip_vop_driver *vop_drv = &vop_dev->driver;
+	enum data_format win0_format = vop_drv->win[0]->area[0].format;
+	enum data_format win1_format = vop_drv->win[1]->area[0].format;
 
 	int win0_alpha_en = ((win0_format == ARGB888) ||
 			     (win0_format == ABGR888)) ? 1 : 0;
 	int win1_alpha_en = ((win1_format == ARGB888) ||
 			     (win1_format == ABGR888)) ? 1 : 0;
-	int atv_layer_cnt = vop_dev->driver.win[0]->state +
-	    vop_dev->driver.win[1]->state;
+	int atv_layer_cnt = vop_drv->win[0]->state + vop_drv->win[1]->state;
 	u32 *_pv = (u32 *)vop_dev->regsbak;
 
 	_pv += (VOP_DSP_CTRL0 >> 2);
@@ -283,7 +283,7 @@ static void vop_win_csc_mode(struct vop_device *vop_dev,
 	struct rockchip_screen *screen = dev_drv->cur_screen;
 
 	if (dev_drv->overlay_mode == VOP_YUV_DOMAIN) {
-		switch (win->fmt_cfg) {
+		switch (win->area[0].fmt_cfg) {
 		case VOP_FORMAT_ARGB888:
 		case VOP_FORMAT_RGB888:
 		case VOP_FORMAT_RGB565:
@@ -305,7 +305,7 @@ static void vop_win_csc_mode(struct vop_device *vop_dev,
 				    V_WIN1_CSC_MODE(win->csc_mode));
 		}
 	} else if (dev_drv->overlay_mode == VOP_RGB_DOMAIN) {
-		switch (win->fmt_cfg) {
+		switch (win->area[0].fmt_cfg) {
 		case VOP_FORMAT_YCBCR420:
 			if (win->id == 0) {
 				win->csc_mode = VOP_Y2R_CSC_MPEG;
@@ -332,8 +332,8 @@ static void vop_win_update_regs(struct vop_device *vop_dev,
 		if (win->id == 0) {
 			mask = M_WIN0_EN | M_WIN0_FORMAT | M_WIN0_RB_SWAP;
 			val = V_WIN0_EN(win->state) |
-			    V_WIN0_FORMAT(win->fmt_cfg) |
-			    V_WIN0_RB_SWAP(win->swap_rb);
+			    V_WIN0_FORMAT(win->area[0].fmt_cfg) |
+			    V_WIN0_RB_SWAP(win->area[0].swap_rb);
 			vop_msk_reg(vop_dev, VOP_SYS_CTRL, mask, val);
 			vop_writel(vop_dev, VOP_WIN0_SCL_FACTOR_YRGB,
 				   V_X_SCL_FACTOR(win->scale_yrgb_x) |
@@ -344,61 +344,65 @@ static void vop_win_update_regs(struct vop_device *vop_dev,
 
 			vop_msk_reg(vop_dev, VOP_WIN0_VIR,
 				    M_YRGB_VIR | M_CBBR_VIR,
-				    V_YRGB_VIR(win->y_vir_stride) |
-				    V_CBCR_VIR(win->uv_vir_stride));
+				    V_YRGB_VIR(win->area[0].y_vir_stride) |
+				    V_CBCR_VIR(win->area[0].uv_vir_stride));
 			vop_writel(vop_dev, VOP_WIN0_ACT_INFO,
-				   V_ACT_WIDTH(win->xact) |
-				   V_ACT_HEIGHT(win->yact));
+				   V_ACT_WIDTH(win->area[0].xact) |
+				   V_ACT_HEIGHT(win->area[0].yact));
 			vop_writel(vop_dev, VOP_WIN0_DSP_ST,
-				   V_DSP_STX(win->dsp_stx) |
-				   V_DSP_STY(win->dsp_sty));
+				   V_DSP_STX(win->area[0].dsp_stx) |
+				   V_DSP_STY(win->area[0].dsp_sty));
 			vop_writel(vop_dev, VOP_WIN0_DSP_INFO,
-				   V_DSP_WIDTH(win->xsize) |
-				   V_DSP_HEIGHT(win->ysize));
+				   V_DSP_WIDTH(win->area[0].xsize) |
+				   V_DSP_HEIGHT(win->area[0].ysize));
 
-			vop_writel(vop_dev, VOP_WIN0_YRGB_MST, win->y_addr);
-			vop_writel(vop_dev, VOP_WIN0_CBR_MST, win->uv_addr);
+			vop_writel(vop_dev, VOP_WIN0_YRGB_MST,
+				   win->area[0].y_addr);
+			vop_writel(vop_dev, VOP_WIN0_CBR_MST,
+				   win->area[0].uv_addr);
 		} else if (win->id == 1) {
 			mask = M_WIN1_EN | M_WIN1_FORMAT | M_WIN1_RB_SWAP;
 			val = V_WIN1_EN(win->state) |
-			    V_WIN1_FORMAT(win->fmt_cfg) |
-			    V_WIN1_RB_SWAP(win->swap_rb);
+			    V_WIN1_FORMAT(win->area[0].fmt_cfg) |
+			    V_WIN1_RB_SWAP(win->area[0].swap_rb);
 			vop_msk_reg(vop_dev, VOP_SYS_CTRL, mask, val);
 
 			/* this vop unsupport win1 scale */
 			vop_writel(vop_dev, VOP_WIN1_DSP_INFO,
-				   V_DSP_WIDTH(win->xsize) |
-				   V_DSP_HEIGHT(win->ysize));
+				   V_DSP_WIDTH(win->area[0].xsize) |
+				   V_DSP_HEIGHT(win->area[0].ysize));
 			vop_writel(vop_dev, VOP_WIN1_DSP_ST,
-				   V_DSP_STX(win->dsp_stx) |
-				   V_DSP_STY(win->dsp_sty));
+				   V_DSP_STX(win->area[0].dsp_stx) |
+				   V_DSP_STY(win->area[0].dsp_sty));
 
-			vop_writel(vop_dev, VOP_WIN1_MST, win->y_addr);
+			vop_writel(vop_dev, VOP_WIN1_MST, win->area[0].y_addr);
 
 			vop_msk_reg(vop_dev, VOP_WIN1_VIR, M_YRGB_VIR,
-				    V_YRGB_VIR(win->y_vir_stride));
+				    V_YRGB_VIR(win->area[0].y_vir_stride));
 
 		} else if (win->id == 2) {
 			mask = M_HWC_EN | M_HWC_LODAD_EN;
 			val = V_HWC_EN(win->state) | V_HWC_LODAD_EN(1);
 			vop_msk_reg(vop_dev, VOP_SYS_CTRL, mask, val);
-			if ((win->xsize == 32) && (win->ysize == 32))
+			if ((win->area[0].xsize == 32) &&
+			    (win->area[0].ysize == 32))
 				hwc_size = 0;
-			else if ((win->xsize == 64) && (win->ysize == 64))
+			else if ((win->area[0].xsize == 64) &&
+				 (win->area[0].ysize == 64))
 				hwc_size = 1;
 			else
 				dev_err(vop_dev->dev,
 					"unsupport hwc size:x=%d,y=%d\n",
-					win->xsize, win->ysize);
+					win->area[0].xsize, win->area[0].ysize);
 			vop_writel(vop_dev, VOP_HWC_DSP_ST,
-				   V_DSP_STX(win->dsp_stx) |
-				   V_DSP_STY(win->dsp_sty));
+				   V_DSP_STX(win->area[0].dsp_stx) |
+				   V_DSP_STY(win->area[0].dsp_sty));
 
-			vop_writel(vop_dev, VOP_HWC_MST, win->y_addr);
+			vop_writel(vop_dev, VOP_HWC_MST, win->area[0].y_addr);
 		}
 	} else {
-		win->y_addr = 0;
-		win->uv_addr = 0;
+		win->area[0].y_addr = 0;
+		win->area[0].uv_addr = 0;
 		if (win->id == 0)
 			vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_WIN0_EN,
 				    V_WIN0_EN(0));
@@ -696,6 +700,8 @@ static int rockchip_vop_load_screen(struct rockchip_vop_driver *dev_drv,
 	}
 
 	spin_lock(&vop_dev->reg_lock);
+	vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_LCDC_STANDBY,
+		    V_LCDC_STANDBY(1));
 	/* Select output color domain */
 	/*dev_drv->output_color = screen->color_mode;
 	   if (dev_drv->output_color == COLOR_YCBCR)
@@ -722,6 +728,8 @@ static int rockchip_vop_load_screen(struct rockchip_vop_driver *dev_drv,
 		mask = M_MIPI_DCLK_EN | M_MIPI_DCLK_INVERT;
 		val = V_MIPI_DCLK_EN(1) | V_MIPI_DCLK_INVERT(0);
 		vop_msk_reg(vop_dev, VOP_BUS_INTF_CTRL, mask, val);
+		vop_msk_reg(vop_dev, VOP_MIPI_EDPI_CTRL,
+			    M_EDPI_HALT_EN, V_EDPI_HALT_EN(1));
 		break;
 	case SCREEN_HDMI:
 		rockchip_vop_select_bcsh(dev_drv, vop_dev);
@@ -866,9 +874,14 @@ static int rockchip_vop_load_screen(struct rockchip_vop_driver *dev_drv,
 
 	if (dev_drv->trsm_ops && dev_drv->trsm_ops->enable)
 		dev_drv->trsm_ops->enable();
+
 	if (screen->init)
 		screen->init();
 
+	spin_lock(&vop_dev->reg_lock);
+	vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_LCDC_STANDBY,
+		    V_LCDC_STANDBY(0));
+	spin_unlock(&vop_dev->reg_lock);
 	return 0;
 }
 
@@ -904,7 +917,6 @@ static int rockchip_vop_open(struct rockchip_vop_driver *dev_drv, int win_id,
 	/* when all layer closed,disable clk */
 	if ((!open) && (!vop_dev->atv_layer_cnt)) {
 		rockchip_vop_disable_irq(vop_dev);
-		rockchip_vop_reg_update(dev_drv);
 		rockchip_vop_clk_disable(vop_dev);
 	}
 	return 0;
@@ -935,46 +947,48 @@ static int rockchip_vop_set_par(struct rockchip_vop_driver *dev_drv, int win_id)
 	}
 
 	spin_lock(&vop_dev->reg_lock);
-	win->dsp_stx = win->xpos + screen->mode.left_margin +
+	win->area[0].dsp_stx = win->area[0].xpos + screen->mode.left_margin +
 	    screen->mode.hsync_len;
 	if (screen->mode.vmode == FB_VMODE_INTERLACED) {
-		win->ysize /= 2;
-		win->dsp_sty = win->ypos / 2 +
+		win->area[0].ysize /= 2;
+		win->area[0].dsp_sty = win->area[0].ypos / 2 +
 		    screen->mode.upper_margin + screen->mode.vsync_len;
 	} else {
-		win->dsp_sty = win->ypos +
+		win->area[0].dsp_sty = win->area[0].ypos +
 		    screen->mode.upper_margin + screen->mode.vsync_len;
 	}
-	win->scale_yrgb_x = CALSCALE(win->xact, win->xsize);
-	win->scale_yrgb_y = CALSCALE(win->yact, win->ysize);
+	win->scale_yrgb_x = CALSCALE(win->area[0].xact, win->area[0].xsize);
+	win->scale_yrgb_y = CALSCALE(win->area[0].yact, win->area[0].ysize);
 
-	switch (win->format) {
+	switch (win->area[0].format) {
 	case ARGB888:
-		win->fmt_cfg = VOP_FORMAT_ARGB888;
-		win->swap_rb = 0;
+		win->area[0].fmt_cfg = VOP_FORMAT_ARGB888;
+		win->area[0].swap_rb = 0;
 		break;
 	case XBGR888:
-		win->fmt_cfg = VOP_FORMAT_ARGB888;
-		win->swap_rb = 1;
+		win->area[0].fmt_cfg = VOP_FORMAT_ARGB888;
+		win->area[0].swap_rb = 1;
 		break;
 	case ABGR888:
-		win->fmt_cfg = VOP_FORMAT_ARGB888;
-		win->swap_rb = 1;
+		win->area[0].fmt_cfg = VOP_FORMAT_ARGB888;
+		win->area[0].swap_rb = 1;
 		break;
 	case RGB888:
-		win->fmt_cfg = VOP_FORMAT_RGB888;
-		win->swap_rb = 0;
+		win->area[0].fmt_cfg = VOP_FORMAT_RGB888;
+		win->area[0].swap_rb = 0;
 		break;
 	case RGB565:
-		win->fmt_cfg = VOP_FORMAT_RGB565;
-		win->swap_rb = 0;
+		win->area[0].fmt_cfg = VOP_FORMAT_RGB565;
+		win->area[0].swap_rb = 0;
 		break;
 	case YUV444:
 		if (win_id == 0) {
-			win->fmt_cfg = VOP_FORMAT_YCBCR444;
-			win->scale_cbcr_x = CALSCALE(win->xact, win->xsize);
-			win->scale_cbcr_y = CALSCALE(win->yact, win->ysize);
-			win->swap_rb = 0;
+			win->area[0].fmt_cfg = VOP_FORMAT_YCBCR444;
+			win->scale_cbcr_x =
+				CALSCALE(win->area[0].xact, win->area[0].xsize);
+			win->scale_cbcr_y =
+				CALSCALE(win->area[0].yact, win->area[0].ysize);
+			win->area[0].swap_rb = 0;
 		} else {
 			dev_err(vop_dev->driver.dev,
 				"%s:un supported format!\n", __func__);
@@ -982,11 +996,12 @@ static int rockchip_vop_set_par(struct rockchip_vop_driver *dev_drv, int win_id)
 		break;
 	case YUV422:
 		if (win_id == 0) {
-			win->fmt_cfg = VOP_FORMAT_YCBCR422;
-			win->scale_cbcr_x = CALSCALE((win->xact / 2),
-						     win->xsize);
-			win->scale_cbcr_y = CALSCALE(win->yact, win->ysize);
-			win->swap_rb = 0;
+			win->area[0].fmt_cfg = VOP_FORMAT_YCBCR422;
+			win->scale_cbcr_x = CALSCALE((win->area[0].xact / 2),
+						     win->area[0].xsize);
+			win->scale_cbcr_y = CALSCALE(win->area[0].yact,
+						     win->area[0].ysize);
+			win->area[0].swap_rb = 0;
 		} else {
 			dev_err(vop_dev->driver.dev,
 				"%s:un supported format!\n", __func__);
@@ -994,10 +1009,12 @@ static int rockchip_vop_set_par(struct rockchip_vop_driver *dev_drv, int win_id)
 		break;
 	case YUV420:
 		if (win_id == 0) {
-			win->fmt_cfg = VOP_FORMAT_YCBCR420;
-			win->scale_cbcr_x = CALSCALE(win->xact / 2, win->xsize);
-			win->scale_cbcr_y = CALSCALE(win->yact / 2, win->ysize);
-			win->swap_rb = 0;
+			win->area[0].fmt_cfg = VOP_FORMAT_YCBCR420;
+			win->scale_cbcr_x = CALSCALE(win->area[0].xact / 2,
+						     win->area[0].xsize);
+			win->scale_cbcr_y = CALSCALE(win->area[0].yact / 2,
+						     win->area[0].ysize);
+			win->area[0].swap_rb = 0;
 		} else {
 			dev_err(vop_dev->driver.dev,
 				"%s:un supported format!\n", __func__);
@@ -1012,10 +1029,12 @@ static int rockchip_vop_set_par(struct rockchip_vop_driver *dev_drv, int win_id)
 
 	DBG(1,
 	    "lcdc%d>>%s\n>>format:%s>>>xact:%d>>yact:%d>>xsize:%d>>ysize:%d\n"
-	    ">>xvir:%d>>yvir:%d>>xpos:%d>>ypos:%d>>\n", vop_dev->id, __func__,
-	    get_format_string(win->format, fmt), win->xact,
-	    win->yact, win->xsize, win->ysize,
-	    win->xvir, win->yvir, win->xpos, win->ypos);
+	    ">>xvir:%d>>yvir:%d>>xpos:%d>>ypos:%d>>\n",
+	    vop_dev->id, __func__, get_format_string(win->area[0].format, fmt),
+	    win->area[0].xact, win->area[0].yact,
+	    win->area[0].xsize, win->area[0].ysize,
+	    win->area[0].xvir, win->area[0].yvir,
+	    win->area[0].xpos, win->area[0].ypos);
 	return 0;
 }
 
@@ -1045,16 +1064,19 @@ static int rockchip_vop_pan_display(struct rockchip_vop_driver *dev_drv,
 
 	spin_lock(&vop_dev->reg_lock);
 	if (likely(vop_dev->clk_on)) {
-		win->y_addr = win->smem_start + win->y_offset;
-		win->uv_addr = win->cbr_start + win->c_offset;
-		if (win->y_addr)
+		win->area[0].y_addr =
+			win->area[0].smem_start + win->area[0].y_offset;
+		win->area[0].uv_addr =
+			win->area[0].cbr_start + win->area[0].c_offset;
+		if (win->area[0].y_addr)
 			vop_win_update_regs(vop_dev, win);
 		/* vop_cfg_done(vop_dev); */
 	}
 	spin_unlock(&vop_dev->reg_lock);
 
 	DBG(2, "lcdc%d>>%s:y_addr:0x%x>>uv_addr:0x%x>>offset:%d\n",
-	    vop_dev->id, __func__, win->y_addr, win->uv_addr, win->y_offset);
+	    vop_dev->id, __func__, win->area[0].y_addr, win->area[0].uv_addr,
+	    win->area[0].y_offset);
 	/* this is the first frame of the system,enable frame start interrupt */
 	if ((dev_drv->first_frame)) {
 		dev_drv->first_frame = 0;
@@ -1700,23 +1722,23 @@ static ssize_t rockchip_vop_get_disp_info(struct rockchip_vop_driver *dev_drv,
 			"win1 on the top of win0\n");
 }
 
-static int rockchip_vop_lvds_reg_writel(struct rockchip_vop_driver *dev_drv,
-					u32 offset, u32 val)
+static int rockchip_vop_reg_writel(struct rockchip_vop_driver *dev_drv,
+				   u32 offset, u32 val)
 {
 	struct vop_device *vop_dev =
 		container_of(dev_drv, struct vop_device, driver);
 
-	vop_writel(vop_dev, offset + 0x140, val);
+	writel(val, vop_dev->regs + offset);
 	return 0;
 }
 
-static int rockchip_vop_lvds_reg_readl(struct rockchip_vop_driver *dev_drv,
-				       u32 offset)
+static u32 rockchip_vop_reg_readl(struct rockchip_vop_driver *dev_drv,
+				  u32 offset)
 {
 	struct vop_device *vop_dev =
 		container_of(dev_drv, struct vop_device, driver);
 
-	return vop_readl(vop_dev, offset + 0x140);
+	return readl(vop_dev->regs + offset);
 }
 
 static int rockchip_vop_reg_dump(struct rockchip_vop_driver *dev_drv)
@@ -1770,8 +1792,8 @@ static struct rockchip_vop_drv_ops vop_drv_ops = {
 	.set_hwc_lut = rockchip_vop_set_hwc_lut,
 	.set_irq_to_cpu = rockchip_vop_set_irq_to_cpu,
 	.lcdc_reg_update = rockchip_vop_reg_update,
-	.lvds_reg_writel = rockchip_vop_lvds_reg_writel,
-	.lvds_reg_readl = rockchip_vop_lvds_reg_readl,
+	.reg_writel = rockchip_vop_reg_writel,
+	.reg_readl = rockchip_vop_reg_readl,
 };
 
 #if defined(CONFIG_OF)
@@ -1802,11 +1824,6 @@ static int rockchip_vop_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int ret;
-	static bool isprobe;
-
-	if (isprobe)
-		return 0;
-	isprobe = true;
 
 	vop_dev = devm_kzalloc(dev, sizeof(struct vop_device), GFP_KERNEL);
 	if (!vop_dev) {
@@ -1884,7 +1901,6 @@ static int rockchip_vop_probe(struct platform_device *pdev)
 	dev_info(dev, "vop%d probe ok, iommu %s\n",
 		 vop_dev->id, dev_drv->iommu_enabled ? "enabled" : "disabled");
 
-	vop_writel(vop_dev, VOP_LVDS_CTRL, 0x20005);
 	return 0;
 err_register_fb:
 err_request_irq:
@@ -1925,7 +1941,7 @@ static void rockchip_vop_shutdown(struct platform_device *pdev)
 	rockchip_disp_pwr_disable(vop_dev->driver.cur_screen);
 }
 
-static struct platform_driver rockchip_vop_driver = {
+struct platform_driver rockchip_vop_driver = {
 	.probe = rockchip_vop_probe,
 	.remove = rockchip_vop_remove,
 	.driver = {
@@ -1937,5 +1953,3 @@ static struct platform_driver rockchip_vop_driver = {
 	.resume = rockchip_vop_resume,
 	.shutdown = rockchip_vop_shutdown,
 };
-
-module_platform_driver(rockchip_vop_driver);
