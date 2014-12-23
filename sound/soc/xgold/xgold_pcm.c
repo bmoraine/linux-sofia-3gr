@@ -50,7 +50,7 @@
 #define XGOLD_IN_RATES SNDRV_PCM_RATE_8000_48000
 #define XGOLD_IN_FORMAT SNDRV_PCM_FMTBIT_S16_LE
 
-#define XGOLD_MAX_RING_SIZE		(32 * 1024)
+#define XGOLD_MAX_RING_SIZE		(380 * 1024)
 #define XGOLD_MAX_SG_LIST		4
 #define DMA_BURST_SIZE			256
 
@@ -61,6 +61,13 @@
 #define OFF 0
 
 #define SYSFS_INPUT_VAL_LEN (1)
+
+#define SM_AUDIO_BUFFER_DL_SAMPLES 240
+/* SHM can store 5 ms data, it is 960 bytes
+   Maximum period circle is 24 * 5 = 120 ms
+   DMA circle is 120 * XGOLD_MAX_SG_LIST = 480 ms */
+#define XGOLD_MAX_PERIOD_BYTES (960 * 24) /* 24 * 5 = 120 ms */
+#define XGOLD_MAX_BUFFER_BYTES (XGOLD_MAX_PERIOD_BYTES * 16)
 
 static unsigned int bt_init_en;
 
@@ -89,9 +96,9 @@ static const struct snd_pcm_hardware xgold_pcm_play_cfg = {
 	.rate_max = 48000,
 	.channels_min = 1,
 	.channels_max = 2,
-	.buffer_bytes_max = 61440,
+	.buffer_bytes_max = XGOLD_MAX_BUFFER_BYTES,
 	.period_bytes_min = 40,
-	.period_bytes_max = 960,
+	.period_bytes_max = XGOLD_MAX_PERIOD_BYTES,
 	.periods_min = 2,
 	.periods_max = 64,
 };
@@ -443,8 +450,12 @@ void xgold_dsp_pcm_play_handler(void *dev)
 	for (i = 0; i < remaining_block; i++) {
 		length = xrtd->stream->runtime->period_size *
 			xrtd->stream->runtime->channels;
-		rw_shm_data.word_offset =
+		if (xrtd->stream_type == STREAM_PLAY)
+			rw_shm_data.word_offset =
 			xgold_pcm->dsp->p_dsp_common_data->buf_sm_dl_offset;
+		else
+			rw_shm_data.word_offset =
+			xgold_pcm->dsp->p_dsp_common_data->buf_sm_dl2_offset;
 		rw_shm_data.len_in_bytes = length * 2;
 		rw_shm_data.p_data = xrtd->hwptr;
 		xgold_pcm->dsp->p_dsp_common_data->ops->set_controls(
@@ -457,8 +468,7 @@ void xgold_dsp_pcm_play_handler(void *dev)
 		xrtd->periods %= xrtd->stream->runtime->periods;
 		xrtd->hwptr_done %= xrtd->stream->runtime->periods;
 
-		/* FIXME: PLAY2 */
-		dsp_pcm_feed(xgold_pcm->dsp, STREAM_PLAY,
+		dsp_pcm_feed(xgold_pcm->dsp, xrtd->stream_type,
 				xrtd->stream->runtime->channels,
 				xrtd->stream->runtime->rate);
 	}
@@ -528,30 +538,34 @@ static void xgold_pcm_dma_submit(struct xgold_runtime_data *xrtd,
 	dma_cookie_t dma_cookie_tx;
 	int i = 0;
 
+	unsigned int dma_bytes = SM_AUDIO_BUFFER_DL_SAMPLES * 4;
+	unsigned int dma_sgl_count;
 	xrtd->period_size_bytes =
 		frames_to_bytes(xrtd->stream->runtime,
 				xrtd->stream->runtime->period_size);
 
+	dma_sgl_count = xrtd->period_size_bytes / dma_bytes
+		* XGOLD_MAX_SG_LIST;
 	xgold_debug("%s - period_size_bytes %d\n",
 			__func__,
 			xrtd->period_size_bytes);
 
 	/* Prepare the scatter list */
-	while (i != XGOLD_MAX_SG_LIST) {
+	while (i != dma_sgl_count) {
 		sg_set_buf(xrtd->dma_sgl + i,
 			(void *)phys_to_virt(dma_addr),
-			xrtd->period_size_bytes);
+			dma_bytes);
 		i++;
-		dma_addr += xrtd->period_size_bytes;
+		dma_addr += dma_bytes;
 	}
 
-	dma_map_sg(xgold_pcm->dev, xrtd->dma_sgl, XGOLD_MAX_SG_LIST,
+	dma_map_sg(xgold_pcm->dev, xrtd->dma_sgl, dma_sgl_count,
 			DMA_TO_DEVICE);
 
 	/* Prepare DMA slave sg */
 	desc = dmaengine_prep_slave_sg(xrtd->dmach,
 			xrtd->dma_sgl,
-			XGOLD_MAX_SG_LIST,
+			dma_sgl_count,
 			DMA_SL_MEM_TO_MEM,
 			DMA_PREP_INTERRUPT);
 
@@ -618,8 +632,10 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 	else if (strstr(substream_id, "XGOLD_HW_PROBE_B"))
 		xrtd->stream_type = HW_PROBE_B;
 	else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		/* FIXME PLAY2 */
-		xrtd->stream_type = STREAM_PLAY;
+		if (strstr(substream_id, "PCM Audio 2"))
+			xrtd->stream_type = STREAM_PLAY2;
+		else
+			xrtd->stream_type = STREAM_PLAY;
 	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		xrtd->stream_type = STREAM_REC;
 	else {
@@ -639,11 +655,18 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 			goto out;
 		}
 
-		if (!xgold_pcm->dma_mode)
-			register_dsp_audio_lisr_cb(
-				DSP_LISR_CB_PCM_PLAYER,
-				xgold_dsp_pcm_play_handler,
-				(void *)xrtd);
+		if (!xgold_pcm->dma_mode) {
+			if (xrtd->stream_type == STREAM_PLAY)
+				register_dsp_audio_lisr_cb(
+					DSP_LISR_CB_PCM_PLAYER,
+					xgold_dsp_pcm_play_handler,
+					(void *)xrtd);
+			else
+				register_dsp_audio_lisr_cb(
+					DSP_LISR_CB_PCM_PLAYER_A,
+					xgold_dsp_pcm_play_handler,
+					(void *)xrtd);
+		}
 	} else {
 		snd_soc_set_runtime_hwparams(substream, &xgold_pcm_record_cfg);
 
@@ -716,12 +739,18 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 	xgold_pcm = xrtd->pcm;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		/* FIXME PLAY2 */
-		if (!xgold_pcm->dma_mode)
-			register_dsp_audio_lisr_cb(
-				DSP_LISR_CB_PCM_PLAYER,
-				NULL,
-				NULL);
+		if (!xgold_pcm->dma_mode) {
+			if (xrtd->stream_type == STREAM_PLAY)
+				register_dsp_audio_lisr_cb(
+					DSP_LISR_CB_PCM_PLAYER,
+					NULL,
+					NULL);
+			else
+				register_dsp_audio_lisr_cb(
+					DSP_LISR_CB_PCM_PLAYER_A,
+					NULL,
+					NULL);
+		}
 	} else if (xrtd->stream_type == HW_PROBE_A)
 		register_dsp_audio_lisr_cb(
 			DSP_LISR_CB_HW_PROBE_A,
@@ -826,10 +855,17 @@ static int xgold_pcm_play_dma_prepare(struct snd_pcm_substream *substream)
 #ifndef CONFIG_OF
 	dma_cap_mask_t tx_mask;
 #endif
+	unsigned int dma_sgl_count;
+	unsigned short shm_samples = SM_AUDIO_BUFFER_DL_SAMPLES;
 
-	/* FIXME: PLAY2 */
+	if ((runtime->period_size % shm_samples) != 0) {
+		xgold_err("%s: invalid period_size = %d\n", __func__,
+			(int)runtime->period_size);
+		return -EINVAL;
+	}
+
 #ifdef CONFIG_OF
-	xrtd->dmach = xgold_of_dsp_get_dmach(xgold_pcm->dsp, STREAM_PLAY);
+	xrtd->dmach = xgold_of_dsp_get_dmach(xgold_pcm->dsp, xrtd->stream_type);
 #else
 	dma_cap_zero(tx_mask);
 	dma_cap_set(DMA_SLAVE, tx_mask);
@@ -843,8 +879,12 @@ static int xgold_pcm_play_dma_prepare(struct snd_pcm_substream *substream)
 		return -EIO;
 	}
 
-	shm_base = dsp_get_audio_shmem_base_addr(xgold_pcm->dsp) +
+	if (xrtd->stream_type == STREAM_PLAY)
+		shm_base = dsp_get_audio_shmem_base_addr(xgold_pcm->dsp) +
 		xgold_pcm->dsp->p_dsp_common_data->buf_sm_dl_offset * 2;
+	else
+		shm_base = dsp_get_audio_shmem_base_addr(xgold_pcm->dsp) +
+		xgold_pcm->dsp->p_dsp_common_data->buf_sm_dl2_offset * 2;
 
 	/* Config DMA slave parameters */
 	pcm_dma_config.direction = DMA_TO_DEVICE;
@@ -862,13 +902,14 @@ static int xgold_pcm_play_dma_prepare(struct snd_pcm_substream *substream)
 
 	dma_addr = runtime->dma_addr;
 
-	xrtd->dma_sgl = kzalloc(sizeof(struct scatterlist) * XGOLD_MAX_SG_LIST,
+	dma_sgl_count = runtime->period_size / shm_samples * XGOLD_MAX_SG_LIST;
+	xrtd->dma_sgl = kzalloc(sizeof(struct scatterlist) * dma_sgl_count,
 			GFP_KERNEL);
 
 	if (!xrtd->dma_sgl)
 		return -ENOMEM;
 
-	sg_init_table(xrtd->dma_sgl, XGOLD_MAX_SG_LIST);
+	sg_init_table(xrtd->dma_sgl, dma_sgl_count);
 
 	/* Load scatter list and submit DMA request */
 	xgold_pcm_dma_submit(xrtd, dma_addr);
@@ -931,7 +972,7 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 				dsp->p_dsp_common_data->
 					ops->irq_activate(DSP_IRQ_1);
 
-			dsp_pcm_play(dsp, STREAM_PLAY,
+			dsp_pcm_play(dsp, xrtd->stream_type,
 					substream->runtime->channels,
 					substream->runtime->rate,
 					xgold_pcm->dma_mode);

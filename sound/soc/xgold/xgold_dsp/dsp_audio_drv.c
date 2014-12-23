@@ -47,6 +47,7 @@
 #define PROP_DSP_REMAIN_PCM		"intel,dsp-pcm-offset"
 #define PROP_DSP_BUF_SIZE_UL_OFFSET	"intel,dsp-buf-size-ul-offset"
 #define PROP_DSP_SM_AUD_BUF_DL_OFFSET	"intel,dsp-sm-aud-buf-dl-offset"
+#define PROP_DSP_SM_AUD_BUF_DL2_OFFSET	"intel,dsp-sm-aud-buf-dl2-offset"
 #define PROP_DSP_SM_AUD_BUF_UL_OFFSET	"intel,dsp-sm-aud-buf-ul-offset"
 #define PROP_DSP_CMD_GAIN_CONST		"intel,dsp-cmd-gain_const"
 #define PROP_DSP_CMD_SWM_PCM_OUT	"intel,dsp-cmd-swm_pcmout"
@@ -1016,6 +1017,15 @@ static void xgold_dsp_fill_shm_offset(struct device_node *np,
 	if (ret)
 		xgold_debug("Could not find property %s\n",
 			PROP_DSP_SM_AUD_BUF_DL_OFFSET);
+
+	/* Aud SM buffer DL2 offset */
+	ret = of_property_read_u32(np,
+			PROP_DSP_SM_AUD_BUF_DL2_OFFSET,
+			&dsp->p_dsp_common_data->buf_sm_dl2_offset);
+
+	if (ret)
+		xgold_debug("Could not find property %s\n",
+			PROP_DSP_SM_AUD_BUF_DL2_OFFSET);
 
 	/* Aud SM buffer UL offset */
 	ret = of_property_read_u32(np,

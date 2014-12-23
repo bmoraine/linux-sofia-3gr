@@ -128,6 +128,7 @@ struct dsp_common_data {
 	unsigned pcm_offset[2];
 	unsigned buf_size_ul_offset;
 	unsigned buf_sm_dl_offset;
+	unsigned buf_sm_dl2_offset;
 	unsigned buf_sm_ul_offset;
 	unsigned buf_sm_hw_probe_a_offset;
 	unsigned buf_sm_hw_probe_b_offset;

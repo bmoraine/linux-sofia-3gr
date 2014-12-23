@@ -302,6 +302,8 @@ struct dma_chan *xgold_of_dsp_get_dmach(
 	switch (req) {
 	case STREAM_PLAY:
 		return dma_request_slave_channel(dsp_dev->dev, "play1");
+	case STREAM_PLAY2:
+		return dma_request_slave_channel(dsp_dev->dev, "play2");
 	case STREAM_REC:
 		return dma_request_slave_channel(dsp_dev->dev, "record");
 	default:
