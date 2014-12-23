@@ -27,6 +27,12 @@ struct pwr_ctr {
 	int delay;
 };
 
+struct rockchip_disp_reset_list {
+	struct list_head list;
+	int value;
+	int mdelay;
+};
+
 struct rockchip_disp_pwr_ctr_list {
 	struct list_head list;
 	struct pwr_ctr pwr_ctr;
@@ -74,12 +80,6 @@ struct rockchip_screen {
 	u8 swap_delta;
 	u8 swap_dumy;
 
-#if defined(CONFIG_MIPI_DSI)
-	/* MIPI DSI */
-	u8 dsi_lane;
-	u8 dsi_video_mode;
-	u32 hs_tx_clk;
-#endif
 	/*
 	 * horizontal display start position on the sceen,
 	 * then can be changed by application
@@ -94,6 +94,8 @@ struct rockchip_screen {
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	struct device_pm_platdata *pm_platdata;
+	struct rockchip_disp_reset_list *resetlist;
+	int gpio_rst;
 #else
 	struct list_head pwrlist_head;
 #endif

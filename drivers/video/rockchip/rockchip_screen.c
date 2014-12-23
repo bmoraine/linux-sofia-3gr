@@ -25,6 +25,16 @@
 #include <dt-bindings/sofiafb/sofia_fb.h>
 #endif
 
+#define PROP_DISPLAY_GPIO_RST	"intel,disp-gpio-reset"
+
+#define OF_GET_U32(_n_, _p_, _pval_, _e_) \
+	do { \
+		_e_ = of_property_read_u32(_n_, _p_, _pval_); \
+		if (_e_) { \
+			*_pval_ = 0; \
+		} \
+	} while (0)
+
 static struct rockchip_screen *sfa_screen;
 
 size_t get_fb_size(void)
@@ -70,6 +80,14 @@ int rockchip_set_prmry_screen(struct rockchip_screen *screen)
 static int rockchip_disp_pwr_ctr_parse_dt(struct device_node *np,
 				       struct rockchip_screen *screen)
 {
+	enum of_gpio_flags flags;
+	int ret = 0, i, length = 0;
+	unsigned int val;
+	const __be32 *p;
+	struct property *prop;
+	int *array;
+	struct rockchip_disp_reset_list *res;
+
 	screen->pm_platdata = of_device_state_pm_setup(np);
 	if (IS_ERR(screen->pm_platdata)) {
 		dev_err(screen->dev, "Error during device state pm init.\n");
@@ -77,12 +95,74 @@ static int rockchip_disp_pwr_ctr_parse_dt(struct device_node *np,
 		return -EINVAL;
 	}
 
+	screen->gpio_rst =
+		of_get_named_gpio_flags(np, PROP_DISPLAY_GPIO_RST, 0, &flags);
+
+	if (!gpio_is_valid(screen->gpio_rst)) {
+		dev_err(screen->dev, "ivalid gpio reset\n");
+		return -EINVAL;
+	}
+
+	ret = gpio_request(screen->gpio_rst, "lcd_rst");
+	if (ret) {
+		dev_err(screen->dev, "request lcd rst gpio fail:%d\n", ret);
+		return ret;
+	}
+
+	/* count array size */
+	of_property_for_each_u32(np, "intel,display-reset", prop, p, val) {
+		length++;
+	};
+
+	if (length == 0) {
+		screen->resetlist = NULL;
+		return 0;
+	}
+
+	if (length % 2) {
+		dev_err(screen->dev, "intel,display-reset array length should be even\n");
+		return -EINVAL;
+	}
+
+	array = devm_kzalloc(screen->dev, length * sizeof(int), GFP_KERNEL);
+	ret = of_property_read_u32_array(np, "intel,display-reset",
+					 array, length);
+	if (ret) { /* already checked few lines before but does not hurt */
+		pr_err("Can't read property:%s\n", "intel,display-reset");
+		screen->resetlist = NULL;
+		return 0;
+	}
+
+	screen->resetlist =
+		devm_kzalloc(screen->dev,
+				sizeof(struct rockchip_disp_reset_list),
+				GFP_KERNEL);
+	if (!screen->resetlist) {
+		dev_err(screen->dev, "Can't alloc array for disp_reset_list\n");
+		return -ENOMEM;
+	}
+	INIT_LIST_HEAD(&screen->resetlist->list);
+
+	for (i = 0; i < length; i += 2) {
+		res = (struct rockchip_disp_reset_list *)
+			devm_kzalloc(screen->dev, sizeof(*res), GFP_KERNEL);
+		if (!res) {
+			pr_err("allocation of reset failed\n");
+			return -EINVAL;
+		}
+		res->value = array[i];
+		res->mdelay = array[i+1];
+		list_add_tail(&res->list, &screen->resetlist->list);
+	}
+	devm_kfree(screen->dev, array);
 	return 0;
 }
 
 int rockchip_disp_pwr_enable(struct rockchip_screen *screen)
 {
 	int ret = 0;
+	struct rockchip_disp_reset_list *resetlist = screen->resetlist;
+	struct rockchip_disp_reset_list *res;
 
 	if (screen->pm_platdata) {
 		ret = device_state_pm_set_state_by_name(screen->dev,
@@ -93,12 +173,26 @@ int rockchip_disp_pwr_enable(struct rockchip_screen *screen)
 		}
 	}
 
+	if (!resetlist)
+		return 0;
+	res = list_first_entry_or_null(&resetlist->list,
+				       struct rockchip_disp_reset_list, list);
+
+	if (!res)
+		return 0;
+
+	list_for_each_entry(res, &screen->resetlist->list, list) {
+		gpio_direction_output(screen->gpio_rst, res->value);
+		mdelay(res->mdelay);
+	}
+
 	return 0;
 }
 
 int rockchip_disp_pwr_disable(struct rockchip_screen *screen)
 {
 	int ret = 0;
+	struct rockchip_disp_reset_list *res;
 
 	if (screen->pm_platdata) {
 		ret = device_state_pm_set_state_by_name(screen->dev,
@@ -111,6 +205,11 @@ int rockchip_disp_pwr_disable(struct rockchip_screen *screen)
 		}
 	}
 
+	if (screen->resetlist) {
+		res = list_last_entry(&screen->resetlist->list,
+				      struct rockchip_disp_reset_list, list);
+		gpio_direction_output(screen->gpio_rst, !res->value);
+	}
 	return 0;
 }
 
@@ -385,7 +484,7 @@ static const struct of_device_id rockchip_screen_dt_ids[] = {
 	{}
 };
 
-static struct platform_driver rockchip_screen_driver = {
+struct platform_driver rockchip_screen_driver = {
 	.probe = rockchip_screen_probe,
 	.driver = {
 		   .name = "rockchip-screen",
@@ -393,5 +492,3 @@ static struct platform_driver rockchip_screen_driver = {
 		   .of_match_table = of_match_ptr(rockchip_screen_dt_ids),
 		   },
 };
-
-module_platform_driver(rockchip_screen_driver);
