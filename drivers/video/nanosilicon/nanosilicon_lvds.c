@@ -20,7 +20,8 @@
 #include <linux/rockchip_fb.h>
 #include "nanosilicon_lvds.h"
 
-static struct lvds_device *sf3gr_lvds;
+#define LVDS_VOP_REG_OFFSET	0x140
+static struct lvds_device *nanosilicon_lvds;
 
 static int lvds_writel(struct lvds_device *lvds, u32 offset, u32 val)
 {
@@ -34,8 +35,13 @@ static int lvds_writel(struct lvds_device *lvds, u32 offset, u32 val)
 	screen = &lvds->screen;
 	sprintf(name, "vop%d", screen->vop_id);
 	vop_drv = get_vop_drv(name);
+	if (!vop_drv) {
+		dev_err(lvds->dev, "no find vop drv\n");
+		return -ENODEV;
+	}
 
-	return vop_drv->ops->lvds_reg_writel(vop_drv, offset, val);
+	offset += LVDS_VOP_REG_OFFSET;
+	return vop_drv->ops->reg_writel(vop_drv, offset, val);
 }
 
 static u32 lvds_readl(struct lvds_device *lvds, u32 offset)
@@ -50,24 +56,29 @@ static u32 lvds_readl(struct lvds_device *lvds, u32 offset)
 	screen = &lvds->screen;
 	sprintf(name, "vop%d", screen->vop_id);
 	vop_drv = get_vop_drv(name);
+	if (!vop_drv) {
+		dev_err(lvds->dev, "no find vop drv\n");
+		return -ENODEV;
+	}
 
-	return vop_drv->ops->lvds_reg_readl(vop_drv, offset);
+	offset += LVDS_VOP_REG_OFFSET;
+	return vop_drv->ops->reg_readl(vop_drv, offset);
 }
 
-static int lvds_msk_reg(struct lvds_device *lvds, u32 msk, u32 offset, u32 val)
+static int lvds_msk_reg(struct lvds_device *lvds, u32 offset, u32 msk, u32 val)
 {
 	u32 temp = 0;
 
 	if (unlikely(!lvds))
 		return 0;
 
-	temp = lvds_readl(lvds, offset) & (~msk);
+	temp = lvds_readl(lvds, offset) & (0xffff - msk);
 	return lvds_writel(lvds, offset, temp | (val & msk));
 }
 
 static int nanosilicon_lvds_disable(void)
 {
-	struct lvds_device *lvds = sf3gr_lvds;
+	struct lvds_device *lvds = nanosilicon_lvds;
 	int ret = 0;
 
 	if (unlikely(!lvds) || !lvds->sys_state)
@@ -119,7 +130,7 @@ static void nanosilicon_output_lvds(struct lvds_device *lvds,
 
 	val |= V_LVDS_TTL_MODE_EN(0);
 	val |= V_LVDS_SELECT(screen->lvds_format);
-	val |= V_LVDS_MSBSEL(LVDS_MSB_D0);
+	val |= V_LVDS_MSBSEL(LVDS_MSB_D7);
 	if (screen->face == OUT_P888)
 		val |= V_LVDS_DATA_BITS(LVDS_8_BIT);
 	else
@@ -154,7 +165,7 @@ static void nanosilicon_output_lvttl(struct lvds_device *lvds,
 
 static int nanosilicon_lvds_enable(void)
 {
-	struct lvds_device *lvds = sf3gr_lvds;
+	struct lvds_device *lvds = nanosilicon_lvds;
 	struct rockchip_screen *screen;
 	int ret = 0;
 
@@ -267,7 +278,7 @@ static int nanosilicon_lvds_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_free_mem;
 
-	sf3gr_lvds = lvds;
+	nanosilicon_lvds = lvds;
 	rockchip_fb_trsm_ops_register(&trsm_lvds_ops, SCREEN_LVDS);
 	dev_info(&pdev->dev, "nanosilicon lvds driver probe success\n");
 
@@ -313,7 +324,7 @@ static const struct of_device_id nanosilicon_lvds_dt_ids[] = {
 };
 #endif
 
-static struct platform_driver nanosilicon_lvds_driver = {
+struct platform_driver nanosilicon_lvds_driver = {
 	.driver = {
 		   .name = "nanosilicon-lvds",
 		   .owner = THIS_MODULE,
@@ -325,5 +336,3 @@ static struct platform_driver nanosilicon_lvds_driver = {
 	.remove = nanosilicon_lvds_remove,
 	.shutdown = nanosilicon_lvds_shutdown,
 };
-
-module_platform_driver(nanosilicon_lvds_driver);
