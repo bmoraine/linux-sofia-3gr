@@ -139,6 +139,69 @@ static int dsp_audio_send_cmd_control_set(
 	return ret;
 }
 
+/* Get function for the control DSP Audio Power */
+static int dsp_audio_power_control_get(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
+	struct dsp_audio_device *dsp = xgold_pcm->dsp;
+	int ret = 0;
+
+	if (dsp)
+		ucontrol->value.integer.value[0] =
+			dsp->p_dsp_common_data->control_priv.dsp_keep_powered;
+	else
+		ret = -ENODEV;
+
+	return ret;
+}
+
+/* Set function to handle the control to power up/down the DSP*/
+static int dsp_audio_power_control_set(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
+	struct dsp_audio_device *dsp = xgold_pcm->dsp;
+	int ret = 0;
+	int power_control;
+
+	if (dsp) {
+		if (ucontrol->value.integer.value[0])
+			power_control = 1;
+		else
+			power_control = 0;
+
+		if (dsp->p_dsp_common_data->control_priv.dsp_keep_powered !=
+				power_control) {
+			xgold_debug("%s: Trying to set %d\n",
+					 __func__, power_control);
+			dsp->p_dsp_common_data->ops->set_controls(dsp,
+					DSP_AUDIO_POWER_REQ,
+					(void *)&power_control);
+			dsp->p_dsp_common_data->control_priv.dsp_keep_powered =
+				power_control;
+		}
+	} else
+		ret = -ENODEV;
+
+	return ret;
+}
+
+/* Info function for the controls */
+int dsp_audio_power_control_info(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 1;
+	return 0;
+}
 /* Soc platform controls */
 static const struct snd_kcontrol_new dsp_audio_controls[] = {
 	{
@@ -155,6 +218,13 @@ static const struct snd_kcontrol_new dsp_audio_controls[] = {
 		.get = dsp_audio_rw_shm_control_get,
 		.put = dsp_audio_rw_shm_control_set,
 	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "DSP Audio Power",
+		.info = dsp_audio_power_control_info,
+		.get = dsp_audio_power_control_get,
+		.put = dsp_audio_power_control_set,
+	},
 };
 
 /* Initialize the dsp audio platform that adds soc platform controls */
@@ -168,6 +238,5 @@ int dsp_audio_platform_init(struct snd_soc_platform *platform)
 			ARRAY_SIZE(dsp_audio_controls));
 	if (ret != 0)
 		xgold_debug("dsp audio controls reg failed %d", ret);
-
 	return 0;
 }

@@ -586,23 +586,20 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 	struct xgold_pcm *xgold_pcm =
 		snd_soc_platform_get_drvdata(rtd->platform);
 	int ret = 0;
-#if 0 /* BU_HACK DSP is always on at boot */
-	bool powr_state = ON;
-#endif
+	bool power_state = ON;
 
 	xgold_debug("--> %s\n", __func__);
 
-#if 0 /* BU_HACK DSP is always on at boot */
-	ret = p_dsp_audio_dev->p_dsp_common_data->
-		ops->set_controls(DSP_AUDIO_POWER_REQ,
-		&power_state);
+	xgold_debug("%s: Requesting to power on dsp\n", __func__);
+	ret = xgold_pcm->dsp->p_dsp_common_data->
+		ops->set_controls(xgold_pcm->dsp,
+			DSP_AUDIO_POWER_REQ, &power_state);
 
 	if (ret < 0) {
 		xgold_err("%s : power request failed %d\n",
 			__func__, ret);
 		return ret;
 	}
-#endif
 
 	xrtd = kzalloc(sizeof(struct xgold_runtime_data), GFP_KERNEL);
 	if (!xrtd)
@@ -700,9 +697,7 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 	struct xgold_runtime_data *xrtd = substream->runtime->private_data;
 	struct xgold_pcm *xgold_pcm;
 	int ret = 0;
-#if 0 /* BU_HACK DSP is always on at boot */
 	bool power_state = OFF;
-#endif
 
 	xgold_debug("XGOLD Closing pcm device\n");
 
@@ -740,13 +735,12 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 		ret = -EINVAL;
 	}
 
-#if 0 /* BU_HACK DSP is always on at boot */
-	ret = xgold_ptr->dsp->dsp_common_data->
-		ops->set_controls(DSP_AUDIO_POWER_REQ,
-		&power_state);
-#endif
-
 	kfree(xrtd);
+
+	xgold_debug("%s: Requesting to suspend dsp\n", __func__);
+	ret = xgold_pcm->dsp->p_dsp_common_data->
+		ops->set_controls(xgold_pcm->dsp,
+			DSP_AUDIO_POWER_REQ, &power_state);
 
 	return ret;
 }
@@ -888,13 +882,10 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 		if (xgold_pcm->dma_mode)
 			xgold_pcm_play_dma_prepare(substream);
 
-		if (xgold_pcm->dsp->p_dsp_common_data->native_mode)
+		if (audio_native_mode)
 			setup_pcm_play_path(xgold_pcm);
-	} else {
-		if (xgold_pcm->dsp->p_dsp_common_data->native_mode &&
-				xrtd->stream_type == STREAM_REC)
-			setup_pcm_record_path(xgold_pcm);
-	}
+	} else if (audio_native_mode && xrtd->stream_type == STREAM_REC)
+		setup_pcm_record_path(xgold_pcm);
 
 	return 0;
 }

@@ -376,7 +376,7 @@ static int __init setup_xgold_audio_native(char *str)
 	audio_native_mode = 1;
 	return 0;
 }
-early_param("nomodem", setup_xgold_audio_native);
+early_param("kernel_audio_standalone", setup_xgold_audio_native);
 
 static struct platform_driver xgold_snd_mc_drv = {
 	.driver = {

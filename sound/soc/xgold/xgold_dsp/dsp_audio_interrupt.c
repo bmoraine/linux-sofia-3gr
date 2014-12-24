@@ -115,7 +115,10 @@ enum dsp_err_code dsp_audio_irq_activate(struct dsp_audio_device *dsp,
 	/* Check if the interrupt is disabled */
 
 	/* For LTE IRQs are split beween 2 dsps [0..3]*/
-	irq_no = irq_no % 4;
+
+	if ((XGOLD_DSP_XG742_SBA == dsp->id) ||
+		(XGOLD_DSP_XG742_FBA == dsp->id))
+		irq_no = irq_no % 4;
 
 	if (!(reg & BIT(irq_no))) {
 		/* Set bit in IMSC register for intended interrupt */
@@ -180,7 +183,9 @@ enum dsp_err_code dsp_audio_irq_ack(struct dsp_audio_device *dsp_dev,
 		return DSP_ERR_INVALID_IRQ;
 
 	/* For LTE IRQs are split beween 2 dsps [0..3]*/
-	irq_no = irq_no % 4;
+	if ((XGOLD_DSP_XG742_SBA == dsp_dev->id) ||
+		(XGOLD_DSP_XG742_FBA == dsp_dev->id))
+		irq_no = irq_no % 4;
 
 	/* Set the ICR register */
 	dsp_set_audio_icr(dsp_dev, 1 << irq_no);

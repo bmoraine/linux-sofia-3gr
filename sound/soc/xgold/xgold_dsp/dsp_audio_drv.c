@@ -649,10 +649,6 @@ static int dsp_audio_dev_set_controls(struct dsp_audio_device *dsp_dev,
 
 		xgold_debug("DSP power request %d\n", *power_state);
 
-		/* DSP power management is done only for SF LTE in linux */
-		if (dsp_dev->id != XGOLD_DSP_XG742_SBA)
-			break;
-
 		if (*power_state == 1) {
 			ret_val = pm_runtime_get_sync(dsp_dev->dev);
 
@@ -662,13 +658,15 @@ static int dsp_audio_dev_set_controls(struct dsp_audio_device *dsp_dev,
 				return ret_val;
 			}
 
-			ret_val = pm_runtime_get_sync(
+			if (XGOLD_DSP_XG742_SBA == dsp_dev->id) {
+				ret_val = pm_runtime_get_sync(
 					dsp_dev->p_dsp_common_data->fba_dev);
 
-			if (ret_val < 0) {
-				xgold_err("%s: Power req error for fba %d\n",
-				__func__, ret_val);
-				return ret_val;
+				if (ret_val < 0) {
+					xgold_err("%s: Power req error for fba %d\n",
+					__func__, ret_val);
+					return ret_val;
+				}
 			}
 		} else {
 			ret_val = pm_runtime_put_sync_suspend(dsp_dev->dev);
@@ -678,14 +676,15 @@ static int dsp_audio_dev_set_controls(struct dsp_audio_device *dsp_dev,
 						__func__, ret_val);
 				return ret_val;
 			}
-
-			ret_val = pm_runtime_put_sync_suspend(
+			if (XGOLD_DSP_XG742_SBA == dsp_dev->id) {
+				ret_val = pm_runtime_put_sync_suspend(
 				dsp_dev->p_dsp_common_data->fba_dev);
 
-			if (ret_val < 0) {
-				xgold_err("%s: Power req error for fba %d\n",
-						__func__, ret_val);
-				return ret_val;
+				if (ret_val < 0) {
+					xgold_err("%s: Power req error for fba %d\n",
+							__func__, ret_val);
+					return ret_val;
+				}
 			}
 		}
 		break;
@@ -1091,21 +1090,15 @@ static int dsp_audio_of_parse(struct device *dev, struct dsp_audio_device *dsp)
 	} else if (!strcmp(name, "XG742_FBA")) {
 		dsp->id = XGOLD_DSP_XG742_FBA;
 		dsp->p_dsp_common_data->fba_dev = dev;
-		dsp->p_dsp_common_data->native_mode = 1;
 	} else if (!strcmp(name, "XG742_SBA")) {
 		dsp->id = XGOLD_DSP_XG742_SBA;
 		g_dsp_audio_dev = dsp;
-		dsp->p_dsp_common_data->native_mode = 1;
 	} else {
 		xgold_err("name id '%s' doesn't match\n", name);
 		ret = -EINVAL;
 	}
 
 	dsp->p_dsp_common_data->num_dsp++;
-	/* audio_native_mode is flag for full native mode.
-	DSP bootup has to be performed for all chip types */
-	if (audio_native_mode)
-		dsp->p_dsp_common_data->native_mode = 1;
 
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	if (XGOLD_DSP_XG742_FBA != dsp->id && XGOLD_DSP_XG742_SBA != dsp->id) {
@@ -1164,18 +1157,16 @@ skip_regulator:
 	}
 #endif /* CONFIG_PLATFORM_DEVICE_PM_VIRT */
 
-	if (dsp->p_dsp_common_data->native_mode) {
-		/* FW patch and length */
-		of_find_property(np, PROP_DSP_FIRMWARE, &dsp->patch_length);
-		dsp->patch_length /= 2;
-		dsp->patch = kzalloc(sizeof(unsigned short) *
-				dsp->patch_length, GFP_KERNEL);
-		ret = of_property_read_u16_array(np, PROP_DSP_FIRMWARE,
-				dsp->patch, dsp->patch_length);
-		if (ret != 0) {
-			xgold_err("read %s property failed with error %d\n",
-				PROP_DSP_FIRMWARE, ret);
-		}
+	/* FW patch and length */
+	of_find_property(np, PROP_DSP_FIRMWARE, &dsp->patch_length);
+	dsp->patch_length /= 2;
+	dsp->patch = kzalloc(sizeof(unsigned short) *
+			dsp->patch_length, GFP_KERNEL);
+	ret = of_property_read_u16_array(np, PROP_DSP_FIRMWARE,
+			dsp->patch, dsp->patch_length);
+	if (ret != 0) {
+		xgold_err("read %s property failed with error %d\n",
+			PROP_DSP_FIRMWARE, ret);
 	}
 
 	/* UCCF */
@@ -1847,15 +1838,13 @@ static int dsp_audio_suspend(struct device *dev)
 
 	dsp_dev = dev_get_drvdata(dev);
 
-	if (dsp_dev->p_dsp_common_data->native_mode == 1) {
-		ret = device_state_pm_set_state_by_name(dev,
-				dsp_dev->pm_platdata->pm_state_D3_name);
+	ret = device_state_pm_set_state_by_name(dev,
+			dsp_dev->pm_platdata->pm_state_D3_name);
 
-		if (ret < 0)
+	if (ret < 0)
 			xgold_err("%s: Failed with error %d\n",	__func__, ret);
 
-		dsp_dev->p_dsp_common_data->rst_done = 0;
-	}
+	dsp_dev->p_dsp_common_data->rst_done = 0;
 
 	xgold_debug("<-- %s\n", __func__);
 
@@ -1871,29 +1860,27 @@ static int dsp_audio_resume(struct device *dev)
 
 	dsp_dev = dev_get_drvdata(dev);
 
-	if (dsp_dev->p_dsp_common_data->native_mode == 1) {
-		/* Request clock/voltage for DSP */
-		ret = device_state_pm_set_state_by_name(dev,
-				dsp_dev->pm_platdata->pm_state_D0_name);
+	/* Request clock/voltage for DSP */
+	ret = device_state_pm_set_state_by_name(dev,
+			dsp_dev->pm_platdata->pm_state_D0_name);
 
-		if (ret < 0)
-			xgold_err("%s: Failed with error %d\n",
-				__func__, ret);
+	if (ret < 0)
+		xgold_err("%s: Failed with error %d\n",
+			__func__, ret);
 
-		ret = dsp_audio_boot(dsp_dev);
+	ret = dsp_audio_boot(dsp_dev);
 
-		if (ret < 0)
-			xgold_err("%s: Boot Failed with error %d\n",
-				__func__, ret);
+	if (ret < 0)
+		xgold_err("%s: Boot Failed with error %d\n",
+			__func__, ret);
 
-		/* Suspend DSP to Memory retention mode after dsp boot*/
-		ret = device_state_pm_set_state_by_name(dev,
-				dsp_dev->pm_platdata->pm_state_D0i3_name);
+	/* Suspend DSP to Memory retention mode after dsp boot*/
+	ret = device_state_pm_set_state_by_name(dev,
+			dsp_dev->pm_platdata->pm_state_D0i3_name);
 
-		if (ret < 0)
-			xgold_err("%s: Failed with error %d\n",
-				__func__, ret);
-	}
+	if (ret < 0)
+		xgold_err("%s: Failed with error %d\n",
+			__func__, ret);
 
 	xgold_debug("<-- %s\n", __func__);
 
@@ -1937,10 +1924,16 @@ static int dsp_audio_runtime_resume(struct device *dev)
 	if (dsp_dev != NULL)
 		ret = device_state_pm_set_state_by_name(dev,
 				dsp_dev->pm_platdata->pm_state_D0_name);
-
 	if (ret < 0)
 		xgold_err("%s : failed with error %d", __func__, ret);
 
+	if (XGOLD_DSP_XG642 == dsp_dev->id) {
+		/* Activate voice codec interrupt*/
+		(void)dsp_dev->p_dsp_common_data->
+			ops->irq_activate(DSP_IRQ_4);
+		(void)dsp_dev->p_dsp_common_data->
+			ops->irq_activate(DSP_IRQ_5);
+	}
 	return ret;
 }
 
@@ -2295,7 +2288,7 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 	}
 
 	/* Enable dsp power when in native mode */
-	if (dsp_dev->p_dsp_common_data->native_mode && dsp_dev->pm_platdata) {
+	if (dsp_dev->pm_platdata) {
 		ret = platform_device_pm_set_state_by_name(pdev,
 				dsp_dev->pm_platdata->pm_state_D0_name);
 		if (ret < 0)
@@ -2305,11 +2298,9 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 
 	list_add_tail(&dsp_dev->node, &list_dsp);
 
-	if (dsp_dev->p_dsp_common_data->native_mode) {
-		/* FIXME: those parameters must come from dts */
-		dsp_init(dsp_dev, OFFSET_SM_MCU_CMD_0, SM_MCU_CMD_LENGHT);
-		ret = dsp_audio_boot(dsp_dev);
-	}
+	/* FIXME: those parameters must come from dts */
+	dsp_init(dsp_dev, OFFSET_SM_MCU_CMD_0, SM_MCU_CMD_LENGHT);
+	ret = dsp_audio_boot(dsp_dev);
 
 	/* register DSP_INT1 interrupt handler */
 	if (dsp_dev->interrupts[PLAYBACK_INT]) {
@@ -2352,7 +2343,6 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 			goto out;
 		}
 	}
-
 #if 0 /* BU_hack , speech probe interrupt not enabled in MV */
 	/* register FBA_INT2 interrupt handler */
 	if (dsp_dev->interrupts[SPEECH_PROBES]) {
@@ -2390,7 +2380,7 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 
 		/* FIXME: native for other DSP types ? */
 		if (dsp_dev->id == XGOLD_DSP_XG642 &&
-				dsp_dev->p_dsp_common_data->native_mode)
+				audio_native_mode)
 			dsp_start_audio_sched(dsp_dev);
 	}
 
@@ -2400,12 +2390,9 @@ out:
 
 /* BU_HACK memory retention mode not working on ES 1.0
     keep the DSP on always */
-#if 0
-	if (dsp_dev->id == XGOLD_DSP_XG742_SBA ||
-		dsp_dev->id == XGOLD_DSP_XG742_FBA)
-		platform_device_pm_set_state_by_name(pdev,
-			dsp_dev->pm_platdata->pm_state_D0i3_name);
-#endif
+	platform_device_pm_set_state_by_name(pdev,
+		dsp_dev->pm_platdata->pm_state_D0i3_name);
+	pm_runtime_enable(dsp_dev->dev);
 	return ret;
 }
 
@@ -2422,7 +2409,7 @@ static void dsp_audio_drv_shutdown(struct platform_device *pdev)
 	struct T_AUD_DSP_CMD_VB_HW_AFE_PAR afe_hw_cmd = { 0 };
 	xgold_debug("dsp_audio_drv_shutdown\n");
 
-	if (dsp->p_dsp_common_data->native_mode && dsp->dsp_sched_start) {
+	if (dsp->dsp_sched_start) {
 		xgold_err("%s: Scheduler is on. Turning it off\n", __func__);
 		dsp_audio_cmd(DSP_AUDIO_CMD_VB_HW_AFE,
 				sizeof(struct T_AUD_DSP_CMD_VB_HW_AFE_PAR),

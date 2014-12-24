@@ -115,10 +115,14 @@ struct dsp_audio_device {
 	struct list_head node;
 };
 
+struct dsp_platform_control_data {
+	int dsp_keep_powered;
+};
+
 /* TODO  add device instances for SBA/FBA */
 struct dsp_common_data {
-	int native_mode;
 	int rst_done;
+	struct dsp_platform_control_data control_priv;
 	struct dsp_ops *ops;
 	struct device *fba_dev;
 	unsigned pcm_offset[2];
