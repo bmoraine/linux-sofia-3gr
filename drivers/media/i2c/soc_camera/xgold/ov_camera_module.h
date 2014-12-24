@@ -55,6 +55,8 @@ struct ov_camera_module_config {
 	struct ov_camera_module_reg *reg_table;
 	u32 reg_table_num_entries;
 	u32 v_blanking_time_us;
+	u32 line_length_pck;
+	u32 frame_length_lines;
 };
 
 struct ov_camera_module_exp_config {

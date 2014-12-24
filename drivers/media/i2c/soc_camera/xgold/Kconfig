@@ -26,6 +26,16 @@ config VIDEO_OV13850
 	---help---
 	Say Y here to enable OV13850.
 
+config VIDEO_OV5648
+	bool "OV5648"
+	depends on VIDEO_V4L2 && VIDEO_XGOLD && I2C
+	default n
+	help
+	  Say Y here to enable OV5648.
+	  OV5648 is a 5MP Camera Sensor.
+	  The supported max resolution is 2592X1944.
+	  It is a RAW Camera Sensor.
+
 config VIDEO_GC2155
 	tristate "GC2155"
 	depends on I2C && VIDEO_V4L2
