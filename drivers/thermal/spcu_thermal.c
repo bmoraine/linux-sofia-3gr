@@ -147,24 +147,34 @@ static struct field_attr _field##_ATTR = { \
 
 #define DEFINE_THRESHOLD_ATTR_OPS(_name, _field1, _field2) \
 static struct field_attr *_name[] = { &_field1##_ATTR, &_field2##_ATTR, }; \
-static inline void set_##_name(struct threshold *threshold, u32 val) \
+static inline int set_##_name(struct threshold *threshold, u32 val) \
 { \
 	struct spcu_thermal_device *dev = threshold->tdev; \
 	int type = threshold->type;	\
-	spcu_reg_write(dev, val, _name[type]); \
+	return spcu_reg_write(dev, val, _name[type]); \
 } \
-static inline int get_##_name(struct threshold *threshold) \
+static inline int get_##_name(struct threshold *threshold, u32 *val) \
 { \
 	struct spcu_thermal_device *dev = threshold->tdev; \
 	int type = threshold->type;	\
-	return _name[type]->parse(spcu_reg_read(dev, _name[type]));	\
+	u32 value = 0; \
+	int ret = spcu_reg_read(dev, _name[type], &value); \
+	*val = _name[type]->parse(value); \
+	return ret; \
 }
 
 #define DEFINE_SENSOR_ATTR_OPS(_name, _field) \
-static inline void set_##_name(struct spcu_thermal_device *dev, u32 val) \
-{ spcu_reg_write(dev, val, &_field##_ATTR); } \
-static inline u32 get_##_name(struct spcu_thermal_device *dev) \
-{ return _field##_ATTR.parse(spcu_reg_read(dev, &_field##_ATTR)); }	\
+static inline int set_##_name(struct spcu_thermal_device *dev, u32 val) \
+{ \
+	return spcu_reg_write(dev, val, &_field##_ATTR); \
+} \
+static inline int get_##_name(struct spcu_thermal_device *dev, u32 *val) \
+{ \
+	u32 value = 0; \
+	int ret = spcu_reg_read(dev, &_field##_ATTR, &value); \
+	*val = _field##_ATTR.parse(value); \
+	return ret; \
+}
 
 /* SpcuTSenseXConfig */
 DEFINE_SPCU_REG_FIELD(CONFIG_REG, CONFIG_TLOW,  0, 8, AF_RDWR)
@@ -216,20 +226,19 @@ static inline u32 regval2temp(u32 regval)
 	return (u32)temp64;
 }
 
-static inline u32 spcu_reg_read(struct spcu_thermal_device *dev,
-				struct field_attr *attr)
+static inline int spcu_reg_read(struct spcu_thermal_device *dev,
+				struct field_attr *attr, u32 *val)
 {
-	u32 val;
 	int ret;
 
 	ret = mv_svc_reg_read(dev->phy_base + dev->reg_offset[attr->owner],
-		   &val, (u32)-1);
+		   val, (u32)-1);
 
 	if (ret)
 		dev_err(&dev->pdev->dev,
 			"%s: failed, ret = %d\n", __func__, ret);
 
-	return val;
+	return ret;
 }
 
 static int spcu_reg_write(struct spcu_thermal_device *dev,
@@ -278,16 +287,26 @@ static void set_intr_enable(struct threshold *threshold, u32 enable)
 		 dev->id, type);
 }
 
-static int sw_confirm_meas(struct threshold *threshold)
+static bool sw_confirm_meas(struct threshold *threshold)
 {
 	struct spcu_thermal_device *dev = threshold->tdev;
-	u32 saved, verify;
+	u32 saved;
+	u32 verify;
+	u32 trigger_type;
+	u32 sw_meas_result;
+	u32 sw_meas_valid;
+	int ret;
 
-	saved = get_trigger_val(threshold);
+	ret = get_trigger_val(threshold, &saved);
+	ret |= get_trigger_type(threshold, &trigger_type);
+
+	if (ret)
+		return false;
+
 	dev_dbg(&dev->pdev->dev,
 		"old value of crossed threshold is %d\n", saved);
 
-	switch (get_trigger_type(threshold)) {
+	switch (trigger_type) {
 	case TRIGGER_BELOW:
 		verify = saved + SW_HYST_VAL;
 		break;
@@ -298,69 +317,87 @@ static int sw_confirm_meas(struct threshold *threshold)
 		verify = saved;
 	}
 
-	set_trigger_val(threshold, verify);
-	set_sw_meas_start(threshold, 1);
+	ret = set_trigger_val(threshold, verify);
+	ret |= set_sw_meas_start(threshold, 1);
 
 	udelay(MEAS_DELAY);
 
-	set_trigger_val(threshold, saved);
+	ret |= set_trigger_val(threshold, saved);
+	ret |= get_sw_meas_valid(threshold, &sw_meas_valid);
+	ret |= get_sw_meas_result(threshold, &sw_meas_result);
+	ret |= get_trigger_type(threshold, &trigger_type);
 
-	return get_sw_meas_valid(threshold) &&
-	(get_sw_meas_result(threshold) ==
-	 get_trigger_type(threshold));
+	return !ret && sw_meas_valid && sw_meas_result == trigger_type;
 }
 
 static void update_thresholds(struct spcu_thermal_device *dev)
 {
+	u32 val;
+
 	/* In this approach, moving thresholds towards
 	   the triggered direction. The interval between
 	   high and low thresholds is defined by ACCURACY. */
 	switch (dev->triggered->type) {
 	case THRESHOLD_LOW:
+		if (get_trigger_val(&dev->threshold[THRESHOLD_LOW], &val)) {
+			dev_err(&dev->pdev->dev, "%s[%d] error\n",
+					__func__, __LINE__);
+			return;
+		}
+
 		dev_dbg(&dev->pdev->dev, "LOW threshold triggered\n");
-		dev_dbg(&dev->pdev->dev,
-			"setting high to %d\n",
-			get_trigger_val(&dev->threshold[THRESHOLD_LOW])+
-				ACCURACY);
+
+		dev_dbg(&dev->pdev->dev, "setting high to %d\n",
+				val + ACCURACY);
 		set_trigger_val(&dev->threshold[THRESHOLD_HIGH],
-			get_trigger_val(&dev->threshold[THRESHOLD_LOW])+
-				ACCURACY);
-		dev_dbg(&dev->pdev->dev,
-			"setting low to %d\n",
-			get_trigger_val(&dev->threshold[THRESHOLD_LOW])-
-				ACCURACY);
+				val + ACCURACY);
+		dev_dbg(&dev->pdev->dev, "setting low to %d\n",
+				val - ACCURACY);
 		set_trigger_val(&dev->threshold[THRESHOLD_LOW],
-			get_trigger_val(&dev->threshold[THRESHOLD_LOW])-
-				ACCURACY);
+				val - ACCURACY);
 		break;
 	case THRESHOLD_HIGH:
+		if (get_trigger_val(&dev->threshold[THRESHOLD_HIGH], &val)) {
+			dev_err(&dev->pdev->dev, "%s[%d] error\n",
+					__func__, __LINE__);
+			return;
+		}
+
 		dev_dbg(&dev->pdev->dev, "HIGH threshold triggered\n");
-		dev_dbg(&dev->pdev->dev,
-			"setting low to %d\n",
-			get_trigger_val(&dev->threshold[THRESHOLD_HIGH])-
-				ACCURACY);
+
+		dev_dbg(&dev->pdev->dev, "setting low to %d\n",
+				val - ACCURACY);
 		set_trigger_val(&dev->threshold[THRESHOLD_LOW],
-			get_trigger_val(&dev->threshold[THRESHOLD_HIGH])-
-				ACCURACY);
-		dev_dbg(&dev->pdev->dev,
-			"setting high to %d\n",
-			get_trigger_val(&dev->threshold[THRESHOLD_HIGH])+
-				ACCURACY);
+				val - ACCURACY);
+		dev_dbg(&dev->pdev->dev, "setting high to %d\n",
+				val + ACCURACY);
 		set_trigger_val(&dev->threshold[THRESHOLD_HIGH],
-			get_trigger_val(&dev->threshold[THRESHOLD_HIGH])+
-				ACCURACY);
+				val + ACCURACY);
 		break;
 	}
 }
 
 static void update_temp(struct spcu_thermal_device *dev)
 {
-	int low_temp = regval2temp(get_trigger_val(
-				   &dev->threshold[THRESHOLD_LOW]));
-	int high_temp = regval2temp(get_trigger_val(
-					&dev->threshold[THRESHOLD_HIGH]));
+	u32 val;
+	int low_temp;
+	int high_temp;
 
-	dev->cached_temp = (low_temp+high_temp)/2;
+	if (get_trigger_val(&dev->threshold[THRESHOLD_LOW], &val)) {
+		dev_err(&dev->pdev->dev, "%s[%d] error\n", __func__, __LINE__);
+		return;
+	}
+
+	low_temp = regval2temp(val);
+
+	if (get_trigger_val(&dev->threshold[THRESHOLD_HIGH], &val)) {
+		dev_err(&dev->pdev->dev, "%s[%d] error\n", __func__, __LINE__);
+		return;
+	}
+
+	high_temp = regval2temp(val);
+
+	dev->cached_temp = (low_temp + high_temp) / 2;
 	dev_dbg(&dev->pdev->dev, "new temp set to %d\n", dev->cached_temp);
 }
 
@@ -369,17 +406,14 @@ static void notify_thermal_event(struct threshold *threshold)
 	struct thermal_zone_device *tzd = threshold->tdev->tzd;
 	struct spcu_thermal_device *dev = threshold->tdev;
 	char *thermal_event[4];
+	u32 val;
 
-	thermal_event[0] = kasprintf(GFP_KERNEL,
-						 "NAME=%s",
-						 tzd->type);
-	thermal_event[1] = kasprintf(GFP_KERNEL,
-						 "TEMP=%d",
-						 dev->cached_temp);
-	thermal_event[2] =
-		kasprintf(GFP_KERNEL,
-				 "EVENT=%d",
-				 get_trigger_type(dev->triggered));
+	if (get_trigger_type(dev->triggered, &val))
+		return;
+
+	thermal_event[0] = kasprintf(GFP_KERNEL, "NAME=%s", tzd->type);
+	thermal_event[1] = kasprintf(GFP_KERNEL, "TEMP=%d", dev->cached_temp);
+	thermal_event[2] = kasprintf(GFP_KERNEL, "EVENT=%d", val);
 	thermal_event[3] = NULL;
 
 	kobject_uevent_env(&tzd->device.kobj, KOBJ_CHANGE, thermal_event);
@@ -392,16 +426,18 @@ static void notify_thermal_event(struct threshold *threshold)
 static void check_trip_temp(struct threshold *threshold)
 {
 	struct spcu_thermal_device *dev = threshold->tdev;
-	int type;
+	u32 type;
+	int ret;
 
 	if (threshold->trip_temp == INVALID_TRIP)
 		return;
 
-	type = get_trigger_type(threshold);
-	if ((type == TRIGGER_BELOW &&
+	ret = get_trigger_type(threshold, &type);
+	if (!ret &&
+		((type == TRIGGER_BELOW &&
 		 dev->cached_temp < threshold->trip_temp) ||
 		(type == TRIGGER_ABOVE &&
-		 dev->cached_temp > threshold->trip_temp))
+		 dev->cached_temp > threshold->trip_temp)))
 		notify_thermal_event(threshold);
 }
 
