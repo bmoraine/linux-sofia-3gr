@@ -253,7 +253,7 @@ enum {
 static struct kionix_accel_platform_data kionix_plat_data = {
 	.poll_interval = 20,
 	.min_interval = 10,
-	.accel_direction = 1,
+	.accel_direction = 5,
 };
 
 struct kionix_accel_driver {
@@ -459,6 +459,7 @@ static void acc_exit(struct device *dev)
 
 #define OF_ACC_DIRECTION	"intel,acc-direction"
 #define OF_POLL_INTERVAL	"intel,poll-interval"
+#define OF_ACC_IRQ_USE_DRDY	"intel,irq-use-drdy"
 
 static struct kionix_accel_platform_data *kionix_acc_of_get_platdata(
 		struct device *dev)
@@ -503,6 +504,15 @@ skip_pinctrl:
 	}
 	dev_dbg(dev, "accel direction:%d\n", acc_pdata->accel_direction);
 
+	/*irq use drdy property*/
+	if (of_property_read_u32(np, OF_ACC_IRQ_USE_DRDY,
+				&acc_pdata->accel_irq_use_drdy) < 0) {
+
+		dev_err(dev, "Error parsing %s property of node %s\n",
+			OF_ACC_IRQ_USE_DRDY, np->name);
+		goto out;
+	}
+
 	/* Poll interval property */
 	if (of_property_read_u32(np, OF_POLL_INTERVAL,
 				&acc_pdata->poll_interval) < 0) {
@@ -526,7 +536,7 @@ skip_pinctrl:
 	acc_pdata->power_off = acc_power_off;
 
 	/* FIXME: set default values */
-	acc_pdata->min_interval = 2; /* 2ms */
+	acc_pdata->min_interval = 5; /* 5ms */
 
 	return acc_pdata;
 
@@ -2149,7 +2159,7 @@ static int kionix_accel_probe(struct i2c_client *client,
 
 	atomic_set(&acceld->accel_suspended, 0);
 	atomic_set(&acceld->accel_suspend_continue, 1);
-	atomic_set(&acceld->accel_enabled, 0);
+	atomic_set(&acceld->accel_enabled, 1);
 	atomic_set(&acceld->accel_input_event, 0);
 	atomic_set(&acceld->accel_enable_resume, 0);
 
