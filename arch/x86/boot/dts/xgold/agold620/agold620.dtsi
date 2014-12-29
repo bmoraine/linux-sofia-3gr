@@ -68,7 +68,11 @@ agold {
 		intel,gpio-direction-out = < 1>;
 		intel,gpio-output = < 0x20C 9 1>;
 		intel,gpio-input = < 0x40C 9 1>;
+#if defined(SOFIA_3GR_GARNET_EVB)
+                intel,gpiochip-base = <107>;
+#else
 		intel,gpiochip-base = <94>;
+#endif
 		intel,gpiochip-id = <1>;
 		intel,gpiochip-num = <45>;
 #if defined(SOFIA_SECURED_VMM_ACCESS)
