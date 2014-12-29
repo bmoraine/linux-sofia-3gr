@@ -1058,6 +1058,8 @@
 		pinctrl-single,pins = <
 			0x803d0 0x100	/* hwid_2 */
 			0x803d4 0x100	/* hwid_3 */
+		>;
+	};
 cam1_function_B_active_pins:cam1_function_B_active_pins {
 	pinctrl-single,pins = <
 		0x803d8 0x1500	/* cam1_pd */
