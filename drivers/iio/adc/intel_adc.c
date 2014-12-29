@@ -254,6 +254,9 @@ enum adc_states {
  * @ocv_performed_count:	Number of OCV measurements performed so far.
  * @meas_again_error_cnt:	Number of measurements EAGAIN errors so far.
  * @meas_io_error_cnt:		Number of measurements EIO errors so far.
+ * @lock:			Spin lock used to protect critical sections
+ *				when modifying device state data.
+ * @suspended:			TRUE=Device is suspended, otherwise not.
  */
 struct adc_manager_data {
 	bool keep_running;
@@ -296,6 +299,8 @@ struct adc_manager_data {
 		/* Number of measurements that ended up in EIO error so far */
 		uint meas_io_error_cnt;
 	} stats;
+	spinlock_t lock;
+	bool suspended;
 };
 
 /*  Enum for ADC debug events */
@@ -322,7 +327,9 @@ enum adc_debug_event {
 	ADC_MEAS_AUTOSCALING_DONE,
 	ADC_TIMEOUT,
 	ADC_OCV_RESCHEDULE,
-	ADC_OCV_MEASUREMENT_FAILED
+	ADC_OCV_MEASUREMENT_FAILED,
+	ADC_SUSPEND,
+	ADC_RESUME
 };
 
 
@@ -359,7 +366,8 @@ static struct adc_manager_data adc_manager = {
 	.keep_running = true,
 	.state = ADC_NOT_INITIALISED,
 	{[0 ... (ADC_MAX_NO_OF_CHANNELS - 1)] = {NULL, NULL} },
-	{ {[0 ... (ADC_MAX_NO_OF_CHANNELS - 1)] = NULL}, 0 }
+	{ {[0 ... (ADC_MAX_NO_OF_CHANNELS - 1)] = NULL}, 0 },
+	.suspended = false,
 };
 
 /* Array to collect debug data */
@@ -533,6 +541,18 @@ static int intel_adc_set_power_mode(struct adc_hal_interface *p_hal_if,
 {
 	int halret = WNOTREQ;
 	enum adc_hal_power_mode current_power_mode;
+
+	/* Protect critical section when testing and modifying device
+	state data */
+	spin_lock(&adc_manager.lock);
+	if( adc_manager.suspended == true) {
+		spin_unlock(&adc_manager.lock);
+		intel_adc_dbg_printk("%s ADC in suspend\n", __func__);
+		return -EIO;
+	}
+
+	/* End of critical section */
+	spin_unlock(&adc_manager.lock);
 
 	/* Get current power mode */
 	BUG_ON((p_hal_if->get) (ADC_HAL_GET_POWER_MODE,
@@ -1868,6 +1888,7 @@ static int __init intel_adc_probe(struct platform_device *p_platform_dev)
 
 	int ret = -EINVAL;
 	spin_lock_init(&adc_debug_data.lock);
+	spin_lock_init(&adc_manager.lock);
 
 	ret = kfifo_alloc(&st->adc_stm_fifo, ADC_STM_FIFO_DEPTH, GFP_KERNEL);
 	if (ret)
@@ -1922,6 +1943,66 @@ static int __exit intel_adc_remove(struct platform_device *p_platform_dev)
 
 }
 
+/**
+ * intel_adc_suspend() - Called when the system is attempting to suspend.
+ * @dev		[in] Pointer to the device.(not used)
+ * returns	0
+ */
+static int intel_adc_suspend(struct device *dev)
+{
+	/* Unused parameter */
+	(void)dev;
+
+	/* Protect critical section when testing and modifying device state
+	data */
+	spin_lock(&adc_manager.lock);
+
+	/* No measurement ongoing - allow suspend. */
+	adc_manager.suspended = true;
+
+	/* End of critical section */
+	spin_unlock(&adc_manager.lock);
+
+	/* Do debug data logging */
+	ADC_DEBUG_DATA_LOG(ADC_SUSPEND,
+				adc_manager.state,
+				0,
+				NULL, 0,
+				0, 0, 0);
+
+	return 0;
+}
+
+/**
+ * intel_adc_resume() - Called when the system is resuming from suspend.
+ * @dev		[in] Pointer to the device.(not used)
+ * returns	0
+ */
+static int intel_adc_resume(struct device *dev)
+{
+	/* Unused parameter */
+	(void)dev;
+
+	/* Update suspend flag used to tell whether operations on device are
+	allowed */
+	adc_manager.suspended = false;
+
+	/* Do debug data logging */
+	ADC_DEBUG_DATA_LOG(ADC_RESUME,
+				adc_manager.state,
+				0,
+				NULL, 0,
+				0, 0, 0);
+
+	return 0;
+}
+
+
+const struct dev_pm_ops intel_adc_pm = {
+	.suspend = intel_adc_suspend,
+	.resume = intel_adc_resume,
+};
+
 static const struct of_device_id adc_of_match[] = {
 	{
 	 .compatible = "intel,adc",
@@ -1936,6 +2017,7 @@ static struct platform_driver intel_adc_driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(adc_of_match),
+		.pm = &intel_adc_pm,
 	},
 	.probe = intel_adc_probe,
 	.remove = intel_adc_remove,

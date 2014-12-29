@@ -700,18 +700,15 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 	current mode */
 	if (meas_ag620_state.power_mode != new_power_mode) {
 
-		/* Update power mode variable */
-		meas_ag620_state.power_mode = new_power_mode;
-
-		/* End of critical section */
-		spin_unlock(&meas_ag620_state.lock);
-
 		/* Set new power mode */
 		switch (new_power_mode) {
 		case ADC_HAL_POWER_MODE_OFF:{
 				union meas_conf conf = { 0 };
 				union meas_cali cali_reg = { 0 };
 				union meas_stat stat = { 0 };
+
+				/* End of critical section */
+				spin_unlock(&meas_ag620_state.lock);
 
 				/*
 				* BUSYADC: HIGH when ADC operation is going on
@@ -770,6 +767,11 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 							pm_state_dis,
 							false);
 				}
+				spin_lock(&meas_ag620_state.lock);
+				/* Update power mode variable */
+				meas_ag620_state.power_mode = ADC_HAL_POWER_MODE_OFF;
+				/* End of critical section */
+				spin_unlock(&meas_ag620_state.lock);
 			}
 			break;
 		case ADC_HAL_POWER_MODE_ON:{
@@ -779,6 +781,9 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 				union U_MEAS_CLC clc = { 0 };
 				unsigned int retry = 0;
 
+				meas_ag620_state.power_mode = ADC_HAL_POWER_MODE_ON;
+				/* End of critical section */
+				spin_unlock(&meas_ag620_state.lock);
 				/* Enable power domain */
 				do {
 					if (retry++ > 0) {
@@ -839,6 +844,8 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 			}
 			break;
 		default:
+			/* End of critical section */
+			spin_unlock(&meas_ag620_state.lock);
 			ret = -EINVAL;
 			break;
 		};
