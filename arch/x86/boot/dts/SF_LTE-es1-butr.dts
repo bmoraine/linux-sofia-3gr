@@ -287,7 +287,7 @@
 #endif
 #ifndef RECOVERY_KERNEL
 	camera1: camera-module@1 {
-		compatible = "omnivision,ov9740-v4l2-i2c-subdev";
+		compatible = "omnivision,ov5648-v4l2-i2c-subdev";
 		reg = < 0x34 >;
 		device_type = "v4l2-i2c-subdev";
 
