@@ -106,17 +106,15 @@
 
 				probe,offset = < 0x1000 >;
 				probe,portsel,0 = "CIF", "CPU0", "DMA8C_2", "GPU";
-				probe,portsel,1 = "CPU1", "DCC1", "DCC2", "VPU";
-				probe,portsel,2 = "EMIC";
+				probe,portsel,1 = "CPU1", "LCDC";
+				probe,portsel,2 = "EMIC0", "EMIC1", "EMIC2";
 
 				clock,rate = <400000000>;
 				stat,0 = "CPU0";
 				stat,1 = "CPU1";
-				stat,2 = "EMIC";
 				stat,3 = "GPU";
-				stat,4 = "DCC2";
 
-				intel,qos-configs = "DCC2", "GPU";
+				intel,qos-configs = "GPU";
 				intel,GPU-qos-settings = <
 					0x1C88 0x0      /* prio */
 					0x1C8C 0x1      /* mode limiter */
@@ -124,12 +122,6 @@
 					0x1C94 0x90     /* saturation */
 					0x1C98 0x5>;    /* QoSEn */
 
-				intel,DCC2-qos-settings = <
-					0x1E08 0xE      /* prio */
-					0x1E0C 0x3      /* mode regulator*/
-					0x1E10 0x9F     /* bandwidth */
-					0x1E14 0x90     /* saturation */
-					0x1E18 0x5>;    /* QoSEn */
 				#include "xgold/sofia_3gr_soc/NoC.dtsi"
 			};
 

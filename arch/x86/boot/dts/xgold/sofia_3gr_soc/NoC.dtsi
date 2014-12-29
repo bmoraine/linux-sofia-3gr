@@ -1,1 +1,380 @@
-#include "../sofia_3g_soc/NoC.dtsi"
+ErrorLogger0 {
+	compatible = "intel,xgold,register";
+	offset,length = < 0x14 32>;
+	description = "Register 0 to log errors";
+	lock {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 0 1>;
+		lut = "Not Locked", "Locked";
+	};
+	OpCode {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 1 4>;
+		lut = "RD: data read with incrementing address",
+			"RDW: data read with wrapping address",
+			"RDL: allocates monitor in the Target with incrementing address",
+			"RDX: exclusive read with incrementing address",
+			"WR: data write with incrementing address",
+			"WRW: data write with wrapping address",
+			"WRC: conditional write if matching monitor in Target is found",
+			"RSV: reserved",
+			"PRE: preamble packet of linked sequence (locked sequence)",
+			"URG: urgency packet used for QoS (status must be REQ)";
+	};
+	ErrCode {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 8 3 >;
+		lut = "SLV (error source: Target): error detected by the Slave without any information or no Error",
+			"DEC (error source: Initiator NIU): decode error",
+			"UNS (error source: Target NIU): unsupported access type",
+			"DISC (error source: Power Disconnect): disconnected Target or NoC domain",
+			"SEC (error source: Initiator NIU or Firewall): security error",
+			"HIDE (error source: Firewall): hidden security error. Will be reported as OK to the initiator",
+			"TMO (error source: Target NIU): time-out",
+			"RSV: reserved";
+
+	};
+	Len1 {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 16 8 >;
+	};
+	Format {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 31 1 >;
+		lut = "NTTP v3.0 (Invalid)", "NTTP v3.5 (Ok)";
+	};
+};
+
+ErrorLogger1 {
+	compatible = "intel,xgold,register", "intel,xgold,noc,filter,routeid";
+	offset,length = < 0x18 32>;
+	description = "Register 1 to log errors";
+	InitFlow {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 13 5 >;
+		lut = "Audio_DSP_xb06in/I/0",
+		    "CIF/I/0",
+		    "CPU_0/I/0",
+		    "CPU_1/I/0",
+		    "DMA4C/I/0",
+		    "DMA8C_1/I/0",
+		    "DMA8C_2/I/0",
+		    "GPU_GP/I/0",
+		    "GPU_PP/I/0",
+		    "IDI_xb06in/I/0",
+		    "JAM/I/0",
+		    "LCDC/I/0",
+		    "MACPHY/I/0",
+		    "NAND_CTRL/I/0",
+		    "OCT_xb06in/I/0",
+		    "RGA/I/0",
+		    "SDIO/I/0",
+		    "SDMMC/I/0",
+		    "USB_HS/I/0",
+		    "VPU/I/0",
+		    "VPU_128R/I/0",
+		    "eMMC/I/0";
+	};
+
+	TargetFlow {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 8 5 >;
+		lut = "AHB_PER0/T/0",
+		    "AHB_PER1/T/0",
+		    "AHB_PER2/T/0",
+		    "AHB_PER3/T/0",
+		    "AHB_PER4/T/0",
+		    "EMIC0/T/0",
+		    "EMIC1/T/0",
+		    "EMIC2/T/0",
+		    "EMIC_cfg/T/0",
+		    "G3_L1/T/0",
+		    "IDI_PER/T/0",
+		    "LMU/T/0",
+		    "SRV_Pkt_Err_AUDIO_IDI/T/0",
+		    "SRV_Pkt_Err_L1/T/0",
+		    "SRV_Pkt_Err_L2/T/0",
+		    "SRV_Security_L1/T/0",
+		    "SW_TRACE/T/0";
+	};
+
+	TargetSubRange {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 5 2 >;
+	};
+
+	SeqId {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 0 5 >;
+	};
+};
+
+ErrorLogger3 {
+	/* This register does not really include a bitfield or its bitfield is 32 bits and it provides an offset address */
+	/* To calculate the absolute address, you must use the initflow:targetflow:subrange from ErrorLogger3 register */
+	/* And use it as an index in the aperture table. Then you must add the value of this register to the value given */
+	/* by the table to get the absolute address. */
+	compatible = "intel,xgold,register";
+	offset,length = < 0x20 32>;
+	description = "Register 3 to log errors";
+	aperture-link = <1>; /* link to ErrorLogger1 whose information are required to calculate real absolute address */
+	AbsoluteAddress {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 5 12 >;				/* bitfield initflow:targeflow:subrange from aperture-link register */
+		aperture-size= < 159 >;					/* Number of line in the aperture table below */
+		aperture-idx,aperture-base =			/* Aperture_idx is concatenation of initflow:targetflow:subrange bitfield from ErrorLogger1 */
+			<0x50    0xe6000000>,
+			<0x138   0x0>,
+			<0x139   0x40000000>,
+			<0x13a   0x0>,
+			<0x200   0xe0000000>,
+			<0x208   0xe1000000>,
+			<0x210   0xe2000000>,
+			<0x218   0xe3000000>,
+			<0x220   0xe4000000>,
+			<0x240   0xee100000>,
+			<0x248   0xe5000000>,
+			<0x250   0xe6000000>,
+			<0x260   0xef020000>,
+			<0x261   0xef021800>,
+			<0x262   0xef021000>,
+			<0x268   0xef001e00>,
+			<0x269   0xef001c00>,
+			<0x26a   0xef001800>,
+			<0x26b   0xef000000>,
+			<0x26c   0xef001000>,
+			<0x270   0xef011400>,
+			<0x271   0xef011000>,
+			<0x272   0xef010000>,
+			<0x278   0xef002000>,
+			<0x280   0x80000000>,
+			<0x328   0x0>,
+			<0x329   0x40000000>,
+			<0x32a   0x0>,
+			<0x358   0xfff30000>,
+			<0x359   0xfff20000>,
+			<0x35a   0xfff00000>,
+			<0x35b   0xfffc0000>,
+			<0x410   0xe2000000>,
+			<0x418   0xe3000000>,
+			<0x438   0x0>,
+			<0x439   0x40000000>,
+			<0x43a   0x0>,
+			<0x458   0xfff30000>,
+			<0x459   0xfff20000>,
+			<0x45a   0xfff00000>,
+			<0x45b   0xfffc0000>,
+			<0x508   0xe1000000>,
+			<0x510   0xe2000000>,
+			<0x528   0x0>,
+			<0x529   0x40000000>,
+			<0x52a   0x0>,
+			<0x558   0xfff30000>,
+			<0x559   0xfff20000>,
+			<0x55a   0xfff00000>,
+			<0x55b   0xfffc0000>,
+			<0x608   0xe1000000>,
+			<0x610   0xe2000000>,
+			<0x618   0xe3000000>,
+			<0x630   0x0>,
+			<0x631   0x40000000>,
+			<0x632   0x0>,
+			<0x648   0xe5000000>,
+			<0x658   0xfff30000>,
+			<0x659   0xfff20000>,
+			<0x65a   0xfff00000>,
+			<0x65b   0xfffc0000>,
+			<0x738   0x0>,
+			<0x739   0x40000000>,
+			<0x73a   0x0>,
+			<0x838   0x0>,
+			<0x839   0x40000000>,
+			<0x83a   0x0>,
+			<0x918   0xe3000000>,
+			<0x938   0x0>,
+			<0x939   0x40000000>,
+			<0x93a   0x0>,
+			<0x958   0xfff30000>,
+			<0x959   0xfff20000>,
+			<0x95a   0xfff00000>,
+			<0x95b   0xfffc0000>,
+			<0xa00   0xe0000000>,
+			<0xa08   0xe1000000>,
+			<0xa10   0xe2000000>,
+			<0xa18   0xe3000000>,
+			<0xa20   0xe4000000>,
+			<0xa28   0x0>,
+			<0xa29   0x40000000>,
+			<0xa2a   0x0>,
+			<0xa40   0xee100000>,
+			<0xa48   0xe5000000>,
+			<0xa50   0xe6000000>,
+			<0xa58   0xfff30000>,
+			<0xa59   0xfff20000>,
+			<0xa5a   0xfff00000>,
+			<0xa5b   0xfffc0000>,
+			<0xa60   0xef020000>,
+			<0xa61   0xef021800>,
+			<0xa62   0xef021000>,
+			<0xa68   0xef001e00>,
+			<0xa69   0xef001c00>,
+			<0xa6a   0xef001800>,
+			<0xa6b   0xef000000>,
+			<0xa6c   0xef001000>,
+			<0xa70   0xef011400>,
+			<0xa71   0xef011000>,
+			<0xa72   0xef010000>,
+			<0xa78   0xef002000>,
+			<0xb30   0x0>,
+			<0xb31   0x40000000>,
+			<0xb32   0x0>,
+			<0xc28   0x0>,
+			<0xc29   0x40000000>,
+			<0xc2a   0x0>,
+			<0xc58   0xfff30000>,
+			<0xc59   0xfff20000>,
+			<0xc5a   0xfff00000>,
+			<0xc5b   0xfffc0000>,
+			<0xd30   0x0>,
+			<0xd31   0x40000000>,
+			<0xd32   0x0>,
+			<0xd58   0xfff30000>,
+			<0xd59   0xfff20000>,
+			<0xd5a   0xfff00000>,
+			<0xd5b   0xfffc0000>,
+			<0xe38   0x0>,
+			<0xe39   0x40000000>,
+			<0xe3a   0x0>,
+			<0xf38   0x0>,
+			<0xf39   0x40000000>,
+			<0xf3a   0x0>,
+			<0x1038  0x0>,
+			<0x1039  0x40000000>,
+			<0x103a  0x0>,
+			<0x1058  0xfff30000>,
+			<0x1059  0xfff20000>,
+			<0x105a  0xfff00000>,
+			<0x105b  0xfffc0000>,
+			<0x1128  0x0>,
+			<0x1129  0x40000000>,
+			<0x112a  0x0>,
+			<0x1158  0xfff30000>,
+			<0x1159  0xfff20000>,
+			<0x115a  0xfff00000>,
+			<0x115b  0xfffc0000>,
+			<0x1230  0x0>,
+			<0x1231  0x40000000>,
+			<0x1232  0x0>,
+			<0x1258  0xfff30000>,
+			<0x1259  0xfff20000>,
+			<0x125a  0xfff00000>,
+			<0x125b  0xfffc0000>,
+			<0x1330  0x0>,
+			<0x1331  0x40000000>,
+			<0x1332  0x0>,
+			<0x1430  0x0>,
+			<0x1431  0x40000000>,
+			<0x1432  0x0>,
+			<0x1530  0x0>,
+			<0x1531  0x40000000>,
+			<0x1532  0x0>,
+			<0x1558  0xfff30000>,
+			<0x1559  0xfff20000>,
+			<0x155a  0xfff00000>,
+			<0x155b  0xfffc0000>;
+	};
+};
+
+ErrorLogger5 {
+	compatible = "intel,xgold,register";
+	offset,length = < 0x28 32>;
+	description = "Register 5 to log errors";
+
+	User_priv {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 0x8 1>;
+		lut = "User access", "Privileged access";
+	};
+
+	MasterID {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 0x3 5>;
+		lut = "CPU_0",
+		    "CPU_1",
+		    "Reserved",
+		    "VPU_Port1",
+		    "DMA1_2",
+		    "RGA",
+		    "Reserved",
+		    "DCC",
+		    "GPU PortPP",
+		    "GPU PortGP",
+		    "Reserved",
+		    "VPU Port2",
+		    "Reserved",
+		    "Reserved",
+		    "Reserved",
+		    "Reserved",
+		    "EMACPHY",
+		    "JAM",
+		    "CIF",
+		    "Reserved",
+		    "DMA1_1",
+		    "Reserved",
+		    "DMA2",
+		    "Reserved",
+		    "SDMMC",
+		    "eMMC",
+		    "USB_HS",
+		    "NAND_CTRL",
+		    "OCT",
+		    "IDI",
+		    "Audio_DSP",
+		    "SDIO";
+	};
+
+	Data_instr {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 2 1>;
+		lut = "Data", "Instruction";
+	};
+
+	Cache {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 0 2>;
+		lut = "non-cacheable, non-bufferable",
+			"non-cacheable, bufferable",
+			"cacheable, non-bufferable",
+			"cacheable, bufferable";
+	};
+};
+
+ErrorLogger7 {
+	compatible = "intel,xgold,register", "intel,xgold,noc,filter,security";
+	offset,length = < 0x30 32>;
+	description = "Register 7 to log errors";
+	vm_id {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 3 2>;
+		lut = "VMM", "Modem VM", "Secure VM", "Android VM";
+	};
+
+	sec_acc {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 2 1>;
+		lut = "No secure Access", "Secure Access";
+	};
+
+	noc_probe_lockoff {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 1 1>;
+		lut = "Probing Allowed in NoC", "Probing Prohibited in NoC";
+	};
+
+	code_fetch {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 0 1>;
+		lut = "Data", "Code";
+	};
+
+};
