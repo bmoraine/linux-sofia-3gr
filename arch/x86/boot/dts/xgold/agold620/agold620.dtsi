@@ -664,6 +664,7 @@ agold {
 			#address-cells = < 0 >;
 			reg = <0xE6501400 0x8>;
 			reg-names = "vibra-registers";
+			intel,vmm-secured-access;
 		};
 	};
 };
