@@ -24,6 +24,7 @@
 #include <linux/fs.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <sofia/mv_svc_hypercalls.h>
 #include <sofia/vmm_pmic.h>
 #include "leds-pmic.h"
 
@@ -70,50 +71,8 @@
 #define SCU_LED_UP_CMP_200mv	0x10116
 
 #define XGOLD_LED_USE_SAFE_CTRL		BIT(0)
-
-#define BL_MODE_ON	\
-	do { \
-		if (pdata->pmic_bl) {\
-			val = (PMIC_K2_VAL * 100)/intensity; \
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K1MAX_HIGH_REG,\
-					PMIC_K1MAX_HIGH);\
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K1MAX_LOW_REG,\
-					PMIC_K1MAX_LOW);\
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K2_HIGH_CTRL_REG,\
-					(val & 0xFF00) >> 8);\
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K2_LOW_CTRL_REG,\
-					(val & 0xFF));\
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CFG_REG,\
-					PMIC_LED_CFG_UP);\
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CTRL_REG,\
-					PMIC_LED_CTRL_UP);\
-		} else {\
-			val = (SCU_K2_VAL*100)/intensity; \
-			led_write32(mmio_base, LED_CTRL, SCU_LED_DOWN); \
-			led_write32(mmio_base, LED_K2_CONTROL, val); \
-			led_write32(mmio_base, LED_K1MAX, SCU_K1MAX_VAL); \
-			led_write32(mmio_base, LED_K2MAX, SCU_K2MAX_VAL); \
-			if (pdata->flags & XGOLD_LED_USE_SAFE_CTRL) \
-				led_write32(mmio_base, SAFE_LED_CTRL,\
-						SCU_SAFE_LED_UP);\
-			led_write32(mmio_base, LED_CTRL, SCU_LED_UP); \
-		} \
-	} while (0);
-
-#define SET_LCD_BL_ON BL_MODE_ON
-
-#define BL_MODE_OFF	\
-	do { \
-		if (pdata->pmic_bl) { \
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CFG_REG,\
-					PMIC_LED_CFG_DOWN);\
-			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CTRL_REG,\
-					PMIC_LED_CTRL_DOWN);\
-		} else {\
-			led_write32(mmio_base, LED_CTRL, SCU_LED_DOWN);\
-		} \
-	} while (0);
-#define SET_LCD_BL_OFF BL_MODE_OFF
+#define XGOLD_LED_USE_SECURE_IO_ACCESS	BIT(1)
+#define XGOLD_LED_USE_NATIVE_IO_ACCESS	BIT(2)
 
 /*In micro secs*/
 #define DELAY_TIME_FOR_LED_CTRL_200MV 25
@@ -133,10 +92,13 @@ struct xgold_led_bl_device {
 					 spinlock_t *lock, int intensity);
 	struct platform_device *pdev;
 	void __iomem *mmio_base;
+	phys_addr_t phys_io_addr;
 	struct led_classdev led_bl_cdev;
 	struct work_struct work;
 	enum led_brightness led_bl_brightness;
 	spinlock_t lock;
+	struct hrtimer timer;
+	spinlock_t timer_lock;
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	struct device_pm_platdata *pm_platdata;
 #endif
@@ -154,6 +116,51 @@ static int led_ctrl = SCU_LED_UP_CMP_100mv;
 #define XG_PM_DISABLE		0x0
 #define XG_PM_ENABLE		0x1
 #define XG_PM_NOF_STATES	0x2
+
+static void led_write32(struct xgold_led_bl_device *, u16, u32);
+static inline void xgold_led_bl_on(struct xgold_led_bl_device *bl,
+								int intensity)
+{
+	int val;
+	if (bl->pmic_bl) {
+			val = (PMIC_K2_VAL * 100)/intensity;
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K1MAX_HIGH_REG,
+					PMIC_K1MAX_HIGH);
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K1MAX_LOW_REG,
+					PMIC_K1MAX_LOW);
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K2_HIGH_CTRL_REG,
+					(val & 0xFF00) >> 8);
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K2_LOW_CTRL_REG,
+					(val & 0xFF));
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CFG_REG,
+					PMIC_LED_CFG_UP);
+			vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CTRL_REG,
+					PMIC_LED_CTRL_UP);
+	} else {
+			val = (SCU_K2_VAL*100)/intensity;
+			led_write32(bl, LED_CTRL, SCU_LED_DOWN);
+			led_write32(bl, LED_K2_CONTROL, val);
+			led_write32(bl, LED_K1MAX, SCU_K1MAX_VAL);
+			led_write32(bl, LED_K2MAX, SCU_K2MAX_VAL);
+			if (bl->flags & XGOLD_LED_USE_SAFE_CTRL)
+				led_write32(bl, SAFE_LED_CTRL,
+						SCU_SAFE_LED_UP);
+			led_write32(bl, LED_CTRL, SCU_LED_UP);
+	}
+}
+
+static inline void xgold_led_bl_off(struct xgold_led_bl_device *bl)
+{
+	if (bl->pmic_bl) {
+		vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CFG_REG,
+				PMIC_LED_CFG_DOWN);
+		vmm_pmic_reg_write(PMIC_BL_ADDR | LED_CTRL_REG,
+				PMIC_LED_CTRL_DOWN);
+	} else {
+		led_write32(bl, LED_CTRL, SCU_LED_DOWN);
+	}
+}
+
 
 
 #if !defined CONFIG_PLATFORM_DEVICE_PM_VIRT
@@ -216,33 +223,26 @@ static struct device_state_pm_state *xgold_bl_get_initial_state(
 #endif
 
 
-/*
-PCL_LOCK_EXCLUSIVE          = 1
-PCL_OPER_ACTIVATE          = 0,
-#define XGOLD_PINCONF_PACK(_param_, _arg_) ((_param_) << 16 | (_arg_))
-static const unsigned long pcl_activate =
-		XGOLD_PINCONF_PACK(PCL_LOCK_EXCLUSIVE, PCL_OPER_ACTIVATE);
-static const unsigned long pcl_deactivate =
-		XGOLD_PINCONF_PACK(PCL_LOCK_EXCLUSIVE, PCL_OPER_DEACTIVATE);
-*/
-static void led_write32(void *mmio_base, u16 offset, u32 val)
+static void led_write32(struct xgold_led_bl_device *bl, u16 offset, u32 val)
 {
-	if (mmio_base)
-		iowrite32(val, (char *)mmio_base + offset);
-}
+	int ret;
 
-struct xgold_bl_timer {
-	void __iomem *mmio_base;
-	struct hrtimer timer;
-	spinlock_t lock;
-};
-struct xgold_bl_timer *bl_timer;
+	if (bl->flags & XGOLD_LED_USE_SECURE_IO_ACCESS) {
+		ret = mv_svc_reg_write_only(bl->phys_io_addr + offset,
+							val, 0xFFFFFFFF);
+		BUG_ON(ret);
+	} else {
+		iowrite32(val, (char *)bl->mmio_base + offset);
+	}
+}
 
 static enum hrtimer_restart xgold_bl_hrtimer_callback(struct hrtimer *timer)
 {
+	struct xgold_led_bl_device *bl = container_of(timer,
+					struct xgold_led_bl_device, timer);
 	led_ctrl = SCU_LED_UP_CMP_200mv;
-	led_write32(bl_timer->mmio_base, LED_CTRL, SCU_LED_DOWN);
-	led_write32(bl_timer->mmio_base, LED_CTRL, led_ctrl);
+	led_write32(bl, LED_CTRL, SCU_LED_DOWN);
+	led_write32(bl, LED_CTRL, led_ctrl);
 	return HRTIMER_NORESTART;
 }
 
@@ -263,15 +263,10 @@ static inline int xgold_led_set_pinctrl_state(struct device *dev,
 static int xgold_led_bl_cbinit(struct device *dev , void *mmio_base)
 {
 	int ret;
-	struct xgold_led_bl_device *pdata = dev_get_drvdata(dev);
-	struct device_pm_platdata *pm_platdata = pdata->pm_platdata;
+	struct xgold_led_bl_device *bl = dev_get_drvdata(dev);
+	struct device_pm_platdata *pm_platdata = bl->pm_platdata;
 
-	bl_timer = kzalloc(sizeof(struct xgold_bl_timer), GFP_KERNEL);
-	if (!bl_timer) {
-		dev_err(dev, "not enough memory for Timer data\n");
-		return -ENOMEM;
-	}
-	spin_lock_init(&bl_timer->lock);
+	spin_lock_init(&bl->timer_lock);
 
 	if (!pm_platdata || !pm_platdata->pm_state_D3_name
 			|| !pm_platdata->pm_state_D0_name) {
@@ -281,17 +276,15 @@ static int xgold_led_bl_cbinit(struct device *dev , void *mmio_base)
 
 	ret = device_state_pm_set_class(dev, pm_platdata->pm_user_name);
 
-	hrtimer_init(&bl_timer->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	bl_timer->timer.function = xgold_bl_hrtimer_callback;
-	bl_timer->mmio_base = mmio_base;
-	led_write32(mmio_base, LED_CTRL, SCU_LED_DOWN);
+	hrtimer_init(&bl->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	bl->timer.function = xgold_bl_hrtimer_callback;
+	led_write32(bl, LED_CTRL, SCU_LED_DOWN);
 
 	return ret;
 }
 
 static void xgold_led_bl_cbexit(void)
 {
-	kfree(bl_timer);
 	return;
 }
 
@@ -300,8 +293,8 @@ static int xgold_bl_set_clk(struct device *dev,
 {
 	int ret;
 	unsigned long flags;
-	struct xgold_led_bl_device *pdata = dev_get_drvdata(dev);
-	struct device_pm_platdata *pm_platdata = pdata->pm_platdata;
+	struct xgold_led_bl_device *bl = dev_get_drvdata(dev);
+	struct device_pm_platdata *pm_platdata = bl->pm_platdata;
 
 	dev_dbg(dev, "%s %s\n", __func__, on ? "ON" : "OFF");
 	if (on) {
@@ -312,15 +305,15 @@ static int xgold_bl_set_clk(struct device *dev,
 			return 0; /* ret; */
 		}
 retry:
-		spin_lock_irqsave(&bl_timer->lock, flags);
-		if (hrtimer_try_to_cancel(&bl_timer->timer) < 0) {
-			spin_unlock_irqrestore(&bl_timer->lock, flags);
+		spin_lock_irqsave(&bl->timer_lock, flags);
+		if (hrtimer_try_to_cancel(&bl->timer) < 0) {
+			spin_unlock_irqrestore(&bl->timer_lock, flags);
 			goto retry;
 		}
-		hrtimer_start(&bl_timer->timer,
+		hrtimer_start(&bl->timer,
 				US_TO_NS(DELAY_TIME_FOR_LED_CTRL_200MV),
 				HRTIMER_MODE_REL);
-		spin_unlock_irqrestore(&bl_timer->lock, flags);
+		spin_unlock_irqrestore(&bl->timer_lock, flags);
 	} else {
 		ret = device_state_pm_set_state_by_name(dev,
 			pm_platdata->pm_state_D3_name);
@@ -339,20 +332,19 @@ static int xgold_set_lcd_backlight(struct device *dev,
 {
 	struct xgold_led_bl_device *pdata = dev_get_drvdata(dev);
 	unsigned long flags = 0;
-	int val;
 	dev_dbg(dev, "%s %d\n", __func__, intensity);
 
 	intensity = SCALING_INTENSITY(intensity);
 	if (intensity) {
 		if (!pdata->pmic_bl)
 			spin_lock_irqsave(lock, flags);
-		SET_LCD_BL_ON;
+		xgold_led_bl_on(pdata, intensity);
 		if (!pdata->pmic_bl)
 			spin_unlock_irqrestore(lock, flags);
 	} else {
 		if (!pdata->pmic_bl)
 			spin_lock_irqsave(lock, flags);
-		SET_LCD_BL_OFF;
+		xgold_led_bl_off(pdata);
 		if (!pdata->pmic_bl)
 			spin_unlock_irqrestore(lock, flags);
 	}
@@ -438,6 +430,7 @@ static int xgold_led_bl_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct xgold_led_bl_device *led_bl;
 	struct device_node *nbl;
+	struct resource res;
 
 	led_bl = kzalloc(sizeof(struct xgold_led_bl_device), GFP_KERNEL);
 	if (!led_bl) {
@@ -498,6 +491,14 @@ static int xgold_led_bl_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	if (of_find_property(nbl, "intel,vmm-secured-access", NULL)) {
+		dev_info(&pdev->dev, "AGold  BL using secure access\n");
+		led_bl->flags |= XGOLD_LED_USE_SECURE_IO_ACCESS;
+	} else {
+		dev_info(&pdev->dev, "AGold BL using native access\n");
+		led_bl->flags |= XGOLD_LED_USE_NATIVE_IO_ACCESS;
+	}
+
 	led_bl->mmio_base = of_iomap(nbl, 0);
 	if (led_bl->mmio_base == NULL) {
 		dev_err(&pdev->dev,
@@ -505,6 +506,12 @@ static int xgold_led_bl_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto failed_free_mem;
 	}
+
+	if (of_address_to_resource(nbl, 0, &res)) {
+		ret = -EINVAL;
+		goto failed_unmap;
+	}
+	led_bl->phys_io_addr = res.start;
 
 	if (of_find_property(nbl, "intel,flags-use-safe-ctrl", NULL))
 		led_bl->flags |= XGOLD_LED_USE_SAFE_CTRL;
