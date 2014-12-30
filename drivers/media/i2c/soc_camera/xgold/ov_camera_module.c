@@ -657,22 +657,31 @@ int ov_camera_module_s_ext_ctrls(
 					PLTFRM_CAMERA_MODULE_PIN_TORCH,
 					PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE
 					);
-					}
-				else {
-				if (cam_mod->exp_config.flash_mode ==
-					V4L2_FLASH_LED_MODE_FLASH)
-					pltfrm_camera_module_set_pin_state(
-					sd,
-					PLTFRM_CAMERA_MODULE_PIN_FLASH,
-					PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE
-					);
-				else if (cam_mod->exp_config.flash_mode ==
-					V4L2_FLASH_LED_MODE_TORCH)
+				} else if (!strcmp(flash_driver, "SGM3141")) {
 					pltfrm_camera_module_set_pin_state(
 					sd,
 					PLTFRM_CAMERA_MODULE_PIN_TORCH,
-					PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE
-					);
+					PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE);
+
+					pltfrm_camera_module_set_pin_state(
+					sd,
+					PLTFRM_CAMERA_MODULE_PIN_FLASH,
+					PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE);
+				} else {
+					if (cam_mod->exp_config.flash_mode ==
+						V4L2_FLASH_LED_MODE_FLASH)
+						pltfrm_camera_module_set_pin_state(
+						sd,
+						PLTFRM_CAMERA_MODULE_PIN_FLASH,
+						PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE
+						);
+					else if (cam_mod->exp_config.flash_mode ==
+						V4L2_FLASH_LED_MODE_TORCH)
+						pltfrm_camera_module_set_pin_state(
+						sd,
+						PLTFRM_CAMERA_MODULE_PIN_TORCH,
+						PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE
+						);
 				}
 			} else if (ctrl->value ==
 					V4L2_FLASH_LED_MODE_FLASH) {
@@ -686,6 +695,16 @@ int ov_camera_module_s_ext_ctrls(
 					sd,
 					PLTFRM_CAMERA_MODULE_PIN_TORCH,
 					PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
+				} else if (!strcmp(flash_driver, "SGM3141")) {
+					pltfrm_camera_module_set_pin_state(
+					sd,
+					PLTFRM_CAMERA_MODULE_PIN_TORCH,
+					PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
+
+					pltfrm_camera_module_set_pin_state(
+					sd,
+					PLTFRM_CAMERA_MODULE_PIN_FLASH,
+					PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
 				} else {
 					pltfrm_camera_module_set_pin_state(
 					sd,
@@ -695,6 +714,17 @@ int ov_camera_module_s_ext_ctrls(
 					}
 			} else if (ctrl->value ==
 					V4L2_FLASH_LED_MODE_TORCH) {
+				if (!strcmp(flash_driver, "SGM3141")) {
+					pltfrm_camera_module_set_pin_state(
+					sd,
+					PLTFRM_CAMERA_MODULE_PIN_TORCH,
+					PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE);
+
+					pltfrm_camera_module_set_pin_state(
+					sd,
+					PLTFRM_CAMERA_MODULE_PIN_FLASH,
+					PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
+				} else {
 					pltfrm_camera_module_set_pin_state(
 					sd,
 					PLTFRM_CAMERA_MODULE_PIN_FLASH,
@@ -705,7 +735,8 @@ int ov_camera_module_s_ext_ctrls(
 					PLTFRM_CAMERA_MODULE_PIN_TORCH,
 					PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE
 					);
-					}
+				}
+			}
 			cam_mod->exp_config.flash_mode = ctrl->value;
 			pltfrm_camera_module_pr_debug(&cam_mod->sd,
 				"V4L2_CID_FLASH_LED_MODE %d\n",
