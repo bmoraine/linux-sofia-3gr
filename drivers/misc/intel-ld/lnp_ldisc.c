@@ -485,7 +485,7 @@ static void lbf_ldisc_wakeup(struct tty_struct *tty)
 
 static inline int select_proto(int type)
 {
-	return (type >= 2 && type <= 6) ? type : INVALID;
+	return (type >= 2 && type < 6) ? type : INVALID;
 }
 
 /* st_send_frame()
@@ -1205,8 +1205,10 @@ static int intel_bluetooth_pdata_probe(struct platform_device *pdev)
 	struct pinctrl *pinctrl;
 
 	pr_debug("%s\n", __func__);
-	if (!dn)
+	if (!dn) {
 		pr_err("cann't find matching node\n");
+		goto skip_pinctrl;
+	}
 
 	pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(pinctrl))
@@ -1263,8 +1265,10 @@ static int intel_lpm_bluetooth_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	pr_debug("%s\n", __func__);
-	if (pdev == NULL)
-		pr_err("%s pdev NULL", __func__);
+	if (pdev == NULL) {
+		ret = -EINVAL;
+		goto err_data_probe;
+	}
 	else
 		bt_lpm.tty_dev = &pdev->dev;
 
@@ -1272,6 +1276,7 @@ static int intel_lpm_bluetooth_probe(struct platform_device *pdev)
 
 	if (ret < 0) {
 		pr_err("%s: Cannot register platform data\n", __func__);
+		ret = -EINVAL;
 		goto err_data_probe;
 	}
 
@@ -1279,6 +1284,7 @@ static int intel_lpm_bluetooth_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		pr_err("%s: Unable to request gpio %d\n", __func__,
 				bt_lpm.gpio_enable_bt);
+		ret = -EINVAL;
 		goto err_gpio_enable_req;
 	} else
 		pr_err("%s: succeded to request gpio\n", __func__);
@@ -1287,6 +1293,7 @@ static int intel_lpm_bluetooth_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		pr_err("%s: Unable to set int direction for gpio %d\n",
 			__func__, bt_lpm.gpio_enable_bt);
+		ret = -EINVAL;
 		goto err_gpio_enable_dir;
 	} else
 		pr_err("%s: succeded to request direction gpio\n", __func__);
