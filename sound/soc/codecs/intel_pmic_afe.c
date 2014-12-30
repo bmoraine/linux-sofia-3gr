@@ -98,7 +98,7 @@ static const u8 afe_reg_cache[] = {
 	0x06, /* AFE_GAIN_OUT3_REG */
 	0x0E, /* AFE_GAIN_OUT4_REG */
 	0x1A, /* AFE_GAIN_IN1_REG */
-	0x07, /* AFE_GAIN_IN2_REG */
+	0x06, /* AFE_GAIN_IN2_REG */
 	0x0,  /* AFE_GAIN_IN3_REG */
 	0x0,  /* AFE_GAIN_IN4_REG */
 	0x0,  /* AFE_DIGMICCTRL_REG */
