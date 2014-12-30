@@ -22,9 +22,14 @@
 #include <../drivers/staging/android/timed_output.h>
 #include <linux/hrtimer.h>
 #include <linux/fs.h>
+#include <linux/of.h>
+#include <sofia/mv_svc_hypercalls.h>
 #include "xgold-vibra.h"
 
 #define XGOLD_VIBRA_MODULE_NAME		"vibra-xgold"
+
+#define XGOLD_VIBRA_USE_SECURE_IO_ACCESS BIT(0)
+#define XGOLD_VIBRA_USE_NATIVE_IO_ACCESS BIT(1)
 
 /* Macros for power enable, disable */
 #define XG_PM_DISABLE		0x0
@@ -33,16 +38,44 @@
 
 #define MS_TO_NS(value) ktime_set(value/1000, (value % 1000)*1000000)
 
+struct xgold_vibra_device {
+	struct platform_device *pdev;
+	void __iomem *mmio_base;
+	phys_addr_t phys_io_addr;
+	struct timed_output_dev vibrator;
+	struct work_struct work;
+	struct hrtimer timer;
+	int vibra_on;
+	spinlock_t lock;
+	unsigned long flags;
+};
+
 static struct device_state_pm_state *vibra_pm_states[XG_PM_NOF_STATES];
 
-static void vibra_write32(void __iomem *mmio_base, u16 offset, u32 val)
+static void vibra_write32(struct xgold_vibra_device *vib, u16 offset, u32 val)
 {
-	iowrite32(val, mmio_base + offset);
+	int ret;
+
+	if (vib->flags & XGOLD_VIBRA_USE_SECURE_IO_ACCESS) {
+		ret = mv_svc_reg_write_only(vib->phys_io_addr + offset,
+							val, 0xFFFFFFFF);
+		BUG_ON(ret);
+	} else {
+		iowrite32(val, vib->mmio_base + offset);
+	}
 }
 
-static int vibra_read32(void __iomem *mmio_base, u16 offset)
+static int vibra_read32(struct xgold_vibra_device *vib, u16 offset)
 {
-	int val = ioread32(mmio_base + offset);
+	int val, ret;
+
+	if (vib->flags & XGOLD_VIBRA_USE_SECURE_IO_ACCESS) {
+		ret = mv_svc_reg_read(vib->phys_io_addr + offset,
+						&val, 0xFFFFFFFF);
+		BUG_ON(ret);
+	} else {
+		val = ioread32(vib->mmio_base + offset);
+	}
 	return val;
 }
 
@@ -68,28 +101,29 @@ static int xgold_set_clk_vibrator(struct device *dev,
 	return 0;
 }
 
-static int xgold_set_vibrator(struct device *dev,
-				void *mmio_base, spinlock_t *lock,
-				int intensity)
+static int xgold_set_vibrator(struct xgold_vibra_device *vib)
 {
 	int reg_val;
 	unsigned long flags;
+	spinlock_t *lock = &vib->lock;
+	int intensity = vib->vibra_on;
 
 	if (intensity) {
 		reg_val = (VIBRA_UP) |
 				(((((u32)intensity)*127)/100) & 0x7F);
 		spin_lock_irqsave(lock, flags);
-		vibra_write32(mmio_base, VIBRA_CONTROL, VIBRA_DOWN);
-		vibra_read32(mmio_base, VIBRA_CONTROL);
-		vibra_write32(mmio_base, VIBRA_CONTROL, reg_val);
-		vibra_read32(mmio_base, VIBRA_CONTROL);
+		vibra_write32(vib, VIBRA_CONTROL, VIBRA_DOWN);
+		vibra_read32(vib, VIBRA_CONTROL);
+		vibra_write32(vib, VIBRA_CONTROL, reg_val);
+		vibra_read32(vib, VIBRA_CONTROL);
 		spin_unlock_irqrestore(lock, flags);
 	} else {
 		spin_lock_irqsave(lock, flags);
-		vibra_write32(mmio_base, VIBRA_CONTROL, VIBRA_DOWN);
-		vibra_read32(mmio_base, VIBRA_CONTROL);
+		vibra_write32(vib, VIBRA_CONTROL, VIBRA_DOWN);
+		vibra_read32(vib, VIBRA_CONTROL);
 		spin_unlock_irqrestore(lock, flags);
 	}
+
 	return 0;
 }
 
@@ -107,29 +141,6 @@ static int xgold_init_vibrator(struct device *dev)
 	return ret;
 }
 
-static void xgold_exit_vibrator(void)
-{
-	return;
-}
-
-static struct xgold_vibra_platform_data xgold_vibra_platform_data = {
-	.init = xgold_init_vibrator,
-	.exit = xgold_exit_vibrator,
-	.set_clk = xgold_set_clk_vibrator,
-	.set_vibrator = xgold_set_vibrator,
-};
-
-struct xgold_vibra_device {
-	const struct xgold_vibra_platform_data *pdata;
-	struct platform_device *pdev;
-	void __iomem *mmio_base;
-	struct timed_output_dev vibrator;
-	struct work_struct work;
-	struct hrtimer timer;
-	int vibra_on;
-	spinlock_t lock;
-};
-
 static void xgold_vibra_work(struct work_struct *work)
 {
 	struct xgold_vibra_device *vib =
@@ -139,49 +150,34 @@ static void xgold_vibra_work(struct work_struct *work)
 
 	if (vib->vibra_on) {
 		if (power_on == false) {
-			if (vib->pdata->set_clk) {
-				ret = vib->pdata->set_clk(vib->vibrator.dev,
-							true);
-				if (ret) {
-					dev_err(vib->vibrator.dev,
-					"%s Set Clk Failed\n", __func__);
-					return;
-				}
+			ret = xgold_set_clk_vibrator(vib->vibrator.dev, true);
+			if (ret) {
+				dev_err(vib->vibrator.dev,
+				"%s Set Clk Failed\n", __func__);
+				return;
 			}
 			power_on = true;
 		}
-		if (vib->pdata->set_vibrator) {
-			ret = vib->pdata->set_vibrator(vib->vibrator.dev,
-							vib->mmio_base,
-							&vib->lock,
-							vib->vibra_on);
-			if (ret) {
-				dev_err(vib->vibrator.dev,
-				"%s Set vibrator Failed\n", __func__);
-				return;
-			}
+
+		ret = xgold_set_vibrator(vib);
+		if (ret) {
+			dev_err(vib->vibrator.dev,
+			"%s Set vibrator Failed\n", __func__);
+			return;
 		}
 	} else {
-		if (vib->pdata->set_vibrator) {
-			ret = vib->pdata->set_vibrator(vib->vibrator.dev,
-							vib->mmio_base,
-							&vib->lock,
-							vib->vibra_on);
-			if (ret) {
-				dev_err(vib->vibrator.dev,
-				"%s Set vibrator Failed\n", __func__);
-				return;
-			}
+		ret = xgold_set_vibrator(vib);
+		if (ret) {
+			dev_err(vib->vibrator.dev,
+			"%s Set vibrator Failed\n", __func__);
+			return;
 		}
 		if (power_on == true) {
-			if (vib->pdata->set_clk) {
-				ret = vib->pdata->set_clk(vib->vibrator.dev,
-							false);
-				if (ret) {
-					dev_err(vib->vibrator.dev,
-					"%s Set Clk Failed\n", __func__);
-					return;
-				}
+			ret = xgold_set_clk_vibrator(vib->vibrator.dev, false);
+			if (ret) {
+				dev_err(vib->vibrator.dev,
+				"%s Set Clk Failed\n", __func__);
+				return;
 			}
 			power_on = false;
 		}
@@ -232,13 +228,7 @@ static int xgold_vibra_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct resource *res;
 	struct xgold_vibra_device *vib;
-	struct xgold_vibra_platform_data *pdata = &xgold_vibra_platform_data;
-	pdev->dev.platform_data = pdata;
-
-	if (!pdata) {
-		dev_err(&pdev->dev, "No platform data\n");
-		return -EINVAL;
-	}
+	struct device_node *np = pdev->dev.of_node;
 
 	res = platform_get_resource_byname(pdev,
 			IORESOURCE_MEM, "vibra-registers");
@@ -256,6 +246,14 @@ static int xgold_vibra_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	if (of_find_property(np, "intel,vmm-secured-access", NULL)) {
+		dev_info(&pdev->dev, "AGold vibrator using secure access\n");
+		vib->flags |= XGOLD_VIBRA_USE_SECURE_IO_ACCESS;
+	} else {
+		dev_info(&pdev->dev, "AGold vibrator using native access\n");
+		vib->flags |= XGOLD_VIBRA_USE_NATIVE_IO_ACCESS;
+	}
+
 	vib->mmio_base = ioremap(res->start, resource_size(res));
 	if (vib->mmio_base == NULL) {
 		dev_err(&pdev->dev,
@@ -263,7 +261,8 @@ static int xgold_vibra_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto failed_free_mem;
 	}
-	vib->pdata = pdata;
+
+	vib->phys_io_addr = res->start;
 	vib->pdev = pdev;
 	INIT_WORK(&vib->work, xgold_vibra_work);
 	spin_lock_init(&vib->lock);
@@ -282,14 +281,12 @@ static int xgold_vibra_probe(struct platform_device *pdev)
 		goto failed_unmap;
 	}
 
-	if (vib->pdata->init) {
-		ret = vib->pdata->init(vib->vibrator.dev);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "Plat Init Failed: %s\n",
-					vib->vibrator.name);
-			ret = -EINVAL;
-			goto failed_unregister_timed_output;
-		}
+	ret = xgold_init_vibrator(vib->vibrator.dev);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Plat Init Failed: %s\n",
+						vib->vibrator.name);
+		ret = -EINVAL;
+		goto failed_unregister_timed_output;
 	}
 
 	platform_set_drvdata(pdev, vib);
