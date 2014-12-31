@@ -27,4 +27,4 @@
 # obj-y: include in kernel
 # obj-m: build as module
 
-obj-$(CONFIG_VBPIPE) += vvpu_vbpipe.o
+obj-$(CONFIG_MOBILEVISOR_VDRIVER_PIPE) += vvpu_vbpipe.o

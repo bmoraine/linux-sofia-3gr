@@ -125,19 +125,18 @@
 #include <android/sw_sync.h>
 #include <linux/file.h>
 
-#if defined(CONFIG_VBPIPE)
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 
 #include <sofia/vvpu_vbpipe.h>
 
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <linux/xgold_noc.h>
-#include <sofia/nk_sofia_bridge.h>
 #endif
 
 /* for communication with secure VM */
 /***** TODO: rm #include "../../../vlx/vrpc.h" *****/
 
-#endif /* CONFIG_VBPIPE */
+#endif /* CONFIG_MOBILEVISOR_VDRIVER_PIPE */
 
 /* module description */
 MODULE_LICENSE("GPL");
@@ -792,7 +791,7 @@ static long hx170dec_ioctl(struct file *filp,
 #endif
 
 	case HX170DEC_IOCT_SECVM_CMD: {
-#if defined(CONFIG_VBPIPE)
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 		/* IMC: send a VVPU command to secure VM */
 		struct vvpu_secvm_cmd vvpu_cmd;
 
@@ -1353,7 +1352,7 @@ static int xgold_vpu_dec_probe(struct platform_device *pdev)
 		}
 
 	} else {
-#if defined(CONFIG_VBPIPE)
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 		/*
 		 * initlialize secure VM decoder: init vbpipe
 		 */
@@ -1496,7 +1495,7 @@ static int xgold_vpu_dec_remove(struct platform_device *pdev)
 	/* show that the device may no longer be used */
 	hx170dec_pm_set_avail(0);
 
-#if defined(CONFIG_VBPIPE)
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 	vvpu_vbpipe_release(dev);
 #endif
 

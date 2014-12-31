@@ -37,8 +37,8 @@
 /** #define __VERBOSE_RPC__ **/
 
 /* vbpipe designated for vvpu usage */
-#define VVPU_VBPIPE		"/dev/vbpipe5"
-
+//#define VVPU_VBPIPE		"/dev/vbpipe5"
+#define VVPU_VBPIPE "/dev/mvpipe-vpu"
 
 /*
  * make sure only one driver is using the vvpu module at a time

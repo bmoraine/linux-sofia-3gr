@@ -122,16 +122,15 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 
-#if defined(CONFIG_VBPIPE)
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 
 #include <sofia/vvpu_vbpipe.h>
 
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <linux/xgold_noc.h>
-#include <sofia/nk_sofia_bridge.h>
 #endif
 
-#endif /* CONFIG_VBPIPE */
+#endif /* CONFIG_MOBILEVISOR_VDRIVER_PIPE */
 
 /* module description */
 MODULE_LICENSE("GPL");
@@ -198,7 +197,7 @@ DEFINE_SEMAPHORE(hx280enc_req_counter_lock);
 static bool hx280enc_runtime_suspended;
 #endif
 
-#if defined(CONFIG_VBPIPE)
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 static int check_vvpu_hw_id(long int hardware);
 #endif
 
@@ -571,7 +570,7 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd,
 	break;
 
 
-#if defined(CONFIG_VBPIPE)
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 	case HX280_IOCT_SECVM_CMD: {
 		/* IMC: send a VVPU command to secure VM */
 		struct vvpu_secvm_cmd vvpu_cmd;
@@ -979,7 +978,7 @@ static int xgold_vpu_enc_probe(struct platform_device *pdev)
 			dev_warn(dev, "IRQ not in use!");
 
 	} else {
-#if defined(CONFIG_VBPIPE)
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 		/*
 		 * initlialize secure VM decoder: init vbpipe
 		 */
@@ -1118,7 +1117,7 @@ static int xgold_vpu_enc_remove(struct platform_device *pdev)
 	/* show that the device may no longer be used */
 	hx280enc_pm_set_avail(0);
 
-#if defined(CONFIG_VBPIPE)
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 	vvpu_vbpipe_release(dev);
 #endif
 
@@ -1653,7 +1652,7 @@ module_init(hx280enc_init);
 module_exit(hx280enc_cleanup);
 
 
-#if defined(CONFIG_VBPIPE)
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 static int check_vvpu_hw_id(long int hwid)
 {
 	int ret = 0;

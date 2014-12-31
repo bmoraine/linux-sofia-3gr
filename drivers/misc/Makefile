@@ -60,5 +60,5 @@ obj-$(CONFIG_UID_CPUTIME) += uid_cputime.o
 obj-$(CONFIG_HAVE_NOC) += noc/
 obj-$(CONFIG_VERISILICON_7280)	+= verisilicon/7280/
 obj-$(CONFIG_VERISILICON_G1)  += verisilicon/G1/
-obj-$(CONFIG_VBPIPE)  += verisilicon/vvpu/
+obj-$(CONFIG_MOBILEVISOR_VDRIVER_PIPE)  += verisilicon/vvpu/
 obj-$(CONFIG_VIBRA_XGOLD)	+= xgold-vibra.o
