@@ -109,10 +109,13 @@
 				probe,portsel,1 = "CPU1", "LCDC";
 				probe,portsel,2 = "EMIC0", "EMIC1", "EMIC2";
 
-				clock,rate = <400000000>;
+				clock,rate = <416000000>;
 				stat,0 = "CPU0";
 				stat,1 = "CPU1";
-				stat,3 = "GPU";
+				stat,2 = "GPU";
+				stat,3 = "EMIC0";
+				stat,4 = "EMIC1";
+				stat,5 = "EMIC2";
 
 				intel,qos-configs = "GPU";
 				intel,GPU-qos-settings = <
