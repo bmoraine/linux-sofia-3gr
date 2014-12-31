@@ -69,7 +69,7 @@ static int sofia_wakeup_secondary_cpu(int apicid, unsigned long start_ip)
 #else
 	unsigned long hack_start_ip = (unsigned long)__pa(secondary_startup_64);
 #endif
-	mv_start_vcpu(apicid, hack_start_ip);
+	mv_vcpu_start(apicid, hack_start_ip);
 	return 0;
 }
 
