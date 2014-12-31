@@ -1,0 +1,5 @@
+config RGA_ROCKCHIP
+	tristate "RGA_ROCKCHIP"
+	depends on FB_ROCKCHIP
+	help
+	  sofia rga module.
