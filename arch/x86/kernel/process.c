@@ -30,7 +30,6 @@
 #include <asm/nmi.h>
 #include <asm/mwait.h>
 
-#include <sofia/nk_sofia_bridge.h>
 #include <sofia/mv_gal.h>
 
 /*
@@ -325,7 +324,7 @@ void stop_this_cpu(void *dummy)
 	 * Remove this CPU:
 	 */
 	set_cpu_online(smp_processor_id(), false);
-	mv_stop_vcpu(smp_processor_id());
+	mv_vcpu_stop(smp_processor_id());
 	disable_local_APIC();
 
 	for (;;)
