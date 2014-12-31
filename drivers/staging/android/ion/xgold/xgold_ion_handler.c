@@ -32,7 +32,8 @@
 #include <linux/xgold_ion.h>
 
 /* vbpipe designated for ion usage -- but currently borrowed ... */
-#define XGOLD_ION_VBPIPE  "/dev/vbpipe11"
+//#define XGOLD_ION_VBPIPE  "/dev/vbpipe11"
+#define XGOLD_ION_VBPIPE  "/dev/mvpipe-vpu_ion"
 
 #define XGOLD_MAX_CMD_LEN 10
 
