@@ -27,7 +27,7 @@
 #endif
 #ifdef CONFIG_PLATFORM_DEVICE_PM_VIRT
 #ifdef CONFIG_X86_INTEL_SOFIA
-#include <linux/vpower.h>
+#include <sofia/vpower.h>
 #include <sofia/pal_shared_data.h>
 #include <sofia/mv_svc_hypercalls.h>
 #include <sofia/mv_gal.h>
