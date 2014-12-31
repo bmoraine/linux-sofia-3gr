@@ -23,6 +23,7 @@
 #include <linux/of_reserved_mem.h>
 
 #include <linux/xgold_ion.h>
+#include <linux/dma-buf.h>
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <sofia/vvpu_vbpipe.h>
 #endif
@@ -233,6 +234,11 @@ static long xgold_ion_ioctl(struct ion_client *client,
 				   unsigned long arg)
 {
 	int ret = -ENOTTY;
+	struct ion_handle *handle;
+	struct ion_phys_data pdata;
+	struct ion_share_id_data sdata;
+	struct dma_buf *dmabuf;
+	int fd = 0;
 
 	switch (cmd) {
 	case XGOLD_ION_GET_PARAM:
@@ -246,6 +252,50 @@ static long xgold_ion_ioctl(struct ion_client *client,
 		ret = xgold_ion_free_secure(client, cmd, arg);
 		break;
 #endif
+	case ION_IOC_GET_PHYS:
+		if (copy_from_user(&pdata, (void __user *)arg,
+				   sizeof(struct ion_phys_data)))
+			return -EFAULT;
+		handle = ion_handle_get_by_id(client, pdata.handle);
+		if (IS_ERR(handle))
+			return PTR_ERR(handle);
+		ret = ion_phys(client, handle, &pdata.phys,
+			       (size_t *)&pdata.size);
+		ion_handle_put(handle);
+		if (ret < 0)
+			return ret;
+		if (copy_to_user((void __user *)arg, &pdata,
+				 sizeof(struct ion_phys_data)))
+			return -EFAULT;
+		break;
+	case ION_IOC_GET_SHARE_ID:
+		if (copy_from_user(&sdata, (void __user *)arg,
+				   sizeof(struct ion_share_id_data)))
+			return -EFAULT;
+		dmabuf = dma_buf_get(sdata.fd);
+		if (IS_ERR(dmabuf))
+			return PTR_ERR(dmabuf);
+		sdata.id = (unsigned int)dmabuf;
+		if (copy_to_user((void __user *)arg, &sdata,
+				 sizeof(struct ion_share_id_data)))
+			return -EFAULT;
+		break;
+	case ION_IOC_SHARE_BY_ID:
+		if (copy_from_user(&sdata, (void __user *)arg,
+				   sizeof(struct ion_share_id_data)))
+			return -EFAULT;
+		fd = dma_buf_fd((struct dma_buf *)sdata.id, O_CLOEXEC);
+		if (fd < 0)
+			return fd;
+		sdata.fd = fd;
+		if (copy_to_user((void __user *)arg, &sdata,
+				 sizeof(struct ion_share_id_data)))
+			return -EFAULT;
+		break;
+	case ION_IOC_CLEAN_CACHES:
+	case ION_IOC_INV_CACHES:
+	case ION_IOC_CLEAN_INV_CACHES:
+		break;
 	default:
 		pr_err("Unknown custom ioctl\n");
 		return -ENOTTY;
@@ -293,6 +343,11 @@ int xgold_ion_of_heap(struct ion_platform_heap *myheap,
 
 			myheap->align = 0x100000;
 			myheap->id = ion_heap_type_name[itype].id;
+
+			if (!strcmp("system-heap", node->name)) {
+				myheap->type = ION_HEAP_TYPE_SYSTEM;
+				return 1;
+			}
 
 			ret = of_get_reserved_memory_region(node,
 					&size, &base, &cma_area);
