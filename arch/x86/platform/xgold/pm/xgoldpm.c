@@ -16,7 +16,7 @@
 #include <linux/printk.h>
 #include <linux/of.h>
 #include <linux/device_state_pm.h>
-#include <linux/vpower.h>
+#include <sofia/vpower.h>
 #include "xgoldpm.h"
 
 /* Final call for giving control to the platform specific PM API */
