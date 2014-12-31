@@ -20,6 +20,8 @@ dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3GR-es1-svb-garnet.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_LTE-es1-butr.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G-es2.1-mrd7s.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G-es2.1-mrd7s-recovery.dtb
+dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_LTE-mrd6-p0.dtb
+dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_LTE-mrd6-p0-recovery.dtb
 targets += dtbs
 targets += $(dtb-y)
 endif
