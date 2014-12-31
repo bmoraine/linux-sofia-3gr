@@ -526,6 +526,19 @@
 						reset-names = "vpu_enc";
 					};
 #endif
+#ifndef RECOVERY_KERNEL
+					rga {
+						compatible = "rockchip,rockchip-rga";
+						reg = <0xE2500000 0x200>;
+						interrupts = < RGA_INT IRQ_TYPE_DEFAULT >;
+						pm,class-name = "rga_class";
+						pm,user-name = "rga";
+						pm,state-D0 = "high_perf";
+						pm,state-D1 = "mid_perf";
+						pm,state-D2 = "low_perf";
+						pm,state-D3 = "disable";
+					};
+#endif
 					phy:phy {
 						compatible = "intel,usb2phy";
 						#address-cells = < 0 >;
