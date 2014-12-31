@@ -1,0 +1,6 @@
+/* Mobilevisor */
+
+mobilevisor {
+	compatible = "intel,mobilevisor";
+	interrupt-parent = <&hirq>;
+};

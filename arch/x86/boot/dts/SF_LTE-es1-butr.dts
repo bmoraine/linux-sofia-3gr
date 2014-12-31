@@ -10,6 +10,7 @@
 
 	#include "xgold/sofia_lte_soc/sofia_lte_soc.dtsi"
 	#include "xgold/sofia_lte_soc/irq.dtsi"
+	#include "xgold/mobilevisor/mobilevisor.dtsi"
 	#include "xgold/pmic/sofia_lte.dtsi"
 	#include "xgold/sofia_lte_soc/clock-es1.dtsi"
 	#include "xgold/sofia_lte_soc/device-pm-reg.dtsi"
