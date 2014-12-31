@@ -35,9 +35,10 @@
 #include <asm/hw_irq.h>
 
 #ifdef CONFIG_X86_INTEL_SOFIA
-#include <sofia/nk_sofia_bridge.h>
 #include <sofia/pal_shared_data.h>
 #include <sofia/mv_svc_hypercalls.h>
+#include <sofia/mv_hypercalls.h>
+#include <sofia/mv_gal.h>
 #endif
 
 #define XGOLD_ENTER pr_info("--> %s\n", __func__)

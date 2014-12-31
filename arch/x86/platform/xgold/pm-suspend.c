@@ -22,6 +22,7 @@
 #include <linux/vpower.h>
 #include <sofia/pal_shared_data.h>
 #include <sofia/mv_svc_hypercalls.h>
+#include <sofia/mv_gal.h>
 #endif
 #endif
 
