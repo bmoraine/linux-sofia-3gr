@@ -279,6 +279,7 @@ int dcc_core_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
+	xgold_noc_qos_set("DCC2");
 	dcc_display_setup(pdata);
 	dcc_boot_info("Display device %dx%d\n",
 			pdata->display.xres, pdata->display.yres);
