@@ -104,24 +104,65 @@ static struct irq_domain_ops xgold_irq_hirq_domain_ops = {
 	.map = xgold_irq_domain_map,
 };
 
+/*
+ * Run software resend of hirq
+ */
+static void resend_hirq(unsigned long arg)
+{
+        struct irq_desc *desc;
+        int irq = 32;
+
+	/* FIXME hardcode */
+        desc = irq_to_desc(irq);
+        local_irq_disable();
+        desc->handle_irq(irq, desc);
+        local_irq_enable();
+}
+
+/* Tasklet to handle hirq resend */
+static DECLARE_TASKLET(hirq_resend_tasklet, resend_hirq, 0);
+
 static uint32_t xgold_irq_hirq_find_mapping(uint32_t irq)
 {
-	uint32_t virq, index = 0;
+	uint32_t index = 0;
 	struct vmm_shared_data *pdata = mv_gal_get_shared_data();
+	struct virq_info_t *p_virq = &(pdata->virq_info);
+	uint32_t level1, level2;
 	pr_debug("%s(%d)-->\n", __func__, irq);
-	if (pdata) {
-		virq = pdata->triggering_xirq;
-		if (virq < irq_hirq_offset)
-			pr_err("%s: vmm_shared_data:%d < offset:%d\n",
-					__func__, virq, irq_hirq_offset);
-		else {
-			index = virq - irq_hirq_offset;
-			pr_debug("%s: VIRQ%d from VMM shared data => index:%d\n",
-					__func__, virq, index);
+
+/*
+	if(!pdata)
+		return index;
+*/
+
+	if(p_virq->lvl1) {
+		level1 = __ffs(p_virq->lvl1);
+		if(level1 >= 16) {
+			pr_err("invalid virq detected\n");
+			BUG();
+		}
+
+		if (p_virq->lvl2[level1] == 0)
+			return 0;
+
+		level2 = __ffs(p_virq->lvl2[level1]);
+		index = (level1 << 5) + level2;
+
+		p_virq->lvl2[level1] &= ~(1 << level2);
+		if(p_virq->lvl2[level1] == 0)
+			p_virq->lvl1 &= ~(1 << level1);
+
+		/* we need to re-trigger the irq handler
+		   since there are still pending virqs */
+		if(p_virq->lvl1) {
+			tasklet_schedule(&hirq_resend_tasklet);
 		}
 	} else
-		pr_err("%s: get_hirq_shared_data returns: %p\n",
-				__func__, pdata);
+		pr_err("spurious virq detected\n");
+
+	if (index >= 512)
+		BUG();
+
 	return index;
 }
 
