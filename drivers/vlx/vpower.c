@@ -1,10 +1,7 @@
 /*
  ****************************************************************
  *
- *  Component: VLX virtual Power Management frontend driver
- *
- *  Copyright (C) 2011 - 2013 Intel Mobile Communications GmbH
- *  Copyright (C) 2011, Red Bend Ltd.
+ *  Copyright (C) 2014 Intel Mobile Communications GmbH
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License Version 2
@@ -20,8 +17,6 @@
  *
  ****************************************************************
  */
-
-/*----- System header files -----*/
 
 #include <linux/module.h>
 #include <linux/seq_file.h>
@@ -43,27 +38,7 @@
 #include <sofia/pal_shared_data.h>
 #include <sofia/mv_svc_hypercalls.h>
 
-#include "vpower.h"
-
-/*----- Local configuration -----*/
-#if 1
-#define VPOWER_DEBUG
-#endif
-
-/*----- Tracing -----*/
-#ifdef VPOWER_DEBUG
-#define DTRACE(format, args...)	\
-	pr_debug("%s: " format, __func__, ##args)
-#else
-#define DTRACE(x...)
-#endif
-
-#define TRACE(x...)	pr_notice("VPOWER-FE: " x)
-#define WTRACE(x...)	pr_warn("VPOWER-FE: " x)
-#define ETRACE(x...)	pr_err("VPOWER-FE: " x)
-
 extern struct vmm_shared_data *vmm_shared_data[];
-extern cycle_t xgold_stm_clock_source_read(struct clocksource *cs);
 static DEFINE_MUTEX(call_mutex);
 
 struct vpower_data {
@@ -136,7 +111,6 @@ static ePRH_RETURN_T vpower_init_prh(void)
 	int hirq_prh = 0;
 	ePRH_RETURN_T retval;
 
-	DTRACE("Initializing prh\n");
 	for (i = 0; i < num_possible_cpus(); i++) {
 		struct vpower_data *vpower;
 		struct vmm_shared_data *vmmdata = vmm_shared_data[i];
