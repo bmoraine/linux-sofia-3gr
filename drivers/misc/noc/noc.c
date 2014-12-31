@@ -1693,7 +1693,7 @@ static void __exit xgold_noc_exit(void)
 	platform_driver_unregister(&xgold_noc_driver);
 }
 
-module_init(xgold_noc_init);
+subsys_initcall(xgold_noc_init);
 module_exit(xgold_noc_exit);
 
 MODULE_AUTHOR("Intel Mobile Communications GmbH");
