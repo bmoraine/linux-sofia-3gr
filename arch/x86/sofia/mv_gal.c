@@ -26,7 +26,6 @@
  *
  */
 
-#ifdef __KERNEL__
 #include <linux/string.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
@@ -36,34 +35,28 @@
 #include <linux/sysprofile.h>
 #endif
 #include <linux/memblock.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+#include <linux/platform_device.h>
 #include <sofia/mv_hypercalls.h>
 #include <sofia/mv_gal.h>
 #include <asm/pat.h>
-#else
-#include "common.h"
-#include "isr.h"
-#include "mv_gal.h"
-#endif
 
 /* define VM_MULTIPLE_VCPUS if guest VM has more than 1 VCPU */
-#if defined(__KERNEL__)
 #ifdef CONFIG_SMP
 #define VM_MULTIPLE_VCPUS 1
 #endif
-#endif
-
-/* FIXME: Do not include platform specific information
- * So I removed the pal_vectors.h inclusion,
- * and hardcode the VECT_XIRQ number
- */
-
-#define VECT_XIRQ 33
-
-#define XIRQ_NUM2INDX(xirq_num)     ((xirq_num) - VMM_XIRQ_START)
-#define XIRQ_INDX2NUM(xirq_indx)    ((xirq_indx) + VMM_XIRQ_START)
 
 struct vmm_shared_data *vmm_shared_data[CONFIG_MAX_VCPUS_PER_VM];
 const char *vm_command_line;
+struct irq_domain *hirq_domain;
+
+
+void irq_force_complete_move(int irq)
+{
+}
 
 struct vmm_shared_data *mv_gal_get_shared_data(void)
 {
@@ -74,6 +67,19 @@ struct vmm_shared_data *mv_gal_get_shared_data(void)
 #else
 	return vmm_shared_data[0];
 #endif
+}
+
+struct hirq_handler_wrapper
+{
+	int irq;
+	irq_handler_t handler;
+	void* cookie;
+};
+
+irqreturn_t generic_hirq_handler(int irq, void *cookie)
+{
+	struct hirq_handler_wrapper* hirq_wrapper = (struct hirq_handler_wrapper*)cookie;
+	return hirq_wrapper->handler(irq, hirq_wrapper->cookie);
 }
 
 void mv_gal_panic(char *panic_msg)
@@ -87,14 +93,10 @@ void mv_gal_panic(char *panic_msg)
 		;
 }
 
-#if defined(__KERNEL__)
 void *pmem_vbase;
-#endif
+
 void *mv_gal_ptov(vmm_paddr_t paddr)
 {
-#if !defined(__KERNEL__)
-	return (void *)paddr;
-#else
 	if (pmem_vbase) {
 		void *ptr;
 		struct vmm_shared_data *p_shared_data = mv_gal_get_shared_data();
@@ -109,14 +111,10 @@ void *mv_gal_ptov(vmm_paddr_t paddr)
 		}
 	} else
 		return NULL;
-#endif
 }
 
 vmm_paddr_t mv_gal_vtop(void *vaddr)
 {
-#if !defined(__KERNEL__)
-	return (vmm_paddr_t) vaddr;
-#else
 	if (pmem_vbase) {
 		vmm_paddr_t ptr;
 		struct vmm_shared_data *p_shared_data = mv_gal_get_shared_data();
@@ -130,91 +128,14 @@ vmm_paddr_t mv_gal_vtop(void *vaddr)
 			return (vmm_paddr_t) vaddr;
 	} else
 		return 0;
-#endif
 }
 
-struct vmm_xirq_callback_entry {
-	unsigned int xirq;
-	void (*cb)(void *, uint32_t);
-	void *cookie;
-	struct vmm_xirq_callback_entry *next;
-};
-
-
-static struct vmm_xirq_callback_entry *xirq_callbacks[VMM_XIRQ_END -
-							VMM_XIRQ_START];
 static unsigned int myid;
-
-#if !defined(__KERNEL__)
-#define MAX_XIRQ_CALLBACK_ENTRIES 128
-static struct vmm_xirq_callback_entry
-			available_entries[MAX_XIRQ_CALLBACK_ENTRIES];
-static unsigned int used_entries;
-#endif
-
-#ifdef __KERNEL__
-static irqreturn_t mv_gal_xirq_handler(int irq, void *data)
-#else
-static void mv_gal_xirq_handler(registers_t *regs)
-#endif
-{
-	struct vmm_xirq_callback_entry *entry;
-	unsigned int idx;
-	unsigned int virq;
-	struct vmm_shared_data *p_shared_data = mv_gal_get_shared_data();
-	struct virq_info_s *p_virq = &(p_shared_data->virq_info);
-
-	while (!IS_RINGBUF_EMPTY(p_virq->host_index, p_virq->guest_index)) {
-		virq = p_virq->virq_ring_buf[p_virq->guest_index];
-		idx = XIRQ_NUM2INDX(virq);
-		entry = xirq_callbacks[idx];
-		while (entry) {
-			if (entry->cb) {
-#if defined(CONFIG_SYSTEM_PROFILING)
-				sysprof_interrupt(virq);
-				sysprof_int_enter();
-#endif
-				entry->cb(entry->cookie, virq);
-#if defined(CONFIG_SYSTEM_PROFILING)
-				sysprof_int_leave();
-#endif
-			}
-			entry = entry->next;
-		};
-		p_virq->guest_index++;
-		if (p_virq->guest_index >= VCPU_VIRQ_RINGBUF_SIZE)
-			p_virq->guest_index = 0;
-	}
-#ifdef __KERNEL__
-	return IRQ_HANDLED;
-#endif
-}
 
 void mv_gal_init(struct vmm_shared_data *data)
 {
-	memset(xirq_callbacks, 0, sizeof(xirq_callbacks));
-#if !defined(__KERNEL__)
-	mv_gal_printk("used_entries=0x%x\n", used_entries);
-	memset(available_entries, 0, sizeof(available_entries));
-	mv_gal_printk("VM cmdline: %s\n", get_vmm_shared_data()->vm_cmdline);
-#endif
-
 	myid = data->os_id;
 	vm_command_line = mv_gal_ptov((vmm_paddr_t) data->vm_cmdline);
-
-	/* register XIRQ handler */
-#ifdef __KERNEL__
-	if (request_irq
-		(VECT_XIRQ, mv_gal_xirq_handler, 0, "xirq_handers", NULL)) {
-		pr_err("Reqest IRQ VECT_XIRQ failed!\n");
-	}
-#else
-	register_interrupt_handler(VECT_XIRQ, &mv_gal_xirq_handler);
-	/* inform vmm that we want to handle VMM_XIRQ_VECTOR
-	 * sincecos register_interrupt does not do it */
-	mv_virq_request(VECT_XIRQ, 1);
-	mv_virq_unmask(VECT_XIRQ);
-#endif
 }
 
 static int sofia_vmm_map_vcpu_shmem(void)
@@ -224,7 +145,7 @@ static int sofia_vmm_map_vcpu_shmem(void)
 	if (mv_gal_get_shared_data())
 		return 0;
 
-	ptr = mv_get_vcpu_data();
+	ptr = mv_vcpu_get_data();
 	if (memblock_reserve((resource_size_t)ptr, (resource_size_t)(ptr +
 		sizeof(struct vmm_shared_data)))) {
 		pr_err("Unable to map VMM shared data\n");
@@ -238,10 +159,8 @@ static int sofia_vmm_map_vcpu_shmem(void)
 	return 0;
 }
 
-#if defined(__KERNEL__)
 int sofia_vmm_init_secondary(void)
 {
-
 	pr_debug("In sofia_vmm_init_secondary\n");
 	mv_virq_request(LOCAL_TIMER_VECTOR, 1);
 	mv_virq_unmask(LOCAL_TIMER_VECTOR);
@@ -254,7 +173,11 @@ int sofia_vmm_init_secondary(void)
 	mv_virq_request(REBOOT_VECTOR, 1);
 	mv_virq_unmask(REBOOT_VECTOR);
 
-	return sofia_vmm_map_vcpu_shmem();
+	sofia_vmm_map_vcpu_shmem();
+
+	mv_virq_ready();
+
+	return 0;
 }
 
 int __init sofia_vmm_init(void)
@@ -279,125 +202,83 @@ int __init sofia_vmm_init(void)
 		mv_gal_get_shared_data()->os_id);
 	mv_gal_init(mv_gal_get_shared_data());
 
+	mv_virq_ready();
+
 	return 0;
 }
 
-#endif
+early_initcall(sofia_vmm_init);
 
 inline unsigned int mv_gal_os_id(void)
 {
 	return myid;
 }
 
-void *mv_gal_register_xirq_callback(uint32_t xirq,
-				void (*cb)(void *, uint32_t), void *cookie)
+#define HIRQ_HANDLER_NAME_SIZE	16
+void *mv_gal_register_hirq_callback(uint32_t hirq, irq_handler_t cb, void *cookie)
 {
-	struct vmm_xirq_callback_entry *newentry;
-	struct vmm_xirq_callback_entry *entry;
-	unsigned int idx;
-
-	if (xirq < VMM_XIRQ_START || xirq >= VMM_XIRQ_END || !cb)
-		return NULL;
-	/* Allocate memory for each callback entry from OS. */
-#ifdef __KERNEL__
-	newentry = kmalloc(sizeof(*newentry), GFP_KERNEL);
-	if (!newentry)
-		return NULL;
-#else /* test vm */
-	if (used_entries > MAX_XIRQ_CALLBACK_ENTRIES) {
-		mv_gal_printk("Not enough xirq_callback_entries!\n");
-		return NULL;
+	int virq = irq_create_mapping(hirq_domain, hirq - VMM_HIRQ_START);
+	char* handler_name = kmalloc(HIRQ_HANDLER_NAME_SIZE, GFP_KERNEL);
+	struct hirq_handler_wrapper* wrapper = kmalloc(sizeof(struct hirq_handler_wrapper), GFP_KERNEL);
+	wrapper->irq = virq;
+	wrapper->handler = cb;
+	wrapper->cookie = cookie;
+	snprintf(handler_name, HIRQ_HANDLER_NAME_SIZE, "hirq-%d", hirq);
+	if(request_irq(virq, generic_hirq_handler, IRQF_SHARED, handler_name, (void*)wrapper)) {
+		printk(KERN_ERR "failed to request irq\n");
 	}
-	newentry = &available_entries[used_entries];
-	used_entries++;
-#endif
-
-	newentry->xirq = xirq;
-	newentry->cb = cb;
-	newentry->cookie = cookie;
-	newentry->next = NULL;
-
-	idx = XIRQ_NUM2INDX(xirq);
-	entry = xirq_callbacks[idx];
-
-	if (!entry) {
-		xirq_callbacks[idx] = newentry;
-	} else {
-		while (entry->next)
-			entry = entry->next;
-		entry->next = newentry;
-	}
-
-	return newentry;
+	return wrapper;
 }
 
-void mv_gal_xirq_detach(void *id)
+void mv_gal_hirq_detach(void *id)
 {
-	struct vmm_xirq_callback_entry *entry;
-	struct vmm_xirq_callback_entry *old;
-	unsigned int idx;
-
-	if (id) {
-		old = (struct vmm_xirq_callback_entry *)id;
-		idx = XIRQ_NUM2INDX(old->xirq);
-		entry = xirq_callbacks[idx];
-
-		/* remove callback entry from list */
-		if (entry == id) {
-			xirq_callbacks[idx] = entry->next;
-		} else {
-			while (entry->next != id)
-				entry = entry->next;
-			if (entry->next)
-				entry->next = old->next;
-		}
-
-		/* release the allocated callback entry struct space */
-#ifdef __KERNEL__
-		kfree(old);
-#else /* test vm? */
-		xirq_callbacks[idx] = NULL;
-#endif
-	}
+	struct hirq_handler_wrapper* hirq_wrapper = (struct hirq_handler_wrapper*)id;	
+	free_irq(hirq_wrapper->irq, id);
+	kfree(id);
 }
 
-vmm_paddr_t mv_gal_vlink_lookup(const char *name, vmm_paddr_t plnk)
+
+static int32_t mv_gal_probe(struct platform_device *pdev)
 {
-	struct vmm_vlink *vlink;
-	vmm_paddr_t paddr = mv_get_vlink_db();
-	char *vname;
+	struct device_node *np;
 
-	if (!name)
-		return 0;
+	np = pdev->dev.of_node;
+	hirq_domain = irq_find_host(of_irq_find_parent(np));
 
-	vlink = (struct vmm_vlink *) mv_gal_ptov(paddr);
-	if (!vlink)
-		return 0;
-
-	if (plnk) {
-		while (paddr && paddr != plnk) {
-			paddr = vlink->next;
-			vlink = (struct vmm_vlink *) mv_gal_ptov(paddr);
-			if (!vlink)
-				return 0;
-		}
-
-		paddr = vlink->next;
-		vlink = (struct vmm_vlink *) mv_gal_ptov(paddr);
-	}
-
-	while (paddr && vlink) {
-		if (vlink->name) {
-			vname = (char *) mv_gal_ptov((vmm_paddr_t) vlink->name);
-			if (!vname)
-				return 0;
-			if (strcmp(vname, name) == 0)
-				return paddr;
-		}
-		paddr = vlink->next;
-		vlink = (struct vmm_vlink *) mv_gal_ptov(paddr);
-	}
-
-	/* not found */
+	mv_ipc_init();
 	return 0;
 }
+
+static const struct of_device_id mv_gal_of_match[] = {
+        {
+                .compatible = "intel,mobilevisor",
+        },
+        {},
+};
+
+MODULE_DEVICE_TABLE(of, mv_gal_of_match);
+
+static struct platform_driver mv_gal_driver = {
+        .probe = mv_gal_probe,
+        .driver = {
+                .name = "mv_gal",
+                .owner = THIS_MODULE,
+                .of_match_table = of_match_ptr(mv_gal_of_match),
+        }
+};
+
+static int32_t __init mv_gal_driver_init(void)
+{
+        return platform_driver_register(&mv_gal_driver);
+}
+
+static void __exit mv_gal_driver_exit(void)
+{
+        platform_driver_unregister(&mv_gal_driver);
+}
+
+core_initcall(mv_gal_driver_init);
+module_exit(mv_gal_driver_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("mobilevisor guest adaption driver");

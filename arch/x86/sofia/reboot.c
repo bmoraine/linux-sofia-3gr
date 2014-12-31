@@ -19,7 +19,6 @@
 
 #include <linux/io.h>
 #include <asm/reboot.h>
-#include <sofia/nk_sofia_bridge.h>
 #include <sofia/mv_gal.h>
 #include <sofia/pal_shared_data.h>
 
@@ -29,7 +28,6 @@
 
 
 static volatile unsigned int running_guest;
-static NkXIrqId reboot_sysconf_id;
 static bool is_linux_reboot = true;
 static bool is_blocking;
 
@@ -66,7 +64,7 @@ static void deferred_reboot(struct work_struct *dummy)
 }
 
 static DECLARE_WORK(reboot_work, deferred_reboot);
-static void reboot_sysconf_hdl(void *dev, NkXIrq xirq)
+static irqreturn_t reboot_sysconf_hdl(int xirq, void *dev)
 {
 	struct vmm_shared_data *data;
 	data = mv_gal_get_shared_data();
@@ -78,6 +76,8 @@ static void reboot_sysconf_hdl(void *dev, NkXIrq xirq)
 			schedule_work(&reboot_work);
 		}
 	}
+
+	return IRQ_HANDLED;
 }
 
 static int reboot(struct notifier_block *notifier,
@@ -116,7 +116,7 @@ void vmm_machine_crash_shutdown(struct pt_regs *regs)
 #ifdef CONFIG_SMP
 	stop_other_cpus();
 #endif
-	mv_stop_vcpu(smp_processor_id());
+	mv_vcpu_stop(smp_processor_id());
 }
 
 static void vmm_machine_emergency_restart(void)
@@ -124,7 +124,7 @@ static void vmm_machine_emergency_restart(void)
 #ifdef CONFIG_SMP
 	stop_other_cpus();
 #endif
-	mv_stop_vcpu(smp_processor_id());
+	mv_vcpu_stop(smp_processor_id());
 }
 
 void vmm_machine_shutdown(void)
@@ -132,7 +132,7 @@ void vmm_machine_shutdown(void)
 #ifdef CONFIG_SMP
 	stop_other_cpus();
 #endif
-	mv_stop_vcpu(smp_processor_id());
+	mv_vcpu_stop(smp_processor_id());
 }
 
 static void vmm_machine_restart(char *__unused)
@@ -140,7 +140,7 @@ static void vmm_machine_restart(char *__unused)
 #ifdef CONFIG_SMP
 	stop_other_cpus();
 #endif
-	mv_stop_vcpu(smp_processor_id());
+	mv_vcpu_stop(smp_processor_id());
 }
 
 static void vmm_machine_halt(void)
@@ -148,7 +148,7 @@ static void vmm_machine_halt(void)
 #ifdef CONFIG_SMP
 	stop_other_cpus();
 #endif
-	mv_stop_vcpu(smp_processor_id());
+	mv_vcpu_stop(smp_processor_id());
 }
 
 static void vmm_machine_power_off(void)
@@ -156,7 +156,7 @@ static void vmm_machine_power_off(void)
 #ifdef CONFIG_SMP
 	stop_other_cpus();
 #endif
-	mv_stop_vcpu(smp_processor_id());
+	mv_vcpu_stop(smp_processor_id());
 }
 
 #ifdef CONFIG_KEXEC
@@ -179,14 +179,8 @@ struct machine_ops vmm_machine_ops = {
 static int __init reboot_init(void)
 {
 	running_guest = mv_get_running_guests();
-	reboot_sysconf_id =
-		nkops.nk_xirq_attach(NK_XIRQ_SYSCONF, reboot_sysconf_hdl, 0);
-	/* vmm_register_xirq_callback(VMM_XIRQ_SYSCONF,
-			reboot_sysconf_hdl, NULL); */
-	if (reboot_sysconf_id == 0) {
-		TRACE("nk_xirq_attach failed\n");
-		return -1;
-	}
+	mv_gal_register_hirq_callback(512,
+				reboot_sysconf_hdl, 0);
 	register_reboot_notifier(&reboot_notifier);
 	machine_ops = vmm_machine_ops;
 	return 0;

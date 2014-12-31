@@ -1,15 +1,19 @@
-/*
- * Copyright (C) 2014 Intel Mobile Communications GmbH
+/* ----------------------------------------------------------------------------
+ *  Copyright (C) 2014 Intel Mobile Communications GmbH
+
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+  ---------------------------------------------------------------------------*/
+
 /*
  * NOTES:
  * 1) This source file is included in guests including Linux and purposely
@@ -33,11 +37,10 @@
 
 #include "mv_ipc.h"
 
-#define VMM_XIRQ_START      768
-#define VMM_XIRQ_END        1024
-#define VMM_XIRQ_SYSCONF    768
+#define VMM_HIRQ_VECTOR 32
+
 #define VMM_HIRQ_START      512
-#define VMM_HIRQ_END        768
+#define VMM_HIRQ_END        1024
 
 /* NOTE: must be consistent with mvconfig.h */
 #define CONFIG_MAX_VCPUS_PER_VM 8
@@ -45,34 +48,30 @@
 #define vmm_id_t uint32_t
 
 /*NOTE: this virq_info stuff must be consistent with guest_vm.h */
-#define VCPU_VIRQ_RINGBUF_SIZE 16
-#define IS_RINGBUF_FULL(pidx, cidx)	\
-	((pidx == cidx-1) || (pidx == VCPU_VIRQ_RINGBUF_SIZE-1 && cidx == 0))
-#define IS_RINGBUF_EMPTY(pidx, cidx)  (pidx == cidx)
-struct virq_info_s {
-	uint32_t host_info;
-	volatile uint16_t host_index;
-	volatile uint16_t guest_index;
-	uint16_t virq_ring_buf[VCPU_VIRQ_RINGBUF_SIZE];
+struct virq_info_t {
+	uint32_t host_pending_flag;
+	uint32_t lvl1;
+	uint32_t lvl2[16];
 };
 
 struct vcpu_stolen_cpu_time_stats {
 	/*
 	 * accumulated counter for cpu time taken away from vcpu
 	 * while it was active (preempted)
-	*/
+	 */
 	volatile uint64_t active_stolen_cpu_count;
 
 	/*
 	 * accumulated counter for cpu time taken away from vcpu
 	 * while it was idle
-	*/
+	 */
 	volatile uint64_t idle_stolen_cpu_count;
 
-	/* freqency for stolen cpu time counters */
-	uint32_t stolen_cpu_counter_freq;
+	/* period for stolen cpu time counters in nsec */
+	uint32_t stolen_cpu_counter_period_nsec;
+
 };
-;
+
 /**
  * @brief Shared data between the MobileVisor and the guest
  *
@@ -109,26 +108,19 @@ struct vmm_shared_data {
 	 *
 	 * Each guest will have a command line. Apart from the usual
 	 * parameters (e.g. in the case of Linux), it also contains
-	 * the virtual device information
+	  * the virtual device information
 	 */
 	const int8_t vm_cmdline[1024];
-
-	/** @brief Active xirq
-	 *
-	 * The latest xirq that has been triggered.
-	 * Used only by the guest adaption layer to identify
-	 * the xirq and trigger the handler chain.
-	 */
-	const uint32_t triggering_xirq;
 
 	/** @brief virq info exchanged between guest and host
 	 *
 	 **/
-	struct virq_info_s virq_info;
+	struct virq_info_t virq_info;
+
 	/** @brief PM control shared data
 	 *
 	 */
-	/*pm_control_shared_data_t pm_control_shared_data;*/
+	/*pm_control_shared_data_t pm_control_shared_data; */
 
 	/** @brief System idle flag
 	 *
@@ -136,7 +128,7 @@ struct vmm_shared_data {
 	 * If set, indicates that system is idle,
 	 * i.e. no pending tasks or interrupts
 	 */
-	uint32_t system_idle;
+	volatile uint32_t system_idle;
 
 	/** @brief Per processor data structure
 	 *
@@ -163,7 +155,7 @@ struct vmm_shared_data {
 	 * guests should perform reboot housecleaning accordingly.
 	 * and finally invoke VMCALL_STOP_VCPU for each vcpu.
 	 */
-	const uint32_t system_reboot_action;
+	const volatile uint32_t system_reboot_action;
 
 	/** @brief VCPU stolen cpu time stats
 	 *
@@ -171,7 +163,6 @@ struct vmm_shared_data {
 	 * while it was active/idle.
 	 */
 	struct vcpu_stolen_cpu_time_stats stolen_cpu_time_stats;
-
 };
 
 /** @brief Informs MobileVisor that the guest is now idle
@@ -188,13 +179,11 @@ void mv_idle(void);
  */
 uint32_t mv_vcpu_id(void);
 
-/** @brief Print the vmm log into the shared buffer
+/** @brief Indicate that the vcpu is ready to accept virqs
  *
- *  Log to vmm console the print format string
- *  in guest vmm_shared_data->vm_log_str, then the
- *  guest can see the vmm core log.
+ *  @param none
  */
-void mv_log(void);
+void mv_virq_ready(void);
 
 /** @brief Connect the virtual interrupt to the guest
  *
@@ -246,32 +235,14 @@ void mv_virq_unmask(uint32_t virq);
  */
 void mv_virq_set_affinity(uint32_t virq, uint32_t vaffinity);
 
-/** @brief Retrieve vlink db physical address
+/**
+ *  @brief Report unexpected (spurious) vector to Mobilevisor.
  *
- * Returns the physical address of the vlink database
+ *  @param vector - spurious vector number
  *
- *  @return Return vlink db physical address.
+ *  @return None
  */
-vmm_paddr_t mv_get_vlink_db(void);
-
-/** @brief Allocate num of cross interrupt for the specified <vlink,id>
- *
- *  @param vlink Specify the vlink which needs these xirq
- *  @param resource_id Specify which resource will associate with these xirq
- *  @param os_id Specify the destination OS id.
- *  @param num_int Specify how many continuous xirqs need to be allocated.
- *  @return Return 0 if unsuccessful or the number of
- *  the first allocated xirq otherwise
- */
-uint32_t mv_xirq_alloc(vmm_paddr_t vlink, uint32_t resource_id,
-		uint32_t os_id, int32_t num_int);
-
-/** @brief Trigger a cross interrupt.
- *
- *  @param xirq The xirq vector number.
- *  @param os_id Specify the destination OS id.
- */
-void mv_xirq_post(uint32_t xirq, uint32_t os_id);
+void mv_virq_spurious(uint32_t vector);
 
 /** @brief Trigger an IPI to the specified vcpus bitmap
  *
@@ -280,36 +251,24 @@ void mv_xirq_post(uint32_t xirq, uint32_t os_id);
  */
 void mv_ipi_post(uint32_t virq, uint32_t vcpus);
 
-/** @brief Allocate shared memory
- *
- *  @param vlink Specify the vlink used to share this memory.
- *  @param resource_id Specify which destination resource
- *  the caller want to share.
- *  @param size Specify the size of the shared memory.
- *
- *  @return The physical address of the allocated shared memory.
- */
-vmm_paddr_t mv_shared_mem_alloc(vmm_paddr_t vlink, uint32_t resource_id,
-		uint32_t size);
-
 /** @brief Start a secondary VCPU
  *
  *  @param vcpu_id Specify which vcpu is started.
  *  @param entry_addr Specify the vcpu start address.
  */
-void mv_start_vcpu(uint32_t vcpu_id, uint32_t entry_addr);
+void mv_vcpu_start(uint32_t vcpu_id, uint32_t entry_addr);
 
 /** @brief Stop a secondary VCPU
  *
  *  @param vcpu_id Specify which vcpu needs to be stopped.
  */
-void mv_stop_vcpu(uint32_t vcpu_id);
+void mv_vcpu_stop(uint32_t vcpu_id);
 
 /** @brief Returns VMM-vcpu shared data struct vmm_shared_data *
  *    for the calling vcpu
  *
  */
-struct vmm_shared_data *mv_get_vcpu_data(void);
+struct vmm_shared_data *mv_vcpu_get_data(void);
 
 /** @brief Check if the calling vcpu has any pending interrupts.
  *
@@ -335,15 +294,6 @@ uint32_t mv_get_running_guests(void);
 int32_t mv_initiate_reboot(uint32_t reboot_action);
 
 /**
- *  @brief Report unexpected (spurious) vector to Mobilevisor.
- *
- *  @param vector - spurious vector number
- *
- *  @return None
- */
-void mv_virq_spurious(uint32_t vector);
-
-/**
  *  @brief Initialize the specified mailbox instance
  *
  *  @param id mailbox id
@@ -352,8 +302,8 @@ void mv_virq_spurious(uint32_t vector);
  *
  *  @return returns the mailbox instance token
  */
-uint32_t mv_mbox_init(uint32_t id, uint32_t instance,
-		uint32_t *p_mbox_db_guest_entry);
+uint32_t mv_mbox_get_info(uint32_t id,
+			  uint32_t instance, uint32_t *p_mbox_db_guest_entry);
 
 /**
  *  @brief Retrieves the mailbox look-up directory
@@ -370,7 +320,16 @@ uint32_t mv_mbox_get_directory(void);
  *
  *  @param token mailbox instance token
  */
-void mv_mbox_set_ready(uint32_t token);
+void mv_mbox_set_online(uint32_t token);
+
+/**
+ *  @brief Informs mobilevisor to disconnect this ipc
+ *
+ *  mailbox instance becomes deactive after both end point
+ *
+ *  @param token mailbox instance token
+ */
+void mv_mbox_set_offline(uint32_t token);
 
 /**
  *  @brief Post an event to the counter part
@@ -384,23 +343,21 @@ void mv_mbox_post(uint32_t token, uint32_t hirq);
  *     Instead, guest should use functions from vmm_platform_service.h.
  */
 
-
 /** @brief Start vm
  *
  *  @param vcpu_id Specify which vcpu is started.
  *  @param entry_addr Specify the vcpu start address.
  */
-void mv_start_vm(uint32_t vm_id);
+void mv_vm_start(uint32_t vm_id);
 
 /** @brief Stop vm
  *
  *  @param vcpu_id Specify which vcpu needs to be stopped.
  */
-void mv_stop_vm(uint32_t vm_id);
+void mv_vm_stop(uint32_t vm_id);
 
 uint32_t mv_platform_service(uint32_t service_type, uint32_t arg2,
-		uint32_t arg3, uint32_t arg4,
-		uint32_t *ret0, uint32_t *ret1,
-		uint32_t *ret2, uint32_t *ret3,
-		uint32_t *ret4);
-#endif /* _MV_HYPERCALLS_H */
+			     uint32_t arg3, uint32_t arg4,
+			     uint32_t *ret0, uint32_t *ret1,
+			     uint32_t *ret2, uint32_t *ret3, uint32_t *ret4);
+#endif				/* _MV_HYPERCALLS_H */

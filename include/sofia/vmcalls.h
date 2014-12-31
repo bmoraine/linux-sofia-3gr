@@ -1,5 +1,5 @@
 /* ----------------------------------------------------------------------------
-   Copyright (C) 2014 Intel Mobile Communications GmbH
+ *  Copyright (C) 2014 Intel Mobile Communications GmbH
 
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License Version 2
@@ -13,6 +13,7 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
 
   ---------------------------------------------------------------------------*/
+
 /*
  * NOTES:
  * 1) This source file is included in guests including Linux and purposely
@@ -23,45 +24,36 @@
  * Use command: linux/scripts/checkpatch.pl -f <filename>
  * Clear ALL warnings and errors reported.
  *
- * 2) Use only C99 fixed width types for definition as this header needs to be
- * both 32bit/64bit portable.
- * Avoid the use of pointers/enum in structure as that make the structure
- * variable size based on 32/64bit toolchain used.
 */
-
 #ifndef _VMCALLS_H
 #define _VMCALLS_H
 
 enum vmcall_opcode {
 	VMCALL_IDLE = 0,
 	VMCALL_VCPU_ID,
-	VMCALL_VM_LOG,
-	VMCALL_GUEST_REQUEST_VIRQ,
+	VMCALL_VIRQ_READY,
+	VMCALL_VIRQ_REQUEST,
 	VMCALL_VIRQ_EOI,
 	VMCALL_VIRQ_MASK,
 	VMCALL_VIRQ_UNMASK,
-	VMCALL_SET_VAFFINITY,
-	VMCALL_GET_VLINK_DB,
-	VMCALL_XIRQ_ALLOC,
-	VMCALL_XIRQ_POST,
+	VMCALL_VIRQ_SET_AFFINITY,
+	VMCALL_VIRQ_SPURIOUS,
 	VMCALL_IPI_POST,
-	VMCALL_SHARED_MEM_ALLOC,
-	VMCALL_START_VCPU,
-	VMCALL_STOP_VCPU,
-	VMCALL_VM_DUMMY,
-	VMCALL_GET_VCPU_DATA,
+	VMCALL_VCPU_START,
+	VMCALL_VCPU_STOP,
+	VMCALL_VCPU_GET_DATA,
 	VMCALL_VCPU_HAS_IRQ_PENDING,
 	VMCALL_GET_RUNNING_GUESTS,
 	VMCALL_INITIATE_REBOOT,
-	VMCALL_VIRQ_SPURIOUS,
-	VMCALL_MBOX_INIT,
+	VMCALL_MBOX_GET_INFO,
 	VMCALL_MBOX_GET_DIRECTORY,
-	VMCALL_MBOX_SET_READY,
+	VMCALL_MBOX_SET_ONLINE,
+	VMCALL_MBOX_SET_OFFLINE,
 	VMCALL_MBOX_POST,
-	VMCALL_START_VM,
-	VMCALL_STOP_VM,
+	VMCALL_VM_START,
+	VMCALL_VM_STOP,
 	/* Add vmcalls after existing ones above this line */
 	VMCALL_PLATFORM_SERVICE = 999
 };
 
-#endif /* _VMCALLS_H */
+#endif				/* _VMCALLS_H */

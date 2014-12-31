@@ -4,9 +4,13 @@ menuconfig X86_INTEL_SOFIA
 	select X86_INTEL_XGOLD_VPIC
 	select HAVE_DMA_CONTIGUOUS
 	select NKERNEL_DDI
+	select MOBILEVISOR_VDRIVER
 	    help
 	Select this options if the kernel is running on top of
 	a proprietary VMM as a VM.
 
 config NKERNEL_DDI
+	bool
+
+config MOBILEVISOR_VDRIVER
 	bool

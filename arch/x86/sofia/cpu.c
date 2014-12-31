@@ -11,7 +11,7 @@
  * */
 
 
-#include <sofia/nk_sofia_bridge.h>
+#include <sofia/mv_gal.h>
 #include <sofia/mv_hypercalls.h>
 #include <sofia/pal_shared_data.h>
 #include <sofia/mv_svc_hypercalls.h>
@@ -78,7 +78,7 @@ retry:
 			*idle_stolen_time);
 
 	sampling_period = (uint64_t)
-			(mv_shm->stolen_cpu_time_stats.stolen_cpu_counter_freq);
+			(mv_shm->stolen_cpu_time_stats.stolen_cpu_counter_period_nsec);
 
 	BUG_ON(sampling_period == 0);
 	*active_stolen_time *= sampling_period;
