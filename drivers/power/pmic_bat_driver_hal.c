@@ -761,7 +761,7 @@ static int bat_drv_get_batid_ohm(struct bat_drv_data *pbat)
 /* FIXME: below code needs to be uncommented once the adc_sensors
 driver will become available */
 #if 0
-	adc_ret = iio_read_channel_raw(pbat->batid_iio_chan,
+	adc_ret = iio_read_channel_processed(pbat->batid_iio_chan,
 			&adc_batid_ohms);
 
 	if (adc_ret != IIO_VAL_INT)

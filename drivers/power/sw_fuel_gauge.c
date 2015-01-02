@@ -987,7 +987,8 @@ static void sw_fuel_gauge_tbat_monitor(void)
 	if (!sw_fuel_gauge_instance.bat.initialised)
 		return;
 
-	tbat_error = iio_read_channel_raw(p_tbat->p_iio_tbat, &tbat_value);
+	tbat_error = iio_read_channel_processed(p_tbat->p_iio_tbat,
+						 &tbat_value);
 
 	/* Check for saturation. This is allowed when the phone is powered
 	by a PSU. */
@@ -2131,7 +2132,7 @@ static void sw_fuel_gauge_stm_enter_wait_for_ocv(void)
 	/* Enter the requested state. */
 	sw_fuel_gauge_instance.stm.state = SW_FUEL_GAUGE_STM_STATE_WAIT_FOR_OCV;
 	/* Make an OCV measurement. */
-	p_vbat->error_code = iio_read_channel_raw(p_vbat->p_iio_vbat_ocv,
+	p_vbat->error_code = iio_read_channel_processed(p_vbat->p_iio_vbat_ocv,
 							&p_vbat->vbat_ocv_mv);
 
 	/* Send the OCV done event */
@@ -2242,15 +2243,16 @@ static void sw_fuel_gauge_stm_enter_wait_for_initial_soc(void)
 	sw_fuel_gauge_tbat_monitor();
 
 	/* Make initial VBAT TYP measurement */
-	BUG_ON(IIO_VAL_INT != iio_read_channel_raw(
+	BUG_ON(IIO_VAL_INT != iio_read_channel_processed(
 				sw_fuel_gauge_instance.vbat.p_iio_vbat_ocv,
 				 &sw_fuel_gauge_instance.vbat.vbat_typ_mv));
 	/* Determine the accuracy of VBAT OCV */
 	BUG_ON(IIO_VAL_INT !=
-		iio_read_channel_raw_mask(
+		iio_channel_read(
 				sw_fuel_gauge_instance.vbat.p_iio_vbat_ocv,
-				 &sw_fuel_gauge_instance.vbat.accuracy_mv,
-				  IIO_CHAN_INFO_TOLERANCE));
+				&sw_fuel_gauge_instance.vbat.accuracy_mv,
+				NULL,
+				IIO_CHAN_INFO_TOLERANCE));
 
 	/* Set the starting state for the state machine. All further action is
 	event driven. In order to progress, the battery presence and model must
@@ -2763,7 +2765,7 @@ static int sw_fuel_gauge_get_property(struct power_supply *p_power_supply,
 
 			int iio_vbat_mv;
 
-			error = iio_read_channel_raw(
+			error = iio_read_channel_processed(
 				sw_fuel_gauge_instance.vbat.p_iio_vbat_typ,
 								&iio_vbat_mv);
 
@@ -2880,7 +2882,7 @@ static int sw_fuel_gauge_get_property(struct power_supply *p_power_supply,
 
 		/* IIO reading can fail due to suspend mode.
 		In this case property is not updated. */
-		error = iio_read_channel_raw(
+		error = iio_read_channel_processed(
 				sw_fuel_gauge_instance.vbat.p_iio_vbat_typ,
 								&iio_vbat_mv);
 
