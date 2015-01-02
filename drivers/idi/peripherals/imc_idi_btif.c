@@ -45,7 +45,7 @@
 #ifdef CONFIG_HAS_WAKELOCK
 #include <linux/wakelock.h>
 #endif
-
+#include <linux/iio/iio.h>
 #include <linux/iio/consumer.h>
 
 /* #define ENABLE_DAP_CLOCK */
@@ -1747,7 +1747,7 @@ static void btif_update_temperature(struct work_struct *work)
 
 	IMC_IDI_BTIF_ENTER;
 
-	ret = iio_read_channel_raw(p_btif->temp_iio_chan, &temp_val);
+	ret = iio_read_channel_processed(p_btif->temp_iio_chan, &temp_val);
 #ifdef IMC_IDI_BTIF_PARANOID
 	if (ret < 0) {
 		dev_err(dev, "PMICTEMP_SENSOR read returned error %d\n", ret);
