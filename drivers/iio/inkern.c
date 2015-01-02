@@ -416,7 +416,7 @@ void iio_channel_release_all(struct iio_channel *channels)
 }
 EXPORT_SYMBOL_GPL(iio_channel_release_all);
 
-static int iio_channel_read(struct iio_channel *chan, int *val, int *val2,
+int iio_channel_read(struct iio_channel *chan, int *val, int *val2,
 	enum iio_chan_info_enum info)
 {
 	int unused;
@@ -427,6 +427,7 @@ static int iio_channel_read(struct iio_channel *chan, int *val, int *val2,
 	return chan->indio_dev->info->read_raw(chan->indio_dev, chan->channel,
 						val, val2, info);
 }
+EXPORT_SYMBOL_GPL(iio_channel_read);
 
 int iio_read_channel_raw(struct iio_channel *chan, int *val)
 {
@@ -445,48 +446,6 @@ err_unlock:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(iio_read_channel_raw);
-
-int iio_read_channel_raw_mask(struct iio_channel *chan, int *val, long mask)
-{
-	int val2, ret;
-
-	mutex_lock(&chan->indio_dev->info_exist_lock);
-	if (chan->indio_dev->info == NULL) {
-		ret = -ENODEV;
-		goto err_unlock;
-	}
-
-	ret = chan->indio_dev->info->read_raw(chan->indio_dev, chan->channel,
-					      val, &val2, mask);
-err_unlock:
-	mutex_unlock(&chan->indio_dev->info_exist_lock);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(iio_read_channel_raw_mask);
-
-int iio_read_channel_composite_raw(struct iio_channel *chan, int *val, int *val2)
-{
-	int ret;
-
-	mutex_lock(&chan->indio_dev->info_exist_lock);
-
-	if (chan->indio_dev->info == NULL) {
-		ret = -ENODEV;
-		goto err_unlock;
-	}
-
-	ret = chan->indio_dev->info->read_raw(chan->indio_dev, chan->channel,
-					      val, val2, 0);
-
-	WARN_ON(ret != IIO_VAL_COMPOSITE);
-
-err_unlock:
-	mutex_unlock(&chan->indio_dev->info_exist_lock);
-
-	return ret;
-}
-EXPORT_SYMBOL(iio_read_channel_composite_raw);
 
 static int iio_convert_raw_to_processed_unlocked(struct iio_channel *chan,
 	int raw, int *processed, unsigned int scale)
