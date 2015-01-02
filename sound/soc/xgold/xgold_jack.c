@@ -129,7 +129,7 @@ static u32 read_state(struct xgold_jack *jack)
 {
 	int volt, ret;
 
-	ret = iio_read_channel_raw(jack->iio_client, &volt);
+	ret = iio_read_channel_processed(jack->iio_client, &volt);
 	if (ret < 0) {
 		xgold_err("Unable to read channel volt\n");
 		return XGOLD_ERROR;
@@ -222,7 +222,7 @@ static void xgold_button_check(struct xgold_jack *jack)
 	int status;
 	enum snd_jack_types type;
 
-	ret = iio_read_channel_raw(jack->iio_client, &volt);
+	ret = iio_read_channel_processed(jack->iio_client, &volt);
 	if (ret < 0) {
 		xgold_err("Unable to read channel volt\n");
 		return;
