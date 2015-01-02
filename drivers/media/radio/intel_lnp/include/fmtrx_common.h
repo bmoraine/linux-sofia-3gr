@@ -555,7 +555,8 @@ int fmrx_set_antenna(
  * @side High or Low or Auto side injection
  */
 int fmrx_set_sideband(
-	enum injection_side side);
+	enum injection_side side,
+	bool force);
 
 /* Set Stereo noise cancellation
  * @data Pointer to SNC configuration structure

@@ -265,7 +265,7 @@ int fmtrx_v4l2_init(
 
 	v4l2_dev = kzalloc(sizeof(struct v4l2_device), GFP_KERNEL);
 	if (0 == v4l2_dev) {
-		err = ENOMEM;
+		err = -ENOMEM;
 		fmtrx_sys_log
 			("%s: %s %d,V4L2 device allocn failed! %d\n",
 			FILE, __func__,
@@ -1205,7 +1205,7 @@ static int fmtrx_v4l2_iops_sctrl(
 		}
 		break;
 	case V4L2_CID_PRIV_INTEL_FMRX_SB:
-		err = fmrx_set_sideband(data->value);
+		err = fmrx_set_sideband(data->value, true);
 		if (0 != err) {
 			fmtrx_sys_log
 				("%s: %s %d,FM Set sideband failed! %d\n",

@@ -527,6 +527,11 @@ static int fmtrx_plat_interrupt_handler(
 static int msg_process_task_run(
 		void *args);
 
+/* denotification to Frequency manager
+ */
+static void fmtrx_denotify_mitigation_interference(
+		void);
+
 /*
 ** =============================================================================
 **
@@ -647,13 +652,41 @@ fmtrx_sys_mitigate_interference(enum component type, union component_data *data)
 {
 	int err = 0;
 
-	/* TODO - address yet to found */
-	/* err = fmr_generic_write16(,, TOP);*/
-	if (0 != err) {
+	switch (type) {
+#ifdef CONFIG_IUI_FM_FMR
+	struct iui_fm_fmr_info freq_mgr_fmrinfo;
+	struct iui_fm_freq_notification freq_mgr_notify_data;
+	/* fall through */
+	case COMPONENT_FM:
+		freq_mgr_fmrinfo.rx_freq =
+			data->fm_cfg.frequency / 1000; /* frequency in kHz */
+		freq_mgr_fmrinfo.inj_side =
+			(INJECTION_SIDE_LSI == data->fm_cfg.side) ?
+			IUI_FM_FMR_INJECTION_SIDE_LOW :
+			IUI_FM_FMR_INJECTION_SIDE_HIGH;
+
+		freq_mgr_notify_data.type = IUI_FM_FREQ_NOTIFICATION_TYPE_FMR;
+		freq_mgr_notify_data.info.fmr_info = &freq_mgr_fmrinfo;
 		fmtrx_sys_log
-		("%s: %s %d, Generic write 16-bit failed! %d\n",
-		FILE, __func__,
-		__LINE__, err);
+			("%s: %s %d,Notify FM with freq: %d and inj side: %d\n",
+				FILE, __func__,
+				__LINE__,
+				freq_mgr_fmrinfo.rx_freq,
+				freq_mgr_fmrinfo.inj_side);
+
+		err = iui_fm_notify_frequency(IUI_FM_MACRO_ID_FMR,
+					&freq_mgr_notify_data);
+		fmtrx_sys_log
+			("%s: %s %d,FM notification err code %d\n",
+				FILE, __func__,
+				__LINE__,
+				err);
+		break;
+#endif /* CONFIG_IUI_FM_FMR */
+	case COMPONENT_DCDC:
+		break;
+	default:
+		break;
 	}
 
 	return err;
@@ -1013,6 +1046,11 @@ int fmtrx_sys_power_enable(
 		}
 	}
 
+#ifdef CONFIG_IUI_FM_FMR
+	if (!enable)
+		fmtrx_denotify_mitigation_interference();
+#endif /* CONFIG_IUI_FM_FMR */
+
  fmtrx_sys_power_enable_exit:
 	/* Release the lock */
 	mutex_unlock(&cmd_sync_lock);
@@ -1157,7 +1195,7 @@ int fmtrx_sys_get_rx_default_config(
 	    kzalloc(sizeof(struct fmrx_config),
 					GFP_KERNEL);
 	if (0 == *fmrx_cfg) {
-		err = ENOMEM;
+		err = -ENOMEM;
 		fmtrx_sys_log
 		("%s: %s %d, FM RX internal config alloc failed! %d\n",
 				FILE, __func__,
@@ -1703,7 +1741,7 @@ static int fmr_hci_send_cmd(
 
 		/* Validate the allocation */
 		if (0 == skb) {
-			err = ENOMEM;
+			err = -ENOMEM;
 			fmtrx_sys_log
 			("%s: %s %d,SK buffer allocation failed! %d\n",
 				FILE, __func__,
@@ -1724,9 +1762,24 @@ static int fmr_hci_send_cmd(
 #endif
 
 #ifdef FMR_DEBUG_MEAS
-	print_hex_dump(KERN_DEBUG, "FMR <send>: ", DUMP_PREFIX_NONE, 32, 1,
-		       data, size, 0);
-	g_total_sent += size;
+	{
+		int idx;
+		char *ptr = kzalloc(1024, GFP_KERNEL);
+		if (0 == ptr) {
+			err = -ENOMEM;
+			fmtrx_sys_log
+			("%s: %s %d,Trace buffer alloc failed! %d\n",
+				FILE, __func__,
+				__LINE__, err);
+			goto fmr_hci_send_cmd_exit;
+		}
+
+		for (idx = 0; idx < size; idx++)
+			snprintf((ptr + (idx * 3)), 10, "%02x ", data[idx]);
+		fmtrx_sys_log("FMR <send>: %s\n", ptr);
+		g_total_sent += size;
+		kfree(ptr);
+	}
 #endif
 
  fmr_hci_send_cmd_exit:
@@ -2074,7 +2127,7 @@ int fmr_hci_cmd_assembly(
 	/* Allocate command buffer */
 	data = kzalloc(total_cmd_size, GFP_KERNEL);
 	if (0 == data) {
-		err = ENOMEM;
+		err = -ENOMEM;
 		fmtrx_sys_log
 		("%s: %s %d,Command buffer allocation failed! %d\n",
 			FILE, __func__,
@@ -2154,10 +2207,25 @@ static long fmr_plat_hci_event_handler(
 		goto fmr_plat_hci_event_handler_exit;
 	}
 #ifdef FMR_DEBUG_MEAS
-	print_hex_dump(KERN_DEBUG, "FMR <recv>: ",
-					DUMP_PREFIX_NONE, 32, 1,
-					skb->data, skb->len, 0);
-	g_total_recv += skb->len;
+	{
+		int idx;
+		char *ptr = kzalloc(1024, GFP_KERNEL);
+		if (0 == ptr) {
+			err = -ENOMEM;
+			fmtrx_sys_log
+			("%s: %s %d,Trace buffer alloc failed! %d\n",
+				FILE, __func__,
+				__LINE__, err);
+			goto fmr_plat_hci_event_handler_exit;
+		}
+
+		for (idx = 0; idx < skb->len; idx++)
+			snprintf((ptr + (idx * 3)), 10, "%02x ",
+				skb->data[idx]);
+		fmtrx_sys_log("FMR <recv>: %s\n", ptr);
+		g_total_recv += skb->len;
+		kfree(ptr);
+	}
 #endif
 
 	/* Get the data packet */
@@ -2338,6 +2406,34 @@ static int msg_process_task_run(
 /*
 ** =============================================================================
 **
+**				LOCAL FUNCTION DEFINITIONS
+**
+** =============================================================================
+*/
+#ifdef CONFIG_IUI_FM_FMR
+static void fmtrx_denotify_mitigation_interference(void)
+{
+	struct iui_fm_fmr_info freq_mgr_fmrinfo;
+	struct iui_fm_freq_notification freq_mgr_notify_data;
+
+	freq_mgr_fmrinfo.rx_freq = 0;
+	freq_mgr_fmrinfo.inj_side = 0;
+
+	freq_mgr_notify_data.type = IUI_FM_FREQ_NOTIFICATION_TYPE_FMR;
+	freq_mgr_notify_data.info.fmr_info = &freq_mgr_fmrinfo;
+
+	fmtrx_sys_log
+		("%s: %s %d,FM denotification err code %d\n",
+			FILE, __func__,
+			__LINE__,
+		iui_fm_notify_frequency(IUI_FM_MACRO_ID_FMR,
+					&freq_mgr_notify_data));
+}
+#endif /* CONFIG_IUI_FM_FMR */
+
+/*
+** =============================================================================
+**
 **				MODULE INTERFACES
 **
 ** =============================================================================
@@ -2357,6 +2453,53 @@ static struct platform_driver fmtrx_platform_driver = {
 	.remove = fmtrx_driver_remove,
 };
 
+#ifdef CONFIG_IUI_FM_FMR
+/* FM mitigation callback */
+enum iui_fm_mitigation_status fmr_fm_mitigation_cb(
+	const enum iui_fm_macro_id macro_id,
+	const struct iui_fm_mitigation *mitigation, const uint32_t sequence)
+{
+	int err = 0;
+	enum injection_side inj_side = INJECTION_SIDE_INVALID;
+	enum iui_fm_mitigation_status mitigation_status =
+		IUI_FM_MITIGATION_ERROR_INVALID_PARAM;
+
+	if ((NULL == mitigation) || (IUI_FM_MACRO_ID_FMR != macro_id) ||
+	    (IUI_FM_MITIGATION_TYPE_FMR != mitigation->type))
+		return mitigation_status;
+
+	inj_side = (IUI_FM_FMR_INJECTION_SIDE_LOW ==
+			mitigation->info.fmr_inj_side) ?
+			INJECTION_SIDE_LSI : INJECTION_SIDE_HSI;
+
+	fmtrx_sys_log
+		("%s: %s %d, FM mitigation cb - change inj side to %d\n",
+			FILE, __func__,
+			__LINE__,
+			inj_side);
+
+	/* set injection side */
+	err = fmrx_set_sideband(inj_side, false);
+	if (err != 0) {
+		fmtrx_sys_log
+			("%s: %s %d, failed to set inj side : %d, err: %d\n",
+				FILE, __func__,
+				__LINE__,
+				inj_side, err);
+		mitigation_status = IUI_FM_MITIGATION_ERROR;
+	} else {
+		fmtrx_sys_log
+			("%s: %s %d, inj side: %u, changed successfully\n",
+				FILE, __func__,
+				__LINE__,
+				inj_side);
+		mitigation_status = IUI_FM_MITIGATION_COMPLETE_OK;
+	}
+
+	return mitigation_status;
+}
+#endif
+
 static int fmtrx_driver_probe(
 		struct platform_device *p_dev)
 {
@@ -2368,15 +2511,29 @@ static int fmtrx_driver_probe(
 		err = -EINVAL;
 		fmtrx_sys_log
 		("%s: %s %d, V4L2 driver registration failed! %d\n",
-		  FILE, __func__,
-		  __LINE__, err);
+			FILE, __func__,
+			__LINE__, err);
 		goto fmtrx_driver_probe_exit;
 	}
+
+#ifdef CONFIG_IUI_FM_FMR
+	/* Register with Frequency manager */
+	err = iui_fm_register_mitigation_callback(IUI_FM_MACRO_ID_FMR,
+			fmr_fm_mitigation_cb);
+	if (err != 0) {
+		fmtrx_sys_log
+			("%s: %s %d, IUI FM registration failed! %d\n",
+			FILE, __func__,
+			__LINE__, err);
+		err = -EIO;
+		goto fmtrx_driver_probe_exit;
+	}
+#endif
 
 	fmtrx_device = &p_dev->dev;
 	fmtrx_sys_log
 		("%s: Intel's FM Radio Driver Version %s loaded successfully\n",
-	  FILE, FMTRX_MODULE_VERSION);
+		FILE, FMTRX_MODULE_VERSION);
 
  fmtrx_driver_probe_exit:
 	return err;
@@ -2397,6 +2554,16 @@ static int fmtrx_driver_remove(
 		  __LINE__, err);
 		goto fmtrx_driver_remove_exit;
 	}
+	/* de-register from Frequency manager */
+#ifdef CONFIG_IUI_FM_FMR
+	err = iui_fm_register_mitigation_callback(
+				IUI_FM_MACRO_ID_FMR,
+				NULL);
+	fmtrx_sys_log
+	("%s: %s %d,Frequency manager notification err code %d\n",
+	  FILE, __func__,
+	  __LINE__, err);
+#endif
 
 	fmtrx_device = 0;
 	fmtrx_sys_log

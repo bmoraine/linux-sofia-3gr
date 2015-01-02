@@ -1157,7 +1157,7 @@ int fmtrx_sys_get_rx_default_config(
 	    kzalloc(sizeof(struct fmrx_config),
 					GFP_KERNEL);
 	if (0 == *fmrx_cfg) {
-		err = ENOMEM;
+		err = -ENOMEM;
 		fmtrx_sys_log
 		("%s: %s %d, FM RX internal config alloc failed! %d\n",
 				FILE, __func__,
@@ -1703,7 +1703,7 @@ static int fmr_hci_send_cmd(
 
 		/* Validate the allocation */
 		if (0 == skb) {
-			err = ENOMEM;
+			err = -ENOMEM;
 			fmtrx_sys_log
 			("%s: %s %d,SK buffer allocation failed! %d\n",
 				FILE, __func__,
@@ -2074,7 +2074,7 @@ int fmr_hci_cmd_assembly(
 	/* Allocate command buffer */
 	data = kzalloc(total_cmd_size, GFP_KERNEL);
 	if (0 == data) {
-		err = ENOMEM;
+		err = -ENOMEM;
 		fmtrx_sys_log
 		("%s: %s %d,Command buffer allocation failed! %d\n",
 			FILE, __func__,

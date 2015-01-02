@@ -1031,15 +1031,16 @@ int fmrx_hw_channel_tune(
 		}
 	}
 
-	err = fmtrx_sys_mitigate_interference(
-				COMPONENT_DCDC, 0);
-	if (0 != err) {
-		fmtrx_sys_log
-			("%s: %s %d,Mitigate interference failed! %d\n",
-			FILE, __func__,
-			__LINE__, err);
-		goto fmrx_hw_channel_tune_exit;
+#ifdef CONFIG_IUI_FM_FMR
+	{
+		union component_data mitigate_data;
+
+		mitigate_data.fm_cfg.frequency = frequency;
+		mitigate_data.fm_cfg.side = side;
+		fmtrx_sys_mitigate_interference(COMPONENT_FM,
+			&mitigate_data);
 	}
+#endif /* CONFIG_IUI_FM_FMR */
 
 fmrx_hw_channel_tune_exit:
 	return err;

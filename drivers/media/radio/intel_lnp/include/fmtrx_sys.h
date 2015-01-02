@@ -56,6 +56,10 @@
 #ifdef LD_DRIVER
 #include "linux/lbf_ldisc.h"
 #endif
+/* Frequency manager interfaces */
+#ifdef CONFIG_IUI_FM_FMR
+#include <linux/fm/iui_fm.h>
+#endif
 
 /*
 ** =============================================================================
@@ -76,7 +80,8 @@
 #define ECHRNG 44
 #define EALREADY 114
 
-#define fmtrx_sys_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
+#define fmtrx_sys_log(fmt, arg...) \
+		pr_debug("radio: fmr: "fmt, ##arg)
 
 #define FILE (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
@@ -124,9 +129,14 @@ enum component {
 struct dcdc_setting {
 	u16 dcdc_div;
 };
+struct fm_setting {
+	u32 frequency;
+	u32 side;
+};
 
 union component_data {
 	struct dcdc_setting dcdc_cfg;
+	struct fm_setting fm_cfg;
 };
 
 /*

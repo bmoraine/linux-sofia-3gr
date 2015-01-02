@@ -1067,7 +1067,8 @@ fmrx_set_antenna_exit:
 }
 
 int fmrx_set_sideband(
-		enum injection_side side)
+		enum injection_side side,
+		bool force)
 {
 	int err = 0;
 	u32 tuned_frequency = 0;
@@ -1113,7 +1114,8 @@ int fmrx_set_sideband(
 			goto fmrx_set_sideband_exit;
 		}
 	}
-	fmrx_cfg->side = side;
+	if (force)
+		fmrx_cfg->side = side;
 
 fmrx_set_sideband_exit:
 	return err;
