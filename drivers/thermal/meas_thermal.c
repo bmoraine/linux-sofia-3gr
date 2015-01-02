@@ -44,7 +44,7 @@ static int show_temp(struct thermal_zone_device *tzd, unsigned long *temp)
 	int ret;
 	struct sensor_thermal_device *sensor = tzd->devdata;
 
-	ret = iio_read_channel_raw(sensor->channel, &result);
+	ret = iio_read_channel_processed(sensor->channel, &result);
 
 	/* Convert degree Celsius to milli degree Celsius. */
 	if (ret == IIO_VAL_INT)
