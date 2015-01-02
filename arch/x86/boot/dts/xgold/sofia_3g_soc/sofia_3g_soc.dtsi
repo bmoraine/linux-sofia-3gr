@@ -131,8 +131,8 @@
 				intel,GPU-qos-settings = <
 					0x1C88 0x0      /* prio */
 					0x1C8C 0x1      /* mode limiter */
-					0x1C90 0x120    /* bandwidth */
-					0x1C94 0x90     /* saturation */
+					0x1C90 0xFFF    /* bandwidth */
+					0x1C94 0x3FF    /* saturation */
 					0x1C98 0x5>;    /* QoSEn */
 
 				intel,DCC2-qos-settings = <
