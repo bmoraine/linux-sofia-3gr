@@ -77,8 +77,9 @@ static void intel_adc_iio_test_client_channels(struct work_struct *work)
 						channel_data[chan]);
 		} else {
 			int adc_ret, error, adc_voltage_uv, adc_current_na;
-			adc_ret = iio_read_channel_composite_raw(p_adc_iio_chan,
-					&adc_voltage_uv, &adc_current_na);
+			adc_ret = iio_channel_read(p_adc_iio_chan,
+					&adc_voltage_uv, &adc_current_na,
+					IIO_CHAN_INFO_RAW);
 
 			error = (adc_ret == IIO_VAL_COMPOSITE) ? 0 : adc_ret;
 			pr_info("Intel_adc: testing inkernel channels: channel %s->%duV,%dnA,error=%d\n",
@@ -128,7 +129,7 @@ static void intel_adc_sensors_iio_test_client_channels(struct work_struct *work)
 		} else {
 			int sensors_val;
 			int sensors_ret =
-				iio_read_channel_raw(p_sensors_iio_chan,
+				iio_read_channel_processed(p_sensors_iio_chan,
 								&sensors_val);
 			pr_info("Intel_adc_sensors: testing inkernel channels: channel %s->%d, error=%d\n",
 					sensor_channel_data[chan],

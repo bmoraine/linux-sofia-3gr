@@ -1493,7 +1493,7 @@ static int intel_adc_read_raw(struct iio_dev *iiodev,
 		return -ECHRNG;
 
 	switch (mask) {
-	case 0:	/* Channel read */{
+	case IIO_CHAN_INFO_RAW:	/* Channel read */{
 		struct adc_meas_instance meas_req;
 		struct adc_stm_mess mess;
 
@@ -1528,7 +1528,7 @@ static int intel_adc_read_raw(struct iio_dev *iiodev,
 				latest_adc_bias_na = meas_req.latest_result.na;
 		ret = meas_req.latest_result.error;
 		if (0 == ret)
-			ret = IIO_VAL_COMPOSITE;
+			ret = IIO_VAL_INT;
 
 			intel_adc_dbg_printk(
 				"Returning uv=%d, na=%d, error=%d\n",

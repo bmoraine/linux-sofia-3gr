@@ -748,7 +748,7 @@ static int adc_sensor_read_raw(struct iio_dev *p_iiodev,
 		/* Fall throught to chanel read is intentional */
 
 
-	case IIO_CHAN_INFO_RAW:
+
 	case IIO_CHAN_INFO_PROCESSED:{
 			/* Read raw value from the ADC driver */
 			int adc_voltage_uv;
@@ -761,14 +761,15 @@ static int adc_sensor_read_raw(struct iio_dev *p_iiodev,
 				adc_sensor_name);
 
 		adc_ret =
-			iio_read_channel_composite_raw(
+			iio_channel_read(
 				p_config->p_adc_iio_chan,
 				&adc_voltage_uv,
-				&adc_current_na);
+				&adc_current_na,
+				IIO_CHAN_INFO_RAW);
 
 			/* If the read was successful, convert the received
 			values */
-			if (IIO_VAL_COMPOSITE == adc_ret) {
+			if (IIO_VAL_INT == adc_ret) {
 				ADC_SENSORS_DEBUG_PARAM
 					(ADC_SENSORS_DEBUG_EVENT_READ_RAW_UV,
 					adc_voltage_uv);
