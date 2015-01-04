@@ -389,18 +389,19 @@
 	};
 
 	accelerometer {
-		compatible = "st,lsm303dlhc_acc";
-		reg = < 0x19 >;
+		compatible = "kionix,kionix_accel";
+		reg = < 0x0E >;
 		interrupt-parent = <&eint>;
 		interrupts = < EINT_EXI2 XGOLD_IRQ_TYPE_LEVEL_HIGH >;
 		intel,axis-map = < 0 1 2 >;
 		intel,negate = < 0 0 0 >;
-		intel,poll-interval = < 100 >;
+		intel,poll-interval = < 200 >;
+		intel,irq-use-drdy = < 1 >;
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&accel_default_pins>;
 		pinctrl-1 = <&accel_sleep_pins>;
 		pinctrl-2 = <&accel_inactive_pins>;
-		pm,class-name = "lsm303dlhc_acc_class";
+		pm,class-name = "kionix_accel_class";
 		pm,user-name = "ext_accelerometer";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
