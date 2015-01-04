@@ -59,6 +59,26 @@ int device_state_pm_add_user(struct device_state_pm_dev *user)
 }
 EXPORT_SYMBOL_GPL(device_state_pm_add_user);
 
+struct device_state_pm_class *device_state_pm_find_class(const char *name)
+{
+	struct device_state_pm_class *c;
+
+	if (NULL == name)
+		return NULL;
+
+	mutex_lock(&class_list_mtx);
+	list_for_each_entry(c, &class_list, list) {
+		if (0 == strcmp(c->name, name)) {
+			mutex_unlock(&class_list_mtx);
+			return c;
+		}
+	}
+
+	mutex_unlock(&class_list_mtx);
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(device_state_pm_find_class);
+
 /*  Used by the device driver (typically in the probe function) to configure
  *  which platform power management class this device belongs to. It is also
  *  used to initialize other parts of pm_data of dev.

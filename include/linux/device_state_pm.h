@@ -54,4 +54,5 @@ int device_state_pm_get_state_id(struct device *, const char *);
 
 int device_state_pm_set_state_by_name_silent(struct device *, const char *);
 
+struct device_state_pm_class *device_state_pm_find_class(const char *name);
 #endif
