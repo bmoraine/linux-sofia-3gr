@@ -18,6 +18,10 @@
 #include <linux/device_state_pm.h>
 #include <sofia/vpower.h>
 #include "xgoldpm.h"
+#if defined(CONFIG_DEBUG_FS)
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
+#endif
 
 /* Final call for giving control to the platform specific PM API */
 int xgold_dev_pm_set_state(struct device *dev,
@@ -69,6 +73,100 @@ static struct device_state_pm_ops xgold_pm_ops = {
 	.get_initial_state = xgold_dev_pm_get_initial_state,
 };
 
+#if defined(CONFIG_DEBUG_FS)
+static int devpm_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+ssize_t devpm_read(struct file *file, char __user *buf,
+					size_t size, loff_t *ppos)
+{
+	struct device_state_pm_dev *user;
+	struct device_state_pm_class *class;
+	char buffer[32];
+	int len = 0;
+	int i;
+
+	if (*ppos)
+		return 0;
+
+	user = (struct device_state_pm_dev *)file->private_data;
+	if (!user) {
+		pr_err("%s:unknown user\n", __func__);
+		return -EINVAL;
+	}
+
+	class = device_state_pm_find_class(user->reqd_class);
+	if (!class) {
+		pr_err("%s:no class for %s\n", __func__, user->name);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < class->num_states; ++i) {
+		int l = sprintf(buffer, "%s\n", class->states[i].name);
+
+		if (copy_to_user(buf + len, buffer, l))
+			return -EINVAL;
+		len += l;
+	}
+	*ppos += len;
+
+	return len;
+}
+
+static ssize_t devpm_write(struct file *file, const char __user *in,
+						size_t count, loff_t *pos)
+{
+	struct device_state_pm_dev *user;
+	struct device_state_pm_class *class;
+	struct xgold_user_info *ui;
+	char buffer[32];
+	int ret;
+	int i;
+
+	user = (struct device_state_pm_dev *)file->private_data;
+	if (!user) {
+		pr_err("%s:unknown user\n", __func__);
+		return -EINVAL;
+	}
+
+	class = device_state_pm_find_class(user->reqd_class);
+	if (!class) {
+		pr_err("%s:no class for %s\n", __func__, user->name);
+		return -EINVAL;
+	}
+
+	if (copy_from_user(buffer, in, count > 32 ? 32 : count))
+		return -EFAULT;
+
+	for (i = 0; i < class->num_states; ++i) {
+		if (!strncmp(class->states[i].name, buffer,
+			strlen(class->states[i].name))) {
+			unsigned *mi, sz = 0;
+			ui = (struct xgold_user_info *)(user->user_config);
+
+			mi = class->states[i].mode_info;
+			sz = class->states[i].mode_info_size;
+			ret = vpower_call_prh(ui->user_id, ui->per_id, mi, sz);
+			pr_info("vpower_call_prh, uid: %d, pid: %d, status: %s, ret: %d\n",
+					ui->user_id, ui->per_id,
+					class->states[i].name, ret);
+		}
+	}
+
+	return count;
+}
+
+
+static const struct file_operations devpm_fops = {
+	.open = devpm_open,
+	.read = devpm_read,
+	.write = devpm_write,
+};
+#endif
+
 #define USER_COMP "intel,xgold_pm_user"
 #define CLASS_COMP "intel,xgold_pm_class"
 
@@ -94,6 +192,9 @@ static int __init xgold_pm_of_init(void)
 	struct device_node *class_node;
 	uint32_t *sync_config = NULL;
 	int32_t sync_len = 0;
+#if defined(CONFIG_DEBUG_FS)
+	struct dentry *rootdir = debugfs_create_dir("devpm", NULL);
+#endif
 
 	/* PM_USER */
 	count = 0;
@@ -126,6 +227,12 @@ static int __init xgold_pm_of_init(void)
 				__func__, user->name, user->reqd_class,
 				user_info->user_id, user_info->per_id);
 		count++;
+#if defined(CONFIG_DEBUG_FS)
+		if (!IS_ERR_OR_NULL(rootdir))
+			debugfs_create_file(user->name,
+					S_IRUGO | S_IWUSR,
+					rootdir, user, &devpm_fops);
+#endif
 	}
 	pr_info("%s: %d pm users added%s\n",
 			__func__, count, count ? "" : " => FAIL");
