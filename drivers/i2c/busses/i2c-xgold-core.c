@@ -614,6 +614,32 @@ static inline void xgold_i2c_dmae(struct xgold_i2c_algo_data *data, bool en)
 }
 
 /******************************************************************************
+ * Function:... xgold_i2c_nostart
+ * Description: Configure the Stop on Packet End bit based on the i2c NOSTART
+ * condition
+ *****************************************************************************/
+static inline void xgold_i2c_nostart(struct xgold_i2c_algo_data *data,
+		unsigned disable)
+{
+	u32 reg = ioread32(data->regs + I2C_ADDR_CFG_OFFSET);
+	u32 sope = reg & I2C_ADDR_CFG_SOPE_MASK;
+
+	if ((sope && !disable) || (!sope && disable))
+		return;
+
+	/* turning ON I2C */
+	reg_write(I2C_RUN_CTRL_RUN_DIS, data->regs + I2C_RUN_CTRL_OFFSET);
+
+	reg &= ~I2C_ADDR_CFG_SOPE_MASK;
+	reg |= (disable) ? I2C_ADDR_CFG_SOPE_DIS : I2C_ADDR_CFG_SOPE_EN;
+
+	reg_write(reg, data->regs + I2C_ADDR_CFG_OFFSET);
+
+	/* turning ON I2C */
+	reg_write(I2C_RUN_CTRL_RUN_EN, data->regs + I2C_RUN_CTRL_OFFSET);
+}
+
+/******************************************************************************
  * Function:... xgold_i2c_err_handler()
  * Description: Error handler to handle error conditions
  *****************************************************************************/
@@ -818,6 +844,9 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 	data->addr_sent = 0;
 	data->cmd_err = 0;
 	spin_unlock_irqrestore(&data->lock, flag);
+
+	/* Use Repeated Start or Stop condition at packet end */
+	xgold_i2c_nostart(data, data->flags & I2C_M_NOSTART);
 
 	/*
 	 * PIO/DMA mode selection:
