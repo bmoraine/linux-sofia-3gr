@@ -21,8 +21,8 @@
 #define _SW_FUEL_GAUGE_NVM_DYN_DRIVERIF_H
 
 #ifdef __cplusplus
-    extern "C" {
-#endif // __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 /*
 ** =============================================================================
@@ -75,28 +75,30 @@
  * Structure for holding NVM data for software fuel gauge calibration point
  */
 typedef struct {
-  S32 cc_charge_mc;
-  S32 cc_discharge_mc;
-  S32 cc_balanced_mc;
-  S16 cc_error_mc;
-  long long rtc_time_sec;
-  S16 soc_permil;
-  S16 soc_error_permil;
-  U16 qmax_n_minus_2;
-  S16 qmax_n_minus_2_err_permil;
-  U16 qmax_n_minus_1;
-  S16 qmax_n_minus_1_err_permil;
-  U16 checksum;
+	S32 cc_charge_mc;
+	S32 cc_discharge_mc;
+	S32 cc_balanced_mc;
+	S16 cc_error_mc;
+	long long rtc_time_sec;
+	S16 soc_permil;
+	S16 soc_error_permil;
+	U16 qmax_n_minus_2;
+	S16 qmax_n_minus_2_err_permil;
+	U16 qmax_n_minus_1;
+	S16 qmax_n_minus_1_err_permil;
+	U16 checksum;
 } T_SOC_CAL_PNT_NVM;
 
-/* This type shall be included in nvm_cfg.h by the storage team for software fuel gauge module */
+/* This type shall be included in nvm_cfg.h by the storage team for
+ * software fuel gauge module
+ */
 typedef struct {
-  T_SOC_CAL_PNT_NVM soc_cal_pnt_nvm_dyn;
+	T_SOC_CAL_PNT_NVM soc_cal_pnt_nvm_dyn;
 } T_SW_FUEL_GAUGE_NVM_DYN;
 
 #ifdef __cplusplus
-    }
-#endif  // __cplusplus
+}
+#endif  /* __cplusplus */
 
 #endif /* _SW_FUEL_GAUGE_NVM_DYN_DRIVERIF_H */
 /*!
