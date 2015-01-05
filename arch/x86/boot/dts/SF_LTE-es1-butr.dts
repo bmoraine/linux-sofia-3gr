@@ -468,7 +468,7 @@
 	keypad,columns = <0 1 2>;
 	linux,keymap = <
 		0x00000073	/* KEY_VOLUMEUP */
-		0x00010066	/* KEY_HOME */
+		0x000100D4	/* KEY_CAMERA */
 		0x00020000	/* KEY_RESERVED */
 		0x00030000	/* KEY_RESERVED */
 		0x00040000	/* KEY_RESERVED */
