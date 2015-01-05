@@ -34,7 +34,7 @@
  */
 #define SW_FUEL_GAUGE_DEBUG(_array, _event, _param) \
 do { \
-	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(_array, _event, _param) \
+	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(_array, _event, _param); \
 	if (_array.printk_logs_en)\
 		pr_debug("%s 0x%lx  dec=%ld\n", \
 			#_event, (unsigned long)_param, (long)_param); \
@@ -50,7 +50,7 @@ do { \
  * Jiffy resolution is adequate for SW Fuel Gauge
  */
 #define SW_FUEL_GAUGE_DEBUG_NO_PRINTK(_array, _event, _param) \
-{ \
+do { \
 	unsigned long flags; \
 	spin_lock_irqsave(&_array.lock, flags); \
 	_array.log_array[_array.index].time_stamp = jiffies; \
@@ -59,7 +59,7 @@ do { \
 	_array.index++; \
 	_array.index &= (SW_FUEL_GAUGE_DEBUG_DATA_SIZE-1); \
 	spin_unlock_irqrestore(&_array.lock, flags); \
-}
+} while (0)
 
 /** Events for use in debug and tracing. */
 enum sw_fuel_gauge_debug_event {
