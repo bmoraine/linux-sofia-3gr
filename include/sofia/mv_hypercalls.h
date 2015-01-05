@@ -104,6 +104,25 @@ struct vmm_shared_data {
 	 */
 	const uint32_t pmem_size;
 
+	/** @brief Secured shared memory start address
+	 *
+	 * This field contains the physical start address for
+	 * the secured shared memory region.
+	 * The guest is expected to map in the secured shared memory
+	 * region into its virtual address space.
+	 */
+	const uint32_t pmem_paddr_sec;
+
+	/** @brief Secured shared memory size
+	 *
+	 * This field contains the size of the secured shared memory 
+	 * region.
+	 * The guest is expected to map in the secured shared memory
+	 * region into its virtual address space.
+	 */
+	const uint32_t pmem_size_sec;
+
+
 	/** @brief OS command line for the guest
 	 *
 	 * Each guest will have a command line. Apart from the usual
