@@ -650,6 +650,20 @@ clocks {
 		intel,mux-status-select = <496 28 4>;
 		intel,mux-select = <392 0 8 392 8 8 392 16 8>;
 	};
+	MUX_VPU:MUX_VPU {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "mclk_vpu";
+		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_5_1 >, < &A_2_1 >, < &A_0_4 >, < &A_1_8 >, < &A_3_2 >, < &A_1_2 > ;
+		clock-names = "ref";
+		intel,frequency-banks = < 3 >;
+		intel,mux-type = "power";
+		intel,mux-default = < 16 16 16 >;
+		intel,mux-update = <488 2 1>;
+		intel,mux-sleep = <796 31 1>;
+		intel,mux-status-select = <500 28 4>;
+		intel,mux-select = <796 0 8 796 8 8 796 16 8>;
+	};
 	MUX_CPU:MUX_CPU {
 		compatible = "intel,xgold-mux";
 		#clock-cells = <0>;
@@ -1425,6 +1439,22 @@ clocks {
 		intel,block-disable = <528 7 1>;
 		intel,block-divider = <932 0 3 932 8 3 932 16 3 932 24 3>;
 		intel,block-divider-activate = <652 7 1>;
+	};
+	clk_vpu:clk_vpu {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "clk_dcc";
+		clocks = <&MUX_VPU>;
+		clock-names = "mux";
+		intel,flags-divider_div_fix;
+		intel,frequency-banks = < 3 >;
+		intel,block-divider-default = < 1 1 1 >;
+		intel,block-status-enable = <540 8 1>;
+		intel,block-enable = <516 8 1>;
+		intel,block-divider-status = <664 28 3>;
+		intel,block-disable = <528 8 1>;
+		intel,block-divider = <640 0 3 640 8 3 640 16 3>;
+		intel,block-divider-activate = <652 6 1>;
 	};
 	clk_usb_hs:clk_usb_hs {
 		compatible = "intel,xgold-block-clock";
