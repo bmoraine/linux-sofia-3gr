@@ -67,6 +67,7 @@ eint:eint-interrupt-controller {
 	intel,virq,26 = <1>; /* DRXS */
 	intel,virq,27 = <1>; /* WDT0 */
 	intel,virq,28 = <1>; /* WDT1 */
+	intel,preack,8 = <1>; /* EXT_INT8 */
 	intel,preack,20 = <1>; /* USIF1_WK */
 	intel,mask,0 = < 0x2150 0 1 >; /* EXT_INT0 */
 	intel,mask,1 = < 0x2150 1 1 >; /* EXT_INT1 */
