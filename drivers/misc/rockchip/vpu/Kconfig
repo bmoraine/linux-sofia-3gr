@@ -1,0 +1,5 @@
+config ROCKCHIP_VPU
+	tristate "rockchip vpu driver"
+	default n
+	help
+	  Driver for sofia video encoder and decoder

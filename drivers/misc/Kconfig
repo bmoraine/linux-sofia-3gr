@@ -545,6 +545,7 @@ source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/noc/Kconfig"
 source "drivers/misc/verisilicon/7280/Kconfig"
 source "drivers/misc/verisilicon/G1/Kconfig"
+source "drivers/misc/rockchip/vpu/Kconfig"
 
 
 endmenu
