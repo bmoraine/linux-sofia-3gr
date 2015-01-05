@@ -2107,14 +2107,14 @@ static int fmrx_auto_evaluate(struct fmrx_msgbox_buff *p_msg)
 		break;
 
 	case FMRX_EVENT_GET_EXT_LNA_RSSI_COMPEN: {
-		enum fmtrx_ant_type ant_type;
-		if (p_msg->params.get_ext_lna_rssi_comp.ant_type >
-			FMR_ANT_TYPE_END) {
-			rc = -ERANGE;
+		enum fmtrx_ant_type ant_type =
+			p_msg->params.get_ext_lna_rssi_comp.ant_type;
+
+		if (ant_type >= FMR_ANT_TYPE_END) {
+			rc = -EINVAL;
 			goto fmrx_auto_evaluate_err;
 		}
 
-		ant_type = p_msg->params.get_ext_lna_rssi_comp.ant_type;
 		memcpy(p_msg->params.get_ext_lna_rssi_comp.lna_cfg,
 		       &rx_state.cfg->ext_lna_cfg[ant_type],
 		       sizeof(struct fmrx_ext_lna_cfg));

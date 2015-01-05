@@ -818,7 +818,6 @@ int fmr_sys_get_cfg(struct fmrx_cfg **cfg)
 	if (rc == 0) {
 		fmdrv_dbg("Using configuration data from config file\n");
 		memcpy(rx_cfg, fw->data, fw->size);
-		release_firmware(fw);
 	} else {
 		struct rssi_offs rssi_offs_int_ant = {108000000, 108000000,
 			108000000, 108000000, 108000000, 34, 0, 0, 0, 0, 0};
@@ -913,6 +912,8 @@ int fmr_sys_get_cfg(struct fmrx_cfg **cfg)
 	}
 
 	*cfg = rx_cfg;
+
+	release_firmware(fw);
 
 fmr_sys_get_cfg_err:
 	return rc;
