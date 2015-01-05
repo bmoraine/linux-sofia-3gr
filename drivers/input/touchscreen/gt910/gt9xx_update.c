@@ -2682,6 +2682,9 @@ static u8 gup_clk_calibration_pin_select(s32 bch)
 	case 9:
 		i2c_addr = _F_RW_MISCTL__GIO9;
 		break;
+	default:
+		GTP_ERROR("Invalid i2c address (%d)\n", bch)
+		return -EINVAL;
 	}
 
 	gup_bit_write(i2c_addr, 1, 0);

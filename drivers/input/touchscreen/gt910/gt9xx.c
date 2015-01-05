@@ -2442,7 +2442,7 @@ static s32 gtp_main_clk_proc(struct goodix_ts_data *ts)
 	}
 	p_main_clk[5] = 0 - clk_chksum;
 
-	if (!IS_ERR(clk_filp)) {
+	if (!IS_ERR_OR_NULL(clk_filp)) {
 		GTP_DEBUG("write main clock data into %s", GTP_MAIN_CLK_PATH);
 		clk_filp->f_op->llseek(clk_filp, 0, SEEK_SET);
 		clk_filp->f_op->write(clk_filp, (char *)p_main_clk,
