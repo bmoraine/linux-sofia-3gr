@@ -769,7 +769,8 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 				}
 				spin_lock(&meas_ag620_state.lock);
 				/* Update power mode variable */
-				meas_ag620_state.power_mode = ADC_HAL_POWER_MODE_OFF;
+				meas_ag620_state.power_mode =
+					ADC_HAL_POWER_MODE_OFF;
 				/* End of critical section */
 				spin_unlock(&meas_ag620_state.lock);
 			}
@@ -781,7 +782,8 @@ static int meas_ag620_set_power_mode(enum adc_hal_power_mode new_power_mode)
 				union U_MEAS_CLC clc = { 0 };
 				unsigned int retry = 0;
 
-				meas_ag620_state.power_mode = ADC_HAL_POWER_MODE_ON;
+				meas_ag620_state.power_mode =
+					ADC_HAL_POWER_MODE_ON;
 				/* End of critical section */
 				spin_unlock(&meas_ag620_state.lock);
 				/* Enable power domain */

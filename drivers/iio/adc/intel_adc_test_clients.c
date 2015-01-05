@@ -43,7 +43,7 @@
 
 /*#define INTEL_ADC_TEST*/
 
-#ifdef  INTEL_ADC_TEST
+#ifdef INTEL_ADC_TEST
 static const char * const channel_data[] = {
 	"VBAT_ADC",
 	"ANAMON_ADC",

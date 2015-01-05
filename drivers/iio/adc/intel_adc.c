@@ -545,7 +545,7 @@ static int intel_adc_set_power_mode(struct adc_hal_interface *p_hal_if,
 	/* Protect critical section when testing and modifying device
 	state data */
 	spin_lock(&adc_manager.lock);
-	if( adc_manager.suspended == true) {
+	if (adc_manager.suspended == true) {
 		spin_unlock(&adc_manager.lock);
 		intel_adc_dbg_printk("%s ADC in suspend\n", __func__);
 		return -EIO;
