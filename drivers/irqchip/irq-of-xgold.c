@@ -236,6 +236,8 @@ int xgold_irq_of_get(struct device_node *np, void *chipdata)
 		if (data->virq[i])
 			pr_debug("%s: virq[%d]=%d detected !!!\n",
 					__func__, i, data->virq[i]);
+		sprintf(comp, "intel,preack,%d", i);
+		of_property_read_u32(np, comp, &data->preack[i]);
 	}
 	sprintf(comp, "intel,globalmask");
 	xgold_irq_of_parse(&data->globalmask[0], np, comp);
