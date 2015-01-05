@@ -1130,6 +1130,11 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 
 	res = idi_get_resource_byname(&ididev->resources,
 				IORESOURCE_IRQ, "cccl");
+	if (res == NULL) {
+		pr_err("%s: Unable to get idi resoure\n", __func__);
+		return -EINVAL;
+	}
+
 	sw_fuel_gauge_hal_instance.irq = res->start;
 	if (IS_ERR_VALUE(sw_fuel_gauge_hal_instance.irq)) {
 		pr_err("setup of couloumb counter irq failed\n");
