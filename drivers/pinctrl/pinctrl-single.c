@@ -856,7 +856,7 @@ static int pcs_add_pin(struct pcs_device *pcs, unsigned offset,
 
 	pin = &pcs->pins.pa[i];
 	pn = &pcs->names[i];
-	sprintf(pn->name, "%lx.%d",
+	snprintf(pn->name, sizeof(pn->name), "%lx.%d",
 		(unsigned long)pcs->res->start + offset, pin_pos);
 	pin->name = pn->name;
 	pin->number = i;
