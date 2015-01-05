@@ -147,7 +147,7 @@ static void end_of_frame_wq(struct work_struct *ws)
 		/* new frame being displayed */
 		/* the last frame can be released by updating the
 		 * timeline up "last" value */
-		DCC_DBG2("signal %d (cur=%d)\n",
+		DCC_DBG3("signal %d (cur=%d)\n",
 			pdata->update_pt_last,
 			pdata->update_pt_curr);
 		delta = pdata->update_pt_last - (int) pdata->timeline->value;

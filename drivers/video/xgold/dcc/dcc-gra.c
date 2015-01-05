@@ -462,7 +462,7 @@ static int dcc_sprite_conf(struct dcc_drvdata *p, struct dcc_sprite_t *spr)
 		goto out;
 	}
 
-	DCC_DBG2("ovl[%d] %s @0x%08x %dx%d(%d,%d) %s a:0x%x glb:%d\n",
+	DCC_DBG3("   ovl[%d] %s @0x%08x %dx%d(%d,%d) %s a:0x%x glb:%d\n",
 		spr->id, spr->phys ? "ON " : "OFF", spr->phys, spr->w, spr->h,
 		spr->x, spr->y, dcc_format_name(spr->fmt), spr->alpha,
 		spr->global);
@@ -543,7 +543,7 @@ static int dcc_setalpha(struct dcc_drvdata *p, unsigned int alpha)
 	return 0;
 }
 
-static int dcc_dif_conf_set(struct dcc_drvdata *p, int backen, int yuv)
+static int dcc_dif_conf_set(struct dcc_drvdata *p, int backen)
 {
 	int ret = 0;
 	unsigned int difconf = 0;
@@ -553,8 +553,8 @@ static int dcc_dif_conf_set(struct dcc_drvdata *p, int backen, int yuv)
 	difconf |= BITFLDS(INR_DIF_CONF_BACK, !!backen);
 
 	/* SMS06203470 (not mandatory from SoFIA LTE Es2.0) */
-	difconf &= ~BITFLDS(INR_DIF_CONF_DEST, 1);
-	difconf |= BITFLDS(INR_DIF_CONF_DEST, yuv ? 1 : 0);
+	if (p->display_autorefresh)
+		difconf |= BITFLDS(INR_DIF_CONF_DEST, 1);
 	/* SMS06203470 - end */
 	ret = gra_write_field(p, INR_DIF_CONF, difconf);
 	return ret;
@@ -815,7 +815,7 @@ static void dcc_update(struct dcc_drvdata *p, struct x_rect_t *r,
 			unsigned int alpha, unsigned int pbase_yuv)
 {
 	/* prepare update */
-	dcc_dif_conf_set(p, DCC_UPDATE_NOBG_GET(r->flags), !!pbase_yuv);
+	dcc_dif_conf_set(p, DCC_UPDATE_NOBG_GET(r->flags));
 
 	if (p->display_autorefresh)
 		DCC_UPDATE_MODE_SET(r->flags, DCC_UPDATE_CONTINOUS);
@@ -1336,7 +1336,7 @@ static void dcc_set_overlay(struct dcc_sprite_t *spr, struct dcc_layer_ovl *l,
 		int ovl_id, int l_id)
 {
 
-	DCC_DBG2("  spr[%d]<-ov[%d], @0x%x\n", ovl_id, l_id, l->phys);
+	DCC_DBG3("  spr[%d]<-ov[%d], @0x%x\n", ovl_id, l_id, l->phys);
 
 	/* YUV formats offset not supported! */
 	if (!l->phys)
@@ -1368,10 +1368,9 @@ static int dcc_rq_compose(struct dcc_drvdata *p,
 	struct dcc_layer_ovl *lyuv = NULL;
 	struct dcc_layer_ovl *l = &updt->ovls[l_id];
 
-	DCC_DBG2("compose --> BACK @ 0x%x %s\n",
-		updt->back.phys, dcc_format_name(updt->back.fmt));
-	DCC_DBG2("dcc[ ]: compose bg @0x%x ,ov_up_cnt=%d updt_pt=%d\n",
-			updt->back.phys, p->overlay_updt_cnt, update_pt);
+	DCC_DBG2("compose --> BACK @0x%x %s, ov_up_cnt=%d updt_pt=%d\n",
+			updt->back.phys, dcc_format_name(updt->back.fmt),
+			p->overlay_updt_cnt, update_pt);
 	for (ovl_id = 0; ovl_id < DCC_OVERLAY_NUM; ovl_id++) {
 		/* skip update layers with a null pointer */
 		while (!l->phys && l_id < DCC_OVERLAY_NUM) {
@@ -1387,6 +1386,11 @@ static int dcc_rq_compose(struct dcc_drvdata *p,
 		} else {
 			/* use this overlay for current layer
 			 * and go to next one */
+		DCC_DBG2("ovl[%d] %s @0x%x %dx%d(%d,%d) --> %dx%d(%d,%d) %s\n",
+				ovl_id, l->phys ? "ON " : "OFF", l->phys,
+				l->src.w, l->src.h, l->src.x, l->src.y,
+				l->dst.w, l->dst.h, l->dst.x, l->dst.y,
+				dcc_format_name(l->fmt));
 			dcc_set_overlay(&spr, l, ovl_id, l_id);
 			/* register yuv layer */
 			if (IS_DCC_FMT_YUV(l->fmt))
@@ -1451,7 +1455,7 @@ static void acq_fence_wq(struct work_struct *ws)
 	struct dcc_acq_fence_work *w;
 	w = container_of(ws, struct dcc_acq_fence_work, work);
 
-	DCC_DBG2("acq start, updt_pt=%d\n", w->update_pt);
+	DCC_DBG3("acq start, updt_pt=%d\n", w->update_pt);
 #if defined(CONFIG_SYNC)
 	if (w->drv->use_fences) {
 		int i;
@@ -1488,7 +1492,7 @@ static struct sync_fence *dcc_update_queue_fence_create(
 		goto leave_err;
 
 	/* Create fence */
-	fence = sync_fence_create("dcc-fence", point);
+	fence = sync_fence_create("dcc-update-fence", point);
 	if (fence == NULL)
 		goto leave_err;
 	return fence;
@@ -1510,7 +1514,7 @@ int dcc_rq_acquire_and_compose(struct dcc_drvdata *p,
 	int fence;
 #endif
 
-	DCC_DBG2("rq updt_pt=%d\n", updt_pt);
+	DCC_DBG3("rq updt_pt=%d\n", updt_pt);
 	work = kzalloc(sizeof(*work), GFP_KERNEL);
 	if (!work) {
 		dcc_err("allocation of fence acquire item failed\n");

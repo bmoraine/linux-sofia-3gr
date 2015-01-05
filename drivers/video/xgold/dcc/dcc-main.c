@@ -599,7 +599,7 @@ static int dcc_fence_init(struct dcc_drvdata *pdata)
 }
 
 static int dcc_fence_create(struct dcc_drvdata *pdata,
-		unsigned int timeline_value)
+		unsigned int timeline_value, const char *name)
 {
 	struct sync_pt *point;
 	struct sync_fence *fence = NULL;
@@ -615,7 +615,7 @@ static int dcc_fence_create(struct dcc_drvdata *pdata,
 		return -EINVAL;
 
 	/* Create fence */
-	fence = sync_fence_create("dcc-fence", point);
+	fence = sync_fence_create(name, point);
 	if (fence == NULL) {
 		sync_pt_free(point);
 		return -EINVAL;
@@ -813,12 +813,14 @@ long dcc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (pdata->use_fences) {
 				updt.fence_retire =
 					dcc_fence_create(pdata,
-						pdata->timeline_current);
+						pdata->timeline_current,
+						"dcc-updt-retire-fence");
 				if (updt.back.phys &&
 					(!DCC_UPDATE_NOBG_GET(updt.flags)))
 					updt.back.fence_release =
 						dcc_fence_create(pdata,
-						pdata->timeline_current);
+						pdata->timeline_current,
+						"dcc-updt-release-fence");
 				for (ovl_id = 0;
 					ovl_id < DCC_OVERLAY_NUM; ovl_id++) {
 					struct dcc_layer_ovl *l =
@@ -826,7 +828,8 @@ long dcc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					if (l->phys)
 						l->fence_release =
 							dcc_fence_create(pdata,
-						pdata->timeline_current);
+						pdata->timeline_current,
+						"dcc-ovl-release-fence");
 				}
 			}
 #endif

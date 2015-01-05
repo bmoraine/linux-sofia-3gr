@@ -118,15 +118,15 @@
 
 
 #define IS_DCC_FMT_YUV(_f_) (\
-		(_f_ == DCC_FMT_YUV422PACKED) |\
-		(_f_ == DCC_FMT_YUV422PACKED) |\
-		(_f_ == DCC_FMT_YUV420PLANAR) |\
-		(_f_ == DCC_FMT_YVU420PLANAR) |\
-		(_f_ == DCC_FMT_YUV422PLANAR) |\
-		(_f_ == DCC_FMT_YUV444PACKED) |\
-		(_f_ == DCC_FMT_YUV444PLANAR) |\
-		(_f_ == DCC_FMT_YUV444SP) |\
-		(_f_ == DCC_FMT_YUV422SP) |\
+		(_f_ == DCC_FMT_YUV422PACKED) ||\
+		(_f_ == DCC_FMT_YUV422PACKED) ||\
+		(_f_ == DCC_FMT_YUV420PLANAR) ||\
+		(_f_ == DCC_FMT_YVU420PLANAR) ||\
+		(_f_ == DCC_FMT_YUV422PLANAR) ||\
+		(_f_ == DCC_FMT_YUV444PACKED) ||\
+		(_f_ == DCC_FMT_YUV444PLANAR) ||\
+		(_f_ == DCC_FMT_YUV444SP) ||\
+		(_f_ == DCC_FMT_YUV422SP) ||\
 		(_f_ == DCC_FMT_YUV420SP))
 
 struct dcc_debug_t {

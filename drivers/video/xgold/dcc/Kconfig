@@ -1,0 +1,28 @@
+config XGOLD_DCC
+    tristate "XGold DCC(Display Content Controller) support"
+    depends on X86_INTEL_XGOLD
+    select FB
+	default y
+    help
+      Say Y here if you use XGold Display Content Controller.
+
+config XGOLD_DCC_SYSFS
+    bool "XGold DCC sysfs support"
+    depends on XGOLD_DCC
+	  default y
+    help
+      Say y to activate.(/sys/devices/system/dcc)
+
+config XGOLD_DCC_DEBUG
+    bool "Enable DCC debug at boot"
+    depends on XGOLD_DCC
+	default n
+    help
+      Perform an animation at startup.
+
+config TRANSMITTER_LVDS
+    bool "Enable to support LVDS interface display"
+    depends on I2C
+	default n
+    help
+      Say y to activate.
