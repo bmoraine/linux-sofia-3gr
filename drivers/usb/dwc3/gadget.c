@@ -1710,7 +1710,7 @@ static int dwc3_gadget_vbus_draw(struct usb_gadget *g, unsigned mA)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
 
-	if (!dwc && !dwc->usb2_phy)
+	if (!dwc || !dwc->usb2_phy)
 		return -ENOTSUPP;
 
 	usb_phy_set_power(dwc->usb2_phy, mA);
