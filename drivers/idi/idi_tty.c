@@ -45,21 +45,26 @@ int idi_push_xfer_to_tty(struct idi_peripheral_device *pdev,
 			 struct idi_xfer *xfer, struct tty_struct *tty)
 {
 	struct device *dev = &pdev->device;
-	int payload, len, read_room, myroom;
+	int payload, len, myroom, acc = 0;
 	struct scatterlist *sg;
 	unsigned char *buffer;
 
 	payload = xfer->size;
 	sg = &xfer->sg[0];
+	if (!sg) {
+		dev_err(dev, "xfer\'s SG list is null\n");
+		return -EINVAL;
+	}
+
 	buffer = idi_xfer_dma_to_virt(dev, xfer, sg);
 	len = sg_dma_len(sg);
 
 	dma_sync_sg_for_cpu(NULL, sg, sg_nents(sg), DMA_FROM_DEVICE);
 	do {
 		dev_dbg(dev, "\tRequest %#x bytes from tty\n", payload);
-		myroom = read_room =
-			tty_buffer_request_room(tty->port, payload);
-		dev_dbg(dev, "Pushing %#x bytes from %p to tty:\n", read_room,
+		myroom = tty_buffer_request_room(tty->port, payload);
+		acc = 0;
+		dev_dbg(dev, "Pushing %#x bytes from %p to tty:\n", myroom,
 			buffer);
 		do {
 			dev_dbg(dev, "\tbuffer %p len %#x bytes\n", buffer,
@@ -70,6 +75,7 @@ int idi_push_xfer_to_tty(struct idi_peripheral_device *pdev,
 					buffer, len);
 				tty_insert_flip_string(tty->port, buffer, len);
 				myroom -= len;
+				acc += len;
 				sg = sg_next(sg);
 				if (sg == NULL)
 					BUG();
@@ -82,6 +88,7 @@ int idi_push_xfer_to_tty(struct idi_peripheral_device *pdev,
 					buffer, myroom);
 				tty_insert_flip_string(tty->port,
 								buffer, myroom);
+				acc += myroom;
 				buffer += myroom;
 				myroom = 0;
 				buffer2 = idi_xfer_dma_to_virt(dev, xfer, sg);
@@ -97,16 +104,18 @@ int idi_push_xfer_to_tty(struct idi_peripheral_device *pdev,
 					}
 				}
 			}
-		} while (myroom);
+		} while (myroom && sg);
 
 		tty_flip_buffer_push(tty->port);
 		dev_dbg(dev, "<--- [TTY]: %#x bytes pushed to flip buffer\n",
-			read_room);
-		payload -= read_room;
-	} while (payload);
+			acc);
+		payload -= acc;
+	} while (payload && sg);
 
-	dma_sync_sg_for_device(NULL, sg, sg_nents(sg), DMA_FROM_DEVICE);
-	return xfer->size;
+	dma_sync_sg_for_device(NULL, &xfer->sg[0], sg_nents(&xfer->sg[0]),
+			DMA_FROM_DEVICE);
+
+	return xfer->size - payload;
 }
 EXPORT_SYMBOL_GPL(idi_push_xfer_to_tty);
 
