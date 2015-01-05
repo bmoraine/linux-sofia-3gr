@@ -1060,6 +1060,9 @@ static int v4l2_enum_input(struct file *file, void *priv,
 	if (IS_ERR_VALUE(inp))
 		return inp;
 	inp_name = cif_isp20_g_input_name(dev, inp);
+	if (IS_ERR(inp_name))
+		return -ENODEV;
+
 	strcpy(input->name, inp_name);
 
 	return 0;
