@@ -76,6 +76,8 @@ compatible = "intel,xgold_abb"
 compatible = "intel,xgold_vmm_pmic"
 compatible = "intel,sofia,idle-state"
 compatible = "intel,regulator-device-pm"
+compatible = "rockchip,ion"
+compatible = "rockchip,ion-heap"
 
 * List of compatibles used by IMC and defined as non-intel compatibles
 To be described or renamed or cleaned
