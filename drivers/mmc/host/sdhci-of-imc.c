@@ -305,14 +305,16 @@ static void xgold_sdhci_of_runtime_resume(struct sdhci_host *host)
 {
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
+
+	if (mmc_pdata->irq_eint)
+		xgold_cd_irq_disable(mmc_pdata);
+
 	xgold_sdhci_set_pinctrl_state(&pdev->dev, mmc_pdata->pins_default);
 #if defined CONFIG_PLATFORM_DEVICE_PM && defined CONFIG_PLATFORM_DEVICE_PM_VIRT
 	if (device_state_pm_set_state_by_name(&mmc_pdata->dev,
 			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name))
 		dev_err(&pdev->dev, "set pm state D0 during runtime resume  failed !\n");
 #endif
-	if (mmc_pdata->irq_eint)
-		xgold_cd_irq_disable(mmc_pdata);
 }
 
 #endif
@@ -391,7 +393,7 @@ static irqreturn_t xgold_eint_detect(int irq, void *dev_id)
 	struct xgold_mmc_pdata *mmc_pdata =
 		(struct xgold_mmc_pdata *)pdev->dev.platform_data;
 	struct sdhci_host *host = platform_get_drvdata(pdev);
-	pr_debug("%s: SD card removed/inserted during runtime suspend\n",
+	pr_info("%s: SD card removed/inserted during runtime suspend\n",
 								__func__);
 	if (mmc_pdata->irq_eint)
 		xgold_cd_irq_disable(mmc_pdata);
