@@ -47,15 +47,32 @@
 	};
 
 	ion {
+#if 1 /* for RK ION */
+		compatible = "rockchip,ion";
+		#address-cells = < 1 >;
+		#size-cells = < 0 >;
+		rockchip,ion-heap@1 {
+			compatible = "rockchip,ion-heap";
+			sofia,ion_heap = < 1 >;
+			reg = < 0x00000000 0x08000000 >;
+		};
+		rockchip,ion-heap@3 {
+			compatible = "rockchip,ion-heap";
+			sofia,ion_heap = < 3 >;
+		};
+#else
 		compatible = "intel,ion";
 #ifndef RECOVERY_KERNEL
 		secvm-handler;
 #endif
 		cma-heap {
+			id = <1>;
 			memory-region = <&cma_default_region>;
 		};
 		system-heap {
+			id = <3>;
 		};
+#endif
 	};
 
 	backlight {
