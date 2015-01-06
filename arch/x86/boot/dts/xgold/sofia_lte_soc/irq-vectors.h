@@ -59,7 +59,7 @@
 #define U2USPC 0
 #define _3G2USPC 0
 #define I2C2_WK 35
-#define EXI15 36
+#define EXI15 0
 #define EXI14 37
 #define EXI13 38
 #define EXI12 39
@@ -136,9 +136,9 @@
 #define PROF_ENV_INT 137
 #define RTC_INT 138
 #define RTC_INT1 139
-#define CC0_T0INT 140
-#define CC0_T1INT 141
-#define CC0_CCINT0_7 142
+#define CC1_T0INT 0
+#define CC1_T1INT 0
+#define CC1_CCINT0_7 36
 #define I2C1_INT 143
 #define EXI0 144
 #define RESET_CORE0 145
@@ -175,10 +175,10 @@
 #define DMA2_2_INT 180
 #define CC2_T1INT 181
 #define CC2_T0INT 182
-#define CC1_T1INT 183
+#define CC0_T1INT 183
 #define CC2_CCINT 184
-#define CC1_T0INT 185
-#define CC1_CCINT 186
+#define CC0_T0INT 185
+#define CC0_CCINT 186
 #define USIM2_IN_INT 187
 #define USIM_IN_INT 188
 #define USIM2_ERR_INT 189
