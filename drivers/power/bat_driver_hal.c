@@ -1450,6 +1450,12 @@ static int __init bat_drv_hal_probe(struct idi_peripheral_device *ididev,
 
 	res = idi_get_resource_byname(&ididev->resources,
 					IORESOURCE_IRQ, "brd");
+	if (res == NULL) {
+		pr_err("getting brd resource failed!\n");
+		ret = -EINVAL;
+		goto res_fail;
+	}
+
 	bat_drv_hal_instance.irq = res->start;
 	if (!bat_drv_hal_instance.irq) {
 		dev_err(dev, "could not get interrupt\n");

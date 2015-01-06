@@ -33,7 +33,7 @@
 
 #include <linux/power/battery_id.h>
 
-#define SYSFS_INPUT_VAL_LEN (2)
+#define SYSFS_INPUT_VAL_LEN (1)
 
 /* Size of debug data array (has to be power of 2!!!) */
 #define BAT_DRV_HAL_DEBUG_DATA_SIZE (1<<6)
@@ -167,7 +167,7 @@ static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
 	int sysfs_val;
 	int ret;
 	size_t size_to_cpy;
-	char strvalue[SYSFS_INPUT_VAL_LEN];
+	char strvalue[SYSFS_INPUT_VAL_LEN+1];
 
 	size_to_cpy = (count > SYSFS_INPUT_VAL_LEN) ?
 				SYSFS_INPUT_VAL_LEN : count;
