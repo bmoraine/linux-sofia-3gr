@@ -419,8 +419,8 @@ static int rk818_pre_init(struct rk818 *rk818)
 
 int rk818_remap_ioset(int pin, int value)
 {
-	unsigned int *vadd;
-	vadd = (unsigned long) ioremap_nocache(0xE4600200, 0x1000);
+	void __iomem *vadd;
+	vadd = ioremap_nocache(0xE4600200, 0x1000);
 
 	iowrite32(value, vadd + pin);
 
