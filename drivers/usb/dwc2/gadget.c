@@ -3676,6 +3676,9 @@ int s3c_hsotg_suspend(struct dwc2_hsotg *hsotg)
 	unsigned long flags;
 	int ret = 0;
 
+	if (hsotg->lx_state != DWC2_L0)
+		return ret;
+
 	mutex_lock(&hsotg->init_mutex);
 
 	if (hsotg->driver) {
@@ -3715,6 +3718,9 @@ int s3c_hsotg_resume(struct dwc2_hsotg *hsotg)
 {
 	unsigned long flags;
 	int ret = 0;
+
+	if (hsotg->lx_state == DWC2_L2)
+		return ret;
 
 	mutex_lock(&hsotg->init_mutex);
 
