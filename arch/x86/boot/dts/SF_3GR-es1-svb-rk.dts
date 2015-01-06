@@ -376,6 +376,7 @@
 &vop {
 	status = "okay";
 	rockchip,fb-win-map = <FB_DEFAULT_ORDER>;
+	pm,state-D0 = "low_perf";
 };
 
 &lvds {
