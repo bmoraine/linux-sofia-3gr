@@ -1809,7 +1809,7 @@ static void s3c_hsotg_epint(struct dwc2_hsotg *hsotg, unsigned int idx,
 		__func__, idx, dir_in ? "in" : "out", ints);
 
 	/* Don't process XferCompl interrupt if it is a setup packet */
-	if (ints & DXEPINT_SETUP || ints & DXEPINT_SETUP_RCVD)
+	if ((ints & DXEPINT_SETUP || ints & DXEPINT_SETUP_RCVD) && (idx == 0))
 		ints &= ~DXEPINT_XFERCOMPL;
 
 	if (ints & DXEPINT_XFERCOMPL) {
