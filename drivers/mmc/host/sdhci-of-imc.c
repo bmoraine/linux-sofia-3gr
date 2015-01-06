@@ -227,11 +227,15 @@ static void xgold_sdhci_of_suspend(struct sdhci_host *host)
 {
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
+#ifdef CONFIG_PM_RUNTIME
+	if (host->runtime_suspended)
+		pm_runtime_resume(&pdev->dev);
+#endif
 	if (device_may_wakeup(&pdev->dev)) {
 		enable_irq_wake(mmc_pdata->irq_wk);
 		enable_irq(mmc_pdata->irq_wk);
 	}
-/* TODO: called before sleep commands for card... should not stop clock ! */
+	/* TODO: called before sleep commands for card... should not stop clock ! */
 #if 0
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
@@ -250,6 +254,11 @@ static void xgold_sdhci_of_resume(struct sdhci_host *host)
 		disable_irq_wake(mmc_pdata->irq_wk);
 		disable_irq_nosync(mmc_pdata->irq_wk);
 	}
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+#endif
 #if 0
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
