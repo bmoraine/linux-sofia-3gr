@@ -684,7 +684,12 @@ static int trigger_algo(struct power_supply *psy)
 	}
 
 
-	get_bat_prop_cache(psy, &bat_prop);
+	if (get_bat_prop_cache(psy, &bat_prop)) {
+		pr_err("Error in retrieving battery property:%s:%d\n", __FILE__,
+				__LINE__);
+		return -EINVAL;
+	}
+
 
 	algo = power_supply_get_charging_algo(psy, &chrg_profile);
 	if (!algo) {
@@ -761,8 +766,6 @@ static int trigger_algo(struct power_supply *psy)
 				continue;
 
 		cc_min = min_t(unsigned long, MAX_CC(chrgr_lst[cnt]), cc);
-		if (cc_min < 0)
-			cc_min = 0;
 		cc -= cc_min;
 		set_cc(chrgr_lst[cnt], cc_min);
 		set_cv(chrgr_lst[cnt], cv);
@@ -1016,7 +1019,7 @@ int psy_charger_throttle_charger(struct power_supply *psy,
 {
 	int ret = 0;
 
-	if (state < 0 || state > MAX_THROTTLE_STATE(psy))
+	if (state > MAX_THROTTLE_STATE(psy))
 		return -EINVAL;
 
 	mutex_lock(&psy_chrgr.evt_lock);
