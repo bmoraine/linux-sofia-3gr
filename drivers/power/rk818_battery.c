@@ -286,6 +286,7 @@ battery_write(struct rk818 *rk818, u8 reg, u8 const buf[], unsigned len)
 	return ret;
 }
 
+#if 0
 static void dump_gauge_register(struct battery_info *di)
 {
 	int i = 0;
@@ -311,6 +312,7 @@ static void dump_charger_register(struct battery_info *di)
 	DBG("demp end!\n");
 
 }
+#endif
 
 #define BATT_NUM  11
 
@@ -1157,6 +1159,7 @@ rk818_battery_usb_get_property(struct power_supply *psy,
 
 static void set_charge_current(struct battery_info *di, int charge_current);
 
+#if 0
 static int rk818_enable_charging(struct battery_info *di, bool enable)
 {
 	u8 chr_reg;
@@ -1173,6 +1176,7 @@ static int rk818_enable_charging(struct battery_info *di, bool enable)
 
 	return 0;
 }
+#endif
 
 static int
 rk818_battery_usb_set_property(struct power_supply *psy,
@@ -2490,6 +2494,7 @@ int battery_notifier_call_chain(unsigned long val)
 }
 EXPORT_SYMBOL_GPL(battery_notifier_call_chain);
 
+#if 0
 static void poweron_lowerpoer_handle(struct battery_info *di)
 {
 
@@ -2534,6 +2539,7 @@ battery_notifier_call(struct notifier_block *nb,
 	}
 	return NOTIFY_OK;
 }
+#endif
 
 int count = 0;
 static void disable_vbat_low_irq(struct battery_info *di)
