@@ -244,6 +244,7 @@ static const char *convert_to_iio_node_name(const char *src)
 
 	len	= strlen(src);
 	p = kmalloc(len, GFP_KERNEL);
+	BUG_ON(p == NULL);
 	strcpy(p, src);
 	dst = p;
 	len = len - strlen("_ADC");

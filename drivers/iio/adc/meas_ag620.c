@@ -1237,19 +1237,26 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 	int ret, chan;
 	u32 period_s = 0;
 
-	dev_dbg(dev, "Initializing MEAS AG620 HAL\n");
+	dev_info(dev, "Initializing MEAS AG620 HAL\n");
 
 	meas_ag620_state.ididev = ididev;
 
 #ifdef CONFIG_OF
 	pdata = kzalloc(sizeof(struct intel_adc_hal_pdata), GFP_KERNEL);
+	if (pdata == NULL) {
+		dev_err(dev, "%s:memory allocation failed\n"
+				, __func__);
+		ret = -ENOMEM;
+		goto err_kzalloc;
+	}
+
 	ret = of_property_read_u32(np,
 			"intel,calibration_period_s",
 			&period_s);
 
 	if (ret) {
-		dev_err(&ididev->device, "calibration period not found!\n");
-		goto err_exit;
+		dev_err(dev, "calibration period not found!\n");
+		goto err_cal_period;
 	}
 
 	meas_ag620_state.calibration.period_s = period_s;
@@ -1259,15 +1266,13 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 
 	channel_data = meas_ag620_get_of_channel_data(np);
 	if (IS_ERR(channel_data)) {
-		dev_err(&ididev->device,
-				"get channel data error(%ld)!\n",
+		dev_err(dev, "get channel data error(%ld)!\n",
 				PTR_ERR(channel_data));
-		goto err_exit;
+		ret = -ENOMEM;
+		goto err_channel_data;
 	}
 
 	pdata->channel_info.nchan = of_get_child_count(np);
-
-	dev_set_drvdata(dev, meas_ag620_state.hw_base);
 #else
 	pdata = dev->platform_data;
 	meas_ag620_state.calibration.period_s = pdata->calibration_period_s;
@@ -1294,24 +1299,26 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 	meas_ag620_state.hw_base =
 		ioremap(p_resource->start, resource_size(p_resource));
 	if (!meas_ag620_state.hw_base) {
-		dev_err(&ididev->device, "Unable to remap MEAS registers!\n");
+		dev_err(dev, "Unable to remap MEAS registers!\n");
 		ret = -ENOMEM;
-		goto err_exit;
+		goto err_ioremap;
 	}
 
 	ret =  idi_device_pm_set_class(ididev);
 	if (ret) {
-		pr_err("%s: Unable to register for generic pm class\n",
+		dev_err(dev, "%s: Unable to register for generic pm class\n",
 			__func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_dev_set_class;
 	}
 
-	pr_info("%s: getting handlers for dev pm states...\n", __func__);
+	dev_info(dev, "%s: getting handlers for dev pm states...\n",
+			__func__);
 
 	meas_ag620_state.pm_state_en =
 		idi_peripheral_device_pm_get_state_handler(ididev, "enable");
 	if (meas_ag620_state.pm_state_en == NULL) {
-		pr_err("%s: Unable to get handler for PM state 'enable'!\n",
+		dev_err(dev, "%s: Unable to get handler for PM state 'enable'!\n",
 			__func__);
 		ret = -EINVAL;
 		goto err_dev_pm;
@@ -1320,7 +1327,7 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 	meas_ag620_state.pm_state_dis =
 		idi_peripheral_device_pm_get_state_handler(ididev, "disable");
 	if (meas_ag620_state.pm_state_dis == NULL) {
-		pr_err("%s: Unable to get handler for PM state 'disable'!\n",
+		dev_err(dev, "%s: Unable to get handler for PM state 'disable'!\n",
 			__func__);
 		ret = -EINVAL;
 		goto err_dev_pm;
@@ -1334,10 +1341,11 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 	ret = request_irq(meas_ag620_state.irq_num, meas_ag620_irq_handler,
 			IRQF_TRIGGER_RISING, "meas_ag620", &meas_ag620_state);
 	if (ret) {
-		dev_err(&ididev->device, "Unable to register irq %d\n",
+		dev_err(dev, "Unable to register irq %d\n",
 			meas_ag620_state.irq_num);
 		goto err_request_irq;
 	}
+
 	pdata->channel_info.p_data = channel_data;
 	p_channel_info = (struct adc_hal_channel_info *) &pdata->channel_info;
 	dev->platform_data = pdata;
@@ -1372,14 +1380,32 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 	return 0;
 
 err_register_hal:
+	del_timer_sync(&meas_ag620_state.pd_timer);
 	free_irq(meas_ag620_state.irq_num, &meas_ag620_state);
-err_dev_pm:
+
 err_request_irq:
-	dev_set_drvdata(&ididev->device, NULL);
+err_dev_pm:
+	meas_ag620_state.pm_state_en = NULL;
+	meas_ag620_state.pm_state_dis = NULL;
+
+err_dev_set_class:
 	iounmap(meas_ag620_state.hw_base);
 	meas_ag620_state.hw_base = NULL;
-err_exit:
+
+err_ioremap:
+	dev_set_drvdata(&ididev->device, NULL);
 	meas_ag620_state.ididev = NULL;
+
+#ifdef CONFIG_OF
+	kfree(channel_data);
+	channel_data = NULL;
+err_channel_data:
+err_cal_period:
+	kfree(pdata);
+#endif
+
+err_kzalloc:
+	dev_err(dev, "probe failed\n");
 	return ret;
 }
 
@@ -1399,10 +1425,18 @@ static int meas_ag620_remove(struct idi_peripheral_device *ididev)
 
 	del_timer_sync(&meas_ag620_state.pd_timer);
 
+	 free_irq(meas_ag620_state.irq_num, &meas_ag620_state);
+
 	dev_set_drvdata(dev, NULL);
 
 	iounmap(registers);
 
+#ifdef CONFIG_OF
+	kfree(ididev->device.platform_data);
+	kfree(channel_data);
+	ididev->device.platform_data = NULL;
+	channel_data = NULL;
+#endif
 	return 0;
 }
 

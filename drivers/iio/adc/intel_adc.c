@@ -402,6 +402,7 @@ static const char *convert_to_iio_node_name(const char *src)
 
 	len	= strlen(src);
 	p = kmalloc(len, GFP_KERNEL);
+	BUG_ON(p == NULL);
 	strcpy(p, src);
 	dst = p;
 	len = len - strlen("_ADC");
@@ -1576,10 +1577,10 @@ static int intel_adc_iio_registration(struct device *pdev)
 	dev_set_drvdata(pdev, &adc_manager);
 
 	pdata->p_adc_iio_dev = iio_device_alloc(0);
-	if (IS_ERR(pdata->p_adc_iio_dev)) {
+	if (pdata->p_adc_iio_dev == NULL) {
 		ret = PTR_ERR(pdata->p_adc_iio_dev);
 		dev_err(pdev, "Error allocating IIO device: %d\n", ret);
-		goto error_exit;
+		goto error_device_alloc;
 	}
 
 	/* Dynamically create the list of channels. Allocate memory to hold
@@ -1587,19 +1588,19 @@ static int intel_adc_iio_registration(struct device *pdev)
 	pdata->p_adc_chan_spec = kcalloc(p_channel_info->nchan,
 						sizeof(struct iio_chan_spec),
 						GFP_KERNEL);
-	if (IS_ERR(pdata->p_adc_chan_spec)) {
+	if (pdata->p_adc_chan_spec == NULL) {
 		ret = PTR_ERR(pdata->p_adc_chan_spec);
 		dev_err(pdev, "Error allocating IIO channel specs: %d\n", ret);
-		goto error_exit;
+		goto error_adc_chan_alloc;
 	}
 	/* The IIO map is a NULL terminated list, allocate 1 extra structure
 	element. The last element is automatically set to NULL by kcalloc() */
 	pdata->p_iio_map = kcalloc(p_channel_info->nchan + 1,
 					sizeof(struct iio_map), GFP_KERNEL);
-	if (IS_ERR(pdata->p_iio_map)) {
+	if (pdata->p_iio_map == NULL) {
 		ret = PTR_ERR(pdata->p_iio_map);
 		dev_err(pdev, "Error allocating IIO channel map: %d\n", ret);
-		goto error_free_chan_spec;
+		goto error_iio_map_alloc;
 	}
 	/* Finally initialise the list of channels */
 	p_adc_chan_spec = &pdata->p_adc_chan_spec[0];
@@ -1637,18 +1638,25 @@ static int intel_adc_iio_registration(struct device *pdev)
 	/* Register IIO devices */
 	ret = iio_device_register(pdata->p_adc_iio_dev);
 	if (0 != ret)
-		goto error_exit;
+		goto error_iio_dev_reg;
 	/* Map IIO devices to inkernel channels */
 	ret = iio_map_array_register(pdata->p_adc_iio_dev, pdata->p_iio_map);
 	if (0 == ret)
 		return 0;
 
-	iio_device_free(pdata->p_adc_iio_dev);
+	iio_device_unregister(pdata->p_adc_iio_dev);
+
+error_iio_dev_reg:
 	kfree(pdata->p_iio_map);
-error_free_chan_spec:
+
+error_iio_map_alloc:
 	kfree(pdata->p_adc_chan_spec);
-error_exit:
-	dev_dbg(pdev, "ADC probe failed with error code %d\n", ret);
+
+error_adc_chan_alloc:
+	iio_device_free(pdata->p_adc_iio_dev);
+
+error_device_alloc:
+	pr_err("ADC iio registration failed with error code %d\n", ret);
 	return ret;
 }
 
@@ -1667,9 +1675,9 @@ static void intel_adc_iio_deregistration(struct device *pdev)
 		(struct intel_adc_hal_pdata *)pdev->platform_data;
 	iio_map_array_unregister(pdata->p_adc_iio_dev);
 	iio_device_unregister(pdata->p_adc_iio_dev);
-	iio_device_free(pdata->p_adc_iio_dev);
 	kfree(pdata->p_iio_map);
 	kfree(pdata->p_adc_chan_spec);
+	iio_device_free(pdata->p_adc_iio_dev);
 }
 
 static DEFINE_SPINLOCK(hal_list_lock);
