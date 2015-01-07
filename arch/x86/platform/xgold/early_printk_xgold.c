@@ -46,13 +46,18 @@
 static void __iomem *io_base;
 static void __iomem *io_tx_base;
 
-void xgold_early_console_init(void)
+void xgold_early_console_init(unsigned long base)
 {
+	/* if uart_base is not specified,
+	 * use CONFIG_DEBUG_XGOLD_USIFX_ADDR or USIF1 */
+	if (!base)
+		base = CONFIG_DEBUG_XGOLD_USIFX_ADDR;
+
 	io_base = (void *)set_fixmap_offset_nocache(FIX_EARLYCON_MEM_BASE,
-			CONFIG_DEBUG_XGOLD_USIFX_ADDR);
+			base);
 
 	io_tx_base = (void *)set_fixmap_offset_nocache(FIX_EARLYCON_TX_BASE,
-			USIF_TXD(CONFIG_DEBUG_XGOLD_USIFX_ADDR));
+			USIF_TXD(base));
 
 	/* Reconfigure USIF termios
 	 *	So far, let's assume the bootloader is doing it

@@ -11,6 +11,6 @@
 #ifndef _ASM_X86_XGOLD_H
 #define _ASM_X86_XGOLD_H
 extern struct console early_xgold_console;
-extern void xgold_early_console_init(void);
+extern void xgold_early_console_init(unsigned long base);
 
 #endif

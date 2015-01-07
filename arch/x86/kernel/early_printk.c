@@ -256,7 +256,13 @@ static int __init setup_early_printk(char *buf)
 #endif
 #ifdef CONFIG_X86_INTEL_XGOLD_EARLY_PRINTK
 		if (!strncmp(buf, "xgold", 5)) {
-			xgold_early_console_init();
+			unsigned long base = 0;
+
+			if (buf[5] == '@')
+				if (kstrtoul(&buf[6], 16, &base))
+					base = 0;
+
+			xgold_early_console_init(base);
 			early_console_register(&early_xgold_console, keep);
 		}
 #endif
