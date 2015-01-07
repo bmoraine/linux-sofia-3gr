@@ -490,13 +490,28 @@
 					reg = <0xE2000000 0x1000000>;
 
 #ifndef RECOVERY_KERNEL
-					gpu{
-						compatible = "intel,mali";
+					gpu@E2E00000 {
+						compatible = "arm,mali-450", "arm,mali-utgard";
 						reg = <0xE2E00000 0x100000>;
-						intel,mali,cores = < 2 >;
+
+						/* Mali450 MP4 no PMU */
+						interrupts = < GPU_INT IRQ_TYPE_DEFAULT >,
+							< GPU_INT IRQ_TYPE_DEFAULT >, < GPU_INT IRQ_TYPE_DEFAULT >,
+							< GPU_INT IRQ_TYPE_DEFAULT >, < GPU_INT IRQ_TYPE_DEFAULT >,
+							< GPU_INT IRQ_TYPE_DEFAULT >, < GPU_INT IRQ_TYPE_DEFAULT >,
+							< GPU_INT IRQ_TYPE_DEFAULT >, < GPU_INT IRQ_TYPE_DEFAULT >,
+							< GPU_INT IRQ_TYPE_DEFAULT >, < GPU_INT IRQ_TYPE_DEFAULT >;
+						interrupt-names = "IRQGP", "IRQPP","IRQGPMMU",
+							"IRQPP0", "IRQPPMMU0",
+							"IRQPP1", "IRQPPMMU1",
+							"IRQPP2", "IRQPPMMU2",
+							"IRQPP3", "IRQPPMMU3";
+
+						dvfs_off;
+						dvfs_clock_config = < 312 1000 >, < 416 2000 >, < 480 3000 >;
+
 						clocks = <&clk_gpu>, <&clk_ahb_per2>;
 						clock-names = "clk_kernel", "clk_ahb";
-						interrupts = < GPU_INT IRQ_TYPE_DEFAULT >;
 						gpu-supply = <&vdd_gpu>;
 						pm,class-name = "gpu_class";
 						pm,user-name = "gpu";
