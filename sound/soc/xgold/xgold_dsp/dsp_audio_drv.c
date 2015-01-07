@@ -1974,6 +1974,11 @@ static int dsp_audio_runtime_resume(struct device *dev)
 		(void)dsp_dev->p_dsp_common_data->
 			ops->irq_activate(DSP_IRQ_5);
 	}
+	if (XGOLD_DSP_XG742_FBA == dsp_dev->id) {
+		/* Activate FBA DSP interrupt 2 for VOLTE call */
+		(void)dsp_dev->p_dsp_common_data->
+			ops->irq_activate(DSP_IRQ_6);
+	}
 	return ret;
 }
 
