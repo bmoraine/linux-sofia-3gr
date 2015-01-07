@@ -35,13 +35,15 @@
 #include <linux/iio/machine.h>
 #include <linux/iio/consumer.h>
 #include <linux/iio/driver.h>
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
 
 #include "xgold_jack.h"
 
 #define PCL_LOCK_EXCLUSIVE	1
 #define PCL_OPER_ACTIVATE	0
 #define PROP_CODEC_DAI_NAME	"intel,codec_dai_name"
-
+#define PROP_SPK_AMP_NAME	"intel,spk-gpio-sd"
 
 #define	xgold_err(fmt, arg...) \
 		pr_err("snd: mac: "fmt, ##arg)
@@ -53,13 +55,39 @@ int audio_native_mode;
 
 struct xgold_mc_private {
 	struct xgold_jack *jack;
+	int spk_pin;
 };
 
 struct snd_soc_jack hs_jack;
 
+/* Enable/Disable IHF ext amplifier */
+int spk_amp_event(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *k, int event)
+{
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
+	struct xgold_mc_private *ctx = snd_soc_card_get_drvdata(card);
+
+	if (ctx->spk_pin <= 0)
+		return 0;
+
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		xgold_debug("spk_amp_event ON: %d\n", event);
+
+		if (ctx->spk_pin > 0)
+			gpiod_set_value(gpio_to_desc(ctx->spk_pin), 1);
+	} else {
+		if (ctx->spk_pin > 0)
+			gpiod_set_value(gpio_to_desc(ctx->spk_pin), 0);
+
+		xgold_debug("spk_amp_event OFF: %d\n", event);
+	}
+	return 0;
+}
+
 /* XGOLD machine DAPM */
 static const struct snd_soc_dapm_widget xgold_dapm_widgets[] = {
-	SND_SOC_DAPM_SPK("Speaker", NULL),
+	SND_SOC_DAPM_SPK("Speaker", spk_amp_event),
 	SND_SOC_DAPM_HP("Headset", NULL),
 	SND_SOC_DAPM_SPK("Earphone", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
@@ -341,6 +369,26 @@ static int xgold_mc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mc_drv_ctx);
 
+	/* spk gpio */
+	mc_drv_ctx->spk_pin = of_get_named_gpio_flags(np,
+			PROP_SPK_AMP_NAME, 0, NULL);
+
+	if (mc_drv_ctx->spk_pin <= 0) {
+		xgold_debug("%s: unable to get speaker node %s\n",
+			  __func__, PROP_SPK_AMP_NAME);
+	} else {
+		xgold_debug("%s: Get speaker node %s value: %d !!!\n",
+			  __func__, PROP_SPK_AMP_NAME, mc_drv_ctx->spk_pin);
+		ret = gpio_request(mc_drv_ctx->spk_pin, PROP_SPK_AMP_NAME);
+		if (!ret) {
+			xgold_debug("req gpio_request success!:%d\n", ret);
+			gpiod_direction_output(
+				gpio_to_desc(mc_drv_ctx->spk_pin), 1);
+		} else {
+			xgold_err("req gpio_request failed:%d\n", ret);
+		}
+	}
+
 	jack_of_node = of_parse_phandle(np, "intel,jack", 0);
 	if (!jack_of_node)
 		return 0;
@@ -359,8 +407,11 @@ static int xgold_mc_remove(struct platform_device *pdev)
 {
 	struct xgold_mc_private *mc_drv_ctx = platform_get_drvdata(pdev);
 
-	if (mc_drv_ctx)
+	if (mc_drv_ctx) {
 		xgold_jack_remove(mc_drv_ctx->jack);
+		if (mc_drv_ctx->spk_pin > 0)
+			gpio_free(mc_drv_ctx->spk_pin);
+	}
 
 	xgold_debug("%s:\n", __func__);
 	return 0;
