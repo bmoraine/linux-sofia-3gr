@@ -250,7 +250,7 @@ int mvpipe_dev_release(struct inode *inode, struct file *filp)
 
 	/* wait until peer status is not OPEN */
 	wait_event_interruptible(dev->close_wait,
-				 get_pipe_status(dev) == MVPIPE_CLOSE ||
+				 get_peer_status(dev) != MVPIPE_OPEN ||
 				 dev->mbox_status != MBOX_CONNECTED);
 
 	mvpipe_info("Release mvpipe successful!\n");

@@ -87,16 +87,16 @@
 #define VUSB_SE_FE_VERSION_MINOR   2
 
 /************************/
-/* Explicit VBPIPE !    */
+/* Explicit MVPIPE !    */
 /************************/
 
-#define VUSB_SE_FE_COMMAND_VBPIPE_NUM 8
+#define VUSB_SE_FE_COMMAND_MVPIPE_NUM 8
 
 /************************/
-/* VBPIPE Setup         */
+/* MVPIPE Setup         */
 /************************/
-
-#define VUSB_SE_FE_VBPIPE_GENERIC_NAME  "/dev/mvpipe-sedat%d"
+#define VUSB_SE_FE_MVPIPE_CMD_NAME "/dev/mvpipe-secmd"
+#define VUSB_SE_FE_MVPIPE_GENERIC_DATA_NAME  "/dev/mvpipe-sedat%d"
 
 /************************/
 /* Gadget Setup         */
@@ -165,7 +165,7 @@ struct vusb_se_fe_scan {
 struct vusb_se_fe_map_link_id {
 	int link_id;
 	int gadget;
-	int vbpipe;
+	int data_pipe_id;
 };
 
 struct vusb_se_data {
@@ -181,20 +181,23 @@ struct vusb_se_data {
 /************************/
 
 static bool vusb_se_fe_started = VUSB_SE_FE_FALSE;
+static bool vusb_se_fe_started_threads = VUSB_SE_FE_FALSE;
+
 
 /************************/
 /* Linux->MEX Tx Mutex  */
 /************************/
-
 struct mutex vusb_se_fe_tx_lock;
 
+struct mutex vusb_dat_reopen_lock;
+
 /************************/
-/* VBPIPE HANDLES       */
+/* MVPIPE HANDLES       */
 /************************/
 
-static struct file *vusb_se_fe_command_vbpipe_fp;
+static struct file *vusb_se_fe_command_mvpipe_fp;
 
-static struct file *vusb_se_fe_link_vbpipe_fp[VUSB_SECMD_MAX_LINKS];
+static struct file *vusb_se_fe_link_mvpipe_fp[VUSB_SECMD_MAX_LINKS];
 
 /************************/
 /* GADGET HANDLES       */
@@ -255,7 +258,7 @@ static void vusb_se_fe_log_ktermios(int gadget, struct ktermios *pattr);
 static char *vusb_se_fe_ersatz_strtok(char *text, char *seps);
 static unsigned int vusb_se_fe_ersatz_strtoi(char *text);
 
-static struct file *vusb_se_fe_open_vbpipe(bool is_cmd, int pipe);
+static struct file *vusb_se_fe_open_mvpipe(char *name);
 static struct file *vusb_se_fe_open_gadget(int gadget);
 static void vusb_se_fe_close_gadget(struct file *fp, int gadget);
 
@@ -593,25 +596,19 @@ static unsigned int vusb_se_fe_ersatz_strtoi(char *text)
 	return result;
 }
 
-/*****************************************************************************/
-/* Function:... vusb_se_fe_open_vbpipe                                       */
-/* Description: Opens the vbpipe nominated by the pipe number                */
-/*****************************************************************************/
 
-static struct file *vusb_se_fe_open_vbpipe(bool is_cmd, int pipe)
+/*****************************************************************************/
+/* Function:... vusb_se_fe_open_mvpipe                                       */
+/* Description: Opens the mvpipe nominated by the pipe name                  */
+/*****************************************************************************/
+static struct file *vusb_se_fe_open_mvpipe(char *name)
 {
-	char vbpipe_name[32];
 
 	struct file *fp = NULL;
 
 	mm_segment_t old_fs;
 
-	if (is_cmd)
-	  sprintf(vbpipe_name, "/dev/mvpipe-secmd");
-	else
-	  sprintf(vbpipe_name, VUSB_SE_FE_VBPIPE_GENERIC_NAME, pipe);
-
-	VUSB_SE_FE_LOG("Opening VBPIPE[%s]", vbpipe_name);
+	VUSB_SE_FE_LOG("Opening MVPIPE[%s]", name);
 
 	while (!kthread_should_stop()) {
 
@@ -619,27 +616,27 @@ static struct file *vusb_se_fe_open_vbpipe(bool is_cmd, int pipe)
 
 		set_fs(KERNEL_DS);
 		{
-			fp = filp_open(vbpipe_name, O_RDWR, 0);
+			fp = filp_open(name, O_RDWR, 0);
 		}
 		set_fs(old_fs);
 
 		if (NULL == fp) {
 
-			VUSB_SE_FE_ERR("NULL VBPIPE File Handle");
+			VUSB_SE_FE_ERR("NULL MVPIPE File Handle");
 
 			msleep(1000);
 
 			continue;
 		} else if (IS_ERR(fp)) {
 
-			VUSB_SE_FE_ERR("VBPIPE open failed!");
+			VUSB_SE_FE_ERR("MVPIPE open failed!");
 
 			msleep(1000);
 
 			continue;
 		} else {
 
-			VUSB_SE_FE_INF("VBPIPE open succeeded.");
+			VUSB_SE_FE_INF("MVPIPE open succeeded.");
 
 			break;
 		}
@@ -658,7 +655,7 @@ static struct file *vusb_se_fe_open_vbpipe(bool is_cmd, int pipe)
 	    || (NULL == fp->f_op->write)
 	    ) {
 
-		VUSB_SE_FE_ERR("Fatal VBPIPE function error!");
+		VUSB_SE_FE_ERR("Fatal MVPIPE function error!");
 
 		msleep(1000);
 
@@ -908,11 +905,11 @@ static void vusb_se_fe_close_gadget(struct file *fp, int gadget)
 /*                       will require a read/write pair of threads to be     */
 /*                       created and started                                 */
 /*                                                                           */
-/*              LINK_DATA:<link>:<vbpipe>:<bufsiz>:<sioNum>:<linNum>         */
+/*              LINK_DATA:<link>:<mvpipe>:<bufsiz>:<sioNum>:<linNum>         */
 /*                                                                           */
 /*              link     identifies which one of the links is to be set up   */
-/*              vbpipe   gives the vbpipe number that is to be opened        */
-/*              bufsiz   is the size of the vbpipe ring buffer               */
+/*              mvpipe   gives the mvpipe number that is to be opened        */
+/*              bufsiz   is the size of the mvpipe ring buffer               */
 /*              sioNum   is for information/logging here, shows USBCDC       */
 /*              linNum   is the number of the serial gadget to be opened     */
 /*                                                                           */
@@ -1016,7 +1013,7 @@ static void vusb_se_fe_handle_start_threads(void)
 	unsigned int pval[5] = { 0, 0, 0, 0, 0 };
 
 	char thread_name[32];
-
+	char mvpipe_name[32];
 	/* Use a 'while' loop to allow break-out on failure instead of
 	 * successive indentation
 	 */
@@ -1031,11 +1028,21 @@ static void vusb_se_fe_handle_start_threads(void)
 			break;
 		}
 
+		if (vusb_se_fe_started_threads == VUSB_SE_FE_TRUE) {
+			vusb_se_fe_send_message(0, VUSB_SECMD_TXT_LINK,
+					VUSB_SECMD_TXT_START,
+					VUSB_SECMD_TXT_GOOD);
+			return;
+		}
+
+		vusb_se_fe_started_threads = VUSB_SE_FE_TRUE;
+
 		/*
 		 * There are five numerical parameters,
 		 * this identifies the link that is
 		 * to be started, and the parameters for it
 		 */
+
 		for (par = 0; par < 5; par++) {
 
 			mptr =
@@ -1054,7 +1061,7 @@ static void vusb_se_fe_handle_start_threads(void)
 
 		VUSB_SE_FE_LOG("Start ...");
 		VUSB_SE_FE_LOG("...... Link ID %d", pval[0]);
-		VUSB_SE_FE_LOG(".... .. VBPIPE %d", pval[1]);
+		VUSB_SE_FE_LOG(".... .. DATA PIPE ID %d", pval[1]);
 		VUSB_SE_FE_LOG(".... .. BufSiz %d", pval[2]);
 		VUSB_SE_FE_LOG(".... .. SIO ID %d", pval[3]);
 		VUSB_SE_FE_LOG(".... Gadget ID %d", pval[4]);
@@ -1066,7 +1073,7 @@ static void vusb_se_fe_handle_start_threads(void)
 			break;
 		}
 
-		if ((vusb_se_fe_link_vbpipe_fp[pval[0]] != NULL)
+		if ((vusb_se_fe_link_mvpipe_fp[pval[0]] != NULL)
 		    || (vusb_se_fe_link_gadget_fp[pval[0]] != NULL)
 		    ) {
 
@@ -1075,22 +1082,23 @@ static void vusb_se_fe_handle_start_threads(void)
 			break;
 		}
 
-		/* store the values of the gadget and vbpipe
+		/* store the values of the gadget and mvpipe
 		 */
 		vusb_se_fe_map_link_idtable[pval[0]].link_id = pval[0];
 		vusb_se_fe_map_link_idtable[pval[0]].gadget = pval[4];
-		vusb_se_fe_map_link_idtable[pval[0]].vbpipe = pval[1];
+		vusb_se_fe_map_link_idtable[pval[0]].data_pipe_id = pval[1];
 
 		/* Open the data source/sink as file pointers
-		 * - note that the VBPIPE one will open directly
-		 * (we can assume that vbpipe operation has started,
-		 * since we have received a command over a vbpipe!)
+		 * - note that the MVPIPE one will open directly
+		 * (we can assume that mvpipe operation has started,
+		 * since we have received a command over a mvpipe!)
 		 * but that the Linux gadget pipe may not open directly
 		 * - after all, there may be no ACM ports in the current USB
 		 * configuration!
 		 */
-		vusb_se_fe_link_vbpipe_fp[pval[0]] =
-		    vusb_se_fe_open_vbpipe(false, pval[1]);
+		sprintf(mvpipe_name, VUSB_SE_FE_MVPIPE_GENERIC_DATA_NAME, pval[1]);
+		vusb_se_fe_link_mvpipe_fp[pval[0]] =
+		    vusb_se_fe_open_mvpipe(mvpipe_name);
 
 		vusb_se_fe_link_gadget_fp[pval[0]] =
 		    vusb_se_fe_open_gadget(pval[4]);
@@ -1399,7 +1407,7 @@ static void vusb_se_fe_send_message(int channel, char *item, char *signal,
 
 	VUSB_SE_FE_INF("Need to Write %d chars", must_write);
 
-	/* Try to write to the vbpipe.
+	/* Try to write to the mvpipe.
 	 */
 	previously_written = 0;
 
@@ -1410,8 +1418,8 @@ static void vusb_se_fe_send_message(int channel, char *item, char *signal,
 		set_fs(KERNEL_DS);
 		{
 			have_written =
-			    vusb_se_fe_command_vbpipe_fp->f_op->
-			    write(vusb_se_fe_command_vbpipe_fp,
+			    vusb_se_fe_command_mvpipe_fp->f_op->
+			    write(vusb_se_fe_command_mvpipe_fp,
 				  text + previously_written, must_write, 0);
 		}
 		set_fs(old_fs);
@@ -1427,7 +1435,7 @@ static void vusb_se_fe_send_message(int channel, char *item, char *signal,
 
 		if (have_written != must_write) {
 
-			VUSB_SE_FE_LOG("VBPIPE Short Write %d:%d", have_written,
+			VUSB_SE_FE_LOG("MVPIPE Short Write %d:%d", have_written,
 				       must_write);
 
 			must_write -= have_written;
@@ -1487,16 +1495,19 @@ static int vusb_se_fe_command_thread(void *d)
 	/* Set up the single mutex that protects write-back to MEX
 	 */
 	mutex_init(&vusb_se_fe_tx_lock);
+	mutex_init(&vusb_dat_reopen_lock);
 
-	/* open the vbpipe
+	/* open the mvpipe
 	 */
-	VUSB_SE_FE_LOG("Opening Command VBPIPE %d", pipe);
+	VUSB_SE_FE_LOG("Opening Command MVPIPE: %s",
+		VUSB_SE_FE_MVPIPE_CMD_NAME);
 
-	vusb_se_fe_command_vbpipe_fp = vusb_se_fe_open_vbpipe(true, pipe);
+	vusb_se_fe_command_mvpipe_fp =
+		vusb_se_fe_open_mvpipe(VUSB_SE_FE_MVPIPE_CMD_NAME);
 
 	/* check for the NULL pointer return. purely for klocwork.
 	 */
-	if (NULL == vusb_se_fe_command_vbpipe_fp)
+	if (NULL == vusb_se_fe_command_mvpipe_fp)
 		return 0;
 
 	/* open is successful, read from pipe
@@ -1509,15 +1520,15 @@ static int vusb_se_fe_command_thread(void *d)
 
 		mm_segment_t old_fs;
 
-		VUSB_SE_FE_INF("Command VBPIPE about to read.");
+		VUSB_SE_FE_INF("Command MVPIPE about to read.");
 
 		old_fs = get_fs();
 
 		set_fs(KERNEL_DS);
 		{
 			this_read =
-			    vusb_se_fe_command_vbpipe_fp->f_op->
-			    read(vusb_se_fe_command_vbpipe_fp,
+			    vusb_se_fe_command_mvpipe_fp->f_op->
+			    read(vusb_se_fe_command_mvpipe_fp,
 				 &read_buff[have_read],
 				 VUSB_SECMD_BUFFER_SIZE - have_read, 0);
 		}
@@ -1528,10 +1539,21 @@ static int vusb_se_fe_command_thread(void *d)
 			if (0 == this_read) {
 
 				VUSB_SE_FE_INF
-				("Command VBPIPE has nothing to read from MEX");
+				("Command MVPIPE has nothing to read from MEX");
 			} else {
 
-				VUSB_SE_FE_ERR("Command VBPIPE MEX Read Error");
+				VUSB_SE_FE_ERR("Command MVPIPE MEX Read Error");
+
+				/* re-open it */
+				if (mutex_lock_interruptible
+					(&vusb_se_fe_tx_lock))
+					return;
+
+				vusb_se_fe_command_mvpipe_fp =
+					vusb_se_fe_open_mvpipe
+						(VUSB_SE_FE_MVPIPE_CMD_NAME);
+
+				mutex_unlock(&vusb_se_fe_tx_lock);
 			}
 
 			msleep(1000);
@@ -1542,7 +1564,7 @@ static int vusb_se_fe_command_thread(void *d)
 			 */
 			have_read += this_read;
 
-			VUSB_SE_FE_LOG("Command VBPIPE Read %d bytes, total %d",
+			VUSB_SE_FE_LOG("Command MVPIPE Read %d bytes, total %d",
 				       this_read, have_read);
 
 			read_buff[have_read] = 0;
@@ -1552,7 +1574,7 @@ static int vusb_se_fe_command_thread(void *d)
 			if (0 == read_buff[have_read - 1]) {
 
 				VUSB_SE_FE_INF
-				("Command VBPIPE Complete Message of %d Bytes",
+				("Command MVPIPE Complete Message of %d Bytes",
 				     have_read);
 
 				/*
@@ -1578,7 +1600,7 @@ static int vusb_se_fe_command_thread(void *d)
 			} else {
 
 				VUSB_SE_FE_LOG
-				("Command VBPIPE No terminator, read again");
+				("Command MVPIPE No terminator, read again");
 			}
 		}
 	}
@@ -1606,6 +1628,7 @@ static int vusb_se_fe_do_link_txfr(unsigned int link, char *tag,
 	 * stream operations...
 	 */
 	char read_buf[VUSB_SE_FE_DATA_BUFSIZ];
+	char pipe_name[32];
 
 	mm_segment_t old_fs;
 
@@ -1671,6 +1694,9 @@ static int vusb_se_fe_do_link_txfr(unsigned int link, char *tag,
 			 */
 			tx_fp = tx_fps[link];
 
+			if (mutex_lock_interruptible(&vusb_dat_reopen_lock))
+				return;
+
 			if (NULL != tx_fp) {
 				have_used =
 				    tx_fp->f_op->write(tx_fp,
@@ -1679,6 +1705,8 @@ static int vusb_se_fe_do_link_txfr(unsigned int link, char *tag,
 			} else {
 				have_used = 0;
 			}
+
+			mutex_unlock(&vusb_dat_reopen_lock);
 		}
 		set_fs(old_fs);
 
@@ -1709,7 +1737,7 @@ static int vusb_se_fe_do_link_txfr(unsigned int link, char *tag,
 
 /*****************************************************************************/
 /* Function:... vusb_se_fe_link_rx_thread                                    */
-/* Description: This function is called as the reader daemon for vbpipe and  */
+/* Description: This function is called as the reader daemon for mvpipe and  */
 /*              runs a forever-loop collecting data and sends it off to the  */
 /*              matching linux gadget                                        */
 /*              This function supports multiple instances of the link as     */
@@ -1719,6 +1747,7 @@ static int vusb_se_fe_do_link_txfr(unsigned int link, char *tag,
 static int vusb_se_fe_link_rx_thread(void *d)
 {
 	unsigned int link;
+	char mvpipe_name[32];
 
 	int diagnostic = 1;
 	unsigned data = ((struct vusb_se_data *)d)->uint_val;
@@ -1731,8 +1760,22 @@ static int vusb_se_fe_link_rx_thread(void *d)
 
 		diagnostic =
 		    vusb_se_fe_do_link_txfr(link, "BE-to-FE",
-					    vusb_se_fe_link_vbpipe_fp,
+					    vusb_se_fe_link_mvpipe_fp,
 					    vusb_se_fe_link_gadget_fp);
+
+		if (VUSB_SE_FE_TXFR_RX_ERR == diagnostic) {
+			/* re-open it */
+			if (mutex_lock_interruptible(&vusb_dat_reopen_lock))
+				return;
+
+			sprintf(mvpipe_name,
+				VUSB_SE_FE_MVPIPE_GENERIC_DATA_NAME, link);
+
+			vusb_se_fe_link_mvpipe_fp[link] =
+				vusb_se_fe_open_mvpipe(mvpipe_name);
+
+			mutex_unlock(&vusb_dat_reopen_lock);
+		}
 
 	}
 
@@ -1743,7 +1786,7 @@ static int vusb_se_fe_link_rx_thread(void *d)
 /* Function:... vusb_se_fe_link_tx_thread                                    */
 /* Description: This function is called as the reader daemon for the linux   */
 /*              gadget and runs a forever-loop collecting data and sends it  */
-/*              off to the matching vbpipe                                   */
+/*              off to the matching mvpipe                                   */
 /*              This function supports multiple instances of the link as     */
 /*              defined by the parameter 'data'                              */
 /*****************************************************************************/
@@ -1766,7 +1809,7 @@ static int vusb_se_fe_link_tx_thread(void *d)
 		diagnostic =
 		    vusb_se_fe_do_link_txfr(link, "FE-to-BE",
 					    vusb_se_fe_link_gadget_fp,
-					    vusb_se_fe_link_vbpipe_fp);
+					    vusb_se_fe_link_mvpipe_fp);
 
 		if (VUSB_SE_FE_TXFR_RX_NUL == diagnostic) {
 
@@ -1950,19 +1993,19 @@ static int __init vusb_se_fe_init(void)
 
 	/* Initially there are no file pointers
 	 */
-	vusb_se_fe_command_vbpipe_fp = NULL;
+	vusb_se_fe_command_mvpipe_fp = NULL;
 
 	for (link = 0; link < VUSB_SECMD_MAX_LINKS; link++) {
 
-		vusb_se_fe_link_vbpipe_fp[link] = NULL;
+		vusb_se_fe_link_mvpipe_fp[link] = NULL;
 		vusb_se_fe_link_gadget_fp[link] = NULL;
 	}
 
 	/* Now start the command-handler thread that will open the specified
-	 * vbpipe command channel and then wait for incoming setup commands
+	 * mvpipe command channel and then wait for incoming setup commands
 	 * from the back end, and after that, possible modem state changes
 	 */
-	vusb_data->uint_val = VUSB_SE_FE_COMMAND_VBPIPE_NUM;
+	vusb_data->uint_val = VUSB_SE_FE_COMMAND_MVPIPE_NUM;
 	kthread_run(vusb_se_fe_command_thread,
 			(void *)vusb_data,
 		    "VUSB_SE_FE_MEX_MESSAGES");
