@@ -310,8 +310,6 @@
 	accelerometer {
 		compatible = "st,lsm303dlhc_acc";
 		reg = < 0x19 >;
-		interrupt-parent = <&eint>;
-		interrupts = < EINT_EXI12 XGOLD_IRQ_TYPE_LEVEL_HIGH >;
 		intel,axis-map = < 0 1 2 >;
 		intel,negate = < 0 0 0 >;
 		intel,poll-interval = < 100 >;
@@ -363,8 +361,6 @@
 	gyroscope {
 		compatible = "st,l3gd20_gyr";
 		reg = < 0x6a >;
-		interrupt-parent = <&eint>;
-		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_RISING >;
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&gyroscope_default_pins>;
 		pinctrl-1 = <&gyroscope_sleep_pins>;
