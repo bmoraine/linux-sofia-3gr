@@ -472,6 +472,14 @@
 					lvds: lvds {
 						      compatible = "nanosilicon,nanosilicon-lvds";
 					      };
+
+					mipi_dsi: mipi_dsi@E1080000 {
+							compatible = "intel,sofia3gr-mipi_dsi";
+							reg = <0xE1080000 0x80000>;
+							reg-names = "mipi_dsi_phy";
+							interrupts = < DIF_ERR_INT IRQ_TYPE_DEFAULT >;
+							interrupt-names = "err";
+					};
 				};
 
 				ahb_per@2 {
