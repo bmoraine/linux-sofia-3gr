@@ -240,6 +240,7 @@ struct lsm303dlhc_acc_status {
 	int use_smbus;
 	int poll_count;
 	int prev_xyz[3];
+	bool polling_enabled;
 	int polling_threshold;
 	u8 sensitivity;
 	u8 resume_state[RESUME_ENTRIES];
@@ -428,7 +429,8 @@ skip_pinctrl:
 	/* FIXME: set default values */
 	acc_pdata->fs_range = LSM303DLHC_ACC_G_2G;
 	acc_pdata->min_interval = LSM303DLHC_ACC_MIN_POLL_PERIOD_MS; /* 2ms */
-	acc_pdata->gpio_int1 = 0;
+	acc_pdata->gpio_int1 =
+		LSM303DLHC_ACC_DEFAULT_INT1_GPIO;
 	acc_pdata->gpio_int2 =
 		LSM303DLHC_ACC_DEFAULT_INT2_GPIO; /* int for fifo */
 	acc_pdata->intr_poll_count = 5;
@@ -917,7 +919,7 @@ static enum hrtimer_restart
 	struct lsm303dlhc_acc_status *stat =
 		container_of(timer, struct lsm303dlhc_acc_status, timer);
 	dev_dbg(&stat->client->dev, "lsm303dlhc_acc_hrtimer_callback\n");
-	if (stat->pdata->gpio_int1 >= 0)
+	if (!stat->polling_enabled)
 		queue_work(stat->irq1_work_queue, &stat->irq1_work);
 	else
 		queue_work(stat->input_work_queue, &stat->input_work);
@@ -968,9 +970,8 @@ static void lsm303dlhc_acc_device_power_off(struct lsm303dlhc_acc_status *stat)
 
 	if (stat->timer_running == 1)
 		stat->timer_running = 0;
-	else
-		if (stat->pdata->gpio_int1 >= 0)
-			disable_irq_nosync(stat->irq1);
+	else if (!stat->polling_enabled)
+		disable_irq_nosync(stat->irq1);
 
 	if (stat->pdata->power_off)
 		stat->pdata->power_off(&stat->input_dev->dev);
@@ -991,7 +992,7 @@ static int lsm303dlhc_acc_device_power_on(struct lsm303dlhc_acc_status *stat)
 		}
 	}
 	msleep(20);
-	if (stat->pdata->gpio_int1 >= 0)
+	if (!stat->polling_enabled)
 		enable_irq(stat->irq1);
 
 	if (!stat->hw_initialized) {
@@ -1015,7 +1016,7 @@ static int lsm303dlhc_acc_enable(struct lsm303dlhc_acc_status *stat)
 			atomic_set(&stat->enabled, 0);
 			return err;
 		}
-		if (stat->pdata->gpio_int1 >= 0) {
+		if (!stat->polling_enabled) {
 			err = lsm303dlhc_acc_manage_int1settings(stat, 1);
 			if (err < 0)
 				return err;
@@ -1512,7 +1513,12 @@ static int lsm303dlhc_acc_probe(struct i2c_client *client,
 	stat->resume_state[RES_TT_TLAT] = ALL_ZEROES;
 	stat->resume_state[RES_TT_TW] = ALL_ZEROES;
 
-	if (stat->pdata->gpio_int1 >= 0) {
+	if (client->irq > 0 || stat->pdata->gpio_int1 > 0)
+		stat->polling_enabled = false;
+	else
+		stat->polling_enabled = true;
+
+	if (!stat->polling_enabled) {
 		INIT_WORK(&stat->irq1_work, lsm303dlhc_acc_irq1_work_func);
 		stat->irq1_work_queue =
 		    create_singlethread_workqueue("lsm303dlhc_acc_wq1");
