@@ -37,9 +37,11 @@
 
 static int dbg_logs_en;
 
-#define psc_dbg_printk(fmt, ...) \
-	if (dbg_logs_en)\
-		pr_debug(fmt, ##__VA_ARGS__)
+#define psc_dbg_printk(fmt, ...)\
+	do { \
+		if (dbg_logs_en)\
+			pr_debug(fmt, ##__VA_ARGS__); \
+	} while (0)
 
 
 #define SYSFS_INPUT_VAL_LEN (1)
@@ -280,16 +282,14 @@ static inline int get_chrgr_prop_cache(struct power_supply *psy,
 
 static void dump_charger_props(struct charger_props *props)
 {
-	psc_dbg_printk("%s:name=%s present=%d is_charging=%d health=%d "
-		"online=%d cable=%lu tstamp=%lu\n",
+	psc_dbg_printk("%s:name=%s present=%d is_charging=%d health=%d online=%d cable=%lu tstamp=%lu\n",
 		 __func__, props->name, props->present, props->is_charging,
 		  props->health, props->online, props->cable, props->tstamp);
 }
 
 static void dump_battery_props(struct batt_props *props)
 {
-	psc_dbg_printk("%s:name=%s voltage_now=%ld current_now=%ld "
-		"temperature=%d status=%ld health=%d tstamp=%lu algo_stat=%d ",
+	psc_dbg_printk("%s:name=%s voltage_now=%ld current_now=%ld temperature=%d status=%ld health=%d tstamp=%lu algo_stat=%d ",
 		 __func__, props->name, props->voltage_now, props->current_now,
 		  props->temperature, props->status, props->health,
 		   props->tstamp, props->algo_stat);

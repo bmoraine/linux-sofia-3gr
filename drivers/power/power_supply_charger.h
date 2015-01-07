@@ -135,16 +135,19 @@ static inline int get_ps_int_property(struct power_supply *psy,
 				POWER_SUPPLY_PROP_ENABLE_CHARGER, false); })
 
 #define set_cc(psy, cc) \
-		set_ps_int_property(psy, POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT, cc)
+		set_ps_int_property(psy, \
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT, cc)
 
 #define set_cv(psy, cv) \
-		set_ps_int_property(psy, POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE, cv)
+		set_ps_int_property(psy, \
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE, cv)
 
 #define set_inlmt(psy, inlmt) \
 		set_ps_int_property(psy, POWER_SUPPLY_PROP_INLMT, inlmt)
 #define SET_MAX_CC(psy, max_cc) \
 		set_ps_int_property(psy,\
-				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, max_cc)
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,\
+				max_cc)
 #define SET_ITERM(psy, iterm) \
 		set_ps_int_property(psy,\
 				POWER_SUPPLY_PROP_CHARGE_TERM_CUR, iterm)
@@ -162,15 +165,19 @@ static inline int get_ps_int_property(struct power_supply *psy,
 #define HEALTH(psy) \
 		get_ps_int_property(psy, POWER_SUPPLY_PROP_HEALTH)
 #define CV(psy) \
-		get_ps_int_property(psy, POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE)
+		get_ps_int_property(psy, \
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE)
 #define CC(psy) \
-		get_ps_int_property(psy, POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT)
+		get_ps_int_property(psy, \
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT)
 #define INLMT(psy) \
 		get_ps_int_property(psy, POWER_SUPPLY_PROP_INLMT)
 #define MAX_CC(psy) \
-		get_ps_int_property(psy, POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX)
+		get_ps_int_property(psy, \
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX)
 #define MAX_CV(psy) \
-		get_ps_int_property(psy, POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE_MAX)
+		get_ps_int_property(psy, \
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE_MAX)
 #define VOLTAGE_NOW(psy) \
 		get_ps_int_property(psy, POWER_SUPPLY_PROP_VOLTAGE_NOW)
 #define VOLTAGE_OCV(psy) \

@@ -577,7 +577,8 @@ static void sw_fuel_gauge_hal_process_timer_and_irq_work(long param)
  *
  * Returns:		Whether alarm timer should restart.
  */
-static enum alarmtimer_restart sw_fuel_gauge_hal_polling_atimer_expired_cb(struct alarm *alrm, ktime_t t)
+static enum alarmtimer_restart sw_fuel_gauge_hal_polling_atimer_expired_cb(
+		struct alarm *alrm, ktime_t t)
 {
 	SW_FUEL_GAUGE_HAL_DEBUG_NO_LOG_NO_PARAM
 		(SW_FUEL_GAUGE_DEBUG_HAL_TIMER_EXPIRED);

@@ -35,8 +35,10 @@
 static int *dbg_logs_en;
 
 #define algo_dbg_printk(fmt, ...) \
-	if (dbg_logs_en && *dbg_logs_en)\
-		pr_debug(fmt, ##__VA_ARGS__)
+	{\
+		if (dbg_logs_en && *dbg_logs_en)\
+			pr_debug(fmt, ##__VA_ARGS__); \
+	}
 
 
 /* 98% of CV is considered as voltage to detect Full */
@@ -140,8 +142,7 @@ static inline bool is_battery_full(struct batt_props bat_prop,
 	*  battery Full. The voltage also verified to avoid false charge
 	*  full detection.
 	*/
-	algo_dbg_printk("%s:current=%ld pse_mod_bprof->chrg_term_ma =%d "
-		"bat_prop.voltage_now=%ld full_cond=%lu",
+	algo_dbg_printk("%s:current=%ld pse_mod_bprof->chrg_term_ma =%d bat_prop.voltage_now=%ld full_cond=%lu",
 		 __func__, bat_prop.current_now, (pse_mod_bprof->chrg_term_ma),
 		  bat_prop.voltage_now * 100, (FULL_CV_MIN * cv));
 
