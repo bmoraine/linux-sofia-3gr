@@ -45,10 +45,7 @@ static struct sw_fuel_gauge_nvs_data sw_fuel_gauge_nvs = {
 /* Array to collect debug data */
 static struct sw_fuel_gauge_debug_data sw_fuel_gauge_nvs_debug_data = {
 	.lock = __SPIN_LOCK_UNLOCKED(sw_fuel_gauge_nvs_debug_data.lock),
-	.printk_logs_en = 0,
 };
-
-#define SYSFS_INPUT_VAL_LEN					(1)
 
 /* Macro to trace and log debug event and data. */
 #define SW_FUEL_GAUGE_NVS_DEBUG_PARAM(_event, _param) \
@@ -563,16 +560,5 @@ bool sw_fuel_gauge_register_nvs_ready_cb(void (*p_func)(void))
 #else
 	return false;
 #endif
-}
-
-/**
- * Function to enable or disable debug logging.
- *
- * @debug_val			[in] The new debug log
- *						setting.
- */
-void sw_fuel_gauge_nvs_dbg_set(int debug_val)
-{
-	sw_fuel_gauge_nvs_debug_data.printk_logs_en = debug_val;
 }
 

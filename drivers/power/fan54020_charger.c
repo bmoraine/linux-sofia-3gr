@@ -427,9 +427,7 @@ static int fan54020_i2c_write_reg(
 static int fan54020_enable_charging(
 			struct fan54020_charger *chrgr, bool enable);
 
-static struct charger_debug_data chrgr_dbg = {
-	.printk_logs_en = 0,
-};
+static struct charger_debug_data chrgr_dbg;
 
 struct shadow_reg {
 	const char *name;
@@ -2151,70 +2149,6 @@ static int fan54020_otg_notification_handler(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
-{
-	size_t size_copied;
-	int value;
-
-	value = chrgr_dbg.printk_logs_en;
-	size_copied = sprintf(buf, "%d\n", value);
-
-	return size_copied;
-}
-
-static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
-		 const char *buf, size_t count)
-{
-	int sysfs_val;
-	int ret;
-	size_t size_to_cpy;
-	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
-
-	size_to_cpy = (count > SYSFS_INPUT_VAL_LEN) ?
-						SYSFS_INPUT_VAL_LEN : count;
-	strncpy(strvalue, buf, size_to_cpy);
-	strvalue[size_to_cpy] = '\0';
-
-	ret = kstrtoint(strvalue, 10, &sysfs_val);
-	if (ret != 0)
-		return ret;
-
-	sysfs_val = (sysfs_val == 0) ? 0 : 1;
-
-	chrgr_dbg.printk_logs_en = sysfs_val;
-
-	pr_info("sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
-
-	return count;
-}
-
-static struct device_attribute dbg_logs_on_off_attr = {
-	.attr = {
-		.name = "dbg_logs_on_off",
-		.mode = S_IRUSR | S_IWUSR,
-	},
-	.show = dbg_logs_show,
-	.store = dbg_logs_store,
-};
-
-/**
- * fan54020_setup_dbglogs_sysfs_attr	Sets up dbg_logs_on_off sysfs entry
- *					for debug logs control for fan54020
- *					i2c device
- * @dev					[in] pointer to device structure
- *
- */
-static void fan54020_setup_dbglogs_sysfs_attr(struct device *dev)
-{
-	int err;
-
-	err = device_create_file(dev, &dbg_logs_on_off_attr);
-	if (err)
-		pr_err("Unable to create sysfs entry: '%s'\n",
-				dbg_logs_on_off_attr.attr.name);
-}
-
 
 static int fan54020_i2c_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
@@ -2442,8 +2376,6 @@ static int fan54020_i2c_probe(struct i2c_client *client,
 		goto boost_fail;
 	}
 
-
-	fan54020_setup_dbglogs_sysfs_attr(&client->dev);
 
 	device_init_wakeup(&client->dev, true);
 

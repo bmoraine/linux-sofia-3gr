@@ -32,13 +32,8 @@
 #include "power_supply_charger.h"
 #include <linux/hrtimer.h>
 
-static int *dbg_logs_en;
-
 #define algo_dbg_printk(fmt, ...) \
-	{\
-		if (dbg_logs_en && *dbg_logs_en)\
-			pr_debug(fmt, ##__VA_ARGS__); \
-	}
+	pr_debug(fmt, ##__VA_ARGS__)
 
 
 /* 98% of CV is considered as voltage to detect Full */
@@ -295,7 +290,7 @@ static int __init pse_algo_init(void)
 	pse_algo.name = "pse_algo";
 	pse_algo.get_next_cc_cv = pse_get_next_cc_cv;
 	pse_algo.get_batt_thresholds = pse_get_bat_thresholds;
-	power_supply_register_charging_algo(&pse_algo, &dbg_logs_en);
+	power_supply_register_charging_algo(&pse_algo);
 	return 0;
 }
 

@@ -35,14 +35,8 @@
 #include "power_supply_charger.h"
 #include <linux/version.h>
 
-static int dbg_logs_en;
-
-#define psc_dbg_printk(fmt, ...)\
-	do { \
-		if (dbg_logs_en)\
-			pr_debug(fmt, ##__VA_ARGS__); \
-	} while (0)
-
+#define psc_dbg_printk(fmt, ...) \
+	pr_debug(fmt, ##__VA_ARGS__)
 
 #define SYSFS_INPUT_VAL_LEN (1)
 
@@ -1055,69 +1049,6 @@ int psy_charger_throttle_charger(struct power_supply *psy,
 }
 EXPORT_SYMBOL(psy_charger_throttle_charger);
 
-static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
-{
-	size_t size_copied;
-	int value;
-
-	value = dbg_logs_en;
-	size_copied = sprintf(buf, "%d\n", value);
-
-	return size_copied;
-}
-
-static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
-		 const char *buf, size_t count)
-{
-	int sysfs_val;
-	int ret;
-	size_t size_to_cpy;
-	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
-
-	size_to_cpy = (count > SYSFS_INPUT_VAL_LEN) ?
-					SYSFS_INPUT_VAL_LEN : count;
-	strncpy(strvalue, buf, size_to_cpy);
-	strvalue[size_to_cpy] = '\0';
-
-	ret = kstrtoint(strvalue, 10, &sysfs_val);
-	if (ret != 0)
-		return ret;
-
-	sysfs_val = (sysfs_val == 0) ? 0 : 1;
-
-	dbg_logs_en = sysfs_val;
-
-	pr_info("PSC: sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
-
-	return count;
-}
-
-static struct device_attribute dbg_logs_on_off_attr = {
-	.attr = {
-		.name = "psc_dbg_logs_en",
-		.mode = S_IRUSR | S_IWUSR,
-	},
-	.show = dbg_logs_show,
-	.store = dbg_logs_store,
-};
-
-/**
- * psc_setup_sysfs_attr		Sets up psc_dbg_logs_en sysfs entry
- *				for debug logs on/off control
- * @dev				[in] pointer to device structure
- *				structure
- */
-static void psc_setup_sysfs_attr(struct device *dev)
-{
-	int err;
-
-	err = device_create_file(dev, &dbg_logs_on_off_attr);
-	if (err)
-		pr_err("Unable to create sysfs entry: '%s'\n",
-				dbg_logs_on_off_attr.attr.name);
-}
-
 int power_supply_register_charger(struct power_supply *psy)
 {
 	int ret = 0;
@@ -1130,7 +1061,6 @@ int power_supply_register_charger(struct power_supply *psy)
 		INIT_WORK(&psy_chrgr.algo_trigger_work, trigger_algo_psy_class);
 		psy_chrgr.algo_timestamp = jiffies;
 		psy_chrgr.is_cable_evt_reg = true;
-		psc_setup_sysfs_attr(psy->dev);
 	}
 	return ret;
 }
@@ -1143,8 +1073,7 @@ int power_supply_unregister_charger(struct power_supply *psy)
 }
 EXPORT_SYMBOL(power_supply_unregister_charger);
 
-int power_supply_register_charging_algo(struct charging_algo *algo,
-						int **debug_logs_ctrl)
+int power_supply_register_charging_algo(struct charging_algo *algo)
 {
 
 	struct charging_algo *algo_new;
@@ -1157,8 +1086,6 @@ int power_supply_register_charging_algo(struct charging_algo *algo,
 	memcpy(algo_new, algo, sizeof(*algo_new));
 
 	list_add_tail(&algo_new->node, &algo_list);
-
-	*debug_logs_ctrl = &dbg_logs_en;
 
 	return 0;
 }

@@ -81,8 +81,7 @@ struct charging_algo {
 };
 
 
-extern int power_supply_register_charging_algo(struct charging_algo *,
-						int **debug_logs_ctrl);
+extern int power_supply_register_charging_algo(struct charging_algo *);
 
 extern int power_supply_unregister_charging_algo(struct charging_algo *);
 

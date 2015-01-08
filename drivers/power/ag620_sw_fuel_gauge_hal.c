@@ -110,8 +110,6 @@ threshold comparator */
 			((IBAT_LONG_TERM_AVERAGE_PERIOD_SECS\
 			* IBAT_LONG_TERM_AVERAGE_ERROR_MARGIN_PERCENT) / 100))
 
-#define SYSFS_INPUT_VAL_LEN					(1)
-
 /* Macro to trace and log debug event and data. */
 #define SW_FUEL_GAUGE_HAL_DEBUG_PARAM(_event, _param) \
 	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_hal_debug_data, _event, _param)
@@ -262,9 +260,7 @@ static struct sw_fuel_gauge_hal_interface ag620_sw_fuel_gauge_hal = {
 static struct sw_fuel_gauge_hal_data sw_fuel_gauge_hal_instance;
 
 /* Array to collect debug data */
-static struct sw_fuel_gauge_debug_data sw_fuel_gauge_hal_debug_data = {
-	.printk_logs_en = 0,
-};
+static struct sw_fuel_gauge_debug_data sw_fuel_gauge_hal_debug_data;
 
 /**
  * sw_fuel_gauge_hal_get_coulomb_counts - Read the raw couloumb counter values.
@@ -982,68 +978,6 @@ static int sw_fuel_gauge_hal_get(enum sw_fuel_gauge_hal_get_key key,
 	return error;
 }
 
-static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
-				char *buf)
-{
-	size_t size_copied;
-	int value;
-
-	value = sw_fuel_gauge_hal_debug_data.printk_logs_en;
-	size_copied = sprintf(buf, "%d\n", value);
-
-	return size_copied;
-}
-
-static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	int sysfs_val;
-	int ret;
-	size_t size_to_cpy;
-	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
-
-	size_to_cpy =
-		(count > SYSFS_INPUT_VAL_LEN) ? SYSFS_INPUT_VAL_LEN : count;
-	strncpy(strvalue, buf, size_to_cpy);
-	strvalue[size_to_cpy] = '\0';
-
-	ret = kstrtoint(strvalue, 10, &sysfs_val);
-	if (ret != 0)
-		return ret;
-
-	sysfs_val = (sysfs_val == 0) ? 0 : 1;
-
-	sw_fuel_gauge_hal_debug_data.printk_logs_en = sysfs_val;
-
-	pr_info("sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
-
-	return count;
-}
-
-static struct device_attribute dbg_logs_on_off_attr = {
-	.attr = {
-		.name = "dbg_logs_on_off",
-		.mode = S_IRUSR | S_IWUSR,
-	},
-	.show = dbg_logs_show,
-	.store = dbg_logs_store,
-};
-
-/**
- * swfg_hal_setup_sysfs_attr	Sets up dbg_logs_on_off entry for
- *				swfg hal idi device
- * @dev				[in] pointer to device structure
- *				structure
- */
-static void swfg_hal_setup_sysfs_attr(struct device *dev)
-{
-	int err;
-
-	err = device_create_file(dev, &dbg_logs_on_off_attr);
-	if (err)
-		pr_err("Unable to create sysfs entry: '%s'\n",
-				dbg_logs_on_off_attr.attr.name);
-}
 
 /**
 * Retrieves platform data from device tree
@@ -1263,8 +1197,6 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 	BUG_ON(sw_fuel_gauge_register_hal(&ag620_sw_fuel_gauge_hal,
 					&sw_fuel_gauge_hal_instance.
 							p_sw_fuel_gauge));
-
-	swfg_hal_setup_sysfs_attr(&ididev->device);
 
 	/* There are no recoverable errors for this function. Failure will
 	cause a panic. */

@@ -41,8 +41,6 @@
 #include <linux/slab.h>
 #include "bprofile_dts_parser.h"
 
-#define SYSFS_INPUT_VAL_LEN (1)
-
 #define PMU_AG6X0_BAT_DET	0xC00
 #define PMU_AG6X0_C0_FS		0x1038
 
@@ -111,9 +109,8 @@ for Bat Drv HAL */
 	_array.index++; \
 	_array.index &= (BAT_DRV_HAL_DEBUG_DATA_SIZE-1); \
 	spin_unlock(&_array.lock); \
-	if (_array.printk_logs_en) \
-		pr_debug("%s 0x%lx  dec=%ld\n", #_event, \
-				(unsigned long)_param, (long)_param); \
+	pr_debug("%s 0x%lx  dec=%ld\n", #_event, \
+			(unsigned long)_param, (long)_param); \
 }
 
 /* Macro to trace and log debug event and data. */
@@ -214,7 +211,6 @@ enum bat_drv_hal_debug_event {
  */
 struct bat_drv_hal_debug_data {
 	spinlock_t lock;
-	int printk_logs_en;
 	u32 index;
 	struct {
 		u32 time_stamp;
@@ -374,9 +370,7 @@ static struct bat_drv_hal_data bat_drv_hal_instance = {
 };
 
 /* Array to collect debug data */
-static struct bat_drv_hal_debug_data bat_drv_hal_debug_info = {
-	.printk_logs_en = 0,
-};
+static struct bat_drv_hal_debug_data bat_drv_hal_debug_info;
 
 static unsigned bat_drv_pmu_ioread(struct bat_drv_hal_data *bat_drv_hal,
 					unsigned offset)
@@ -1293,69 +1287,6 @@ static void bat_drv_hal_presence_detection_debouncing_timer_cb(unsigned long
 			NULL);
 }
 
-static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
-			char *buf)
-{
-	size_t size_copied;
-	int value;
-
-	value = bat_drv_hal_debug_info.printk_logs_en;
-	size_copied = sprintf(buf, "%d\n", value);
-
-	return size_copied;
-}
-
-static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
-			const char *buf, size_t count)
-{
-	int sysfs_val;
-	int ret;
-	size_t size_to_cpy;
-	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
-
-	size_to_cpy =
-	(count > SYSFS_INPUT_VAL_LEN) ? SYSFS_INPUT_VAL_LEN : count;
-	strncpy(strvalue, buf, size_to_cpy);
-	strvalue[size_to_cpy] = '\0';
-
-	ret = kstrtoint(strvalue, 10, &sysfs_val);
-	if (ret != 0)
-		return ret;
-
-	sysfs_val = (sysfs_val == 0) ? 0 : 1;
-
-	bat_drv_hal_debug_info.printk_logs_en = sysfs_val;
-
-	pr_info("sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
-
-	return count;
-}
-
-static struct device_attribute dbg_logs_on_off_attr = {
-	.attr = {
-		.name = "dbg_logs_on_off",
-		.mode = S_IRUSR | S_IWUSR,
-		},
-	.show = dbg_logs_show,
-	.store = dbg_logs_store,
-};
-
-/**
- * bat_drv_setup_sysfs_attr	Sets up dbg_logs_on_off sysfs entry
- *				for battery driver's idi device
- * @dev				[in] pointer to device structure
- *				structure
- */
-static void bat_drv_setup_sysfs_attr(struct device *dev)
-{
-	int err;
-
-	err = device_create_file(dev, &dbg_logs_on_off_attr);
-	if (err)
-		pr_err("Unable to create sysfs entry: '%s'\n",
-		dbg_logs_on_off_attr.attr.name);
-}
-
 static inline int bat_drv_hal_get_pdata(struct bat_drv_hal_data *hal)
 {
 	struct device_node *np = hal->p_idi_device->device.of_node;
@@ -1548,8 +1479,6 @@ static int __init bat_drv_hal_probe(struct idi_peripheral_device *ididev,
 			BAT_DRV_HAL_PRESENCE_STM_EVENT_START);
 
 	bat_drv_hal_instance.initialised = true;
-
-	bat_drv_setup_sysfs_attr(&ididev->device);
 
 	return 0;
 

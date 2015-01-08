@@ -126,8 +126,6 @@ available after startup. */
  */
 #define WORK_FIFO_LENGTH			(32)
 
-#define SYSFS_INPUT_VAL_LEN			(1)
-
 /* Macro to trace and log debug event and data. */
 #define SW_FUEL_GAUGE_DEBUG_PARAM(_event, _param) \
 	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_debug.dbg_array, _event, _param)
@@ -500,9 +498,6 @@ static struct sw_fuel_gauge_work_fifo sw_fuel_gauge_work = {
 
 /* Array to collect debug data */
 static struct sw_fuel_gauge_debug sw_fuel_gauge_debug = {
-	.dbg_array = {
-		.printk_logs_en = 0,
-	},
 	.stats = {
 		.again_error_cnt = 0,
 		.io_error_cnt = 0,
@@ -2994,70 +2989,6 @@ int sw_fuel_gauge_register_hal(
 	return 0;
 }
 
-static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
-{
-	size_t size_copied;
-	int value;
-
-	value = sw_fuel_gauge_debug.dbg_array.printk_logs_en;
-	size_copied = sprintf(buf, "%d\n", value);
-
-	return size_copied;
-}
-
-static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
-		 const char *buf, size_t count)
-{
-	int sysfs_val;
-	int ret;
-	size_t size_to_cpy;
-	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
-
-	size_to_cpy = (count > SYSFS_INPUT_VAL_LEN) ?
-					SYSFS_INPUT_VAL_LEN : count;
-	strncpy(strvalue, buf, size_to_cpy);
-	strvalue[size_to_cpy] = '\0';
-
-	ret = kstrtoint(strvalue, 10, &sysfs_val);
-	if (ret != 0)
-		return ret;
-
-	sysfs_val = (sysfs_val == 0) ? 0 : 1;
-
-	sw_fuel_gauge_debug.dbg_array.printk_logs_en = sysfs_val;
-
-	sw_fuel_gauge_nvs_dbg_set(sysfs_val);
-
-	pr_info("sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
-
-	return count;
-}
-
-static struct device_attribute dbg_logs_on_off_attr = {
-	.attr = {
-		.name = "dbg_logs_on_off",
-		.mode = S_IRUSR | S_IWUSR,
-	},
-	.show = dbg_logs_show,
-	.store = dbg_logs_store,
-};
-
-/**
- * swfg_setup_sysfs_attr	Sets up dbg_logs_on_off sysfs entry
- *				for swfg platform device
- * @dev				[in] pointer to device structure
- *				structure
- */
-static void swfg_setup_sysfs_attr(struct device *dev)
-{
-	int err;
-
-	err = device_create_file(dev, &dbg_logs_on_off_attr);
-	if (err)
-		pr_err("Unable to create sysfs entry: '%s'\n",
-				dbg_logs_on_off_attr.attr.name);
-}
 
 
 /**
@@ -3112,8 +3043,6 @@ static int __init sw_fuel_gauge_probe(struct platform_device *p_platform_dev)
 
 	/* Start the state machine in work thread. */
 	sw_fuel_gauge_stm_enter_wait_for_initial_soc();
-
-	swfg_setup_sysfs_attr(&p_platform_dev->dev);
 
 	/* There are no recoverable errors for this function. Failure will
 	cause a panic. */
