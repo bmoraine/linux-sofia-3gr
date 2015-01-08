@@ -118,8 +118,7 @@
 	adc_debug_data.index++; \
 	adc_debug_data.index &= (ADC_DEBUG_DATA_SIZE-1); \
 	spin_unlock(&adc_debug_data.lock); \
-	if (adc_debug_data.printk_logs_en)\
-		pr_debug("%s->(%d):0x%lu,%lu,%lu,%lu,%lu,%lu\n", #_event, \
+	pr_debug("%s->(%d):0x%lu,%lu,%lu,%lu,%lu,%lu\n", #_event, \
 			(unsigned int)_state, (unsigned long)_hmeas, \
 			(unsigned long)_context, (unsigned long)_context2, \
 			(unsigned long)_context3, (unsigned long)_context4, \
@@ -127,10 +126,7 @@
 }
 
 #define intel_adc_dbg_printk(fmt, ...) \
-{ \
-	if (adc_debug_data.printk_logs_en) \
-		pr_debug(fmt, ##__VA_ARGS__); \
-}
+		pr_debug(fmt, ##__VA_ARGS__);
 
 /**
  * adc_meas_instance - ADC measurement handle: it contains all information
@@ -346,7 +342,6 @@ enum adc_debug_event {
  */
 struct adc_debug_data {
 	uint index;
-	int printk_logs_en;
 	spinlock_t lock;
 	struct {
 		uint time_stamp;
@@ -371,9 +366,7 @@ static struct adc_manager_data adc_manager = {
 };
 
 /* Array to collect debug data */
-static struct adc_debug_data adc_debug_data = {
-	.printk_logs_en = 0,
-};
+static struct adc_debug_data adc_debug_data;
 
 /*---------------------------- Function prototypes: -------------------------*/
 
@@ -1824,69 +1817,6 @@ void adc_unregister_hal(struct adc_hal_interface *p_adc_hal_interface,
 }
 EXPORT_SYMBOL(adc_unregister_hal);
 
-static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
-				char *buf)
-{
-	size_t size_copied;
-	int value;
-
-	value = adc_debug_data.printk_logs_en;
-	size_copied = sprintf(buf, "%d\n", value);
-
-	return size_copied;
-}
-
-static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	int sysfs_val;
-	int ret;
-	size_t size_to_cpy;
-	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
-
-	size_to_cpy =
-		(count > SYSFS_INPUT_VAL_LEN) ? SYSFS_INPUT_VAL_LEN : count;
-	strncpy(strvalue, buf, size_to_cpy);
-	strvalue[size_to_cpy] = '\0';
-
-	ret = kstrtoint(strvalue, 10, &sysfs_val);
-	if (ret != 0)
-		return ret;
-
-	sysfs_val = (sysfs_val == 0) ? 0 : 1;
-
-	adc_debug_data.printk_logs_en = sysfs_val;
-
-	pr_info("sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
-
-	return count;
-}
-
-static struct device_attribute dbg_logs_on_off_attr = {
-	.attr = {
-		.name = "dbg_logs_on_off",
-		.mode = S_IRUSR | S_IWUSR,
-	},
-	.show = dbg_logs_show,
-	.store = dbg_logs_store,
-};
-
-/**
- * adc_setup_sysfs_attr		Sets up dbg_logs_on_off sysfs entry
- *				for intel_adc platform device
- * @dev				[in] pointer to device structure
- *				structure
- */
-static void adc_setup_sysfs_attr(struct device *dev)
-{
-	int err;
-
-	err = device_create_file(dev, &dbg_logs_on_off_attr);
-	if (err)
-		pr_err("Unable to create sysfs entry: '%s'\n",
-			dbg_logs_on_off_attr.attr.name);
-}
-
 static int __init intel_adc_probe(struct platform_device *p_platform_dev)
 {
 	struct task_struct *thread;
@@ -1927,8 +1857,6 @@ static int __init intel_adc_probe(struct platform_device *p_platform_dev)
 	} else {
 		kfifo_free(&st->adc_stm_fifo);
 	}
-
-	adc_setup_sysfs_attr(&p_platform_dev->dev);
 
 	/* Do debug data logging */
 	ADC_DEBUG_DATA_LOG(ADC_INIT, adc_manager.state, 0, ret, 0, 0, 0, 0);

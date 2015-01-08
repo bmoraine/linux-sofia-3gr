@@ -59,9 +59,8 @@ do { \
 	_array.index++; \
 	_array.index &= (ADC_SENSORS_DEBUG_DATA_SIZE-1); \
 	spin_unlock(&_array.lock); \
-	if (_array.printk_logs_en)\
-		pr_debug("%s 0x%lx  dec=%d\n", #_event, \
-				(unsigned long)_param, (int)_param); \
+	pr_debug("%s 0x%lx  dec=%d\n", #_event, \
+			(unsigned long)_param, (int)_param); \
 } while (0)
 
 /* Macro to trace and log debug data internally. Jiffy resolution is adequate */
@@ -74,8 +73,7 @@ do { \
 	_array.index++; \
 	_array.index &= (ADC_SENSORS_DEBUG_DATA_SIZE-1); \
 	spin_unlock(&_array.lock); \
-	if (_array.printk_logs_en)\
-		pr_debug("%s %s\n", #_event, (char *)_param); \
+	pr_debug("%s %s\n", #_event, (char *)_param); \
 } while (0)
 
 /** Events for use in debug and tracing. */
@@ -134,7 +132,6 @@ enum adc_sensors_debug_event {
  */
 struct adc_sensors_debug_data {
 	spinlock_t lock;
-	int printk_logs_en;
 	u32 index;
 	struct {
 		u32 time_stamp;
@@ -227,9 +224,7 @@ static struct adc_sensors_data adc_sensors = {
 };
 
 /* Array to collect debug data */
-static struct adc_sensors_debug_data adc_sensors_debug_info = {
-	.printk_logs_en = 0,
-};
+static struct adc_sensors_debug_data adc_sensors_debug_info;
 
 /**
  * convert_to_iio_node_name() - Extract extended name of ADC.
@@ -905,69 +900,6 @@ static int adc_sensor_write_raw(struct iio_dev *p_iiodev,
 	return ret;
 }
 
-static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
-				char *buf)
-{
-	size_t size_copied;
-	int value;
-
-	value = adc_sensors_debug_info.printk_logs_en;
-	size_copied = sprintf(buf, "%d\n", value);
-
-	return size_copied;
-}
-
-static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	int sysfs_val;
-	int ret;
-	size_t size_to_cpy;
-	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
-
-	size_to_cpy =
-		(count > SYSFS_INPUT_VAL_LEN) ? SYSFS_INPUT_VAL_LEN : count;
-	strncpy(strvalue, buf, size_to_cpy);
-	strvalue[size_to_cpy] = '\0';
-
-	ret = kstrtoint(strvalue, 10, &sysfs_val);
-	if (ret != 0)
-		return ret;
-
-	sysfs_val = (sysfs_val == 0) ? 0 : 1;
-
-	adc_sensors_debug_info.printk_logs_en = sysfs_val;
-
-	pr_info("sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
-
-	return count;
-}
-
-static struct device_attribute dbg_logs_on_off_attr = {
-	.attr = {
-		.name = "dbg_logs_on_off",
-		.mode = S_IRUSR | S_IWUSR,
-		},
-	.show = dbg_logs_show,
-	.store = dbg_logs_store,
-};
-
-/**
- * adc_sens_setup_sysfs_attr	Sets up dbg_logs_on_off sysfs entry
- *				for intel adc sensors platform device
- * @dev				[in] pointer to device structure
- *				structure
- */
-static void adc_sens_setup_sysfs_attr(struct device *dev)
-{
-	int err;
-
-	err = device_create_file(dev, &dbg_logs_on_off_attr);
-	if (err)
-		pr_err("Unable to create sysfs entry: '%s'\n",
-			dbg_logs_on_off_attr.attr.name);
-}
-
 /**
  * adc_sensors_probe - sensor device probe function.
  * @p_platform_dev:	The platform device that is used to
@@ -1152,8 +1084,6 @@ static int adc_sensors_probe(struct platform_device *p_platform_dev)
 	* There are no recoverable errors for this function.
 	* Failure will cause a panic.
 	*/
-
-	adc_sens_setup_sysfs_attr(&p_platform_dev->dev);
 
 	return 0;
 }

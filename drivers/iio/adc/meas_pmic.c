@@ -58,8 +58,6 @@
 /* Max retry count for VMM read/write access */
 #define VMM_RW_MAX_RETRY (3)
 
-#define SYSFS_INPUT_VAL_LEN (1)
-
 /* PMIC NVM size in byte */
 #define PMIC_NVM_SIZE  (2048)
 /* Gain scaling factor */
@@ -115,8 +113,7 @@
 	meas_pmic_debug_data.index++; \
 	meas_pmic_debug_data.index &= (MEAS_PMIC_DEBUG_DATA_SIZE-1); \
 	spin_unlock(&meas_pmic_debug_data.lock); \
-	if (meas_pmic_debug_data.printk_logs_en)\
-		pr_debug("%s:%u,%u,%u,%u\n", #_event, \
+	pr_debug("%s:%u,%u,%u,%u\n", #_event, \
 			(unsigned int)_context, \
 			(unsigned int)_context2, \
 			(unsigned int)_context3, \
@@ -248,7 +245,6 @@ enum meas_pmic_debug_event {
  * meas_pmic_debug_data - Structure to collect debug data.
  * @index:		Index of log array.
  * @lock:			Spin lock for atomic access.
-   @printk_logs_en:	 Flag to enable logs
  * @log_array:		Debug data logging array.
  * @time_stamp:		System time stamp in jiffies.
  * @event:		Event that caused logging.
@@ -257,7 +253,6 @@ enum meas_pmic_debug_event {
  */
 struct meas_pmic_debug_data {
 	uint index;
-	int printk_logs_en;
 	spinlock_t lock;
 	struct {
 		uint time_stamp;
@@ -270,9 +265,7 @@ struct meas_pmic_debug_data {
 };
 
 /* Array to collect debug data */
-static struct meas_pmic_debug_data meas_pmic_debug_data = {
-	.printk_logs_en = 0,
-};
+static struct meas_pmic_debug_data meas_pmic_debug_data;
 
 /*
  * meas_pmic_current_table lists the current values that are used to the
@@ -1010,70 +1003,6 @@ static struct intel_adc_hal_channel_data channel_data[] = {
 	 ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_RESISTANCE},
 };
 
-static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
-				char *buf)
-{
-	size_t size_copied;
-	int value;
-
-	value = meas_pmic_debug_data.printk_logs_en;
-	size_copied = sprintf(buf, "%d\n", value);
-
-	return size_copied;
-}
-
-static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	int sysfs_val;
-	int ret;
-	size_t size_to_cpy;
-	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
-
-	size_to_cpy =
-		(count > SYSFS_INPUT_VAL_LEN) ? SYSFS_INPUT_VAL_LEN : count;
-	strncpy(strvalue, buf, size_to_cpy);
-	strvalue[size_to_cpy] = '\0';
-
-	ret = kstrtoint(strvalue, 10, &sysfs_val);
-	pr_err("%s ret=%d\n", __func__, ret);
-	if (ret != 0)
-		return ret;
-
-	sysfs_val = (sysfs_val == 0) ? 0 : 1;
-
-	meas_pmic_debug_data.printk_logs_en = sysfs_val;
-
-	pr_err("sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
-
-	return count;
-}
-
-static struct device_attribute dbg_logs_on_off_attr = {
-	.attr = {
-		.name = "dbg_logs_on_off",
-		.mode = S_IRUSR | S_IWUSR,
-		},
-	.show = dbg_logs_show,
-	.store = dbg_logs_store,
-};
-
-/**
- * meas_pmic_setup_sysfs_attr	Sets up dbg_logs_on_off sysfs entry
- *				for MEAS idi device
- *
- * @dev				[in] pointer to device structure structure
- */
-static void meas_pmic_setup_sysfs_attr(struct device *dev)
-{
-	int err;
-
-	err = device_create_file(dev, &dbg_logs_on_off_attr);
-	if (err)
-		pr_err("Unable to create sysfs entry: '%s'\n",
-			dbg_logs_on_off_attr.attr.name);
-}
-
 /**
  * meas_pmic_probe() - The function that starts it all: it maps the registers,
  * initializes the hardware, request interrupts and registers to its logical
@@ -1185,8 +1114,6 @@ static int meas_pmic_probe(struct platform_device *pdev)
 			__func__, ret);
 		goto err_register_hal;
 	}
-
-	meas_pmic_setup_sysfs_attr(dev);
 
 	pr_info("%s probe OK\n", __func__);
 	return 0;

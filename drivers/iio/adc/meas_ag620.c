@@ -69,8 +69,6 @@
 /* Size of debug data array (has to be power of 2!!!) */
 #define MEAS_AG620_DEBUG_DATA_SIZE (1<<6)
 
-#define SYSFS_INPUT_VAL_LEN (1)
-
 /* Macro to log debug data */
 #define MEAS_AG620_DEBUG_DATA_LOG(_event, _context, _context2, \
 						_context3, _context4) \
@@ -92,8 +90,7 @@
 	meas_ag620_debug_data.index++; \
 	meas_ag620_debug_data.index &= (MEAS_AG620_DEBUG_DATA_SIZE-1); \
 	spin_unlock(&meas_ag620_debug_data.lock); \
-	if (meas_ag620_debug_data.printk_logs_en)\
-		pr_debug("%s:%u,%u,%u,%u\n", #_event, \
+	pr_debug("%s:%u,%u,%u,%u\n", #_event, \
 						(unsigned int)_context, \
 						(unsigned int)_context2, \
 						(unsigned int)_context3, \
@@ -101,10 +98,7 @@
 }
 
 #define meas_dbg_printk(fmt, ...)\
-do {\
-	if (meas_ag620_debug_data.printk_logs_en)\
-		pr_debug(fmt, ##__VA_ARGS__);\
-} while (0)
+	pr_debug(fmt, ##__VA_ARGS__);
 
 
 /**
@@ -192,7 +186,6 @@ enum meas_ag620_debug_event {
  */
 struct meas_ag620_debug_data {
 	uint index;
-	int printk_logs_en;
 	spinlock_t lock;
 	struct {
 		uint time_stamp;
@@ -205,9 +198,7 @@ struct meas_ag620_debug_data {
 };
 
 /* Array to collect debug data */
-static struct meas_ag620_debug_data meas_ag620_debug_data = {
-	.printk_logs_en = 0,
-};
+static struct meas_ag620_debug_data meas_ag620_debug_data;
 
 /*
  * meas_ag620_current_table lists the current values that are exported to the
@@ -1152,69 +1143,6 @@ static struct intel_adc_hal_channel_data channel_data[] = {
 };
 #endif	/* CONFIG_OF */
 
-static ssize_t dbg_logs_show(struct device *dev, struct device_attribute *attr,
-				char *buf)
-{
-	size_t size_copied;
-	int value;
-
-	value = meas_ag620_debug_data.printk_logs_en;
-	size_copied = sprintf(buf, "%d\n", value);
-
-	return size_copied;
-}
-
-static ssize_t dbg_logs_store(struct device *dev, struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	int sysfs_val;
-	int ret;
-	size_t size_to_cpy;
-	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
-
-	size_to_cpy =
-		(count > SYSFS_INPUT_VAL_LEN) ? SYSFS_INPUT_VAL_LEN : count;
-	strncpy(strvalue, buf, size_to_cpy);
-	strvalue[size_to_cpy] = '\0';
-
-	ret = kstrtoint(strvalue, 10, &sysfs_val);
-	if (ret != 0)
-		return ret;
-
-	sysfs_val = (sysfs_val == 0) ? 0 : 1;
-
-	meas_ag620_debug_data.printk_logs_en = sysfs_val;
-
-	pr_info("sysfs attr %s=%d\n", attr->attr.name, sysfs_val);
-
-	return count;
-}
-
-static struct device_attribute dbg_logs_on_off_attr = {
-	.attr = {
-		.name = "dbg_logs_on_off",
-		.mode = S_IRUSR | S_IWUSR,
-		},
-	.show = dbg_logs_show,
-	.store = dbg_logs_store,
-};
-
-/**
- * meas_ag620_setup_sysfs_attr	Sets up dbg_logs_on_off sysfs entry
- *				for MEAS idi device
- *
- * @dev				[in] pointer to device structure structure
- */
-static void meas_ag620_setup_sysfs_attr(struct device *dev)
-{
-	int err;
-
-	err = device_create_file(dev, &dbg_logs_on_off_attr);
-	if (err)
-		pr_err("Unable to create sysfs entry: '%s'\n",
-			dbg_logs_on_off_attr.attr.name);
-}
-
 /**
  * meas_ag620_probe() - The function that starts it all: it maps the registers,
  * initializes the hardware, request interrupts and registers to its logical
@@ -1374,8 +1302,6 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 				&meas_ag620_state.operation_done_cb);
 	if (ret)
 		goto err_register_hal;
-
-	meas_ag620_setup_sysfs_attr(&ididev->device);
 
 	return 0;
 
