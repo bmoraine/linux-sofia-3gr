@@ -30,6 +30,11 @@
 #include <linux/iio/driver.h>
 #include <sound/soc.h>
 
+#ifdef CONFIG_X86_INTEL_SOFIA
+#include <sofia/pal_shared_data.h>
+#include <sofia/mv_svc_hypercalls.h>
+#endif
+
 #include "xgold_jack.h"
 
 /* FIXME */
@@ -92,6 +97,16 @@ struct hs_key_cfg xgold_hs_keymap[] = {
 	{100, 150, SND_JACK_BTN_1, KEY_VOLUMEUP, 0},
 	{275, 325, SND_JACK_BTN_2, KEY_VOLUMEDOWN, 0},
 };
+
+static int jack_write(struct xgold_jack *jack, unsigned val)
+{
+#ifdef CONFIG_X86_INTEL_SOFIA
+	return mv_svc_reg_write(jack->base_phys, val, -1);
+#else
+	iowrite(val, jack->mmio_base);
+	return 0;
+#endif
+}
 
 /* Call to AFE to change the VBIAS settings */
 static void configure_vbias(enum xgold_vbias state)
@@ -203,7 +218,7 @@ static void xgold_jack_check(struct xgold_jack *jack)
 
 	/* Check if there really is a state change */
 	if (status != (jack->hs_jack->status & SND_JACK_HEADSET)) {
-		iowrite32(detect, jack->mmio_base);
+		jack_write(jack, detect);
 		snd_soc_jack_report(jack->hs_jack, status, SND_JACK_HEADSET);
 	}
 }
@@ -261,7 +276,7 @@ static void xgold_button_check(struct xgold_jack *jack)
 
 	if (key_index > -1) {
 		snd_soc_jack_report(jack->hs_jack, status, type);
-		iowrite32(detect, jack->mmio_base);
+		jack_write(jack, detect);
 	}
 }
 
@@ -332,6 +347,7 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 		ret = -ENXIO;
 		goto out;
 	}
+	jack->base_phys = regs.start;
 
 	xgold_debug("ioremap %p\n", jack->mmio_base);
 
@@ -361,7 +377,7 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 	}
 
 	/* Configure the Accessory settings to detect Insertion */
-	iowrite32(XGOLD_DETECT_INSERTION, jack->mmio_base);
+	jack_write(jack, XGOLD_DETECT_INSERTION);
 
 	ret = devm_request_threaded_irq(&(pdev->dev), jack->jack_irq,
 			NULL,

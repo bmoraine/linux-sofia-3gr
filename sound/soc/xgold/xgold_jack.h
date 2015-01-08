@@ -29,6 +29,7 @@ struct xgold_jack {
 	unsigned int jack_irq;
 	unsigned int button_irq;
 	void __iomem *mmio_base;
+	unsigned base_phys;
 	int buttons_enabled;
 };
 
