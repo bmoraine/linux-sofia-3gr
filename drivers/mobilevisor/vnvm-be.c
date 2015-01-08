@@ -51,6 +51,7 @@ struct vnvm_rpc {
 
 struct vnvm_share_ctx {
 	uint32_t handshake;
+	uint32_t server_status;
 	uint8_t share_data[0];
 };
 
@@ -173,7 +174,7 @@ void vnvm_handle_be_message(void *message)
 		break;
 	}
 	default:
-		while(1);
+		panic("unknown nvm request!\n");
 		break;
 	}
 }
@@ -310,10 +311,14 @@ static int vnvm_server_thread(void *cookie)
 
 	DTRACE ("started\n");
 
+	p_vnvm_ctx->vnvm_share->server_status = 0;
+
 	while(!p_vnvm_ctx->is_thread_aborted) {
 		/* wait for server event */
 		DTRACE ("waiting for event\n");
+		 p_vnvm_ctx->vnvm_share->server_status = 1;
 		down_interruptible(&p_vnvm_ctx->server_sem);
+		 p_vnvm_ctx->vnvm_share->server_status = 0;
 
 		DTRACE ("wakeup%s%s%s\n",
 			p_vnvm_ctx->is_thread_aborted ? " thread-aborted"  : "",
