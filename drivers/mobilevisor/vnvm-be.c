@@ -17,7 +17,7 @@
 #include <sofia/mv_gal.h>
 #include <sofia/mv_ipc.h>
 
-#include <vnvm_common.h>
+#include "vnvm_common.h"
 
 //#define VNVM_DEBUG
 
