@@ -876,7 +876,7 @@ static int ag6x0_iowrite(struct idi_client_device *client,
 	if (ag6x0->flags & AG6X0_SECURE_IO_ACCESS) {
 		dev_dbg(&client->device,
 			"Secure write access %x@%x:", reg, addr);
-		ret = mv_svc_reg_write_only(addr, reg, -1);
+		ret = mv_svc_reg_write(addr, reg, -1);
 
 	} else {
 		void __iomem *vaddr = ag6x0_io_phys_to_virt(ag6x0, addr);
