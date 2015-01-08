@@ -1547,7 +1547,7 @@ static int vusb_se_fe_command_thread(void *d)
 				/* re-open it */
 				if (mutex_lock_interruptible
 					(&vusb_se_fe_tx_lock))
-					return;
+					return 0;
 
 				vusb_se_fe_command_mvpipe_fp =
 					vusb_se_fe_open_mvpipe
@@ -1628,7 +1628,6 @@ static int vusb_se_fe_do_link_txfr(unsigned int link, char *tag,
 	 * stream operations...
 	 */
 	char read_buf[VUSB_SE_FE_DATA_BUFSIZ];
-	char pipe_name[32];
 
 	mm_segment_t old_fs;
 
@@ -1695,7 +1694,7 @@ static int vusb_se_fe_do_link_txfr(unsigned int link, char *tag,
 			tx_fp = tx_fps[link];
 
 			if (mutex_lock_interruptible(&vusb_dat_reopen_lock))
-				return;
+				return 0;
 
 			if (NULL != tx_fp) {
 				have_used =
@@ -1766,7 +1765,7 @@ static int vusb_se_fe_link_rx_thread(void *d)
 		if (VUSB_SE_FE_TXFR_RX_ERR == diagnostic) {
 			/* re-open it */
 			if (mutex_lock_interruptible(&vusb_dat_reopen_lock))
-				return;
+				return 0;
 
 			sprintf(mvpipe_name,
 				VUSB_SE_FE_MVPIPE_GENERIC_DATA_NAME, link);
