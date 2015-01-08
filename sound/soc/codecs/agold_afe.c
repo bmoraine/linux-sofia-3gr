@@ -979,18 +979,18 @@ static const struct snd_kcontrol_new agold_afe_snd_controls[] = {
 		.info = agold_afe_get_reg_info,
 		.get = agold_afe_get_reg_val,
 		.put = agold_afe_set_reg_val,
-	}
+	},
 #ifdef CONFIG_SND_SOC_AGOLD_HSOFC_SUPPORT
-	, {
+	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name = "AFE HS Offset Calibration Start",
 		.info = agold_afe_trigger_calibration_info,
 		.get = agold_afe_get_trigger_calibration,
 		.put = agold_afe_set_trigger_calibration,
-	}
+	},
 #endif
 #ifdef CONFIG_SND_SOC_AGOLD_620
-	,SOC_ENUM("DMIC Path", agold_afe_dmic_path_enum)
+	SOC_ENUM("DMIC Path", agold_afe_dmic_path_enum)
 #endif
 };
 
@@ -1103,6 +1103,7 @@ static inline int agold_afe_reg_write(struct snd_soc_codec *codec,
 	unsigned int final_value = value;
 	int offset = 0;
 	struct agold_afe_data *agold_afe = NULL;
+	enum snd_soc_bias_level bias_level;
 
 	agold_afe = (struct agold_afe_data *)snd_soc_codec_get_drvdata(codec);
 
@@ -1116,7 +1117,13 @@ static inline int agold_afe_reg_write(struct snd_soc_codec *codec,
 		agold_afe_calculate_acc_settings(reg, value, &final_value);
 	}
 #endif
-	afe_debug("%s :reg %d val %x\n", __func__, reg, final_value);
+	afe_debug("%s: reg %d val %x\n", __func__, reg, final_value);
+
+	bias_level = agold_afe->afe_pow.current_bias;
+	if (bias_level == SND_SOC_BIAS_OFF) {
+		afe_debug("Trying to write reg while power domain is off !\n");
+		agold_afe_handle_codec_power(codec, SND_SOC_BIAS_STANDBY);
+	}
 
 	offset = agold_afe_get_reg_addr(reg);
 
@@ -1125,6 +1132,9 @@ static inline int agold_afe_reg_write(struct snd_soc_codec *codec,
 
 	afe_write_register_cache(codec, reg, final_value);
 	afe_writel(codec, final_value, agold_afe->membase + offset);
+
+	if (bias_level == SND_SOC_BIAS_OFF)
+		agold_afe_handle_codec_power(codec, SND_SOC_BIAS_OFF);
 
 	return 0;
 }
@@ -1684,7 +1694,6 @@ static int agold_afe_startup(struct snd_pcm_substream *substream,
 			agold_afe->dac_dsp_transit = 0;
 
 		if (!ret)
-
 			ret = agold_afe_handle_codec_power(dai->codec,
 					SND_SOC_BIAS_PREPARE);
 	}
@@ -1888,6 +1897,7 @@ static int agold_afe_codec_probe(struct snd_soc_codec *codec)
 		return -EINVAL;
 	}
 
+	agold_afe_handle_codec_power(codec, SND_SOC_BIAS_STANDBY);
 	if (*audio_native) {
 		if (agold_afe->dev->controller->send_break)
 			agold_afe->dev->controller->send_break(
@@ -1998,6 +2008,7 @@ static int agold_afe_codec_probe(struct snd_soc_codec *codec)
 	for (i = 0; i < ARRAY_SIZE(agold_afe_reg_cache); i++)
 		snd_soc_write(codec, i, agold_afe_reg_cache[i]);
 
+	agold_afe_handle_codec_power(codec, SND_SOC_BIAS_OFF);
 	return ret;
 }
 
