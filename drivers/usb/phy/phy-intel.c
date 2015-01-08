@@ -397,6 +397,9 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 		return 0;
 	}
 
+	/* reset USB core and PHY */
+	usb_enable_reset(iphy, true, "usb");
+	usb_enable_reset(iphy, true, "bus");
 
 	/* power up USB core and PHY */
 	ret = device_state_pm_set_state(iphy->dev,
@@ -425,9 +428,6 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 	if (device_may_wakeup(iphy->dev))
 		disable_irq_wake(iphy->id_irq);
 
-	/* reset USB core and PHY */
-	usb_enable_reset(iphy, true, "usb");
-	usb_enable_reset(iphy, true, "bus");
 
 	/* remove PHY from suspend state */
 	usb_enable_phy_sus(iphy, true);
