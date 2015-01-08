@@ -890,6 +890,48 @@ static int ag6x0_iowrite(struct idi_client_device *client,
 	return ret;
 }
 
+static int ag6x0_atomic_iowrite(struct idi_client_device *client,
+				unsigned addr, unsigned reg, unsigned mask)
+{
+	int ret = 0;
+	struct ag6x0_client *ag6x0;
+	unsigned scratch;
+
+	ag6x0 = dev_get_drvdata(&client->device);
+	if (ag6x0 == NULL)
+		return -ENODEV;
+
+	if (ag6x0->flags & AG6X0_SECURE_IO_ACCESS) {
+		dev_dbg(&client->device,
+			"Secure atomic write access %x@%x:",
+							reg, addr);
+		ret = mv_svc_reg_write(addr, reg, mask);
+
+	} else {
+		void __iomem *vaddr = ag6x0_io_phys_to_virt(ag6x0, addr);
+		unsigned long flags;
+		if (vaddr == NULL)
+			return -EINVAL;
+		/*
+		 * If the Linux VM is interrupted, the spinlock will not
+		 * be helpful to prevent a concurent access..
+		*/
+
+		spin_lock_irqsave(&ag6x0->hw_lock, flags);
+		scratch = ioread32(vaddr);
+		scratch &= ~mask;
+		scratch |= (reg & mask);
+		iowrite32(scratch, vaddr);
+		spin_unlock_irqrestore(&ag6x0->hw_lock, flags);
+		dev_dbg(&client->device,
+			"Native Atomic write access %x@%x,%p:",
+							reg, addr, vaddr);
+	}
+
+	return ret;
+}
+
+
 static int ag6x0_dev_setup(struct idi_client_device *client,
 			   struct ag6x0_client *ag6x0)
 {
@@ -1288,18 +1330,12 @@ static int ag6x0_probe(struct idi_client_device *client,
 	case 4:
 		dev_dbg(&client->device, "found an AG620\n");
 		/* DMA Request from WLAN is cleared */
-		ag6x0_ioread(client,
-				SCU_SP_PUR(ag6x0->scu_io_phys),
-				&scu_sp_pur);
-		scu_sp_pur |= BIT(1);
-		ag6x0_iowrite(client,
-				SCU_SP_PUR(ag6x0->scu_io_phys),
-				scu_sp_pur);
+		ag6x0_atomic_iowrite(client, SCU_SP_PUR(ag6x0->scu_io_phys),
+							BIT(1), BIT(1));
 		/*Read the CHIP ID from SCU required by GNSS driver*/
 		ag6x0_ioread(client,
 				SCU_CHIP_ID(ag6x0->scu_io_phys),
 				&chipid);
-
 		/*15:8 -> Chip Identification Num ,7:0 -> Chip Revision Num*/
 		chipid &= (SCU_CHIP_ID_CHID_MASK | SCU_CHIP_ID_CHREV_MASK);
 		dev_dbg(&client->device, "AG620 Chip ID is %x\n", chipid);
