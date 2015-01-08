@@ -409,13 +409,13 @@
 	};
 
 	magnetometer {
-		compatible = "st,lsm303dlhc_mag";
-		reg = < 0x1e >;
+		compatible = "memsic,mmc3524x";
+		reg = < 0x30 >;
 		intel,axis-map = < 0 1 2 >;
 		intel,negate = < 0 0 0 >;
 		intel,offset = < 0 0 0 >;
 		intel,poll-interval = < 100 >;
-		pm,class-name = "lsm303dlhc_mag_class";
+		pm,class-name = "magnetic_class";
 		pm,user-name = "ext_magnetometer";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
