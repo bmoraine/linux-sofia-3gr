@@ -1454,6 +1454,18 @@ static void sw_fuel_gauge_calculate_nvm_capacity_and_error(void)
 		if (sw_fuel_gauge_nvs_retrieve_last_calibration_point(
 					p_last_soc_cal,
 					p_last_immediate_cal)) {
+			/* Store the last calibration point for debug. */
+			pr_debug("Last Soc calibration done at %ld\n",
+				p_last_soc_cal->rtc_time_sec);
+
+			pr_debug("CC UP mc: %d, CC DOWN mc: %d, CC bal mc: %d, Bat Soc: %d, Bat SoC err: %d, Bat Cap: %u\n",
+					p_last_soc_cal->cc_up_mc,
+					p_last_soc_cal->cc_down_mc,
+					p_last_soc_cal->cc_balanced_mc,
+					p_last_soc_cal->soc_permil,
+					p_last_soc_cal->soc_error_permil,
+					p_last_soc_cal->full_battery_cap_mah);
+
 			/* Compare the stored timestamp with the current time to
 			determine if the calibration data is too old. */
 			if ((cc_data_now.rtc_time_sec -
@@ -1475,8 +1487,9 @@ static void sw_fuel_gauge_calculate_nvm_capacity_and_error(void)
 									= true;
 				} else {
 					/* Log failure reason. */
-					SW_FUEL_GAUGE_DEBUG_NO_PARAM(
+					SW_FUEL_GAUGE_DEBUG_NO_LOG_NO_PARAM(
 				 SW_FUEL_GAUGE_DEBUG_NVM_BATTERY_REMOVED);
+					pr_err("%s:Battery removed", __func__);
 				}
 			} else {
 				/* Log failure reason. */
@@ -1484,6 +1497,12 @@ static void sw_fuel_gauge_calculate_nvm_capacity_and_error(void)
 					SW_FUEL_GAUGE_DEBUG_NVM_OUT_OF_DATE,
 						p_last_soc_cal->rtc_time_sec);
 			}
+		} else {
+
+			/* Log error as NVS doesn't have a valid calibratrion
+			 * point. */
+			pr_err("%s: Couldn't retrieve calibration point.",
+					__func__);
 		}
 	}
 	/* If NVM calibration point is valid, calculate capacity and error based

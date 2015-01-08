@@ -496,6 +496,7 @@ bool sw_fuel_gauge_nvs_retrieve_last_calibration_point(
 	return sw_fuel_gauge_nvm_retrieve_last_calibration_point(p_last_soc_cal,
 							p_last_immediate_cal);
 #else
+	pr_err("%s: NVM error: NVM expected to be enabled\n", __func__);
 	return false;
 #endif
 }
@@ -527,6 +528,7 @@ bool sw_fuel_gauge_nvs_store_last_calibration_point(
 					p_last_soc_cal,
 					p_last_immediate_cal);
 #else
+	pr_err("%s: NVM error: NVM expected to be enabled\n", __func__);
 	return false;
 #endif
 }
@@ -558,6 +560,7 @@ bool sw_fuel_gauge_register_nvs_ready_cb(void (*p_func)(void))
 		return false;
 
 #else
+	pr_err("%s: NVM error: NVM expected to be enabled\n", __func__);
 	return false;
 #endif
 }
