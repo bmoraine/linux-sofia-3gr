@@ -45,9 +45,8 @@ do { \
 	_array.read_index = (_array.count == CHARGER_DEBUG_DATA_SIZE) ? \
 						_array.write_index : \
 						_array.read_index; \
-	if (_array.printk_logs_en) \
-		pr_debug("%s param=0x%lx, param2=0x%lx\n", \
-				_event_str, (long)_param, (long)_param2); \
+	pr_debug("%s param=0x%lx, param2=0x%lx\n", \
+			_event_str, (long)_param, (long)_param2); \
 	spin_unlock(&_array.lock); \
 } while (0)
 
@@ -187,7 +186,6 @@ enum charger_debug_event {
  */
 struct charger_debug_data {
 	spinlock_t      lock;
-	int		printk_logs_en;
 	u32             read_index;
 	u32             write_index;
 	u32             count;

@@ -35,9 +35,8 @@
 #define SW_FUEL_GAUGE_DEBUG(_array, _event, _param) \
 do { \
 	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(_array, _event, _param); \
-	if (_array.printk_logs_en)\
-		pr_debug("%s 0x%lx  dec=%ld\n", \
-			#_event, (unsigned long)_param, (long)_param); \
+	pr_debug("%s 0x%lx  dec=%ld\n", \
+		#_event, (unsigned long)_param, (long)_param); \
 } while (0)
 #else
 #define SW_FUEL_GAUGE_DEBUG(_array, _event, _param) \
@@ -242,7 +241,6 @@ enum sw_fuel_gauge_debug_event {
  */
 struct sw_fuel_gauge_debug_data {
 	spinlock_t	lock;
-	int		printk_logs_en;
 	u32		index;
 	struct {
 		u32				time_stamp;
