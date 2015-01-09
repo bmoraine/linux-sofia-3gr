@@ -29,7 +29,9 @@
 extern struct platform_driver rockchip_fb_driver;
 extern struct platform_driver rockchip_screen_driver;
 extern struct platform_driver nanosilicon_lvds_driver;
-extern struct platform_driver rockchip_mipi_dsi_driver;
+#ifdef CONFIG_XGOLD_MIPI_DSI
+extern struct platform_driver xgold_mipi_dsi_driver;
+#endif
 extern struct platform_driver rockchip_vop_driver;
 
 #endif

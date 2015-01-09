@@ -70,6 +70,12 @@ static int __init rockchip_disp_init(void)
 		goto out_lvds;
 #endif
 
+#ifdef CONFIG_XGOLD_MIPI_DSI
+	ret = platform_driver_register(&xgold_mipi_dsi_driver);
+	if (ret < 0)
+		goto out_mipi_dsi;
+#endif
+
 #ifdef CONFIG_ROCKCHIP_VOP
 	ret = platform_driver_register(&rockchip_vop_driver);
 	if (ret < 0)
@@ -99,6 +105,11 @@ out_disp:
 out_vop:
 #endif
 
+#ifdef CONFIG_XGOLD_MIPI_DSI
+	platform_driver_unregister(&xgold_mipi_dsi_driver);
+out_mipi_dsi:
+#endif
+
 #ifdef CONFIG_LVDS_NANOSILICON
 	platform_driver_unregister(&nanosilicon_lvds_driver);
 out_lvds:
@@ -121,6 +132,10 @@ static void __exit rockchip_disp_exit(void)
 
 #ifdef CONFIG_ROCKCHIP_VOP
 	platform_driver_unregister(&rockchip_vop_driver);
+#endif
+
+#ifdef CONFIG_XGOLD_MIPI_DSI
+	platform_driver_unregister(&xgold_mipi_dsi_driver);
 #endif
 
 #ifdef CONFIG_LVDS_NANOSILICON
