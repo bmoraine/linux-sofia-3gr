@@ -259,7 +259,7 @@
 };
 
 &fuel_gauge_hal {
-	sense_resistor_mohm = <22>;
+	sense_resistor_mohm = <20>;
 	gain_error_1_uc_per_mc = <30>;
 	gain_error_2_uc_per_mc = <30>;
 };
