@@ -1246,7 +1246,7 @@ static int ag6x0_probe(struct idi_client_device *client,
 	struct ag6x0_client *ag6x0;
 	struct idi_controller_device *controller;
 	struct resource *io_ctrl_resource;
-	u32 reg, scu_sp_pur , chipid = 0;
+	u32 reg, chipid = 0;
 	struct device *dev = &client->device;
 	struct device_node *np = dev->of_node;
 
