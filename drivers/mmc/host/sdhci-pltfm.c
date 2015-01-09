@@ -279,8 +279,10 @@ EXPORT_SYMBOL_GPL(sdhci_pltfm_resume);
 const struct dev_pm_ops sdhci_pltfm_pmops = {
 	.suspend	= sdhci_pltfm_suspend,
 	.resume		= sdhci_pltfm_resume,
+#ifdef CONFIG_PM_RUNTIME
 	.runtime_suspend = sdhci_pltfm_runtime_suspend,
 	.runtime_resume	 = sdhci_pltfm_runtime_resume,
+#endif
 };
 EXPORT_SYMBOL_GPL(sdhci_pltfm_pmops);
 #endif	/* CONFIG_PM */
