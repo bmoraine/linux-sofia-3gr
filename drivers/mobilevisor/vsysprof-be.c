@@ -428,7 +428,7 @@ static int __init vsysprof_init(void)
 	struct vsysprof_struct *p_vsysprof = &vsysprof;
 
 	p_vsysprof->token = mv_ipc_mbox_get_info("sysprof",
-						 "m-s",
+						 "m-l",
 						 &vsysprof_ops,
 						 &pshare_mem,
 						 &(p_vsysprof->share_data_size),
