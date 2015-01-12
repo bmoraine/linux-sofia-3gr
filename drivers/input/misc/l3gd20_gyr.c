@@ -639,6 +639,9 @@ static int l3gd20_gyr_enable(struct l3gd20_gyr_status *stat)
 {
 	int err;
 
+	dev_dbg(&stat->client->dev, "%s: stat->enabled = %d\n", __func__,
+						atomic_read(&stat->enabled));
+
 	if (!atomic_cmpxchg(&stat->enabled, 0, 1)) {
 		err = l3gd20_gyr_device_power_on(stat);
 		if (err < 0) {
@@ -663,12 +666,14 @@ static int l3gd20_gyr_disable(struct l3gd20_gyr_status *stat)
 						atomic_read(&stat->enabled));
 
 	if (atomic_cmpxchg(&stat->enabled, 1, 0)) {
+		if (stat->polling_enabled) {
+			hrtimer_cancel(&stat->hr_timer);
+			dev_dbg(&stat->client->dev, "%s: cancel_hrtimer ",
+					__func__);
+		}
+
 		l3gd20_gyr_manage_int1settings(stat, 0);
 		l3gd20_gyr_device_power_off(stat);
-		if (stat->polling_enabled)
-			hrtimer_cancel(&stat->hr_timer);
-
-		dev_dbg(&stat->client->dev, "%s: cancel_hrtimer ", __func__);
 	}
 	return 0;
 }
@@ -1041,15 +1046,18 @@ static void poll_function_work(struct work_struct *polling_task)
 	stat = container_of((struct work_struct *)polling_task,
 				struct l3gd20_gyr_status, polling_task);
 
-	err = l3gd20_gyr_get_data(stat, &data_out);
-	if (err < 0)
-		dev_err(&stat->client->dev, "get_rotation_data failed.\n");
-	else
-		l3gd20_gyr_report_values(stat, &data_out);
+	if (!atomic_read(&stat->enabled))
+		return;
 
+	err = l3gd20_gyr_get_data(stat, &data_out);
+	if (err < 0) {
+		dev_err(&stat->client->dev, "get_rotation_data failed.\n");
+		return;
+	}
+
+	l3gd20_gyr_report_values(stat, &data_out);
 	hrtimer_start(&stat->hr_timer, stat->ktime, HRTIMER_MODE_REL);
 }
-
 
 enum hrtimer_restart poll_function_read(struct hrtimer *timer)
 {
@@ -1564,6 +1572,7 @@ static int l3gd20_gyr_resume(struct device *dev)
 	l3gd20_set_pinctrl_state(dev, stat->pdata->pins_default);
 	if (stat->on_before_suspend)
 		return l3gd20_gyr_enable(stat);
+
 	return 0;
 }
 
