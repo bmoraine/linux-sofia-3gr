@@ -471,7 +471,7 @@
 	keypad,num-columns = <8>;
 	keypad,rows = <0 2>;
 	keypad,columns = <0 1 2>;
-	linux,keymap = <0x00000072	/* KEY_VOLUMEDOWN */
+	linux,keymap = <0x00000073	/* KEY_VOLUMEUP */
 			0x00010066	/* KEY_HOME */
 			0x00020000	/* KEY_RESERVED */
 			0x00030000	/* KEY_RESERVED */
@@ -487,7 +487,7 @@
 			0x01050000	/* KEY_RESERVED */
 			0x01060000	/* KEY_RESERVED */
 			0x01070000	/* KEY_RESERVED */
-			0x02000073	/* KEY_VOLUMEUP */
+			0x02000072	/* KEY_VOLUMEDOWN */
 			0x02010000	/* KEY_RESERVED */
 			0x02020000>;	/* KEY_RESERVED */
 };
