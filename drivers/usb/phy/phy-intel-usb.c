@@ -178,9 +178,9 @@ static int intel_phy_otg_fsm_pre_process_chrg(struct intel_phy *iphy)
 
 	switch (iphy->input_props.chrg_type) {
 	case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
-		/* TODO CONFIG_USB_GADGET_VBUS_DRAW should be 1500 mA
-		 * the configuration descriptor says 500mA but device
-		 * charges with 1500mA if CDP, this is not compliant */
+		/* the configuration desc. requests CONFIG_USB_GADGET_VBUS_DRAW
+		 * so when stack asks it the device was successfully enumerated
+		 * however if host is a CDP, then device can charge IDEV_CHG */
 		if (iphy->input_props.ma == CONFIG_USB_GADGET_VBUS_DRAW)
 			iphy->input_props.ma = INTEL_PHY_CHRG_IDEV_CHG;
 		/* fall through */
@@ -201,11 +201,6 @@ static int intel_phy_otg_fsm_pre_process_chrg(struct intel_phy *iphy)
 		intel_phy_err("charger type not supported");
 		return intel_phy_kernel_trap();
 	}
-
-	/* return if cable props did not change */
-	if ((iphy->cable_props.ma == iphy->input_props.ma)
-	&& (iphy->cable_props.chrg_type == iphy->input_props.chrg_type))
-		goto done;
 
 	iphy->cable_props = iphy->input_props;
 
@@ -400,14 +395,14 @@ static int intel_phy_event_nb(
 	}
 
 	/* atomic notifier might not run in wq cpu */
+	/* as agreed: event payload is cable props */
 	switch (event) {
 	case USB_EVENT_NONE:
 		spin_lock_irqsave(intel_phy_get_lck(iphy), flags);
 		set_bit(NONE, input);
 		clear_bit(VBUS, input);
 		set_bit(ID, input);
-		iphy->input_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
-		iphy->input_props.ma = 0;
+		iphy->input_props = *((struct power_supply_cable_props *)priv);
 		intel_phy_schedule_event_wq(iphy);
 		spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
 		break;
@@ -418,8 +413,6 @@ static int intel_phy_event_nb(
 			set_bit(NONE, input);
 		}
 		iphy->input_props = *((struct power_supply_cable_props *)priv);
-		/* TODO stop forcing charger type after BMS provides the fix */
-		iphy->input_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
 		intel_phy_schedule_event_wq(iphy);
 		spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
 		break;
@@ -429,6 +422,7 @@ static int intel_phy_event_nb(
 			intel_phy_warn("disconnect missed");
 			set_bit(NONE, input);
 		}
+		iphy->input_props = *((struct power_supply_cable_props *)priv);
 		intel_phy_schedule_event_wq(iphy);
 		spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
 		break;

@@ -34,14 +34,12 @@
 /* DEFINE								*/
 /*----------------------------------------------------------------------*/
 /*#define INTEL_USB3_FORCE_VBUS*/
-/*#define INTEL_USB3_HW_STUB*/
-/*#define INTEL_USB3_WA_RST*/
-/*#define INTEL_USB3_WA_PM*/
-#define INTEL_USB3_WA_PMIC
-#define INTEL_USB3_WA_PHY
-#ifdef INTEL_USB3_WA_PMIC
+#ifdef INTEL_USB3_FORCE_VBUS
 #include <sofia/vmm_pmic.h>
 #endif
+/*#define INTEL_USB3_HW_STUB*/
+/*#define INTEL_USB3_RST_WA*/
+/*#define INTEL_USB3_PM_WA*/
 
 /**
  * todo: comment
@@ -254,7 +252,7 @@ static int intel_usb3_pm_set_state(struct intel_usb3 *iusb3, const char *state)
 		return intel_phy_kernel_trap();
 	}
 
-#ifdef INTEL_USB3_WA_PM
+#ifdef INTEL_USB3_PM_WA
 	intel_phy_warn("pm set state stubbed");
 	return 0;
 #endif
@@ -443,6 +441,9 @@ static int intel_usb3_hw_powerup(struct intel_usb3 *iusb3)
 
 	intel_usb3_hw_reset(iusb3, false);
 	udelay(100);
+
+	/* configure phy for super speed support */
+	intel_usb3_phy_io_write(iusb3, 0x0, INTEL_USB3_MPLL_LOOP_CTL);
 	return 0;
 }
 
@@ -934,18 +935,21 @@ static int intel_usb3_probe(struct platform_device *pdev)
 		goto error_debugfs_exit;
 	}
 #ifdef INTEL_USB3_FORCE_VBUS
-	intel_phy_warn("forced cable attach for hardware bring up");
-	intel_phy_notify(&iusb3->iphy, USB_EVENT_VBUS, NULL);
-#endif
-#ifdef INTEL_USB3_WA_PMIC
-	intel_phy_warn("applying pmic workaround");
-	/* vmm addr = SLAVE_DEV3 << 24 | USBPHYCTRL_REG */
-	vmm_pmic_reg_write((0x5EUL << 24) | 0x08UL, 1);
-	intel_phy_warn("pmic workaround applied!");
-#endif
-#ifdef INTEL_USB3_WA_PHY
-	intel_phy_warn("applying phy workaround");
-	intel_usb3_phy_io_write(iusb3, 0x0, INTEL_USB3_MPLL_LOOP_CTL);
+	do {
+		struct power_supply_cable_props cable_props = {
+			.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT,
+			.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP,
+			.ma = 0,
+		};
+
+		intel_phy_warn("fake cable attach for hardware bring up");
+		intel_phy_notify(&iusb3->iphy, USB_EVENT_VBUS, &cable_props);
+
+		intel_phy_warn("workaround pmic: connect usb data lines");
+		/* vmm addr = SLAVE_DEV3 << 24 | USBPHYCTRL_REG */
+		vmm_pmic_reg_write((0x5EUL << 24) | 0x08UL, 1);
+		intel_phy_warn("pmic workaround applied!");
+	} while (0);
 #endif
 	return 0;
 
