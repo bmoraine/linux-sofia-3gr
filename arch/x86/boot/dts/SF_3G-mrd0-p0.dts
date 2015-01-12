@@ -1,5 +1,6 @@
 /dts-v1/;
 #define SOFIA3G_ES2
+#define SOFIA3G_ES21
 #include "xgold/sofia_3g_soc/irq.h"
 
 / {
@@ -44,7 +45,7 @@
 		compatible = "intel,vmodem";
 		reg = < 0x3c000000 0x04000000 >;
 	};
-	
+
 	ion {
 		compatible = "intel,ion";
 #ifndef RECOVERY_KERNEL
@@ -59,6 +60,7 @@
 		compatible = "intel,led-bl";
 		reg = <0xE6501800 0x154>;
 		intel,flags-use-safe-ctrl;
+		intel,vmm-secured-access;
 		pm,class-name = "bl_class";
 		pm,user-name = "bl";
 		pm,state-D0 = "enable";
@@ -76,13 +78,13 @@
 #else
 		intel,dcc-use-fences = <1>;
 		intel,dcc-mem = < 0x00400000 >;
-		intel,prot-mem = < 0x30800000 0xB8000000>;
+		intel,prot-mem = < 0x30800000 0xB800000>;
 #endif
 		intel,display-fps = <60>;
 		intel,display-ramless = <1>;
 		intel,display-preinit = <0>;
 		intel,display-if = <&mipi_dsi>;
-		intel,display-if-rate = <390000000>;
+		intel,display-if-rate = <385000000>;
 		lcd-supply = <&pm_lcd>;
 		/include/ "xgold/display/OTM1283.dtsi"
 		mipi_dsi:mipi-dsi {
@@ -382,8 +384,8 @@
 		pinctrl-0 = <&gyroscope_default_pins>;
 		pinctrl-1 = <&gyroscope_sleep_pins>;
 		pinctrl-2 = <&gyroscope_inactive_pins>;
-		intel,axis-map = < 1 0 2 >; /* spec is wrong, x and y are interchanged */
-		intel,negate = < 1 0 0 >;
+		intel,axis-map = < 0 1 2 >;
+		intel,negate = < 0 0 0 >;
 		intel,poll-interval = < 100 >;
 		intel,full-scale = < 2000 >;
 		pm,class-name = "l3gd20_class";
@@ -415,10 +417,16 @@
 };
 
 &gnss {
-	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-names = "default", "sleep", "inactive", "default_lna", "inactive_lna", "default_fta", "inactive_fta", "gnss_default", "gnss_inactive";
 	pinctrl-0 = <&tcxo_agold_default_pins>;
 	pinctrl-1 = <&tcxo_agold_sleep_pins>;
 	pinctrl-2 = <&tcxo_agold_inactive_pins>;
+	pinctrl-3 = <&ext_agold_default_pins>;
+	pinctrl-4 = <&ext_agold_sleep_pins>;
+	pinctrl-5 = <&gnss_agold_default_pins>;
+	pinctrl-6 = <&gnss_agold_sleep_pins>;
+	pinctrl-7 = <&gnss_default_pins>;
+	pinctrl-8 = <&gnss_inactive_pins>;
 };
 
 &backlight {
@@ -490,5 +498,10 @@
 };
 #endif
 
-#include "xgold/agold620/pinctrl-sf_3g-es2-svb.dtsi"
+#if defined(SOFIA3G_ES21)
+#include "xgold/sofia_3g_soc/pinctrl-sf_3g-es2.1-svb.dtsi"
+#include "xgold/agold620/pinctrl-sf_3g-es2.1-svb.dtsi"
+#else
 #include "xgold/sofia_3g_soc/pinctrl-sf_3g-es2-svb.dtsi"
+#include "xgold/agold620/pinctrl-sf_3g-es2-svb.dtsi"
+#endif
