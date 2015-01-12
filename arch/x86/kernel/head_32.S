@@ -359,9 +359,11 @@ default_entry:
 #define CR0_STATE	(X86_CR0_PE | X86_CR0_MP | X86_CR0_ET | \
 			 X86_CR0_NE | X86_CR0_WP | X86_CR0_AM | \
 			 X86_CR0_PG)
-#ifdef CONFIG_X86_INTEL_SOFIA
+
+#if defined(CONFIG_X86_INTEL_SOFIA) && !defined(CONFIG_X86_PAE)
 	jmp enable_paging
-#else
+#endif
+#if !defined(CONFIG_X86_INTEL_SOFIA)
 	movl $(CR0_STATE & ~X86_CR0_PG),%eax
 	movl %eax,%cr0
 #endif
@@ -402,7 +404,9 @@ default_entry:
 	jz enable_paging		# No flags or only CPUID.FPU = no CR4
 
 	movl pa(mmu_cr4_features),%eax
+#ifndef CONFIG_X86_INTEL_SOFIA
 	movl %eax,%cr4
+#endif
 
 	testb $X86_CR4_PAE, %al		# check if PAE is enabled
 	jz enable_paging
