@@ -1,0 +1,10 @@
+
+config XGOLD_MIPI_DSI
+	bool "XGold MIPI DSI transmitter support"
+	depends on X86_INTEL_XGOLD
+	default y
+	help
+	  XGold MIPI DSI transmitter support
+	  It is used by rockchip framebuffer driver.
+	  Say y to use
+	  XGold MIPI DSI transmitter.

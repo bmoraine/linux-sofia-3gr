@@ -1,3 +1,4 @@
 
 source "drivers/video/xgold/dcc/Kconfig"
+source "drivers/video/xgold/dsi/Kconfig"
 
