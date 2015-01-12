@@ -49,11 +49,11 @@ static struct sw_fuel_gauge_debug_data sw_fuel_gauge_nvs_debug_data = {
 
 /* Macro to trace and log debug event and data. */
 #define SW_FUEL_GAUGE_NVS_DEBUG_PARAM(_event, _param) \
-	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_nvs_debug_data, _event, _param)
+	SWFG_DEBUG(sw_fuel_gauge_nvs_debug_data, _event, _param)
 
 /* Macro to trace and log debug event without a parameter. */
 #define SW_FUEL_GAUGE_NVS_DEBUG_NO_PARAM(_event) \
-	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_nvs_debug_data, _event, 0)
+	SWFG_DEBUG(sw_fuel_gauge_nvs_debug_data, _event, 0)
 
 #ifdef CONFIG_NVM
 

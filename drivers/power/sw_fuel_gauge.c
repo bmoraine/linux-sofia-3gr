@@ -128,20 +128,20 @@ available after startup. */
 
 /* Macro to trace and log debug event and data. */
 #define SW_FUEL_GAUGE_DEBUG_PARAM(_event, _param) \
-	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_debug.dbg_array, _event, _param)
+	SWFG_DEBUG(sw_fuel_gauge_debug.dbg_array, _event, _param)
 
 /* Macro to trace and log debug event without a parameter. */
 #define SW_FUEL_GAUGE_DEBUG_NO_PARAM(_event) \
-	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_debug.dbg_array, _event, 0)
+	SWFG_DEBUG(sw_fuel_gauge_debug.dbg_array, _event, 0)
 
 /* Macro to log debug event with a parameter but no printk. */
 #define SW_FUEL_GAUGE_DEBUG_NO_LOG_PARAM(_event, _param) \
-	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(sw_fuel_gauge_debug.dbg_array, \
+	SWFG_DEBUG_NO_PRINTK(sw_fuel_gauge_debug.dbg_array, \
 							_event, _param)
 
 /* Macro to log debug event without a parameter or printk. */
 #define SW_FUEL_GAUGE_DEBUG_NO_LOG_NO_PARAM(_event) \
-	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(sw_fuel_gauge_debug.dbg_array, _event, 0)
+	SWFG_DEBUG_NO_PRINTK(sw_fuel_gauge_debug.dbg_array, _event, 0)
 
 #define SW_FUEL_GAUGE_ENQUEUE(p_func, param) \
 	sw_fuel_gauge_enqueue_function((fp_scheduled_function)(p_func), \
@@ -307,9 +307,8 @@ struct state_machine_data {
  * @properties				Values of properties supplied to power
  *					supply class
  * @stm					Data used by the state machine
- * @coulomb_counter_valid_at_init	Indicates whether initial SoC was
- *					determined
- *					from the saved coulomb counter values.
+ * @nvm_valid_at_init			Indicates whether initial SoC was
+ *					determined from the NVM cal point.
  * @nom_bat_capacity_mc			Nominal capacity of the fitted
  *					battery (mC)
  * @hal_set				Reporting delta threshold for coulomb
@@ -350,7 +349,7 @@ struct sw_fuel_gauge_data {
 	struct bat_temperature_data	tbat;
 	struct power_supply_properties	properties;
 	struct state_machine_data	stm;
-	bool				coulomb_counter_valid_at_init;
+	bool				nvm_valid_at_init;
 	int				nom_bat_capacity_mc;
 	union sw_fuel_gauge_hal_set_params hal_set;
 	int				cc_balanced_mc;
@@ -1483,7 +1482,7 @@ static void sw_fuel_gauge_calculate_nvm_capacity_and_error(void)
 					&& (cc_data_now.cc_down_mc >=
 						p_last_soc_cal->cc_down_mc)) {
 					sw_fuel_gauge_instance.
-						coulomb_counter_valid_at_init
+						nvm_valid_at_init
 									= true;
 				} else {
 					/* Log failure reason. */
@@ -1507,7 +1506,7 @@ static void sw_fuel_gauge_calculate_nvm_capacity_and_error(void)
 	}
 	/* If NVM calibration point is valid, calculate capacity and error based
 	 *  on stored SoC calibration point. */
-	if (sw_fuel_gauge_instance.coulomb_counter_valid_at_init) {
+	if (sw_fuel_gauge_instance.nvm_valid_at_init) {
 		/* We have retrieved a valid calibration point from NVM. */
 		SW_FUEL_GAUGE_DEBUG_NO_PARAM(
 				SW_FUEL_GAUGE_DEBUG_NVM_CAL_POINT_RESTORED);
@@ -1551,7 +1550,7 @@ static void swfg_nvs_ready_work(int param)
  */
 static void sw_fuel_gauge_nvs_ready_cb(void)
 {
-	/* Handle event in the serialized workqueue  */
+	/* Handle event in the serialized workqueue */
 	SW_FUEL_GAUGE_ENQUEUE(swfg_nvs_ready_work, 0);
 }
 
@@ -2007,8 +2006,7 @@ static void sw_fuel_gauge_stm_check_battery_relaxed(void)
 			/* Clear latched values at OCV to start looking for
 			another OCV condition if supported in HW */
 			sw_fuel_gauge_instance.p_hal_interface->set(
-		 SW_FUEL_GAUGE_HAL_SET_CLEAR_LATCHED_IBAT_AVERAGES_AT_OCV,
-									dummy);
+		 SW_FUEL_GAUGE_HAL_SET_VBAT_MAX_CLEAR, dummy);
 		}
 	}
 }
@@ -2111,8 +2109,7 @@ static void sw_fuel_gauge_stm_enter_ocv_received(void)
 	/* Clear latched values at OCV to start looking for another OCV
 	condition if supported in HW */
 	sw_fuel_gauge_instance.p_hal_interface->set(
-		SW_FUEL_GAUGE_HAL_SET_CLEAR_LATCHED_IBAT_AVERAGES_AT_OCV,
-									dummy);
+		SW_FUEL_GAUGE_HAL_SET_VBAT_MAX_CLEAR, dummy);
 
 	/* Process the next event depending on the measurement outcome. */
 	SW_FUEL_GAUGE_ENQUEUE(sw_fuel_gauge_stm_process_event, event);
@@ -3219,7 +3216,7 @@ static void __exit sw_fuel_gauge_exit(void)
 	return platform_driver_unregister(&sw_fuel_gauge_driver);
 }
 
-late_initcall(sw_fuel_gauge_init);
+device_initcall_sync(sw_fuel_gauge_init);
 module_exit(sw_fuel_gauge_exit);
 
 MODULE_DESCRIPTION("SW Fuel Gauge Driver");

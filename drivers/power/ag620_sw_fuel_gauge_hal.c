@@ -112,15 +112,15 @@ threshold comparator */
 
 /* Macro to trace and log debug event and data. */
 #define SW_FUEL_GAUGE_HAL_DEBUG_PARAM(_event, _param) \
-	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_hal_debug_data, _event, _param)
+	SWFG_DEBUG(sw_fuel_gauge_hal_debug_data, _event, _param)
 
 /* Macro to trace and log debug event without a parameter. */
 #define SW_FUEL_GAUGE_HAL_DEBUG_NO_PARAM(_event) \
-	SW_FUEL_GAUGE_DEBUG(sw_fuel_gauge_hal_debug_data, _event, 0)
+	SWFG_DEBUG(sw_fuel_gauge_hal_debug_data, _event, 0)
 
 /* Macro to trace and log debug event without a parameter or printk. */
 #define SW_FUEL_GAUGE_HAL_DEBUG_NO_LOG_NO_PARAM(_event) \
-	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(sw_fuel_gauge_hal_debug_data, _event, 0)
+	SWFG_DEBUG_NO_PRINTK(sw_fuel_gauge_hal_debug_data, _event, 0)
 
 #define sw_fg_hal_set_pm_state(_idi_dev, _pm_state, _en) \
 do {\
@@ -871,7 +871,7 @@ static int sw_fuel_gauge_hal_set(enum sw_fuel_gauge_hal_set_key key,
 		sw_fuel_gauge_hal_reset_accumulated_error();
 		break;
 
-	case SW_FUEL_GAUGE_HAL_SET_CLEAR_LATCHED_IBAT_AVERAGES_AT_OCV:
+	case SW_FUEL_GAUGE_HAL_SET_VBAT_MAX_CLEAR:
 		/* Latching of Ibat averages not supported on this hardware,
 		therefore nothing to clear */
 		break;

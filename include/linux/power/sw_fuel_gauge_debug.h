@@ -24,23 +24,23 @@
 #include <linux/ktime.h>
 
 /* Size of debug data array (has to be power of 2!!!) */
-#define SW_FUEL_GAUGE_DEBUG_DATA_SIZE (1<<6)
+#define SWFG_DEBUG_DATA_SIZE (1<<6)
 
 /* Enables verbose printk logging. Remove this define for release builds. */
-#define SW_FUEL_GAUGE_DEBUG_LOG_ENABLE
-#ifdef SW_FUEL_GAUGE_DEBUG_LOG_ENABLE
+#define SWFG_DEBUG_LOG_ENABLE
+#ifdef SWFG_DEBUG_LOG_ENABLE
 /** Macro to trace and log debug data internally.
  * Jiffy resolution is adequate for SW Fuel Gauge
  */
-#define SW_FUEL_GAUGE_DEBUG(_array, _event, _param) \
+#define SWFG_DEBUG(_array, _event, _param) \
 do { \
-	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(_array, _event, _param); \
+	SWFG_DEBUG_NO_PRINTK(_array, _event, _param); \
 	pr_debug("%s 0x%lx  dec=%ld\n", \
 		#_event, (unsigned long)_param, (long)_param); \
 } while (0)
 #else
-#define SW_FUEL_GAUGE_DEBUG(_array, _event, _param) \
-	SW_FUEL_GAUGE_DEBUG_NO_PRINTK(_array, _event, _param)
+#define SWFG_DEBUG(_array, _event, _param) \
+	SWFG_DEBUG_NO_PRINTK(_array, _event, _param)
 #endif
 
 /**
@@ -48,7 +48,7 @@ do { \
  * in interrupt handlers and within spinlocked sections.
  * Jiffy resolution is adequate for SW Fuel Gauge
  */
-#define SW_FUEL_GAUGE_DEBUG_NO_PRINTK(_array, _event, _param) \
+#define SWFG_DEBUG_NO_PRINTK(_array, _event, _param) \
 do { \
 	unsigned long flags; \
 	spin_lock_irqsave(&_array.lock, flags); \
@@ -56,7 +56,7 @@ do { \
 	_array.log_array[_array.index].event = (_event); \
 	_array.log_array[_array.index].param = (long)(_param); \
 	_array.index++; \
-	_array.index &= (SW_FUEL_GAUGE_DEBUG_DATA_SIZE-1); \
+	_array.index &= (SWFG_DEBUG_DATA_SIZE-1); \
 	spin_unlock_irqrestore(&_array.lock, flags); \
 } while (0)
 
@@ -192,7 +192,7 @@ enum sw_fuel_gauge_debug_event {
 	SW_FUEL_GAUGE_DEBUG_HAL_SET_DELTA_THRESHOLD_MC,
 	SW_FUEL_GAUGE_DEBUG_HAL_REQUESTED_DELTA_THRESHOLD_MC,
 	SW_FUEL_GAUGE_DEBUG_HAL_RESET_ACCUMULATED_ERROR,
-	SW_FUEL_GAUGE_DEBUG_HAL_RESET_IBAT_AVERAGES,
+	SW_FUEL_GAUGE_DEBUG_HAL_CLR_VBAT_MAX,
 
 	/* HAL Get function events. */
 	SW_FUEL_GAUGE_DEBUG_HAL_CC_UP_COUNTS,
@@ -246,7 +246,7 @@ struct sw_fuel_gauge_debug_data {
 		u32				time_stamp;
 		enum sw_fuel_gauge_debug_event	event;
 		long			param;
-	} log_array[SW_FUEL_GAUGE_DEBUG_DATA_SIZE];
+	} log_array[SWFG_DEBUG_DATA_SIZE];
 };
 
 #endif /* _SW_FUEL_GAUGE_DEBUG_H */

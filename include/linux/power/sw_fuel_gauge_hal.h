@@ -138,18 +138,18 @@ union sw_fuel_gauge_hal_get_params {
  * @SW_FUEL_GAUGE_HAL_SET_ZERO_ACCUMULATED_CC_ERROR
  *	Key to reset the accumulated coulomb counter error. The parameters
  *	for ::set are then defined as: None.
-*	Performs error reset without further parameters.
+ *	Performs error reset without further parameters.
  *
- * @SW_FUEL_GAUGE_HAL_SET_CLEAR_LATCHED_IBAT_AVERAGES_AT_OCV
- *	Key to reset the ibat averages latched at OCV point. This might be dummy
- *	if not supported in HW. The parameters for ::set are then defined
- *	as: None.
+ * @SW_FUEL_GAUGE_HAL_SET_VBAT_MAX_CLEAR
+ *	Key to reset the max vbat stored and associated ibat averages latched.
+ *	This might be dummy if not supported in HW. The parameters for ::set
+ *	are then defined as: None.
  *	Performs error reset without further parameters.
  */
 enum sw_fuel_gauge_hal_set_key {
 	SW_FUEL_GAUGE_HAL_SET_COULOMB_IND_DELTA_THRESHOLD,
 	SW_FUEL_GAUGE_HAL_SET_ZERO_ACCUMULATED_CC_ERROR,
-	SW_FUEL_GAUGE_HAL_SET_CLEAR_LATCHED_IBAT_AVERAGES_AT_OCV
+	SW_FUEL_GAUGE_HAL_SET_VBAT_MAX_CLEAR,
 };
 
 /**
