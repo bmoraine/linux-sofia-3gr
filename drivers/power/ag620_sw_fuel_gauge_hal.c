@@ -85,7 +85,7 @@
 /* Theoretical trigger level for coulomb counter increment in mV. */
 #define COULOMB_COUNTER_INCREMENT_THRESHOLD_THEORETICAL_MV	(500)
 /* Average error in trigger level for coulomb counter increment in mV. */
-#define COULOMB_COUNTER_INCREMENT_THRESHOLD_COMPENSATION_MV_ES2	(-10)
+#define COULOMB_COUNTER_INCREMENT_THRESHOLD_COMPENSATION_MV_ES2	(0)
 /* Error compensated trigger level for coulomb counter increment in mV. */
 #define COULOMB_COUNTER_INCREMENT_THRESHOLD_MV_ES2 \
 	(COULOMB_COUNTER_INCREMENT_THRESHOLD_THEORETICAL_MV + \
