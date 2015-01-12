@@ -714,6 +714,9 @@ static void lsm303dlhc_mag_input_poll_func(struct work_struct *work)
 
 	int err;
 
+	if (!atomic_read(&stat->enabled))
+		return;
+
 	mutex_lock(&stat->lock);
 	err = lsm303dlhc_mag_get_data(stat, xyz);
 	if (err < 0)
