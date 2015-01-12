@@ -1489,7 +1489,7 @@ static void sw_fuel_gauge_calculate_nvm_capacity_and_error(void)
 					/* Log failure reason. */
 					SW_FUEL_GAUGE_DEBUG_NO_LOG_NO_PARAM(
 				 SW_FUEL_GAUGE_DEBUG_NVM_BATTERY_REMOVED);
-					pr_err("%s:Battery removed", __func__);
+					pr_err("%s:Battery removed\n", __func__);
 				}
 			} else {
 				/* Log failure reason. */
@@ -1501,7 +1501,7 @@ static void sw_fuel_gauge_calculate_nvm_capacity_and_error(void)
 
 			/* Log error as NVS doesn't have a valid calibratrion
 			 * point. */
-			pr_err("%s: Couldn't retrieve calibration point.",
+			pr_err("%s: Couldn't retrieve calibration point\n",
 					__func__);
 		}
 	}
