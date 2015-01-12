@@ -262,6 +262,22 @@ pmic {
 					&meas_pmic 8 &meas_pmic 9
 					&meas_pmic 10>;
 		};
+
+		/* SW Fuel gauge*/
+		fuel_gauge_hal:fuel_gauge_hal {
+			compatible = "intel,pmic_swfg_hal";
+			#address-cells = < 0 >;
+			interrupts = < 0 >;
+			interrupt-parent = <&fuel_gauge_hal>;
+			#interrupt-cells = < 1 >;
+			interrupt-map = <
+				0 &hirq HIRQ_PMIC_ADC_CCTICK IRQ_TYPE_DEFAULT
+			>;
+			interrupt-names = "PMIC_CC_HIRQ";
+
+			offset_error_uc_per_s = < 0 >;
+		};
+
 		/* Therm */
 	};
 

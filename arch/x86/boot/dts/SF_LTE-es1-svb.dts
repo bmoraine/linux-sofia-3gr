@@ -121,6 +121,10 @@
 	radio {
 		compatible = "intel,fm-radio";
 	};
+
+	fuel_gauge:fuel_gauge {
+		compatible = "intel,fuel_gauge";
+	};
 };
 
 &pmic_bat {
@@ -213,6 +217,12 @@
 					   850 /*maint_chrg_cur*/ >;
 
 	nprofiles = <2>;
+};
+
+&fuel_gauge_hal {
+	sense_resistor_mohm = <10>;
+	gain_error_1_uc_per_mc = <30>;
+	gain_error_2_uc_per_mc = <30>;
 };
 
 &dcc {
