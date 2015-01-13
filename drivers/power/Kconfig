@@ -403,6 +403,14 @@ config CHARGER_SMB347
 	  Say Y to include support for Summit Microelectronics SMB347
 	  Battery Charger.
 
+config CHARGER_SMB345
+	tristate "SMB345 Battery Charger"
+	depends on I2C
+	depends on IDI
+	default n
+	help
+	  Say Y to include support for SMB345 Battery Charger.
+
 config CHARGER_FAN54020
 	tristate "FAN54020 battery charger driver"
 	depends on I2C

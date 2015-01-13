@@ -60,6 +60,7 @@ obj-$(CONFIG_CHARGER_BQ24735)	+= bq24735-charger.o
 obj-$(CONFIG_SW_FUEL_GAUGE)	+= sw_fuel_gauge.o sw_fuel_gauge_nvs.o ag620_sw_fuel_gauge_hal.o brown_out_driver.o pmic_bat_driver_hal.o bat_driver_hal.o dummy_bat_fitted_driver_hal.o bprofile_dts_parser.o pmic_usb_det_drv.o
 obj-$(CONFIG_CHARGER_FAN54020)  += fan54020_charger.o
 obj-$(CONFIG_POWER_AVS)		+= avs/
+obj-$(CONFIG_CHARGER_SMB345)	+= smb345-charger.o
 obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
 obj-$(CONFIG_CHARGER_TPS65090)	+= tps65090-charger.o
 obj-$(CONFIG_POWER_RESET)	+= reset/
