@@ -76,3 +76,13 @@ config VIDEO_OV2685
 	default n
 	---help---
 	Say Y here to enable OV2685.
+
+config VIDEO_HM2051
+	tristate "HM2051 support"
+	depends on I2C && VIDEO_V4L2 && VIDEO_XGOLD
+	---help---
+	This is a Video4Linux2 sensor-level driver for HM2051.
+
+	iCatch is an external ISP connected to the sensor
+
+	It currently only works with the atomisp driver.

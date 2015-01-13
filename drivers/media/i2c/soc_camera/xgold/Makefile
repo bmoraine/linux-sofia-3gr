@@ -14,3 +14,4 @@ obj-$(CONFIG_VIDEO_OV13850) += wv511_v4l2-i2c-subdev.o ad5823_v4l2-i2c-subdev.o 
 obj-$(CONFIG_VIDEO_OV8858) += wv511_v4l2-i2c-subdev.o ov_camera_module.o sofia-3g_camera_module.o ov8858_v4l2-i2c-subdev.o
 obj-$(CONFIG_VIDEO_OV5648) += wv511_v4l2-i2c-subdev.o ov_camera_module.o sofia-3g_camera_module.o ov5648_v4l2-i2c-subdev.o
 
+obj-$(CONFIG_VIDEO_HM2051) += sofia-3g_camera_module.o hm2051.o
