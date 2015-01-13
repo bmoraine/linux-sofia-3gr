@@ -197,6 +197,7 @@ struct intel_usbphy {
 	struct usb_reg *fsvplus;
 	struct usb_reg *chrgdet;
 	struct usb_reg *hsrs;
+	int usbid_gpio;
 };
 
 struct usb_reg {

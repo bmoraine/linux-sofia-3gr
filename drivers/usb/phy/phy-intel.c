@@ -9,6 +9,8 @@
 #include <linux/debugfs.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/platform_device_pm.h>
 #include <linux/power_supply.h>
@@ -228,6 +230,21 @@ DECLARE_USB_STATUS(iddig0)
 DECLARE_USB_STATUS(fsvplus)
 DECLARE_USB_STATUS(chrgdet)
 DECLARE_USB_STATUS(hsrs)
+
+static bool usbphy_id_connected(struct intel_usbphy *iphy)
+{
+	if (iphy->usbid_gpio == -1)
+		return true;
+	return false;
+}
+
+static int usbid_status(struct intel_usbphy *iphy)
+{
+	if (usbphy_id_connected(iphy))
+		return usb_iddig0_status(iphy);
+
+	return gpio_get_value(iphy->usbid_gpio);
+}
 
 static const char *timer_string(int bit)
 {
@@ -553,7 +570,7 @@ static irqreturn_t intel_usb2phy_id(int irq, void *dev)
 {
 	struct intel_usbphy *iphy = (struct intel_usbphy *) dev;
 	int id_status;
-	id_status = usb_iddig0_status(iphy);
+	id_status = usbid_status(iphy);
 	if (id_status) {
 		dev_dbg(iphy->phy.dev, "ID set\n");
 		set_bit(ID, &iphy->inputs);
@@ -935,7 +952,7 @@ static void intel_otg_init_sm(struct intel_usbphy *iphy)
 {
 	switch (iphy->mode) {
 	case USB_DR_MODE_OTG:
-		if (usb_iddig0_status(iphy)) {
+		if (usbid_status(iphy)) {
 			dev_dbg(iphy->phy.dev, "ID set\n");
 			set_bit(ID, &iphy->inputs);
 			irq_set_irq_type(iphy->id_irq, IRQ_TYPE_EDGE_FALLING);
@@ -1616,6 +1633,12 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 	}
 
 	dev_info(dev, "power budget set to %d mA\n", iphy->power_budget);
+
+	iphy->usbid_gpio = of_get_named_gpio(np, "intel,usbid-gpio", 0);
+	if (!gpio_is_valid(iphy->usbid_gpio)) {
+		dev_dbg(dev, "can't find usbid gpio, using phy by default\n");
+		iphy->usbid_gpio = -1;
+	}
 
 	wake_lock_init(&iphy->wlock, WAKE_LOCK_SUSPEND, "intel_otg");
 	intel_otg_init_timer(iphy);
