@@ -17,10 +17,12 @@
 		/*first pin / nb pins / value */
 	pinctrl-single,gpio-range =
 	<&range 0 14 0x100>,
-	<&range 14 1 0x1700>, /*gpio19, touch reset, output, high, PP*/
-	<&range 15 43 0x100>,
-	<&range 44 1 0x1500>,
-	<&range 45 60 0x100>;
+	<&range 14 1 0x1700>,/*gpio14, touch reset, output, high, PP*/
+	<&range 15 29 0x100>,
+	<&range 44 1 0x1500>,/*gpio44, spk_amp_en, output low, PP*/
+	<&range 45 2 0x100>,
+	<&range 47 1 0x1500>,/*gpio47, otg enable, output low, PP*/
+	<&range 48 57 0x100>;
 
 	pinctrl-names = "default", "sleep", "deactivate"; /*"activate", "sleep", "deactivate" */
 	/* map here static pins (do not need any dynamic config) */

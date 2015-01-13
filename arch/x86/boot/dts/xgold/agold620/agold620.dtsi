@@ -69,7 +69,7 @@ agold {
 		intel,gpio-output = < 0x20C 9 1>;
 		intel,gpio-input = < 0x40C 9 1>;
 #if defined(SOFIA_3GR_GARNET_EVB)
-                intel,gpiochip-base = <107>;
+		intel,gpiochip-base = <107>;
 #else
 		intel,gpiochip-base = <94>;
 #endif
@@ -411,15 +411,25 @@ agold {
 #ifdef SF_3G_TAB
 		bq2429x_idi:bq2429x_idi{
 			compatible = "intel,bq2429x_idi", "intel,idi,peripheral";
+#elif defined(SOFIA_3GR_GARNET_EVB)
+		smb345_idi:smb345_idi{
+			compatible = "intel,smb345_idi", "intel,idi,peripheral";
 #else
 		fan54x_idi:fan54x_idi{
 			compatible = "intel,fan54x_idi", "intel,idi,peripheral";
 #endif
 			#address-cells = < 0 >;
+#ifdef SOFIA_3GR_GARNET_EVB
+			reg = < 0xE6500250 0x4 0xE6500A00 0x10 >;
+			reg-names = "pmu_config_base","pmu_chgr_ctrl";
+#else
 			reg = < 0xE6500A00 0x10 >;
 			reg-names = "registers";
+#endif
 #ifdef SF_3G_TAB
 			idi-peripheral-type = "intel,idi,bq2429x";
+#elif defined(SOFIA_3GR_GARNET_EVB)
+			idi-peripheral-type = "intel,idi,smb345";
 #else
 			idi-peripheral-type = "intel,idi,fan54x";
 #endif

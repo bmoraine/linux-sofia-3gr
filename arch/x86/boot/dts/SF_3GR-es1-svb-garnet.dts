@@ -270,16 +270,19 @@
 	pinctrl-0 = <&i2c5_agold_default_pins>;
 	pinctrl-1 = <&i2c5_agold_sleep_pins>;
 	pinctrl-2 = <&i2c5_agold_inactive_pins>;
-	#if 0
 	bat:battery {
 		compatible = "intel,smb345_charger";
-		reg = < 0x6b >;
-		interrupts = < 0 >;
+		reg = < 0x6a >;
+		interrupts = < 0 1 >;
 		interrupt-parent = < &bat>;
 		#interrupt-cells = < 1 >;
-		interrupt-map = < 0 &ag620_pmu ABB_PMU_CI XGOLD_IRQ_TYPE_NONE >; /* CI */
+		interrupt-map = < 0 &ag620_pmu ABB_PMU_CI XGOLD_IRQ_TYPE_NONE 1 &ag620_pmu ABB_PMU_CSTAT XGOLD_IRQ_TYPE_EDGE_BOTH >; /* CI */
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = < &chg_agold_default_pins >;
+		pinctrl-1 = < &chg_agold_sleep_pins >;
+		pinctrl-2 = < &chg_agold_inactive_pins >;
+		intel,otg-enable = < &xgold_pmx_gpio 47 0 >;
 	};
-	#endif
 };
 
 
@@ -307,6 +310,13 @@
 	pinctrl-1 = <&emmc_sleep_pins>;
 	pinctrl-2 = <&emmc_inactive_pins>;
 
+};
+
+&usb {
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&usb_default_pins>;
+	pinctrl-1 = <&usb_sleep_pins>;
+	pinctrl-2 = <&usb_inactive_pins>;
 };
 
 &keypad {
