@@ -469,7 +469,7 @@ struct rockchip_fb_par {
 	u32 fb_size;
 	struct rockchip_vop_driver *vop_drv;
 
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 	struct ion_handle *ion_hdl;
 	struct dma_buf *dma_buf;
 #endif
@@ -494,7 +494,7 @@ struct rockchip_fb {
 	struct fb_info *fb[SFA_MAX_FB_SUPPORT * 2];
 	struct rockchip_vop_driver *vop_dev_drv[SFA_MAX_VOP_SUPPORT];
 
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 	struct ion_client *ion_client;
 #endif
 
@@ -522,5 +522,6 @@ struct rockchip_vop_driver *get_vop_drv(char *name);
 int support_uboot_display(void);
 
 extern struct ion_client *xgold_ion_client_create(const char *name);
+extern struct ion_client *rockchip_ion_client_create(const char *name);
 
 #endif

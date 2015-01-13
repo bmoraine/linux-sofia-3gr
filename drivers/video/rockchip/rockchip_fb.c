@@ -33,7 +33,10 @@
 #include <linux/of_platform.h>
 #endif
 
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION)
+#if defined(CONFIG_ION_ROCKCHIP)
+#include <linux/rockchip_ion.h>
+#endif
 #include <linux/dma-buf.h>
 #include <linux/highmem.h>
 #endif
@@ -1381,8 +1384,9 @@ static int rockchip_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	void __user *argp = (void __user *)arg;
 	unsigned int dsp_addr[2];
 	int list_stat;
-	struct rockchip_fb_win_cfg_data *win_data;
-#if defined(CONFIG_ION_XGOLD)
+	int ret;
+	static struct rockchip_fb_win_cfg_data win_data;
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 	struct rockchip_fb *sfb_info = platform_get_drvdata(fb_pdev);
 	struct ion_handle *hdl;
 	ion_phys_addr_t phy_addr;
@@ -1440,7 +1444,7 @@ static int rockchip_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			return -EFAULT;
 		break;
 
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 	case SFA_FBIOSET_DMABUF_FD:
 		if (copy_from_user(&fd, argp, sizeof(fd)))
 			return -EFAULT;
@@ -1475,27 +1479,22 @@ static int rockchip_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 #endif
 	case SFA_FBIOSET_CONFIG_DONE:
-		win_data = kzalloc(sizeof(*win_data), GFP_KERNEL);
-		if (NULL == win_data)
-			return -ENOMEM;
-
-		if (copy_from_user(win_data,
+		if (copy_from_user(&win_data,
 				(struct rockchip_fb_win_cfg_data __user *)argp,
-				sizeof(*win_data))) {
-			kfree(win_data);
-			return -EFAULT;
+				sizeof(win_data))) {
+			ret = -EFAULT;
+			break;
 		};
 
-		dev_drv->wait_fs = win_data->wait_fs;
-		rockchip_fb_update_win_config(info, win_data);
+		dev_drv->wait_fs = win_data.wait_fs;
+		rockchip_fb_update_win_config(info, &win_data);
 
 		if (copy_to_user((struct rockchip_fb_win_cfg_data __user *)arg,
-				 win_data, sizeof(*win_data))) {
-			kfree(win_data);
-			return -EFAULT;
+				 &win_data, sizeof(win_data))) {
+			ret = -EFAULT;
+			break;
 		}
-		kfree(win_data);
-		break;
+		memset(&win_data, 0, sizeof(struct rockchip_fb_win_cfg_data));
 	default:
 		dev_drv->ops->ioctl(dev_drv, cmd, arg, win_id);
 		break;
@@ -1746,7 +1745,7 @@ int rockchip_fb_disp_scale(u8 scale_x, u8 scale_y, u8 vop_id)
 	return 0;
 }
 
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 static int rockchip_fb_alloc_buffer_by_ion(struct fb_info *fbi,
 				       unsigned long fb_mem_size)
 {
@@ -1762,8 +1761,17 @@ static int rockchip_fb_alloc_buffer_by_ion(struct fb_info *fbi,
 		return -ENODEV;
 	}
 
+#if defined(CONFIG_ION_ROCKCHIP)
+	/*if (dev_drv->iommu_enabled)
+	handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
+			   ION_HEAP(ION_VMALLOC_HEAP_ID), 0);
+	else*/
+	handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
+			   ION_HEAP(ION_CMA_HEAP_ID), 0);
+#else
 	handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
 			   ION_HEAP(ION_HEAP_TYPE_DMA), 0);
+#endif
 	if (IS_ERR(handle)) {
 		dev_err(fbi->dev, "failed to ion_alloc:%ld\n", PTR_ERR(handle));
 		return -ENOMEM;
@@ -1826,7 +1834,7 @@ static int rockchip_fb_alloc_buffer(struct fb_info *fbi, int fb_id)
 
 	if (!strcmp(fbi->fix.id, "fb0")) {
 		fb_mem_size = get_fb_size();
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 		if (rockchip_fb_alloc_buffer_by_ion(fbi, fb_mem_size) < 0)
 			return -ENOMEM;
 #else
@@ -1837,7 +1845,7 @@ static int rockchip_fb_alloc_buffer(struct fb_info *fbi, int fb_id)
 		if (dev_drv->rotate_mode > X_Y_MIRROR) {
 			/* fb_mem_size = get_rotate_fb_size(); */
 			fb_mem_size = get_fb_size();
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 			if (rockchip_fb_alloc_buffer_by_ion(
 						fbi, fb_mem_size) < 0)
 				return -ENOMEM;
@@ -1865,7 +1873,7 @@ static int rockchip_fb_alloc_buffer(struct fb_info *fbi, int fb_id)
 static int rockchip_fb_release_buffer(struct fb_info *fbi)
 {
 	struct rockchip_fb_par *fb_par;
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 	struct rockchip_fb *sfb_info = platform_get_drvdata(fb_pdev);
 #endif
 
@@ -1879,7 +1887,7 @@ static int rockchip_fb_release_buffer(struct fb_info *fbi)
 	/* buffer for fb1 and fb3 are alloc by android */
 	if (!strcmp(fbi->fix.id, "fb1") || !strcmp(fbi->fix.id, "fb3"))
 		return 0;
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 	if (!IS_ERR_OR_NULL(fb_par->ion_hdl))
 		ion_free(sfb_info->ion_client, fb_par->ion_hdl);
 #else
@@ -2207,7 +2215,17 @@ static int rockchip_fb_probe(struct platform_device *pdev)
 		pr_info("uboot-logo-on:%d\n", uboot_logo_on);
 
 	dev_set_name(&pdev->dev, "rockchip-fb");
-#if defined(CONFIG_ION_XGOLD)
+
+#if defined(CONFIG_ION_ROCKCHIP)
+	pr_info("create rockchip ion client\n");
+	sfb_info->ion_client = rockchip_ion_client_create("rockchip-fb");
+	if (IS_ERR(sfb_info->ion_client)) {
+		dev_err(&pdev->dev,
+			"failed to create ion client for rockchip fb");
+		return PTR_ERR(sfb_info->ion_client);
+	}
+#else
+	pr_info("create xgold ion client\n");
 	sfb_info->ion_client = xgold_ion_client_create("rockchip-fb");
 	if (IS_ERR_OR_NULL(sfb_info->ion_client)) {
 		dev_err(&pdev->dev,
