@@ -1871,15 +1871,17 @@ static int dsp_audio_suspend(struct device *dev)
 	struct dsp_audio_device *dsp_dev;
 	xgold_debug("-->%s\n", __func__);
 
-	dsp_dev = dev_get_drvdata(dev);
+	if (!pm_runtime_active(dev)) {
+		dsp_dev = dev_get_drvdata(dev);
 
-	ret = device_state_pm_set_state_by_name(dev,
-			dsp_dev->pm_platdata->pm_state_D3_name);
+		xgold_debug("%s: Turning off dsp\n", __func__);
+		ret = device_state_pm_set_state_by_name(dev,
+				dsp_dev->pm_platdata->pm_state_D3_name);
 
+		dsp_dev->p_dsp_common_data->rst_done = 0;
+	}
 	if (ret < 0)
-			xgold_err("%s: Failed with error %d\n",	__func__, ret);
-
-	dsp_dev->p_dsp_common_data->rst_done = 0;
+		xgold_err("%s: Failed with error %d\n",	__func__, ret);
 
 	xgold_debug("<-- %s\n", __func__);
 
@@ -1893,29 +1895,32 @@ static int dsp_audio_resume(struct device *dev)
 	struct dsp_audio_device *dsp_dev;
 	xgold_debug("-->%s\n", __func__);
 
-	dsp_dev = dev_get_drvdata(dev);
+	if (!pm_runtime_active(dev)) {
+		dsp_dev = dev_get_drvdata(dev);
 
-	/* Request clock/voltage for DSP */
-	ret = device_state_pm_set_state_by_name(dev,
+		xgold_debug("%s: Booting audio dsp", __func__);
+		/* Request clock/voltage for DSP */
+		ret = device_state_pm_set_state_by_name(dev,
 			dsp_dev->pm_platdata->pm_state_D0_name);
 
-	if (ret < 0)
-		xgold_err("%s: Failed with error %d\n",
-			__func__, ret);
+		if (ret < 0)
+			xgold_err("%s: Failed with error %d\n",
+				__func__, ret);
 
-	ret = dsp_audio_boot(dsp_dev);
+		ret = dsp_audio_boot(dsp_dev);
 
-	if (ret < 0)
-		xgold_err("%s: Boot Failed with error %d\n",
-			__func__, ret);
+		if (ret < 0)
+			xgold_err("%s: Boot Failed with error %d\n",
+				__func__, ret);
 
-	/* Suspend DSP to Memory retention mode after dsp boot*/
-	ret = device_state_pm_set_state_by_name(dev,
-			dsp_dev->pm_platdata->pm_state_D0i3_name);
+		/* Suspend DSP to Memory retention mode after dsp boot*/
+		ret = device_state_pm_set_state_by_name(dev,
+				dsp_dev->pm_platdata->pm_state_D0i3_name);
 
-	if (ret < 0)
-		xgold_err("%s: Failed with error %d\n",
-			__func__, ret);
+		if (ret < 0)
+			xgold_err("%s: Failed with error %d\n",
+				__func__, ret);
+	}
 
 	xgold_debug("<-- %s\n", __func__);
 
