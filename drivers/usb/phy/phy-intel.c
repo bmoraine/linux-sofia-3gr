@@ -342,6 +342,7 @@ static int intel_otg_suspend(struct intel_usbphy *iphy)
 		}
 		usb_enable_pll_en(iphy, false);
 		usb_enable_reset(iphy, true, "bus");
+		enable_irq(iphy->resume_irq);
 		if (device_may_wakeup(iphy->dev))
 			enable_irq_wake(iphy->resume_irq);
 
@@ -411,6 +412,7 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 		usb_enable_reset(iphy, false, "bus");
 		if (device_may_wakeup(iphy->dev))
 			disable_irq_wake(iphy->resume_irq);
+		disable_irq(iphy->resume_irq);
 		return 0;
 	}
 
@@ -1568,6 +1570,7 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 				iphy->resume_irq, ret);
 			return -EINVAL;
 		}
+		disable_irq(iphy->resume_irq);
 	} else {
 		dev_info(dev, "resume irq not found\n");
 	}
