@@ -23,6 +23,7 @@
  */
 
 #include <media/v4l2-common.h>
+#include <media/v4l2-fh.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-controls_intel.h>
 #include <media/videobuf-dma-contig.h>
@@ -49,7 +50,16 @@ static struct cif_isp20_v4l2_device cif_isp20_v4l2_dev;
 struct cif_isp20_v4l2_fh {
 	struct videobuf_queue buf_queue;
 	enum cif_isp20_stream_id stream_id;
+	struct v4l2_fh fh;
 };
+
+static struct cif_isp20_v4l2_fh *to_fh(struct file *file)
+{
+	if (file == NULL || file->private_data == NULL)
+		return NULL;
+
+	return container_of(file->private_data, struct cif_isp20_v4l2_fh, fh);
+}
 
 static struct videobuf_queue *to_videobuf_queue(
 	struct file *file)
@@ -62,7 +72,7 @@ static struct videobuf_queue *to_videobuf_queue(
 			"NULL file handle\n");
 		BUG();
 	}
-	fh = file->private_data;
+	fh = to_fh(file);
 	if (unlikely(NULL == fh)) {
 		cif_isp20_pltfrm_pr_err(NULL,
 			"fh is NULL\n");
@@ -96,7 +106,7 @@ static enum cif_isp20_stream_id to_stream_id(
 			"NULL file handle\n");
 		BUG();
 	}
-	fh = file->private_data;
+	fh = to_fh(file);
 	if (unlikely(NULL == fh)) {
 		cif_isp20_pltfrm_pr_err(NULL,
 			"fh is NULL\n");
@@ -862,7 +872,7 @@ static int cif_isp20_v4l2_open(
 	int ret;
 	struct video_device *vdev = video_devdata(file);
 	struct cif_isp20_device *dev = video_get_drvdata(vdev);
-	struct cif_isp20_v4l2_fh *fh = NULL;
+	struct cif_isp20_v4l2_fh *fh;
 	enum v4l2_buf_type buf_type;
 	enum cif_isp20_stream_id stream_id;
 
@@ -887,7 +897,7 @@ static int cif_isp20_v4l2_open(
 		goto err;
 	}
 
-	fh = kmalloc(sizeof(*fh), GFP_KERNEL);
+	fh = kzalloc(sizeof(*fh), GFP_KERNEL);
 	if (NULL == fh) {
 		cif_isp20_pltfrm_pr_err(NULL,
 			"memory allocation failed\n");
@@ -895,7 +905,10 @@ static int cif_isp20_v4l2_open(
 		goto err;
 	}
 	fh->stream_id = stream_id;
-	file->private_data = fh;
+
+	file->private_data = &fh->fh;
+	v4l2_fh_init(&fh->fh, vdev);
+	v4l2_fh_add(&fh->fh);
 
 	videobuf_queue_dma_contig_init(
 		&fh->buf_queue,
@@ -907,15 +920,18 @@ static int cif_isp20_v4l2_open(
 		sizeof(struct videobuf_buffer),
 		dev, NULL);
 
-	ret = cif_isp20_init(dev, stream_id);
-	if (IS_ERR_VALUE(ret))
+	ret = cif_isp20_init(dev, to_stream_id(file));
+	if (IS_ERR_VALUE(ret)) {
+		v4l2_fh_del(&fh->fh);
+		v4l2_fh_exit(&fh->fh);
+		kfree(fh);
 		goto err;
+	}
 
 	return 0;
 err:
 	cif_isp20_pltfrm_pr_err(NULL,
 		"failed with error %d\n", ret);
-	kfree(fh);
 	return ret;
 }
 
@@ -924,7 +940,7 @@ static int cif_isp20_v4l2_release(struct file *file)
 	int ret;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
-	struct cif_isp20_v4l2_fh *fh = file->private_data;
+	struct cif_isp20_v4l2_fh *fh = to_fh(file);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
@@ -932,6 +948,8 @@ static int cif_isp20_v4l2_release(struct file *file)
 	if (IS_ERR_VALUE(ret))
 		cif_isp20_pltfrm_pr_err(dev->dev,
 			"failed with error %d\n", ret);
+	v4l2_fh_del(&fh->fh);
+	v4l2_fh_exit(&fh->fh);
 	kfree(fh);
 	return ret;
 }
