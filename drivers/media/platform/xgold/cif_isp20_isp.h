@@ -35,6 +35,8 @@ struct xgold_isp_dev {
 
 	struct video_device *vdev_cifisp;
 
+	int open_count;
+
 	bool bpc_en;
 	bool bls_en;
 	bool sdg_en;

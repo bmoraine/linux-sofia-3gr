@@ -3495,6 +3495,10 @@ static int cifisp_open(struct file *file)
 
 	CIFISP_DPRINT(CIFISP_DEBUG, "cifisp_open\n");
 
+	if (isp_dev->open_count)
+		return -EBUSY;
+	isp_dev->open_count++;
+
 	isp_dev->bpc_en = false;
 	isp_dev->bls_en = false;
 	isp_dev->sdg_en = false;
@@ -3571,6 +3575,7 @@ static int cifisp_close(struct file *file)
 
 	videobuf_stop(&isp_dev->vbq_stat);
 	videobuf_mmap_free(&isp_dev->vbq_stat);
+	isp_dev->open_count--;
 
 	return 0;
 }
