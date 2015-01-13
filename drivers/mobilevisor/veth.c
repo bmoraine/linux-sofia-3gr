@@ -1,6 +1,11 @@
-/* ----------------------------------------------------------------------------
- *  Copyright (C) 2014 Intel Mobile Communications GmbH
-
+/*
+ ****************************************************************
+ *
+ *  Component: MobileVisor virtual ethernet driver
+ *
+ *  Copyright (C) 2012 - 2014 Intel Mobile Communications GmbH
+ *  Copyright (C) 2011, Red Bend Ltd.
+ *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License Version 2
  *  as published by the Free Software Foundation.
@@ -11,9 +16,14 @@
  *
  *  You should have received a copy of the GNU General Public License Version 2
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-  ---------------------------------------------------------------------------*/
-
+ *
+ *  Contributor(s):
+ *    Christophe Augier (christophe.augier@redbend.com)
+ *    Pascal Piovesan (pascal.piovesan@redbend.com)
+ *    Adam Mirowski (adam.mirowski@redbend.com)
+ *
+ ****************************************************************
+ */
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/atomic.h>
@@ -771,8 +781,8 @@ static void __exit mveth_module_exit(void)
 }
 
 #ifdef MODULE
-MODULE_DESCRIPTION("VLX virtual Ethernet device driver");
-MODULE_AUTHOR("Christophe Augier <christophe.augier@redbend.com>");
+MODULE_DESCRIPTION("MobileVisor virtual Ethernet device driver");
+MODULE_AUTHOR("Christophe Augier<christophe.augier@redbend.com>");
 MODULE_LICENSE("GPL");
 #endif
 
