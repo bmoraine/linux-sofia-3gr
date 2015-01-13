@@ -1,5 +1,5 @@
 /dts-v1/;
-
+#define SOFIALTE_ES2
 #include "xgold/sofia_lte_soc/irq.h"
 
 / {

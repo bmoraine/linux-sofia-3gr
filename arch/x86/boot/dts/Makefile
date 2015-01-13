@@ -10,6 +10,7 @@ dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G-mrd0-p0.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G-mrd0-p0-recovery.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_LTE-es1-svb.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_LTE-es2-svb.dtb
+dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_LTE-es2-svb-recovery.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G-mrd7s.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G-mrd7s-recovery.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3G-mrd5s.dtb
