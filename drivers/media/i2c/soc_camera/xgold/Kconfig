@@ -5,6 +5,13 @@ config VIDEO_OV8825
 	---help---
 	Say Y here to enable OV8825.
 
+config VIDEO_OV5670
+	bool "OV5670"
+	depends on VIDEO_V4L2 && VIDEO_XGOLD && I2C
+	default n
+	---help---
+	Say Y here to enable OV5670.
+
 config VIDEO_OV9740
 	bool "OV9740"
 	depends on VIDEO_V4L2 && VIDEO_XGOLD && I2C
