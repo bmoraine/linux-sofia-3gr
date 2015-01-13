@@ -433,21 +433,18 @@ int ag6x0_close_software_channel(struct idi_client_device *client,
 	if (ag6x0->sw_channel[peripheral->sw_channel] != peripheral->p_type)
 		return -EINVAL;
 
+	ctrl = ag6x0->ctrl_io;
+
 	spin_lock_irqsave(&ag6x0->sw_lock, flags);
+	iowrite32((IMC_IDI_RXCH_RD_CON_RST |
+			IMC_IDI_RXCH_RD_CON_RST_INT),
+			IMC_IDI_RXCH_RD_CON(ctrl, peripheral->sw_channel));
 
 	ag6x0->in_use_sw_control &= ~(1 << peripheral->sw_channel);
 	ag6x0->sw_channel[peripheral->sw_channel] = IDI_MAX_CHANNEL;
 	peripheral->sw_channel = IDI_MAX_CHANNEL;
 
 	spin_unlock_irqrestore(&ag6x0->sw_lock, flags);
-
-	ctrl = ag6x0->ctrl_io;
-
-	spin_lock_irqsave(&ag6x0->hw_lock, flags);
-	iowrite32((IMC_IDI_RXCH_RD_CON_RST |
-			IMC_IDI_RXCH_RD_CON_RST_INT),
-			IMC_IDI_RXCH_RD_CON(ctrl, peripheral->sw_channel));
-	spin_unlock_irqrestore(&ag6x0->hw_lock, flags);
 
 	return 0;
 }				/* ag6x0_close_software_channel() */
