@@ -192,13 +192,10 @@ static unsigned int xgold_irq_find_mapping_custom(unsigned int irq)
 {
 	struct xgold_irq_chip_data *data = irq_get_handler_data(irq);
 	pr_debug("%s(%d)\n", __func__, irq);
-	if (!data)
+	if (data->find_mapping)
+		return data->find_mapping(irq);
+	else
 		return 0;
-	if (!data->find_mapping) {
-		pr_warn("%s: no find mapping cb", __func__);
-		return 0;
-	}
-	return data->find_mapping(irq);
 }
 /*
  * xgold irq find mapping wrapper
@@ -215,52 +212,29 @@ unsigned int xgold_irq_find_mapping(unsigned int irq, unsigned int type)
 /*
  * xgold cascade handler entry
  */
-void xgold_irq_handle_cascade_irq(unsigned int irq,
-					struct irq_desc *desc)
+void xgold_irq_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 {
 	struct xgold_irq_chip_data *data = NULL;
 	struct irq_domain *domain = NULL;
 	struct irq_chip *chip = irq_get_chip(irq);
-	unsigned int cascade_irq = 0;
+	uint32_t casc_irq = 0;
 	pr_debug("%s\n", __func__);
 	data = irq_get_handler_data(irq);
-	if (data)
-		domain = data->domain;
-	else
+	if (!data || !chip)
 		return;
-	if (chip) {
-		chained_irq_enter(chip, desc);
-		irq = xgold_irq_find_mapping(irq, data->type);
-		pr_debug("irq_find_mapping -> using domain @%p\n",
-				data->domain);
-		cascade_irq = irq_find_mapping(data->domain, irq);
-		pr_debug("%s: cascade irq found %d (from %d)\n",
-						__func__, cascade_irq, irq);
-		if (data->handle_entry)
-			data->handle_entry(data);
-		generic_handle_irq(cascade_irq);
-		if (data->handle_exit)
-			data->handle_exit(data);
-		chained_irq_exit(chip, desc);
-		return;
-	} else {
-		return;
-	}
-}
-/*
- * xgold: get interrupt description from dts
- */
-int xgold_irq_domain_xlate(struct irq_domain *d,
-				      struct device_node *controller,
-				      const u32 *intspec,
-				      unsigned int intsize,
-				      unsigned long *out_hwirq,
-				      unsigned int *out_type)
-{
-	*out_hwirq = intspec[0];
-	*out_type = intspec[1];
-	pr_debug("%s: 1 => 1 : out_irq=%d\n", __func__, (unsigned)(*out_hwirq));
-	return 0;
+	domain = data->domain;
+	chained_irq_enter(chip, desc);
+	irq = xgold_irq_find_mapping(irq, data->type);
+	pr_debug("irq_find_mapping -> using domain @%p\n", data->domain);
+	casc_irq = irq_find_mapping(data->domain, irq);
+	pr_debug("%s: casc_irq found %d (from %d)\n", __func__, casc_irq, irq);
+	if (data->handle_entry)
+		data->handle_entry(data);
+	generic_handle_irq(casc_irq);
+	if (data->handle_exit)
+		data->handle_exit(data);
+	chained_irq_exit(chip, desc);
+	return;
 }
 /*
  * xgold map the irq
@@ -322,7 +296,7 @@ static void __init xgold_irq_cascade_irq(unsigned irq, void *chipdata,
 	pr_debug("%s: cascading %d irq\n", __func__, irq);
 	if (irq_set_handler_data(irq, data) != 0)
 		BUG();
-	if (!data->virq[index])
+	if (!data->virq || !data->virq[index])
 		irq_set_chained_handler(irq, xgold_irq_handle_cascade_irq);
 	else
 		pr_debug("%s: Don't chain irq%d as it's VLX/VMM interrupt - index:%d\n",
@@ -359,9 +333,6 @@ int __init xgold_irq_parse_map_and_cascade(struct device_node *np,
 			__func__, data->nr_int);
 	return 0;
 }
-
-
-
 
 /*
  * EOF

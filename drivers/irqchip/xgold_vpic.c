@@ -132,25 +132,9 @@ static int sofia_vpic_irq_domain_map(struct irq_domain *d, unsigned int irq,
 	return 0;
 }
 
-static int sofia_vpic_irq_domain_xlate(struct irq_domain *d,
-				struct device_node *controller,
-				const u32 *intspec,
-				unsigned int intsize,
-				unsigned long *out_hwirq,
-				unsigned int *out_type)
-{
-	pr_debug("%s: intspec.. [0]: %x, [1]: %x, [2]: %x\n",
-			__func__, intspec[0], intspec[1], intspec[2]);
-	/* Get the interrupt number */
-	*out_hwirq = intspec[0];
-	/* Type set as none - VMM is handling that */
-	*out_type = IRQ_TYPE_NONE;
-	return 0;
-}
-
 const struct irq_domain_ops sofia_vpic_irq_domain_ops = {
 	.map = sofia_vpic_irq_domain_map,
-	.xlate = sofia_vpic_irq_domain_xlate,
+	.xlate = irq_domain_xlate_onecell,
 };
 
 /* Return number of vpic irqs */

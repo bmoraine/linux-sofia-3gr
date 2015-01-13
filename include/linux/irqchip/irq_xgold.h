@@ -11,6 +11,7 @@
 
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
+#include <linux/interrupt.h>
 
 struct irq_reg {
 	unsigned base;
@@ -52,6 +53,8 @@ struct xgold_irq_chip_data {
 	unsigned *virq;
 	unsigned *preack;
 	bool io_master;
+	uint32_t hirq;
+	struct tasklet_struct hirq_resend;
 };
 
 extern int xgold_irq_of_get(struct device_node *np, void *);

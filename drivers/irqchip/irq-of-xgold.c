@@ -119,9 +119,10 @@ int xgold_irq_of_get(struct device_node *np, void *chipdata)
 	if (!name) {
 		/* This is not a good point, just warn at this time */
 		pr_warn("%s: no compatible found\n", __func__);
+	} else {
+		pr_debug("%s: Looking for %s in dts\n", XGOLD_IRQ, name);
+		strncpy(data->name, name, MAX_NAME_LENGTH);
 	}
-
-	pr_info("%s: Looking for %s in dts\n", XGOLD_IRQ, name);
 	/* Get io resources */
 	if (of_address_to_resource(np, 0, &regs)) {
 		/* it's no killing, we are supported SW IRQ domains */
@@ -131,10 +132,13 @@ int xgold_irq_of_get(struct device_node *np, void *chipdata)
 		data->io_master = xgold_irq_get_io_master(np);
 		data->base_phys = regs.start;
 		data->base = of_iomap(np, 0);
-		pr_info("%s: io:%s - v:%p - p:%#x\n", XGOLD_IRQ,
+		pr_debug("%s: io:%s - v:%p - p:%#x\n", XGOLD_IRQ,
 			data->io_master == IRQ_IO_ACCESS_BY_LNX ?
 			"linux" : "vmm", data->base, data->base_phys);
 	}
+	of_property_read_u32(np, "intel,hirq", &data->hirq);
+	if (data->hirq)
+		pr_debug("%s: hirq vector: %d\n", __func__, data->hirq);
 	/* Get NR of irqs */
 	data->nr_int = of_irq_count(np);
 	if (!data->nr_int) {
@@ -241,8 +245,6 @@ int xgold_irq_of_get(struct device_node *np, void *chipdata)
 	}
 	sprintf(comp, "intel,globalmask");
 	xgold_irq_of_parse(&data->globalmask[0], np, comp);
-	if (name)
-		strncpy(data->name, name, MAX_NAME_LENGTH);
 	/* Display captured device tree data */
 	xgold_display_irq_regs(data);
 	return 0;

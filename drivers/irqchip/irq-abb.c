@@ -98,7 +98,7 @@ static struct irq_chip xgold_irq_abb_chip = {
 };
 
 static struct irq_domain_ops xgold_irq_abb_domain_ops = {
-	.xlate = xgold_irq_domain_xlate,
+	.xlate = irq_domain_xlate_twocell,
 	.map = xgold_irq_domain_map,
 };
 
