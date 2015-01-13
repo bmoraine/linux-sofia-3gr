@@ -2266,9 +2266,13 @@ static int s3c_hsotg_corereset(struct dwc2_hsotg *hsotg)
  *
  * Issue a soft reset to the core, and await the core finishing it.
  */
-void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg)
+void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg,
+						bool is_usb_reset)
 {
-	s3c_hsotg_corereset(hsotg);
+	u32 val;
+
+	if (!is_usb_reset)
+		s3c_hsotg_corereset(hsotg);
 
 	/*
 	 * we must now enable ep0 ready for host detection and then
@@ -2281,7 +2285,8 @@ void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg)
 
 	s3c_hsotg_init_fifo(hsotg);
 
-	__orr32(hsotg->regs + DCTL, DCTL_SFTDISCON);
+	if (!is_usb_reset)
+		__orr32(hsotg->regs + DCTL, DCTL_SFTDISCON);
 
 	writel(1 << 18 | DCFG_DEVSPD_HS,  hsotg->regs + DCFG);
 
@@ -2352,9 +2357,11 @@ void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg)
 	s3c_hsotg_ctrl_epint(hsotg, 0, 0, 1);
 	s3c_hsotg_ctrl_epint(hsotg, 0, 1, 1);
 
-	__orr32(hsotg->regs + DCTL, DCTL_PWRONPRGDONE);
-	udelay(10);  /* see openiboot */
-	__bic32(hsotg->regs + DCTL, DCTL_PWRONPRGDONE);
+	if (!is_usb_reset) {
+		__orr32(hsotg->regs + DCTL, DCTL_PWRONPRGDONE);
+		udelay(10);  /* see openiboot */
+		__bic32(hsotg->regs + DCTL, DCTL_PWRONPRGDONE);
+	}
 
 	dev_dbg(hsotg->dev, "DCTL=0x%08x\n", readl(hsotg->regs + DCTL));
 
@@ -2383,8 +2390,10 @@ void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg)
 		readl(hsotg->regs + DOEPCTL0));
 
 	/* clear global NAKs */
-	writel(DCTL_CGOUTNAK | DCTL_CGNPINNAK | DCTL_SFTDISCON,
-	       hsotg->regs + DCTL);
+	val = DCTL_CGOUTNAK | DCTL_CGNPINNAK;
+	if (!is_usb_reset)
+		val |= DCTL_SFTDISCON;
+	__orr32(hsotg->regs + DCTL, val);
 
 	/* must be at-least 3ms to allow bus to see disconnect */
 	mdelay(3);
@@ -2477,7 +2486,7 @@ irq_retry:
 				kill_all_requests(hsotg, hsotg->eps_out[0],
 							  -ECONNRESET);
 
-				s3c_hsotg_core_init_disconnected(hsotg);
+				s3c_hsotg_core_init_disconnected(hsotg, true);
 				s3c_hsotg_core_connect(hsotg);
 			}
 		}
@@ -3041,7 +3050,7 @@ static int s3c_hsotg_udc_start(struct usb_gadget *gadget,
 
 	spin_lock_irqsave(&hsotg->lock, flags);
 	s3c_hsotg_init(hsotg);
-	s3c_hsotg_core_init_disconnected(hsotg);
+	s3c_hsotg_core_init_disconnected(hsotg, false);
 	hsotg->enabled = 0;
 	spin_unlock_irqrestore(&hsotg->lock, flags);
 
@@ -3159,7 +3168,7 @@ static int s3c_hsotg_vbus_session(struct usb_gadget *gadget, int is_active)
 	if (is_active) {
 		/* Kill any ep0 requests as controller will be reinitialized */
 		kill_all_requests(hsotg, hsotg->eps_out[0], -ECONNRESET);
-		s3c_hsotg_core_init_disconnected(hsotg);
+		s3c_hsotg_core_init_disconnected(hsotg, false);
 		if (hsotg->enabled)
 			s3c_hsotg_core_connect(hsotg);
 	} else {
@@ -4118,7 +4127,7 @@ int s3c_hsotg_resume(struct dwc2_hsotg *hsotg)
 		s3c_hsotg_phy_enable(hsotg);
 
 		spin_lock_irqsave(&hsotg->lock, flags);
-		s3c_hsotg_core_init_disconnected(hsotg);
+		s3c_hsotg_core_init_disconnected(hsotg, false);
 		if (hsotg->enabled)
 			s3c_hsotg_core_connect(hsotg);
 		spin_unlock_irqrestore(&hsotg->lock, flags);
