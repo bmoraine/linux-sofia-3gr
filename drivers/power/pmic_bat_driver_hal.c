@@ -689,19 +689,11 @@ static int bat_drv_get_batid_ohm(struct bat_drv_data *pbat)
 {
 	int adc_ret, adc_batid_ohms;
 
-/* FIXME: below code needs to be uncommented once the adc_sensors
-driver will become available */
-#if 0
 	adc_ret = iio_read_channel_processed(pbat->batid_iio_chan,
 			&adc_batid_ohms);
 
 	if (adc_ret != IIO_VAL_INT)
 		return adc_ret;
-#endif
-
-	adc_ret = IIO_VAL_INT;
-	adc_batid_ohms = 4700;
-
 
 	BAT_DRV_DEBUG_PARAM(BAT_DRV_DEBUG_BATID_IN_OHMS, adc_batid_ohms);
 
@@ -820,22 +812,11 @@ static int __init bat_drv_probe(struct platform_device *p_platform_dev)
 	int ret = 0;
 	struct bat_drv_data *pbat = &bat_drv_instance;
 
-/* FIXME: below code needs to be uncommented once the adc_sensors
-driver will become available */
-#if 0
 	struct iio_channel *batid_iio_chan;
-#endif
 
 	BAT_DRV_DEBUG_NO_PARAM(BAT_DRV_DEBUG_EVENT_PROBE);
 
 	pbat->pdev = p_platform_dev;
-
-	ret = bat_drv_get_pdata(pbat);
-
-	if (ret) {
-		pr_err("obtaining platform data failed!\n");
-		return ret;
-	}
 
 	pbat->irq = platform_get_irq_byname(p_platform_dev,
 					"PMIC_CHARGER_HIRQ");
@@ -852,6 +833,13 @@ driver will become available */
 	if (ret) {
 		pr_err("(%s) failed requesting interrupt\n", __func__);
 		return -EINVAL;
+	}
+
+	ret = bat_drv_get_pdata(pbat);
+
+	if (ret) {
+		pr_err("obtaining platform data failed!\n");
+		return ret;
 	}
 
 	spin_lock_init(&pbat->work.lock);
@@ -884,9 +872,6 @@ driver will become available */
 		goto hw_init_failed;
 	}
 
-/* FIXME: below code needs to be uncommented once the adc_sensors
-driver will become available */
-#if 0
 	batid_iio_chan = iio_channel_get(NULL, "BATID_SENSOR");
 
 	if (IS_ERR(batid_iio_chan)) {
@@ -896,7 +881,6 @@ driver will become available */
 	}
 
 	pbat->batid_iio_chan = batid_iio_chan;
-#endif
 
 	pbat->initialised = true;
 
@@ -908,15 +892,12 @@ driver will become available */
 
 	return 0;
 
-/* FIXME: below code needs to be uncommented once the adc_sensors
-driver will become available */
-#if 0
 iio_ch_get_failed:
-#endif
-
 hw_init_failed:
 	destroy_workqueue(pbat->work.p_work_queue);
 	wake_lock_destroy(&pbat->work.kfifo_wakelock);
+	bat_drv_release_pdata(pbat);
+	free_irq(pbat->irq, pbat);
 
 	return ret;
 }
@@ -932,21 +913,15 @@ static int __exit bat_drv_remove(struct platform_device *p_platform_dev)
 
 	/* Delete allocated resources and mark driver as uninitialised. */
 	if (pbat->initialised) {
-
 		pbat->initialised = false;
 
+		iio_channel_release(pbat->batid_iio_chan);
+		bat_drv_batrm_det_irq_en(pbat, false);
 		destroy_workqueue(pbat->work.p_work_queue);
 		wake_lock_destroy(&pbat->work.kfifo_wakelock);
-
-/* FIXME: below code needs to be uncommented once the adc_sensors
-driver will become available */
-#if 0
-		iio_channel_release(pbat->batid_iio_chan);
-#endif
-		/* Deregister interrupt handler */
-		bat_drv_batrm_det_irq_en(pbat, false);
-
 		bat_drv_release_pdata(pbat);
+		/* Deregister interrupt handler */
+		free_irq(pbat->irq, pbat);
 	}
 	return 0;
 }
