@@ -1131,8 +1131,8 @@ static int ag6x0_request_irqs(struct idi_client_device *client)
 					   IRQF_SHARED, name, client);
 		if (ret) {
 			dev_err(&client->device,
-				"Error while requesting %d irq node\n",
-				res->start);
+				"Error while requesting %pa irq node\n",
+				&res->start);
 			ret = -EINVAL;
 			goto fail_request_irq;
 		}
