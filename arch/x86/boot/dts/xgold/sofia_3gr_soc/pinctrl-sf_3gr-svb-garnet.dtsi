@@ -23,7 +23,8 @@
 	<&range 45 1 0x1500>,
 	<&range 46 1 0x1500>,
 	<&range 47 1 0x1500>,/*gpio47, otg enable, output low, PP*/
-	<&range 48 57 0x100>;
+ 	<&range 71 1 0x1700>,
+ 	<&range 72 33 0x100>;
 
 	pinctrl-names = "default", "sleep", "deactivate"; /*"activate", "sleep", "deactivate" */
 	/* map here static pins (do not need any dynamic config) */
@@ -172,6 +173,21 @@ i2c3_sleep_pins:i2c3_sleep_pins {
 	pinctrl-single,pins = <
 		0x228 0x100	/* i2c3_sda */
 		0x22c 0x100	/* i2c3_scl */
+	>;
+};
+led_agold_default_pins:led_agold_default_pins {
+	pinctrl-single,pins = <
+		0x28c 0x700	/* led_en_agold */
+	>;
+};
+led_agold_inactive_pins:led_agold_inactive_pins {
+	pinctrl-single,pins = <
+		0x28c 0x4100	/* led_en_agold */
+	>;
+};
+led_agold_sleep_pins:led_agold_sleep_pins {
+	pinctrl-single,pins = <
+		0x28c 0x4100	/* led_en_agold */
 	>;
 };
 usif1_default_pins:usif1_default_pins {
