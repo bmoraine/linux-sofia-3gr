@@ -691,42 +691,42 @@ innolux_n080ice {
 			intel,cmd-data = <0xB5 0x17 0x06>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm118{
+		nt35521v06b_cm118 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xB8 0x00>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm119{
+		nt35521v06b_cm119 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xB9 0x00>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm120{
+		nt35521v06b_cm120 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xBA 0x00>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm121{
+		nt35521v06b_cm121 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xBB 0x02>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm122{
+		nt35521v06b_cm122 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xBC 0x00>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm123{
+		nt35521v06b_cm123 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xC0 0x07>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm124{
+		nt35521v06b_cm124 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xC4 0x80>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm125{
+		nt35521v06b_cm125 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xC5 0xA4>;
 			intel,cmd-lp = <1>;
@@ -761,60 +761,90 @@ innolux_n080ice {
 			intel,cmd-data = <0xD2 0x00 0x05 0x02 0x07 0x10>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm132{
+		nt35521v06b_cm132 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xE5 0x06>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm133{
+		nt35521v06b_cm133 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xE6 0x06>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm134{
+		nt35521v06b_cm134 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xE7 0x06>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm135{
+		nt35521v06b_cm135 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xE8 0x06>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm136{
+		nt35521v06b_cm136 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xE9 0x06>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm137{
+		nt35521v06b_cm137 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xEA 0x06>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm138{
+		nt35521v06b_cm138 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xED 0x30>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm139{
+		nt35521v06b_cm139 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0x6F 0x11>;
 			intel,cmd-lp = <1>;
 		};
-		nt35521v06b_cm140{
+		nt35521v06b_cm140 {
 			intel,cmd-type = <0x15>;
 			intel,cmd-data = <0xF3 0x01>;
 			intel,cmd-lp = <1>;
 		};
 	};
 
+	gpio-power-on {
+		power_en {
+			intel,gpio-type = "vhigh";
+			intel,gpio-value-delay = <1 41>;
+		};
+		reset1 {
+			intel,gpio-type = "reset";
+			intel,gpio-value-delay = <1 2>;
+		};
+		reset2 {
+			intel,gpio-type = "reset";
+			intel,gpio-value-delay = <0 2>;
+		};
+		reset3 {
+			intel,gpio-type = "reset";
+			intel,gpio-value-delay = <1 21>;
+		};
+	};
+
+	gpio-power-off {
+		reset {
+			intel,gpio-type = "reset";
+			intel,gpio-value-delay = <0 1>;
+		};
+		power_en {
+			intel,gpio-type = "vhigh";
+			intel,gpio-value-delay = <0 0>;
+		};
+	};
+
 	cmd-sleep-in {
-		display-off{
+		display-off {
 			intel,cmd-type = <0x05>;
 			intel,cmd-data = <0x28>;
 			intel,cmd-lp = <1>;
 		};
-		sleep-in{
+		sleep-in {
 			intel,cmd-type = <0x05>;
 			intel,cmd-data = <0x10>;
 			intel,cmd-delay = <100>;
@@ -823,12 +853,12 @@ innolux_n080ice {
 	};
 
 	cmd-sleep-out {
-		sleep-out{
+		sleep-out {
 			intel,cmd-type = <0x05>;
 			intel,cmd-data = <0x11>;
 			intel,cmd-lp = <1>;
 		};
-		display-on{
+		display-on {
 			intel,cmd-type = <0x05>;
 			intel,cmd-data = <0x29>;
 			intel,cmd-delay = <120>;
