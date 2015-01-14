@@ -945,12 +945,18 @@ static void lsm303dlhc_acc_input_work_func(struct work_struct *work)
 	stat = container_of(work,
 			struct lsm303dlhc_acc_status, input_work);
 
+	if (!atomic_read(&stat->enabled))
+		return;
+
 	mutex_lock(&stat->lock);
 	err = lsm303dlhc_acc_get_acceleration_data(stat, xyz);
-	if (err < 0)
+	if (err < 0) {
 		dev_err(&stat->client->dev, "get_acceleration_data failed\n");
-	else
-		lsm303dlhc_acc_report_values(stat, xyz);
+		mutex_unlock(&stat->lock);
+		return;
+	}
+
+	lsm303dlhc_acc_report_values(stat, xyz);
 
 	hrtimer_start(&stat->timer, MS_TO_NS(stat->pdata->poll_interval),
 						HRTIMER_MODE_REL);
