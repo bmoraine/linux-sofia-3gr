@@ -165,7 +165,8 @@ int register_dsp_audio_lisr_cb(enum dsp_lisr_cb lisr_type,
 	if (lisr_type >= DSP_LISR_CB_END)
 		return -EINVAL;
 
-	xgold_debug("%segistering lisr_cb: %d\n", (NULL == p_func ? "De-r" : "R"), lisr_type);
+	xgold_debug("%s Registering lisr_cb: %d\n",
+			(NULL == p_func ? "De-r" : "R"), lisr_type);
 	down_write(&dsp_audio_cb_rwsem);
 	g_dsp_audio_cb_list[lisr_type].p_func = p_func;
 	g_dsp_audio_cb_list[lisr_type].dev = dev;
@@ -190,7 +191,8 @@ static void dsp_audio_hisr_cb_handler(enum dsp_irq_no intr_no,
 	down_read(&dsp_audio_cb_rwsem);
 	p_dsp_aud_lisr_cb = dsp_audio_get_lisr_cb(intr_no);
 
-	/* find the set communication flag and call the registered callback function */
+	/* find the set communication flag and call the registered
+	 * callback function */
 	if (p_dsp_aud_lisr_cb == NULL) {
 		xgold_debug("p_dsp_aud_lisr_cb == NULL\n");
 		up_read(&dsp_audio_cb_rwsem);
@@ -198,27 +200,33 @@ static void dsp_audio_hisr_cb_handler(enum dsp_irq_no intr_no,
 	}
 
 	while (p_dsp_aud_lisr_cb[i].lisr_cb_type != DSP_LISR_CB_END) {
-		/* only read comm flag if a cb function has been registered for the
-		     current cb type */
+		/* only read comm flag if a cb function has been registered
+		 * for the current cb type */
 		if (g_dsp_audio_cb_list
 			[p_dsp_aud_lisr_cb[i].lisr_cb_type].p_func != NULL) {
 			comm_flag = dsp_read_audio_dsp_communication_flag(
 				(struct dsp_audio_device *)dsp_dev,
 				p_dsp_aud_lisr_cb[i].comm_flag_no);
 			if (debug_log_cnt == 10)
-				xgold_debug("p_dsp_aud_lisr_cb[%d].lisr_cb_type: %d, comm_flag_no: %d, comm_flag: %d\n", i,
-					p_dsp_aud_lisr_cb[i].lisr_cb_type,
+				xgold_debug(
+					"%d type %d flag_no %d comm_flag %d\n",
+					i, p_dsp_aud_lisr_cb[i].lisr_cb_type,
 					p_dsp_aud_lisr_cb[i].comm_flag_no,
 					comm_flag);
-			/* TODO: Support interrupts with no comm flag (lte voice memo)
-			     maybe use p_dsp_aud_lisr_cb[i].lisr_cb_type].comm_flag_no with wildcard
-			     flag... */
+			/* TODO:
+			 * Support interrupts w/o comm flag (lte voice memo)
+			 * maybe use
+			 * p_dsp_aud_lisr_cb[i].lisr_cb_type.comm_flag_no
+			 * with wildcard flag ... */
 			if (comm_flag) {
-				/* mark comm flag to be cleared after while loop ends */
-				comm_flag_clear[p_dsp_aud_lisr_cb[i].comm_flag_no] = true;
+				/* mark comm flag to be cleared after while
+				 * loop ends */
+				comm_flag_clear[p_dsp_aud_lisr_cb[i].
+					comm_flag_no] = true;
 				if (debug_log_cnt == 10)
-					xgold_debug("call interrupt handler - lisr_cb_type: %d\n",
-						p_dsp_aud_lisr_cb[i].lisr_cb_type);
+					xgold_debug("call lisr_cb_type: %d\n",
+							p_dsp_aud_lisr_cb[i].
+							lisr_cb_type);
 				(g_dsp_audio_cb_list
 				 [p_dsp_aud_lisr_cb[i].lisr_cb_type].
 				 p_func) (g_dsp_audio_cb_list
@@ -230,14 +238,13 @@ static void dsp_audio_hisr_cb_handler(enum dsp_irq_no intr_no,
 	}
 
 	/* clear the relevant comm flags now */
-	for (i=0; i < DSP_IRQ_COMM_FLAG_END; i++) {
+	for (i = 0; i < DSP_IRQ_COMM_FLAG_END; i++) {
 		if (true == comm_flag_clear[i]) {
 			dsp_reset_audio_dsp_communication_flag(
 				(struct dsp_audio_device *)dsp_dev,
 				i);
-			if (debug_log_cnt == 10) {
+			if (debug_log_cnt == 10)
 				xgold_debug("cleared comm flag: %d\n", i);
-			}
 		}
 	}
 

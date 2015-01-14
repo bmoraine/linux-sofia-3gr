@@ -33,10 +33,16 @@
 #include "dsp_audio_hal_internal.h"
 #include "xgold_pcm.h"
 
+/* index of the first speech probe device in the array xgold_dai */
+#define XGOLD_SPEECH_PROBE_DEVICE_OFSET 4
+
 #define XGOLD_SPEECH_PROBE_RATES (SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_16000)
 #define XGOLD_SPEECH_PROBE_FORMAT SNDRV_PCM_FMTBIT_S16_LE
 
 #define XGOLD_MAX_SPEECH_PROBE_RING_SIZE (4 * 1024)
+
+#define XGOLD_MIN_SPEECH_PROBE_SELECT 1
+#define XGOLD_MAX_SPEECH_PROBE_SELECT 21
 
 #define	xgold_err(fmt, arg...) \
 		pr_err("snd: speech: "fmt, ##arg)
@@ -44,13 +50,26 @@
 #define	xgold_debug(fmt, arg...) \
 		pr_debug("snd: speech: "fmt, ##arg)
 
-enum xgold_speech_probe_point_id{
+/* convert from device ID in xgold_speech_probe_controls to probe point ID
+	enum xgold_speech_probe_point_id */
+#define	PROBE_DEVICE_TO_PROBE_POINT_ID(a) \
+	(a - XGOLD_SPEECH_PROBE_DEVICE_OFSET)
+
+
+#define	PROBE_POINT_TO_STREAM_PLAY(a)	(2*a)
+#define	PROBE_POINT_TO_STREAM_REC(a)	(2*a + 1)
+
+#define	PROBE_GAIN_MUTE_VALUE	-960
+
+enum xgold_speech_probe_point_id {
 	PROBE_POINT_A,
 	PROBE_POINT_B,
 	PROBE_POINT_C,
 	PROBE_POINT_D,
+#ifdef CONFIG_INCREASE_PCM_DEVICE
 	PROBE_POINT_E,
 	PROBE_POINT_F,
+#endif
 	PROBE_POINT_END
 };
 
@@ -63,15 +82,18 @@ enum xgold_speech_probe_lisr_id {
 	PROBE_C_STREAM_REC,
 	PROBE_D_STREAM_PLAY,
 	PROBE_D_STREAM_REC,
+#ifdef CONFIG_INCREASE_PCM_DEVICE
 	PROBE_E_STREAM_PLAY,
 	PROBE_E_STREAM_REC,
 	PROBE_F_STREAM_PLAY,
 	PROBE_F_STREAM_REC,
+#endif
 	PROBE_POINT_STREAM_END
 };
 
 struct xgold_speech_probes_status {
 	bool active;
+	unsigned int speech_probe_sel;
 };
 
 struct xgold_audio_speech_probe {
@@ -92,16 +114,15 @@ struct xgold_audio_speech_runtime_data {
 	unsigned int period_size_bytes;
 };
 
-
 static const struct snd_pcm_hardware
 	xgold_speech_probe_extract_cfg = {
- 		.info = SNDRV_PCM_INFO_MMAP |
-				SNDRV_PCM_INFO_MMAP_VALID |
-				SNDRV_PCM_INFO_INTERLEAVED |
-				SNDRV_PCM_INFO_PAUSE |
-				SNDRV_PCM_INFO_BLOCK_TRANSFER |
-				SNDRV_PCM_INFO_SYNC_START|
-				SNDRV_PCM_INFO_RESUME,
+		.info = SNDRV_PCM_INFO_MMAP |
+			SNDRV_PCM_INFO_MMAP_VALID |
+			SNDRV_PCM_INFO_INTERLEAVED |
+			SNDRV_PCM_INFO_PAUSE |
+			SNDRV_PCM_INFO_BLOCK_TRANSFER |
+			SNDRV_PCM_INFO_SYNC_START|
+			SNDRV_PCM_INFO_RESUME,
 		.formats = XGOLD_SPEECH_PROBE_FORMAT,
 		.rates = XGOLD_SPEECH_PROBE_RATES,
 		.rate_min = 8000,
@@ -123,16 +144,18 @@ static int xgold_speech_probe_get_probe_point_id(
 
 	if (strstr(substream_id, "SPEECH_PROBE_A"))
 		io_probe_point = PROBE_POINT_A;
-	else if(strstr(substream_id, "SPEECH_PROBE_B"))
+	else if (strstr(substream_id, "SPEECH_PROBE_B"))
 		io_probe_point = PROBE_POINT_B;
-	else if(strstr(substream_id, "SPEECH_PROBE_C"))
+	else if (strstr(substream_id, "SPEECH_PROBE_C"))
 		io_probe_point = PROBE_POINT_C;
-	else if(strstr(substream_id, "SPEECH_PROBE_D"))
+	else if (strstr(substream_id, "SPEECH_PROBE_D"))
 		io_probe_point = PROBE_POINT_D;
-	else if(strstr(substream_id, "SPEECH_PROBE_E"))
+#ifdef CONFIG_INCREASE_PCM_DEVICE
+	else if (strstr(substream_id, "SPEECH_PROBE_E"))
 		io_probe_point = PROBE_POINT_E;
-	else if(strstr(substream_id, "SPEECH_PROBE_F"))
+	else if (strstr(substream_id, "SPEECH_PROBE_F"))
 		io_probe_point = PROBE_POINT_F;
+#endif
 	else {
 		io_probe_point = PROBE_POINT_END;
 		xgold_err("%s - unknown probe point ID!!\n", __func__);
@@ -158,12 +181,14 @@ static int xgold_speech_probe_get_record_lisr_id(
 	case PROBE_POINT_D:
 		probe_lisr_id = PROBE_D_STREAM_REC;
 		break;
+#ifdef CONFIG_INCREASE_PCM_DEVICE
 	case PROBE_POINT_E:
 		probe_lisr_id = PROBE_E_STREAM_REC;
 		break;
 	case PROBE_POINT_F:
 		probe_lisr_id = PROBE_F_STREAM_REC;
 		break;
+#endif /* CONFIG_INCREASE_PCM_DEVICE */
 	default:
 		probe_lisr_id = PROBE_POINT_STREAM_END;
 		break;
@@ -189,12 +214,14 @@ static int xgold_speech_probe_get_playback_lisr_id(
 	case PROBE_POINT_D:
 		probe_lisr_id = PROBE_D_STREAM_PLAY;
 		break;
+#ifdef CONFIG_INCREASE_PCM_DEVICE
 	case PROBE_POINT_E:
 		probe_lisr_id = PROBE_E_STREAM_PLAY;
 		break;
 	case PROBE_POINT_F:
 		probe_lisr_id = PROBE_F_STREAM_PLAY;
 		break;
+#endif /* CONFIG_INCREASE_PCM_DEVICE */
 	default:
 		probe_lisr_id = PROBE_POINT_STREAM_END;
 		break;
@@ -220,12 +247,14 @@ static int xgold_speech_probe_get_lisr_cb_id(
 	case PROBE_D_STREAM_REC:
 		lisr_cb_id = DSP_LISR_CB_SPEECH_IO_POINT_D;
 		break;
+#ifdef CONFIG_INCREASE_PCM_DEVICE
 	case PROBE_E_STREAM_REC:
 		lisr_cb_id = DSP_LISR_CB_SPEECH_IO_POINT_E;
 		break;
 	case PROBE_F_STREAM_REC:
 		lisr_cb_id = DSP_LISR_CB_SPEECH_IO_POINT_F;
 		break;
+#endif /* CONFIG_INCREASE_PCM_DEVICE */
 	case PROBE_A_STREAM_PLAY:
 		lisr_cb_id = DSP_LISR_CB_SPEECH_IO_INJECT_A;
 		break;
@@ -238,12 +267,14 @@ static int xgold_speech_probe_get_lisr_cb_id(
 	case PROBE_D_STREAM_PLAY:
 		lisr_cb_id = DSP_LISR_CB_SPEECH_IO_INJECT_D;
 		break;
+#ifdef CONFIG_INCREASE_PCM_DEVICE
 	case PROBE_E_STREAM_PLAY:
 		lisr_cb_id = DSP_LISR_CB_SPEECH_IO_INJECT_E;
 		break;
 	case PROBE_F_STREAM_PLAY:
 		lisr_cb_id = DSP_LISR_CB_SPEECH_IO_INJECT_F;
 		break;
+#endif /* CONFIG_INCREASE_PCM_DEVICE */
 	default:
 		lisr_cb_id = DSP_LISR_CB_END;
 		break;
@@ -275,6 +306,7 @@ static U16 xgold_speech_probe_get_shm_offset(
 		shmem_offset = dsp->p_dsp_common_data->
 			buf_sm_speech_probe_d_offset;
 		break;
+#ifdef CONFIG_INCREASE_PCM_DEVICE
 	case PROBE_POINT_E:
 		shmem_offset = dsp->p_dsp_common_data->
 			buf_sm_speech_probe_e_offset;
@@ -283,6 +315,7 @@ static U16 xgold_speech_probe_get_shm_offset(
 		shmem_offset = dsp->p_dsp_common_data->
 			buf_sm_speech_probe_f_offset;
 		break;
+#endif /* CONFIG_INCREASE_PCM_DEVICE */
 	default:
 		xgold_err("No offset associated\n");
 		shmem_offset = 0;
@@ -408,7 +441,8 @@ static int xgold_speech_probe_open(struct snd_pcm_substream *substream)
 
 	xgold_debug("runtime: 0X%p\n", runtime);
 
-	xrtd = kzalloc(sizeof(struct xgold_audio_speech_runtime_data), GFP_KERNEL);
+	xrtd = kzalloc(sizeof(struct xgold_audio_speech_runtime_data),
+			GFP_KERNEL);
 	if (!xrtd)
 		return -ENOMEM;
 
@@ -467,7 +501,8 @@ static int xgold_speech_probe_hw_params(struct snd_pcm_substream *substream,
 	if (ret < 0)
 		xgold_err("Failed to allocate memory error %d", ret);
 	else
-		memset(substream->runtime->dma_area, 0, params_buffer_bytes(params));
+		memset(substream->runtime->dma_area, 0,
+				params_buffer_bytes(params));
 
 	return ret;
 }
@@ -504,7 +539,7 @@ static int xgold_speech_probe_prepare(struct snd_pcm_substream *substream)
 	xrtd->periods = 0;
 	xrtd->stream = substream;
 	xgold_debug("hwptr_done and periods set to 0 for probe_lisr_id %d\n",
-		xrtd->probe_lisr_id) ;
+		xrtd->probe_lisr_id);
 
 	return 0;
 }
@@ -557,60 +592,44 @@ static void dsp_cmd_set_params(
 	struct xgold_audio_speech_runtime_data *xrtd)
 {
 	int probe_point = xrtd->probe_point_id;
+	int stream_id_play = PROBE_POINT_TO_STREAM_PLAY(probe_point);
+	int stream_id_rec = PROBE_POINT_TO_STREAM_REC(probe_point);
 
-	/* Note: probe points 8 and 9 are reserved for voip and
+	bool play_status = xrtd->speech_probe->sp_status[stream_id_play].active;
+	bool rec_status = xrtd->speech_probe->sp_status[stream_id_rec].active;
+
+	/* if inject is idle, mute gain 2 to avoid adding same signal again
+	   back to UL/DL path */
+	if (false == play_status)
+		speech_probe_par->gain2 = PROBE_GAIN_MUTE_VALUE;
+
+	/* if extract is idle, mute gain 6 to ensure only the samples from
+	   a potential player gets injected */
+	if (false == rec_status)
+		speech_probe_par->gain6 = PROBE_GAIN_MUTE_VALUE;
+
+	/* if both inject and extract is active, assume it is for
+	   third party algo processing, hence mute gain1 */
+	if ((true == play_status) && (true == rec_status))
+		speech_probe_par->gain1 = PROBE_GAIN_MUTE_VALUE;
+
+	/* TODO: probe points 8 and 9 are used for voip and
 	   mic recording use cases, and therefore controlled from IMAS
-	   in userspace */
+	   in userspace.
+	   So move DSP part to DSP driver, and make a proper conflict handler */
 
 	/* only basic inject/extract through shared memory is supported here */
 	speech_probe_par->mode = 1;
 
-	switch (probe_point) {
-	case PROBE_POINT_A:
-		speech_probe_par->select = 1;
-		speech_probe_par->sm_buf_id = 0;
-		speech_probe_par->on_off =
-			dsp_cmd_get_on_off(trigger_cmd, PROBE_A_STREAM_PLAY,
-				PROBE_A_STREAM_REC, xrtd);
-		break;
-	case PROBE_POINT_B:
-		speech_probe_par->select = 10;
-		speech_probe_par->sm_buf_id = 1;
-		speech_probe_par->on_off =
-			dsp_cmd_get_on_off(trigger_cmd, PROBE_B_STREAM_PLAY,
-				PROBE_B_STREAM_REC, xrtd);
-		break;
-	case PROBE_POINT_C:
-		speech_probe_par->select = 16;
-		speech_probe_par->sm_buf_id = 2;
-		speech_probe_par->on_off =
-			dsp_cmd_get_on_off(trigger_cmd, PROBE_C_STREAM_PLAY,
-				PROBE_C_STREAM_REC, xrtd);
-		break;
-	case PROBE_POINT_D:
-		speech_probe_par->select = 19;
-		speech_probe_par->sm_buf_id = 3;
-		speech_probe_par->on_off =
-			dsp_cmd_get_on_off(trigger_cmd, PROBE_D_STREAM_PLAY,
-				PROBE_D_STREAM_REC, xrtd);
-		break;
-	case PROBE_POINT_E:
-		speech_probe_par->select = 1;
-		speech_probe_par->sm_buf_id = 4;
-		speech_probe_par->on_off =
-			dsp_cmd_get_on_off(trigger_cmd, PROBE_E_STREAM_PLAY,
-				PROBE_E_STREAM_REC, xrtd);
-		break;
-	case PROBE_POINT_F:
-		speech_probe_par->select = 1;
-		speech_probe_par->sm_buf_id = 5;
-		speech_probe_par->on_off =
-			dsp_cmd_get_on_off(trigger_cmd, PROBE_F_STREAM_PLAY,
-				PROBE_F_STREAM_REC, xrtd);
-		break;
-	default:
-		break;
-	}
+	speech_probe_par->sm_buf_id = probe_point;
+
+	speech_probe_par->select =
+		xrtd->speech_probe->sp_status[stream_id_play].speech_probe_sel;
+
+	speech_probe_par->on_off =
+		dsp_cmd_get_on_off(trigger_cmd, stream_id_play,
+			stream_id_rec, xrtd);
+
 	return;
 }
 
@@ -685,15 +704,15 @@ static int xgold_speech_probe_trigger(struct snd_pcm_substream *substream,
 #endif
 
 		/* Enable Speech probes */
-		xgold_debug("send DSP_AUD_SPEECH_PROBE cmd: \n");
-		xgold_debug("on_off: %d, select: %d, sm_buf_id: %d \n",
+		xgold_debug("send DSP_AUD_SPEECH_PROBE cmd:\n");
+		xgold_debug("on_off: %d, select: %d, sm_buf_id: %d\n",
 			speech_probe_par.on_off, speech_probe_par.select,
 			speech_probe_par.sm_buf_id);
-		xgold_debug("rate inject: %d, rate extract: %d, mode: %d \n",
+		xgold_debug("rate inject: %d, rate extract: %d, mode: %d\n",
 			speech_probe_par.sampling_rate_inj,
 			speech_probe_par.sampling_rate_ext,
 			speech_probe_par.mode);
-		xgold_debug("Gain 1 -> 6:\n %d %d\n %d %d\n %d %d \n",
+		xgold_debug("Gain 1 -> 6:\n %d %d\n %d %d\n %d %d\n",
 			speech_probe_par.gain1, speech_probe_par.gain2,
 			speech_probe_par.gain3, speech_probe_par.gain4,
 			speech_probe_par.gain5, speech_probe_par.gain6);
@@ -727,15 +746,15 @@ static int xgold_speech_probe_trigger(struct snd_pcm_substream *substream,
 			(u16 *)&speech_path_on);
 		#endif
 
-		xgold_debug("send DSP_AUD_SPEECH_PROBE cmd: \n");
-		xgold_debug("on_off: %d, select: %d, sm_buf_id: %d \n",
+		xgold_debug("send DSP_AUD_SPEECH_PROBE cmd:\n");
+		xgold_debug("on_off: %d, select: %d, sm_buf_id: %d\n",
 			speech_probe_par.on_off, speech_probe_par.select,
 			speech_probe_par.sm_buf_id);
-		xgold_debug("rate inject: %d, rate extract: %d, mode: %d \n",
+		xgold_debug("rate inject: %d, rate extract: %d, mode: %d\n",
 			speech_probe_par.sampling_rate_inj,
 			speech_probe_par.sampling_rate_ext,
 			speech_probe_par.mode);
-		xgold_debug("Gain 1 -> 6:\n %d %d\n %d %d\n %d %d \n",
+		xgold_debug("Gain 1 -> 6:\n %d %d\n %d %d\n %d %d\n",
 			speech_probe_par.gain1, speech_probe_par.gain2,
 			speech_probe_par.gain3, speech_probe_par.gain4,
 			speech_probe_par.gain5, speech_probe_par.gain6);
@@ -805,6 +824,217 @@ static void xgold_speech_probe_free(struct snd_pcm *pcm)
 {
 	xgold_debug("enter\n");
 	snd_pcm_lib_preallocate_free_for_all(pcm);
+}
+
+/* Info function for speech probe SHMEM / io point mapping */
+int xgold_speech_probe_ctl_info(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
+{
+	xgold_debug("%s :\n", __func__);
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = XGOLD_MIN_SPEECH_PROBE_SELECT;
+	uinfo->value.integer.max = XGOLD_MAX_SPEECH_PROBE_SELECT;
+	return 0;
+}
+
+/* Get function for speech probe SHMEM / io point mapping */
+static int xgold_speech_probe_ctl_get(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int stream_id_play, stream_id_rec;
+
+	struct xgold_speech_probes_status *sp_status_play;
+	struct xgold_speech_probes_status *sp_status_rec;
+
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+
+	struct xgold_audio_speech_probe *speech_probe =
+		snd_soc_dai_get_drvdata(cpu_dai);
+
+	int probe_point_id =
+		PROBE_DEVICE_TO_PROBE_POINT_ID(ucontrol->id.device);
+
+	/* range check probe device id defined in
+	   xgold_speech_probe_controls[] */
+	if (probe_point_id >= PROBE_POINT_END) {
+		xgold_err("device: %d is out of range\n", probe_point_id);
+		return -EINVAL;
+	}
+
+	/* setup pointers to speech probe status of the given device */
+	stream_id_play = PROBE_POINT_TO_STREAM_PLAY(probe_point_id);
+	stream_id_rec = PROBE_POINT_TO_STREAM_REC(probe_point_id);
+
+	sp_status_play = &speech_probe->sp_status[stream_id_play];
+	sp_status_rec = &speech_probe->sp_status[stream_id_play];
+
+	if (sp_status_play->speech_probe_sel !=
+		sp_status_rec->speech_probe_sel) {
+		xgold_err("play/rec probe select (%d / %d) not identical!\n",
+			sp_status_play->speech_probe_sel,
+			sp_status_rec->speech_probe_sel);
+		return -EINVAL;
+	}
+
+	xgold_debug("play.probe_sel: %d, rec.probe_sel: %d\n",
+		sp_status_play->speech_probe_sel,
+		sp_status_rec->speech_probe_sel);
+
+	ucontrol->value.integer.value[0] =
+		(long int)sp_status_play->speech_probe_sel;
+
+	xgold_debug("%s - get value: %d for device: %d\n",
+		__func__, (int)ucontrol->value.integer.value[0],
+		probe_point_id);
+
+	return 0;
+}
+
+/* Set function for speech probe SHMEM / io point mapping */
+static int xgold_speech_probe_ctl_set(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int stream_id_play, stream_id_rec;
+
+	struct xgold_speech_probes_status *sp_status_play;
+	struct xgold_speech_probes_status *sp_status_rec;
+
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+
+	struct xgold_audio_speech_probe *speech_probe =
+		snd_soc_dai_get_drvdata(cpu_dai);
+
+	int probe_point_id =
+		PROBE_DEVICE_TO_PROBE_POINT_ID(ucontrol->id.device);
+
+	unsigned int probe_sel_req =
+		(unsigned int)ucontrol->value.integer.value[0];
+
+	/* range check probe select value */
+	if ((XGOLD_MAX_SPEECH_PROBE_SELECT < probe_sel_req) ||
+		(XGOLD_MIN_SPEECH_PROBE_SELECT > probe_sel_req)) {
+		xgold_err("device: %d is out of range\n", probe_point_id);
+		return -EINVAL;
+	}
+
+	/* range check probe device id defined in
+	   xgold_speech_probe_controls[] */
+	if (probe_point_id >= PROBE_POINT_END) {
+		xgold_err("device: %d is out of range\n", probe_point_id);
+		return -EINVAL;
+	}
+
+	/* setup pointers to speech probe status of the given device */
+	stream_id_play = PROBE_POINT_TO_STREAM_PLAY(probe_point_id);
+	stream_id_rec = PROBE_POINT_TO_STREAM_REC(probe_point_id);
+
+	sp_status_play = &speech_probe->sp_status[stream_id_play];
+	sp_status_rec = &speech_probe->sp_status[stream_id_rec];
+
+	/* if play or rec is active, don't allow to change the probe select */
+	if (true == sp_status_play->active) {
+		xgold_debug("id: %d, PLAY is active for probe: %d\n",
+			probe_point_id, sp_status_play->speech_probe_sel);
+		if (probe_sel_req != sp_status_play->speech_probe_sel) {
+			xgold_err("probe sel req: %d fail!, active play probe using: %d\n",
+			probe_sel_req, sp_status_play->speech_probe_sel);
+			return -EPERM;
+		}
+	} else if (true == sp_status_rec->active) {
+		xgold_debug("id: %d, REC is active for probe: %d\n",
+			probe_point_id, sp_status_rec->speech_probe_sel);
+		if (probe_sel_req != sp_status_rec->speech_probe_sel) {
+			xgold_err("probe sel req: %d fail!, active rec probe using: %d\n",
+			probe_sel_req, sp_status_rec->speech_probe_sel);
+			return -EPERM;
+		}
+	}
+
+	sp_status_rec->speech_probe_sel =
+		sp_status_play->speech_probe_sel = probe_sel_req;
+
+	xgold_debug("%s - set value: %d for device: %d\n",
+		__func__, probe_sel_req,
+		probe_point_id);
+	return 0;
+}
+
+/* Soc xgold pcm controls */
+static const struct snd_kcontrol_new xgold_speech_probe_controls[] = {
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
+		.device = 0 + XGOLD_SPEECH_PROBE_DEVICE_OFSET,
+		.name = "PCM Speech probe 1",
+		.info = xgold_speech_probe_ctl_info,
+		.get = xgold_speech_probe_ctl_get,
+		.put = xgold_speech_probe_ctl_set,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
+		.device = 1 + XGOLD_SPEECH_PROBE_DEVICE_OFSET,
+		.name = "PCM Speech probe 2",
+		.info = xgold_speech_probe_ctl_info,
+		.get = xgold_speech_probe_ctl_get,
+		.put = xgold_speech_probe_ctl_set,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
+		.device = 2 + XGOLD_SPEECH_PROBE_DEVICE_OFSET,
+		.name = "PCM Speech probe 3",
+		.info = xgold_speech_probe_ctl_info,
+		.get = xgold_speech_probe_ctl_get,
+		.put = xgold_speech_probe_ctl_set,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
+		.device = 3 + XGOLD_SPEECH_PROBE_DEVICE_OFSET,
+		.name = "PCM Speech probe 4",
+		.info = xgold_speech_probe_ctl_info,
+		.get = xgold_speech_probe_ctl_get,
+		.put = xgold_speech_probe_ctl_set,
+	},
+#ifdef CONFIG_INCREASE_PCM_DEVICE
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
+		.device = 4 + XGOLD_SPEECH_PROBE_DEVICE_OFSET,
+		.name = "PCM Speech probe 5",
+		.info = xgold_speech_probe_ctl_info,
+		.get = xgold_speech_probe_ctl_get,
+		.put = xgold_speech_probe_ctl_set,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
+		.device = 5 + XGOLD_SPEECH_PROBE_DEVICE_OFSET,
+		.name = "PCM Speech probe 6",
+		.info = xgold_speech_probe_ctl_info,
+		.get = xgold_speech_probe_ctl_get,
+		.put = xgold_speech_probe_ctl_set,
+	},
+#endif /* CONFIG_INCREASE_PCM_DEVICE */
+};
+
+static int xgold_speech_soc_probe(struct snd_soc_platform *platform)
+{
+	int ret = 0;
+	xgold_debug("%s\n", __func__);
+	dsp_audio_platform_init(platform);
+
+  /* add speech probe controls */
+	ret = snd_soc_add_platform_controls(platform,
+		xgold_speech_probe_controls,
+		ARRAY_SIZE(xgold_speech_probe_controls));
+
+	if (ret < 0) {
+		xgold_err("%s: Unable to add speech probe platform controls\n",
+		__func__);
+		return -ENODEV;
+	}
+
+	return ret;
 }
 
 static struct snd_pcm_ops xgold_speech_probe_ops = {
@@ -916,6 +1146,7 @@ static const struct snd_soc_component_driver xgold_speech_probe_component = {
 };
 
 struct snd_soc_platform_driver xgold_speech_probe_platform = {
+	.probe = xgold_speech_soc_probe,
 	.ops = &xgold_speech_probe_ops,
 	.pcm_new = xgold_speech_probe_new,
 	.pcm_free = xgold_speech_probe_free,
@@ -923,35 +1154,36 @@ struct snd_soc_platform_driver xgold_speech_probe_platform = {
 
 static int xgold_speech_probe(struct platform_device *pdev)
 {
-	struct xgold_audio_speech_probe *speech_probe_data_ptr;
+	struct xgold_audio_speech_probe *sp_ptr;
 	struct device_node *np = pdev->dev.of_node;
 	struct device_node *dsp_of_node;
 	int ret = 0;
+	int idx;
 
 	xgold_debug("enter\n");
 
-	speech_probe_data_ptr =
+	sp_ptr =
 		kzalloc((sizeof(struct xgold_audio_speech_probe)), GFP_KERNEL);
 
-	if (speech_probe_data_ptr == NULL)
+	if (sp_ptr == NULL)
 		return -ENOMEM;
 
-	speech_probe_data_ptr->dev = &pdev->dev;
+	sp_ptr->dev = &pdev->dev;
 
 #ifdef CONFIG_OF
 	dsp_of_node = of_parse_phandle(np, "intel,dsp", 0);
 	if (!dsp_of_node) {
 		xgold_err("Unable to get dsp node\n");
-		kzfree(speech_probe_data_ptr);
+		kzfree(sp_ptr);
 		return -EINVAL;
 	}
 
-	speech_probe_data_ptr->dsp =
+	sp_ptr->dsp =
 		of_dsp_register_client(&pdev->dev, dsp_of_node);
 #endif
-	if (!speech_probe_data_ptr->dsp) {
+	if (!sp_ptr->dsp) {
 		xgold_err("Cannot register as dsp client\n");
-		kzfree(speech_probe_data_ptr);
+		kzfree(sp_ptr);
 		return -EPROBE_DEFER;
 	}
 
@@ -959,7 +1191,7 @@ static int xgold_speech_probe(struct platform_device *pdev)
 			&xgold_speech_probe_platform);
 	if (ret < 0) {
 		xgold_err("Failed to register XGOLD Speech platform driver\n");
-		kfree(speech_probe_data_ptr);
+		kfree(sp_ptr);
 		return ret;
 	}
 
@@ -969,11 +1201,38 @@ static int xgold_speech_probe(struct platform_device *pdev)
 			ARRAY_SIZE(xgold_dai_speech_probe));
 	if (ret < 0) {
 		xgold_err("Failed to register XGOLD Speech platform driver 1\n");
-		kfree(speech_probe_data_ptr);
+		kfree(sp_ptr);
 		return ret;
 	}
 
-	platform_set_drvdata(pdev, speech_probe_data_ptr);
+	/* select default speech probes select values */
+	idx = PROBE_A_STREAM_PLAY;
+	sp_ptr->sp_status[idx].speech_probe_sel =
+		sp_ptr->sp_status[idx+1].speech_probe_sel = 1;
+
+	idx = PROBE_B_STREAM_PLAY;
+	sp_ptr->sp_status[idx].speech_probe_sel =
+		sp_ptr->sp_status[idx+1].speech_probe_sel = 8;
+
+	idx = PROBE_C_STREAM_PLAY;
+	sp_ptr->sp_status[idx].speech_probe_sel =
+		sp_ptr->sp_status[idx+1].speech_probe_sel = 16;
+
+	idx = PROBE_D_STREAM_PLAY;
+	sp_ptr->sp_status[idx].speech_probe_sel =
+		sp_ptr->sp_status[idx+1].speech_probe_sel = 19;
+
+#ifdef CONFIG_INCREASE_PCM_DEVICE
+	idx = PROBE_E_STREAM_PLAY;
+	sp_ptr->sp_status[idx].speech_probe_sel =
+		sp_ptr->sp_status[idx+1].speech_probe_sel = 9;
+
+	idx = PROBE_F_STREAM_PLAY;
+	sp_ptr->sp_status[idx].speech_probe_sel =
+		sp_ptr->sp_status[idx+1].speech_probe_sel = 14;
+#endif /* CONFIG_INCREASE_PCM_DEVICE */
+
+	platform_set_drvdata(pdev, sp_ptr);
 
 	return ret;
 }

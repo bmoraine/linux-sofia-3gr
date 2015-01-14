@@ -153,6 +153,9 @@ static int xgold_snd_init(struct snd_soc_pcm_runtime *runtime)
  * xgold dai's are devided into Front End (FE) and Back End (BE) devices
  * FE devices are pure streaming devices, not in charge of enabling any codecs.
  * BE devices are used for enabling codecs alone.
+ *
+ * Note: Speech probe index define XGOLD_SPEECH_PROBE_DEVICE_OFSET must be
+ * updated in case speech probes are relocated in this array.
  */
 static struct snd_soc_dai_link xgold_dai[] = {
 	/* PCM front end device */
@@ -282,8 +285,8 @@ static int xgold_mc_probe(struct platform_device *pdev)
 				dai_link->codec_dai_name = codec_dai_name;
 
 			} else if (!strncmp(dai_link->stream_name,
-						"XGOLD_SPEECH_PROBE_",
-						strlen("XGOLD_SPEECH_PROBE_"))) {
+					"XGOLD_SPEECH_PROBE_",
+					strlen("XGOLD_SPEECH_PROBE_"))) {
 				dai_link->cpu_of_node =
 					dai_link->platform_of_node =
 					of_parse_phandle(np, "intel,speech", 0);
@@ -328,7 +331,8 @@ static int xgold_mc_probe(struct platform_device *pdev)
 				 * snd-soc-dummy */
 				dai_link->cpu_of_node = of_parse_phandle(np,
 						"intel,pcm-voice", 0);
-			else if (!strncmp(dai_link->stream_name, "XGOLD_SPEECH_PROBE_",
+			else if (!strncmp(dai_link->stream_name,
+						"XGOLD_SPEECH_PROBE_",
 						strlen("XGOLD_SPEECH_PROBE_")))
 				dai_link->cpu_of_node =
 					dai_link->platform_of_node =

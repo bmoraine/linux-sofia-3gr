@@ -124,7 +124,7 @@ int xgold_pcm_rec_path_sel_ctl_info(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_info *uinfo)
 {
-	xgold_debug("%s :\n", __func__);
+	xgold_debug("%s\n", __func__);
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 1;
 	uinfo->value.integer.min = 0;
@@ -273,8 +273,8 @@ void xgold_dsp_hw_probe_a_handler(void *dev)
 	rw_shm_data.word_offset =
 		xgold_pcm->dsp->p_dsp_common_data->buf_sm_hw_probe_a_offset;
 
-	/* TODO: could we use same calculation as for playback and
-	 * speech probes?
+	/* TODO:
+	 * could we use same calculation as for playback and speech probes?
 	 *	length = xrtd->stream->runtime->period_size *
 	 *	xrtd->stream->runtime->channels;
 	 *	rw_shm_data.len_in_bytes = length * 2;
