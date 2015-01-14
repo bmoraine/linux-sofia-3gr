@@ -129,12 +129,14 @@
 
 	supp_batids =  < 0     BAT_TYPE_LC
 			 4700  BAT_TYPE_LC
+			 10000 BAT_TYPE_LC
 			 12000 BAT_TYPE_LC
 			 15000 BAT_TYPE_LC
 			 20000 BAT_TYPE_LC
 			 27000 BAT_TYPE_LC >;
 
 	supp_batids-map = "standrd",
+			  "dummy",
 			  "dummy",
 			  "standrd",
 			  "standrd",
