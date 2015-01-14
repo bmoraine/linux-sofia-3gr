@@ -383,6 +383,7 @@ static void vnvm_on_disconnect(uint32_t token, void *cookie)
 {
 	struct vnvm_ctx *p_vnvm_ctx = &vnvm_ctx;
 
+	p_vnvm_ctx->dev_active = 0;
 	p_vnvm_ctx->status = VNVM_STATUS_DISCONNECT;
 
 	/* wake up client if still waiting*/
