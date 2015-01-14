@@ -140,12 +140,12 @@ void mv_gal_init(struct vmm_shared_data *data)
 
 static int sofia_vmm_map_vcpu_shmem(void)
 {
-	void *ptr;
+	uintptr_t ptr;
 
 	if (mv_gal_get_shared_data())
 		return 0;
 
-	ptr = mv_vcpu_get_data();
+	ptr = (uintptr_t)mv_vcpu_get_data();
 	if (memblock_reserve((resource_size_t)ptr, (resource_size_t)(ptr +
 		sizeof(struct vmm_shared_data)))) {
 		pr_err("Unable to map VMM shared data\n");
