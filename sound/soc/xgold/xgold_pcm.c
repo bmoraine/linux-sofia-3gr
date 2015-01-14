@@ -474,14 +474,14 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 	struct xgold_pcm *xgold_pcm;
 	dma_addr_t dma_addr;
 
-	xgold_debug("%s\n", __func__);
-
 	if (!xrtd) {
 		xgold_err("%s: xgold runtime data is NULL!!\n", __func__);
 		return;
 	}
 
 	spin_lock(&xrtd->lock);
+	xgold_debug("%s\n", __func__);
+
 	xgold_pcm = xrtd->pcm;
 	if (!xgold_pcm || !xrtd->stream || !xrtd->stream->runtime ||
 			!xrtd->stream->runtime->dma_area) {
@@ -491,7 +491,7 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 	}
 
 	if (!xrtd->dmach) {
-		xgold_debug("%s: dma stream is NULL\n", __func__);
+		xgold_debug("%s: dma channel is NULL\n", __func__);
 		spin_unlock(&xrtd->lock);
 		return;
 	}
@@ -505,7 +505,7 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 		xrtd->period_size_bytes * xrtd->hwptr_done;
 
 	/* Period elapsed should be called once even
-		for multiple buffer feeds */
+	 * for multiple buffer feeds */
 	snd_pcm_period_elapsed(xrtd->stream);
 
 	/* Reload scatter list and submit DMA request */
@@ -513,9 +513,10 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 
 	/* Restart the DMA tx for next data transfer i.e. after 20 ms */
 	dma_async_issue_pending(xrtd->dmach);
-	spin_unlock(&xrtd->lock);
 
 	xgold_debug("dma tx started\n");
+
+	spin_unlock(&xrtd->lock);
 }
 
 static void xgold_pcm_dma_submit(struct xgold_runtime_data *xrtd,
@@ -653,7 +654,6 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 					xgold_dsp_hw_probe_a_handler,
 					(void *)xrtd);
 			dsp_cmd_hw_probe(xgold_pcm->dsp, HW_PROBE_A);
-
 		} else if (xrtd->stream_type == HW_PROBE_B) {
 			xgold_debug("registering hw_probe_b callback\n");
 			register_dsp_audio_lisr_cb(
@@ -797,11 +797,13 @@ static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 			xgold_pcm->dma_mode) {
 		spin_lock_irqsave(&xrtd->lock, flags);
 
+		/* request DMA shutdown */
+		xgold_debug("terminate all dma: %p\n", xrtd->dmach);
+		dmaengine_terminate_all(xrtd->dmach);
+
 		/* Release the DMA channel */
-		if (xrtd->dmach) {
-			dma_release_channel(xrtd->dmach);
-			xrtd->dmach = NULL;
-		}
+		dma_release_channel(xrtd->dmach);
+		xrtd->dmach = NULL;
 
 		/* Free scatter list memory*/
 		kfree(xrtd->dma_sgl);
@@ -967,35 +969,12 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_STOP:
 		xgold_debug("%s: Trigger stop\n", __func__);
 
-#if 0
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			if (xgold_pcm->dma_mode) {
-				/* request DMA shutdown */
-				dmaengine_terminate_all(xrtd->dmach);
-			}
-
-			dsp_pcm_stop(dsp, STREAM_PLAY);
-		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-			dsp_pcm_stop(dsp, STREAM_REC);
-		else { /* HW_PROBE_B || HW_PROBE_A */
-			dsp_pcm_stop(dsp, xrtd->stream_type);
-			dsp->p_dsp_common_data->ops->irq_deactivate(DSP_IRQ_3);
-		}
-#endif
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
-				xgold_pcm->dma_mode) {
-			/* request DMA shutdown */
-			dmaengine_terminate_all(xrtd->dmach);
-		}
-
 		dsp_pcm_stop(dsp, xrtd->stream_type);
-
 		xgold_debug("DSP stopped\n");
 
 		if (xrtd->stream_type == HW_PROBE_B ||
 				xrtd->stream_type == HW_PROBE_A)
 			dsp->p_dsp_common_data->ops->irq_deactivate(DSP_IRQ_3);
-
 
 		/* HW_AFE should be switched off before audio codec power
 		 * down */
