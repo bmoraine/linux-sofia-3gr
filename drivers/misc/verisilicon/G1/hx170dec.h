@@ -89,7 +89,7 @@
 struct vpu_dec_resource {
 	unsigned pbase;
 	unsigned size;
-	void *vbase;
+	phys_addr_t vbase;
 };
 
 struct vpu_dec_debug_t {

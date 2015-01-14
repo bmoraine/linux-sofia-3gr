@@ -94,7 +94,7 @@
 struct vpu_enc_resource {
 	unsigned pbase;
 	unsigned size;
-	void *vbase;
+	phys_addr_t vbase;
 };
 
 struct vpu_enc_debug_t {

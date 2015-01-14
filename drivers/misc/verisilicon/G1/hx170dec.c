@@ -1286,11 +1286,11 @@ static int xgold_vpu_dec_probe(struct platform_device *pdev)
 		 * register IO address range and IRQ
 		 */
 
-		vpu_dec_data->reg.vbase = (void *)resource->start;
+		vpu_dec_data->reg.vbase = resource->start;
 		vpu_dec_data->reg.size	= (unsigned)
 			(resource->end - resource->start) + 1;
-		dev_err(dev, "register IO addr base 0x%p",
-				vpu_dec_data->reg.vbase);
+		dev_err(dev, "register IO addr base 0x%pa",
+				&vpu_dec_data->reg.vbase);
 		dev_err(dev, "register IO addr size 0x%x",
 				vpu_dec_data->reg.size);
 

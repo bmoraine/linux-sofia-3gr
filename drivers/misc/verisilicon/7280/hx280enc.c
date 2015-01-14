@@ -927,7 +927,7 @@ static int xgold_vpu_enc_probe(struct platform_device *pdev)
 
 
 	if (resource != NULL && resource->start) {
-		vpu_enc_data->reg.vbase = (void *)resource->start;
+		vpu_enc_data->reg.vbase = resource->start;
 		vpu_enc_data->reg.size	= (unsigned)
 			(resource->end - resource->start) + 1;
 
