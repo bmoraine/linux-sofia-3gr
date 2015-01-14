@@ -7,11 +7,7 @@ core_pm:core_pm {
 	interrupts = < 0 >;
 	interrupt-parent = <&core_pm>;
 	#interrupt-cells = < 1 >;
-#ifdef SOFIA3G_ES2_TAB_SVB
-	interrupt-map = < 0 &hirq HIRQ_PMIC_PRH_SIGNALING IRQ_TYPE_DEFAULT>;
-#else
-       interrupt-map = < 0 &hirq HIRQ_PRH_SIGNALING IRQ_TYPE_DEFAULT>;
-#endif
+	interrupt-map = < 0 &hirq HIRQ_PRH_SIGNALING IRQ_TYPE_DEFAULT>;
 	interrupt-names = "notification";
 };
 

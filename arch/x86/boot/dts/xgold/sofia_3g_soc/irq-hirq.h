@@ -9,22 +9,21 @@
 #ifndef _HIRQ_IRQ_H
 #define _HIRQ_IRQ_H
 
-/* HIRQ nodes from HIRQ domain point of view */
-#define HIRQ_VMM_BROADCAST 0
-#define HIRQ_PMIC_TEST 1
-#define HIRQ_HIRQ_TEST 2
-#ifdef SOFIA3G_ES2_TAB_SVB
-#define HIRQ_PMIC_PRH_SIGNALING 3
-#else
-#define HIRQ_PRH_SIGNALING 3
-#endif
+#define HIRQ_OFFSET 512
 
-#define HIRQ_VTIMER 4
-/* 5 */
-/* 6 */
-/* 7 */
-/* 8 */
-#define HIRQ_RTC_ALARM 9
-#define HIRQ_CPU_CLK_CHANGE 10
-#define HIRQ_MODEM_DVFS 11
+/* HIRQ nodes from HIRQ domain point of view */
+#define HIRQ_VMM_BROADCAST		(512 - HIRQ_OFFSET)
+#define HIRQ_PMIC_TEST			(513 - HIRQ_OFFSET)
+#define HIRQ_HIRQ_TEST			(514 - HIRQ_OFFSET)
+#define HIRQ_PRH_SIGNALING		(515 - HIRQ_OFFSET)
+#define HIRQ_VTIMER				(516 - HIRQ_OFFSET)
+#define HIRQ_SPCU_THERM0_LOW	(517 - HIRQ_OFFSET)
+#define HIRQ_SPCU_THERM0_HIGH	(518 - HIRQ_OFFSET)
+#define HIRQ_SPCU_THERM1_LOW	(519 - HIRQ_OFFSET)
+#define HIRQ_SPCU_THERM1_HIGH	(520 - HIRQ_OFFSET)
+#define HIRQ_RTC_ALARM			(521 - HIRQ_OFFSET)
+#define HIRQ_CPU_CLK_NOTIFY		(522 - HIRQ_OFFSET)
+#define HIRQ_MODEM_DVFS			(523 - HIRQ_OFFSET)
+#define HIRQ_VM_VERIFY			(524 - HIRQ_OFFSET)
+
 #endif /* _HIRQ_IRQ_H */

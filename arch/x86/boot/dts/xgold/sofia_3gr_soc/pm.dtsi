@@ -6,7 +6,7 @@ core_pm:core_pm {
 	interrupts = < 0 >;
 	interrupt-parent = <&core_pm>;
 	#interrupt-cells = < 1 >;
-	interrupt-map = < 0 &hirq HIRQ_PMIC_PRH_SIGNALING IRQ_TYPE_DEFAULT>;
+	interrupt-map = < 0 &hirq HIRQ_PRH_SIGNALING IRQ_TYPE_DEFAULT>;
 	interrupt-names = "notification";
 };
 

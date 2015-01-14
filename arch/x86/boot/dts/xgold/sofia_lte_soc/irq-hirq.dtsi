@@ -527,5 +527,6 @@ hirq:hirq-interrupt-controller {
 		< 0 IRQ_TYPE_DEFAULT >,  /* 1022 */
 		< 0 IRQ_TYPE_DEFAULT >;  /* 1023 */
 	intel,hirq_offset = <HIRQ_OFFSET>;
+	intel,hirq = <HIRQ>;
 };
 #endif

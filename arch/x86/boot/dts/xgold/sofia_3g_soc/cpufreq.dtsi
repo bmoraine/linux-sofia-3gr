@@ -8,8 +8,6 @@ cpufreq:cpufreq {
 		interrupts = < 0 >;
 		interrupt-parent = <&cpufreq>;
 		#interrupt-cells = < 1 >;
-		interrupt-map = < 0 &hirq HIRQ_CPU_CLK_CHANGE IRQ_TYPE_DEFAULT>;
+		interrupt-map = < 0 &hirq HIRQ_CPU_CLK_NOTIFY IRQ_TYPE_DEFAULT>;
 		interrupt-names = "CPU_CLK_CHANGE";
 	};
-
-
