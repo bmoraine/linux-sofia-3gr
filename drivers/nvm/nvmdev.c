@@ -100,7 +100,7 @@ static T_GROUP_PROPERTIES  *group_prop[NOF_NVM_TYPES] = {&group_prop_cal[0], &gr
 struct nvmdev_t {
     struct class        *p_class;
     struct cdev         *p_cdev;
-    spinlock_t          lock;
+	struct mutex	nmutex;
     wait_queue_head_t   queue;
     unsigned long       flags;
     int                 major;
@@ -296,16 +296,17 @@ static int nvm_write_common(T_NVM_GROUP group_id,                       \
         return -EAGAIN;
     }
 
-    /* Acquire spin lock */
-    spin_lock_irqsave(&p_nvmdev->lock, p_nvmdev->flags);
+    /* Acquire mutex */
+	mutex_lock(&p_nvmdev->nmutex);
     INFO("-------------------- NVM WRITE ------------------------\n");
 
 
-    /* Waiting for lock, but state changed. release the lock and return -EAGAIN */
+	/* Waiting for mutex, but state changed.
+		release the mutex and return -EAGAIN */
     if ((nvmdev_state != NVM_ACTIVE) && (!device_initialing)) {
         INFO ("  Spinlock going to release, as the state changed\n");
         INFO("-------------------------------------------------------\n");
-        spin_unlock_irqrestore(&p_nvmdev->lock, p_nvmdev->flags);
+		mutex_unlock(&p_nvmdev->nmutex);
         return -EAGAIN;
     }
 
@@ -316,7 +317,7 @@ static int nvm_write_common(T_NVM_GROUP group_id,                       \
             (offset >= 0) && ((no_of_bytes + offset) <= ((*(group_prop + type_index) + group_index)->nof_bytes_mirror))) {
 
             if ((S32)no_of_bytes < 0) {
-                spin_unlock_irqrestore(&p_nvmdev->lock, p_nvmdev->flags);
+			mutex_unlock(&p_nvmdev->nmutex);
                 return -EINVAL;
             }
 
@@ -350,14 +351,14 @@ static int nvm_write_common(T_NVM_GROUP group_id,                       \
                                                             offset,
                                                             no_of_bytes);
         INFO("-------------------------------------------------------\n");
-        spin_unlock_irqrestore(&p_nvmdev->lock, p_nvmdev->flags);
+		mutex_unlock(&p_nvmdev->nmutex);
         return -EINVAL;
     }
 
     if (update_flash_from_mirror) {
         /* will wake up nvm user space daemon and inform total no. of updates */
         nvmdev_update++;
-        spin_unlock_irqrestore(&p_nvmdev->lock, p_nvmdev->flags);
+		mutex_unlock(&p_nvmdev->nmutex);
         wake_up_interruptible(&p_nvmdev->queue);
     } else {
             INFO("  group_id offset nofbytes [0x%x][%05u][%05u]\n", group_id, offset, no_of_bytes);
@@ -365,7 +366,7 @@ static int nvm_write_common(T_NVM_GROUP group_id,                       \
                             type_index, group_index, index, nvmdev_update);
             INFO("-------------------------------------------------------\n");
 
-            spin_unlock_irqrestore(&p_nvmdev->lock, p_nvmdev->flags);
+			mutex_unlock(&p_nvmdev->nmutex);
     }
 
     return NVM_OK;
@@ -653,11 +654,11 @@ static long nvmdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
          * NVM User Agent block until atleast one nvm-user write.
          *  1. Check the nvm device state. If the state is not ready return error.
          *  2. Wait for event. untill (nvmdev_update > 0) becomes true.
-         *  3. Acquire lock.
+			3. Acquire mutex.
          *      1. Typecast the argument received (pointer to nvmdev_ioctl expected).
          *      2. Traverse through the nvm groups, until update count is zero.
          *      3. Check for update count of each group. If the group is updated copy it to user space.
-         *  4. Release lock.
+			4. Release mutex.
          */
         case NVM_UA_WRITE_TO_FLASH:
             if (nvmdev_state != NVM_ACTIVE) {
@@ -673,8 +674,8 @@ static long nvmdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 wait_event_interruptible(p_nvmdev->queue, (nvmdev_update > 0));
             }
 
-            /* Acquire lock */
-            spin_lock_irqsave(&p_nvmdev->lock, p_nvmdev->flags);
+			/* Acquire mutex */
+			mutex_lock(&p_nvmdev->nmutex);
             INFO("---------------- NVM_UA_WRITE_TO_FLASH -----------------\n");
             /* critical region (semaphore acquired) ... */
             nvmdev_ioctl = (T_NVMDEV_IOCTL *)arg;
@@ -714,20 +715,20 @@ static long nvmdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
             /* Until nvmdev_update == 0 OR it reaches the end of group. or reaches update_limit */
             } while ((nvmdev_update != 0) && (index < TOT_NOF_NVM_GROUPS) && (ua_index < UPDATE_LIMIT));
             INFO("-------------------------------------------------------\n");
-            spin_unlock_irqrestore(&p_nvmdev->lock, p_nvmdev->flags);
+			mutex_unlock(&p_nvmdev->nmutex);
             break;
         /***************************** NVM_KERNEL_MIRROR_UPDATE **********************************/
         /* Which will be triggered from user-agent.
          * and update the required groups at runtime.
          */
          /* 1. Check the device state is initialized
-          * 2. Acquire the lock.
+			2. Acquire the mutex.
           *     1. Copy the argument to ioctl structure.
           *     2. Identify the type_index and group index.
           *     3. Identift the index. ready_to_read is based on this index.
           *     4. Update the data from user space to kernel mirror.
           *     5. Change ready to read flag (TODO)
-          * 3. Release the lock
+			3. Release the mutex
           */
         /* Dont touch the update count as this can only happen from User space */
         case NVM_COPY_TO_KERNEL_MIRROR:
@@ -803,12 +804,12 @@ static long nvmdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 INFO("  pending updates  [%05d]\n", nvmdev_update);
             }
 
-            spin_lock_irqsave(&p_nvmdev->lock, p_nvmdev->flags);
+			mutex_lock(&p_nvmdev->nmutex);
             /* Change the state */
             nvmdev_state = (T_NVM_STATE)arg;
             INFO("  state changed to [%05d]\n", nvmdev_state);
             INFO("-------------------------------------------------------\n");
-            spin_unlock_irqrestore(&p_nvmdev->lock, p_nvmdev->flags);
+			mutex_unlock(&p_nvmdev->nmutex);
 
             if (nvmdev_state != NVM_IDLE) {
                 /* Spawn a thread to notify the users about state change */
@@ -827,10 +828,10 @@ static long nvmdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 return -EAGAIN; /* or ENOTREADY */
             }
 
-            spin_lock_irqsave(&p_nvmdev->lock, p_nvmdev->flags);
+			mutex_lock(&p_nvmdev->nmutex);
             if (nvmdev_state != NVM_ACTIVE) {
                 INFO("Spinlock going to release, as the state changed\n");
-                spin_unlock_irqrestore(&p_nvmdev->lock, p_nvmdev->flags);
+				mutex_unlock(&p_nvmdev->nmutex);
                 return -EAGAIN;
             }
 
@@ -844,7 +845,7 @@ static long nvmdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 INFO("----------------------------------------\n");
             }
 
-            spin_unlock_irqrestore(&p_nvmdev->lock, p_nvmdev->flags);
+			mutex_unlock(&p_nvmdev->nmutex);
         default:
             return -EINVAL;
             break;
@@ -945,9 +946,9 @@ static int nvmdev_open(struct inode *inodp, struct file *filp)
     if (!try_module_get(THIS_MODULE))
         return -EBUSY;
 
-    spin_lock_irqsave(&p_nvmdev->lock, p_nvmdev->flags);
+	mutex_lock(&p_nvmdev->nmutex);
     /* critical region ... */
-    spin_unlock_irqrestore(&p_nvmdev->lock, p_nvmdev->flags);
+	mutex_unlock(&p_nvmdev->nmutex);
 
     return NVM_OK;
 }
@@ -1009,7 +1010,7 @@ static int __init nvmdev_init(void)
     }
 
     init_waitqueue_head(&p_nvmdev->queue);
-    spin_lock_init(&p_nvmdev->lock);
+	mutex_init(&p_nvmdev->nmutex);
 
     nvmdev_state = NVM_IDLE;
     /* initialize nvmdev list */
