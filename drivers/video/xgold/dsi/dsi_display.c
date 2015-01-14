@@ -21,6 +21,7 @@
 
 #include <linux/module.h>
 #include <linux/delay.h>
+#include <linux/gpio.h>
 
 #include "dsi_display.h"
 #include "dsi_hwregs.h"
@@ -545,27 +546,51 @@ int dsi_init(struct dsi_display *display)
 	return 0;
 }
 
-#ifdef USE_POWER_MSGS
-static int dsi_panel_power_on(struct dsi_display *display)
+static void
+dsi_set_gpiolist(struct dsi_display *display, struct display_gpio *gpios)
 {
-	struct display_msg *msgs = display->msgs_power_on;
+	struct display_gpio *gpio;
 
-	if (msgs != NULL)
-		dsi_send_msglist(display, msgs);
+	list_for_each_entry(gpio, &gpios->list, list) {
+		switch (gpio->type) {
+		case DSI_GPIO_VHIGH:
+			if (!display->gpio_vhigh)
+				break;
 
-	return 0;
+			gpio_direction_output(display->gpio_vhigh, gpio->value);
+			break;
+
+		case DSI_GPIO_VLOW:
+			if (!display->gpio_vlow)
+				break;
+
+			gpio_direction_output(display->gpio_vlow, gpio->value);
+			break;
+
+		case DSI_GPIO_RESET:
+			if (!display->gpio_reset)
+				break;
+
+			gpio_direction_output(display->gpio_reset, gpio->value);
+			break;
+		}
+
+		if (gpio->delay)
+			mdelay(gpio->delay);
+	}
 }
 
-static int dsi_panel_power_off(struct dsi_display *display)
+static void dsi_panel_power_on(struct dsi_display *display)
 {
-	struct display_msg *msgs = display->msgs_power_off;
-
-	if (msgs != NULL)
-		dsi_send_msglist(display, msgs);
-
-	return 0;
+	if (display->gpios_power_on)
+		dsi_set_gpiolist(display, display->gpios_power_on);
 }
-#endif
+
+static void dsi_panel_power_off(struct dsi_display *display)
+{
+	if (display->gpios_power_off)
+		dsi_set_gpiolist(display, display->gpios_power_off);
+}
 
 static int dsi_panel_sleep_in(struct dsi_display *display)
 {
@@ -716,6 +741,8 @@ int dsi_probe(struct dsi_display *display)
 	display->panel_init = dsi_panel_init;
 	display->sleep_in = dsi_panel_sleep_in;
 	display->sleep_out = dsi_panel_sleep_out;
+	display->power_on = dsi_panel_power_on;
+	display->power_off = dsi_panel_power_off;
 	init_completion(&display->sync.dsifin);
 	display->sync.dsifin_to = 200;
 	dsi_rate_calculation(display);

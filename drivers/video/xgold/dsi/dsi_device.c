@@ -40,13 +40,12 @@ static int xgold_mipi_dsi_enable(void)
 	if (unlikely(!mipi_dsi) || mipi_dsi->sys_state)
 		return 0;
 
-	dsi_init(display);
-	dsi_interrupt_setup(display);
-	dsi_config(display, DIF_TX_DATA);
-
 	if (display->power_on)
 		display->power_on(display);
 
+	dsi_init(display);
+	dsi_interrupt_setup(display);
+	dsi_config(display, DIF_TX_DATA);
 	if (display->panel_init)
 		display->panel_init(display);
 

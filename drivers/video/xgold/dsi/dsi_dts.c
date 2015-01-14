@@ -30,12 +30,28 @@
 #include "dsi_dts.h"
 
 #define PROP_DISPLAY            "intel,display"
+
 #define PROP_DISPLAY_RAMLESS    "intel,display-ramless"
 #define PROP_DISPLAY_FPS        "intel,display-fps"
 #define PROP_DISPLAY_LANES      "intel,display-if-nblanes"
 #define PROP_DISPLAY_PREINIT    "intel,display-preinit"
 #define PROP_DISPLAY_VIDEOMODE  "intel,display-vid-mode"
 #define PROP_DISPLAY_VIDEOID    "intel,display-vid-id"
+
+#define PROP_DISPLAY_GPIORST    "intel,display-gpio-reset"
+#define PROP_DISPLAY_GPIOVH     "intel,display-gpio-vhigh"
+#define PROP_DISPLAY_GPIOVL     "intel,display-gpio-vlow"
+
+#define GPIO_LIST_POWER_ON      "gpio-power-on"
+#define GPIO_LIST_POWER_OFF     "gpio-power-off"
+
+#define PROP_DISPLAY_GPIOTYPE   "intel,gpio-type"
+#define PROP_DISPLAY_GPIOVALUE  "intel,gpio-value-delay"
+
+#define CMD_LIST_INIT           "cmd-init"
+#define CMD_LIST_UPDATE         "cmd-update"
+#define CMD_LIST_SLEEP_IN       "cmd-sleep-in"
+#define CMD_LIST_SLEEP_OUT      "cmd-sleep-out"
 
 #define PROP_DISPLAY_CMDTYPE    "intel,cmd-type"
 #define PROP_DISPLAY_CMDDATA    "intel,cmd-data"
@@ -129,8 +145,130 @@ static int dsi_of_parse_display_msglist(struct platform_device *pdev,
 			return -EINVAL;
 		}
 
-		dsi_of_parse_display_cmd(pdev, child, msg);
-		list_add_tail(&msg->list, &(*msglist)->list);
+		if (!dsi_of_parse_display_cmd(pdev, child, msg))
+			list_add_tail(&msg->list, &(*msglist)->list);
+		else
+			devm_kfree(&pdev->dev, msg);
+	}
+
+	return 0;
+}
+
+static int dsi_of_parse_display_gpio(struct platform_device *pdev,
+				     struct device_node *n,
+				     struct display_gpio *gpio)
+{
+	const char *string;
+	int array[2];
+	int ret;
+
+	gpio->name = n->name;
+	ret = of_property_read_string(n, PROP_DISPLAY_GPIOTYPE, &string);
+	if (ret) {
+		pr_err("%s: Get %s failed\n", __func__, PROP_DISPLAY_GPIOTYPE);
+		return ret;
+	} else if (!strcmp("vhigh", string)) {
+		gpio->type = DSI_GPIO_VHIGH;
+	} else if (!strcmp("vlow", string)) {
+		gpio->type = DSI_GPIO_VLOW;
+	} else if (!strcmp("reset", string)) {
+		gpio->type = DSI_GPIO_RESET;
+	}
+
+	ret = of_property_read_u32_array(n, PROP_DISPLAY_GPIOVALUE, array, 2);
+	if (ret) {
+		pr_err("%s: Get %s failed\n", __func__, PROP_DISPLAY_GPIOVALUE);
+		return ret;
+	}
+
+	gpio->value = array[0];
+	gpio->delay = array[1];
+
+	return 0;
+}
+
+static int dsi_of_parse_display_gpiolist(struct platform_device *pdev,
+					 struct device_node *n,
+					 struct display_gpio **gpiolist)
+{
+	struct device_node *child;
+	struct display_gpio *gpio;
+
+	*gpiolist = devm_kzalloc(&pdev->dev, sizeof(struct display_gpio),
+				 GFP_KERNEL);
+	if (!*gpiolist) {
+		pr_err("%s: Can't alloc gpio table\n", __func__);
+		return -ENOMEM;
+	}
+
+	INIT_LIST_HEAD(&(*gpiolist)->list);
+	for_each_child_of_node(n, child) {
+		gpio = (struct display_gpio *) devm_kzalloc(&pdev->dev,
+			sizeof(struct display_gpio), GFP_KERNEL);
+		if (!gpio) {
+			pr_err("%s: Allocation of display gpio failed\n",
+			       __func__);
+			return -EINVAL;
+		}
+
+		if (!dsi_of_parse_display_gpio(pdev, child, gpio))
+			list_add_tail(&gpio->list, &(*gpiolist)->list);
+		else
+			devm_kfree(&pdev->dev, gpio);
+	}
+
+	return 0;
+}
+
+static int dsi_of_parse_gpio(struct platform_device *pdev,
+			     struct dsi_display *display)
+{
+	struct device_node *mipi_dsi_dev_n = pdev->dev.of_node;
+	int ret;
+
+	if (!mipi_dsi_dev_n) {
+		pr_err("%s: Can't find xgold-mipi_dsi matching node\n",
+		       __func__);
+		return -EINVAL;
+	}
+
+	display->gpio_vhigh = of_get_named_gpio_flags(mipi_dsi_dev_n,
+		PROP_DISPLAY_GPIOVH, 0, NULL);
+	if (gpio_is_valid(display->gpio_vhigh)) {
+		ret = gpio_request(display->gpio_vhigh, "disp_vhigh");
+		if (ret) {
+			pr_err("%s: request display high power gpio fail: %d\n",
+			       __func__, ret);
+			display->gpio_vhigh = 0;
+		}
+	} else {
+		display->gpio_vhigh = 0;
+	}
+
+	display->gpio_vlow = of_get_named_gpio_flags(mipi_dsi_dev_n,
+			PROP_DISPLAY_GPIOVL, 0, NULL);
+	if (gpio_is_valid(display->gpio_vlow)) {
+		ret = gpio_request(display->gpio_vlow, "disp_vlow");
+		if (ret) {
+			pr_err("%s: request display low power gpio fail: %d\n",
+			       __func__, ret);
+			display->gpio_vlow = 0;
+		}
+	} else {
+		display->gpio_vlow = 0;
+	}
+
+	display->gpio_reset = of_get_named_gpio_flags(mipi_dsi_dev_n,
+			PROP_DISPLAY_GPIORST, 0, NULL);
+	if (gpio_is_valid(display->gpio_reset)) {
+		ret = gpio_request(display->gpio_reset, "disp_rst");
+		if (ret) {
+			pr_err("%s: request display reset gpio fail: %d\n",
+			       __func__, ret);
+			display->gpio_reset = 0;
+		}
+	} else {
+		display->gpio_reset = 0;
 	}
 
 	return 0;
@@ -179,6 +317,7 @@ int dsi_of_parse_display(struct platform_device *pdev,
 	struct device_node *display_dev_n, *child;
 	struct dsi_display *display = &mipi_dsi->display;
 
+	dsi_of_parse_gpio(pdev, display);
 	dsi_of_parse_display_timing(mipi_dsi);
 	display_dev_n = of_find_matching_node(NULL, sofia_display_of_match);
 	if (!display_dev_n) {
@@ -231,48 +370,35 @@ int dsi_of_parse_display(struct platform_device *pdev,
 		display->dif.dsi.id = 0;
 
 	for_each_child_of_node(display_dev_n, child) {
-		if (!strcmp(child->name, "cmd-init")) {
+		if (!strcmp(child->name, CMD_LIST_INIT)) {
 			ret = dsi_of_parse_display_msglist(pdev, child,
 				&display->msgs_init);
-			if (ret)
-				pr_info("Node %s parsing failed\n",
-					child->name);
-		} else if (!strcmp(child->name, "cmd-update")) {
+		} else if (!strcmp(child->name, CMD_LIST_UPDATE)) {
 			ret = dsi_of_parse_display_msglist(pdev, child,
 				&display->msgs_update);
-			if (ret)
-				pr_info("Node %s parsing failed\n",
-					child->name);
-		} else if (!strcmp(child->name, "cmd-power-on")) {
-			ret = dsi_of_parse_display_msglist(pdev, child,
-				&display->msgs_power_on);
-			if (ret)
-				pr_info("Node %s parsing failed\n",
-					child->name);
-		} else if (!strcmp(child->name, "cmd-power-off")) {
-			ret = dsi_of_parse_display_msglist(pdev, child,
-				&display->msgs_power_off);
-			if (ret)
-				pr_info("Node %s parsing failed\n",
-					child->name);
-		} else if (!strcmp(child->name, "cmd-sleep-in")) {
+		} else if (!strcmp(child->name, GPIO_LIST_POWER_ON)) {
+			ret = dsi_of_parse_display_gpiolist(pdev, child,
+				&display->gpios_power_on);
+		} else if (!strcmp(child->name, GPIO_LIST_POWER_OFF)) {
+			ret = dsi_of_parse_display_gpiolist(pdev, child,
+				&display->gpios_power_off);
+		} else if (!strcmp(child->name, CMD_LIST_SLEEP_IN)) {
 			ret = dsi_of_parse_display_msglist(pdev, child,
 				&display->msgs_sleep_in);
-			if (ret)
-				pr_info("Node %s parsing failed\n",
-					child->name);
-		} else if (!strcmp(child->name, "cmd-sleep-out")) {
+		} else if (!strcmp(child->name, CMD_LIST_SLEEP_OUT)) {
 			ret = dsi_of_parse_display_msglist(pdev, child,
 				&display->msgs_sleep_out);
-			if (ret)
-				pr_info("Node %s parsing failed\n",
-					child->name);
 		} else {
-			pr_info("In node %s, unexpected child %s !\n",
-				display_dev_n->name, child->name);
+			pr_info("%s: In node %s, unexpected child %s !\n",
+				__func__, display_dev_n->name, child->name);
 		}
 
+		if (ret) {
+			pr_info("%s: Node %s parsing failed %d\n", __func__,
+				child->name, ret);
+		}
 	};
 
 	return 0;
 }
+

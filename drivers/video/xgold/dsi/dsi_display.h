@@ -28,23 +28,18 @@
 #define BYTES_TO_PIXELS(bytes, bpp) (DIV_ROUND_CLOSEST(bytes * 8, bpp))
 #define PIXELS_TO_BYTES(pixels, bpp) (DIV_ROUND_CLOSEST(pixels * bpp, 8))
 
+#define LCD_MSG_LP 1
+
 enum {
 	DIF_TX_DATA = 1,
 	DIF_TX_PIXELS = 2,
 };
 
-struct display_msg {
-	struct list_head list;
-	const char *name;
-	unsigned char header;
-	unsigned char type;
-	unsigned char *datas;
-	int length;
-	int delay;		/*in ms */
-	unsigned int flags;
+enum dsi_gpio_t {
+	DSI_GPIO_VHIGH = 0,
+	DSI_GPIO_VLOW = 1,
+	DSI_GPIO_RESET = 2,
 };
-
-#define LCD_MSG_LP	1
 
 enum dsi_mode_t {
 	DSI_VIDEO = 0,
@@ -63,6 +58,25 @@ enum dsi_video_mode_t {
 	DSI_PULSES = 1,
 	DSI_EVENTS = 2,
 	DSI_BURST = 3,
+};
+
+struct display_msg {
+	struct list_head list;
+	const char *name;
+	unsigned char header;
+	unsigned char type;
+	unsigned char *datas;
+	int length;
+	int delay;		/*in ms */
+	unsigned int flags;
+};
+
+struct display_gpio {
+	struct list_head list;
+	const char *name;
+	enum dsi_gpio_t type;
+	int value;
+	int delay;		/*in ms */
 };
 
 struct dsi_irq {
@@ -128,18 +142,11 @@ struct dsi_display_if_mipi_dsi {
 	int bllp_time;
 	int line_time;
 	int display_preinit;
-	int gpio_reset;
 };
 
 struct dsi_display_if {
 	int type;
 	struct dsi_display_if_mipi_dsi dsi;
-};
-
-struct display_reset {
-	struct list_head list;
-	int value;
-	int mdelay;
 };
 
 struct dsi_display {
@@ -149,19 +156,20 @@ struct dsi_display {
 	int bpp;
 	int xdpi;	/* pixel density per inch in x direction */
 	int ydpi;	/* pixel density per inch in y direction */
-	struct display_reset *reset;
-	struct display_msg *msgs_power_on;
-	struct display_msg *msgs_power_off;
+	int gpio_vhigh;
+	int gpio_vlow;
+	int gpio_reset;
+	struct display_gpio *gpios_power_on;
+	struct display_gpio *gpios_power_off;
 	struct display_msg *msgs_sleep_in;
 	struct display_msg *msgs_sleep_out;
 	struct display_msg *msgs_init;
 	struct display_msg *msgs_update;
-	void (*panel_reset)(int gpio, struct dsi_display *display);
 	int (*panel_init)(struct dsi_display *display);
-	int (*power_on)(struct dsi_display *display);
+	void (*power_on)(struct dsi_display *display);
 	int (*sleep_in)(struct dsi_display *display);
 	int (*sleep_out)(struct dsi_display *display);
-	int (*power_off)(struct dsi_display *display);
+	void (*power_off)(struct dsi_display *display);
 	struct dsi_display_if dif;
 	void __iomem *regbase;
 	struct dsi_sync_obj_s sync;
