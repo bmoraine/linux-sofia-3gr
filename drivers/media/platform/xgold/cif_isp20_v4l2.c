@@ -23,6 +23,7 @@
  */
 
 #include <media/v4l2-common.h>
+#include <media/v4l2-event.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-controls_intel.h>
@@ -958,16 +959,26 @@ static unsigned int cif_isp20_v4l2_poll(
 	struct file *file,
 	struct poll_table_struct *wait)
 {
-	int ret;
+	struct cif_isp20_v4l2_fh *fh = to_fh(file);
+	int ret = 0;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
+	unsigned long req_events = poll_requested_events(wait);
 
 	cif_isp20_pltfrm_pr_dbg(NULL, "%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
-	ret = videobuf_poll_stream(file, queue, wait);
-	if (IS_ERR_VALUE(ret)) {
+
+	if (v4l2_event_pending(&fh->fh))
+		ret = POLLPRI;
+	else if (req_events & POLLPRI)
+		poll_wait(file, &fh->fh.wait, wait);
+
+	if (!(req_events & (POLLIN | POLLRDNORM)))
+		return ret;
+
+	ret |= videobuf_poll_stream(file, queue, wait);
+	if (ret & POLLERR) {
 		cif_isp20_pltfrm_pr_err(NULL,
-			"videobuf_poll_stream failed\n");
-		cif_isp20_pltfrm_pr_err(NULL, "failed with error %d\n", ret);
+			"videobuf_poll_stream failed with error 0x%x\n", ret);
 	}
 	return ret;
 }
@@ -995,6 +1006,30 @@ static int v4l2_querycap(struct file *file,
 	    V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OVERLAY |
 	    V4L2_CAP_STREAMING;
 	return ret;
+}
+
+static int cif_isp20_v4l2_subscribe_event(struct v4l2_fh *fh,
+				const struct v4l2_event_subscription *sub)
+{
+	if (sub->type != V4L2_EVENT_FRAME_SYNC)
+		return -EINVAL;
+	return v4l2_event_subscribe(fh, sub, 16, NULL);
+}
+
+static int cif_isp20_v4l2_unsubscribe_event(struct v4l2_fh *fh,
+				const struct v4l2_event_subscription *sub)
+{
+	return v4l2_event_unsubscribe(fh, sub);
+}
+
+static void cif_isp20_v4l2_event(__u32 frame_sequence)
+{
+	struct v4l2_event ev;
+
+	memset(&ev, 0, sizeof(ev));
+	ev.type = V4L2_EVENT_FRAME_SYNC;
+	ev.u.frame_sync.frame_sequence = frame_sequence;
+	v4l2_event_queue(cif_isp20_v4l2_dev.sp_dev, &ev);
 }
 
 static long v4l2_default_ioctl(struct file *file, void *fh,
@@ -1474,6 +1509,8 @@ const struct v4l2_ioctl_ops cif_isp20_v4l2_sp_ioctlops = {
 	.vidioc_cropcap = cif_isp20_v4l2_cropcap,
 	.vidioc_s_crop = cif_isp20_v4l2_s_crop,
 	.vidioc_g_crop = cif_isp20_v4l2_g_crop,
+	.vidioc_subscribe_event = cif_isp20_v4l2_subscribe_event,
+	.vidioc_unsubscribe_event = cif_isp20_v4l2_unsubscribe_event,
 	.vidioc_default = v4l2_default_ioctl,
 };
 
@@ -1520,7 +1557,7 @@ static int xgold_v4l2_drv_probe(struct platform_device *pdev)
 
 	cif_isp20_pltfrm_pr_info(NULL, "probing...\n");
 
-	dev = cif_isp20_create(&pdev->dev);
+	dev = cif_isp20_create(&pdev->dev, cif_isp20_v4l2_event);
 	if (IS_ERR_OR_NULL(dev)) {
 		ret = -ENODEV;
 		goto err;

@@ -5187,7 +5187,7 @@ err:
 }
 
 struct cif_isp20_device *cif_isp20_create(
-	CIF_ISP20_PLTFRM_DEVICE pdev)
+	CIF_ISP20_PLTFRM_DEVICE pdev, void (*eof_event)(__u32 frame_sequence))
 {
 	int ret;
 	struct cif_isp20_device *dev;
@@ -5202,6 +5202,7 @@ struct cif_isp20_device *cif_isp20_create(
 		ret = -ENOMEM;
 		goto err;
 	}
+	dev->eof_event = eof_event;
 
 	ret = cif_isp20_pltfrm_dev_init(dev,
 		&pdev, &dev->config.base_addr);
@@ -5782,6 +5783,8 @@ int marvin_isp_isr(void *cntxt)
 		dev->isp_dev.frame_id += 2;
 		cif_iowrite32(CIF_ISP_V_START,
 		      dev->config.base_addr + CIF_ISP_ICR);
+		if (dev->eof_event)
+			dev->eof_event(dev->isp_dev.frame_id >> 1);
 	}
 
 #ifdef MEASURE_VERTICAL_BLANKING

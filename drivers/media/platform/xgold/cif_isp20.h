@@ -525,6 +525,7 @@ struct cif_isp20_device {
 	struct cif_isp20_stream mp_stream;
 	struct cif_isp20_stream dma_stream;
 	struct timeval curr_frame_time; /* updated each frame */
+	void (*eof_event)(__u32 frame_sequence);
 #ifdef SOFIA_ES1_BU_PM_NATIVE
 	struct clk *clk_kernel;
 	struct clk *clk_slave;
@@ -549,7 +550,7 @@ int get_xgold_output_format_desc_size(void);
 /*Clean code starts from here*************************************************/
 
 struct cif_isp20_device *cif_isp20_create(
-	CIF_ISP20_PLTFRM_DEVICE pdev);
+	CIF_ISP20_PLTFRM_DEVICE pdev, void (*eof_event)(__u32 frame_sequence));
 
 void cif_isp20_destroy(
 	struct cif_isp20_device *dev);
