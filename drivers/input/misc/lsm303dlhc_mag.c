@@ -719,10 +719,13 @@ static void lsm303dlhc_mag_input_poll_func(struct work_struct *work)
 
 	mutex_lock(&stat->lock);
 	err = lsm303dlhc_mag_get_data(stat, xyz);
-	if (err < 0)
+	if (err < 0) {
 		dev_err(&stat->client->dev, "get_magnetometer_data failed\n");
-	else
-		lsm303dlhc_mag_report_values(stat, xyz);
+		mutex_unlock(&stat->lock);
+		return;
+	}
+
+	lsm303dlhc_mag_report_values(stat, xyz);
 
 	hrtimer_start(&stat->timer,
 			MS_TO_NS(stat->pdata->poll_interval),
