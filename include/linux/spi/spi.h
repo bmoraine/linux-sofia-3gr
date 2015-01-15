@@ -93,11 +93,15 @@ struct spi_device {
 #define	SPI_TX_QUAD	0x200			/* transmit with 4 wires */
 #define	SPI_RX_DUAL	0x400			/* receive with 2 wires */
 #define	SPI_RX_QUAD	0x800			/* receive with 4 wires */
+#define	SPI_PARITY_ODD  0x1000			/* Add an odd parity bit */
+#define	SPI_PARITY_EVEN 0x2000			/* Add an even parity bit */
+#define SPI_TX_IDLE_HIGH  0x4000		/* TX line is high in idle */
 	int			irq;
 	void			*controller_state;
 	void			*controller_data;
 	char			modalias[SPI_NAME_SIZE];
 	int			cs_gpio;	/* chip select gpio */
+	u8                      inter_character_pause;
 
 	/*
 	 * likely need more hooks for more protocol options affecting how
@@ -962,6 +966,9 @@ struct spi_board_info {
 	 * where the default of SPI_CS_HIGH = 0 is wrong.
 	 */
 	u16		mode;
+
+	/* IMC add on Inter character length in SCLK units */
+	u8		inter_character_pause;
 
 	/* ... may need additional spi_device chip config data here.
 	 * avoid stuff protocol drivers can set; but include stuff
