@@ -1552,21 +1552,23 @@ static s32 gtp_init_panel(struct goodix_ts_data *ts)
 	s32 ret = -1;
 
 #if GTP_DRIVER_SEND_CFG
+	struct gt9xx_ts_platform_data *pdata = ts->pdata;
 	s32 i = 0;
 	u8 check_sum = 0;
 	u8 opr_buf[16] = {0};
 	u8 sensor_id = 0;
 
-	u8 cfg_info_group1[] = CTP_CFG_GROUP1;
+	u8 gt911_cfg_info_group1[] = GT911_CTP_CFG_GROUP1;
+	u8 gt915_cfg_info_group1[] = GT915_CTP_CFG_GROUP1;
+	u8 gt9157_cfg_info_group1[] = GT9157_CTP_CFG_GROUP1;
 	u8 cfg_info_group2[] = CTP_CFG_GROUP2;
 	u8 cfg_info_group3[] = CTP_CFG_GROUP3;
 	u8 cfg_info_group4[] = CTP_CFG_GROUP4;
 	u8 cfg_info_group5[] = CTP_CFG_GROUP5;
 	u8 cfg_info_group6[] = CTP_CFG_GROUP6;
-	u8 *send_cfg_buf[] = {cfg_info_group1, cfg_info_group2, cfg_info_group3,
+	u8 *send_cfg_buf[] = {NULL, cfg_info_group2, cfg_info_group3,
 			cfg_info_group4, cfg_info_group5, cfg_info_group6
-			};
-	u8 cfg_info_len[] = { CFG_GROUP_LEN(cfg_info_group1),
+			};	u8 cfg_info_len[] = { 0,
 						CFG_GROUP_LEN(cfg_info_group2),
 						CFG_GROUP_LEN(cfg_info_group3),
 						CFG_GROUP_LEN(cfg_info_group4),
@@ -1575,6 +1577,25 @@ static s32 gtp_init_panel(struct goodix_ts_data *ts)
 						};
 
 	GTP_DEBUG_FUNC();
+
+	switch (pdata->id) {
+	case 911:
+		send_cfg_buf[0] = gt911_cfg_info_group1;
+		cfg_info_len[0] = CFG_GROUP_LEN(gt911_cfg_info_group1);
+		break;
+	case 915:
+		send_cfg_buf[0] = gt915_cfg_info_group1;
+		cfg_info_len[0] = CFG_GROUP_LEN(gt915_cfg_info_group1);
+		break;
+	case 9157:
+		send_cfg_buf[0] = gt9157_cfg_info_group1;
+		cfg_info_len[0] = CFG_GROUP_LEN(gt9157_cfg_info_group1);
+		break;
+	default:
+		GTP_ERROR("id error, no config available!\n");
+		return -1;
+	}
+
 	GTP_DEBUG("Config Groups\' Lengths: %d, %d, %d, %d, %d, %d",
 			cfg_info_len[0], cfg_info_len[1],
 			cfg_info_len[2], cfg_info_len[3],
@@ -2667,6 +2688,9 @@ static int goodix_ts_probe(struct i2c_client *client,
 	gt9xx_pdata = client->dev.platform_data;
 #endif
 
+	/*FIXME: not sure whether id should be in CONFIG_OF only or not */
+	gt9xx_pdata->id = id->driver_data;
+
 #if 1
 	goodix_wq = create_singlethread_workqueue("goodix_wq");
 	if (!goodix_wq) {
@@ -3148,7 +3172,9 @@ static void gtp_esd_check_func(struct work_struct *work)
 #endif
 
 static const struct i2c_device_id goodix_ts_id[] = {
-	{ GTP_I2C_NAME, 0 },
+	{ GT911_I2C_NAME, 911, },
+	{ GT915_I2C_NAME, 915, },
+	{ GT9157_I2C_NAME, 9157, },
 	{ }
 };
 

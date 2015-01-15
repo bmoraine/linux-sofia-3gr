@@ -206,24 +206,45 @@ static s32 gup_init_panel(struct goodix_ts_data *ts)
 	u8 opr_buf[16];
 	u8 sensor_id = 0;
 	u16 version = 0;
+	struct gt9xx_ts_platform_data *pdata = ts->pdata;
 
-	u8 cfg_info_group1[] = CTP_CFG_GROUP1;
+	u8 gt911_cfg_info_group1[] = GT911_CTP_CFG_GROUP1;
+	u8 gt915_cfg_info_group1[] = GT915_CTP_CFG_GROUP1;
+	u8 gt9157_cfg_info_group1[] = GT9157_CTP_CFG_GROUP1;
 	u8 cfg_info_group2[] = CTP_CFG_GROUP2;
 	u8 cfg_info_group3[] = CTP_CFG_GROUP3;
 	u8 cfg_info_group4[] = CTP_CFG_GROUP4;
 	u8 cfg_info_group5[] = CTP_CFG_GROUP5;
 	u8 cfg_info_group6[] = CTP_CFG_GROUP6;
-	u8 *send_cfg_buf[] = {cfg_info_group1, cfg_info_group2, cfg_info_group3,
+	u8 *send_cfg_buf[] = {NULL, cfg_info_group2, cfg_info_group3,
 						cfg_info_group4,
 						cfg_info_group5,
 						cfg_info_group6};
-	u8 cfg_info_len[] = { CFG_GROUP_LEN(cfg_info_group1),
+	u8 cfg_info_len[] = { 0,
 			CFG_GROUP_LEN(cfg_info_group2),
 			CFG_GROUP_LEN(cfg_info_group3),
 			CFG_GROUP_LEN(cfg_info_group4),
 			CFG_GROUP_LEN(cfg_info_group5),
 			CFG_GROUP_LEN(cfg_info_group6)
 			};
+
+	switch (pdata->id) {
+	case 911:
+		send_cfg_buf[0] = gt911_cfg_info_group1;
+		cfg_info_len[0] = CFG_GROUP_LEN(gt911_cfg_info_group1);
+		break;
+	case 915:
+		send_cfg_buf[0] = gt915_cfg_info_group1;
+		cfg_info_len[0] = CFG_GROUP_LEN(gt915_cfg_info_group1);
+		break;
+	case 9157:
+		send_cfg_buf[0] = gt9157_cfg_info_group1;
+		cfg_info_len[0] = CFG_GROUP_LEN(gt9157_cfg_info_group1);
+		break;
+	default:
+		GTP_ERROR("id error, no config available!\n");
+		return -1;
+	}
 
 	if ((!cfg_info_len[1]) && (!cfg_info_len[2]) &&
 		(!cfg_info_len[3]) && (!cfg_info_len[4]) &&
