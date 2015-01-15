@@ -548,6 +548,13 @@ config SPI_DW_MMIO
 	tristate "Memory-mapped io interface driver for DW SPI core"
 	depends on SPI_DESIGNWARE && HAVE_CLK
 
+config SPI_XGOLD
+	bool "spi xgold"
+	depends on X86_INTEL_XGOLD
+	help
+	  If you say Y here you will get support for the SPI found on
+	  the XGOLD.
+
 #
 # There are lots of SPI device types, with sensors and memory
 # being probably the most widely used ones.
