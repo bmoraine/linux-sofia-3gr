@@ -25,6 +25,8 @@
 #include <linux/workqueue.h>
 #include <linux/usb/ch9.h>
 
+#define usb_gadget_giveback_request(ep, req)  ((req)->complete(ep, req))
+
 struct usb_ep;
 
 /**
