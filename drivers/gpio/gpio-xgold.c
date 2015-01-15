@@ -45,6 +45,7 @@ struct xgold_gpio_irq {
 struct xgold_pcl_gpio {
 	struct gpio_chip pchip;
 	void __iomem *gpio_base;
+	phys_addr_t gpio_base_phys;
 	u32 dir_base;
 	struct xgold_pcl_field dir_field;
 	u32 dir_out;
@@ -70,14 +71,13 @@ static inline u32 pcl_read(struct gpio_chip *chip, unsigned offset)
 {
 	struct xgold_pcl_gpio *xgold_gpio = to_xgold_pcl_gpio(chip);
 #ifdef CONFIG_X86_INTEL_SOFIA
+	phys_addr_t read_addr = xgold_gpio->gpio_base_phys + offset;
 	uint32_t tmp = 0;
 	if (xgold_gpio->io_master == PCL_IO_ACCESS_BY_VMM) {
-		if (mv_svc_pinctrl_service(PINCTRL_GET,
-				((uint32_t)xgold_gpio->gpio_base + offset),
-				0, (uint32_t *)&tmp))
-			gpio_err("%s: mv_svc_pinctrl_service(PINCTRL_GET) failed at %p\n",
-				__func__,
-				(void *)(xgold_gpio->gpio_base + offset));
+		if (mv_svc_pinctrl_service(PINCTRL_GET, read_addr, 0,
+					(uint32_t *)&tmp))
+			gpio_err("%s: mv_svc_pinctrl_service(PINCTRL_GET) failed at 0x%pa\n",
+					__func__, &read_addr);
 		return tmp;
 	} else
 #endif
@@ -88,15 +88,12 @@ static inline void pcl_write(struct gpio_chip *chip, unsigned offset, u32 value)
 {
 	struct xgold_pcl_gpio *xgold_gpio = to_xgold_pcl_gpio(chip);
 #ifdef CONFIG_X86_INTEL_SOFIA
+	phys_addr_t write_addr = xgold_gpio->gpio_base_phys + offset;
 	if (xgold_gpio->io_master == PCL_IO_ACCESS_BY_VMM) {
-		if (mv_svc_pinctrl_service(PINCTRL_SET,
-				((uint32_t)xgold_gpio->gpio_base + offset),
-				value, NULL))
-			gpio_err(
-				"%s: mv_svc_pinctrl_service(PINCTRL_SET) fails at %p - value: %x\n",
-				__func__,
-				(void *)(xgold_gpio->gpio_base + offset),
-				value);
+		if (mv_svc_pinctrl_service(PINCTRL_SET, write_addr, value,
+					NULL))
+			gpio_err("%s: mv_svc_pinctrl_service(PINCTRL_SET) fails at 0x%pa - value: 0x%x\n",
+				__func__, &write_addr, value);
 	} else
 #endif
 		writel(value, (xgold_gpio->gpio_base + offset));
@@ -317,19 +314,20 @@ static int xgold_gpio_probe(struct platform_device *pdev)
 	}
 */
 	xgold_gpio->io_master = xgold_gpio_get_io_master(np);
-	if (xgold_gpio->io_master == PCL_IO_ACCESS_BY_LNX)
+	if (xgold_gpio->io_master == PCL_IO_ACCESS_BY_LNX) {
 		xgold_gpio->gpio_base = devm_ioremap(&pdev->dev,
 					res->start, resource_size(res));
-	else
-		xgold_gpio->gpio_base = (void __iomem *)res->start;
-	gpio_info("gpio: io:%s-@:%#x\n",
-		xgold_gpio->io_master == PCL_IO_ACCESS_BY_LNX ?
-		"linux" : "vmm", (uint32_t)xgold_gpio->gpio_base);
-	if (!xgold_gpio->gpio_base) {
-		gpio_err("Could not ioremap\n");
-		return -ENOMEM;
+		if (!xgold_gpio->gpio_base) {
+			gpio_err("Could not ioremap\n");
+			return -ENOMEM;
+		}
+		gpio_info("gpio: io: linux-@:%p\n",
+				xgold_gpio->gpio_base);
+	} else {
+		xgold_gpio->gpio_base_phys = res->start;
+		gpio_info("gpio: io: vmm-@:%pa\n",
+				&xgold_gpio->gpio_base_phys);
 	}
-
 
 	gpio_info("XGold gpio probed base:%d num:%d gpios from %s\n",
 		  pchip->base, pchip->ngpio, np->name);
