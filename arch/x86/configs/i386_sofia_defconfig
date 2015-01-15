@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/i386 3.14.0 Kernel Configuration
+# Linux/x86 3.14.0 Kernel Configuration
 #
 # CONFIG_64BIT is not set
 CONFIG_X86_32=y
@@ -1649,6 +1649,7 @@ CONFIG_SPI_GPIO=y
 # CONFIG_SPI_XCOMM is not set
 # CONFIG_SPI_XILINX is not set
 CONFIG_SPI_DESIGNWARE=y
+CONFIG_SPI_XGOLD=y
 
 #
 # SPI Protocol Masters
