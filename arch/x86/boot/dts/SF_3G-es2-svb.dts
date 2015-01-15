@@ -295,7 +295,7 @@
 #endif
 #ifndef RECOVERY_KERNEL
 	touchscreen {
-		compatible = "goodix,Goodix-TS";
+		compatible = "goodix,GT915";
 		reg = < 0x14 >;
 		interrupt-parent = <&eint>;
 		interrupts = < EINT_EXI0 XGOLD_IRQ_TYPE_EDGE_FALLING >;
