@@ -167,7 +167,7 @@ struct battery_info {
 	int sleep_status;
 	int sleep_charge_current;
 	int resume_soc;
-	int bat_res;
+	/* int bat_res; */
 	bool charge_smooth_status;
 	bool resume;
 
@@ -1795,8 +1795,8 @@ static void fg_init(struct battery_info *di)
 	/*dump_gauge_register(di);
 	 * dump_charger_register(di); */
 
-	di->bat_res = (di->voltage_ocv - di->voltage) * 1000 / now_current;
-	DBG(" the res is : %d(mo)\n", di->bat_res);
+	/* di->bat_res = (di->voltage_ocv - di->voltage) * 1000 / now_current;
+	DBG(" the res is : %d(mo)\n", di->bat_res); */
 	DBG("%s() :\n"
 	    "nac = %d , remain_capacity = %d\n"
 	    " OCV_voltage = %d, voltage = %d\n"
