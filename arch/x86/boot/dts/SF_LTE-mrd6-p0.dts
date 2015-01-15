@@ -334,7 +334,7 @@
 	pinctrl-1 = <&i2c3_sleep_pins>;
 	pinctrl-2 = <&i2c3_inactive_pins>;
 	touchscreen {
-		compatible = "goodix,Goodix-TS";
+		compatible = "goodix,GT915";
 		reg = < 0x5d >;
 		interrupt-parent = <&eint>;
 		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_FALLING >;
