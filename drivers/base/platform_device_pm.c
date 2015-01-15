@@ -37,6 +37,7 @@ struct platform_device_pm_state *platform_device_pm_get_state_handler(
 			device_state_pm_get_state_handler(&pdev->dev,
 								state_name);
 }
+EXPORT_SYMBOL(platform_device_pm_get_state_handler);
 
 /* Set the device state of the given platform_device */
 int platform_device_pm_set_state(struct platform_device *pdev,
@@ -45,6 +46,7 @@ int platform_device_pm_set_state(struct platform_device *pdev,
 	return device_state_pm_set_state(&(pdev->dev),
 					(struct device_state_pm_state *)state);
 }
+EXPORT_SYMBOL(platform_device_pm_set_state);
 
 /* Set the device state of the given platform_device */
 int platform_device_pm_set_state_by_name(struct platform_device *pdev,
@@ -60,11 +62,13 @@ int platform_device_pm_set_active_state(struct platform_device *pdev,
 	return device_state_pm_set_active_state(&(pdev->dev),
 				(struct device_state_pm_state *)state);
 }
+EXPORT_SYMBOL(platform_device_pm_set_active_state);
 
 int platform_device_pm_activate(struct platform_device *pdev, bool activate)
 {
 	return device_state_pm_activate(&(pdev->dev), activate);
 }
+EXPORT_SYMBOL(platform_device_pm_activate);
 
 /* TODO */
 int platform_device_pm_get_state_id(struct platform_device *pdev,
@@ -72,3 +76,4 @@ int platform_device_pm_get_state_id(struct platform_device *pdev,
 {
 	return device_state_pm_get_state_id(&pdev->dev, state_name);
 }
+EXPORT_SYMBOL(platform_device_pm_get_state_id);
