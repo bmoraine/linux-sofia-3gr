@@ -98,6 +98,8 @@ static int sofia_vpic_set_affinity(struct irq_data *data,
 
 	mv_virq_set_affinity(vect, bit_mask);
 
+        cpumask_and(data->affinity, data->affinity, cpu_online_mask);
+
 	return 0;
 }
 
