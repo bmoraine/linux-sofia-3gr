@@ -4,6 +4,7 @@ wake_irq:wake_irq {
 		"wake-C0-R0", "wake-C0-R1";
 	reg = < 0xe4700000 0x1000
 		0xD20 0x4 0xD24 0x4 >;
+	intel,io-access-guest;
 	#intel-wake-cells = <3>;
 	intel,wake-only-cpu-0;
 	/* Offset/Domain/Vector */
@@ -56,6 +57,7 @@ abb_wake_irq:abb_wake_irq {
 	compatible = "intel,xgold_abb_irq_wake";
 	reg-names = "spcu", "wake-C0-R0";
 	reg = < 0xe6402000 0x60 0x0 0x4>;
+	intel,io-access-guest;
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&wup_agold_default_pins>;
 	pinctrl-1 = <&wup_agold_sleep_pins>;
