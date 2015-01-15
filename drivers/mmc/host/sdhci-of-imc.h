@@ -10,9 +10,11 @@ struct xgold_mmc_pdata {
 	unsigned int tap_values[MAX_MODES];
 	int irq_wk;
 	int irq_eint;
-	void __iomem *tap_reg;
+	void __iomem *scu_base;
+	phys_addr_t scu_base_phys;
+	int tap_reg_offset;
 	unsigned int tap_values2[MAX_MODES];
-	void __iomem *tap_reg2;
+	int tap_reg2_offset;
 	struct xgold_mmc_callbacks *mmc_cb;
 	unsigned char id;
 	const char *bus_regulator_name;
@@ -25,8 +27,8 @@ struct xgold_mmc_pdata {
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
 	bool io_master;
-#ifdef CONFIG_PLATFORM_DEVICE_PM
 	struct device dev;
+#ifdef CONFIG_PLATFORM_DEVICE_PM
 	struct device_pm_platdata *pm_platdata_ctrl;
 	struct device_pm_platdata *pm_platdata_clock_ctrl;
 	struct regulator *regulator;

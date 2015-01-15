@@ -60,6 +60,26 @@ DECLARE_DEVICE_STATE_PM_CLASS(sdhci);
 #endif
 #endif
 
+static inline void xgold_sdhci_scu_write(struct xgold_mmc_pdata *mmc_pdata,
+		int offset, int value)
+{
+#ifdef CONFIG_X86_INTEL_SOFIA
+	if (mmc_pdata->io_master
+			== SCU_IO_ACCESS_BY_VMM) {
+		phys_addr_t write_addr = mmc_pdata->scu_base_phys + offset;
+		if (mv_svc_reg_write(write_addr,
+					value, -1))
+			dev_err(&mmc_pdata->dev,
+					"mv_svc_reg_write failed @%pa\n",
+					&write_addr);
+	} else
+#endif
+	{
+		void __iomem *write_addr = mmc_pdata->scu_base + offset;
+		writel(value, write_addr);
+	}
+}
+
 static inline int xgold_sdhci_set_pinctrl_state(struct device *dev,
 						struct pinctrl_state *state)
 {
@@ -103,63 +123,46 @@ int xgold_sdhci_of_set_timing(struct sdhci_host *host, unsigned int uhs)
 	int ret = 0;
 	int mode = 0;
 
-	if (mmc_pdata->tap_reg) {
-		switch (uhs) {
-		case MMC_TIMING_LEGACY:
-			tap_index = 0;
-			break;
-		case MMC_TIMING_MMC_HS:
-			tap_index = 1;
-			mode = 1;
-			break;
-		case MMC_TIMING_SD_HS:
-			tap_index = 3;
-			mode = 3;
-			break;
-		case MMC_TIMING_UHS_DDR50:
-			tap_index = 5;
-			mode = 2;
-			break;
-		case MMC_TIMING_UHS_SDR50:
-			tap_index = 4;
-			mode = 4;
-			break;
-		case MMC_TIMING_UHS_SDR104:
-			tap_index = 6;
-			mode = 6;
-			break;
-		default:
-			tap_index = 0;
-			break;
-		}
-		dev_dbg(&pdev->dev, "Set tap values to mode %d\n", mode);
-#ifdef CONFIG_X86_INTEL_SOFIA
-		if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_VMM) {
-			if (mv_svc_reg_write((uint32_t)mmc_pdata->tap_reg,
-					mmc_pdata->tap_values[tap_index],
-					-1))
-				dev_err(&pdev->dev, "mv_svc_reg_write_service fails @%p\n",
-						mmc_pdata->tap_reg);
-		} else
-#endif
-			iowrite32(mmc_pdata->tap_values[tap_index],
-					(void __iomem *)mmc_pdata->tap_reg);
+	if (mmc_pdata->tap_reg_offset == -1)
+		return ret;
 
-		if (mmc_pdata->tap_reg2) {
-#ifdef CONFIG_X86_INTEL_SOFIA
-			if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_VMM) {
-				if (mv_svc_reg_write(
-					(uint32_t)mmc_pdata->tap_reg2,
-					mmc_pdata->tap_values2[tap_index],
-					-1))
-					dev_err(&pdev->dev, "mv_svc_reg_write_service fails @%p\n",
-						mmc_pdata->tap_reg2);
-			} else
-#endif
-				iowrite32(mmc_pdata->tap_values2[tap_index],
-					(void __iomem *)mmc_pdata->tap_reg2);
-		}
+	switch (uhs) {
+	case MMC_TIMING_LEGACY:
+		tap_index = 0;
+		break;
+	case MMC_TIMING_MMC_HS:
+		tap_index = 1;
+		mode = 1;
+		break;
+	case MMC_TIMING_SD_HS:
+		tap_index = 3;
+		mode = 3;
+		break;
+	case MMC_TIMING_UHS_DDR50:
+		tap_index = 5;
+		mode = 2;
+		break;
+	case MMC_TIMING_UHS_SDR50:
+		tap_index = 4;
+		mode = 4;
+		break;
+	case MMC_TIMING_UHS_SDR104:
+		tap_index = 6;
+		mode = 6;
+		break;
+	default:
+		tap_index = 0;
+		break;
 	}
+	dev_dbg(&pdev->dev, "Set tap values to mode %d\n", mode);
+	xgold_sdhci_scu_write(mmc_pdata, mmc_pdata->tap_reg_offset,
+			mmc_pdata->tap_values[tap_index]);
+
+	if (mmc_pdata->tap_reg2_offset == -1)
+		return ret;
+
+	xgold_sdhci_scu_write(mmc_pdata, mmc_pdata->tap_reg2_offset,
+			mmc_pdata->tap_values2[tap_index]);
 	return ret;
 }
 /*
@@ -235,7 +238,10 @@ static void xgold_sdhci_of_suspend(struct sdhci_host *host)
 		enable_irq_wake(mmc_pdata->irq_wk);
 		enable_irq(mmc_pdata->irq_wk);
 	}
-	/* TODO: called before sleep commands for card... should not stop clock ! */
+
+	/* TODO: called before sleep commands for card...
+	 * should not stop clock !
+	 */
 #if 0
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
@@ -427,9 +433,8 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct xgold_mmc_pdata *mmc_pdata;
 	struct resource res;
-	void __iomem *scu_base;
-	u32 offset;
-	void __iomem *corereg;
+	int offset;
+	int value;
 	int it_wk, i, it_eint;
 #if defined CONFIG_PLATFORM_DEVICE_PM && defined CONFIG_PLATFORM_DEVICE_PM_VIRT
 	struct device_node *pm_node;
@@ -449,27 +454,31 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 
 	mmc_pdata->io_master = xgold_sdhci_get_io_master(np);
 
-	if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_LNX)
-		scu_base = devm_ioremap(&pdev->dev, res.start,
+	if (mmc_pdata->io_master == SCU_IO_ACCESS_BY_LNX) {
+		mmc_pdata->scu_base = devm_ioremap(&pdev->dev, res.start,
 				resource_size(&res));
-	else
-		scu_base = (void __iomem *)res.start;
-	pr_info("sdhci: io:%s-@:%#x\n",
-		mmc_pdata->io_master == SCU_IO_ACCESS_BY_LNX ?
-		"linux" : "vmm", (uint32_t)scu_base);
-	of_property_read_u32(np, "intel,tap_reg", &offset);
-	mmc_pdata->tap_reg = (void *)scu_base + offset;
-	if (!of_property_read_u32(np, "intel,tap_reg2", &offset))
-		mmc_pdata->tap_reg2 = (void *)scu_base + offset;
-	else
-		mmc_pdata->tap_reg2 = NULL;
+		dev_info(&pdev->dev, "sdhci: io: linux-@:%p\n",
+				mmc_pdata->scu_base);
+	} else {
+		mmc_pdata->scu_base_phys = res.start;
+		dev_info(&pdev->dev, "sdhci: io: vmm-@:%pa\n",
+				&mmc_pdata->scu_base_phys);
+	}
+
+	if (of_property_read_u32(np, "intel,tap_reg",
+				&mmc_pdata->tap_reg_offset))
+		mmc_pdata->tap_reg_offset = -1;
+
+	if (of_property_read_u32(np, "intel,tap_reg2",
+				&mmc_pdata->tap_reg2_offset))
+		mmc_pdata->tap_reg2_offset = -1;
 
 	ret |= of_property_read_u32_array(np, "intel,tap_values",
 					&mmc_pdata->tap_values[0], 7);
 	if (ret) {
 		dev_dbg(&pdev->dev, "no tap values\n");
-		mmc_pdata->tap_reg = 0;
-		mmc_pdata->tap_reg2 = 0;
+		mmc_pdata->tap_reg_offset = -1;
+		mmc_pdata->tap_reg2_offset = -1;
 	} else
 		of_property_read_u32_array(np, "intel,tap_values2",
 						&mmc_pdata->tap_values2[0], 7);
@@ -477,31 +486,16 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	/* correct corecfg register if needed */
 	for (i = 0; i < 5; i++) {
 		if (!of_property_read_u32_index(np, "intel,corecfg_reg",
-				i, &offset)) {
-			corereg = scu_base + offset;
+				i, &offset))
 			if (!of_property_read_u32_index(np,
-					"intel,corecfg_val", i , &offset)) {
-#ifdef CONFIG_X86_INTEL_SOFIA
-				if (mmc_pdata->io_master
-					== SCU_IO_ACCESS_BY_VMM) {
-					if (mv_svc_reg_write((uint32_t)corereg,
-						offset, -1))
-						dev_err(&pdev->dev,
-					   "mv_svc_reg_write_service fails @%p\n",
-					   corereg);
-				} else
-#endif
-					writel(offset, corereg);
-			}
-		}
+					"intel,corecfg_val", i , &value))
+				xgold_sdhci_scu_write(mmc_pdata, offset, value);
 	}
 
 	/* correct corecfg register if needed */
-	if (!of_property_read_u32(np, "intel,corecfg_reg", &offset)) {
-		corereg = scu_base + offset;
-		if (!of_property_read_u32(np, "intel,corecfg_val", &offset))
-			writel(offset, corereg);
-	}
+	if (!of_property_read_u32(np, "intel,corecfg_reg", &offset))
+		if (!of_property_read_u32(np, "intel,corecfg_val", &value))
+			xgold_sdhci_scu_write(mmc_pdata, offset, value);
 
 	of_property_read_u32_array(np, "intel,quirks", &quirktab[0], 2);
 
