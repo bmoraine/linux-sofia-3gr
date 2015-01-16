@@ -1488,7 +1488,8 @@ static void sw_fuel_gauge_calculate_nvm_capacity_and_error(void)
 					/* Log failure reason. */
 					SW_FUEL_GAUGE_DEBUG_NO_LOG_NO_PARAM(
 				 SW_FUEL_GAUGE_DEBUG_NVM_BATTERY_REMOVED);
-					pr_err("%s:Battery removed\n", __func__);
+					pr_err("%s:Battery removed\n",
+							__func__);
 				}
 			} else {
 				/* Log failure reason. */
@@ -1517,6 +1518,12 @@ static void sw_fuel_gauge_calculate_nvm_capacity_and_error(void)
 		sw_fuel_gauge_instance.latest_calculated_error_permil =
 					p_last_soc_cal->soc_error_permil;
 	} else {
+		/* Invalidate the Calibration point if present in the NVM.*/
+		if (sw_fuel_guage_nvs_cal_point_invalidate() == false) {
+			pr_err("%s:unable to invalidate cal. point in NVM\n"
+					, __func__);
+		}
+
 		/* No valid data in NVM -> fall back to calculate capacity
 		 *  based on the initial VBAT_TYP measurement. */
 		sw_fuel_gauge_estimate_initial_capacity_and_error();

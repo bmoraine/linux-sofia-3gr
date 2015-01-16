@@ -30,6 +30,10 @@
 /* NVM defines */
 #define SW_FUEL_GAUGE_NVM_VERSION	1
 #define SW_FUEL_GAUGE_NVM_REVISION	1
+
+/* Checksum values */
+#define SWFG_NVM_CHECKSUM_UNINITIALIZED	0xFFFF
+#define SWFG_NVM_CHECKSUM_CAL_POINT_INVALID 0xFFFE
 #endif
 
 struct sw_fuel_gauge_nvs_data {
@@ -124,7 +128,7 @@ static bool sw_fuel_gauge_nvm_init(void)
 		.qmax_n_minus_2_err_permil = 0,
 		.qmax_n_minus_1 = 0,
 		.qmax_n_minus_1_err_permil = 0,
-		.checksum = -1,
+		.checksum = SWFG_NVM_CHECKSUM_UNINITIALIZED,
 	};
 
 	if (!sw_fuel_gauge_nvm_is_initialized()) {
@@ -166,6 +170,8 @@ static bool sw_fuel_gauge_nvm_read_group_if_valid(
 {
 	T_NVM_RETURNCODE nvm_result = NVM_OK;
 
+	/* The fields are initialized to zero to be sure if
+	 * NVM was read correctly or not. */
 	T_SOC_CAL_PNT_NVM fuel_gauge_cal_data  = {
 		.cc_charge_mc = 0,
 		.cc_discharge_mc = 0,
@@ -178,7 +184,7 @@ static bool sw_fuel_gauge_nvm_read_group_if_valid(
 		.qmax_n_minus_2_err_permil = 0,
 		.qmax_n_minus_1 = 0,
 		.qmax_n_minus_1_err_permil = 0,
-		.checksum = -1,
+		.checksum = SWFG_NVM_CHECKSUM_UNINITIALIZED,
 	};
 
 	if (!sw_fuel_gauge_nvs.sw_fuel_gauge_nvs_up) {
@@ -206,6 +212,12 @@ static bool sw_fuel_gauge_nvm_read_group_if_valid(
 		}
 		SW_FUEL_GAUGE_NVS_DEBUG_PARAM(
 			SW_FUEL_GAUGE_DEBUG_NVM_DATA_RETRIEVED, no_of_bytes);
+
+		if (fuel_gauge_cal_data.checksum
+				== SWFG_NVM_CHECKSUM_CAL_POINT_INVALID) {
+			pr_debug("%s:Invalid Calibration point\n", __func__);
+			return false;
+		}
 
 		/* Map the data to our internal data type. */
 		p_cal_data->cc_balanced_mc = fuel_gauge_cal_data.cc_balanced_mc;
@@ -563,5 +575,52 @@ bool sw_fuel_gauge_register_nvs_ready_cb(void (*p_func)(void))
 	pr_err("%s: NVM error: NVM expected to be enabled\n", __func__);
 	return false;
 #endif
+}
+
+bool sw_fuel_guage_nvs_cal_point_invalidate(void)
+{
+	T_NVM_RETURNCODE nvm_result = NVM_OK;
+	u32 no_of_bytes = sizeof(T_SOC_CAL_PNT_NVM);
+
+	/* Map the data to the NVM data type. */
+	T_SOC_CAL_PNT_NVM fuel_gauge_cal_data  = {
+		.cc_charge_mc = 0,
+		.cc_discharge_mc = 0,
+		.cc_balanced_mc = 0,
+		.cc_error_mc = 0,
+		.rtc_time_sec = 0,
+		.soc_permil = 0,
+		.soc_error_permil = 0,
+		.qmax_n_minus_2 = 0,
+		.qmax_n_minus_2_err_permil = 0,
+		.qmax_n_minus_1 = 0,
+		.qmax_n_minus_1_err_permil = 0,
+		.checksum = SWFG_NVM_CHECKSUM_CAL_POINT_INVALID,
+	};
+
+	if (!sw_fuel_gauge_nvs.sw_fuel_gauge_nvs_up) {
+		pr_err("NVM error: NVM not running\n");
+		return false;
+	}
+
+	/* If NVM is not initialized, we don't invalidate
+	 * calibration point in NVM, because there is anyway no
+	 * stored calibration point to be invalidated. */
+	if (!sw_fuel_gauge_nvm_is_initialized()) {
+		pr_debug("NVM is not initialised on invalidation request\n");
+		return true;
+	}
+
+	nvm_result = nvm_write(NVM_DYN_SW_FUEL_GAUGE,
+			(u8 *) &fuel_gauge_cal_data, 0, no_of_bytes);
+	if (NVM_OK != nvm_result) {
+		pr_err("NVM error: write failed. Result %d\n",
+				nvm_result);
+		return false;
+	} else
+		SW_FUEL_GAUGE_NVS_DEBUG_PARAM(
+			SW_FUEL_GAUGE_DEBUG_NVM_CAL_POINT_INVALIDATED,
+			no_of_bytes);
+	return true;
 }
 
