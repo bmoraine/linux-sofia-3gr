@@ -182,8 +182,6 @@
 #define CIFISP_AFC_WINDOW_X(value) ((value)<<16)
 #define CIFISP_AFC_WINDOW_Y(value) (value)
 
-#define CIFISP_MAX_STAT_BUFFER 3
-
 #define CIFISP_DEBUG_ISR	(1<<3)
 #define CIFISP_DEBUG_QUEUE	(1<<2)
 #define CIFISP_DEBUG_INFO	(1<<1)
@@ -274,7 +272,6 @@ static unsigned int g_longest_isr_time;
 struct meas_readout_work {
 	struct work_struct work;
 	struct xgold_isp_dev *isp_dev;
-	int type;
 	unsigned int frame_id;
 };
 
@@ -2331,7 +2328,7 @@ static void cifisp_awb_meas_config_read(const struct xgold_isp_dev *isp_dev,
 #endif
 
 /*****************************************************************************/
-static void cifisp_awb_meas_en(const struct xgold_isp_dev *isp_dev)
+static void cifisp_awb_meas_en(struct xgold_isp_dev *isp_dev)
 {
 	const struct cifisp_awb_meas_config *pconfig =
 		&(isp_dev->awb_meas_config);
@@ -2347,15 +2344,14 @@ static void cifisp_awb_meas_en(const struct xgold_isp_dev *isp_dev)
 
 	cifisp_iowrite32(reg_val, CIF_ISP_AWB_PROP);
 
-	/* Enable White Balance Interrupt */
-	cifisp_iowrite32OR(CIF_ISP_AWB_DONE, CIF_ISP_IMSC);
+	isp_dev->active_meas |= CIF_ISP_AWB_DONE;
 
 	/* Measurements require AWB block be active. */
 	cifisp_iowrite32OR(CIF_ISP_CTRL_ISP_AWB_ENA, CIF_ISP_CTRL);
 }
 
 /*****************************************************************************/
-static void cifisp_awb_meas_end(const struct xgold_isp_dev *isp_dev)
+static void cifisp_awb_meas_end(struct xgold_isp_dev *isp_dev)
 {
 	u32 reg_val = cifisp_ioread32(CIF_ISP_AWB_PROP);
 
@@ -2364,7 +2360,7 @@ static void cifisp_awb_meas_end(const struct xgold_isp_dev *isp_dev)
 
 	cifisp_iowrite32(reg_val, CIF_ISP_AWB_PROP);
 
-	cifisp_iowrite32AND(~CIF_ISP_AWB_DONE, CIF_ISP_IMSC);
+	isp_dev->active_meas &= ~CIF_ISP_AWB_DONE;
 
 	if (!isp_dev->awb_gain_en)
 		cifisp_iowrite32AND(~CIF_ISP_CTRL_ISP_AWB_ENA,
@@ -2434,8 +2430,6 @@ static void cifisp_get_awb_meas(struct xgold_isp_dev *isp_dev,
 				(u8) CIFISP_AWB_GET_MEAN_Y(reg_val);
 		}
 	}
-
-	isp_dev->isp_param_awb_meas_update_fast_needed = true;
 }
 
 /* Auto Exposure */
@@ -2454,20 +2448,19 @@ static void cifisp_aec_config(const struct xgold_isp_dev *isp_dev)
 }
 
 /*****************************************************************************/
-static void cifisp_aec_en(const struct xgold_isp_dev *isp_dev)
+static void cifisp_aec_en(struct xgold_isp_dev *isp_dev)
 {
-	/* Enable Exposure interrupt */
-	cifisp_iowrite32OR(CIF_ISP_EXP_END, CIF_ISP_IMSC);
+	isp_dev->active_meas |= CIF_ISP_EXP_END;
 
 	cifisp_iowrite32OR(1, CIF_ISP_EXP_CTRL);
 }
 
 /*****************************************************************************/
-static void cifisp_aec_end(const struct xgold_isp_dev *isp_dev)
+static void cifisp_aec_end(struct xgold_isp_dev *isp_dev)
 {
 	cifisp_iowrite32(0, CIF_ISP_EXP_CTRL);
 
-	cifisp_iowrite32AND(~CIF_ISP_EXP_END, CIF_ISP_IMSC);
+	isp_dev->active_meas &= ~CIF_ISP_EXP_END;
 }
 
 /*****************************************************************************/
@@ -2526,8 +2519,6 @@ static void cifisp_get_aec_meas(struct xgold_isp_dev *isp_dev,
 		(u8) cifisp_ioread32(CIF_ISP_EXP_MEAN_34);
 	pbuf->params.ae.exp_mean[24] =
 		(u8) cifisp_ioread32(CIF_ISP_EXP_MEAN_44);
-
-	isp_dev->isp_param_aec_update_fast_needed = true;
 }
 
 /* X-Talk Matrix */
@@ -2905,20 +2896,18 @@ static void cifisp_afc_config(const struct xgold_isp_dev *isp_dev)
 }
 
 /*****************************************************************************/
-static void cifisp_afc_en(const struct xgold_isp_dev *isp_dev)
+static void cifisp_afc_en(struct xgold_isp_dev *isp_dev)
 {
-#if 1
-	cifisp_iowrite32OR(CIF_ISP_AFM_FIN, CIF_ISP_IMSC);
-#endif
+	isp_dev->active_meas |= CIF_ISP_AFM_FIN;
+
 	cifisp_iowrite32(1, CIF_ISP_AFM_CTRL);
 }
 
 /*****************************************************************************/
-static void cifisp_afc_end(const struct xgold_isp_dev *isp_dev)
+static void cifisp_afc_end(struct xgold_isp_dev *isp_dev)
 {
 	cifisp_iowrite32(0, CIF_ISP_AFM_CTRL);
-
-	cifisp_iowrite32AND(~CIF_ISP_AFM_FIN, CIF_ISP_IMSC);
+	isp_dev->active_meas &= ~CIF_ISP_AFM_FIN;
 }
 
 /*****************************************************************************/
@@ -2939,8 +2928,6 @@ static void cifisp_get_afc_meas(struct xgold_isp_dev *isp_dev,
 		cifisp_ioread32(CIF_ISP_AFM_SUM_C);
 	pbuf->params.af.window[2].lum =
 		cifisp_ioread32(CIF_ISP_AFM_LUM_C);
-
-	isp_dev->isp_param_afc_update_fast_needed = true;
 }
 
 /* HISTOGRAM CALCULATION */
@@ -3070,10 +3057,6 @@ static void cifisp_ie_end(const struct xgold_isp_dev *isp_dev)
 static int cifisp_stat_vbq_setup(struct videobuf_queue *vq,
 				 unsigned int *cnt, unsigned int *size)
 {
-	/* Supply a default number of buffers */
-	if (*cnt <= 0 || *cnt > CIFISP_MAX_STAT_BUFFER)
-		*cnt = CIFISP_MAX_STAT_BUFFER;
-
 	*size = sizeof(struct cifisp_stat_buffer);
 
 	return 0;
@@ -3502,14 +3485,12 @@ static int cifisp_open(struct file *file)
 	isp_dev->isp_param_ycflt_update_needed = false;
 	isp_dev->isp_param_afc_update_needed = false;
 	isp_dev->isp_param_ie_update_needed = false;
-	isp_dev->isp_param_awb_meas_update_fast_needed = false;
-	isp_dev->isp_param_afc_update_fast_needed = false;
-	isp_dev->isp_param_aec_update_fast_needed = false;
 
 	isp_dev->active_lsc_width = 0;
 	isp_dev->active_lsc_height = 0;
 
 	isp_dev->streamon = false;
+	isp_dev->active_meas = 0;
 
 	return 0;
 }
@@ -3893,65 +3874,106 @@ static void cif_isp_send_measurement(struct work_struct *work)
 	struct meas_readout_work *meas_work =
 		(struct meas_readout_work *)work;
 	struct xgold_isp_dev *isp_dev = meas_work->isp_dev;
-	static int last_type;
 
-	CIFISP_DPRINT(CIFISP_DEBUG_INFO,
-				  "Measurement, last 0x%x new 0x%x\n",
-				  last_type, meas_work->type);
 	if (isp_dev->streamon) {
+		int bufs_needed = 0, index = 0, cleanup = 0;
 		unsigned long lock_flags = 0;
-		struct videobuf_buffer *vb = NULL;
+		struct videobuf_buffer *vb_array[3] = {NULL, NULL, NULL};
+		struct videobuf_buffer *vb, *n;
+		unsigned int active_meas;
 
-		if (meas_work->type != last_type) {
-			spin_lock_irqsave(&isp_dev->irq_lock, lock_flags);
-			if (!list_empty(&isp_dev->stat)) {
-				vb = list_entry(isp_dev->stat.next,
-					struct videobuf_buffer, queue);
-				list_del(&vb->queue);
-			} else {
-				CIFISP_DPRINT(CIFISP_DEBUG_INFO,
-					"Measurement, no free buffer\n");
-			}
-			spin_unlock_irqrestore(&isp_dev->irq_lock, lock_flags);
+		spin_lock_irqsave(&isp_dev->irq_lock, lock_flags);
+
+		active_meas = isp_dev->active_meas;
+
+		if (active_meas & CIF_ISP_AWB_DONE)
+			bufs_needed++;
+		if (active_meas & CIF_ISP_AFM_FIN)
+			bufs_needed++;
+		if (active_meas & CIF_ISP_EXP_END)
+			bufs_needed++;
+
+		list_for_each_entry_safe(vb, n, &isp_dev->stat, queue) {
+			list_del(&vb->queue);
+
+			vb_array[index] = vb;
+			bufs_needed--;
+
+			if (bufs_needed == 0)
+				break;
+
+			index++;
 		}
 
-		if (vb) {
-			if (meas_work->type == CIF_ISP_AWB_DONE) {
+		spin_unlock_irqrestore(&isp_dev->irq_lock, lock_flags);
+
+		if (bufs_needed == 0) {
+			struct timeval tv;
+			unsigned int frame_id;
+			do_gettimeofday(&tv);
+
+			if (active_meas & CIF_ISP_AWB_DONE) {
+				vb = vb_array[index];
 				cifisp_get_awb_meas(isp_dev,
 					videobuf_to_vmalloc(vb));
 				if (isp_dev->hst_en)
 					cifisp_get_hst_meas(isp_dev,
 						videobuf_to_vmalloc(vb));
-				last_type = CIF_ISP_AWB_DONE;
-			} else if (meas_work->type == CIF_ISP_AFM_FIN) {
+				index--;
+			}
+			if (active_meas & CIF_ISP_AFM_FIN) {
+				vb = vb_array[index];
 				cifisp_get_afc_meas(isp_dev,
 					videobuf_to_vmalloc(vb));
-				last_type = CIF_ISP_AFM_FIN;
-			} else {
+				index--;
+			}
+			if (active_meas & CIF_ISP_EXP_END) {
+				vb = vb_array[index];
 				cifisp_get_aec_meas(isp_dev,
 					videobuf_to_vmalloc(vb));
 				cifisp_bls_get_meas(isp_dev,
 					videobuf_to_vmalloc(vb));
-				last_type = CIF_ISP_EXP_END;
 			}
 
-			do_gettimeofday(&vb->ts);
-			vb->field_count = meas_work->frame_id;
-			vb->state = VIDEOBUF_DONE;
-			wake_up(&vb->done);
+			spin_lock_irqsave(&isp_dev->irq_lock, lock_flags);
+			frame_id = isp_dev->frame_id;
+			spin_unlock_irqrestore(&isp_dev->irq_lock, lock_flags);
 
-			CIFISP_DPRINT(CIFISP_DEBUG_INFO, "Measurement done\n");
+			if (frame_id == meas_work->frame_id) {
+				int i;
+				for (i = 0; i < 3; i++) {
+					if (vb_array[i] != NULL) {
+						vb_array[i]->ts = tv;
+						vb_array[i]->field_count =
+							meas_work->frame_id;
+						vb_array[i]->state =
+							VIDEOBUF_DONE;
+						wake_up(&vb_array[i]->done);
+					}
+				}
+
+				CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+					"Measurement done\n");
+			} else {
+				cleanup = 1;
+				CIFISP_DPRINT(CIFISP_DEBUG_ERROR,
+					"Measurement late\n");
+			}
 		} else {
-			/* Re-enable non processed measurements*/
-			if (meas_work->type == CIF_ISP_AWB_DONE)
-				isp_dev->isp_param_awb_meas_update_fast_needed =
-				true;
-			else if (meas_work->type == CIF_ISP_AFM_FIN)
-				isp_dev->isp_param_afc_update_fast_needed =
-				true;
-			else
-				isp_dev->isp_param_aec_update_fast_needed =
-				true;
+			cleanup = 1;
+			CIFISP_DPRINT(CIFISP_DEBUG_INFO,
+				"Not enought measurement bufs\n");
+		}
+
+		if (cleanup) {
+			int i;
+			spin_lock_irqsave(&isp_dev->irq_lock, lock_flags);
+			for (i = 0; i < 3; i++) {
+				if (vb_array[i] != NULL)
+					list_add_tail(&vb_array[i]->queue,
+					&isp_dev->stat);
+			}
+			spin_unlock_irqrestore(&isp_dev->irq_lock, lock_flags);
 		}
 	}
 
@@ -3963,39 +3985,31 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 #ifdef LOG_ISR_EXE_TIME
 	ktime_t in_t = ktime_get();
 #endif
-	if (isp_mis & CIF_ISP_AWB_DONE)
-		cifisp_iowrite32(CIF_ISP_AWB_DONE, CIF_ISP_ICR);
-	if (isp_mis & CIF_ISP_AFM_FIN)
-		cifisp_iowrite32(CIF_ISP_AFM_FIN, CIF_ISP_ICR);
-	if (isp_mis & CIF_ISP_EXP_END)
-		cifisp_iowrite32(CIF_ISP_EXP_END, CIF_ISP_ICR);
 
 	if (isp_mis & (CIF_ISP_DATA_LOSS | CIF_ISP_PIC_SIZE_ERROR))
 		return 0;
 
-	/* Two types of functionality is handled here.
-	   The config of ISP blocks during frame
-	   blanking-time and the AWB and AE measurements.
-	   The measurements are reported
-	   only if streamon has been called,
-	   the ISP blocks are configured always. */
+	if (isp_mis & CIF_ISP_FRAME) {
+		u32 isp_ris = cifisp_ioread32(CIF_ISP_RIS);
+		int time_left = (int)isp_dev->v_blanking_us;
 
-	/* First handle measurements */
-	if (isp_mis & (CIF_ISP_AWB_DONE|CIF_ISP_AFM_FIN|CIF_ISP_EXP_END)) {
+		cifisp_iowrite32(
+			CIF_ISP_AWB_DONE|CIF_ISP_AFM_FIN|CIF_ISP_EXP_END,
+			CIF_ISP_ICR);
 
-		CIFISP_DPRINT(CIFISP_DEBUG_ISR, "Meas 0x%x\n", isp_mis);
+		CIFISP_DPRINT(CIFISP_DEBUG_ISR, "isp_ris 0x%x\n", isp_ris);
 
-		if (isp_mis & CIF_ISP_AWB_DONE)
-			cifisp_awb_meas_end(isp_dev);
-		if (isp_mis & CIF_ISP_AFM_FIN)
-			cifisp_afc_end(isp_dev);
-		if (isp_mis & CIF_ISP_EXP_END)
-			cifisp_aec_end(isp_dev);
+		if (!isp_dev->isp_param_awb_meas_update_needed &&
+			!isp_dev->isp_param_afc_update_needed &&
+			!isp_dev->isp_param_aec_update_needed &&
+			isp_dev->active_meas &&
+			((isp_dev->active_meas & isp_ris) ==
+			isp_dev->active_meas)) {
+			/* First handle measurements */
 
-		while (isp_mis &
-			(CIF_ISP_AWB_DONE|CIF_ISP_AFM_FIN|CIF_ISP_EXP_END)) {
-			struct meas_readout_work *work =
-			(struct meas_readout_work *)
+			struct meas_readout_work *work;
+
+			work = (struct meas_readout_work *)
 			kmalloc(sizeof(struct meas_readout_work), GFP_ATOMIC);
 
 			if (work) {
@@ -4004,17 +4018,6 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 
 				work->isp_dev = isp_dev;
 				work->frame_id = isp_dev->frame_id;
-
-				if (isp_mis & CIF_ISP_AWB_DONE) {
-					work->type = CIF_ISP_AWB_DONE;
-					isp_mis &= ~CIF_ISP_AWB_DONE;
-				} else if (isp_mis & CIF_ISP_AFM_FIN) {
-					work->type = CIF_ISP_AFM_FIN;
-					isp_mis &= ~CIF_ISP_AFM_FIN;
-				} else {
-					work->type = CIF_ISP_EXP_END;
-					isp_mis &= ~CIF_ISP_EXP_END;
-				}
 
 				if (!queue_work(measurement_wq,
 					(struct work_struct *)work)) {
@@ -4025,13 +4028,8 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 			} else {
 				CIFISP_DPRINT(CIFISP_DEBUG_ERROR,
 				"Could not allocate work\n");
-				break;
 			}
 		}
-	}
-
-	if (isp_mis & CIF_ISP_FRAME) {
-		int time_left = (int)isp_dev->v_blanking_us;
 
 		CIFISP_DPRINT(CIFISP_DEBUG_ISR,
 			"time-left 0:%d\n", time_left);
@@ -4341,14 +4339,11 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
 				"time-left 15:%d %d\n",
 				time_left,
-				isp_dev->isp_param_awb_meas_update_needed ||
-				isp_dev->isp_param_awb_meas_update_fast_needed);
+				isp_dev->isp_param_awb_meas_update_needed);
 
-			if (isp_dev->isp_param_awb_meas_update_needed ||
-			isp_dev->isp_param_awb_meas_update_fast_needed) {
+			if (isp_dev->isp_param_awb_meas_update_needed) {
 				/*update awb config */
-				if (isp_dev->isp_param_awb_meas_update_needed)
-					cifisp_awb_meas_config(isp_dev);
+				cifisp_awb_meas_config(isp_dev);
 
 				if (isp_dev->awb_meas_en)
 					cifisp_awb_meas_en(isp_dev);
@@ -4357,21 +4352,16 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 
 				isp_dev->isp_param_awb_meas_update_needed =
 					false;
-				isp_dev->isp_param_awb_meas_update_fast_needed =
-					false;
 			}
 
 			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
 				"time-left 16:%d %d\n",
 				time_left,
-				isp_dev->isp_param_afc_update_needed ||
-				isp_dev->isp_param_afc_update_fast_needed);
+				isp_dev->isp_param_afc_update_needed);
 
-			if (isp_dev->isp_param_afc_update_needed ||
-				isp_dev->isp_param_afc_update_fast_needed) {
+			if (isp_dev->isp_param_afc_update_needed) {
 				/*update afc config */
-				if (isp_dev->isp_param_afc_update_needed)
-					cifisp_afc_config(isp_dev);
+				cifisp_afc_config(isp_dev);
 
 				if (isp_dev->afc_en)
 					cifisp_afc_en(isp_dev);
@@ -4379,8 +4369,6 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 					cifisp_afc_end(isp_dev);
 
 				isp_dev->isp_param_afc_update_needed =
-					false;
-				isp_dev->isp_param_afc_update_fast_needed =
 					false;
 			}
 
@@ -4404,14 +4392,11 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 			CIFISP_DPRINT(CIFISP_DEBUG_ISR,
 				"time-left 18:%d %d\n",
 				time_left,
-				isp_dev->isp_param_aec_update_needed ||
-				isp_dev->isp_param_aec_update_fast_needed);
+				isp_dev->isp_param_aec_update_needed);
 
-			if (isp_dev->isp_param_aec_update_needed ||
-				isp_dev->isp_param_aec_update_fast_needed) {
+			if (isp_dev->isp_param_aec_update_needed) {
 				/*update aec config */
-				if (isp_dev->isp_param_aec_update_needed)
-					cifisp_aec_config(isp_dev);
+				cifisp_aec_config(isp_dev);
 
 				if (isp_dev->aec_en)
 					cifisp_aec_en(isp_dev);
@@ -4419,8 +4404,6 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 					cifisp_aec_end(isp_dev);
 
 				isp_dev->isp_param_aec_update_needed =
-					false;
-				isp_dev->isp_param_aec_update_fast_needed =
 					false;
 			}
 #ifndef CIFISP_DEBUG_DISABLE_BLOCKS
@@ -4743,8 +4726,6 @@ static void cifisp_param_dump(const void *config, unsigned int module)
 		} break;
 
 	case CIFISP_MODULE_GOC:{
-			struct cifisp_goc_config *pconfig =
-			    (struct cifisp_goc_config *)config;
 			CIFISP_DPRINT(CIFISP_DEBUG_INFO,
 				      "#### %s: GOC Parameters - BEGIN ####\n",
 				      ISP_DEV_NAME);
@@ -4980,7 +4961,7 @@ static void cifisp_param_dump(const void *config, unsigned int module)
 			struct cifisp_ie_config *pconfig =
 			    (struct cifisp_ie_config *)config;
 			CIFISP_DPRINT(CIFISP_DEBUG_INFO,
-				"effect %d, %x, %x, %x, %x, %x, %x\n",
+				"effect %d, %x, %x, %x, %x, %x, %x %d\n",
 				pconfig->effect, pconfig->color_sel,
 				pconfig->eff_mat_1, pconfig->eff_mat_2,
 				pconfig->eff_mat_3, pconfig->eff_mat_4,

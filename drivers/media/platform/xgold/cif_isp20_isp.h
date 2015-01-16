@@ -95,10 +95,6 @@ struct xgold_isp_dev {
 	bool isp_param_afc_update_needed;
 	bool isp_param_ie_update_needed;
 
-	bool isp_param_awb_meas_update_fast_needed;
-	bool isp_param_afc_update_fast_needed;
-	bool isp_param_aec_update_fast_needed;
-
 	bool ycflt_update;
 
 	/* input resolution needed for LSC param check */
@@ -117,6 +113,7 @@ struct xgold_isp_dev {
 	unsigned int v_blanking_us;
 
 	unsigned int frame_id;
+	unsigned int active_meas;
 };
 
 struct video_device *register_cifisp_device(
