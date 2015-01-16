@@ -9,6 +9,7 @@
 
 	#include "xgold/sofia_3gr_soc/sofia_3gr_soc_garnet.dtsi"
 	#include "xgold/sofia_3gr_soc/irq.dtsi"
+	#include "xgold/mobilevisor/mobilevisor.dtsi"
 	#include "xgold/sofia_3gr_soc/clock-es1.dtsi"
 	#include "xgold/sofia_3gr_soc/regulator.dtsi"
 	#include "xgold/sofia_3gr_soc/device-pm-reg.dtsi"
