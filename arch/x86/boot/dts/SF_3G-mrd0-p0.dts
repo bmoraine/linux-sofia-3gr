@@ -56,15 +56,22 @@
 		};
 	};
 
-	backlight:backlight {
-		compatible = "intel,led-bl";
+	backlight:agold620-backlight {
+		compatible = "intel,agold620-led";
 		reg = <0xE6501800 0x154>;
+		reg-names = "pmu-bl";
 		intel,flags-use-safe-ctrl;
 		intel,vmm-secured-access;
 		pm,class-name = "bl_class";
 		pm,user-name = "bl";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
+		intel,led-k2 = <0x143>;
+		intel,led-k1max = <0x120>;
+		intel,led-k2max = <0xFFFF>;
+		intel,led-up = <0x10104>;
+		intel,led-down = <0x200>;
+		intel,led-safe = <0x12>;
 	};
 
 	graphics {
