@@ -16,6 +16,15 @@
 
 #include <linux/fb.h>
 
+/*
+ * pixel align define function
+ */
+#define ALIGN_N_TIMES(x, align)		\
+	(((x) % (align) == 0) ?		\
+	(x) : (((x) + ((align) - 1)) & (~((align) - 1))))
+#define ALIGN_ODD_TIMES(x, align)	\
+	(((x) % ((align) * 2) == 0) ? ((x) + (align)) : (x))
+
 struct pwr_ctr {
 	char name[32];
 	int type;

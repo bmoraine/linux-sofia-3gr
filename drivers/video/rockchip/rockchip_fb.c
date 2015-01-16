@@ -948,10 +948,12 @@ static int rockchip_fb_close(struct fb_info *info, int user)
 #else
 		info->var.bits_per_pixel = 16;
 #endif
-		info->fix.line_length =
-		    (info->var.xres) * (info->var.bits_per_pixel >> 3);
-		info->var.xres_virtual = info->var.xres;
+		info->var.xres_virtual = ALIGN_N_TIMES(info->var.xres, 32);
 		info->var.yres_virtual = info->var.yres;
+		info->fix.line_length =
+			(info->var.xres_virtual) *
+			(info->var.bits_per_pixel >> 3);
+
 		info->var.width = dev_drv->screen0->width;
 		info->var.height = dev_drv->screen0->height;
 		info->var.pixclock = dev_drv->pixclock;
@@ -2035,6 +2037,7 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 #else
 		fbi->var.bits_per_pixel = 16;
 #endif
+		fbi->var.xres_virtual = ALIGN_N_TIMES(fbi->var.xres, 32);
 		fbi->fix.line_length =
 		    (fbi->var.xres_virtual) * (fbi->var.bits_per_pixel >> 3);
 		fbi->var.width = dev_drv->cur_screen->width;

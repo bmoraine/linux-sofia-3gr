@@ -49,6 +49,8 @@ size_t get_fb_size(void)
 	xres = sfa_screen->mode.xres;
 	yres = sfa_screen->mode.yres;
 
+	xres = ALIGN_N_TIMES(xres, 32);
+
 	/* three buffer as default */
 	size = (xres * yres << 2) * 3;
 	return ALIGN(size, SZ_1M);

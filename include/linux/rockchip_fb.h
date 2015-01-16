@@ -76,14 +76,6 @@
 				 */
 #define ROTATE_270	12	/* clockwise rotate 270 degrees */
 
-/*
- * pixel align define function
- */
-#define ALIGN_N_TIMES(x, align)		\
-	(((x) % (align) == 0) ?		\
-	(x) : (((x) + ((align) - 1)) & (~((align) - 1))))
-#define ALIGN_ODD_TIMES(x, align)	\
-	(((x) % ((align) * 2) == 0) ? ((x) + (align)) : (x))
 
 /*
  * pixel format definitions,this is copy
