@@ -126,7 +126,7 @@
 		pm,user-name = "lcd";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
-		#include "xgold/display/innolux_n080ice.dtsi"
+		#include "xgold/display/auo_b070atn02.dtsi"
 	};
 
 	graphics {
