@@ -23,7 +23,7 @@ struct tee_rpc_client_ctx {
 };
 
 struct pvec {
-	phys_addr_t phys_addr;
+	u32 phys_addr;
 	void __user *user_addr;
 	size_t len;
 	bool is_contig;
