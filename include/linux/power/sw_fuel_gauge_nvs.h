@@ -104,4 +104,14 @@ bool sw_fuel_gauge_register_nvs_ready_cb(void (*p_func)(void));
  */
 void sw_fuel_gauge_nvs_dbg_set(int debug_val);
 
+/*
+ * Invalidate the last calibration point
+ * in the NVM.
+ *
+ * Returns				true if the cal. point in NVM
+ *					was successfully invalidated,
+ *					otherwise false.
+ */
+bool sw_fuel_guage_nvs_cal_point_invalidate(void);
+
 #endif /* _SW_FUEL_GAUGE_NVS_H */
