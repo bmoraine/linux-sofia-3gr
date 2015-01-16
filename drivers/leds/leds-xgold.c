@@ -74,7 +74,7 @@ static void xgold_led_brightness_set(struct led_classdev *led_cdev,
 					enum led_brightness brightness)
 {
 	struct xgold_led_data *led =
-	container_of(led_cdev, struct xgold_led_data, led_cdev);
+		container_of(led_cdev, struct xgold_led_data, led_cdev);
 	unsigned long flags;
 	pr_debug("%s -->\n", __func__);
 	spin_lock_irqsave(&led->lock, flags);
@@ -158,7 +158,8 @@ int32_t xgold_led_probe(struct platform_device *pdev)
 	if (bl_res) {
 		dev_dbg(dev, "HW resources available\n");
 		led->physio = bl_res->start;
-		led->mmio = devm_ioremap(dev, bl_res->start, resource_size(bl_res));
+		led->mmio = devm_ioremap(dev, bl_res->start,
+				resource_size(bl_res));
 		if (!led->mmio) {
 			dev_err(dev, "IO remap operation failed\n");
 			return -ENODEV;

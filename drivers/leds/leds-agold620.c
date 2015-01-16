@@ -101,7 +101,7 @@ static enum hrtimer_restart agold620_led_hrtimer_callback(struct hrtimer *timer)
 static inline void agold620_led_on(struct device *dev)
 {
 	struct xgold_led_data *led = dev_get_drvdata(dev);
-	int32_t intensity = led->led_brightness;
+	int32_t intensity = SCALING_INTENSITY(led->led_brightness);
 	int32_t val = (SCU_K2_VAL * 100)/intensity;
 	pr_debug("%s -->\n", __func__);
 	led_write32(led, LED_CTRL, SCU_LED_DOWN);
@@ -205,13 +205,11 @@ static int32_t agold620_set_gpio(struct device *dev, bool on)
 static int32_t agold620_led_set_backlight(struct device *dev)
 {
 	struct xgold_led_data *led = dev_get_drvdata(dev);
-	int32_t intensity = led->led_brightness;
 	unsigned long flags = 0;
 	spinlock_t *lock = &led->lock;
-	pr_debug("%s(%#x) -->\n", __func__, intensity);
-	intensity = SCALING_INTENSITY(intensity);
+	pr_debug("%s(%#x) -->\n", __func__, led->led_brightness);
 	spin_lock_irqsave(lock, flags);
-	if (intensity)
+	if (led->led_brightness)
 		agold620_led_on(dev);
 	else
 		agold620_led_off(dev);

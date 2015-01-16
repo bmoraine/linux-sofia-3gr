@@ -53,7 +53,7 @@
 static inline void pmic_led_on(struct device *dev)
 {
 	struct xgold_led_data *led = dev_get_drvdata(dev);
-	int32_t intensity = led->led_brightness;
+	int32_t intensity = SCALING_INTENSITY(led->led_brightness);
 	int32_t val = (PMIC_K2_VAL * 100)/intensity;
 	pr_debug("%s -->\n", __func__);
 	vmm_pmic_reg_write(PMIC_BL_ADDR | LED_K1MAX_HIGH_REG, PMIC_K1MAX_HIGH);
@@ -85,10 +85,8 @@ static int32_t pmic_set_gpio(struct device *dev, bool on)
 static int32_t pmic_led_set_backlight(struct device *dev)
 {
 	struct xgold_led_data *led = dev_get_drvdata(dev);
-	int32_t intensity = led->led_brightness;
-	pr_debug("%s(%#x) -->\n", __func__, intensity);
-	intensity = SCALING_INTENSITY(intensity);
-	if (intensity)
+	pr_debug("%s(%#x) -->\n", __func__, led->led_brightness);
+	if (led->led_brightness)
 		pmic_led_on(dev);
 	else
 		pmic_led_off(dev);
@@ -114,7 +112,7 @@ static int32_t pmic_led_probe(struct platform_device *pdev)
 
 int32_t pmic_led_remove(struct platform_device *pdev)
 {
-		return xgold_led_remove(pdev);
+	return xgold_led_remove(pdev);
 }
 
 static const struct of_device_id pmic_led_of_match[] = {
