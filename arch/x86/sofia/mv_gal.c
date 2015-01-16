@@ -224,7 +224,7 @@ void *mv_gal_register_hirq_callback(uint32_t hirq, irq_handler_t cb, void *cooki
 	wrapper->handler = cb;
 	wrapper->cookie = cookie;
 	snprintf(handler_name, HIRQ_HANDLER_NAME_SIZE, "hirq-%d", hirq);
-	if(request_irq(virq, generic_hirq_handler, IRQF_SHARED, handler_name, (void*)wrapper)) {
+	if(request_irq(virq, generic_hirq_handler, IRQF_SHARED | IRQF_NO_SUSPEND, handler_name, (void*)wrapper)) {
 		printk(KERN_ERR "failed to request irq\n");
 	}
 	return wrapper;

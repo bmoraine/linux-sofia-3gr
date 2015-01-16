@@ -192,7 +192,7 @@ uint32_t mv_ipc_mbox_get_info(char *name,
 	snprintf(handler_name, MBOX_IRQ_HANDLER_NAME_SIZE,
 		 "mb-%s-%s-conn", name, instance_name);
 	request_irq(irq_on_connect, mbox_connect_handler,
-		    0, handler_name, info);
+		    IRQF_NO_SUSPEND, handler_name, info);
 
 	irq_on_disconnect = irq_create_mapping(hirq_domain,
 					       info->on_disconnect_hirq -
@@ -200,8 +200,8 @@ uint32_t mv_ipc_mbox_get_info(char *name,
 	handler_name = kmalloc(MBOX_IRQ_HANDLER_NAME_SIZE, GFP_KERNEL);
 	snprintf(handler_name, MBOX_IRQ_HANDLER_NAME_SIZE,
 		 "mb-%s-%s-disc", name, instance_name);
-	request_irq(irq_on_disconnect,
-		    mbox_disconnect_handler, 0, handler_name, info);
+	request_irq(irq_on_disconnect, mbox_disconnect_handler,
+		IRQF_NO_SUSPEND, handler_name, info);
 
 	db_entry = &mbox_database[token & 0xFF];
 	db_entry->info = info;
@@ -221,7 +221,7 @@ uint32_t mv_ipc_mbox_get_info(char *name,
 		handler_name = kmalloc(MBOX_IRQ_HANDLER_NAME_SIZE, GFP_KERNEL);
 		snprintf(handler_name, MBOX_IRQ_HANDLER_NAME_SIZE,
 			 "mb-%s-%s-%d", name, instance_name, i);
-		request_irq(irq_event, mbox_event_handler, 0,
+		request_irq(irq_event, mbox_event_handler, IRQF_NO_SUSPEND,
 			    handler_name, &(db_entry->event_info_array[i]));
 	}
 

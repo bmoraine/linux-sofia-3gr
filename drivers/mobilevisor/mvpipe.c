@@ -315,7 +315,6 @@ ssize_t mvpipe_dev_read(struct file *filp, char __user *buf, size_t count,
 							     get_pipe_status
 							     (dev)
 							     != MVPIPE_OPEN)) {
-					ring->reader_status = READ_BUF_IDLE;
 					up(&dev->read_sem);
 					return -ERESTARTSYS;
 				}
@@ -395,7 +394,6 @@ ssize_t mvpipe_dev_write(struct file *filp, const char __user *buf,
 							     get_pipe_status
 							     (dev)
 							     != MVPIPE_OPEN)) {
-					ring->writer_status = WRITE_BUF_IDLE;
 					up(&dev->write_sem);
 					return retval;
 				}
