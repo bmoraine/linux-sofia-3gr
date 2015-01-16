@@ -436,6 +436,12 @@ static void dwc2_handle_usb_suspend_intr(struct dwc2_hsotg *hsotg)
 			if (!IS_ERR_OR_NULL(hsotg->uphy))
 				usb_phy_set_suspend(hsotg->uphy, true);
 skip_power_saving:
+			/*
+			 * Change to L2 (suspend) state before releasing
+			 * spinlock
+			 */
+			hsotg->lx_state = DWC2_L2;
+
 			/* Call gadget suspend callback */
 			call_gadget(hsotg, suspend);
 		}
@@ -443,6 +449,8 @@ skip_power_saving:
 		if (hsotg->op_state == OTG_STATE_A_PERIPHERAL) {
 			dev_dbg(hsotg->dev, "a_peripheral->a_host\n");
 
+			/* Change to L2 (suspend) state */
+			hsotg->lx_state = DWC2_L2;
 			/* Clear the a_peripheral flag, back to a_host */
 			spin_unlock(&hsotg->lock);
 			dwc2_hcd_start(hsotg);
@@ -450,9 +458,6 @@ skip_power_saving:
 			hsotg->op_state = OTG_STATE_A_HOST;
 		}
 	}
-
-	/* Change to L2 (suspend) state */
-	hsotg->lx_state = DWC2_L2;
 
 clear_int:
 	/* Clear interrupt */
