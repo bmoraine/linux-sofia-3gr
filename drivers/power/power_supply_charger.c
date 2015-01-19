@@ -155,7 +155,8 @@ static int otg_handle_notification(struct notifier_block *nb,
 
 	cap = (struct power_supply_cable_props *)data;
 
-	if (event != USB_EVENT_CHARGER)
+	if (event != USB_EVENT_CHARGER && event != USB_EVENT_ENUMERATED
+	&& event != USB_EVENT_NONE)
 		return NOTIFY_DONE;
 
 	cable = get_cable(cap->chrg_type);
