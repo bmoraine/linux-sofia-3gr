@@ -312,9 +312,9 @@ static int dsi_get_bllp(struct dsi_display *display,
 	DSI_DBG2("line_time 0x%08x(%d)\n", *line_time, *line_time);
 
 	if (fps >= maxfrate) {
-		DSI_ERR("target framerate(%d) cannot be reached\n", fps);
+		DSI_ERR("target framerate(%d) cannot be reached, max %d\n",
+				fps, maxfrate);
 		*bllp_time = 0;
-		*line_time = 0;
 		return 0;
 	}
 
