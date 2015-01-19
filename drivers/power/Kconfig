@@ -418,6 +418,12 @@ config CHARGER_FAN54020
 	help
 	  Say Y here to enable support for fan54020 Charger.
 
+config CHARGER_BQ24261
+	tristate "TI BQ24261 battery charger driver"
+	depends on I2C
+	help
+	  Say Y here to enable support for TI BQ24261 Charger.
+
 config CHARGER_TPS65090
 	tristate "TPS65090 battery charger driver"
 	depends on MFD_TPS65090
