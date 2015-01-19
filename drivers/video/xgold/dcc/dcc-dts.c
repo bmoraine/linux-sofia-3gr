@@ -207,11 +207,18 @@ int dcc_of_parse_graphics(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	/* enable display automatic refresh mode */
+	/* enable / disable display automatic refresh mode */
 	ret = of_property_read_u32(ngraphics, "intel,display-ramless",
 			&pdata->display_autorefresh);
 	if (ret < 0)
 		pdata->display_autorefresh = 0;
+
+	/* enable / disable display composite invertion mode */
+	if (of_property_read_bool(ngraphics,
+				"intel,display-invert-composite"))
+		pdata->display_invert_composite = 1;
+	else
+		pdata->display_invert_composite = 0;
 
 	/* enable / disable fb API */
 	OF_GET_U32(ngraphics, "intel,fb-api", &pdata->use_fbapi, ret);

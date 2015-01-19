@@ -247,6 +247,7 @@ struct dcc_drvdata {
 	int fbapi_nr_buffers;
 	int display_preinit;
 	int display_autorefresh;
+	int display_invert_composite;
 	struct dcc_test_t test;	/* tests configuration */
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	struct device_pm_platdata *pm_platdata;

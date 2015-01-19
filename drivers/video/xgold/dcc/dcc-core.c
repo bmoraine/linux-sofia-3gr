@@ -176,6 +176,48 @@ static inline int dcc_set_pinctrl_state(struct device *dev,
 	return ret;
 }
 
+int dcc_set_bitmux(struct dcc_drvdata *pdata,
+		int *muxtab)
+{
+	unsigned int bmreg[6] = { 0, 0, 0, 0, 0, 0 };
+	int i = 0, ireg = 0;
+
+	for (ireg = 0; ireg <= 5; ireg++) {
+		bmreg[ireg] = BITFLDS(EXR_DIF_BMREGx_1, muxtab[i++]);
+		bmreg[ireg] |= BITFLDS(EXR_DIF_BMREGx_2, muxtab[i++]);
+		if (ireg < 5) {
+			bmreg[ireg] |= BITFLDS(EXR_DIF_BMREGx_3, muxtab[i++]);
+			bmreg[ireg] |= BITFLDS(EXR_DIF_BMREGx_4, muxtab[i++]);
+			bmreg[ireg] |= BITFLDS(EXR_DIF_BMREGx_5, muxtab[i++]);
+			bmreg[ireg] |= BITFLDS(EXR_DIF_BMREGx_6, muxtab[i++]);
+		}
+	}
+
+	for (i = 0; i <= 5; i++)
+		DCC_DBG2("BMREG[%d] = 0x%08x\n", i, bmreg[i]);
+
+	gra_write_field(pdata, EXR_DIF_RUNCTRL, DCC_MODE_CONF);
+	gra_write_field(pdata, EXR_DIF_BMREG0, bmreg[0]);
+	gra_write_field(pdata, EXR_DIF_BMREG1, bmreg[1]);
+	gra_write_field(pdata, EXR_DIF_BMREG2, bmreg[2]);
+	gra_write_field(pdata, EXR_DIF_BMREG3, bmreg[3]);
+	gra_write_field(pdata, EXR_DIF_BMREG4, bmreg[4]);
+	gra_write_field(pdata, EXR_DIF_BMREG5, bmreg[5]);
+	gra_write_field(pdata, EXR_DIF_RUNCTRL, DCC_MODE_RUN);
+
+	return 0;
+}
+
+int dcc_invert_RGB_composite(struct dcc_drvdata *pdata)
+{
+		int muxtab[32] = {
+			16, 17, 18, 19, 20, 21, 22, 23,
+			 8,  9, 10, 11, 12, 13, 14, 15,
+			 0,  1,  2,  3,  4,  5,  6,  7,
+			24, 25, 26, 27, 28, 29, 30, 31  };
+
+		return dcc_set_bitmux(pdata, muxtab);
+}
 
 int dcc_core_probe(struct platform_device *pdev)
 {
@@ -281,8 +323,13 @@ int dcc_core_probe(struct platform_device *pdev)
 
 	xgold_noc_qos_set("DCC2");
 	dcc_display_setup(pdata);
-	dcc_boot_info("Display device %dx%d\n",
-			pdata->display.xres, pdata->display.yres);
+
+	if (pdata->display_invert_composite)
+		dcc_invert_RGB_composite(pdata);
+
+	dcc_boot_info("Display device %dx%d %s\n",
+			pdata->display.xres, pdata->display.yres,
+			dcc_format_name(pdata->fbfmt));
 	dcc_core_hwsetup(pdata);
 
 	dcc_boot_info("HWID 0x%x / DCC@%d MHz / %dMB RAM [0x%08x->0x%p]\n",
@@ -415,6 +462,8 @@ int dcc_core_resume(struct platform_device *pdev)
 	if (ret != 0)
 		dcc_err("Error during display resume\n");
 
+	if (pdata->display_invert_composite)
+		dcc_invert_RGB_composite(pdata);
 	dcc_core_hwsetup(pdata);
 
 	return ret;
