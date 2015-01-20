@@ -260,6 +260,9 @@ static void __init dtb_apic_setup(void)
 }
 
 #ifdef CONFIG_OF_FLATTREE
+static struct boot_param_header *fdt_header;
+static int fdt_header_size;
+
 void * __init x86_fdt_header(void)
 {
 	u32 size, map_len;
@@ -285,7 +288,18 @@ void * __init x86_fdt_header(void)
 		map_len = size;
 	}
 
+	fdt_header = dt;
+	fdt_header_size = map_len;
 	return (void *)dt;
+}
+
+static void __init x86_fdt_free_header(void)
+{
+	if (!fdt_header) {
+		pr_err("%s, header NULL\n", __func__);
+		return;
+	}
+	early_iounmap(fdt_header, fdt_header_size);
 }
 
 static void __init x86_flattree_get_config(void)
@@ -314,6 +328,7 @@ static void __init x86_flattree_get_config(void)
 	initial_boot_params = dt;
 	unflatten_and_copy_device_tree();
 	early_iounmap(dt, map_len);
+	x86_fdt_free_header();
 }
 #else
 static inline void x86_flattree_get_config(void) { }
