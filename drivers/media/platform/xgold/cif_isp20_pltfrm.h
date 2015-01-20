@@ -88,7 +88,7 @@ u32 cif_isp20_pltfrm_read_reg(
 	{ \
 		unsigned i = 0; \
 		do { \
-			iowrite32(d, a); \
+			cif_iowrite32(d, a); \
 			udelay(1); \
 			if (i++ == 50) { \
 				pr_err("Error in writing %x@0x%p, read %x\n", \
@@ -124,6 +124,12 @@ cif_isp20_pltfrm_reg_trace_printf(
 #else
 #define cif_isp20_pltfrm_reg_trace_printf(dev, str, ...)
 #endif
+
+void
+cif_isp20_pltfrm_debug_register_print_cb(
+	struct device *dev,
+	void (*print)(void *cntxt, const char *block_name),
+	void *cntxt);
 
 int cif_isp20_pltfrm_dev_init(
 	struct cif_isp20_device *cif_isp_dev,

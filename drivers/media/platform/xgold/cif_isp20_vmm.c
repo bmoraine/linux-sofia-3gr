@@ -67,6 +67,7 @@ struct cif_isp20_pltfrm_data {
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
 	struct device_pm_platdata *pm_platdata;
+	void __iomem *base_addr;
 	struct {
 		int irq;
 		int (*isr)(void *cntxt);
@@ -76,11 +77,14 @@ struct cif_isp20_pltfrm_data {
 #ifdef CONFIG_DEBUG_FS
 	struct {
 		struct dentry *dir;
+		struct dentry *cif_isp20_file;
 		struct dentry *csi0_file;
 		struct dentry *csi1_file;
 #ifdef CONFIG_CIF_ISP20_REG_TRACE
 		struct dentry *reg_trace_file;
 #endif
+		void (*print_func)(void *cntxt, const char *block_name);
+		void *print_cntxt;
 	} dbgfs;
 #endif
 };
@@ -338,9 +342,19 @@ err:
 	return ret;
 }
 
+void cif_isp20_pltfrm_debug_register_print_cb(
+	struct device *dev,
+	void (*print)(void *cntxt, const char *block),
+	void *cntxt) {
+#ifdef CONFIG_DEBUG_FS
+	struct cif_isp20_pltfrm_data *pdata = dev->platform_data;
+	pdata->dbgfs.print_cntxt = cntxt;
+	pdata->dbgfs.print_func = print;
+#endif
+}
 
 #ifdef CONFIG_DEBUG_FS
-#define CIF_ISP20_DBGFS_BUF_SIZE 256
+#define CIF_ISP20_DBGFS_BUF_SIZE 1024
 static char cif_isp20_dbgfs_buf[CIF_ISP20_DBGFS_BUF_SIZE];
 
 static int cif_isp20_dbgfs_fill_csi_config_from_string(
@@ -459,7 +473,7 @@ err:
 	return ret;
 }
 
-static ssize_t cif_isp20_dbgfs_read(
+static ssize_t cif_isp20_dbgfs_csi_read(
 	struct file *f,
 	char __user *out,
 	size_t count,
@@ -530,7 +544,7 @@ static ssize_t cif_isp20_dbgfs_read(
 	return out_size;
 }
 
-static ssize_t cif_isp20_dbgfs_write(
+static ssize_t cif_isp20_dbgfs_csi_write(
 	struct file *f,
 	const char __user *in,
 	size_t count,
@@ -604,8 +618,82 @@ static ssize_t cif_isp20_dbgfs_write(
 	return count;
 }
 
+static ssize_t cif_isp20_dbgfs_write(
+	struct file *f,
+	const char __user *in,
+	size_t count,
+	loff_t *pos)
+{
+	ssize_t ret;
+	char *strp = cif_isp20_dbgfs_buf;
+	char *token;
+	struct device *dev = f->f_inode->i_private;
+	struct cif_isp20_pltfrm_data *pdata = dev->platform_data;
+
+	if (count > CIF_ISP20_DBGFS_BUF_SIZE) {
+		cif_isp20_pltfrm_pr_err(dev, "command line too large\n");
+		return -EINVAL;
+	}
+
+	memset(cif_isp20_dbgfs_buf, 0, CIF_ISP20_DBGFS_BUF_SIZE);
+	ret = simple_write_to_buffer(strp,
+		CIF_ISP20_DBGFS_BUF_SIZE, pos, in, count);
+	if (IS_ERR_VALUE(ret))
+		return ret;
+
+	token = strsep(&strp, " ");
+	if (!strncmp(token, "print", 5)) {
+		if (pdata->dbgfs.print_func) {
+			token = strsep(&strp, " ");
+			if (IS_ERR_OR_NULL(token)) {
+				cif_isp20_pltfrm_pr_err(dev,
+					"missing token, command format is 'print all|<list of block name>'\n");
+				return -EINVAL;
+			}
+			if (!strncmp(token, "register", 5)) {
+				u32 addr;
+				struct cif_isp20_pltfrm_data *pdata =
+					dev->platform_data;
+				token = strsep(&strp, " ");
+				while (token) {
+					if (IS_ERR_VALUE(kstrtou32(token,
+						16, &addr))) {
+						cif_isp20_pltfrm_pr_err(dev,
+							"malformed token, must be a hexadecimal register address\n");
+						return -EINVAL;
+					}
+					pr_info("0x%04x: 0x%08x\n",
+						addr,
+						ioread32(pdata->base_addr +
+							addr));
+					token = strsep(&strp, " ");
+				}
+			} else {
+				unsigned long flags;
+				local_irq_save(flags);
+				while (token) {
+					pdata->dbgfs.print_func(
+						pdata->dbgfs.print_cntxt,
+						token);
+					token = strsep(&strp, " ");
+				}
+				local_irq_restore(flags);
+			}
+		}
+	} else {
+		cif_isp20_pltfrm_pr_err(dev, "unkown command %s\n", token);
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static const struct file_operations cif_isp20_dbgfs_csi_fops = {
+	.read = cif_isp20_dbgfs_csi_read,
+	.write = cif_isp20_dbgfs_csi_write
+};
+
 static const struct file_operations cif_isp20_dbgfs_fops = {
-	.read = cif_isp20_dbgfs_read,
 	.write = cif_isp20_dbgfs_write
 };
 
@@ -955,6 +1043,7 @@ int cif_isp20_pltfrm_dev_init(
 			ret = -ENODEV;
 	}
 	*reg_base_addr = base_addr;
+	pdata->base_addr = base_addr;
 
 	/* FIXME:
 	 * In case of CSI platform, no need for pinctrl
@@ -1022,10 +1111,16 @@ int cif_isp20_pltfrm_dev_init(
 		0644,
 		pdata->dbgfs.dir,
 		dev,
-		&cif_isp20_dbgfs_fops);
+		&cif_isp20_dbgfs_csi_fops);
 	pdata->dbgfs.csi1_file = debugfs_create_file(
 		"csi-1",
 		0644,
+		pdata->dbgfs.dir,
+		dev,
+		&cif_isp20_dbgfs_csi_fops);
+	pdata->dbgfs.cif_isp20_file = debugfs_create_file(
+		"cif_isp20",
+		0222,
 		pdata->dbgfs.dir,
 		dev,
 		&cif_isp20_dbgfs_fops);
@@ -1521,14 +1616,17 @@ void cif_isp20_pltfrm_dev_release(
 	struct device *dev)
 {
 	int ret;
-	struct cif_isp20_pltfrm_data *pdata = dev->platform_data;
 
 	cif_isp20_reset_csi_configs(dev, CIF_ISP20_INP_CSI_0);
 	cif_isp20_reset_csi_configs(dev, CIF_ISP20_INP_CSI_1);
 #ifdef CONFIG_DEBUG_FS
-	debugfs_remove(pdata->dbgfs.csi0_file);
-	debugfs_remove(pdata->dbgfs.csi1_file);
-	debugfs_remove_recursive(pdata->dbgfs.dir);
+	{
+		struct cif_isp20_pltfrm_data *pdata =
+			dev->platform_data;
+		debugfs_remove(pdata->dbgfs.csi0_file);
+		debugfs_remove(pdata->dbgfs.csi1_file);
+		debugfs_remove_recursive(pdata->dbgfs.dir);
+	}
 #endif
 	ret = device_state_pm_remove_device(dev);
 	if (IS_ERR_VALUE(ret))

@@ -623,6 +623,283 @@ static const char *cif_isp20_pix_fmt_string(int pixfmt)
 	}
 }
 
+static void cif_isp20_debug_print_mi_sp(struct cif_isp20_device *dev)
+{
+	cif_isp20_pltfrm_pr_info(dev->dev,
+		"\n  MI_CTRL 0x%08x/0x%08x\n"
+		"  MI_STATUS 0x%08x\n"
+		"  MI_RIS 0x%08x/0x%08x\n"
+		"  MI_IMSC 0x%08x\n"
+		"  MI_SP_Y_SIZE %d/%d\n"
+		"  MI_SP_CB_SIZE %d/%d\n"
+		"  MI_SP_CR_SIZE %d/%d\n"
+		"  MI_SP_PIC_WIDTH %d\n"
+		"  MI_SP_PIC_HEIGHT %d\n"
+		"  MI_SP_PIC_LLENGTH %d\n"
+		"  MI_SP_PIC_SIZE %d\n"
+		"  MI_SP_Y_BASE_AD 0x%08x/0x%08x\n"
+		"  MI_SP_Y_OFFS_CNT %d/%d\n"
+		"  MI_SP_Y_OFFS_CNT_START %d\n"
+		"  MI_SP_CB_OFFS_CNT %d/%d\n"
+		"  MI_SP_CB_OFFS_CNT_START %d\n"
+		"  MI_SP_CR_OFFS_CNT %d/%d\n"
+		"  MI_SP_CR_OFFS_CNT_START %d\n",
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_CTRL),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_CTRL_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_STATUS),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_RIS),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MIS),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_IMSC),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_Y_SIZE_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_Y_SIZE_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_CB_SIZE_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_CB_SIZE_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_CR_SIZE_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_CR_SIZE_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_Y_PIC_WIDTH),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_Y_PIC_HEIGHT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_Y_LLENGTH),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_Y_PIC_SIZE),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_Y_BASE_AD_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_Y_BASE_AD_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_Y_OFFS_CNT_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_Y_OFFS_CNT_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_Y_OFFS_CNT_START),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_CB_OFFS_CNT_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_CB_OFFS_CNT_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_CB_OFFS_CNT_START),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_CR_OFFS_CNT_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_CR_OFFS_CNT_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_SP_CR_OFFS_CNT_START));
+}
+
+static void cif_isp20_debug_print_mi_mp(struct cif_isp20_device *dev)
+{
+	cif_isp20_pltfrm_pr_info(dev->dev,
+		"\n  MI_CTRL 0x%08x/0x%08x\n"
+		"  MI_STATUS 0x%08x\n"
+		"  MI_BYTE_CNT %d\n"
+		"  MI_RIS 0x%08x/0x%08x\n"
+		"  MI_IMSC 0x%08x\n"
+		"  MI_MP_Y_SIZE %d/%d\n"
+		"  MI_MP_CB_SIZE %d/%d\n"
+		"  MI_MP_CR_SIZE %d/%d\n"
+		"  MI_MP_Y_BASE_AD 0x%08x/0x%08x\n"
+		"  MI_MP_Y_OFFS_CNT %d/%d\n"
+		"  MI_MP_Y_OFFS_CNT_START %d\n"
+		"  MI_MP_CB_OFFS_CNT %d/%d\n"
+		"  MI_MP_CB_OFFS_CNT_START %d\n"
+		"  MI_MP_CR_OFFS_CNT %d/%d\n"
+		"  MI_MP_CR_OFFS_CNT_START %d\n",
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_CTRL),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_CTRL_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_STATUS),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_BYTE_CNT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_RIS),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MIS),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_IMSC),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_Y_SIZE_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_Y_SIZE_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_CB_SIZE_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_CB_SIZE_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_CR_SIZE_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_CR_SIZE_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_Y_BASE_AD_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_Y_BASE_AD_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_Y_OFFS_CNT_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_Y_OFFS_CNT_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_Y_OFFS_CNT_START),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_CB_OFFS_CNT_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_CB_OFFS_CNT_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_CB_OFFS_CNT_START),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_CR_OFFS_CNT_INIT),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_CR_OFFS_CNT_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MI_MP_CR_OFFS_CNT_START));
+}
+
+static void cif_isp20_debug_print_srsz(struct cif_isp20_device *dev)
+{
+	cif_isp20_pltfrm_pr_info(dev->dev,
+		"\n  SRSZ_CTRL 0x%08x/0x%08x\n"
+		"  SRSZ_SCALE_HY %d/%d\n"
+		"  SRSZ_SCALE_HCB %d/%d\n"
+		"  SRSZ_SCALE_HCR %d/%d\n"
+		"  SRSZ_SCALE_VY %d/%d\n"
+		"  SRSZ_SCALE_VC %d/%d\n"
+		"  SRSZ_PHASE_HY %d/%d\n"
+		"  SRSZ_PHASE_HC %d/%d\n"
+		"  SRSZ_PHASE_VY %d/%d\n"
+		"  SRSZ_PHASE_VC %d/%d\n",
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_CTRL),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_CTRL_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_SCALE_HY),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_SCALE_HY_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_SCALE_HCB),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_SCALE_HCB_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_SCALE_HCR),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_SCALE_HCR_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_SCALE_VY),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_SCALE_VY_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_SCALE_VC),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_SCALE_VC_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_PHASE_HY),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_PHASE_HY_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_PHASE_HC),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_PHASE_HC_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_PHASE_VY),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_PHASE_VY_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_PHASE_VC),
+		cif_ioread32(dev->config.base_addr +
+			CIF_SRSZ_PHASE_VC_SHD));
+}
+
+static void cif_isp20_debug_print_mrsz(struct cif_isp20_device *dev)
+{
+	cif_isp20_pltfrm_pr_info(dev->dev,
+		"\n  MRSZ_CTRL 0x%08x/0x%08x\n"
+		"  MRSZ_SCALE_HY %d/%d\n"
+		"  MRSZ_SCALE_HCB %d/%d\n"
+		"  MRSZ_SCALE_HCR %d/%d\n"
+		"  MRSZ_SCALE_VY %d/%d\n"
+		"  MRSZ_SCALE_VC %d/%d\n"
+		"  MRSZ_PHASE_HY %d/%d\n"
+		"  MRSZ_PHASE_HC %d/%d\n"
+		"  MRSZ_PHASE_VY %d/%d\n"
+		"  MRSZ_PHASE_VC %d/%d\n",
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_CTRL),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_CTRL_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_SCALE_HY),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_SCALE_HY_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_SCALE_HCB),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_SCALE_HCB_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_SCALE_HCR),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_SCALE_HCR_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_SCALE_VY),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_SCALE_VY_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_SCALE_VC),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_SCALE_VC_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_PHASE_HY),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_PHASE_HY_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_PHASE_HC),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_PHASE_HC_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_PHASE_VY),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_PHASE_VY_SHD),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_PHASE_VC),
+		cif_ioread32(dev->config.base_addr +
+			CIF_MRSZ_PHASE_VC_SHD));
+}
+
+static void cif_isp20_debug_print_block(
+	struct cif_isp20_device *dev,
+	const char *block_name)
+{
+	if (!strncmp(block_name, "all", 3)) {
+		cif_isp20_debug_print_srsz(dev);
+		cif_isp20_debug_print_mrsz(dev);
+		cif_isp20_debug_print_mi_sp(dev);
+		cif_isp20_debug_print_mi_mp(dev);
+	} else if (!strncmp(block_name, "srsz", 4))
+		cif_isp20_debug_print_srsz(dev);
+	else if (!strncmp(block_name, "mrsz", 4))
+		cif_isp20_debug_print_mrsz(dev);
+	else if (!strncmp(block_name, "mi_sp", 5))
+		cif_isp20_debug_print_mi_sp(dev);
+	else if (!strncmp(block_name, "mi_mp", 5))
+		cif_isp20_debug_print_mi_mp(dev);
+	else
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"unknown block %s\n", block_name);
+}
+
 static u32 cif_isp20_calc_llength(
 	u32 width,
 	u32 stride,
@@ -2137,19 +2414,23 @@ static int cif_isp20_config_mi_sp(
 	}
 
 	cif_iowrite32_verify(dev->config.mi_config.sp.y_size,
-		dev->config.base_addr + CIF_MI_SP_Y_SIZE_INIT, 0x3);
+		dev->config.base_addr + CIF_MI_SP_Y_SIZE_INIT, ~0x3);
 	cif_iowrite32_verify(dev->config.mi_config.sp.y_size,
-		dev->config.base_addr + CIF_MI_SP_Y_PIC_SIZE, 0x3);
+		dev->config.base_addr + CIF_MI_SP_Y_PIC_SIZE, ~0x3);
 	cif_iowrite32_verify(dev->config.mi_config.sp.cb_size,
-		dev->config.base_addr + CIF_MI_SP_CB_SIZE_INIT, 0x3);
+		dev->config.base_addr + CIF_MI_SP_CB_SIZE_INIT, ~0x3);
 	cif_iowrite32_verify(dev->config.mi_config.sp.cr_size,
-		dev->config.base_addr + CIF_MI_SP_CR_SIZE_INIT, 0x3);
+		dev->config.base_addr + CIF_MI_SP_CR_SIZE_INIT, ~0x3);
 	cif_iowrite32_verify(width,
-		dev->config.base_addr + CIF_MI_SP_Y_PIC_WIDTH, 0x3);
+		dev->config.base_addr + CIF_MI_SP_Y_PIC_WIDTH, ~0x3);
 	cif_iowrite32_verify(height,
-		dev->config.base_addr + CIF_MI_SP_Y_PIC_HEIGHT, 0x3);
+		dev->config.base_addr + CIF_MI_SP_Y_PIC_HEIGHT, ~0x3);
 	cif_iowrite32_verify(llength,
-		dev->config.base_addr + CIF_MI_SP_Y_LLENGTH, 0x3);
+		dev->config.base_addr + CIF_MI_SP_Y_LLENGTH, ~0x3);
+/*
+	cif_iowrite32_verify(0x303030,
+		dev->config.base_addr + CIF_MI_QOS_WRITE_SP, 0x3f3f3f);
+*/
 
 	cif_iowrite32_verify(0x303030,
 		dev->config.base_addr + CIF_MI_QOS_WRITE_SP, 0x3f3f3f);
@@ -4956,6 +5237,10 @@ struct cif_isp20_device *cif_isp20_create(
 		&pdev, &dev->config.base_addr);
 	if (IS_ERR_VALUE(ret))
 		goto err;
+	cif_isp20_pltfrm_debug_register_print_cb(
+		dev->dev,
+		(void (*)(void *, const char *))cif_isp20_debug_print_block,
+		dev);
 
 	ret = cif_isp20_img_srcs_init(dev);
 	if (IS_ERR_VALUE(ret))
