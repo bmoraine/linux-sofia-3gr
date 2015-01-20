@@ -28,6 +28,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/mc146818rtc.h>
 #include <linux/acpi_pmtmr.h>
+#include <linux/cpufreq.h>
 #include <linux/clockchips.h>
 #include <linux/interrupt.h>
 #include <linux/bootmem.h>
@@ -224,6 +225,7 @@ static struct resource lapic_resource = {
 };
 
 unsigned int lapic_timer_frequency = 0;
+static int lapic_clock_ratio;
 
 static void apic_pm_activate(void);
 
@@ -567,6 +569,72 @@ static struct clock_event_device lapic_clockevent = {
 	.irq		= -1,
 };
 static DEFINE_PER_CPU(struct clock_event_device, lapic_events);
+
+#ifdef CONFIG_CPU_FREQ
+static void lapic_update_frequency(void *data)
+{
+	struct cpufreq_freqs *freq = data;
+	uint32_t lapic_timer_freq_old = lapic_timer_frequency;
+	struct clock_event_device *dev = &__get_cpu_var(lapic_events);
+	uint32_t mult = dev->mult;
+
+	lapic_timer_freq_old /= 1000; /* in KHz */
+	lapic_timer_freq_old *= HZ;
+
+	pr_debug("%s: CPU%d update: %ukHz => %ukHz\n", __func__,
+			freq->cpu, freq->old, freq->new);
+
+	/* Update LAPIC timer frequency w.r.t. new CPU frequency */
+	/* Assuming the core/lapic clock ratio is constant */
+	lapic_timer_frequency = freq->new / lapic_clock_ratio;
+	pr_debug("%s: LAPIC Timer update: %ukHz => %ukHz\n", __func__,
+			lapic_timer_freq_old, lapic_timer_frequency);
+	lapic_timer_frequency *= 1000; /* in HZ */
+	lapic_timer_frequency /= HZ;
+
+	/* Update frequency (update clockevent structure)
+	 * --> see calibrate_APIC_clock function */
+	dev->mult = div_sc(lapic_timer_frequency/APIC_DIVISOR,
+			TICK_NSEC, dev->shift);
+	dev->max_delta_ns = clockevent_delta2ns(0x7FFFFF, dev);
+	dev->min_delta_ns = clockevent_delta2ns(0xF, dev);
+	dev->features &= ~CLOCK_EVT_FEAT_DUMMY;
+	pr_debug("%s: Clock event mult update: %u => %u\n", __func__,
+			mult, dev->mult);
+
+	/* Reprogram a clock event device */
+	clockevents_program_event(dev, dev->next_event, false);
+}
+
+static int lapic_cpufreq_notifier(struct notifier_block *nb,
+		unsigned long state, void *data)
+{
+	struct cpufreq_freqs *freq = data;
+	if (state == CPUFREQ_POSTCHANGE || state == CPUFREQ_RESUMECHANGE)
+		smp_call_function_single(freq->cpu, lapic_update_frequency,
+				data, 1);
+	return NOTIFY_OK;
+}
+
+static struct notifier_block lapic_cpufreq_notifier_block = {
+	.notifier_call  = lapic_cpufreq_notifier
+};
+
+static int __init cpufreq_lapic(void)
+{
+	if (disable_apic)
+		return 0;
+
+	if (lapic_clock_ratio) {
+		pr_info("%s: Registering cpufreq notifier\n", __func__);
+		cpufreq_register_notifier(&lapic_cpufreq_notifier_block,
+				CPUFREQ_TRANSITION_NOTIFIER);
+	}
+	return 0;
+}
+core_initcall(cpufreq_lapic);
+
+#endif /* CONFIG_CPU_FREQ */
 
 /*
  * Setup the local APIC timer for this CPU. Copy the initialized values
@@ -2682,3 +2750,18 @@ static int __init apic_set_disabled_cpu_apicid(char *arg)
 	return 0;
 }
 early_param("disable_cpu_apicid", apic_set_disabled_cpu_apicid);
+
+static int __init lapic_clock_ratio_parse(char *arg)
+{
+	if (!arg)
+		return -EINVAL;
+
+	if (kstrtoint(arg, 10, &lapic_clock_ratio))
+		apic_printk(APIC_QUIET, KERN_ERR
+			"Incorrect lapic_clock_ratio\n");
+
+	apic_printk(APIC_VERBOSE, KERN_ERR "apic clock ratio %d\n",
+			lapic_clock_ratio);
+	return 0;
+}
+early_param("lapic_clock_ratio", lapic_clock_ratio_parse);
