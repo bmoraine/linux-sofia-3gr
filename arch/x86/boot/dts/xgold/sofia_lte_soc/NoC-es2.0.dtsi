@@ -1,0 +1,700 @@
+ErrorLogger0 {
+	compatible = "intel,xgold,register";
+	offset,length = < 0x14 32>;
+	description = "Register 0 to log errors";
+	lock {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 0 1>;
+		lut = "Not Locked", "Locked";
+	};
+	OpCode {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 1 4>;
+		lut = "RD: data read with incrementing address",
+			"RDW: data read with wrapping address",
+			"RDL: allocates monitor in the Target with incrementing address",
+			"RDX: exclusive read with incrementing address",
+			"WR: data write with incrementing address",
+			"WRW: data write with wrapping address",
+			"WRC: conditional write if matching monitor in Target is found",
+			"RSV: reserved",
+			"PRE: preamble packet of linked sequence (locked sequence)",
+			"URG: urgency packet used for QoS (status must be REQ)";
+	};
+	ErrCode {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 8 3 >;
+		lut = "SLV (error source: Target): error detected by the Slave without any information or no Error",
+			"DEC (error source: Initiator NIU): decode error",
+			"UNS (error source: Target NIU): unsupported access type",
+			"DISC (error source: Power Disconnect): disconnected Target or NoC domain",
+			"SEC (error source: Initiator NIU or Firewall): security error",
+			"HIDE (error source: Firewall): hidden security error. Will be reported as OK to the initiator",
+			"TMO (error source: Target NIU): time-out",
+			"RSV: reserved";
+
+	};
+	Len1 {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 16 7 >;
+	};
+	Format {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 31 1 >;
+		lut = "NTTP v3.0 (Invalid)", "NTTP v3.5 (Ok)";
+	};
+};
+
+ErrorLogger1 {
+	compatible = "intel,xgold,register", "intel,xgold,noc,filter,routeid";
+	offset,length = < 0x18 32>;
+	description = "Register 1 to log errors";
+	InitFlow {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 14 5 >;
+		lut = "CIF/I/0",
+			"CPU_0/I/0",
+			"CPU_1/I/0",
+			"DAP/I/0",
+			"DCC_1/I/0",
+			"DCC_2/I/0",
+			"DL_ECYPHER0/I/0",
+			"DL_ECYPHER1/I/0",
+			"DL_EMACPHY/I/0",
+			"DMA2C/I/0",
+			"DMA2C_L2_1/I/0",
+			"DMA2C_L2_2/I/0",
+			"DMA8C_1/I/0",
+			"DMA8C_2/I/0",
+			"GPU/I/0",
+			"L1CTRL_3G/I/0",
+			"L1CTRL_LTE/I/0",
+			"LTE_TEST1/I/0",
+			"LTE_TEST2/I/0",
+			"MACPHY_TILE6/I/0",
+			"OCT_xb06in/I/0",
+			"SDIO_30/I/0",
+			"SDMMC/I/0",
+			"UL_ECYPHER0/I/0",
+			"UL_ECYPHER1/I/0",
+			"UL_EMACPHY1/I/0",
+			"USB_30/I/0",
+			"VEC/I/0",
+			"VED/I/0",
+			"eMMC/I/0";
+	};
+
+	TargetFlow {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 9 5 >;
+		lut =   "AHB_L1_3G/T/0",
+			"AHB_L1_LTE/T/0",
+			"AHB_PER0/T/0",
+			"AHB_PER1/T/0",
+			"AHB_PER2/T/0",
+			"AHB_PER3/T/0",
+			"AHB_PER4/T/0",
+			"AHB_PER5/T/0",
+			"AHB_PERM/T/0",
+			"AHB_TDS/T/0",
+			"EMIC0/T/0",
+			"EMIC1/T/0",
+			"EMIC2/T/0",
+			"EMIC_cfg/T/0",
+			"LMU/T/0",
+			"OCT_DVC_DATA/T/0",
+			"PBD_CFG/T/0",
+			"PBD_DATA/T/0",
+			"SRV_Pkt_Err_L1/T/0",
+			"SRV_Pkt_Err_L2/T/0",
+			"SRV_Pkt_Err_MODEM/T/0",
+			"SRV_Pkt_Err_USPC/T/0",
+			"SRV_Security_L1/T/0",
+			"SW_TRACE/T/0";
+	};
+
+	TargetSubRange {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 5 4 >;
+	};
+
+	SeqId {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 0 5 >;
+	};
+};
+
+ErrorLogger3 {
+	/* This register does not really include a bitfield or its bitfield is 32 bits and it provides an offset address */
+	/* To calculate the absolute address, you must use the initflow:targetflow:subrange from ErrorLogger3 register */
+	/* And use it as an index in the aperture table. Then you must add the value of this register to the value given */
+	/* by the table to get the absolute address. */
+	compatible = "intel,xgold,register";
+	offset,length = < 0x20 32>;
+	description = "Register 3 to log errors";
+	aperture-link = <1>; /* link to ErrorLogger1 whose information are required to calculate real absolute address */
+	AbsoluteAddress {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 5 14 >;				/* bitfield initflow:targeflow:subrange from aperture-link register */
+		aperture-size= < 421 >;					/* Number of line in the aperture table below */
+		aperture-idx,aperture-base =			/* Aperture_idx is concatenation of initflow:targetflow:subrange bitfield from ErrorLogger1 */
+			<0x00c0 0x0>,
+			<0x00c1 0x40000000>,
+			<0x0200 0xe9f00000>,
+			<0x0201 0xe5000000>,
+			<0x0210 0xf8000000>,
+			<0x0211 0xf0000000>,
+			<0x0220 0xe0000000>,
+			<0x0230 0xe1000000>,
+			<0x0240 0xe2000000>,
+			<0x0250 0xe3000000>,
+			<0x0260 0xe4000000>,
+			<0x0270 0xe6000000>,
+			<0x0280 0xeb000000>,
+			<0x0290 0xe7000000>,
+			<0x02d0 0xe9300000>,
+			<0x02e0 0xe9840000>,
+			<0x02e1 0xfff40000>,
+			<0x02e2 0xfffb0000>,
+			<0x02e3 0xe9800000>,
+			<0x02e4 0xe9900000>,
+			<0x02e5 0xe9940000>,
+			<0x02e6 0xfff00000>,
+			<0x02e7 0xfffc0000>,
+			<0x02e8 0x0>,
+			<0x0300 0xe9400000>,
+			<0x0310 0xe9480000>,
+			<0x0320 0xe9010000>,
+			<0x0321 0xe9013000>,
+			<0x0322 0xe9012000>,
+			<0x0330 0xe9014000>,
+			<0x0331 0xe9017400>,
+			<0x0332 0xe9017000>,
+			<0x0333 0xe9016000>,
+			<0x0340 0xe9018000>,
+			<0x0341 0xe901ac00>,
+			<0x0342 0xe901a800>,
+			<0x0343 0xe901a000>,
+			<0x0350 0xe901c000>,
+			<0x0351 0xe901e400>,
+			<0x0352 0xe901e000>,
+			<0x0360 0xe9000000>,
+			<0x0361 0xe9001000>,
+			<0x0362 0xe9002000>,
+			<0x0363 0xe9003000>,
+			<0x0370 0x80000000>,
+			<0x04a0 0x0>,
+			<0x04a1 0x40000000>,
+			<0x04e0 0xe9840000>,
+			<0x04e1 0xfff40000>,
+			<0x04e2 0xfffb0000>,
+			<0x04e3 0xe9800000>,
+			<0x04e4 0xe9900000>,
+			<0x04e5 0xe9940000>,
+			<0x04e6 0xfff00000>,
+			<0x04e7 0xfffc0000>,
+			<0x04e8 0x0>,
+			<0x0600 0xe9f00000>,
+			<0x0601 0xe5000000>,
+			<0x0610 0xf8000000>,
+			<0x0611 0xf0000000>,
+			<0x0620 0xe0000000>,
+			<0x0630 0xe1000000>,
+			<0x0640 0xe2000000>,
+			<0x0650 0xe3000000>,
+			<0x0660 0xe4000000>,
+			<0x0670 0xe6000000>,
+			<0x0680 0xeb000000>,
+			<0x0690 0xe7000000>,
+			<0x06c0 0x0>,
+			<0x06c1 0x40000000>,
+			<0x06d0 0xe9300000>,
+			<0x06e0 0xe9840000>,
+			<0x06e1 0xfff40000>,
+			<0x06e2 0xfffb0000>,
+			<0x06e3 0xe9800000>,
+			<0x06e4 0xe9900000>,
+			<0x06e5 0xe9940000>,
+			<0x06e6 0xfff00000>,
+			<0x06e7 0xfffc0000>,
+			<0x0700 0xe9400000>,
+			<0x0710 0xe9480000>,
+			<0x0720 0xe9010000>,
+			<0x0721 0xe9013000>,
+			<0x0722 0xe9012000>,
+			<0x0730 0xe9014000>,
+			<0x0731 0xe9017400>,
+			<0x0732 0xe9017000>,
+			<0x0733 0xe9016000>,
+			<0x0740 0xe9018000>,
+			<0x0741 0xe901ac00>,
+			<0x0742 0xe901a800>,
+			<0x0743 0xe901a000>,
+			<0x0750 0xe901c000>,
+			<0x0751 0xe901e400>,
+			<0x0752 0xe901e000>,
+			<0x0753 0x0>,
+			<0x0760 0xe9000000>,
+			<0x0761 0xe9001000>,
+			<0x0762 0xe9002000>,
+			<0x0763 0xe9003000>,
+			<0x08b0 0x0>,
+			<0x08b1 0x40000000>,
+			<0x08b2 0x0>,
+			<0x0ab0 0x0>,
+			<0x0ab1 0x40000000>,
+			<0x0ab2 0x0>,
+			<0x0c00 0xe9f00000>,
+			<0x0c01 0xe5000000>,
+			<0x0c10 0xf8000000>,
+			<0x0c11 0xf0000000>,
+			<0x0cb0 0x0>,
+			<0x0cb1 0x40000000>,
+			<0x0ce0 0xe9840000>,
+			<0x0ce1 0xfff40000>,
+			<0x0ce2 0xfffb0000>,
+			<0x0ce3 0xe9800000>,
+			<0x0ce4 0xe9900000>,
+			<0x0ce5 0xe9940000>,
+			<0x0ce6 0xfff00000>,
+			<0x0ce7 0xfffc0000>,
+			<0x0d00 0xe9400000>,
+			<0x0d01 0x0>,
+			<0x0d10 0xe9480000>,
+			<0x0e00 0xe9f00000>,
+			<0x0e01 0xe5000000>,
+			<0x0e10 0xf8000000>,
+			<0x0e11 0xf0000000>,
+			<0x0eb0 0x0>,
+			<0x0eb1 0x40000000>,
+			<0x0ee0 0xe9840000>,
+			<0x0ee1 0xfff40000>,
+			<0x0ee2 0xfffb0000>,
+			<0x0ee3 0xe9800000>,
+			<0x0ee4 0xe9900000>,
+			<0x0ee5 0xe9940000>,
+			<0x0ee6 0xfff00000>,
+			<0x0ee7 0xfffc0000>,
+			<0x0f00 0xe9400000>,
+			<0x0f01 0x0>,
+			<0x0f10 0xe9480000>,
+			<0x1000 0xe9f00000>,
+			<0x1001 0xe5000000>,
+			<0x1010 0xf8000000>,
+			<0x1011 0xf0000000>,
+			<0x10b0 0x0>,
+			<0x10b1 0x40000000>,
+			<0x10e0 0xe9840000>,
+			<0x10e1 0xfff40000>,
+			<0x10e2 0xfffb0000>,
+			<0x10e3 0xe9800000>,
+			<0x10e4 0xe9900000>,
+			<0x10e5 0xe9940000>,
+			<0x10e6 0xfff00000>,
+			<0x10e7 0xfffc0000>,
+			<0x1100 0xe9400000>,
+			<0x1101 0x0>,
+			<0x1110 0xe9480000>,
+			<0x1230 0xe1000000>,
+			<0x1250 0xe3000000>,
+			<0x1270 0xe6000000>,
+			<0x1271 0x0>,
+			<0x12c0 0x0>,
+			<0x12c1 0x40000000>,
+			<0x12e0 0xe9840000>,
+			<0x12e1 0xfff40000>,
+			<0x12e2 0xfffb0000>,
+			<0x12e3 0xe9800000>,
+			<0x12e4 0xe9900000>,
+			<0x12e5 0xe9940000>,
+			<0x12e6 0xfff00000>,
+			<0x12e7 0xfffc0000>,
+			<0x14c0 0x0>,
+			<0x14c1 0x40000000>,
+			<0x14e0 0xe9840000>,
+			<0x14e1 0xfff40000>,
+			<0x14e2 0xfffb0000>,
+			<0x14e3 0xe9800000>,
+			<0x14e4 0xe9900000>,
+			<0x14e5 0xe9940000>,
+			<0x14e6 0xfff00000>,
+			<0x14e7 0xfffc0000>,
+			<0x14e8 0x0>,
+			<0x1510 0xe9480000>,
+			<0x16c0 0x0>,
+			<0x16c1 0x40000000>,
+			<0x16e0 0xe9840000>,
+			<0x16e1 0xfff40000>,
+			<0x16e2 0xfffb0000>,
+			<0x16e3 0xe9800000>,
+			<0x16e4 0xe9900000>,
+			<0x16e5 0xe9940000>,
+			<0x16e6 0xfff00000>,
+			<0x16e7 0xfffc0000>,
+			<0x16e8 0x0>,
+			<0x1710 0xe9480000>,
+			<0x1800 0xe9f00000>,
+			<0x1801 0xe5000000>,
+			<0x1810 0xf8000000>,
+			<0x1811 0xf0000000>,
+			<0x1830 0xe1000000>,
+			<0x1840 0xe2000000>,
+			<0x1850 0xe3000000>,
+			<0x1870 0xe6000000>,
+			<0x1880 0xeb000000>,
+			<0x18a0 0x0>,
+			<0x18a1 0x40000000>,
+			<0x18e0 0xe9840000>,
+			<0x18e1 0xfff40000>,
+			<0x18e2 0xfffb0000>,
+			<0x18e3 0xe9800000>,
+			<0x18e4 0xe9900000>,
+			<0x18e5 0xe9940000>,
+			<0x18e6 0xfff00000>,
+			<0x18e7 0xfffc0000>,
+			<0x18e8 0x0>,
+			<0x1a00 0xe9f00000>,
+			<0x1a01 0xe5000000>,
+			<0x1a10 0xf8000000>,
+			<0x1a11 0xf0000000>,
+			<0x1a30 0xe1000000>,
+			<0x1a40 0xe2000000>,
+			<0x1a50 0xe3000000>,
+			<0x1a70 0xe6000000>,
+			<0x1a80 0xeb000000>,
+			<0x1ab0 0x0>,
+			<0x1ab1 0x40000000>,
+			<0x1ae0 0xe9840000>,
+			<0x1ae1 0xfff40000>,
+			<0x1ae2 0xfffb0000>,
+			<0x1ae3 0xe9800000>,
+			<0x1ae4 0xe9900000>,
+			<0x1ae5 0xe9940000>,
+			<0x1ae6 0xfff00000>,
+			<0x1ae7 0xfffc0000>,
+			<0x1ae8 0x0>,
+			<0x1cc0 0x0>,
+			<0x1cc1 0x40000000>,
+			<0x1cc2 0x0>,
+			<0x1e00 0xe9f00000>,
+			<0x1e01 0xe5000000>,
+			<0x1ee0 0xe9840000>,
+			<0x1ee1 0xfff40000>,
+			<0x1ee2 0xfffb0000>,
+			<0x1ee3 0xe9800000>,
+			<0x1ee4 0xe9900000>,
+			<0x1ee5 0xe9940000>,
+			<0x1ee6 0xfff00000>,
+			<0x1ee7 0xfffc0000>,
+			<0x1f00 0xe9400000>,
+			<0x1f01 0x0>,
+			<0x1f10 0xe9480000>,
+			<0x2000 0xe9f00000>,
+			<0x2001 0xe5000000>,
+			<0x2060 0xe4000000>,
+			<0x20e0 0xe9840000>,
+			<0x20e1 0xfff40000>,
+			<0x20e2 0xfffb0000>,
+			<0x20e3 0xe9800000>,
+			<0x20e4 0xe9900000>,
+			<0x20e5 0xe9940000>,
+			<0x20e6 0xfff00000>,
+			<0x20e7 0xfffc0000>,
+			<0x2100 0xe9400000>,
+			<0x2101 0x0>,
+			<0x2110 0xe9480000>,
+			<0x22b0 0x0>,
+			<0x22b1 0x40000000>,
+			<0x22e0 0xe9840000>,
+			<0x22e1 0xfff40000>,
+			<0x22e2 0xfffb0000>,
+			<0x22e3 0xe9800000>,
+			<0x22e4 0xe9900000>,
+			<0x22e5 0xe9940000>,
+			<0x22e6 0xfff00000>,
+			<0x22e7 0xfffc0000>,
+			<0x2310 0xe9480000>,
+			<0x2311 0x0>,
+			<0x24b0 0x0>,
+			<0x24b1 0x40000000>,
+			<0x24e0 0xe9840000>,
+			<0x24e1 0xfff40000>,
+			<0x24e2 0xfffb0000>,
+			<0x24e3 0xe9800000>,
+			<0x24e4 0xe9900000>,
+			<0x24e5 0xe9940000>,
+			<0x24e6 0xfff00000>,
+			<0x24e7 0xfffc0000>,
+			<0x2510 0xe9480000>,
+			<0x2511 0x0>,
+			<0x2600 0xe9f00000>,
+			<0x2601 0xe5000000>,
+			<0x2610 0xf8000000>,
+			<0x2611 0xf0000000>,
+			<0x26b0 0x0>,
+			<0x26b1 0x40000000>,
+			<0x26e0 0xe9840000>,
+			<0x26e1 0xfff40000>,
+			<0x26e2 0xfffb0000>,
+			<0x26e3 0xe9800000>,
+			<0x26e4 0xe9900000>,
+			<0x26e5 0xe9940000>,
+			<0x26e6 0xfff00000>,
+			<0x26e7 0xfffc0000>,
+			<0x2700 0xe9400000>,
+			<0x2701 0x0>,
+			<0x2710 0xe9480000>,
+			<0x28c0 0x0>,
+			<0x28c1 0x40000000>,
+			<0x28e0 0xe9840000>,
+			<0x28e1 0xfff40000>,
+			<0x28e2 0xfffb0000>,
+			<0x28e3 0xe9800000>,
+			<0x28e4 0xe9900000>,
+			<0x28e5 0xe9940000>,
+			<0x28e6 0xfff00000>,
+			<0x28e7 0xfffc0000>,
+			<0x28e8 0x0>,
+			<0x2ac0 0x0>,
+			<0x2ac1 0x40000000>,
+			<0x2ae0 0xe9840000>,
+			<0x2ae1 0xfff40000>,
+			<0x2ae2 0xfffb0000>,
+			<0x2ae3 0xe9800000>,
+			<0x2ae4 0xe9900000>,
+			<0x2ae5 0xe9940000>,
+			<0x2ae6 0xfff00000>,
+			<0x2ae7 0xfffc0000>,
+			<0x2ae8 0x0>,
+			<0x2b10 0xe9480000>,
+			<0x2ca0 0x0>,
+			<0x2ca1 0x40000000>,
+			<0x2ce0 0xe9840000>,
+			<0x2ce1 0xfff40000>,
+			<0x2ce2 0xfffb0000>,
+			<0x2ce3 0xe9800000>,
+			<0x2ce4 0xe9900000>,
+			<0x2ce5 0xe9940000>,
+			<0x2ce6 0xfff00000>,
+			<0x2ce7 0xfffc0000>,
+			<0x2ce8 0x0>,
+			<0x2e00 0xe9f00000>,
+			<0x2e01 0xe5000000>,
+			<0x2e10 0xf8000000>,
+			<0x2e11 0xf0000000>,
+			<0x2eb0 0x0>,
+			<0x2eb1 0x40000000>,
+			<0x2ee0 0xe9840000>,
+			<0x2ee1 0xfff40000>,
+			<0x2ee2 0xfffb0000>,
+			<0x2ee3 0xe9800000>,
+			<0x2ee4 0xe9900000>,
+			<0x2ee5 0xe9940000>,
+			<0x2ee6 0xfff00000>,
+			<0x2ee7 0xfffc0000>,
+			<0x2f00 0xe9400000>,
+			<0x2f01 0x0>,
+			<0x2f10 0xe9480000>,
+			<0x3000 0xe9f00000>,
+			<0x3001 0xe5000000>,
+			<0x3010 0xf8000000>,
+			<0x3011 0xf0000000>,
+			<0x30b0 0x0>,
+			<0x30b1 0x40000000>,
+			<0x30e0 0xe9840000>,
+			<0x30e1 0xfff40000>,
+			<0x30e2 0xfffb0000>,
+			<0x30e3 0xe9800000>,
+			<0x30e4 0xe9900000>,
+			<0x30e5 0xe9940000>,
+			<0x30e6 0xfff00000>,
+			<0x30e7 0xfffc0000>,
+			<0x3100 0xe9400000>,
+			<0x3101 0x0>,
+			<0x3110 0xe9480000>,
+			<0x3200 0xe9f00000>,
+			<0x3201 0xe5000000>,
+			<0x3210 0xf8000000>,
+			<0x3211 0xf0000000>,
+			<0x32b0 0x0>,
+			<0x32b1 0x40000000>,
+			<0x32e0 0xe9840000>,
+			<0x32e1 0xfff40000>,
+			<0x32e2 0xfffb0000>,
+			<0x32e3 0xe9800000>,
+			<0x32e4 0xe9900000>,
+			<0x32e5 0xe9940000>,
+			<0x32e6 0xfff00000>,
+			<0x32e7 0xfffc0000>,
+			<0x3300 0xe9400000>,
+			<0x3301 0x0>,
+			<0x3310 0xe9480000>,
+			<0x34b0 0x0>,
+			<0x34b1 0x40000000>,
+			<0x34e0 0xe9840000>,
+			<0x34e1 0xfff40000>,
+			<0x34e2 0xfffb0000>,
+			<0x34e3 0xe9800000>,
+			<0x34e4 0xe9900000>,
+			<0x34e5 0xe9940000>,
+			<0x34e6 0xfff00000>,
+			<0x34e7 0xfffc0000>,
+			<0x34e8 0x0>,
+			<0x34f0 0xe9100000>,
+			<0x3510 0xe9480000>,
+			<0x36b0 0x0>,
+			<0x36b1 0x40000000>,
+			<0x36b2 0x0>,
+			<0x38b0 0x0>,
+			<0x38b1 0x40000000>,
+			<0x38b2 0x0>,
+			<0x3ab0 0x0>,
+			<0x3ab1 0x40000000>,
+			<0x3ae0 0xe9840000>,
+			<0x3ae1 0xfff40000>,
+			<0x3ae2 0xfffb0000>,
+			<0x3ae3 0xe9800000>,
+			<0x3ae4 0xe9900000>,
+			<0x3ae5 0xe9940000>,
+			<0x3ae6 0xfff00000>,
+			<0x3ae7 0xfffc0000>,
+			<0x3ae8 0x0>;
+	};
+};
+
+ErrorLogger5 {
+	compatible = "intel,xgold,register";
+	offset,length = < 0x28 32>;
+	description = "Register 5 to log errors";
+
+	User_priv {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 9 1>;
+		lut = "User access", "Privileged access";
+	};
+
+	MasterID {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 3 6>;
+		lut = 	"DCC2(secured)",
+			"Reserved",
+			"GPU",
+			"Reserved",
+			"VED",
+			"CPU_PMI",
+			"VEC",
+			"Reserved",
+			"Reserved",
+			"CPU_MMIO",
+			"CIF",
+			"Reserved",
+			"DCC1",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"Reserved",	/* 0x10 */
+			"DMA2C_1",
+			"Reserved",
+			"DMA8C_2",
+			"Reserved",
+			"DMA2C_2",
+			"USB_30",
+			"DMA8C_1",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"SDIO",
+			"Reserved",
+			"SDMMC",
+			"eMMC",
+			"Reserved",	/* 0x20 */
+			"DAP",
+			"Reserved",
+			"OCT",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"DMA2C",
+			"Reserved",
+			"Reserved",
+			"LTE_TEST_1",	/* 0x30 */
+			"LTE_TEST_2",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"Reserved",
+			"L1CTRL_3G",
+			"L1CTRL_LTE",
+			"DL_EMACPHY",
+			"DL_ECYPHER0",
+			"UL_EMACPHY",
+			"MACPHY_TILE6",
+			"UL_ECYPHER0",
+			"Reserved",
+			"DL_ECYPHER1",
+			"UL_ECYPHER1";
+	};
+
+	Data_instr {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 2 1>;
+		lut = "Data", "Instruction";
+	};
+
+	Cache {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 0 2>;
+		lut = "non-cacheable, non-bufferable",
+			"non-cacheable, bufferable",
+			"cacheable, non-bufferable",
+			"cacheable, bufferable";
+	};
+};
+
+ErrorLogger7 {
+	compatible = "intel,xgold,register", "intel,xgold,noc,filter,security";
+	offset,length = < 0x30 32>;
+	description = "Register 7 to log errors";
+	vm_id {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 5 2>;
+		lut = "VMM", "Modem VM", "Secure VM", "Android VM";
+	};
+
+	sec_acc {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 4 1>;
+		lut = "No secure Access", "Secure Access";
+	};
+
+	noc_probe_lockoff {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 3 1>;
+		lut = "Probing Allwed in NoC", "Probing Prohibited in NoC";
+	};
+	ipc_reg_trb_acc {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 2 1>;
+		lut = "No IPC trace register access", "IPC trace register rccess";
+	};
+
+	ipc_reg_acc {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 1 1>;
+		lut = "No IPC register access", "IPC Register Access";
+	};
+
+	code_fetch {
+		compatible = "intel,xgold,bitfield";
+		offset,length = < 0 1>;
+		lut = "Data", "Code";
+	};
+
+};

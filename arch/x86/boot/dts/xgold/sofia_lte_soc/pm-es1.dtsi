@@ -1,4 +1,4 @@
-#include "prh_cfg.h"
+#include "prh_cfg-es1.h"
 
 core_pm:core_pm {
 	compatible = "intel,vpower";
@@ -31,13 +31,11 @@ mmc_core_clk_pm_class:mmc_core_clk_pm_class {
 	intel,states-names =
 		"low_perf",
 		"med_perf",
-		"high_perf",
-		"uhigh_perf";
+		"high_perf";
 	intel,states = <
 		PRH_PER_TYPE_MMC_CORE_CLK PRH_PER_MMC_CORE_CLK_ENABLE_LOW_PERF
 		PRH_PER_TYPE_MMC_CORE_CLK PRH_PER_MMC_CORE_CLK_ENABLE_MED_PERF
-		PRH_PER_TYPE_MMC_CORE_CLK PRH_PER_MMC_CORE_CLK_ENABLE_HIGH_PERF
-		PRH_PER_TYPE_MMC_CORE_CLK PRH_PER_MMC_CORE_CLK_ENABLE_UHIGH_PERF >;
+		PRH_PER_TYPE_MMC_CORE_CLK PRH_PER_MMC_CORE_CLK_ENABLE_HIGH_PERF >;
 };
 
 _3g_comram_pm_class:_3g_comram_pm_class {

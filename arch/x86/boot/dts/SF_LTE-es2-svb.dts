@@ -59,6 +59,15 @@
 		intel,bt-fmr-gpio-reset = <&xgold_pmx_gpio 77 0 >;
 	};
 
+	iwlwifi_sdio_platform {
+		compatible = "intel,iwlwifi_sdio_platform";
+
+		interrupt-parent = <&capcom1>;
+		interrupts = < 7 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		interrupt-names = "wlan_irq";
+	};
+
+
 	graphics {
 		compatible = "intel,graphics";
 		intel,gpu-shared-mem = <0x20000000>;
@@ -223,7 +232,10 @@
 };
 
 &dcc {
-	/* FIXME: Add dcc desc */
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&dif_default_pins>;
+	pinctrl-1 = <&dif_sleep_pins>;
+	pinctrl-2 = <&dif_inactive_pins>;
 };
 
 &usif1 {
@@ -336,7 +348,7 @@
 	pinctrl-2 = <&i2c3_inactive_pins>;
 	touchscreen {
 		compatible = "goodix,GT9157";
-		reg = < 0x5d >;
+		reg = < 0x14 >;
 		interrupt-parent = <&eint>;
 		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_FALLING >;
 		pinctrl-names = "default", "sleep", "inactive", "gpio";
@@ -344,7 +356,7 @@
 		pinctrl-1 = <&touch_sleep_pins>;
 		pinctrl-2 = <&touch_inactive_pins>;
 		pinctrl-3 = <&touch_gpio_pins>;
-		intel,ts-gpio-reset = <&xgold_pmx_gpio 110 0>;
+		intel,ts-gpio-reset = <&xgold_pmx_gpio 112 0>;
 		intel,ts-gpio-irq = <&xgold_pmx_gpio 88 0>;
 		pm,class-name = "gt9xx_class";
 		pm,user-name = "ext_tp";
@@ -386,8 +398,6 @@
 	accelerometer {
 		compatible = "st,lsm303dlhc_acc";
 		reg = < 0x19 >;
-		interrupt-parent = <&eint>;
-		interrupts = < EINT_EXI2 XGOLD_IRQ_TYPE_LEVEL_HIGH >;
 		intel,axis-map = < 0 1 2 >;
 		intel,negate = < 0 0 0 >;
 		intel,poll-interval = < 100 >;
@@ -417,8 +427,6 @@
 	gyroscope {
 		compatible = "st,l3gd20_gyr";
 		reg = < 0x6a >;
-		interrupt-parent = <&eint>;
-		interrupts = < EINT_EXI7 XGOLD_IRQ_TYPE_EDGE_RISING >;
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&gyroscope_default_pins>;
 		pinctrl-1 = <&gyroscope_sleep_pins>;
@@ -482,7 +490,7 @@
 };
 
 &sdmmc {
-	intel,tap_values = <0x0C51020 0x0C41020 0x0C41020 0x0C41020 0x0C51020 0x0F50F20 0x0F50F20 >;
+	intel,tap_values = <0x0241020 0x0C91020 0x0C41020 0x0291020 0x0C41020 0x0F50F20 0x0F50F20 >;
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&sdmmc_default_pins>;
 	pinctrl-1 = <&sdmmc_sleep_pins>;
@@ -490,7 +498,7 @@
 };
 
 &emmc {
-	intel,tap_values = <0x0F51020 0x0C41020 0x0C51020 0x0C41020 0x0C51021 0x0A50F11 0x0A50F11 >;
+	intel,tap_values = <0x0361020 0x0371020 0x0371020 0x0371020 0x0C41020 0x0A40F10 0x0A40F10 >;
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&emmc_default_pins>;
 	pinctrl-1 = <&emmc_sleep_pins>;
@@ -499,7 +507,7 @@
 };
 
 &sdio {
-	intel,tap_values = <0x0C51020 0x0C41020 0x0C41020 0x0C41020 0x0C51021 0x0A40F20 0x370030>;
+	intel,tap_values = <0x03D1020 0x05D1020 0x0C41020 0x05D1020 0x03D1020 0x0A40F20 0x370030>;
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&sdio_default_pins>;
 	pinctrl-1 = <&sdio_sleep_pins>;

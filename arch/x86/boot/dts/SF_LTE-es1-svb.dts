@@ -62,6 +62,18 @@
 		interrupt-names = "wakeup-host";
 	};
 
+	iwlwifi_sdio_platform {
+		compatible = "intel,iwlwifi_sdio_platform";
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&wifi_default_pins>;
+		pinctrl-1 = <&wifi_sleep_pins>;
+		pinctrl-2 = <&wifi_inactive_pins>;
+
+		interrupt-parent = <&capcom1>;
+		interrupts = < 7 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		interrupt-names = "wlan_irq";
+	};
+
 	graphics {
 		compatible = "intel,graphics";
 		intel,gpu-shared-mem = <0x20000000>;

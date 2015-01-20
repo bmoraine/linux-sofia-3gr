@@ -1,3 +1,6 @@
 /* XGOLD IRQ DTSI */
 #include "xgold/sofia_lte_soc/irq-eint.dtsi"
 #include "xgold/sofia_lte_soc/irq-hirq.dtsi"
+#ifdef SOFIALTE_ES2
+#include "xgold/sofia_lte_soc/irq-wake.dtsi"
+#endif

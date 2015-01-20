@@ -34,7 +34,11 @@
 		intel,nosteal;
 
 		#include "xgold/sofia_lte_soc/irq-apic.dtsi"
+#ifdef SOFIALTE_ES2
 		#include "xgold/sofia_lte_soc/pm.dtsi"
+#else
+		#include "xgold/sofia_lte_soc/pm-es1.dtsi"
+#endif
 
 		tadi:tadi {
 			compatible = "intel,tadi";
@@ -68,6 +72,50 @@
 
 				probe,offset = < 0x2000 >;
 
+#ifdef SOFIALTE_ES2
+				probe,portsel,0 = "CPU_PMI", "CPU_MMIO";
+				probe,portsel,1 = "EMIC0", "EMIC1", "EMIC2";
+				probe,portsel,2 = "CIF", "GPU";
+				probe,portsel,3 = "DCC1", "DCC2", "VEC", "VED";
+				probe,portsel,4 = "LMU";
+
+				stat,0 = "CPU_PMI";
+				stat,1 = "CPU_MMIO";
+				stat,2 = "GPU";
+				stat,3 = "DCC2";
+				stat,4 = "VED";
+				stat,5 = "VEC";
+				stat,6 = "EMIC0";
+				stat,7 = "EMIC1";
+				stat,8 = "EMIC2";
+				stat,9 = "CIF";
+
+				intel,qos-configs = "DCC2", "GPU", "CPU1";
+
+				intel,GPU-qos-settings = <
+					0x3588 0x0      /* prio */
+					0x358C 0x1      /* mode */
+					0x3590 0xFFF    /* bandwidth */
+					0x3594 0x3FF     /* saturation */
+					0x3598 0x5>;    /* ExtCtrl */
+
+				intel,DCC2-qos-settings = <
+					0x3688 0xE      /* prio */
+					0x368C 0x3      /* mode */
+					0x3690 0x9F     /* bandwidth */
+					0x3694 0x90     /* saturation */
+					0x3698 0x5>;    /* ExtCtrl */
+
+				intel,CPU1-qos-owner;
+				intel,CPU1-qos-settings = <
+					0x3708 0xF      /* prio */
+					0x370C 0x0      /* mode */
+					0x3710 0xFFF    /* bandwidth */
+					0x3714 0x0     /* saturation */
+					0x3718 0x5>;    /* ExtCtrl */
+
+                                #include "xgold/sofia_lte_soc/NoC-es2.0.dtsi"
+#else
 				probe,portsel,0 = "CPU_PMI", "CPU_MMIO";
 				probe,portsel,1 = "EMIC";
 				probe,portsel,2 = "CIF", "GPU";
@@ -98,7 +146,7 @@
 					0x3618 0x5>;    /* DCC2 QoSEn */
 
                                 #include "xgold/sofia_lte_soc/NoC.dtsi"
-
+#endif
 			};
 
 			l2_noc {
@@ -324,11 +372,15 @@
 						intel,tap_reg = < 0x80000 >;
 						intel,corecfg_reg = < 0x80008 >;
 						intel,corecfg_val = < 0x0074072>;
-						intel,is_non_removable = < 0 >;
 						/* BROKEN_CARD_DETECTION: bit15/
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_POWER_CONTROL_BUG: bit15 */
+#ifdef SOFIALTE_ES2
+						intel,quirks = < 0x0 0x4008 >;
+#else
 						intel,quirks = < 0x8000 0xc008 >;
+						intel,is_non_removable = < 0 >;
+#endif
 						intel,io-access-guest;
 						pm_ctrl{
 							pm,class-name = "mmcsd_volt_class";
@@ -346,7 +398,6 @@
 						};
 
 					};
-
 					sdio:sdio {
 						compatible = "intel,sdhci";
 						#address-cells = < 0 >;
@@ -356,7 +407,7 @@
 						interrupts = < SDIO_INT IRQ_TYPE_DEFAULT >;
 						resets = < &dbb_rst2 3 >;
 						reset-names = "sdio";
-						/*vmmc-supply = <&vdd_sdio30_pen>;*/
+						vmmc-supply = <&wlan_ldo>;
 						intel,max_clock = <200000000>;
 						intel,min_clock = <203125>;
 						intel,tap-hwbase = < &stsbc1 >;
@@ -724,6 +775,30 @@
 						reset-names = "vpu_enc";
 					};
 
+
+#ifdef SOFIALTE_ES2
+					gpu@0xeb300000 {
+						compatible = "arm,mali-midgard";
+						reg = <0xeb300000 0x10000>;
+						interrupts = <GPU_INT IRQ_TYPE_DEFAULT>,
+							<GPU_INT IRQ_TYPE_DEFAULT>,
+							<GPU_INT IRQ_TYPE_DEFAULT>;
+						interrupt-names = "JOB", "MMU", "GPU";
+						clocks = <&clk_mm_gpu>, <&clk_ahb_perm>;
+						clock-names = "clk_mali", "clk_ahb";
+						gpu-supply = <&vdd_gpu_pon>;
+
+						pm,class-name = "gpu_class";
+						pm,user-name = "gpu";
+						pm,state-D0 = "high_perf";
+						pm,state-D0i2 = "mid_perf";
+						pm,state-D0i3 = "low_perf";
+						pm,state-D3 = "disable";
+
+						resets = < &dbb_rst2 16 >;
+						reset-names = "gpu";
+					};
+#else /* SOFIALTE_ES1 */
 					gpu@EB300000 {
 						compatible = "arm,mali-400", "arm,mali-utgard";
 						reg = <0xEB300000 0x100000>;
@@ -750,6 +825,7 @@
 						resets = < &dbb_rst2 16 >;
 						reset-names = "gpu";
 					};
+#endif
 				};
 			};
 			modem_noc {
@@ -820,13 +896,21 @@
 
 					xgold_pmx_core:pinmux {
 						compatible = "pinctrl-single";
+#ifdef SOFIALTE_ES2
+						reg = <0xE4800000 0xa48>;
+#else
 						reg = <0xE4800000 0x80a40>;
+#endif
 						#address-cells = <1>;
 						#size-cells = <1>;
 						ranges;
 						#gpio-range-cells = <3>;
 						pinctrl-single,register-width = <32>;
+#ifdef SOFIALTE_ES2
+						pinctrl-single,first-pin-offset = <0x200>;
+#else
 						pinctrl-single,first-pin-offset = <0x80200>;
+#endif
 						pinctrl-single,function-mask = <0xfffff>;
 
 						range: gpio-range {
@@ -840,14 +924,23 @@
 						reg = <0xE4800000 0x100000>;
 						gpio-controller;
 						gpio-ranges = <&xgold_pmx_core 0 0 145>;
-						intel,gpio-direction = < 0x80200 10 1>;
 						intel,gpio-direction-out = < 1 >;
+#ifdef SOFIALTE_ES2
+						intel,gpio-direction = < 0x200 10 1>;
+						intel,gpio-output = < 0x200 9 1 >;
+						intel,gpio-input = < 0x800 9 1 >;
+#else
+						intel,gpio-direction = < 0x80200 10 1>;
 						intel,gpio-output = < 0x80200 9 1 >;
 						intel,gpio-input = < 0x80800 9 1 >;
+#endif
 						intel,gpiochip-base = <0>;
 						intel,gpiochip-id = <0>;
 						intel,gpiochip-num = <145>;
 					};
+
+
+
 
 					scu:scu{
 						reg = <0xE4900000 0x10000
@@ -896,6 +989,11 @@
 						clock-names = "kernel", "register";
 					};
 
+#ifdef SOFIALTE_ES2
+					oct2:oct2 {
+						compatible = "intel,oct2,tbd";
+					};
+#else
 					oct:oct {
 						compatible = "intel,oct";
 						reg = <0xE4B40000 0x20000>;
@@ -915,6 +1013,7 @@
 						pm,state-D0 = "enable";
 						pm,state-D3 = "disable";
 					};
+#endif
 					cgu:cgu {
 						compatible = "intel,cgu";
 						reg = <0xE4D00000 0x100000>;

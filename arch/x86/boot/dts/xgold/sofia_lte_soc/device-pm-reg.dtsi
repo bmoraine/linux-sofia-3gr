@@ -31,7 +31,17 @@ pm_lcd:pm@2 {
 	regulator-min-microvolt = < 1200000 >;
 	regulator-max-microvolt = < 2900000 >;
 	intel,class_name = "generic_class";
-	intel,user_name = "lcd";
+	intel,user_name = "ext_display";
 	intel,states = "disable", "enable";
 	intel,voltages = <0 2900000>;
+};
+wlan_ldo:fixedregulator@0 {
+	compatible = "regulator-fixed";
+	regulator-name = "wlan_ldo";
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+
+	startup-delay-us = <100>;
+	enable-active-high;
+	gpio = <&xgold_pmx_gpio 81 0>;
 };

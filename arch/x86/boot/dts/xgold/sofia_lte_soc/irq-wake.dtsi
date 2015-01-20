@@ -1,0 +1,64 @@
+wake_irq:wake_irq {
+	compatible = "intel,xgold_irq_wake";
+	reg-names = "spcu",
+		"wake-C0-R0", "wake-C0-R1",
+		"wake-C0-R2";
+	reg = < 0xe4d00000 0x1000
+		0x240 0x4 0x244 0x4
+		0x23C 0x4 >;
+	#intel-wake-cells = <3>;
+	/* Offset/Domain/Vector */
+	intel,wake-map-0 = <
+		23 &pic KPD_INT
+		24 &pic SBADSP_INT0
+		24 &pic SBADSP_INT1
+		24 &pic SBADSP_INT2
+		24 &pic SBADSP_INT3
+		24 &pic FBADSP_INT0
+		24 &pic FBADSP_INT1
+		24 &pic FBADSP_INT2
+		24 &pic FBADSP_INT3
+	>;
+	intel,wake-map-1 = <
+		16 &capcom1 0
+		16 &capcom1 1
+		16 &capcom1 2
+		16 &capcom1 3
+		16 &capcom1 4
+		16 &capcom1 5
+		16 &capcom1 6
+		16 &capcom1 7
+		18 &pic OCT_INT
+	>;
+	intel,wake-map-2 = <
+		0 &eint EINT_EXI0
+		1 &eint EINT_EXI1
+		2 &eint EINT_EXI2
+		3 &eint EINT_EXI3
+		4 &eint EINT_EXI4
+		5 &eint EINT_EXI5
+		6 &eint EINT_EXI6
+		7 &eint EINT_EXI7
+		8 &eint EINT_USIF2_WK
+		9 &eint EINT_USIF3_WK
+		10 &eint EINT_WDT0
+		11 &eint EINT_USIF4_WK
+		14 &eint EINT_USB_HS_RESUME
+		15 &eint EINT_USIF7_INT
+		16 &eint EINT_I2C5_WK
+		17 &eint EINT_I2C4_WK
+		18 &eint EINT_I2C3_WK
+		19 &eint EINT_I2C2_WK
+		20 &eint EINT_I2C1_WK
+		21 &eint EINT_USB_VBUSDETECT
+		22 &eint EINT_USIF1_WK
+		24 &eint EINT_EXI12
+		25 &eint EINT_EXI13
+		26 &eint EINT_EXI14
+		27 &eint EINT_EXI15
+		28 &eint EINT_EXI8
+		29 &eint EINT_EXI9
+		30 &eint EINT_EXI10
+		31 &eint EINT_EXI11
+	>;
+};
