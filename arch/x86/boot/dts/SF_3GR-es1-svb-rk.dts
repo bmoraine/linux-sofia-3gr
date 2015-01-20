@@ -190,7 +190,7 @@
 		compatible = "rockchip,rk818";
 		status = "okay";
 		interrupt-parent = <&eint>;
-		interrupts = < EINT_EXI6 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		interrupts = < EINT_EXI3 XGOLD_IRQ_TYPE_EDGE_FALLING >;
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&pmu_default_pins>;
 		pinctrl-1 = <&pmu_sleep_pins>;

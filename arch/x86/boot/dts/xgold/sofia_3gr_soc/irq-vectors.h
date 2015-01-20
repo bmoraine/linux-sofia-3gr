@@ -27,7 +27,7 @@
 #define SDIO_INT 0
 #define DIF_RX_BREQ_INT 0
 #define NANDCTRL_INT 0
-#define EXI3 0
+#define EXI3 123
 #define EXI4 0
 #define EXI5 0
 #define EXI6 59

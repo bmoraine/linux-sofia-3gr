@@ -37,7 +37,6 @@ eint:eint-interrupt-controller {
 		< USB_ID IRQ_TYPE_DEFAULT >; /* USB_ID */
 	reg = <0xe4800000 0x3000>;
 	reg-names = "eint-regs";
-	intel,virq,3 = <1>; /* EXT_INT3 */
 	intel,virq,4 = <1>; /* EXT_INT4 */
 	intel,virq,5 = <1>; /* EXT_INT5 */
 	intel,virq,7 = <1>; /* EXT_INT7 */
