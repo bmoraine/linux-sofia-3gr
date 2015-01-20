@@ -122,7 +122,6 @@ int32_t xgold_led_probe(struct platform_device *pdev)
 	int32_t ret = 0;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = pdev->dev.of_node;
-	struct resource *bl_res, *cgu_res;
 	struct xgold_led_data *led = platform_get_drvdata(pdev);
 	pr_debug("%s -->\n", __func__);
 
@@ -152,33 +151,6 @@ int32_t xgold_led_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "using native access\n");
 		led->flags |= XGOLD_LED_USE_NATIVE_IO_ACCESS;
 	}
-
-	/* Get io resources */
-	bl_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pmu-bl");
-	if (bl_res) {
-		dev_dbg(dev, "HW resources available\n");
-		led->physio = bl_res->start;
-		led->mmio = devm_ioremap(dev, bl_res->start,
-				resource_size(bl_res));
-		if (!led->mmio) {
-			dev_err(dev, "IO remap operation failed\n");
-			return -ENODEV;
-		}
-	} else
-		dev_dbg(dev, "no HW resources available\n");
-
-	cgu_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cgu-bl");
-	if (cgu_res) {
-		dev_dbg(dev, "CGU HW resources available\n");
-		led->cgu_physio = cgu_res->start;
-		led->cgu_mmio = devm_ioremap(dev, cgu_res->start,
-						resource_size(cgu_res));
-		if (!led->cgu_mmio) {
-			dev_err(dev, "CGU IO remap operation failed\n");
-			return -ENODEV;
-		}
-	} else
-		dev_dbg(dev, "no CGU HW resources available\n");
 
 	if (of_find_property(np, "intel,flags-use-safe-ctrl", NULL)) {
 		dev_dbg(dev, "safe-ctrl enabled\n");

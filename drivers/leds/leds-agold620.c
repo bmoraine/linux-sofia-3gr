@@ -27,7 +27,7 @@
 #include <linux/of_gpio.h>
 #include <sofia/mv_svc_hypercalls.h>
 #include <linux/leds-xgold.h>
-
+#include <linux/delay.h>
 #define XGOLD_LED_MODULE_NAME "leds-agold620"
 #define PROP_BL_GPIO_ENABLE	"intel,bl-gpio-enable"
 
@@ -104,6 +104,7 @@ static inline void agold620_led_on(struct device *dev)
 	int32_t intensity = SCALING_INTENSITY(led->led_brightness);
 	int32_t val = (SCU_K2_VAL * 100)/intensity;
 	pr_debug("%s -->\n", __func__);
+	mdelay(10);
 	led_write32(led, LED_CTRL, SCU_LED_DOWN);
 	led_write32(led, LED_K2_CONTROL, val);
 	led_write32(led, LED_K1MAX, SCU_K1MAX_VAL);
@@ -208,6 +209,7 @@ static int32_t agold620_led_set_backlight(struct device *dev)
 	unsigned long flags = 0;
 	spinlock_t *lock = &led->lock;
 	pr_debug("%s(%#x) -->\n", __func__, led->led_brightness);
+	mdelay(10);
 	spin_lock_irqsave(lock, flags);
 	if (led->led_brightness)
 		agold620_led_on(dev);
@@ -221,6 +223,7 @@ static int32_t agold620_led_probe(struct platform_device *pdev)
 {
 	struct xgold_led_data *led;
 	struct device *dev = &pdev->dev;
+	struct resource *bl_res, *cgu_res;
 	dev_info(dev, "AGOLD620 backlight driver probed\n");
 	led = devm_kzalloc(dev, sizeof(struct xgold_led_data), GFP_KERNEL);
 	if (!led) {
@@ -231,7 +234,35 @@ static int32_t agold620_led_probe(struct platform_device *pdev)
 	led->init = agold620_led_hwinit;
 	led->set_gpio = agold620_set_gpio;
 	led->set_backlight = agold620_led_set_backlight;
-	dev_set_drvdata(&pdev->dev, led);
+	led->np = pdev->dev.of_node;
+	dev_set_drvdata(dev, led);
+	led->pdev = pdev;
+		/* Get io resources */
+	bl_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pmu-bl");
+	if (bl_res) {
+		dev_dbg(dev, "HW resources available\n");
+		led->physio = bl_res->start;
+		led->mmio = devm_ioremap(dev, bl_res->start,
+				resource_size(bl_res));
+		if (!led->mmio) {
+			dev_err(dev, "IO remap operation failed\n");
+			return -ENODEV;
+		}
+	} else
+		dev_dbg(dev, "no HW resources available\n");
+
+	cgu_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cgu-bl");
+	if (cgu_res) {
+		dev_dbg(dev, "CGU HW resources available\n");
+		led->cgu_physio = cgu_res->start;
+		led->cgu_mmio = devm_ioremap(dev, cgu_res->start,
+						resource_size(cgu_res));
+		if (!led->cgu_mmio) {
+			dev_err(dev, "CGU IO remap operation failed\n");
+			return -ENODEV;
+		}
+	} else
+		dev_dbg(dev, "no CGU HW resources available\n");
 	agold620_of_gpio(dev);
 
 	return xgold_led_probe(pdev);
