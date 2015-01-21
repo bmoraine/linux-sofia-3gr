@@ -38,16 +38,20 @@
 			limit = <0x00000000>;
 			linux,cma-default;
 		};
+		/* special region for secured processing devices */
+		secured_region: region@8000000 {
+			reg = <0x08000000 0x08000000>;
+			no-map;
+			linux,cma;
+		};
 	};
-
 
 	vmodem {
 		compatible = "intel,vmodem";
-		reg = < 0x3c000000 0x04000000 >;
+		reg = < 0x1D000000 0x02C00000 >;
 	};
 
 	ion {
-#if 1 /* for RK ION */
 		compatible = "rockchip,ion";
 		#address-cells = < 1 >;
 		#size-cells = < 0 >;
@@ -60,19 +64,6 @@
 			compatible = "rockchip,ion-heap";
 			rockchip,ion_heap = < 3 >;
 		};
-#else
-		compatible = "intel,ion";
-#ifndef RECOVERY_KERNEL
-		secvm-handler;
-#endif
-		cma-heap {
-			id = <1>;
-			memory-region = <&cma_default_region>;
-		};
-		system-heap {
-			id = <3>;
-		};
-#endif
 	};
 
 	backlight {
