@@ -70,7 +70,6 @@
 		intel,chipid = <0x60 0x8 0x8>;
 		intel,rev = <0x60 0x0 0x8>;
 		intel,machine = "sofia_3gr_soc-es1-svb";
-		intel,nosteal;
 
 		#include "xgold/sofia_3gr_soc/irq-apic.dtsi"
 		#include "xgold/sofia_3gr_soc/irq-hirq.dtsi"
