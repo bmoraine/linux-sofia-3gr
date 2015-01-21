@@ -47,6 +47,7 @@
 
 #include "core.h"
 #include "hcd.h"
+#include "debug.h"
 
 static const char dwc2_driver_name[] = "dwc2";
 
@@ -262,6 +263,8 @@ static int dwc2_driver_probe(struct platform_device *dev)
 		return retval;
 
 	platform_set_drvdata(dev, hsotg);
+
+	dwc2_debugfs_init(hsotg);
 
 	return retval;
 }

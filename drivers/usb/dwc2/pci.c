@@ -53,6 +53,7 @@
 
 #include "core.h"
 #include "hcd.h"
+#include "debug.h"
 
 #define PCI_VENDOR_ID_SYNOPSYS		0x16c3
 #define PCI_PRODUCT_ID_HAPS_HSOTG	0xabc0
@@ -155,6 +156,8 @@ static int dwc2_driver_probe(struct pci_dev *dev,
 	}
 
 	pci_set_drvdata(dev, hsotg);
+
+	dwc2_debugfs_init(hsotg);
 
 	return retval;
 }
