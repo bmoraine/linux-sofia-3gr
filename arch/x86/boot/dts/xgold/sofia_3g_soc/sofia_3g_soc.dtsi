@@ -160,8 +160,8 @@
 				intel,CIF-qos-settings = <
 					0x1D88 0x4      /* prio */
 					0x1D8C 0x3      /* mode regulator */
-					0x1D90 0x100    /* bandwidth */
-					0x1D94 0x10     /* saturation */
+					0x1D90 0x400    /* bandwidth */
+					0x1D94 0x3FF     /* saturation */
 					0x1D98 0x5>;    /* QoSEn */
 #elif defined(SOFIA3G_ES2)
 				intel,qos-configs = "DCC2", "GPU";
