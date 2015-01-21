@@ -273,10 +273,11 @@ void xgold_dsp_hw_probe_a_handler(void *dev)
 	rw_shm_data.word_offset =
 		xgold_pcm->dsp->p_dsp_common_data->buf_sm_hw_probe_a_offset;
 
-	/* TODO: could we use same calculation as for playback and speech probes?
-		length = xrtd->stream->runtime->period_size *
-		xrtd->stream->runtime->channels;
-		rw_shm_data.len_in_bytes = length * 2;
+	/* TODO: could we use same calculation as for playback and
+	 * speech probes?
+	 *	length = xrtd->stream->runtime->period_size *
+	 *	xrtd->stream->runtime->channels;
+	 *	rw_shm_data.len_in_bytes = length * 2;
 	*/
 	rw_shm_data.len_in_bytes =
 		(2 * 240 * xrtd->stream->runtime->channels);
@@ -800,6 +801,7 @@ static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 		/* request DMA shutdown */
 		xgold_debug("terminate all dma: %p\n", xrtd->dmach);
 		dmaengine_terminate_all(xrtd->dmach);
+		spin_unlock_irqrestore(&xrtd->lock, flags);
 
 		/* Release the DMA channel */
 		dma_release_channel(xrtd->dmach);
@@ -807,7 +809,6 @@ static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 
 		/* Free scatter list memory*/
 		kfree(xrtd->dma_sgl);
-		spin_unlock_irqrestore(&xrtd->lock, flags);
 	}
 
 	/* Free DMA buffer */
