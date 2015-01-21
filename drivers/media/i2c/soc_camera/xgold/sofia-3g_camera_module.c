@@ -986,6 +986,22 @@ int pltfrm_camera_module_init(
 void pltfrm_camera_module_release(
 	struct v4l2_subdev *sd)
 {
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct pltfrm_camera_module_data *pdata =
+		dev_get_platdata(&client->dev);
+	int i;
+
+	/* GPIOs also needs to be freed for other sensors to use */
+	for (i = 0; i < ARRAY_SIZE(pdata->gpios); i++) {
+		if (gpio_is_valid(pdata->gpios[i].pltfrm_gpio)) {
+			pltfrm_camera_module_pr_debug(sd,
+				"free GPIO #%d ('%s')\n",
+				pdata->gpios[i].pltfrm_gpio,
+				pdata->gpios[i].label);
+			gpio_free(
+				pdata->gpios[i].pltfrm_gpio);
+		}
+	}
 }
 
 #endif

@@ -1548,7 +1548,9 @@ struct device *cif_isp20_pltfrm_get_img_src_device(
 	struct device_node *camera_list_node = NULL;
 	struct i2c_client *client = NULL;
 	int ret = 0;
-	u32 index;
+	u32 index, size=0;
+	const __be32 *phandle;
+	const char *facing = "";
 
 	node = of_node_get(dev->of_node);
 	if (IS_ERR_OR_NULL(node)) {
@@ -1559,37 +1561,45 @@ struct device *cif_isp20_pltfrm_get_img_src_device(
 
 	if ((inp == CIF_ISP20_INP_CSI_0) ||
 		(inp == CIF_ISP20_INP_CSI_1)) {
-		if (inp == CIF_ISP20_INP_CSI_0)
-			index = 0;
-		else
-			index = 1;
 
-		camera_list_node = of_parse_phandle(node,
-			"intel,camera-modules-attached", index);
-		of_node_put(node);
-		if (IS_ERR_OR_NULL(camera_list_node)) {
-			cif_isp20_pltfrm_pr_err(dev,
-				"invalid index %d for property 'intel,camera-modules-attached'\n",
-				index);
-				ret = -EINVAL;
-				goto err;
-		}
+		phandle = of_get_property(node, "intel,camera-modules-attached", &size);
 
-		if (!strcmp(camera_list_node->type, "v4l2-i2c-subdev")) {
-			client = of_find_i2c_device_by_node(camera_list_node);
-			of_node_put(camera_list_node);
-			if (IS_ERR_OR_NULL(client)) {
-				cif_isp20_pltfrm_pr_warn(dev,
-					"could not get camera i2c client, maybe not yet created, deferring device probing...\n");
-				ret = -EPROBE_DEFER;
-				goto err;
+		for (index = 0; index < size/sizeof(phandle); index++) {
+			camera_list_node = of_parse_phandle(node,
+				"intel,camera-modules-attached", index);
+			of_node_put(node);
+			if (IS_ERR_OR_NULL(camera_list_node)) {
+				cif_isp20_pltfrm_pr_err(dev,
+					"invalid index %d for property 'intel,camera-modules-attached'\n",
+					index);
+					ret = -EINVAL;
+					goto err;
 			}
-		} else {
-			cif_isp20_pltfrm_pr_err(dev,
-				"device of type %s not supported\n",
-				camera_list_node->type);
-				ret = -EINVAL;
-				goto err;
+
+			of_property_read_string(camera_list_node, "intel,camera-module-facing", &facing);
+
+			if (!strcmp(camera_list_node->type, "v4l2-i2c-subdev")) {
+				client = of_find_i2c_device_by_node(camera_list_node);
+				of_node_put(camera_list_node);
+				if (IS_ERR_OR_NULL(client)) {
+					cif_isp20_pltfrm_pr_warn(dev,
+						"could not get camera i2c client, maybe not yet created, deferring device probing...\n");
+					ret = -EPROBE_DEFER;
+					goto err;
+				}
+			} else {
+				cif_isp20_pltfrm_pr_err(dev,
+					"device of type %s not supported\n",
+					camera_list_node->type);
+					ret = -EINVAL;
+					goto err;
+			}
+
+			if ((!IS_ERR_OR_NULL(cif_isp20_img_src_to_img_src(&client->dev))) &&
+				(((inp == CIF_ISP20_INP_CSI_0) && (!strcmp(facing, "back"))) ||
+				((inp == CIF_ISP20_INP_CSI_1) && (!strcmp(facing, "front"))))) {
+				break;
+			}
 		}
 	} else {
 		cif_isp20_pltfrm_pr_err(dev,
