@@ -196,6 +196,9 @@ struct agold_afe_data {
 	struct afe_power_state afe_pow;
 	int codec_force_shutdown;
 	int dac_dsp_transit;
+	struct work_struct afe_trigger_work;
+	int cmd;
+	int stream;
 	/* Added for NKERNEL */
 	struct clk *clk;
 	struct xgold_afe_reg rst;

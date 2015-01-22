@@ -30,6 +30,7 @@
 #include <linux/device.h>
 #include <linux/reboot.h>
 #include <linux/notifier.h>
+#include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/reset.h>
 #include <sound/core.h>
@@ -436,6 +437,39 @@ static int agold_afe_get_reg_addr(unsigned int reg)
 #endif
 	}
 	return -1;
+}
+
+static void afe_trigger_work_handler(struct work_struct *work)
+{
+	u32 reg = 0;
+
+	struct agold_afe_data *afe =
+		container_of(work, struct agold_afe_data, afe_trigger_work);
+	struct snd_soc_codec *codec = afe->codec;
+
+	afe_debug(" %s cmd %d:\n", __func__, afe->cmd);
+	reg = snd_soc_read(codec, AGOLD_AFE_BCON);
+	switch (afe->cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		mutex_lock(&codec->mutex);
+		/* For capture stream, ensure that AUDINSTART
+		is not set in DAC mode */
+		if (afe->stream == SNDRV_PCM_STREAM_CAPTURE &&
+			!(reg & AFE_BCON_FMR_DIRECT)) {
+			afe_debug("%s : Enabling In start bit\n", __func__);
+			reg = snd_soc_read(codec, AGOLD_AFE_BCON);
+			/* Enable AUDINSTRT */
+			reg |= AFE_BCON_AUDINSTRT;
+			snd_soc_write(codec, AGOLD_AFE_BCON, reg);
+		}
+		mutex_unlock(&codec->mutex);
+		break;
+
+	default:
+		break;
+	}
 }
 
 #ifdef CONFIG_SND_SOC_AGOLD_HSOFC_SUPPORT
@@ -1801,32 +1835,13 @@ static void agold_afe_shutdown(struct snd_pcm_substream *substream,
 static int agold_afe_trigger(struct snd_pcm_substream *substream,
 			int cmd, struct snd_soc_dai *dai)
 {
-	u32 reg = 0;
+	struct agold_afe_data *agold_afe =
+		snd_soc_codec_get_drvdata(dai->codec);
 
-	reg = snd_soc_read(dai->codec, AGOLD_AFE_BCON);
+	agold_afe->stream = substream->stream;
+	agold_afe->cmd = cmd;
+	schedule_work(&agold_afe->afe_trigger_work);
 
-	switch (cmd) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		mutex_lock(&dai->codec->mutex);
-
-		/* For capture stream, ensure that AUDINSTART
-		 * is not set  in DAC mode */
-		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE &&
-				!(reg & AFE_BCON_FMR_DIRECT)) {
-			afe_debug("%s : Enabling In start bit\n", __func__);
-			reg = snd_soc_read(dai->codec, AGOLD_AFE_BCON);
-			/* Enable AUDINSTRT */
-			reg |= AFE_BCON_AUDINSTRT;
-			snd_soc_write(dai->codec, AGOLD_AFE_BCON, reg);
-		}
-		mutex_unlock(&dai->codec->mutex);
-		break;
-
-	default:
-		break;
-	}
 	return 0;
 }
 
@@ -2301,6 +2316,10 @@ static int agold_afe_device_probe(struct idi_peripheral_device *pdev,
 	}
 	agold_afe->dev = pdev;
 	agold_afe->codec_force_shutdown = 0;
+
+	/* Use a workqueue to avoid calling a mutex (sleeping function)
+	 * in an atomic context. */
+	INIT_WORK(&agold_afe->afe_trigger_work, afe_trigger_work_handler);
 
 	/* pm */
 	ret = device_state_pm_set_class(&pdev->device,
