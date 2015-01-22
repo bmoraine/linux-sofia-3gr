@@ -2432,6 +2432,10 @@ static int cif_isp20_config_mi_sp(
 		dev->config.base_addr + CIF_MI_QOS_WRITE_SP, 0x3f3f3f);
 */
 
+	cif_iowrite32_verify(0x303030,
+		dev->config.base_addr + CIF_MI_QOS_WRITE_SP, 0x3f3f3f);
+
+
 	mi_ctrl = cif_ioread32(dev->config.base_addr + CIF_MI_CTRL) |
 		CIF_MI_CTRL_SP_WRITE_FMT(writeformat) |
 		swap_cb_cr |
