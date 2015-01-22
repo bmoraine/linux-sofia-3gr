@@ -1212,6 +1212,230 @@ static int v4l2_s_ext_ctrls(struct file *file, void *priv,
 	return ret;
 }
 
+#ifdef CALC_CIF_ZOOMING_CAPACITY
+#define CIF_FREQ 442
+#define ISP_PIX_CLK_FREQ (CIF_FREQ/2)
+#endif
+int cif_isp20_v4l2_cropcap(
+	struct file *file,
+	void *fh,
+	struct v4l2_cropcap *a)
+{
+	int ret = 0;
+	struct videobuf_queue *queue = to_videobuf_queue(file);
+	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
+	struct isp_supplemental_sensor_mode_data mode_data;
+	u32 target_width, target_height;
+	u32 h_offs, v_offs;
+	u32 thresh_zoom;
+
+	if ((dev->config.input_sel == CIF_ISP20_INP_DMA) ||
+		(dev->config.input_sel == CIF_ISP20_INP_DMA_IE)) {
+
+		/* calculate cropping for aspect ratio */
+		ret = cif_isp20_calc_isp_cropping(dev,
+			&dev->isp_dev.input_width, &dev->isp_dev.input_height,
+			&h_offs, &v_offs);
+
+		/* Get output size */
+		ret = cif_isp20_get_target_frm_size(dev,
+			&target_width, &target_height);
+		if (ret < 0) {
+			cif_isp20_pltfrm_pr_err(dev->dev,
+				"failed to get target frame size\n");
+			return ret;
+		}
+
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"CIF_IN_W=%d, CIF_IN_H=%d, ISP_IN_W=%d, ISP_IN_H=%d, target_width=%d, target_height=%d\n",
+			dev->config.isp_config.input->width,
+			dev->config.isp_config.input->height,
+			dev->isp_dev.input_width,
+			dev->isp_dev.input_height,
+			target_width,
+			target_height);
+
+		/* This is the input to Bayer after input formatter cropping */
+		a->defrect.top = 0;
+		a->defrect.left = 0;
+		a->defrect.width = dev->isp_dev.input_width;
+		a->defrect.height = dev->isp_dev.input_height;
+		/* This is the minimum cropping window for the IS module */
+		a->bounds.width = 2;
+		a->bounds.height = 2;
+		a->bounds.top = (a->defrect.height - a->bounds.height) / 2;
+		a->bounds.left = (a->defrect.width - a->bounds.width) / 2;
+
+		a->type = V4L2_BUF_TYPE_VIDEO_OVERLAY;
+	} else if ((dev->config.input_sel == CIF_ISP20_INP_CSI_0) ||
+		(dev->config.input_sel == CIF_ISP20_INP_CSI_1)) {
+		/* calculate cropping for aspect ratio */
+		ret = cif_isp20_calc_isp_cropping(dev,
+			&dev->isp_dev.input_width, &dev->isp_dev.input_height,
+			&h_offs, &v_offs);
+
+		/* Get output size */
+		ret = cif_isp20_get_target_frm_size(dev,
+			&target_width, &target_height);
+		if (ret < 0) {
+			cif_isp20_pltfrm_pr_err(dev->dev,
+				"failed to get target frame size\n");
+			return ret;
+		}
+
+		/* This is the input to Bayer after input formatter cropping */
+		a->defrect.top = 0;
+		a->defrect.left = 0;
+		a->defrect.width = dev->isp_dev.input_width;
+		a->defrect.height = dev->isp_dev.input_height;
+
+
+		/* The chapter "On-The-Fly Zooming" in CIF 4.12 spec. gives
+		some fomular to estimate the HW zooming capacity of CIF.
+		However, it is not accurate enough, so here we don't
+		estimate it until reasonable description is given.
+		The v4l2_cropcap.bounds is set to the minimum */
+#ifdef CALC_CIF_ZOOMING_CAPACITY
+		/* Get sensor timings */
+		ret = (int)cif_isp20_img_src_ioctl(dev->img_src,
+			INTEL_VIDIOC_SENSOR_MODE_DATA, &mode_data);
+
+		if (ret < 0) {
+			cif_isp20_pltfrm_pr_err(dev->dev,
+				"failed to get sensor mode data\n");
+			return ret;
+		}
+
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"VTS=%d, HTS=%d, PCLK=%d, CIF_IN_W=%d, CIF_IN_H=%d, ISP_IN_W=%d, ISP_IN_H=%d, target_width=%d, target_height=%d\n",
+			mode_data.frame_length_lines, /*VTS*/
+			mode_data.line_length_pck, /*HTS*/
+			mode_data.vt_pix_clk_freq_hz,
+			mode_data.sensor_output_width, /*Sensor_width*/
+			mode_data.sensor_output_height, /*Sensor_height*/
+			dev->isp_dev.input_width,
+			dev->isp_dev.input_height,
+			target_width,
+			target_height);
+
+		thresh_zoom =
+			100*(mode_data.line_length_pck*dev->isp_dev.input_width
+			/
+			target_width)
+			/
+			target_width;
+		thresh_zoom =
+			thresh_zoom * ISP_PIX_CLK_FREQ
+			/
+			(mode_data.vt_pix_clk_freq_hz/1000000);
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"th_zoom_ratio(mid): %d\n", thresh_zoom);
+
+		/* This is the minimum cropping window for the IS module */
+		a->bounds.width = a->defrect.width * 100 / thresh_zoom;
+		a->bounds.width &= ~1;
+		a->bounds.height = a->defrect.height * 100 / thresh_zoom;
+		a->bounds.height &= ~1;
+#else
+		a->bounds.width = 2;
+		a->bounds.height = 2;
+#endif
+
+		a->bounds.top = (a->defrect.height - a->bounds.height) / 2;
+		a->bounds.left = (a->defrect.width - a->bounds.width) / 2;
+
+		a->type = V4L2_BUF_TYPE_VIDEO_OVERLAY;
+	} else {
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"cif_isp20_v4l2_cropcap: invalid input\n");
+	}
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"v4l2_cropcap: defrect(%d,%d,%d,%d) bounds(%d,%d,%d,%d)\n",
+		a->defrect.width,
+		a->defrect.height,
+		a->defrect.left,
+		a->defrect.top,
+		a->bounds.width,
+		a->bounds.height,
+		a->bounds.left,
+		a->bounds.top);
+
+	return ret;
+}
+
+int cif_isp20_v4l2_g_crop(struct file *file, void *fh, struct v4l2_crop *a)
+{
+	struct videobuf_queue *queue = to_videobuf_queue(file);
+	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
+
+	a->c.width = dev->config.isp_config.ism_config.ism_params.h_size;
+	a->c.height = dev->config.isp_config.ism_config.ism_params.v_size;
+	a->c.left = dev->config.isp_config.ism_config.ism_params.h_offs;
+	a->c.top = dev->config.isp_config.ism_config.ism_params.v_offs;
+
+	return 0;
+}
+
+/*
+	This is a write only function, so the upper layer
+	will ignore the changes to 'a'. So don't use 'a' to pass
+	the actual cropping parameters, the upper layer
+	should call g_crop to get the actual window.
+*/
+int cif_isp20_v4l2_s_crop(
+	struct file *file,
+	void *fh,
+	const struct v4l2_crop *a)
+{
+	int ret = 0;
+	struct videobuf_queue *queue = to_videobuf_queue(file);
+	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
+	unsigned long flags = 0;
+
+
+	local_irq_save(flags);
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"v4l2_s_crop 1: crop(%d,%d,%d,%d)\n",
+		a->c.width,
+		a->c.height,
+		a->c.left,
+		a->c.top);
+
+	dev->config.isp_config.ism_config.ism_update_needed = false;
+	dev->config.isp_config.ism_config.ism_params.recenter = 0;
+	dev->config.isp_config.ism_config.ism_params.displace = 0;
+	dev->config.isp_config.ism_config.ism_params.max_dx = 0;
+	dev->config.isp_config.ism_config.ism_params.max_dy = 0;
+
+	if ((a->c.width == dev->isp_dev.input_width) &&
+		(a->c.height == dev->isp_dev.input_height)) {
+		dev->config.isp_config.ism_config.ism_en = 0;
+		dev->config.isp_config.ism_config.ism_params.h_size =
+			a->c.width;
+		dev->config.isp_config.ism_config.ism_params.v_size =
+			a->c.height;
+		dev->config.isp_config.ism_config.ism_params.h_offs = 0;
+		dev->config.isp_config.ism_config.ism_params.v_offs = 0;
+	} else {
+		dev->config.isp_config.ism_config.ism_en = 1;
+		dev->config.isp_config.ism_config.ism_params.h_size =
+			a->c.width;
+		dev->config.isp_config.ism_config.ism_params.v_size =
+			a->c.height;
+		dev->config.isp_config.ism_config.ism_params.h_offs =
+			a->c.left;
+		dev->config.isp_config.ism_config.ism_params.v_offs =
+			a->c.top;
+	}
+
+	dev->config.isp_config.ism_config.ism_update_needed = true;
+
+	local_irq_restore(flags);
+	return ret;
+}
+
 const struct v4l2_ioctl_ops cif_isp20_v4l2_sp_ioctlops = {
 	.vidioc_reqbufs = cif_isp20_v4l2_reqbufs,
 	.vidioc_querybuf = cif_isp20_v4l2_querybuf,
@@ -1227,6 +1451,9 @@ const struct v4l2_ioctl_ops cif_isp20_v4l2_sp_ioctlops = {
 	.vidioc_g_fmt_vid_overlay = cif_isp20_v4l2_g_fmt,
 	.vidioc_s_ext_ctrls = v4l2_s_ext_ctrls,
 	.vidioc_querycap = v4l2_querycap,
+	.vidioc_cropcap = cif_isp20_v4l2_cropcap,
+	.vidioc_s_crop = cif_isp20_v4l2_s_crop,
+	.vidioc_g_crop = cif_isp20_v4l2_g_crop,
 	.vidioc_default = v4l2_default_ioctl,
 };
 
@@ -1245,7 +1472,10 @@ const struct v4l2_ioctl_ops cif_isp20_v4l2_mp_ioctlops = {
 	.vidioc_g_fmt_vid_cap = cif_isp20_v4l2_g_fmt,
 	.vidioc_enum_fmt_vid_cap = v4l2_enum_fmt_cap,
 	.vidioc_enum_framesizes = cif_isp20_v4l2_enum_framesizes,
-	.vidioc_s_parm = v4l2_s_parm
+	.vidioc_s_parm = v4l2_s_parm,
+	.vidioc_cropcap = cif_isp20_v4l2_cropcap,
+	.vidioc_s_crop = cif_isp20_v4l2_s_crop,
+	.vidioc_g_crop = cif_isp20_v4l2_g_crop,
 };
 
 const struct v4l2_ioctl_ops cif_isp20_v4l2_dma_ioctlops = {
@@ -1256,7 +1486,10 @@ const struct v4l2_ioctl_ops cif_isp20_v4l2_dma_ioctlops = {
 	.vidioc_streamon = cif_isp20_v4l2_streamon,
 	.vidioc_streamoff = cif_isp20_v4l2_streamoff,
 	.vidioc_s_fmt_vid_out = cif_isp20_v4l2_s_fmt,
-	.vidioc_g_fmt_vid_out = cif_isp20_v4l2_g_fmt
+	.vidioc_g_fmt_vid_out = cif_isp20_v4l2_g_fmt,
+	.vidioc_cropcap = cif_isp20_v4l2_cropcap,
+	.vidioc_s_crop = cif_isp20_v4l2_s_crop,
+	.vidioc_g_crop = cif_isp20_v4l2_g_crop,
 };
 
 static int xgold_v4l2_drv_probe(struct platform_device *pdev)

@@ -56,22 +56,22 @@ enum cif_isp20_irq;
 	pr_err("CIF ISP2.0 %s(%d) ERR: " fmt, \
 		__func__, __LINE__, ## arg)
 
-inline void cif_isp20_pltfrm_write_reg(
+void cif_isp20_pltfrm_write_reg(
 	struct device *dev,
 	u32 data,
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr);
 
-inline void cif_isp20_pltfrm_write_reg_OR(
+void cif_isp20_pltfrm_write_reg_OR(
 	struct device *dev,
 	u32 data,
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr);
 
-inline void cif_isp20_pltfrm_write_reg_AND(
+void cif_isp20_pltfrm_write_reg_AND(
 	struct device *dev,
 	u32 data,
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr);
 
-inline u32 cif_isp20_pltfrm_read_reg(
+u32 cif_isp20_pltfrm_read_reg(
 	struct device *dev,
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr);
 

@@ -33,7 +33,6 @@
 #include <media/v4l2-device.h>
 
 /*****************************************************************************/
-
 #define CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG
 #if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
 #endif
@@ -369,6 +368,7 @@ struct cif_isp20_rsz_config {
 	struct cif_isp20_frm_fmt *input;
 	struct cif_isp20_frm_fmt output;
 	bool ycflt_adjust;
+	bool ism_adjust;
 };
 
 struct cif_isp20_sp_config {
@@ -443,9 +443,29 @@ struct cif_isp20_ie_config {
 	enum cif_isp20_image_effect effect;
 };
 
+/* IS */
+struct cif_isp20_ism_params {
+	unsigned int ctrl;
+	unsigned int recenter;
+	unsigned int h_offs;
+	unsigned int v_offs;
+	unsigned int h_size;
+	unsigned int v_size;
+	unsigned int max_dx;
+	unsigned int max_dy;
+	unsigned int displace;
+};
+
+struct cif_isp20_ism_config {
+	bool ism_en;
+	struct cif_isp20_ism_params ism_params;
+	bool ism_update_needed;
+};
+
 struct cif_isp20_isp_config {
 	bool si_enable;
 	struct cif_isp20_ie_config ie_config;
+	struct cif_isp20_ism_config ism_config;
 	struct cif_isp20_frm_fmt *input;
 	struct cif_isp20_frm_fmt output;
 };
@@ -570,6 +590,12 @@ int cif_isp20_qbuf(
 	struct cif_isp20_device *dev,
 	enum cif_isp20_stream_id stream,
 	struct cif_isp20_buffer *buf);
+
+
+int cif_isp20_get_target_frm_size(
+	struct cif_isp20_device *dev,
+	u32 *target_width,
+	u32 *target_height);
 
 int cif_isp20_calc_isp_cropping(
 	struct cif_isp20_device *dev,

@@ -848,7 +848,7 @@ const char *cif_isp20_pltfrm_pm_state_string(
 	}
 }
 
-void cif_isp20_pltfrm_write_reg(
+inline void cif_isp20_pltfrm_write_reg(
 	struct device *dev,
 	u32 data,
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr)
@@ -883,7 +883,7 @@ void cif_isp20_pltfrm_write_reg(
 #endif
 }
 
-void cif_isp20_pltfrm_write_reg_OR(
+inline void cif_isp20_pltfrm_write_reg_OR(
 	struct device *dev,
 	u32 data,
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr)
@@ -892,7 +892,7 @@ void cif_isp20_pltfrm_write_reg_OR(
 		(ioread32(addr) | data), addr);
 }
 
-void cif_isp20_pltfrm_write_reg_AND(
+inline void cif_isp20_pltfrm_write_reg_AND(
 	struct device *dev,
 	u32 data,
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr)
@@ -901,7 +901,7 @@ void cif_isp20_pltfrm_write_reg_AND(
 		(ioread32(addr) & data), addr);
 }
 
-u32 cif_isp20_pltfrm_read_reg(
+inline u32 cif_isp20_pltfrm_read_reg(
 	struct device *dev,
 	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr)
 {

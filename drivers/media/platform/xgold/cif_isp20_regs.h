@@ -799,6 +799,8 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_MI_ISR                  ((CIF_MI_BASE + 0x00000108))
 #define CIF_MI_STATUS               ((CIF_MI_BASE + 0x0000010C))
 #define CIF_MI_STATUS_CLR           ((CIF_MI_BASE + 0x00000110))
+#define CIF_MI_QOS_WRITE_SP         ((CIF_MI_BASE + 0x00000150))
+#define CIF_MI_QOS_WRITE_MP         ((CIF_MI_BASE + 0x00000154))
 
 #define CIF_JPE_BASE                (0x00001800)
 #define CIF_JPE_GEN_HEADER          ((CIF_JPE_BASE + 0x00000000))
