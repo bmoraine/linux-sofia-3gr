@@ -28,9 +28,9 @@
 #include <linux/irqchip/irq_xgold.h>
 
 /* Max Number of SpcuCA5CwkupEn registers per core */
-#define NR_OF_REGS 2
+#define NR_OF_REGS 4
 /* Max Number of cores supporting the wakeup */
-#define NR_OF_CORES 2
+#define NR_OF_CORES 4
 
 #define MAX_WAKE_LENGTH 20
 
