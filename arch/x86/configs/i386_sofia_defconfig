@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/x86 3.14.0 Kernel Configuration
+# Linux/i386 3.14.0 Kernel Configuration
 #
 # CONFIG_64BIT is not set
 CONFIG_X86_32=y
@@ -2097,6 +2097,10 @@ CONFIG_MEDIA_TUNER_MC44S803=y
 # Graphics support
 #
 # CONFIG_DRM is not set
+
+#
+# ARM GPU Configuration
+#
 CONFIG_MALI400=y
 CONFIG_MALI450=y
 # CONFIG_MALI400_DEBUG is not set
@@ -2109,6 +2113,7 @@ CONFIG_MALI_SHARED_INTERRUPTS=y
 # CONFIG_MALI_PMU_PARALLEL_POWER_UP is not set
 CONFIG_MALI_DT=y
 # CONFIG_MALI_QUIET is not set
+# CONFIG_MALI_MIDGARD is not set
 # CONFIG_VGASTATE is not set
 # CONFIG_VIDEO_OUTPUT_CONTROL is not set
 CONFIG_VIDEOMODE_HELPERS=y
