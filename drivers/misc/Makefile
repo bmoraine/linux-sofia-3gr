@@ -62,4 +62,5 @@ obj-$(CONFIG_VERISILICON_7280)	+= verisilicon/7280/
 obj-$(CONFIG_VERISILICON_G1)  += verisilicon/G1/
 obj-$(CONFIG_MOBILEVISOR_VDRIVER_PIPE)  += verisilicon/vvpu/
 obj-$(CONFIG_VIBRA_XGOLD)	+= xgold-vibra.o
+obj-$(CONFIG_VIBRA_PMIC_6832)	+= pmic6832-vibra.o
 obj-$(CONFIG_ROCKCHIP_VPU)		+= rockchip/vpu/

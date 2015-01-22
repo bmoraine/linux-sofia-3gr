@@ -530,6 +530,11 @@ config VIBRA_XGOLD
 	help
 	  This option enables support for XGOLD Vibrator Driver.
 
+config VIBRA_PMIC_6832
+	bool "PMIC 6832 Vibrator driver"
+	help
+	  This option enables support for PMIC 6832 Vibrator Driver.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
