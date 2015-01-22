@@ -391,7 +391,6 @@
 &cif {
 //	intel,camera-modules-attached = <&camera0 &camera1>;
 };
-#endif
 
 &vpu {
        status = "okay";
@@ -400,6 +399,7 @@
 &hevc {
        status = "okay";
 };
+#endif
 
 #include "xgold/sofia_3gr_soc/pinctrl-sf_3gr-es1-svb-rk.dtsi"
 #include "xgold/agold620/pinctrl-sf_3g-es2.1-svb.dtsi"
