@@ -3529,24 +3529,15 @@ static void cifisp_release(struct video_device *vdev)
 }
 
 /************************************************************/
-struct video_device *register_cifisp_device(struct xgold_isp_dev *isp_dev,
+int register_cifisp_device(struct xgold_isp_dev *isp_dev,
+	struct video_device *vdev_cifisp,
 	struct v4l2_device *v4l2_dev,
 	void __iomem *cif_reg_baseaddress)
 {
-	struct video_device *vdev_cifisp = NULL;
-
 	memset(isp_dev, 0, sizeof(struct xgold_isp_dev));
 
 	isp_dev->base_addr = cif_reg_baseaddress;
 	BUG_ON(!(isp_dev->base_addr));
-
-	vdev_cifisp = video_device_alloc();
-
-	if (!vdev_cifisp) {
-		CIFISP_DPRINT(CIFISP_DEBUG_ERROR,
-			      "Could not allocate device\n");
-		return ERR_PTR(-ENOMEM);
-	}
 
 	INIT_LIST_HEAD(&isp_dev->stat);
 	spin_lock_init(&isp_dev->irq_lock);
@@ -3580,7 +3571,7 @@ struct video_device *register_cifisp_device(struct xgold_isp_dev *isp_dev,
 	if (video_register_device(vdev_cifisp, VFL_TYPE_GRABBER, -1) < 0) {
 		dev_err(&(vdev_cifisp->dev),
 			"could not register Video for Linux device\n");
-		return ERR_PTR(-ENODEV);
+		return -ENODEV;
 	} else {
 		CIFISP_DPRINT(CIFISP_DEBUG_INFO,
 			"%s: CIFISP vdev minor =  %d\n",
@@ -3592,11 +3583,11 @@ struct video_device *register_cifisp_device(struct xgold_isp_dev *isp_dev,
 			WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 
 	if (!measurement_wq)
-		return ERR_PTR(-ENOMEM);
+		return -ENOMEM;
 
 	isp_dev->v_blanking_us = CIFISP_MODULE_DEFAULT_VBLANKING_TIME;
 
-	return vdev_cifisp;
+	return 0;
 }
 
 void unregister_cifisp_device(struct video_device *vdev_cifisp)
