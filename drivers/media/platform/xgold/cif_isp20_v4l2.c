@@ -51,6 +51,8 @@ struct cif_isp20_v4l2_fh {
 struct cif_isp20_v4l2_node {
 	struct videobuf_queue buf_queue;
 	struct video_device vdev;
+	int users;
+	struct cif_isp20_v4l2_fh *owner;
 };
 
 /* One structure per device */
@@ -448,7 +450,12 @@ static int cif_isp20_v4l2_streamon(
 	static u32 streamon_cnt_sp;
 	static u32 streamon_cnt_mp;
 	static u32 streamon_cnt_dma;
+	struct cif_isp20_v4l2_fh *fh = to_fh(file);
+	struct cif_isp20_v4l2_node *node = to_node(fh);
 	u32 stream_ids = to_stream_id(file);
+
+	if (node->owner != fh)
+		return -EBUSY;
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "%s(%d)\n",
 		cif_isp20_v4l2_buf_type_string(queue->type),
@@ -485,10 +492,15 @@ static int cif_isp20_v4l2_streamoff(
 	int err;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
+	struct cif_isp20_v4l2_fh *fh = to_fh(file);
+	struct cif_isp20_v4l2_node *node = to_node(fh);
 	u32 stream_ids = to_stream_id(file);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
+
+	if (node->owner != fh)
+		return -EBUSY;
 
 	err = cif_isp20_streamoff(dev, stream_ids);
 	if (IS_ERR_VALUE(err))
@@ -520,12 +532,17 @@ static int cif_isp20_v4l2_qbuf(
 {
 	int ret;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
+	struct cif_isp20_v4l2_fh *fh = to_fh(file);
+	struct cif_isp20_v4l2_node *node = to_node(fh);
 
 	cif_isp20_pltfrm_pr_dbg(NULL,
 		"%s buffer type %s, index %d\n",
 		cif_isp20_v4l2_buf_type_string(queue->type),
 		cif_isp20_v4l2_buf_type_string(buf->type),
 		buf->index);
+
+	if (node->owner != fh)
+		return -EBUSY;
 
 	ret = videobuf_qbuf(queue, buf);
 	if (IS_ERR_VALUE(ret)) {
@@ -543,9 +560,14 @@ static int cif_isp20_v4l2_dqbuf(
 {
 	int ret;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
+	struct cif_isp20_v4l2_fh *fh = to_fh(file);
+	struct cif_isp20_v4l2_node *node = to_node(fh);
 
 	cif_isp20_pltfrm_pr_dbg(NULL, "%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
+
+	if (node->owner != fh)
+		return -EBUSY;
 
 	ret = videobuf_dqbuf(queue, buf, file->f_flags & O_NONBLOCK);
 	if (IS_ERR_VALUE(ret) && (ret != -EAGAIN)) {
@@ -687,6 +709,8 @@ static int cif_isp20_v4l2_reqbufs(
 	void *priv,
 	struct v4l2_requestbuffers *req)
 {
+	struct cif_isp20_v4l2_fh *fh = to_fh(file);
+	struct cif_isp20_v4l2_node *node = to_node(fh);
 	int ret;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 
@@ -695,6 +719,10 @@ static int cif_isp20_v4l2_reqbufs(
 		cif_isp20_v4l2_buf_type_string(queue->type),
 		cif_isp20_v4l2_buf_type_string(req->type),
 		req->count);
+
+	if (node->owner && node->owner != fh)
+		return -EBUSY;
+	node->owner = fh;
 
 	ret = videobuf_reqbufs(queue, req);
 	if (IS_ERR_VALUE(ret)) {
@@ -769,7 +797,12 @@ static int cif_isp20_v4l2_s_fmt(
 	int ret;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
+	struct cif_isp20_v4l2_fh *fh = to_fh(file);
+	struct cif_isp20_v4l2_node *node = to_node(fh);
 	struct cif_isp20_strm_fmt strm_fmt;
+
+	if (node->owner && node->owner != fh)
+		return -EBUSY;
 
 	strm_fmt.frm_fmt.pix_fmt =
 		cif_isp20_v4l2_pix_fmt2cif_isp20_pix_fmt(
@@ -872,6 +905,7 @@ static int cif_isp20_v4l2_open(
 	struct video_device *vdev = video_devdata(file);
 	struct cif_isp20_device *dev = video_get_drvdata(vdev);
 	struct cif_isp20_v4l2_fh *fh;
+	struct cif_isp20_v4l2_node *node;
 	enum v4l2_buf_type buf_type;
 	enum cif_isp20_stream_id stream_id;
 
@@ -910,6 +944,13 @@ static int cif_isp20_v4l2_open(
 	v4l2_fh_init(&fh->fh, vdev);
 	v4l2_fh_add(&fh->fh);
 
+	node = to_node(fh);
+	if (++node->users > 1)
+		return 0;
+
+	/* First open of the device, so initialize everything */
+	node->owner = NULL;
+
 	videobuf_queue_dma_contig_init(
 		to_videobuf_queue(file),
 		&cif_isp20_qops,
@@ -925,6 +966,7 @@ static int cif_isp20_v4l2_open(
 		v4l2_fh_del(&fh->fh);
 		v4l2_fh_exit(&fh->fh);
 		kfree(fh);
+		node->users--;
 		goto err;
 	}
 
@@ -941,16 +983,27 @@ static int cif_isp20_v4l2_release(struct file *file)
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
 	struct cif_isp20_v4l2_fh *fh = to_fh(file);
+	struct cif_isp20_v4l2_node *node = to_node(fh);
+	enum cif_isp20_stream_id stream_id = to_stream_id(file);
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
-	ret = cif_isp20_release(dev, to_stream_id(file));
-	if (IS_ERR_VALUE(ret))
-		cif_isp20_pltfrm_pr_err(dev->dev,
-			"failed with error %d\n", ret);
+
+	if (node->owner == fh)
+		node->owner = NULL;
+
 	v4l2_fh_del(&fh->fh);
 	v4l2_fh_exit(&fh->fh);
 	kfree(fh);
+	if (--node->users > 0)
+		return 0;
+
+	/* Last close, so uninitialize hardware */
+
+	ret = cif_isp20_release(dev, stream_id);
+	if (IS_ERR_VALUE(ret))
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"failed with error %d\n", ret);
 	return ret;
 }
 
