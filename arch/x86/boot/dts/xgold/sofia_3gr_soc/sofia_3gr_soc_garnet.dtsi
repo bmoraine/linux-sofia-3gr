@@ -774,29 +774,70 @@
 						intel,cif-ana-bandgap-bias-reg-offset =<0xc>;
 					};
 					spcu_thermal0{
+						/* 1st DTS close to cores */
 						compatible = "intel,spcu-thermal";
 						reg = <0xE4700000 0x1000>;
 						interrupt-parent = <&hirq>;
-						interrupts = <5 IRQ_TYPE_DEFAULT>,
-							     <6 IRQ_TYPE_DEFAULT>;
+						interrupts = <HIRQ_SPCU_THERM0_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM0_HIGH IRQ_TYPE_DEFAULT>;
 						interrupt-names = "TLOW", "THIGH";
 						intel,thermal-id = <0>;
 						intel,config-reg = <0xb90>;
 						intel,ctrl-reg = <0xb94>;
-						intel,stat-reg = <0xba0>;
+						intel,stat-reg = <0xbc0>;
 					};
 					spcu_thermal1{
+						/* 2nd DTS close to cores */
 						compatible = "intel,spcu-thermal";
 						reg = <0xE4700000 0x1000>;
 						interrupt-parent = <&hirq>;
-						interrupts = <7 IRQ_TYPE_DEFAULT>,
-							     <8 IRQ_TYPE_DEFAULT>;
+						interrupts = <HIRQ_SPCU_THERM1_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM1_HIGH IRQ_TYPE_DEFAULT>;
 						interrupt-names = "TLOW", "THIGH";
 						intel,thermal-id = <1>;
 						intel,config-reg = <0xb98>;
 						intel,ctrl-reg = <0xb9c>;
-						intel,stat-reg = <0xba4>;
-                                        };
+						intel,stat-reg = <0xbc4>;
+					};
+					spcu_thermal2{
+						/* 3rd DTS close to cores */
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4700000 0x1000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <HIRQ_SPCU_THERM2_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM2_HIGH IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,thermal-id = <2>;
+						intel,config-reg = <0xba0>;
+						intel,ctrl-reg = <0xba4>;
+						intel,stat-reg = <0xbc8>;
+					};
+					spcu_thermal3{
+						/* 4th DTS close to cores */
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4700000 0x1000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <HIRQ_SPCU_THERM3_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM3_HIGH IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,thermal-id = <3>;
+						intel,config-reg = <0xba8>;
+						intel,ctrl-reg = <0xbac>;
+						intel,stat-reg = <0xbcc>;
+					};
+					spcu_thermal4{
+						/* DTS close to GPU */
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4700000 0x1000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <HIRQ_SPCU_THERM4_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM4_HIGH IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,thermal-id = <4>;
+						intel,config-reg = <0xbb0>;
+						intel,ctrl-reg = <0xbb4>;
+						intel,stat-reg = <0xbd0>;
+					};
 					dbb_rst1:reset-controller1 {
 						compatible = "intel,xgold-reset";
 						reg = <0xE4801000 0xC>;
