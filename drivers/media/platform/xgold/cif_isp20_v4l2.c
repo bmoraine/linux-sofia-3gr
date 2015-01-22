@@ -1090,7 +1090,7 @@ static unsigned int cif_isp20_v4l2_poll(
 
 const struct v4l2_file_operations cif_isp20_v4l2_fops = {
 	.open = cif_isp20_v4l2_open,
-	.ioctl = video_ioctl2,
+	.unlocked_ioctl = video_ioctl2,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = video_ioctl2,
 #endif
