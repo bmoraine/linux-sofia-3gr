@@ -753,7 +753,7 @@ int dcc_dsi_get_rate(struct dcc_display *lcd)
 	return DSI_RATE(lcd->dif.u.dsi.n, lcd->dif.u.dsi.m);
 }
 
-void dcc_dsi_set_phy(struct dcc_display *lcd)
+int dcc_dsi_set_phy(struct dcc_display *lcd)
 {
 	unsigned int phy0 = 0, phy1 = 0, phy2 = 0, phy3 = 0, stat = 0, pllstat;
 	struct dcc_drvdata *pdata = m_to_dccdata(lcd, display);
@@ -806,33 +806,43 @@ void dcc_dsi_set_phy(struct dcc_display *lcd)
 	gra_write_field(pdata, INR_DIF_DSIPHY3, phy3);
 
 	if (!((lcd->dif.u.dsi.n == 0xFF) && (lcd->dif.u.dsi.m == 0))) {
+		int wait_delay_ms = 5;
+		int wait_loop_n = 2000 / wait_delay_ms; /* 2sec timeout*/
 		/* wait for PLL lock */
 		pllstat = BITFLDS(EXR_DIF_STAT_DSILOCK, 1);
 		gra_read_field(pdata, EXR_DIF_STAT, &stat);
 		DCC_DBG2("wait dsi pll lock 0x%08x (0x%08x)\n", stat, pllstat);
 
 		while ((stat & pllstat) != pllstat) {
+			mdelay(wait_delay_ms);
+			wait_loop_n--;
+			if (!wait_loop_n) {
+				dcc_err("dsi powerup loop timedout!\n");
+				return -EBUSY;
+			}
 			gra_read_field(pdata, EXR_DIF_STAT, &stat);
 			DCC_DBG2("wait dsi pll lock 0x%08x (0x%08x)\n",
 					stat, pllstat);
 		}
 	}
+	return 0;
 }
 
 int dcc_dsi_set_phy_lock(struct dcc_display *lcd)
 {
 	struct dcc_drvdata *pdata = m_to_dccdata(lcd, display);
+	int ret;
 	if (down_interruptible(&pdata->sem))
 		return -ERESTARTSYS;
-	dcc_dsi_set_phy(lcd);
+	ret = dcc_dsi_set_phy(lcd);
 
 	up(&pdata->sem);
-	return 0;
+	return ret;
 }
 
 int dcc_dsi_set_rate(struct dcc_display *lcd, int rate)
 {
-	int n = 0, m = 0;
+	int n = 0, m = 0, ret = 0;
 
 	if (rate == 0) {/* power off pll */
 		n = 0xFF;
@@ -865,9 +875,9 @@ found:
 	if ((lcd->dif.u.dsi.n != n) || (lcd->dif.u.dsi.m != m)) {
 		lcd->dif.u.dsi.n = n;
 		lcd->dif.u.dsi.m = m;
-		dcc_dsi_set_phy(lcd);
+		ret = dcc_dsi_set_phy(lcd);
 	}
-	return 0;
+	return ret;
 
 }
 
