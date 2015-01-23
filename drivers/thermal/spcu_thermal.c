@@ -43,12 +43,10 @@
 #define MEAS_INTERVAL 3			/* 80 ms */
 #define MEAS_DELAY 90			/* us */
 #define SW_HYST_DELAY 100		/* ms */
-#define INVALID_TRIP -1
 
-#define SW_HYST_VAL 4			/* LSB */
-#define ACCURACY 8				/* LSB */
+#define SW_HYST_VAL 0			/* LSB */
+#define ACCURACY 3				/* LSB */
 
-#define TRIP_RW_MASK ((0x1 << THRESHOLD_COUNT) - 1)
 
 #define AF_RDONLY   00000000
 #define AF_WRONLY   00000001
@@ -97,12 +95,26 @@ static struct {
 	},
 };
 
+
+#define TRIP_COUNT	2
+#define TRIP_RW_MASK ((0x1 << TRIP_COUNT) - 1)
+
+#define INVALID_TRIP (-1)
+
+#define TRIP_STATE_UNKNOWN	(-1)
+#define TRIP_STATE_LOW		(0)
+#define TRIP_STATE_HIGH		(1)
+
+struct thermal_trip {
+	int temp;
+	int state;
+};
+
 struct spcu_thermal_device;
 struct threshold {
 	struct spcu_thermal_device *tdev;
 	int virq;
 	int type;
-	int trip_temp;
 };
 
 struct spcu_thermal_device {
@@ -116,7 +128,10 @@ struct spcu_thermal_device {
 	int id;
 	u32 phy_base;
 	u32 *reg_offset;
+
 	int cached_temp;
+	int trend;
+	struct thermal_trip trip[TRIP_COUNT];
 };
 
 struct field_attr {
@@ -204,25 +219,25 @@ DEFINE_SPCU_REG_FIELD(STAT_REG, STAT_TLOW, 3, 1, AF_RDONLY)
 
 #define round_div_u64(n, d) (div_u64(((n) + (div_u64((d), 2))), (d)))
 
-/* regval = (degree + 21.79) / (degree * 0.001461 + 0.412003)  */
+/* regval = (degree + 22.4) / (degree *  0.001447 + 0.4192)*/
 static inline u32 temp2regval(u32 temp)
 {
 	u64 temp64 = (u64)temp;
 	u64 regval64;
 
-	regval64 = round_div_u64((temp64 * 1000000ULL + 21790000000ULL),
-			 (temp64 * 1461ULL + 412003000ULL));
+	regval64 = round_div_u64((temp64 * 1000000ULL + 22400000000ULL),
+			 (temp64 * 1447ULL + 419200000ULL));
 	return (u32)regval64;
 }
 
-/* degree = (regval * 0.01315 + 251.21) / (1 - regval * 0.001461) - 273 */
+/* degree = (regval * 0.4192 - 22.4) / (1 - regval * 0.001447) */
 static inline u32 regval2temp(u32 regval)
 {
 	u64 regval64 = (u64)regval;
 	u64 temp64;
 
-	temp64 = round_div_u64((13150000ULL * regval64 + 251210000000ULL),
-		   (1000000ULL - regval64 * 1461ULL)) - 273000ULL;
+	temp64 = round_div_u64((419200000ULL * regval64 - 22400000000ULL),
+		   (1000000ULL - regval64 * 1447ULL));
 	return (u32)temp64;
 }
 
@@ -287,15 +302,33 @@ static void set_intr_enable(struct threshold *threshold, u32 enable)
 		 dev->id, type);
 }
 
+static int sw_meas_oneshot(struct threshold *threshold, u32 meas_val)
+{
+	int ret;
+	u32 sw_meas_result;
+	u32 sw_meas_valid;
+
+	ret = set_trigger_val(threshold, meas_val);
+	ret |= set_sw_meas_start(threshold, 1);
+
+	udelay(MEAS_DELAY);
+
+	ret |= get_sw_meas_valid(threshold, &sw_meas_valid);
+	ret |= get_sw_meas_result(threshold, &sw_meas_result);
+
+	if (ret || (!sw_meas_valid))
+		return -1;
+
+	return sw_meas_result;
+}
 static bool sw_confirm_meas(struct threshold *threshold)
 {
 	struct spcu_thermal_device *dev = threshold->tdev;
 	u32 saved;
 	u32 verify;
 	u32 trigger_type;
-	u32 sw_meas_result;
-	u32 sw_meas_valid;
 	int ret;
+	bool result;
 
 	ret = get_trigger_val(threshold, &saved);
 	ret |= get_trigger_type(threshold, &trigger_type);
@@ -317,19 +350,22 @@ static bool sw_confirm_meas(struct threshold *threshold)
 		verify = saved;
 	}
 
-	ret = set_trigger_val(threshold, verify);
-	ret |= set_sw_meas_start(threshold, 1);
+	if (sw_meas_oneshot(threshold, verify) == trigger_type)
+		result = true;
+	else
+		result = false;
 
-	udelay(MEAS_DELAY);
+	set_trigger_val(threshold, saved);
 
-	ret |= set_trigger_val(threshold, saved);
-	ret |= get_sw_meas_valid(threshold, &sw_meas_valid);
-	ret |= get_sw_meas_result(threshold, &sw_meas_result);
-	ret |= get_trigger_type(threshold, &trigger_type);
-
-	return !ret && sw_meas_valid && sw_meas_result == trigger_type;
+	return result;
 }
 
+
+/*#define TEMP_CALC_STEP
+*/
+#define TEMP_CALC_BISECT
+
+#if defined(TEMP_CALC_STEP)
 static void update_thresholds(struct spcu_thermal_device *dev)
 {
 	u32 val;
@@ -380,6 +416,7 @@ static void update_thresholds(struct spcu_thermal_device *dev)
 static void update_temp(struct spcu_thermal_device *dev)
 {
 	u32 val;
+	int cur_temp;
 	int low_temp;
 	int high_temp;
 
@@ -396,24 +433,125 @@ static void update_temp(struct spcu_thermal_device *dev)
 	}
 
 	high_temp = regval2temp(val);
+	cur_temp = (low_temp+high_temp)/2;
 
-	dev->cached_temp = (low_temp + high_temp) / 2;
+	dev->trend =  (cur_temp >= dev->cached_temp) ?
+		TRIGGER_ABOVE : TRIGGER_BELOW;
+
+	dev->cached_temp = cur_temp;
+
 	dev_dbg(&dev->pdev->dev, "new temp set to %d\n", dev->cached_temp);
 }
 
-static void notify_thermal_event(struct threshold *threshold)
+static void calculate_temp_and_set_threshold(struct spcu_thermal_device *dev)
 {
-	struct thermal_zone_device *tzd = threshold->tdev->tzd;
-	struct spcu_thermal_device *dev = threshold->tdev;
-	char *thermal_event[4];
-	u32 val;
+	update_thresholds(dev);
+	update_temp(dev);
+}
 
-	if (get_trigger_type(dev->triggered, &val))
+#elif defined(TEMP_CALC_BISECT)
+static int do_bisect_temp_val(struct threshold *test_thres, u32 thres_low_val,
+			u32 thres_high_val)
+{
+	int test_val;
+	int high_val;
+	int low_val;
+
+	high_val = thres_high_val;
+	low_val = thres_low_val;
+
+	while ((high_val - low_val) > 2) {
+		test_val = ((low_val + high_val) >> 1);
+		if (sw_meas_oneshot(test_thres, test_val) == TRIGGER_ABOVE)
+			low_val = test_val;
+		else
+			high_val = test_val;
+	}
+
+	if (high_val < 0)
+		return -1;
+
+	return high_val;
+}
+
+static int bisect_calc_temp_val(struct spcu_thermal_device *dev, u32 *cur_temp_val)
+{
+	u32 trigger_val;
+	int trigger_type;
+	u32 temp_val;
+	int ret;
+
+	ret = get_trigger_val(dev->triggered, &trigger_val);
+	ret |= get_trigger_type(dev->triggered, &trigger_type);
+	if (ret)
+		return ret;
+
+	if (trigger_type == TRIGGER_BELOW)
+		temp_val = do_bisect_temp_val(
+					&dev->threshold[THRESHOLD_LOW],
+					0, trigger_val);
+	else
+		temp_val = do_bisect_temp_val(
+					&dev->threshold[THRESHOLD_LOW],
+					trigger_val, 255);
+
+	if (temp_val < 0)
+		return -1;
+
+	*cur_temp_val = temp_val;
+
+	return 0;
+
+}
+
+static void update_thresholds(struct spcu_thermal_device *dev, int cur_temp_val)
+{
+	dev_dbg(&dev->pdev->dev, "setting low to %d\n",
+				cur_temp_val - ACCURACY);
+	set_trigger_val(&dev->threshold[THRESHOLD_LOW],
+				cur_temp_val - ACCURACY);
+	dev_dbg(&dev->pdev->dev, "setting high to %d\n",
+				cur_temp_val + ACCURACY);
+	set_trigger_val(&dev->threshold[THRESHOLD_HIGH],
+				cur_temp_val + ACCURACY);
+
+}
+
+static void calculate_temp_and_set_threshold(struct spcu_thermal_device *dev)
+{
+	u32 cur_temp_val;
+	u32 cur_temp;
+
+	if (bisect_calc_temp_val(dev, &cur_temp_val))
 		return;
 
-	thermal_event[0] = kasprintf(GFP_KERNEL, "NAME=%s", tzd->type);
-	thermal_event[1] = kasprintf(GFP_KERNEL, "TEMP=%d", dev->cached_temp);
-	thermal_event[2] = kasprintf(GFP_KERNEL, "EVENT=%d", val);
+	cur_temp = regval2temp(cur_temp_val);
+
+	dev->trend = (cur_temp >= dev->cached_temp) ?
+		TRIGGER_ABOVE : TRIGGER_BELOW;
+	dev->cached_temp = cur_temp;
+
+	update_thresholds(dev, cur_temp_val);
+
+	dev_dbg(&dev->pdev->dev, "new temp set to %d\n", dev->cached_temp);
+
+}
+#endif
+
+static void notify_thermal_event(struct spcu_thermal_device *dev, int trip_id)
+{
+	struct thermal_zone_device *tzd = dev->tzd;
+	char *thermal_event[4];
+
+	thermal_event[0] = kasprintf(GFP_KERNEL,
+						 "NAME=%s",
+						 tzd->type);
+	thermal_event[1] = kasprintf(GFP_KERNEL,
+						 "TEMP=%d",
+						 dev->cached_temp);
+	thermal_event[2] =
+		kasprintf(GFP_KERNEL,
+				 "EVENT=%d", trip_id);
 	thermal_event[3] = NULL;
 
 	kobject_uevent_env(&tzd->device.kobj, KOBJ_CHANGE, thermal_event);
@@ -423,29 +561,72 @@ static void notify_thermal_event(struct threshold *threshold)
 	kfree(thermal_event[0]);
 }
 
-static void check_trip_temp(struct threshold *threshold)
+static inline void check_one_trip(struct spcu_thermal_device *dev, int trip_id)
 {
-	struct spcu_thermal_device *dev = threshold->tdev;
-	u32 type;
-	int ret;
+	struct thermal_trip *trip;
 
-	if (threshold->trip_temp == INVALID_TRIP)
+	trip = &dev->trip[trip_id];
+
+	if (trip->temp == INVALID_TRIP)
 		return;
 
-	ret = get_trigger_type(threshold, &type);
-	if (!ret &&
-		((type == TRIGGER_BELOW &&
-		 dev->cached_temp < threshold->trip_temp) ||
-		(type == TRIGGER_ABOVE &&
-		 dev->cached_temp > threshold->trip_temp)))
-		notify_thermal_event(threshold);
+	if (dev->cached_temp < trip->temp &&
+			trip->state != TRIP_STATE_HIGH) {
+		trip->state = TRIP_STATE_HIGH;
+		notify_thermal_event(dev, trip_id);
+	} else if (dev->cached_temp >= trip->temp &&
+			trip->state != TRIP_STATE_LOW) {
+		trip->state = TRIP_STATE_LOW;
+		notify_thermal_event(dev, trip_id);
+	} else {
+		return;
+	}
+}
+
+static void check_trips(struct spcu_thermal_device *dev)
+{
+	int i;
+	struct thermal_trip *trip;
+	int notify_trip_id = -1;
+
+	if (dev->trend == TRIGGER_BELOW) {
+		for (i = (TRIP_COUNT-1); i >= 0; i--) {
+			trip = &dev->trip[i];
+			if (trip->temp == INVALID_TRIP)
+				continue;
+
+			if (dev->cached_temp < trip->temp &&
+				trip->state != TRIP_STATE_HIGH) {
+				trip->state = TRIP_STATE_HIGH;
+				notify_trip_id = i;
+			}
+		}
+	} else if (dev->trend == TRIGGER_ABOVE) {
+		for (i = 0; i < TRIP_COUNT; i++) {
+			trip = &dev->trip[i];
+			if (trip->temp == INVALID_TRIP)
+				continue;
+
+			if (dev->cached_temp >= trip->temp &&
+				trip->state != TRIP_STATE_LOW) {
+				trip->state = TRIP_STATE_LOW;
+				notify_trip_id = i;
+			}
+		}
+	} else {
+		return;
+	}
+
+	if (notify_trip_id >= 0) {
+		notify_thermal_event(dev, notify_trip_id);
+	}
 }
 
 static void spcu_thermal_device_isr_work(struct work_struct *work)
 {
 	struct spcu_thermal_device *dev =
 		container_of(work, struct spcu_thermal_device, isr_work.work);
-	int ret;
+	int ret, i;
 
 	mutex_lock(&dev->lock);
 
@@ -456,18 +637,20 @@ static void spcu_thermal_device_isr_work(struct work_struct *work)
 
 	ret = sw_confirm_meas(dev->triggered);
 	if (!ret) {
-		dev_warn(&dev->pdev->dev, "unstable trigger\n");
+		dev_dbg(&dev->pdev->dev, "unstable trigger\n");
 		goto out;
 	}
 
-	update_thresholds(dev);
-	update_temp(dev);
-	check_trip_temp(dev->triggered);
+	calculate_temp_and_set_threshold(dev);
+
+	check_trips(dev);
 
 out:
 	/* re-enable interrupt and HW measurement timer */
 	set_hw_meas_start(dev, 1);
-	set_intr_enable(dev->triggered, 1);
+
+	for (i = 0; i < THRESHOLD_COUNT; i++)
+		set_intr_enable(&dev->threshold[i], 1);
 
 	mutex_unlock(&dev->lock);
 }
@@ -518,7 +701,7 @@ static int show_trip_temp(struct thermal_zone_device *thermal,
 {
 	struct spcu_thermal_device *dev = thermal->devdata;
 
-	*temp = dev->threshold[trip].trip_temp;
+	*temp = dev->trip[trip].temp;
 	return 0;
 }
 
@@ -528,8 +711,9 @@ static int store_trip_temp(struct thermal_zone_device *thermal,
 	struct spcu_thermal_device *dev = thermal->devdata;
 
 	mutex_lock(&dev->lock);
-	dev->threshold[trip].trip_temp = temp;
-	check_trip_temp(&dev->threshold[trip]);
+
+	dev->trip[trip].temp = temp;
+	check_one_trip(dev, trip);
 	mutex_unlock(&dev->lock);
 
 	return 0;
@@ -559,7 +743,6 @@ static void spcu_thermal_device_init(struct spcu_thermal_device *dev,
 		threshold = &dev->threshold[i];
 		threshold->tdev = dev;
 		threshold->type = i;
-		threshold->trip_temp = INVALID_TRIP;
 		threshold->virq =
 			platform_get_irq_byname(dev->pdev,
 					threshold_init[i].virq_name);
@@ -567,7 +750,13 @@ static void spcu_thermal_device_init(struct spcu_thermal_device *dev,
 		set_trigger_type(threshold, threshold_init[i].trigger_type);
 	}
 
+	for (i = 0; i < TRIP_COUNT; i++) {
+		dev->trip[i].temp = INVALID_TRIP;
+		dev->trip[i].state = TRIP_STATE_UNKNOWN;
+	}
+
 	dev->cached_temp = DEFAULT_TEMP;
+	dev->trend = TRIGGER_ABOVE;
 }
 
 static irqreturn_t threshold_irq_handler(int irq, void *dev_id)
@@ -578,6 +767,7 @@ static irqreturn_t threshold_irq_handler(int irq, void *dev_id)
 	/* disable interrupt because later SW measurement may trigger it */
 	/* vmm had already disabled it before routing to Linux */
 	/* set_intr_enable(threshold, 0); */
+
 	set_hw_meas_stop(dev, 1);
 
 	dev->triggered = threshold;
@@ -687,7 +877,7 @@ static int spcu_thermal_probe(struct platform_device *pdev)
 	sprintf(thermal_type, "%s%d", TZDNAME, thermal_device->id);
 	thermal_device->tzd =
 		thermal_zone_device_register(thermal_type,
-			 THRESHOLD_COUNT, TRIP_RW_MASK,
+			 TRIP_COUNT, TRIP_RW_MASK,
 			 thermal_device, &tzd_ops, NULL, 0, 0);
 
 	if (IS_ERR(thermal_device->tzd)) {
