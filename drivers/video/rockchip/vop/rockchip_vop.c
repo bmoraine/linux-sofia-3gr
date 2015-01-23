@@ -31,6 +31,9 @@
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 #include <linux/platform_device_pm.h>
 #endif
+#include <linux/xgold_noc.h>
+
+#define NOC_VOP_NAME "LCDC"
 
 static int dbg_thresd;
 module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
@@ -591,6 +594,8 @@ static int rockchip_vop_pre_init(struct rockchip_vop_driver *dev_drv)
 
 	rockchip_disp_pwr_enable(screen);
 	rockchip_vop_clk_enable(vop_dev);
+
+	xgold_noc_qos_set(NOC_VOP_NAME);
 
 	/* backup reg config at uboot */
 	vop_read_reg_defalut_cfg(vop_dev);
