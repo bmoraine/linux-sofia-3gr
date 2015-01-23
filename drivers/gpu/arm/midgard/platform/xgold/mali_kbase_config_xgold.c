@@ -34,7 +34,7 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 	int ret = -1;
 	struct xgold_platform_context *plf_context;
 	struct platform_device *pdev;
-
+	return;
 	mali_dbg("%s()\n", __func__);
 
 	if (!kbdev) {
@@ -81,7 +81,7 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 	}
 
 	ret = platform_device_pm_set_state(pdev,
-		plf_context->pm_states[MALI_PLF_PM_STATE_D0]);
+		plf_context->pm_states[MALI_PLF_PM_STATE_D1]);
 	if (ret < 0) {
 		mali_err("Device pm set state failed (%d)\n", ret);
 		return ret;
