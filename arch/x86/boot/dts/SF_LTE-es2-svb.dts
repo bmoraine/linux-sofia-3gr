@@ -498,7 +498,7 @@
 };
 
 &emmc {
-	intel,tap_values = <0x0361020 0x0371020 0x0371020 0x0371020 0x0C41020 0x0A40F10 0x0A40F10 >;
+	intel,tap_values = <0x0361020 0x0371020 0x0371020 0x0371020 0x0C41020 0x0070231 0x0A40F10 >;
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&emmc_default_pins>;
 	pinctrl-1 = <&emmc_sleep_pins>;
