@@ -2022,6 +2022,8 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 			wait_event_interruptible_timeout(host->buf_ready_int,
 						(host->tuning_done == 1),
 						msecs_to_jiffies(50));
+			DBG(": loop number: %d, tuning_result: %d\n",
+					tuning_loop_counter, host->tuning_done);
 			spin_lock_irqsave(&host->lock, flags);
 		}
 
@@ -2032,8 +2034,11 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 				"clock\n");
 			ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 			if (tuning_loop_counter == 1 &&
-				(SDHCI_QUIRK2_HOST_EXEC_TUNING_WA & host->quirks2))
+				(SDHCI_QUIRK2_HOST_EXEC_TUNING_WA
+				 & host->quirks2)) {
+				pr_info(DRIVER_NAME ": Arasan workaround: back to autotuning\n");
 				goto skip;
+			}
 			ctrl &= ~SDHCI_CTRL_TUNED_CLK;
 			ctrl &= ~SDHCI_CTRL_EXEC_TUNING;
 			sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
