@@ -1894,13 +1894,15 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 
 	host = mmc_priv(mmc);
 
-	if (SDHCI_QUIRK2_WA_LNP & host->quirks2) {
+	if ((SDHCI_QUIRK2_WA_LNP & host->quirks2) && (mmc->ios.timing ==
+			MMC_TIMING_UHS_SDR50)) {
 		/*
 		 * revert me :
 		 * SDR50 tuning is not supported by LnP so we need to make sure
 		 * it's not being attempted (required for LnP A0/K0/B0)
 		 */
 		host->flags &= ~SDHCI_SDR50_NEEDS_TUNING;
+		host->flags &= ~SDHCI_SDR104_NEEDS_TUNING;
 	}
 
 	sdhci_runtime_pm_get(host);
