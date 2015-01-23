@@ -391,7 +391,7 @@ static struct sdhci_ops xgold_sdhci_ops = {
 	.platform_init = xgold_sdhci_of_init,
 };
 
-static struct sdhci_pltfm_data sdhci_xgold_pdata = {
+static struct sdhci_pltfm_data sdhci_xgold_pdata_default = {
 	.quirks = XGOLD_DEFAULT_QUIRKS,
 	.quirks2 = XGOLD_DEFAULT_QUIRKS2,
 	.ops = &xgold_sdhci_ops,
@@ -433,6 +433,7 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct xgold_mmc_pdata *mmc_pdata;
 	struct resource res;
+	struct sdhci_pltfm_data sdhci_xgold_pdata;
 	int offset;
 	int value;
 	int it_wk, i, it_eint;
@@ -612,8 +613,11 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 
 
 	/* quirks */
-	sdhci_xgold_pdata.quirks |= quirktab[0];
-	sdhci_xgold_pdata.quirks2 |= quirktab[1];
+	sdhci_xgold_pdata.quirks = sdhci_xgold_pdata_default.quirks
+							| quirktab[0];
+	sdhci_xgold_pdata.quirks2 = sdhci_xgold_pdata_default.quirks2
+							| quirktab[1];
+	sdhci_xgold_pdata.ops = sdhci_xgold_pdata_default.ops;
 	ret = sdhci_pltfm_register(pdev, &sdhci_xgold_pdata, 0);
 
 err_end:
