@@ -36,6 +36,7 @@
 /* PM states index */
 #define MALI_PLF_PM_STATE_D3	0
 #define MALI_PLF_PM_STATE_D0	GPU_MAX_PM_STATE
+#define MALI_PLF_PM_STATE_D1	(MALI_PLF_PM_STATE_D0-1)
 
 
 struct xgold_platform_context {
