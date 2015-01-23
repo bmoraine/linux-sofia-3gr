@@ -488,7 +488,7 @@ static int rockchip_vop_reg_update(struct rockchip_vop_driver *dev_drv)
 
 static void rockchip_vop_reg_restore(struct vop_device *vop_dev)
 {
-	memcpy((u8 *)vop_dev->regs, (u8 *)vop_dev->regsbak, 0xe0);
+	memcpy((u8 *)vop_dev->regs, (u8 *)vop_dev->regsbak, 0xfc);
 }
 
 static int rockchip_vop_set_hwc_lut(struct rockchip_vop_driver *dev_drv,
