@@ -1238,8 +1238,6 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 
 		vop_msk_reg(vop_dev, VOP_DSP_CTRL1, M_DSP_OUT_ZERO,
 			    V_DSP_OUT_ZERO(0));
-		vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_LCDC_STANDBY,
-			    V_LCDC_STANDBY(0));
 		vop_msk_reg(vop_dev, VOP_DSP_CTRL1, M_BLANK_EN, V_BLANK_EN(0));
 		vop_cfg_done(vop_dev);
 
@@ -1248,6 +1246,12 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 
 	if (dev_drv->trsm_ops && dev_drv->trsm_ops->enable)
 		dev_drv->trsm_ops->enable();
+
+	/* VOP leave standby mode after DSI enable */
+	spin_lock(&vop_dev->reg_lock);
+	vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_LCDC_STANDBY,
+		V_LCDC_STANDBY(0));
+	spin_unlock(&vop_dev->reg_lock);
 
 	return 0;
 }
