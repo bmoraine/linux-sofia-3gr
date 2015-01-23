@@ -117,13 +117,20 @@
 				stat,4 = "EMIC1";
 				stat,5 = "EMIC2";
 
-				intel,qos-configs = "GPU";
+				intel,qos-configs = "GPU", "LCDC";
 				intel,GPU-qos-settings = <
 					0x1C88 0x0      /* prio */
 					0x1C8C 0x1      /* mode limiter */
 					0x1C90 0x120    /* bandwidth */
 					0x1C94 0x90     /* saturation */
 					0x1C98 0x5>;    /* QoSEn */
+
+				intel,LCDC-qos-settings = <
+					0x1D88 0xE      /* prio */
+					0x1D8C 0x0      /* mode fixed */
+					0x1D90 0x15E    /* bandwidth */
+					0x1D94 0x152    /* saturation */
+					0x1D98 0x5>;    /* QoSEn */
 
 				#include "xgold/sofia_3gr_soc/NoC.dtsi"
 			};
