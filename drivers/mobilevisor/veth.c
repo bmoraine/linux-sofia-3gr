@@ -590,7 +590,7 @@ static void mveth_on_event(uint32_t token, uint32_t event_id, void *cookie)
  */
 static void mveth_parse_mac_address(struct mveth_instance *mveth, char *cmdline)
 {
-	char tmp_addr[6];
+	unsigned long tmp_addr[6];
 	char *opt;
 	char *end;
 	int i;
@@ -618,12 +618,12 @@ static void mveth_parse_mac_address(struct mveth_instance *mveth, char *cmdline)
 			end++;
 		}
 		*end = 0;
-		if (kstrtoul(opt, 16, (unsigned long *)&tmp_addr[i++])) {
+		if (kstrtoul(opt, 16, &tmp_addr[i++])) {
 			mveth_error("error while parsing %s mac address.\n",
 				    mveth->netdev->name);
 			return;
 		}
-		if (i >= 4 ) 
+		if (i >= 4)
 			break;
 		opt = end + 1;
 	}
