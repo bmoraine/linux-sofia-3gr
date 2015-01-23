@@ -2841,7 +2841,15 @@ static int battery_probe(struct platform_device *pdev)
 						   USB_EVENT_VBUS, &di->vbus);
 		}
 		di->vbus_state_prev = VBUS_ON;
+	} else {
+		di->vbus = VBUS_OFF;
+		if (di->otg_handle) {
+			atomic_notifier_call_chain(&di->otg_handle->notifier,
+						   USB_EVENT_VBUS, &di->vbus);
+		}
+		di->vbus_state_prev = VBUS_OFF;
 	}
+
 
 #if 1
 	hot_die_irq = chip->irq_base + RK818_IRQ_HOTDIE;
