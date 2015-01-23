@@ -25,6 +25,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/rockchip_fb.h>
+#include <linux/reset.h>
 
 #include "dsi_device.h"
 #include "dsi_dts.h"
@@ -398,6 +399,12 @@ int dsi_of_parse_display(struct platform_device *pdev,
 				child->name, ret);
 		}
 	};
+
+	display->dsi_reset = devm_reset_control_get(&pdev->dev, "dsi");
+	if (IS_ERR(display->dsi_reset)) {
+		pr_err("%s: get dsi reset control failed\n", __func__);
+		display->dsi_reset = NULL;
+	}
 
 	return 0;
 }

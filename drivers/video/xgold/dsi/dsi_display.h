@@ -174,6 +174,7 @@ struct dsi_display {
 	void __iomem *regbase;
 	struct dsi_sync_obj_s sync;
 	struct dsi_irq irq;
+	struct reset_control *dsi_reset;
 };
 
 static inline int dsi_completion_timeout_ms(struct completion *comp, int to)

@@ -25,6 +25,7 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/rockchip_fb.h>
+#include <linux/reset.h>
 
 #include "dsi_device.h"
 #include "dsi_hwregs.h"
@@ -39,6 +40,9 @@ static int xgold_mipi_dsi_enable(void)
 
 	if (unlikely(!mipi_dsi) || mipi_dsi->sys_state)
 		return 0;
+
+	if (display->dsi_reset)
+		reset_control_deassert(display->dsi_reset);
 
 	if (display->power_on)
 		display->power_on(display);
@@ -74,6 +78,10 @@ static int xgold_mipi_dsi_disable(void)
 		display->power_off(display);
 
 	dsi_stop(display);
+
+	if (display->dsi_reset)
+		reset_control_assert(display->dsi_reset);
+
 	mipi_dsi->sys_state = false;
 
 	return 0;
