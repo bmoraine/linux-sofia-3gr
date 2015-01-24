@@ -18,6 +18,7 @@
 			reg = <2>;
 #endif
 		};
+
 		cpu@2 {
 			device_type = "cpu";
 			compatible = "intel,sofia";
@@ -27,6 +28,23 @@
 			device_type = "cpu";
 			compatible = "intel,sofia";
 			reg = <3>;
+		};
+
+		 idle-states {
+
+#define CPUIDLE_FLAG_TIME_VALID	(0x01) /* is residency time measurable? */
+#define CPUIDLE_FLAG_COUPLED	(0x02) /* state applies to multiple cpus */
+#define CPUIDLE_FLAG_TIMER_STOP (0x04)  /* timer is stopped on this state */
+
+			S0 {
+				compatible = "intel,sofia,idle-state";
+				desc = "WFE";
+				power-usage = <100>;
+				exit-latency = <100>;
+				target-residency= <100>;
+				flags = <1>;	/* CPUIDLE_FLAG_TIME_VALID */
+				vmm-id = <0>;
+			};
 		};
 	};
 
