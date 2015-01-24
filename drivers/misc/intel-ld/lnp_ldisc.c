@@ -434,7 +434,7 @@ static void lbf_ldisc_close(struct tty_struct *tty)
 	struct lbf_uart *lbf_uart = (void *) tty->disc_data;
 	tty->disc_data = NULL; /* Detach from the tty */
 	pr_info("-> %s\n", __func__);
-
+	flush_work(&lbf_tx->tx_wakeup_work);
 	skb_queue_purge(&lbf_tx->txq);
 	skb_queue_purge(&lbf_tx->tx_waitq);
 	lbf_uart->rx_count = 0;
