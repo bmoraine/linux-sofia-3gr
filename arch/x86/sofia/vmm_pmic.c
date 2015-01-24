@@ -140,20 +140,12 @@ u8 i2cdev;
 static ssize_t vmm_pmic_val_write(struct file *file, const char __user *ubuf,
 				size_t count, loff_t *ppos)
 {
-	int status = count;
-	char buf[8];
-
-	if (count > 8)
-		return -EFAULT;
-	if (copy_from_user(&buf, ubuf, count))
-		return -EFAULT;
-
-	if (kstrtou8(buf, 0, &val))
+	if (kstrtou8_from_user(ubuf, count, 0, &val))
 		return -EFAULT;
 
 	vmm_pmic_reg_write((i2cdev << 24) | regaddr, val);
 
-	return status;
+	return count;
 
 }
 static int vmm_pmic_val_show(struct seq_file *s, void *unused)
@@ -177,20 +169,12 @@ const struct file_operations vmm_pmic_val_ops = {
 	.release = single_release,
 };
 
-static ssize_t vmm_pmic_regaddr_write(struct file *file, const char __user *ubuf,
-				size_t count, loff_t *ppos)
+static ssize_t vmm_pmic_regaddr_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
 {
-	int status = count;
-	char buf[8];
-
-	if (count > 8)
+	if (kstrtou8_from_user(ubuf, count, 0, &regaddr))
 		return -EFAULT;
-	if (copy_from_user(&buf, ubuf, count))
-		return -EFAULT;
-
-	if (kstrtou8(buf, 0, &regaddr))
-		return -EFAULT;
-	return status;
+	return count;
 
 }
 static int vmm_pmic_regaddr_show(struct seq_file *s, void *unused)
@@ -215,17 +199,9 @@ const struct file_operations vmm_pmic_regaddr_ops = {
 static ssize_t vmm_pmic_i2cdev_write(struct file *file, const char __user *ubuf,
 				size_t count, loff_t *ppos)
 {
-	int status = count;
-	char buf[8];
-
-	if (count > 8)
+	if (kstrtou8_from_user(ubuf, count, 0, &i2cdev))
 		return -EFAULT;
-	if (copy_from_user(&buf, ubuf, count))
-		return -EFAULT;
-
-	if (kstrtou8(buf, 0, &i2cdev))
-		return -EFAULT;
-	return status;
+	return count;
 
 }
 static int vmm_pmic_i2cdev_show(struct seq_file *s, void *unused)
