@@ -981,17 +981,17 @@
 	};
 	prox_default_pins:prox_default_pins {
 		pinctrl-single,pins = <
-			0x368 0x1	/* prox_amb_irq */
+			0x368 0x2001	/* prox_amb_irq */
 		>;
 	};
 	prox_inactive_pins:prox_inactive_pins {
 		pinctrl-single,pins = <
-			0x368 0x4100	/* prox_amb_irq */
+			0x368 0x2100	/* prox_amb_irq */
 		>;
 	};
 	prox_sleep_pins:prox_sleep_pins {
 		pinctrl-single,pins = <
-			0x368 0x4100	/* prox_amb_irq */
+			0x368 0x2100	/* prox_amb_irq */
 		>;
 	};
 	gyroscope_default_pins:gyroscope_default_pins {
