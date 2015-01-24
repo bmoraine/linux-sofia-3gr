@@ -57,6 +57,9 @@
 		pinctrl-1 = <&bt_fmr_sleep_pins>;
 		pinctrl-2 = <&bt_fmr_inactive_pins>;
 		intel,bt-fmr-gpio-reset = <&xgold_pmx_gpio 77 0 >;
+		interrupt-parent = <&capcom1>;
+		interrupts = < 2 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		interrupt-names = "wakeup-host";
 	};
 
 	iwlwifi_sdio_platform {
