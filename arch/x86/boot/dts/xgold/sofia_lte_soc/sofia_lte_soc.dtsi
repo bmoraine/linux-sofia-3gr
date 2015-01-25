@@ -448,7 +448,11 @@
 						intel,tap_reg = < 0xc0000 >;
 						intel,tap_reg2 = < 0xc0008 >;	/* used for feedback clock control */
 						intel,corecfg_reg = < 0xc0004 0xc0008 0xc0020>;
+#ifdef SOFIALTE_ES2
+						intel,corecfg_val = < 0xfe1ada20 0x0074176 0x00001e>;
+#else
 						intel,corecfg_val = < 0xfe1ada20 0x0074176 0x0000FF>;
+#endif
 						intel,is_non_removable = < 1 >;
 						/* QUIRK1_HOST_CLOCK_BASE_BROKEN: bit25 */
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
