@@ -54,6 +54,8 @@ static void sdhci_finish_command(struct sdhci_host *);
 static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode);
 static void sdhci_tuning_timer(unsigned long data);
 static void sdhci_enable_preset_value(struct sdhci_host *host, bool enable);
+static int sdhci_select_drive_strength(struct mmc_host *mmc,
+			unsigned int max_dtr, int host_drv, int card_drv);
 
 #ifdef CONFIG_PM_RUNTIME
 static int sdhci_runtime_pm_get(struct sdhci_host *host);
@@ -2139,6 +2141,15 @@ static void sdhci_enable_preset_value(struct sdhci_host *host, bool enable)
 	}
 }
 
+static int sdhci_select_drive_strength(struct mmc_host *mmc,
+			unsigned int max_dtr, int host_drv, int card_drv)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	if (host->ops->select_card_drive_strength)
+		return host->ops->select_card_drive_strength(host, max_dtr);
+	return 0;
+}
+
 static void sdhci_card_event(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
@@ -2181,6 +2192,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.execute_tuning			= sdhci_execute_tuning,
 	.card_event			= sdhci_card_event,
 	.card_busy	= sdhci_card_busy,
+	.select_drive_strength		= sdhci_select_drive_strength,
 };
 
 /*****************************************************************************\
