@@ -40,7 +40,7 @@
 #include "xgold_jack.h"
 
 /* FIXME */
-#include "../codecs/agold_acc_det.h"
+#include "../codecs/afe_acc_det.h"
 
 #define	xgold_err(fmt, arg...) \
 		pr_err("snd: jack: "fmt, ##arg)
@@ -152,33 +152,34 @@ static int xgold_jack_pmic_reg_write(u32 dev_addr, u32 reg_addr, u8 reg_val)
 }
 
 /* Call to AFE to change the VBIAS settings */
-static void configure_vbias(enum xgold_vbias state)
+static void configure_vbias(struct xgold_jack *jack, enum xgold_vbias state)
 {
-	struct agold_afe_acc_det acc_det_par;
+	struct afe_acc_det acc_det_par;
+	int ret;
 
 	xgold_debug("--> %s: %s\n", __func__, (state == XGOLD_VBIAS_ENABLE) ?
 			"XGOLD_VBIAS_ENABLE" : "XGOLD_VBIAS_ULP_ON");
 
-	acc_det_par.vumic_conf.vmode = AGOLD_AFE_VUMIC_MODE_ULP;
-	acc_det_par.vumic_conf.hzmic = AGOLD_AFE_HZVUMIC_NORMAL_POWER_DOWN;
+	acc_det_par.vumic_conf.vmode = AFE_VUMIC_MODE_ULP;
+	acc_det_par.vumic_conf.hzmic = AFE_HZVUMIC_NORMAL_POWER_DOWN;
 
 	switch (state) {
 	case XGOLD_VBIAS_ENABLE:
-		acc_det_par.vumic_conf.vmicsel = AGOLD_AFE_VMICSEL_2_1_V;
-		acc_det_par.micldo_mode = AGOLD_AFE_MICLDO_MODE_NORMAL;
-		acc_det_par.xb_mode = AGOLD_AFE_XB_ON;
+		acc_det_par.vumic_conf.vmicsel = AFE_VMICSEL_2_1_V;
+		acc_det_par.micldo_mode = AFE_MICLDO_MODE_NORMAL;
+		acc_det_par.xb_mode = AFE_XB_ON;
 		break;
 	case XGOLD_VBIAS_ULP_ON:
-		acc_det_par.vumic_conf.vmicsel = AGOLD_AFE_VMICSEL_1_9_V;
-		acc_det_par.micldo_mode = AGOLD_AFE_MICLDO_MODE_LOW_POWER;
-		acc_det_par.xb_mode = AGOLD_AFE_XB_OFF;
+		acc_det_par.vumic_conf.vmicsel = AFE_VMICSEL_1_9_V;
+		acc_det_par.micldo_mode = AFE_MICLDO_MODE_LOW_POWER;
+		acc_det_par.xb_mode = AFE_XB_OFF;
 		break;
 	default:
 		return;
 	}
 
 	if (jack->flags & XGOLD_JACK_PMIC)
-		ret = afe_set_acc_det_with_lock(acc_det_par);
+		ret = pmic_afe_set_acc_det_with_lock(acc_det_par);
 	else
 		ret = agold_afe_set_acc_det_with_lock(acc_det_par);
 
@@ -245,7 +246,7 @@ static void xgold_jack_check(struct xgold_jack *jack)
 	int status = 0;
 	enum xgold_vbias vbias;
 
-	configure_vbias(XGOLD_VBIAS_ENABLE);
+	configure_vbias(jack, XGOLD_VBIAS_ENABLE);
 
 	/* First, make sure we have a stable state.
 	   Headset insertion takes a bit of time(~> 500ms),
@@ -289,7 +290,7 @@ static void xgold_jack_check(struct xgold_jack *jack)
 		return;
 	}
 
-	configure_vbias(vbias);
+	configure_vbias(jack, vbias);
 	msleep(VBIAS_SETTLING_TIME_MS);
 
 	/* Check if there really is a state change */
