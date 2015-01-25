@@ -44,6 +44,7 @@
 	#define ioremap_wc ioremap
 #endif
 
+#define DCC_VERSION_5_11 0x4307
 
 /* if FrameBuffer is in RGB32 888
  *  n    0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23
@@ -282,6 +283,11 @@ int dcc_core_probe(struct platform_device *pdev)
 	dcc_core_hwstart(pdata);
 	/* Read DCC revision number */
 	gra_read_field(pdata, EXR_DIF_ID_NUMBER, &pdata->id);
+
+	if (pdata->id >= DCC_VERSION_5_11)
+		pdata->dcc_sprite2_unified = 1;
+	else
+		pdata->dcc_sprite2_unified = 0;
 
 	/* install interrupts */
 	ret = dcc_hal_probe(pdata);

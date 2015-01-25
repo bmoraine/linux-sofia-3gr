@@ -246,6 +246,7 @@ struct dcc_drvdata {
 	int use_fbapi;
 	int fbapi_nr_buffers;
 	int display_preinit;
+	int dcc_sprite2_unified;
 	int display_autorefresh;
 	int display_invert_composite;
 	struct dcc_test_t test;	/* tests configuration */

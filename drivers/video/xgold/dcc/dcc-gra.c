@@ -420,6 +420,7 @@ static int dcc_sprite_conf(struct dcc_drvdata *p, struct dcc_sprite_t *spr)
 		break;
 	case 2:
 		conf_reg = INR_DIF_SPRITE_CONF2;
+		size_reg = INR_DIF_SPRITE_SIZE2;
 		base_reg = INR_DIF_SPRITE_BASEx2;
 		break;
 	case 3:
@@ -478,7 +479,7 @@ static int dcc_sprite_conf(struct dcc_drvdata *p, struct dcc_sprite_t *spr)
 		goto out;
 	}
 
-	if (spr->id == 2) {
+	if (spr->id == 2 && !p->dcc_sprite2_unified) {
 		unsigned int spr_is_bgr = dcc_sprite_needs_rgb_bgr(spr);
 		if (type == 0x4) {
 			dcc_warn("Wrong sprite format(%d) for layer(%d) !\n",
@@ -513,7 +514,7 @@ static int dcc_sprite_conf(struct dcc_drvdata *p, struct dcc_sprite_t *spr)
 	/**
 	 * Set DIF_SPRITE_SIZEx value
 	 */
-	if (spr->id != 2) {
+	if (spr->id != 2 || p->dcc_sprite2_unified) {
 		size_val =
 		    DIF_SPRITE_SIZE_SET(spr->w, spr->h, spr->alpha,
 					spr->global);
