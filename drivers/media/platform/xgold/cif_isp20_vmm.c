@@ -643,48 +643,106 @@ static ssize_t cif_isp20_dbgfs_write(
 
 	token = strsep(&strp, " ");
 	if (!strncmp(token, "print", 5)) {
-		if (pdata->dbgfs.print_func) {
+		token = strsep(&strp, " ");
+		if (IS_ERR_OR_NULL(token)) {
+			cif_isp20_pltfrm_pr_err(dev,
+				"missing token, command format is 'print all|<list of block name>'\n");
+			return -EINVAL;
+		}
+		if (!strncmp(token, "register", 8)) {
+			u32 addr;
+			struct cif_isp20_pltfrm_data *pdata =
+				dev->platform_data;
 			token = strsep(&strp, " ");
-			if (IS_ERR_OR_NULL(token)) {
+			while (token) {
+				if (IS_ERR_VALUE(kstrtou32(token,
+					16, &addr))) {
+					cif_isp20_pltfrm_pr_err(dev,
+						"malformed token, must be a hexadecimal register address\n");
+					return -EINVAL;
+				}
+				pr_info("0x%04x: 0x%08x\n",
+					addr,
+					ioread32(pdata->base_addr +
+						addr));
+				token = strsep(&strp, " ");
+			}
+		} else if (pdata->dbgfs.print_func) {
+			unsigned long flags;
+			local_irq_save(flags);
+			while (token) {
+				pdata->dbgfs.print_func(
+					pdata->dbgfs.print_cntxt,
+					token);
+				token = strsep(&strp, " ");
+			}
+			local_irq_restore(flags);
+		}
+	} else if (!strncmp(token, "power", 5)) {
+		token = strsep(&strp, " ");
+		if (IS_ERR_OR_NULL(token)) {
+			cif_isp20_pltfrm_pr_err(dev,
+				"missing token, command format is 'power [off|on]'\n");
+			return -EINVAL;
+		}
+		if (!strncmp(token, "on", 2)) {
+			if (IS_ERR_VALUE(cif_isp20_pltfrm_pm_set_state(dev,
+				CIF_ISP20_PM_STATE_SW_STNDBY, NULL)))
 				cif_isp20_pltfrm_pr_err(dev,
-					"missing token, command format is 'print all|<list of block name>'\n");
+					"power on failed\n");
+			else
+				cif_isp20_pltfrm_pr_info(dev,
+					"switched on\n");
+		} else if (!strncmp(token, "off", 3)) {
+			if (IS_ERR_VALUE(cif_isp20_pltfrm_pm_set_state(dev,
+				CIF_ISP20_PM_STATE_OFF, NULL)))
+				cif_isp20_pltfrm_pr_err(dev,
+					"power off failed\n");
+			else
+				cif_isp20_pltfrm_pr_info(dev,
+					"switched off\n");
+		} else {
+			cif_isp20_pltfrm_pr_err(dev,
+				"missing token, command format is 'power [off|on]'\n");
+			return -EINVAL;
+		}
+	} else if (!strncmp(token, "set", 3)) {
+		token = strsep(&strp, " ");
+		if (IS_ERR_OR_NULL(token)) {
+			cif_isp20_pltfrm_pr_err(dev,
+				"missing token, command format is 'set register <hex addr>=<hex val>'\n");
+			return -EINVAL;
+		}
+		if (!strncmp(token, "register", 8)) {
+			u32 addr;
+			u32 val;
+			struct cif_isp20_pltfrm_data *pdata =
+				dev->platform_data;
+			token = strsep(&strp, "=");
+			if (IS_ERR_VALUE(kstrtou32(token,
+				16, &addr))) {
+				cif_isp20_pltfrm_pr_err(dev,
+					"malformed token, address must be a hexadecimal register address\n");
 				return -EINVAL;
 			}
-			if (!strncmp(token, "register", 5)) {
-				u32 addr;
-				struct cif_isp20_pltfrm_data *pdata =
-					dev->platform_data;
-				token = strsep(&strp, " ");
-				while (token) {
-					if (IS_ERR_VALUE(kstrtou32(token,
-						16, &addr))) {
-						cif_isp20_pltfrm_pr_err(dev,
-							"malformed token, must be a hexadecimal register address\n");
-						return -EINVAL;
-					}
-					pr_info("0x%04x: 0x%08x\n",
-						addr,
-						ioread32(pdata->base_addr +
-							addr));
-					token = strsep(&strp, " ");
-				}
-			} else {
-				unsigned long flags;
-				local_irq_save(flags);
-				while (token) {
-					pdata->dbgfs.print_func(
-						pdata->dbgfs.print_cntxt,
-						token);
-					token = strsep(&strp, " ");
-				}
-				local_irq_restore(flags);
+			token = strp;
+			if (IS_ERR_VALUE(kstrtou32(token,
+				16, &val))) {
+				cif_isp20_pltfrm_pr_err(dev,
+					"malformed token, value must be a hexadecimal value\n");
+				return -EINVAL;
 			}
+			iowrite32(val, pdata->base_addr + addr);
+		} else {
+			cif_isp20_pltfrm_pr_err(dev,
+				"unkown command %s\n", token);
+			return -EINVAL;
 		}
 	} else {
-		cif_isp20_pltfrm_pr_err(dev, "unkown command %s\n", token);
+		cif_isp20_pltfrm_pr_err(dev,
+			"unkown command %s\n", token);
 		return -EINVAL;
 	}
-
 	return count;
 }
 
@@ -1120,7 +1178,7 @@ int cif_isp20_pltfrm_dev_init(
 		&cif_isp20_dbgfs_csi_fops);
 	pdata->dbgfs.cif_isp20_file = debugfs_create_file(
 		"cif_isp20",
-		0222,
+		0200,
 		pdata->dbgfs.dir,
 		dev,
 		&cif_isp20_dbgfs_fops);
