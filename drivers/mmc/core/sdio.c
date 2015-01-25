@@ -449,6 +449,7 @@ static void sdio_select_driver_type(struct mmc_card *card)
 	 * return what is possible given the options
 	 */
 	drive_strength = card->host->ops->select_drive_strength(
+		card->host,
 		card->sw_caps.uhs_max_dtr,
 		host_drv_type, card_drv_type);
 
@@ -457,7 +458,6 @@ static void sdio_select_driver_type(struct mmc_card *card)
 		&card_strength);
 	if (err)
 		return;
-
 	card_strength &= ~(SDIO_DRIVE_DTSx_MASK<<SDIO_DRIVE_DTSx_SHIFT);
 	card_strength |= host_drive_to_sdio_drive(drive_strength);
 
