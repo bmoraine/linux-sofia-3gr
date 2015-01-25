@@ -95,7 +95,7 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 	/* return 1 if the GPU state may have been lost, 0 otherwise */
 	return 1;
 }
-
+#if 0
 static void pm_callback_suspend(struct kbase_device *kbdev)
 {
 	mali_dbg("%s()\n", __func__);
@@ -109,7 +109,7 @@ static void pm_callback_resume(struct kbase_device *kbdev)
 
 	(void) pm_callback_power_on(kbdev);
 }
-
+#endif
 #ifdef CONFIG_PM_RUNTIME
 static mali_error pm_callback_runtime_init(struct kbase_device *kbdev)
 {
@@ -146,8 +146,8 @@ static struct kbase_pm_callback_conf pm_callbacks = {
 	Note: If suspend and resume callback are not defined,
 	system will used power_off/on_callback instead
 	*/
-	.power_suspend_callback  = pm_callback_suspend,
-	.power_resume_callback = pm_callback_resume,
+	.power_suspend_callback  = NULL,
+	.power_resume_callback = NULL,
 #ifdef CONFIG_PM_RUNTIME
 	.power_runtime_init_callback = pm_callback_runtime_init,
 	.power_runtime_term_callback = pm_callback_runtime_term,
