@@ -32,12 +32,13 @@
 		<&range 81 1 0x1500>,    /* wlan_en */
 		<&range 82 6 0x100>,
 		<&range 88 1 0x01500>,  /* touch_irq */
-		<&range 89 19 0x100>,
-		<&range 108 1 0x01500>,	/* cam1_pd */
-		<&range 109 2 0x100>,
-		<&range 111 1 0x01500>,	/* cam2_pd */
+		<&range 89 23 0x100>,
 		<&range 112 1 0x1700>,  /* touch_reset */
-		<&range 113 31 0x100>;
+		<&range 113 9 0x100>,
+		<&range 122 1 0x01500>,	/* cam2_pd */
+		<&range 123 2 0x100>,
+		<&range 125 1 0x01500>,	/* cam1_pd */
+		<&range 126 18 0x100>;
 
 	pinctrl-names = "default", "sleep", "deactivate"; /*"activate", "sleep", "deactivate" */
 	/* map here static pins (do not need any dynamic config) */
@@ -1137,17 +1138,17 @@
 	};
 	cam1_function_B_active_pins:cam1_function_B_active_pins {
 		pinctrl-single,pins = <
-			0x3b0 0x1500	/* cam1_pd */
+			0x3f4 0x1500	/* cam1_pd */
 		>;
 	};
 	cam1_function_B_inactive_pins:cam1_function_B_inactive_pins {
 		pinctrl-single,pins = <
-			0x3b0 0x4100	/* cam1_pd */
+			0x3f4 0x4100	/* cam1_pd */
 		>;
 	};
 	cam1_function_B_sleep_pins:cam1_function_B_sleep_pins {
 		pinctrl-single,pins = <
-			0x3b0 0x4100	/* cam1_pd */
+			0x3f4 0x4100	/* cam1_pd */
 		>;
 	};
 	s50_default_pins:s50_default_pins {
@@ -1170,17 +1171,17 @@
 	};
 	cam2_function_B_active_pins:cam2_function_B_active_pins {
 		pinctrl-single,pins = <
-			0x3bc 0x1700	/* cam2_pwd */
+			0x3e8 0x1500	/* cam2_pwd */
 		>;
 	};
 	cam2_function_B_inactive_pins:cam2_function_B_inactive_pins {
 		pinctrl-single,pins = <
-			0x3bc 0x2100	/* cam2_pwd */
+			0x3e8 0x4100	/* cam2_pwd */
 		>;
 	};
 	cam2_function_B_sleep_pins:cam2_function_B_sleep_pins {
 		pinctrl-single,pins = <
-			0x3bc 0x2100	/* cam2_pwd */
+			0x3e8 0x4100	/* cam2_pwd */
 		>;
 	};
 	cif_function_B_active_pins:cif_function_B_active_pins {
