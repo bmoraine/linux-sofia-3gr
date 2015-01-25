@@ -158,6 +158,11 @@ static void *kbasep_map(struct kbase_context *kctx, mali_addr64 gpu_addr,
 	if (!(region->flags & KBASE_REG_CPU_CACHED)) {
 		/* Map uncached */
 		prot = pgprot_writecombine(prot);
+#ifdef CONFIG_X86
+		for (i = 0; i < page_count; i++)
+			if (get_page_memtype(pages[i]) != _PAGE_CACHE_WC)
+				set_pages_wc(pages[i], 1);
+#endif
 	}
 
 	cpu_addr = vmap(pages, page_count, VM_MAP, prot);

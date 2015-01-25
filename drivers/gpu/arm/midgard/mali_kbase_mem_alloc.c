@@ -150,7 +150,8 @@ void kbase_mem_allocator_term(struct kbase_mem_allocator *allocator)
 			       DMA_BIDIRECTIONAL);
 
 #ifdef CONFIG_X86
-		set_pages_wb(p, 1);
+		if (get_page_memtype(p) == _PAGE_CACHE_WC)
+			set_pages_wb(p, 1);
 #endif
 
 		ClearPagePrivate(p);
@@ -231,10 +232,6 @@ mali_error kbase_mem_allocator_alloc(struct kbase_mem_allocator *allocator, size
 			goto err_out_roll_back;
 		}
 
-#ifdef CONFIG_X86
-		set_pages_wc(p, 1);
-#endif
-
 		SetPagePrivate(p);
 		kbase_set_dma_addr(p, dma_addr);
 		pages[i] = PFN_PHYS(page_to_pfn(p));
@@ -251,10 +248,6 @@ err_out_roll_back:
 		dma_unmap_page(allocator->kbdev->dev, kbase_dma_addr(p),
 			       PAGE_SIZE,
 			       DMA_BIDIRECTIONAL);
-
-#ifdef CONFIG_X86
-		set_pages_wb(p, 1);
-#endif
 
 		ClearPagePrivate(p);
 		__free_page(p);
@@ -293,7 +286,8 @@ void kbase_mem_allocator_free(struct kbase_mem_allocator *allocator, size_t nr_p
 				       DMA_BIDIRECTIONAL);
 
 #ifdef CONFIG_X86
-			set_pages_wb(p, 1);
+			if (get_page_memtype(p) == _PAGE_CACHE_WC)
+				set_pages_wb(p, 1);
 #endif
 
 			ClearPagePrivate(p);
