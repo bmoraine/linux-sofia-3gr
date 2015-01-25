@@ -32,7 +32,7 @@
 #include <sound/core.h>
 #include <sound/soc.h>
 #include "agold_afe.h"
-#include "agold_acc_det.h"
+#include "afe_acc_det.h"
 
 /* Masks for AGOLD AFE Register AUDIO IN CTRL fileds */
 
@@ -62,11 +62,10 @@
 #define SHIFT_AUDIOINCTRL_VMIC_MODE    20
 #define SHIFT_BCON_XB_ON               31
 
-
 /* Structure to hold accessory detection settings */
 struct agold_afe_accessory_detect {
 	/* Stores the current accessory identification settings */
-	struct agold_afe_acc_det acc_det_param;
+	struct afe_acc_det acc_det_param;
 	bool mic_ldo_on;  /* Indicates that MIC is ON */
 	bool vmic_mode; /*vmic mode setting from ASOC */
 };
@@ -78,23 +77,23 @@ struct agold_afe_accessory_detect {
 struct agold_afe_accessory_detect acc_det_data = {
 	.acc_det_param = {
 		.vumic_conf = {
-			.vmode = AGOLD_AFE_VUMIC_MODE_ULP,
-			.hzmic = AGOLD_AFE_HZVUMIC_NORMAL_POWER_DOWN,
-			.vmicsel = AGOLD_AFE_VMICSEL_2_2_V,
+			.vmode = AFE_VUMIC_MODE_ULP,
+			.hzmic = AFE_HZVUMIC_NORMAL_POWER_DOWN,
+			.vmicsel = AFE_VMICSEL_2_2_V,
 		},
-		.micldo_mode = AGOLD_AFE_MICLDO_MODE_LOW_POWER,
-		.xb_mode = AGOLD_AFE_XB_OFF,
+		.micldo_mode = AFE_MICLDO_MODE_LOW_POWER,
+		.xb_mode = AFE_XB_OFF,
 	},
 	.mic_ldo_on = 0,
 	.vmic_mode = 0,
 };
 
-int agold_afe_set_acc_det_with_lock(struct agold_afe_acc_det acc_det_par)
+int agold_afe_set_acc_det_with_lock(struct afe_acc_det acc_det_par)
 {
 	int result = -EINVAL;
 	unsigned int current_reg;
 	struct agold_afe_data *afe_private_data = agold_afe_get_private_data();
-	struct agold_afe_acc_det *acd_par = &acc_det_data.acc_det_param;
+	struct afe_acc_det *acd_par = &acc_det_data.acc_det_param;
 
 	if ((NULL != afe_private_data) && (NULL != afe_private_data->codec)) {
 		/* The interface would get called from Accessory driver
@@ -173,7 +172,7 @@ int agold_afe_calculate_acc_settings(unsigned int reg,
 		*final_value &= ~(1 << SHIFT_AUDIOINCTRL_VUMIC_MODE);
 
 		if (!acc_det_data.mic_ldo_on) {
-			struct agold_afe_acc_det *p_acd_par =
+			struct afe_acc_det *p_acd_par =
 				&acc_det_data.acc_det_param;
 			/* DAPM sequence has mic ldo disabled.
 				Use acc settings */
@@ -210,12 +209,12 @@ int agold_afe_calculate_acc_settings(unsigned int reg,
 			 * not be off */
 			*final_value = (*final_value &
 					MASK_AUDIOINCTRL_VUMIC_MODE);
-			*final_value |= (AGOLD_AFE_VUMIC_MODE_NORMAL <<
+			*final_value |= (AFE_VUMIC_MODE_NORMAL <<
 					SHIFT_AUDIOINCTRL_VUMIC_MODE);
 
 			/* Update mic ldo and vmic mode together */
 			*final_value = *final_value & MASK_AUDIOINCTRL_MIC_LDO;
-			*final_value |= (AGOLD_AFE_MICLDO_MODE_NORMAL <<
+			*final_value |= (AFE_MICLDO_MODE_NORMAL <<
 					SHIFT_AUDIOINCTRL_MIC_LDO);
 
 			/* ASOC request for vmic mode bias widget is stored and

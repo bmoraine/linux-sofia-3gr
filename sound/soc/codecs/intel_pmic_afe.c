@@ -44,7 +44,7 @@
 #include "intel_pmic_afe.h"
 
 #ifdef CONFIG_SND_SOC_AGOLD_ACC_DET_INTERFACE
-#include "intel_pmic_acc_det.h"
+#include "afe_acc_det.h"
 #endif
 
 #ifdef CONFIG_SND_SOC_AGOLD_PT_DEBUG
@@ -667,7 +667,7 @@ static inline int afe_reg_write(struct snd_soc_codec *codec,
 			|| (reg == AFE_BCON4_REG)) {
 		/* Combine the values requested for accessory identification
 		 * and MIC use case */
-		afe_calculate_acc_settings(reg, value, &final_value);
+		pmic_afe_calculate_acc_settings(reg, value, &final_value);
 	}
 #endif
 
@@ -873,7 +873,7 @@ static int afe_mic_event(struct snd_soc_dapm_widget *w,
 	afe_debug("%s: Event : %d\n", __func__, event);
 
 #ifdef CONFIG_SND_SOC_AGOLD_ACC_DET_INTERFACE
-	ret = afe_acc_update_mic_status(event);
+	ret = pmic_afe_acc_update_mic_status(event);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		val = snd_soc_read(w->dapm->codec,
@@ -900,7 +900,7 @@ static int afe_mic1_mode_event(struct snd_soc_dapm_widget *w,
 
 	afe_debug("%s: Event : %d\n", __func__, event);
 #ifdef CONFIG_SND_SOC_AGOLD_ACC_DET_INTERFACE
-	 return afe_acc_update_mic1_mode_status(event);
+	return pmic_afe_acc_update_mic1_mode_status(event);
 #else
 	return 0;
 #endif

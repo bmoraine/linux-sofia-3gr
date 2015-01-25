@@ -46,8 +46,9 @@
 #include "agold_afe.h"
 
 #ifdef CONFIG_SND_SOC_AGOLD_ACC_DET_INTERFACE
-#include "agold_acc_det.h"
+#include "afe_acc_det.h"
 #endif
+
 
 #define AGOLD_AFE_NOF_BYTES_PER_REG 4
 
@@ -64,7 +65,8 @@
 #define AFE_COMPARATOR_VALIDATE_COUNT 800
 /* Number of gain stages for offset calibration */
 #define AFE_NVM_NOF_HSOSC 8
-/* Cailbration result returned to user space */
+
+/* Calibration result returned to user space */
 struct cal_result {
 	u8 hs_calib_done;
 	/* Container for final offset calibration values */

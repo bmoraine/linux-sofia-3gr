@@ -28,7 +28,7 @@
 #include <sound/core.h>
 #include <sound/soc.h>
 #include "intel_pmic_afe.h"
-#include "intel_pmic_acc_det.h"
+#include "afe_acc_det.h"
 
 /* Masks for AFE Register AUDIO IN CTRL fileds */
 
@@ -89,7 +89,7 @@ struct afe_accessory_detect pmic_acc_det_data = {
 	.vmic_mode = 0,
 };
 
-int afe_set_acc_det_with_lock(struct afe_acc_det acc_det_par)
+int pmic_afe_set_acc_det_with_lock(struct afe_acc_det acc_det_par)
 {
 	int result = -EINVAL;
 	u8 reg;
@@ -145,7 +145,7 @@ int afe_set_acc_det_with_lock(struct afe_acc_det acc_det_par)
 		}
 	return result;
 }
-EXPORT_SYMBOL_GPL(afe_set_acc_det_with_lock);
+EXPORT_SYMBOL_GPL(pmic_afe_set_acc_det_with_lock);
 
 /*Function calculates the register values for AGOLD_AFE_AUDIOINCTRL and
  *AGOLD_AFE_BCON.Certain register bits are requested both by MIC use cases
@@ -156,7 +156,7 @@ EXPORT_SYMBOL_GPL(afe_set_acc_det_with_lock);
  *will be used. afe_private_data->codec->mutex has to be acquired before
  *calling this function.
  */
-int afe_calculate_acc_settings(unsigned int reg,
+int pmic_afe_calculate_acc_settings(unsigned int reg,
 		unsigned int requested_value,
 		unsigned int *final_value)
 {
@@ -275,7 +275,7 @@ int afe_calculate_acc_settings(unsigned int reg,
 }
 
 /* Activity on MIC. Update the mic_ldo status */
-int afe_acc_update_mic_status(int event)
+int pmic_afe_acc_update_mic_status(int event)
 {
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -290,7 +290,7 @@ int afe_acc_update_mic_status(int event)
 }
 
 /* Activity on VMIC mode from ASOC */
-int afe_acc_update_mic1_mode_status(int event)
+int pmic_afe_acc_update_mic1_mode_status(int event)
 {
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
