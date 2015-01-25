@@ -15,6 +15,7 @@ struct xgold_mmc_pdata {
 	int tap_reg_offset;
 	unsigned int tap_values2[MAX_MODES];
 	int tap_reg2_offset;
+	unsigned int card_drive_strength[4];
 	struct xgold_mmc_callbacks *mmc_cb;
 	unsigned char id;
 	const char *bus_regulator_name;

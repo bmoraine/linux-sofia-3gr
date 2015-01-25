@@ -218,6 +218,17 @@ static void xgold_sdhci_of_set_clock(struct sdhci_host *host,
 #endif
 	}
 }
+
+int xgold_sdhci_of_select_card_ds(struct sdhci_host *host, unsigned int dtr)
+{
+	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
+	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
+
+	/* TODO: return drive strength function of speed */
+	return mmc_pdata->card_drive_strength[0];
+}
+
+
 /*****************************************************************************\
  *                                                                           *
  * Suspend/resume                                                            *
@@ -380,6 +391,7 @@ static struct sdhci_ops xgold_sdhci_ops = {
 	.get_max_clock = xgold_sdhci_of_get_max_clock,
 	.get_min_clock = xgold_sdhci_of_get_min_clock,
 	.set_uhs_signaling = xgold_sdhci_of_set_timing,
+	.select_card_drive_strength = xgold_sdhci_of_select_card_ds,
 #ifdef CONFIG_PM
 	.platform_suspend = xgold_sdhci_of_suspend,
 	.platform_resume = xgold_sdhci_of_resume,
@@ -499,6 +511,9 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 			xgold_sdhci_scu_write(mmc_pdata, offset, value);
 
 	of_property_read_u32_array(np, "intel,quirks", &quirktab[0], 2);
+
+	of_property_read_u32_array(np, "intel,card_drive_strength",
+					&mmc_pdata->card_drive_strength[0], 4);
 
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	/* clock */
