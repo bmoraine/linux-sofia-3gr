@@ -844,6 +844,20 @@ clocks {
 		intel,mux-status-select = <131316 8 4>;
 		intel,mux-select = <131792 0 8>;
 	};
+	MUX_MM_CIFMASTER:MUX_MM_CIFMASTER {
+		compatible = "intel,xgold-mux";
+		#clock-cells = <0>;
+		clock-output-names = "mclk_mm_cifmaster";
+		clocks = < &OFF >, < &RTC_0_1 >, < &IN_0_1 >, < &A_1_2 >, < &A_1_1 >, < &A_0_1 >, < &G_0_1 >, < &A_4_1 >, < &A_0_4 > ;
+		clock-names = "ref";
+		intel,mux-type = "power";
+		intel,mux-default = < 32 >;
+		intel,mux-update = <131280 20 1>;
+		intel,mux-sleep = <131796 31 1>;
+		intel,mux-xreq = <131796 29 1>;
+		intel,mux-status-select = <131316 16 4>;
+		intel,mux-select = <131796 0 8>;
+	};
 	MUX_MM_DCC:MUX_MM_DCC {
 		compatible = "intel,xgold-mux";
 		#clock-cells = <0>;
@@ -1745,6 +1759,16 @@ clocks {
 		intel,block-status-enable = <786508 3 1>;
 		intel,block-enable = <131336 2 1>;
 		intel,block-disable = <131356 3 1>;
+	};
+	clk_mm_cifmaster:clk_mm_cifmaster {
+		compatible = "intel,xgold-block-clock";
+		#clock-cells = <0>;
+		clock-output-names = "clk_mm_cifmaster";
+		clocks = <&MUX_MM_CIFMASTER>;
+		clock-names = "mux";
+		intel,block-status-enable = <786508 5 1>;
+		intel,block-enable = <131336 8 1>;
+		intel,block-disable = <131356 8 1>;
 	};
 	clk_mm_dcc:clk_mm_dcc {
 		compatible = "intel,xgold-block-clock";

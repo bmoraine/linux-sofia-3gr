@@ -733,8 +733,13 @@
 						vdd_cif_pon-supply = <&vdd_cif_pon>;
 						ldo_pll_mipi-supply = <&ldo_pll_mipi>;
 						intel,supply = "vdd_csi_phy_primary", "vdd_csi_phy_aux", "vmipi", "vdd_cif_pon", "ldo_pll_mipi";
+#ifdef SOFIALTE_ES2
+						clocks = <&clk_mm_cifkernel>, <&clk_mm_cifmaster>, <&clk_ahb_perm>, <&MUX_OUT_1>;
+#else
 						clocks = <&clk_mm_cifkernel>, <&clk_mm_cifkernel>, <&clk_ahb_perm>, <&MUX_OUT_1>;
+#endif
 						clock-names = "clk_kernel", "clk_master", "clk_slave", "clk_sensor";
+
 					};
 #endif
 
