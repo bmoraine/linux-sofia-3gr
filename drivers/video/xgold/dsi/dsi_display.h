@@ -63,7 +63,6 @@ enum dsi_video_mode_t {
 struct display_msg {
 	struct list_head list;
 	const char *name;
-	unsigned char header;
 	unsigned char type;
 	unsigned char *datas;
 	int length;

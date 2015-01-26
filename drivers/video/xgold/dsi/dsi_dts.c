@@ -79,8 +79,6 @@ static int dsi_of_parse_display_cmd(struct platform_device *pdev,
 		cmd->length++;
 	};
 
-	cmd->length--; /* minus header byte */
-
 	/* allocate data array if needed */
 	if (cmd->length > 0) {
 		cmd->datas = devm_kzalloc(&pdev->dev,
@@ -95,11 +93,9 @@ static int dsi_of_parse_display_cmd(struct platform_device *pdev,
 	cmd->name = n->name;
 
 	/* populate header+data */
-	i = -1;
+	i = 0;
 	of_property_for_each_u32(n, PROP_DISPLAY_CMDDATA, prop, p, val) {
-		if (i == -1)
-			cmd->header = val;
-		else if (cmd->datas)
+		if (cmd->datas)
 			cmd->datas[i] = val;
 		i++;
 	}

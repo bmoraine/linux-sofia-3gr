@@ -22,6 +22,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#include <video/mipi_display.h>
 
 #include "dsi_display.h"
 #include "dsi_hwregs.h"
@@ -171,15 +172,14 @@ static void dsi_mipidsi_send_short_packet(struct dsi_display *display,
 					  struct display_msg *msg,
 					  unsigned int dsicfg)
 {
+	unsigned char *data_msg = msg->datas;
 	unsigned int dsihead =
-		BITFLDS(EXR_DSI_HEAD_WCNT, msg->header) |
+		BITFLDS(EXR_DSI_HEAD_WCNT, data_msg[0]) |
 		BITFLDS(EXR_DSI_HEAD_HEADER, msg->type);
 
-	if (msg->length) {
-		unsigned char *data_msg = msg->datas;
+	if (msg->length > 1)
+		dsihead |= data_msg[1]<<16;
 
-		dsihead |= data_msg[0]<<16;
-	}
 	DSI_DBG2("dsi short pkt: (head:0x%08x cfg:0x%08x)\n",
 		 dsihead, dsicfg);
 
@@ -204,19 +204,24 @@ static void dsi_mipidsi_send_long_packet_dma(struct dsi_display *display,
 	unsigned char *data_msg = msg->datas;
 	unsigned int length = msg->length;
 	unsigned int dsihead =
-		BITFLDS(EXR_DSI_HEAD_CMD, msg->header) |
-		BITFLDS(EXR_DSI_HEAD_WCNT, msg->length+1) |
+		BITFLDS(EXR_DSI_HEAD_WCNT, msg->length) |
 		BITFLDS(EXR_DSI_HEAD_HEADER, msg->type);
 
+	/* the first data byte of DCS long packet must be put
+	 * in CMDBYTE of DSI_HEAD */
+	if (msg->type == MIPI_DSI_DCS_LONG_WRITE && length > 0) {
+		dsihead |= BITFLDS(EXR_DSI_HEAD_CMD, *data_msg++);
+		length--;
+	}
 	DSI_DBG2("dsi long dma pkt: wcnt:0x%04x (head:0x%08x cfg:0x%08x)\n",
-		 msg->length+1, dsihead, dsicfg);
+		 msg->length, dsihead, dsicfg);
 
 	dsi_write_field(display, EXR_DSI_VID3,
 			BITFLDS(EXR_DSI_VID3_PIXEL_PACKETS, 1));
 	dsi_write_field(display, EXR_DSI_VID6,
-			BITFLDS(EXR_DSI_VID6_LAST_PIXEL, msg->length));
+			BITFLDS(EXR_DSI_VID6_LAST_PIXEL, length));
 	dsi_write_field(display, EXR_DSI_TPS_CTRL,
-			BITFLDS(EXR_DSI_TPS_CTRL_TPS, msg->length));
+			BITFLDS(EXR_DSI_TPS_CTRL_TPS, length));
 
 	while (length > 0) {
 		int j = 0;
@@ -253,7 +258,7 @@ static void dsi_send_cmd(struct dsi_display *display,
 	else
 		dsicfg = DSI_CFG_TX_HS_DATA(display->dif.dsi.nblanes);
 
-	if (msg->length <= 1)
+	if (msg->length <= 2)
 		dsi_mipidsi_send_short_packet(display, msg, dsicfg);
 	else
 		dsi_mipidsi_send_long_packet_dma(display, msg, dsicfg);
@@ -486,8 +491,8 @@ static void dsi_send_msglist(struct dsi_display *display,
 
 	list_for_each_entry(msg, &msgs->list, list) {
 		mdelay(1);
-		DSI_DBG2("Sending command 0x%02x 0x%02x of length %d\n",
-			 msg->header, msg->type, msg->length);
+		DSI_DBG2("Sending command 0x%02x of length %d\n",
+			 msg->type, msg->length);
 		dsi_send_cmd(display, msg);
 	}
 }
