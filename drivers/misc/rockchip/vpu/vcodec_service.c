@@ -482,7 +482,7 @@ static void vpu_service_dump(struct vpu_service_info *pservice)
 static void vpu_service_power_off(struct vpu_service_info *pservice)
 {
 	int total_running;
-/*	char *sta_name; */
+	char *sta_name;
 
 	if (!pservice->enabled)
 		return;
@@ -500,9 +500,9 @@ static void vpu_service_power_off(struct vpu_service_info *pservice)
 	pr_info("%s: power off...", dev_name(pservice->dev));
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
-	/*sta_name = (char *)pservice->pm_platdata->pm_state_D3_name;
+	sta_name = (char *)pservice->pm_platdata->pm_state_D3_name;
 	device_state_pm_set_state_by_name(pservice->dev,
-					  sta_name);*/
+					  sta_name);
 #endif
 
 	wake_unlock(&pservice->wake_lock);
