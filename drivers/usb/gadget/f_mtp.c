@@ -1265,9 +1265,16 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	struct mtp_dev	*dev = func_to_mtp(f);
 	int			id;
 	int			ret;
+	struct usb_string	*us;
 
 	dev->cdev = cdev;
 	DBG(cdev, "mtp_function_bind dev: %p\n", dev);
+
+	us = usb_gstrings_attach(cdev, mtp_strings,
+			ARRAY_SIZE(mtp_string_defs));
+	if (IS_ERR(us))
+		return PTR_ERR(us);
+	mtp_interface_desc.iInterface = us[INTERFACE_STRING_INDEX].id;
 
 	/* allocate interface ID(s) */
 	id = usb_interface_id(c, f);
@@ -1317,6 +1324,7 @@ mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_request *req;
 	int i;
 
+	mtp_string_defs[INTERFACE_STRING_INDEX].id = 0;
 	while ((req = mtp_req_get(dev, &dev->tx_idle)))
 		mtp_request_free(req, dev->ep_in);
 	for (i = 0; i < RX_REQ_MAX; i++)
@@ -1390,18 +1398,8 @@ static void mtp_function_disable(struct usb_function *f)
 static int mtp_bind_config(struct usb_configuration *c, bool ptp_config)
 {
 	struct mtp_dev *dev = _mtp_dev;
-	int ret = 0;
 
 	printk(KERN_INFO "mtp_bind_config\n");
-
-	/* allocate a string ID for our interface */
-	if (mtp_string_defs[INTERFACE_STRING_INDEX].id == 0) {
-		ret = usb_string_id(c->cdev);
-		if (ret < 0)
-			return ret;
-		mtp_string_defs[INTERFACE_STRING_INDEX].id = ret;
-		mtp_interface_desc.iInterface = ret;
-	}
 
 	dev->cdev = c->cdev;
 	dev->function.name = DRIVER_NAME;
