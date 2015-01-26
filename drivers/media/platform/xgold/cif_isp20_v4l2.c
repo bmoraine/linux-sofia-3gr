@@ -1224,10 +1224,12 @@ int cif_isp20_v4l2_cropcap(
 	int ret = 0;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
-	struct isp_supplemental_sensor_mode_data mode_data;
 	u32 target_width, target_height;
 	u32 h_offs, v_offs;
+#ifdef CALC_CIF_ZOOMING_CAPACITY
+	struct isp_supplemental_sensor_mode_data mode_data;
 	u32 thresh_zoom;
+#endif
 
 	if ((dev->config.input_sel == CIF_ISP20_INP_DMA) ||
 		(dev->config.input_sel == CIF_ISP20_INP_DMA_IE)) {
