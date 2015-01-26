@@ -844,8 +844,8 @@
 						compatible = "intel,spcu-thermal";
 						reg = <0xE4700000 0x1000>;
 						interrupt-parent = <&hirq>;
-						interrupts = <5 IRQ_TYPE_DEFAULT>,
-							     <6 IRQ_TYPE_DEFAULT>;
+						interrupts = <HIRQ_SPCU_THERM0_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM0_HIGH IRQ_TYPE_DEFAULT>;
 						interrupt-names = "TLOW", "THIGH";
 						intel,thermal-id = <0>;
 						intel,config-reg = <0xb90>;
@@ -856,14 +856,28 @@
 						compatible = "intel,spcu-thermal";
 						reg = <0xE4700000 0x1000>;
 						interrupt-parent = <&hirq>;
-						interrupts = <7 IRQ_TYPE_DEFAULT>,
-							     <8 IRQ_TYPE_DEFAULT>;
+						interrupts = <HIRQ_SPCU_THERM1_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM1_HIGH IRQ_TYPE_DEFAULT>;
 						interrupt-names = "TLOW", "THIGH";
 						intel,thermal-id = <1>;
 						intel,config-reg = <0xb98>;
 						intel,ctrl-reg = <0xb9c>;
 						intel,stat-reg = <0xba4>;
-                                        };
+					};
+#if defined(SOFIA3G_ES21)
+					spcu_thermal2{
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4700000 0x1000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <HIRQ_SPCU_THERM2_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM2_HIGH IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,thermal-id = <2>;
+						intel,config-reg = <0xb88>;
+						intel,ctrl-reg = <0xb8c>;
+						intel,stat-reg = <0xba8>;
+					};
+#endif
 					dbb_rst1:reset-controller1 {
 						compatible = "intel,xgold-reset";
 						reg = <0xE4801000 0xC>;
