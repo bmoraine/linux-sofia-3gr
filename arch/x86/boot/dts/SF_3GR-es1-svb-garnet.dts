@@ -102,6 +102,7 @@
 		compatible = "rockchip,rockchip-fb";
 		rockchip,disp-mode = <NO_DUAL>;
 		rockchip,uboot-logo-on = <0>;
+		rockchip,ion-drv = "xgold";
 	};
 
 	screen {
