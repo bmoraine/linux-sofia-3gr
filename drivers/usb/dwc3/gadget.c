@@ -30,7 +30,6 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
-#include <linux/usb/ulpi.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -2809,11 +2808,6 @@ int dwc3_gadget_reinit(struct dwc3 *dwc)
 		udelay(1);
 		timeout--;
 	} while (true);
-
-	if (ulpi_read(dwc, ULPI_VENDOR_ID_LOW) < 0)
-		dev_err(dwc->dev, "ULPI not working after DCTL soft reset\n");
-	else
-		dev_info(dwc->dev, "ULPI is working well");
 
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
 	reg &= ~DWC3_GCTL_SCALEDOWN_MASK;
