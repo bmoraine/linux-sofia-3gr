@@ -133,14 +133,12 @@ static int cif_isp20_pltfrm_fill_csi_config_from_node(
 		goto err;
 	}
 
-	ret = of_property_read_u32(csi_config_node,
+	/* analog bandgap settings are optinal and not supoorted
+		on all platforms */
+	if (IS_ERR_VALUE(of_property_read_u32(csi_config_node,
 		"intel,csi-ana-bandgap-bias",
-		&csi_config->ana_bandgab_bias);
-	if (IS_ERR_VALUE(ret)) {
-		cif_isp20_pltfrm_pr_err(dev,
-			"reading property 'intel,csi-ana-bandgap-bias'\n");
-		goto err;
-	}
+		&csi_config->ana_bandgab_bias)))
+		csi_config->ana_bandgab_bias = (u32)-1;
 
 	return 0;
 err:
@@ -389,11 +387,12 @@ static int cif_isp20_dbgfs_fill_csi_config_from_string(
 			&csi_config->dphy2)))
 		goto wrong_token_format;
 	token = strsep(&strp, " ");
-	if (IS_ERR_OR_NULL(token))
-		goto missing_token;
-	if (IS_ERR_VALUE(kstrtou32(token, 10,
-			&csi_config->ana_bandgab_bias)))
-		goto wrong_token_format;
+	if (!IS_ERR_OR_NULL(token)) {
+		if (IS_ERR_VALUE(kstrtou32(token, 10,
+				&csi_config->ana_bandgab_bias)))
+			goto wrong_token_format;
+	} else
+		csi_config->ana_bandgab_bias = (u32)-1;
 
 	return 0;
 missing_token:
@@ -1260,6 +1259,9 @@ int cif_isp20_pltfrm_write_cif_ana_bandgap_bias(
 	u32 offset;
 	u32 mask;
 	u32 shift;
+
+	if (val == (u32)-1)
+		return 0;
 
 	np = of_find_compatible_node(NULL, NULL, "intel,scu");
 	if (IS_ERR_OR_NULL(np)) {
