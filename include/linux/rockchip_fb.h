@@ -495,6 +495,7 @@ struct rockchip_fb {
 	struct rockchip_vop_driver *vop_dev_drv[SFA_MAX_VOP_SUPPORT];
 
 #if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
+	int ion_server_type;
 	struct ion_client *ion_client;
 #endif
 

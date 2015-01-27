@@ -44,6 +44,12 @@
 #define H_USE_FENCE	1
 #define ION_HEAP(bit) (1 << (bit))
 
+enum {
+	ION_DRV_NONE = 0,
+	ION_DRV_XGOLD = 1,
+	ION_DRV_RK = 2,
+};
+
 static bool hdmi_switch_complete;
 struct list_head saved_list;
 static struct platform_device *fb_pdev;
@@ -1761,17 +1767,14 @@ static int rockchip_fb_alloc_buffer_by_ion(struct fb_info *fbi,
 		return -ENODEV;
 	}
 
-#if defined(CONFIG_ION_ROCKCHIP)
-	/*if (dev_drv->iommu_enabled)
-	handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
-			   ION_HEAP(ION_VMALLOC_HEAP_ID), 0);
-	else*/
-	handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
-			   ION_HEAP(ION_CMA_HEAP_ID), 0);
-#else
-	handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
-			   ION_HEAP(ION_HEAP_TYPE_DMA), 0);
-#endif
+	if (sfb_info->ion_server_type == ION_DRV_RK) {
+		handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
+				ION_HEAP(ION_CMA_HEAP_ID), 0);
+	} else if (sfb_info->ion_server_type == ION_DRV_XGOLD) {
+		handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
+				ION_HEAP(ION_HEAP_TYPE_DMA), 0);
+	}
+
 	if (IS_ERR(handle)) {
 		dev_err(fbi->dev, "failed to ion_alloc:%ld\n", PTR_ERR(handle));
 		return -ENOMEM;
@@ -2189,6 +2192,10 @@ static int rockchip_fb_probe(struct platform_device *pdev)
 	struct rockchip_fb *sfb_info = NULL;
 	struct device_node *np = pdev->dev.of_node;
 	u32 mode;
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
+	int ret;
+	const char *string;
+#endif
 
 	if (!np) {
 		dev_err(&pdev->dev, "Missing device tree node.\n");
@@ -2216,21 +2223,37 @@ static int rockchip_fb_probe(struct platform_device *pdev)
 
 	dev_set_name(&pdev->dev, "rockchip-fb");
 
-#if defined(CONFIG_ION_ROCKCHIP)
-	pr_info("create rockchip ion client\n");
-	sfb_info->ion_client = rockchip_ion_client_create("rockchip-fb");
-	if (IS_ERR(sfb_info->ion_client)) {
-		dev_err(&pdev->dev,
-			"failed to create ion client for rockchip fb");
-		return PTR_ERR(sfb_info->ion_client);
+	sfb_info->ion_server_type = ION_DRV_NONE;
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
+		ret = of_property_read_string(
+				np, "rockchip,ion-drv", &string);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "can't find ION driver!");
+		return -EINVAL;
 	}
-#else
-	pr_info("create xgold ion client\n");
-	sfb_info->ion_client = xgold_ion_client_create("rockchip-fb");
-	if (IS_ERR_OR_NULL(sfb_info->ion_client)) {
-		dev_err(&pdev->dev,
-			"failed to create ion client for rockchip fb");
-		return PTR_ERR(sfb_info->ion_client);
+
+	if (strncmp("rockchip", string, strlen("rockchip")) == 0)
+		sfb_info->ion_server_type = ION_DRV_RK;
+	else if (strncmp("xgold", string, strlen("xgold")) == 0)
+		sfb_info->ion_server_type = ION_DRV_XGOLD;
+
+	if (sfb_info->ion_server_type == ION_DRV_RK) {
+		pr_info("create rockchip ion client\n");
+		sfb_info->ion_client =
+			rockchip_ion_client_create("rockchip-fb");
+		if (IS_ERR(sfb_info->ion_client)) {
+			dev_err(&pdev->dev,
+				"failed to create ion client for rockchip fb");
+			return PTR_ERR(sfb_info->ion_client);
+		}
+	} else if (sfb_info->ion_server_type == ION_DRV_XGOLD) {
+		pr_info("create xgold ion client\n");
+		sfb_info->ion_client = xgold_ion_client_create("rockchip-fb");
+		if (IS_ERR_OR_NULL(sfb_info->ion_client)) {
+			dev_err(&pdev->dev,
+				"failed to create ion client for rockchip fb");
+			return PTR_ERR(sfb_info->ion_client);
+		}
 	}
 #endif
 
