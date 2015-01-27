@@ -201,6 +201,7 @@
 		intel,pcm-audio = <&pcm_music>;
 		intel,pcm-voice = <&pcm_voice>;
 		intel,speech = <&speech_probe>;
+		intel,jack = <&headset>;
 	};
 #endif
 
