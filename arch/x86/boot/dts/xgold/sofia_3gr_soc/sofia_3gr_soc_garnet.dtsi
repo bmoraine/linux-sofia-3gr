@@ -105,17 +105,18 @@
 
 				probe,offset = < 0x1000 >;
 				probe,portsel,0 = "CIF", "CPU0", "DMA8C_2", "GPU";
-				probe,portsel,1 = "CPU1", "DCC1", "DCC2", "VPU";
-				probe,portsel,2 = "EMIC";
+				probe,portsel,1 = "CPU1", "LCDC";
+				probe,portsel,2 = "EMIC0", "EMIC1", "EMIC2";
 
-				clock,rate = <400000000>;
+				clock,rate = <416000000>;
 				stat,0 = "CPU0";
 				stat,1 = "CPU1";
-				stat,2 = "EMIC";
-				stat,3 = "GPU";
-				stat,4 = "DCC2";
+				stat,2 = "GPU";
+				stat,3 = "EMIC0";
+				stat,4 = "EMIC1";
+				stat,5 = "EMIC2";
 
-				intel,qos-configs = "DCC2", "GPU";
+				intel,qos-configs = "GPU", "LCDC";
 				intel,GPU-qos-settings = <
 					0x1C88 0x0      /* prio */
 					0x1C8C 0x1      /* mode limiter */
@@ -123,12 +124,13 @@
 					0x1C94 0x90     /* saturation */
 					0x1C98 0x5>;    /* QoSEn */
 
-				intel,DCC2-qos-settings = <
-					0x1E08 0xE      /* prio */
-					0x1E0C 0x3      /* mode regulator*/
-					0x1E10 0x9F     /* bandwidth */
-					0x1E14 0x90     /* saturation */
-					0x1E18 0x5>;    /* QoSEn */
+				intel,LCDC-qos-settings = <
+					0x1D88 0xE      /* prio */
+					0x1D8C 0x0      /* mode fixed */
+					0x1D90 0x15E    /* bandwidth */
+					0x1D94 0x152    /* saturation */
+					0x1D98 0x5>;    /* QoSEn */
+
 				#include "xgold/sofia_3gr_soc/NoC.dtsi"
 			};
 
@@ -648,17 +650,20 @@
 					};
 
 					usb:usb {
-						compatible = "intel,usb";
+						compatible = "snps,dwc2";
 						reg = < 0xE2100000 0x100000 >;
 						reg-names = "dwc_otg";
 						interrupts = < USB_INT IRQ_TYPE_DEFAULT	>;
 						interrupt-names = "core";
-						intel,hwcfg1 = < 0x0 >;
-						intel,hwcfg2 = < 0x228ffc70 >;
-						intel,hwcfg3 = < 0x124042e8 >;
-						intel,hwcfg4 = < 0xfe104030 >;
-						#include "xgold/sofia_3gr_soc/usb.dtsi"
-					};
+						dr_mode = "otg";
+						g_use_dma;
+						g_rx_fifo_size = < 1744 >;
+						g_np_tx_fifo_size = < 32 >;
+						g_tx_fifo_size = < 512 512 512 512
+								   512 64 64 64
+								   64 32 32 7
+								   3 3 3 >;
+					    };
 
 #ifndef RECOVERY_KERNEL
 					cif:cif{
