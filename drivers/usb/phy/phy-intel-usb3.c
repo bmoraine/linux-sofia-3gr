@@ -443,7 +443,7 @@ static int intel_usb3_hw_powerup(struct intel_usb3 *iusb3)
 	udelay(100);
 
 	/* configure phy for super speed support */
-	intel_usb3_phy_io_write(iusb3, 0x0, INTEL_USB3_MPLL_LOOP_CTL);
+	intel_usb3_phy_io_write(iusb3, 0x40, INTEL_USB3_MPLL_LOOP_CTL);
 	return 0;
 }
 
