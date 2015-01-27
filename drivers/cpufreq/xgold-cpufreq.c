@@ -31,6 +31,7 @@ static bool frequency_locked;
 
 struct xgold_cpufreq_info {
 	struct cpufreq_frequency_table *freq_table;
+	int nr_freq;
 	struct clk *core_clk;
 	struct clk *mux_clk;
 	struct clk *pll_clk;
@@ -301,8 +302,46 @@ static int xgold_cpufreq_cpu_exit(struct cpufreq_policy *policy)
 	return 0;
 }
 
+static ssize_t thermal_scaling_max_freq_store(struct cpufreq_policy *policy,
+		const char *buf, size_t count)
+{
+	int ret = 0, i;
+	unsigned int max;
+
+	ret = sscanf(buf, "%u", &max);
+	if (ret != 1)
+		return -EINVAL;
+
+	for (i = 0; i < xgold_cpu_info->nr_freq; i++) {
+		if (max == xgold_cpu_info->freq_table[i].frequency)
+			break;
+	}
+
+	if (i == xgold_cpu_info->nr_freq)
+		return -EINVAL;
+
+	/* if min or max change need to update policy */
+	if (policy->user_policy.max != max) {
+		mutex_lock(&cpufreq_lock);
+		sofia_thermal_set_cpu_policy(policy->user_policy.min / 1000,
+				max / 1000);
+		mutex_unlock(&cpufreq_lock);
+	}
+
+	return count;
+}
+
+static ssize_t thermal_scaling_max_freq_show(struct cpufreq_policy *policy, char *buf)
+{
+	return sprintf(buf, "%u\n", policy->user_policy.max);
+}
+
+static struct freq_attr cpufreq_freq_attr_thermal_scaling_max_freq =
+	__ATTR_RW(thermal_scaling_max_freq);
+
 static struct freq_attr *xgold_cpufreq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
+	&cpufreq_freq_attr_thermal_scaling_max_freq,
 	NULL,
 };
 static struct cpufreq_driver xgold_cpufreq_driver = {
@@ -342,6 +381,7 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	nr_freq = def_len / sizeof(u32);
+	xgold_cpu_info->nr_freq = nr_freq;
 	freq_table = kzalloc(def_len, GFP_KERNEL);
 	if (!freq_table) {
 		pr_err("unable to allocate memory for frequencies table");
