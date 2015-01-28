@@ -453,6 +453,18 @@
 
 };
 
+&pmic_i2c {
+	pmic_chgr:pmic_chgr {
+		compatible = "intel,bq24261";
+		reg = < 0x6b >;
+		#address-cells = < 0 >;
+
+		interrupt-parent = <&hirq>;
+		interrupts = < HIRQ_PMIC_CHGINTB IRQ_TYPE_DEFAULT >;
+		interrupt-names = "chgintb";
+	};
+};
+
 &gnss {
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&gnss_default_pins>;
