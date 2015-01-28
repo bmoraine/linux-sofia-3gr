@@ -5,10 +5,17 @@
 menu "OCT config"
 
 config OCT
-	bool "OCT driver"
+	bool "OCT REV1 driver"
 	default n
 	help
 	  The OCT driver provides the interface to get the traces from
 	  the OCT HW.
+
+config OCT2
+	bool "OCT REV2 driver"
+	default n
+	help
+	  The OCT REV2 - used for getting modem and linux traces out over
+	  the USB to the STT tool.
 
 endmenu

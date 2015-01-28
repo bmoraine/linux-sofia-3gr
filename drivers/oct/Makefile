@@ -15,3 +15,4 @@
 #
 
 obj-$(CONFIG_OCT)		+= oct.o
+obj-$(CONFIG_OCT2)		+= oct2.o
