@@ -1032,14 +1032,12 @@
 						clocks = <&clk_usif2>, <&clk_ahb_per4>;
 						clock-names = "kernel", "register";
 					};
-
-#ifdef SOFIALTE_ES2
-					oct2:oct2 {
-						compatible = "intel,oct2,tbd";
-					};
-#else
 					oct:oct {
+#ifdef SOFIALTE_ES2
+						compatible = "intel,oct2";
+#else
 						compatible = "intel,oct";
+#endif
 						reg = <0xE4B40000 0x20000>;
 						reg-names = "oct-registers";
 						interrupts = <OCT_INT IRQ_TYPE_DEFAULT>;
@@ -1057,7 +1055,6 @@
 						pm,state-D0 = "enable";
 						pm,state-D3 = "disable";
 					};
-#endif
 					cgu:cgu {
 						compatible = "intel,cgu";
 						reg = <0xE4D00000 0x100000>;
