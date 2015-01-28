@@ -366,6 +366,9 @@ extern struct rga_service_info rga_service;
 #if defined(CONFIG_ION_XGOLD)
 extern struct ion_client *xgold_ion_client_create(const char *name);
 #endif
+#if defined(CONFIG_ION_ROCKCHIP)
+extern struct ion_client *rockchip_ion_client_create(const char *name);
+#endif
 
 #define RGA_BASE                 0xe2500000
 

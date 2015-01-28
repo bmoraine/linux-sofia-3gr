@@ -43,7 +43,7 @@
 #include <linux/fb.h>
 #include <linux/wakelock.h>
 
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 #include "../../../staging/android/ion/ion.h"
 #endif
 
@@ -97,7 +97,7 @@ struct rga_drvdata {
 	struct clk *hclk_rga;
 #endif
 
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 	struct ion_client *ion_client;
 #endif
 };
@@ -1064,7 +1064,7 @@ struct miscdevice rga_dev = {
 };
 
 #if defined(CONFIG_OF)
-static const struct of_device_id sofia_rga_dt_ids[] = {
+static const struct of_device_id rk_rga_dt_ids[] = {
 	{.compatible = "rockchip,rockchip-rga",},
 	{},
 };
@@ -1135,7 +1135,15 @@ static int rga_drv_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, data);
 	drvdata = data;
 
-#if defined(CONFIG_ION_XGOLD)
+#if defined(CONFIG_ION_ROCKCHIP)
+	pr_info("create rockchip ion client for RGA\n");
+	data->ion_client = rockchip_ion_client_create("rga");
+	if (IS_ERR(data->ion_client)) {
+		dev_err(&pdev->dev, "failed to create ion client for rga");
+		return PTR_ERR(data->ion_client);
+	}
+#elif defined(CONFIG_ION_XGOLD)
+	pr_info("create xgold ion client for RGA\n");
 	data->ion_client = xgold_ion_client_create("rga");
 	if (IS_ERR(data->ion_client)) {
 		dev_err(&pdev->dev, "failed to create ion client for rga");
@@ -1190,7 +1198,7 @@ static struct platform_driver rga_driver = {
 	.driver = {
 		   .owner = THIS_MODULE,
 		   .name = "rga",
-		   .of_match_table = of_match_ptr(sofia_rga_dt_ids),
+		   .of_match_table = of_match_ptr(rk_rga_dt_ids),
 		   },
 };
 
