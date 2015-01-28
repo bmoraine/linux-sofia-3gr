@@ -53,12 +53,12 @@
 		#size-cells = < 0 >;
 		rockchip,ion-heap@1 {
 			compatible = "rockchip,ion-heap";
-			sofia,ion_heap = < 1 >;
+			rockchip,ion_heap = < 1 >;
 			reg = < 0x00000000 0x08000000 >;
 		};
 		rockchip,ion-heap@3 {
 			compatible = "rockchip,ion-heap";
-			sofia,ion_heap = < 3 >;
+			rockchip,ion_heap = < 3 >;
 		};
 #else
 		compatible = "intel,ion";
