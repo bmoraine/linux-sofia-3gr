@@ -21,8 +21,6 @@
 #include <linux/smp.h>
 #include <linux/types.h>
 
-#define SYSPROF_NOF_PHYSICAL_CORES      2
-
 #ifdef CONFIG_SMP
 #define SYSPROF_CORE_ID                 raw_smp_processor_id()
 #else
@@ -109,7 +107,7 @@
 						  SYS_PROF_IF(DVFS))
 
 extern uint32_t __iomem
-	*sys_prof_if[SYSPROF_NOF_PHYSICAL_CORES][SYSPROF_NOF_EVENT_CLASSES];
+	*sys_prof_if[CONFIG_NR_CPUS][SYSPROF_NOF_EVENT_CLASSES];
 
 #else
 

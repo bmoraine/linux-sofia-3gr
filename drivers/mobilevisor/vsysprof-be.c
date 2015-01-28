@@ -93,7 +93,7 @@ struct vsysprof_shared {
 	union {
 		struct {
 			uint32_t    trace_mask;
-			uint32_t    trace_paddr[SYSPROF_NOF_PHYSICAL_CORES];
+			uint32_t    trace_paddr[CONFIG_NR_CPUS];
 		} setup;
 		struct {
 			uint32_t    id;
@@ -102,8 +102,7 @@ struct vsysprof_shared {
 	} u;
 };
 
-enum vsysprof_status
-{
+enum vsysprof_status {
 	VSYSPROF_STATUS_CONNECT = 0,
 	VSYSPROF_STATUS_DISCONNECT
 };
@@ -123,12 +122,26 @@ static struct vsysprof_struct vsysprof;
 
 static uint32_t sys_prof_if_dummy;
 
-static uint32_t *sys_prof_trace_addr[SYSPROF_NOF_PHYSICAL_CORES];
+static uint32_t *sys_prof_trace_addr[CONFIG_NR_CPUS];
 
 /* Array with write pointers per core and per event class. */
 uint32_t __iomem
-	*sys_prof_if[SYSPROF_NOF_PHYSICAL_CORES][SYSPROF_NOF_EVENT_CLASSES] = {
+	*sys_prof_if[CONFIG_NR_CPUS][SYSPROF_NOF_EVENT_CLASSES] = {
+#ifdef CONFIG_SMP
+#if CONFIG_NR_CPUS >= 8
 		SYS_PROF_IF_INIT_VALUES,
+		SYS_PROF_IF_INIT_VALUES,
+		SYS_PROF_IF_INIT_VALUES,
+		SYS_PROF_IF_INIT_VALUES,
+#endif
+#if CONFIG_NR_CPUS >= 4
+		SYS_PROF_IF_INIT_VALUES,
+		SYS_PROF_IF_INIT_VALUES,
+#endif
+#if CONFIG_NR_CPUS >= 2
+		SYS_PROF_IF_INIT_VALUES,
+#endif
+#endif
 		SYS_PROF_IF_INIT_VALUES
 	};
 EXPORT_SYMBOL(sys_prof_if);
@@ -164,7 +177,7 @@ static void vsysprof_set_trace_address(uint32_t *trace_addr)
 {
 	int i;
 
-	for (i = 0; i < SYSPROF_NOF_PHYSICAL_CORES; i++) {
+	for (i = 0; i < num_online_cpus(); i++) {
 		if (!sys_prof_trace_addr[i])
 			sys_prof_trace_addr[i] = (uint32_t *)
 						ioremap_nocache(
@@ -178,7 +191,7 @@ static void vsysprof_set_trace_mask(unsigned int mask)
 	int i, j;
 	uint32_t *trace_addr;
 
-	for (i = 0; i < SYSPROF_NOF_PHYSICAL_CORES; i++) {
+	for (i = 0; i < num_online_cpus(); i++) {
 		for (j = 0; j < SYSPROF_NOF_EVENT_CLASSES; j++) {
 			if ((mask & (1 << j)) && sys_prof_trace_addr[i])
 				trace_addr = sys_prof_trace_addr[i];
@@ -423,7 +436,6 @@ static struct mbox_ops vsysprof_ops = {
 
 static int __init vsysprof_init(void)
 {
-	uint32_t i,j;
 	unsigned char *pshare_mem;
 	struct vsysprof_struct *p_vsysprof = &vsysprof;
 
@@ -435,19 +447,10 @@ static int __init vsysprof_init(void)
 						 &(p_vsysprof->cmdline),
 						 (void *)p_vsysprof);
 
-	if (p_vsysprof->share_data_size < sizeof(struct vsysprof_shared)) {
+	if (p_vsysprof->share_data_size < sizeof(struct vsysprof_shared))
 		return -EFAULT;
-	}
 
-	p_vsysprof->vshared = pshare_mem;
-
-	for (i = 0; i < SYSPROF_NOF_PHYSICAL_CORES; i++) {
-		sys_prof_trace_addr[i] = 0;
-
-		for (j = 0; j < SYSPROF_NOF_EVENT_CLASSES; j++)
-			sys_prof_if[i][j] = (uint32_t __iomem *)
-							&sys_prof_if_dummy;
-	}
+	p_vsysprof->vshared = (struct vsysprof_shared *)pshare_mem;
 
 	INIT_WORK(&vsysprof.cmd_work, vsysprof_cmd_work);
 	init_completion(&vsysprof.entity_completion);
