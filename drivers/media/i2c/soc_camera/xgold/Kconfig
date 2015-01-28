@@ -87,6 +87,16 @@ config VIDEO_OV2685
 	---help---
 	Say Y here to enable OV2685.
 
+config VIDEO_OV2680
+    bool "OV2680"
+    depends on VIDEO_V4L2 && VIDEO_XGOLD && I2C
+        default n
+        ---help---
+        Say Y here to enable OV2680.
+        OV2680 is a 2M Camera Sensor.
+         The supported max resolution is 1600x1200.
+         It is a RAW Camera Sensor.
+
 config VIDEO_HM2051
 	tristate "HM2051 support"
 	depends on I2C && VIDEO_V4L2 && VIDEO_XGOLD
