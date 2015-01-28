@@ -132,8 +132,10 @@ static int xgold_mipi_dsi_probe(struct platform_device *pdev)
 	}
 
 	mipi_dsi->display.irq.err = platform_get_irq(pdev, 0);
-	if (!mipi_dsi->display.irq.err)
-		dev_err(&pdev->dev, "cannot find err irq for xgold mipi dsi\n");
+	if (mipi_dsi->display.irq.err < 0) {
+		dev_err(&pdev->dev, "Cannot find ERR IRQ for XGold MIPI DSI\n");
+		return mipi_dsi->display.irq.err;
+	}
 
 	xgold_mipi_dsi = mipi_dsi;
 	rockchip_fb_trsm_ops_register(&trsm_mipi_dsi_ops, SCREEN_MIPI);

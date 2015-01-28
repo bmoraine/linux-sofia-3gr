@@ -169,11 +169,6 @@ static int dsi_hal_install_irqs(struct dsi_display *display)
 
 	dsi_write_field(display, EXR_DSI_ICR, 0x7FFFFF);
 	DSI_SETUP_IRQ(display->irq.err, dsi_err_irq, display);
-#if 0
-	DSI_SETUP_IRQ(display->irq.tx, dsi_tx_irq, display);
-	DSI_SETUP_IRQ(display->irq.rx, dsi_rx_irq, display);
-	DSI_SETUP_IRQ(display->irq.rx_breq, dsi_rx_breq_irq, display);
-#endif
 
 	return 0;
 
@@ -184,24 +179,9 @@ exit_stage_1:
 
 int dsi_irq_probe(struct dsi_display *display)
 {
-	int ret = 0;
-
 	dsi_write_field(display, EXR_DSI_IMSC, 0); /* mask interrupt */
 
-#if 0
-	display->irq.rx = 66;
-	display->irq.rx_breq = 67;
-	display->irq.tx = 68;
-	display->irq.err = 69;
-#else
-	display->irq.err = 37;
-#endif
-
-	ret = dsi_hal_install_irqs(display);
-	if (ret)
-		goto exit;
-exit:
-	return ret;
+	return dsi_hal_install_irqs(display);
 }
 
 int dsi_irq_remove(struct dsi_display *display)
