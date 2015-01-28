@@ -46,14 +46,17 @@
 	};
 
 	ion {
-		compatible = "intel,ion";
-#ifndef RECOVERY_KERNEL
-		secvm-handler;
-#endif
-		cma-heap {
-			memory-region = <&cma_default_region>;
+		compatible = "rockchip,ion";
+		#address-cells = < 1 >;
+		#size-cells = < 0 >;
+		rockchip,ion-heap@1 {
+			compatible = "rockchip,ion-heap";
+			rockchip,ion_heap = < 1 >;
+			reg = < 0x00000000 0x08000000 >;
 		};
-		system-heap {
+		rockchip,ion-heap@3 {
+			compatible = "rockchip,ion-heap";
+			rockchip,ion_heap = < 3 >;
 		};
 	};
 
@@ -102,7 +105,7 @@
 		compatible = "rockchip,rockchip-fb";
 		rockchip,disp-mode = <NO_DUAL>;
 		rockchip,uboot-logo-on = <0>;
-		rockchip,ion-drv = "xgold";
+		rockchip,ion-drv = "rockchip";
 	};
 
 	screen {
