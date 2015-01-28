@@ -380,7 +380,7 @@
 	linux,keymap = <0x03030072	/* KEY_VOLUMEDOWN */
 			0x03040073	/* KEY_VOLUMEUP */
 			0x08030074	/* KEY_POWER */
-			0x08040066>;	/* KEY_HOME */
+			0x0804008b>;	/* KEY_MENU */
 };
 
 &vop {
