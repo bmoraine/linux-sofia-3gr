@@ -1074,7 +1074,8 @@ cam_function_B_sleep_pins:cam_function_B_sleep_pins {
 };
 cam2_function_B_active_pins:cam2_function_B_active_pins {
 	pinctrl-single,pins = <
-		0x38c 0x1500	/* cam2_pd */
+		0x38c 0x1700	/* cam2_pd */
+		/*0x3a4 0x1010	 clkout2 enable*/
 	>;
 };
 cam2_function_B_inactive_pins:cam2_function_B_inactive_pins {
@@ -1084,22 +1085,28 @@ cam2_function_B_inactive_pins:cam2_function_B_inactive_pins {
 };
 cam2_function_B_sleep_pins:cam2_function_B_sleep_pins {
 	pinctrl-single,pins = <
-		0x38c 0x4100	/* cam2_pd */
+		0x38c 0x1500	/* cam2_pd */
 	>;
 };
 cam1_function_B_active_pins:cam1_function_B_active_pins {
 	pinctrl-single,pins = <
-		0x390 0x1500	/* cam1_pd */
+		0x380 0x4100	/* cam_flash */
+		0x390 0x1700	/* cam1_pd */
+		0x3a4 0x1010	/* clkout2 enable*/
 	>;
 };
 cam1_function_B_inactive_pins:cam1_function_B_inactive_pins {
 	pinctrl-single,pins = <
-		0x390 0x100	/* cam1_pd */
+		0x380 0x4100	/* cam_flash */
+		0x390 0x4100	/* cam1_pd */
+		0x3a4 0x1010	/* clkout2 enable*/
 	>;
 };
 cam1_function_B_sleep_pins:cam1_function_B_sleep_pins {
 	pinctrl-single,pins = <
-		0x390 0x4100	/* cam1_pd */
+		0x380 0x4100	/* cam_flash */
+		0x390 0x1500	/* cam1_pd */
+		0x3a4 0x1010	/* clkout2 enable*/
 	>;
 };
 sys_default_pins:sys_default_pins {

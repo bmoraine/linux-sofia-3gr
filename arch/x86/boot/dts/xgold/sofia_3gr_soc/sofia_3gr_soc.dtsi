@@ -231,7 +231,7 @@
 						clock-names = "clk_kernel", "clk_ahb";
 						interrupts = < I2C1_INT IRQ_TYPE_DEFAULT >;
 					/*	intel,i2c,dma = "i2c1_txrx";*/
-						intel,i2c,b400 = < 1 28 13 0 >;
+						intel,i2c,b400 = < 1 54 13 0 >; /*intel,i2c,b400 = < 1 28 13 0 >;*/
 						intel,i2c,b100 = < 1 256 0 0 >;
 						resets = <&dbb_rst1 7>;
 						reset-names = "i2c";
