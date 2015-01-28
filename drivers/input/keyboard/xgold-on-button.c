@@ -35,6 +35,7 @@
 
 struct xgold_on_button_pdata {
 	uint32_t irq[MAX_ON_BUTTON_IRQ];
+	DECLARE_BITMAP(irqwake_enabled, MAX_ON_BUTTON_IRQ);
 	struct input_dev *input_dev;
 	struct platform_device *pdev;
 	struct matrix_keymap_data *keymap_data;
@@ -240,8 +241,9 @@ static int32_t xgold_on_button_suspend(struct platform_device *pdev,
 	mutex_lock(&input_dev->mutex);
 	if (device_may_wakeup(dev))
 		for (i = 0; i < MAX_ON_BUTTON_IRQ; i++)
-			if (data->irq[i])
-				enable_irq_wake(data->irq[i]);
+			if (data->irq[i] &&
+					(enable_irq_wake(data->irq[i]) == 0))
+				__set_bit(i, data->irqwake_enabled);
 	mutex_unlock(&input_dev->mutex);
 	return 0;
 }
@@ -256,7 +258,7 @@ static int32_t xgold_on_button_resume(struct platform_device *pdev)
 	mutex_lock(&input_dev->mutex);
 	if (device_may_wakeup(dev))
 		for (i = 0; i < MAX_ON_BUTTON_IRQ; i++)
-			if (data->irq[i])
+			if (test_and_clear_bit(i, data->irqwake_enabled))
 				disable_irq_wake(data->irq[i]);
 	mutex_unlock(&input_dev->mutex);
 	return 0;
