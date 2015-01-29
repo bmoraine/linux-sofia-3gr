@@ -222,13 +222,36 @@ static void dcc_mipidsi_send_long_packet_dma(struct dcc_display *lcd,
 	struct dcc_drvdata *pdata = m_to_dccdata(lcd, display);
 	unsigned char *data_msg = msg->datas;
 	unsigned int length = msg->length;
+	unsigned int final_data_length = length;
 	unsigned int dsihead =
-		BITFLDS(INR_DIF_DSIHEAD_CMD, msg->header) |
 		BITFLDS(INR_DIF_DSIHEAD_WCNT, msg->length+1) |
 		BITFLDS(INR_DIF_DSIHEAD_HEADER, msg->type);
 
-	DCC_DBG4(" packet length = %d\n", length);
+	/* the msg->header for Generic Long Write packet shouldnt be put
+	 * in CMDBYTE of DSI_HEAD. This is only needed for DCS Long packet.
+	 */
+	if (DSI_M_DCS_LONG_WRITE == msg->type)
+		dsihead |= BITFLDS(INR_DIF_DSIHEAD_CMD, msg->header);
+	else
+		final_data_length++;
+
+	DCC_DBG4(" packet length = %d\n", final_data_length);
 #ifdef XG632_ES2_FIX
+	/* the msg->header for Generic Long Write packet shouldnt be put
+	 * in CMDBYTE of DSI_HEAD. This is only needed for DCS Long packet.
+	 */
+	if (DSI_M_DCS_LONG_WRITE != msg->type) {
+		int j = 0;
+		unsigned int reg = msg->header;
+		for (j = 1; j < 4 && length; j++) {
+			length--;
+			reg |= ((uint8_t) *data_msg++)<<(j*8);
+		}
+		iowrite32(reg, pdata->mem.vbase+(i*4));
+		DCC_DBG4(" ---- @0x%p = 0x%08x\n",
+				pdata->mem.vbase+(i*4), reg);
+		i++;
+	}
 	while (length > 0) {
 		int j = 0;
 		unsigned int reg = 0;
@@ -246,6 +269,16 @@ static void dcc_mipidsi_send_long_packet_dma(struct dcc_display *lcd,
 	gra_write_field(pdata, EXR_DIF_CSREG,
 		BITFLDS(EXR_DIF_CSREG_GRACMD, 1) | 0x3);
 #else
+	/* the msg->header for Generic Long Write packet shouldnt be put
+	 * in CMDBYTE of DSI_HEAD. This is only needed for DCS Long packet.
+	 */
+	if (DSI_M_DCS_LONG_WRITE != msg->type) {
+		unsigned int reg = msg->header;
+		iowrite32(reg, pdata->mem.vbase+(i*4));
+		DCC_DBG4(" ---- @0x%p = 0x%08x\n",
+				pdata->mem.vbase+(i*4), reg);
+		i++;
+	}
 	while (length > 0) {
 		unsigned int reg = 0;
 
@@ -273,10 +306,10 @@ static void dcc_mipidsi_send_long_packet_dma(struct dcc_display *lcd,
 			BITFLDS(INR_DIF_DSIVID1_PIXEL, 0x3) |
 			BITFLDS(INR_DIF_DSIVID1_TOFILL, 0x3FF));
 	gra_write_field(pdata, INR_DIF_DSIVID3,
-		BITFLDS(INR_DIF_DSIVID3_PIXELBYTES, msg->length)|
+		BITFLDS(INR_DIF_DSIVID3_PIXELBYTES, final_data_length)|
 		BITFLDS(INR_DIF_DSIVID3_PIXELPACKETS, 1));
 	gra_write_field(pdata, INR_DIF_DSIVID6,
-		BITFLDS(INR_DIF_DSIVID6_LASTPIXEL, msg->length));
+		BITFLDS(INR_DIF_DSIVID6_LASTPIXEL, final_data_length));
 	gra_write_field(pdata, INR_DIF_DSIHEAD, dsihead);
 
 	gra_write_field(pdata, INR_DIF_DSICFG, dsicfg);
