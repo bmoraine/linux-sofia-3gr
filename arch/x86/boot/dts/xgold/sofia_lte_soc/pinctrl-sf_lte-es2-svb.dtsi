@@ -22,7 +22,9 @@
 	/* sparse GPIO range could be supported */
 		/*first pin / nb pins / value */
 	pinctrl-single,gpio-range =
-		<&range 0 14 0x100>,
+		<&range 0 6 0x100>,
+		<&range 6 1 0x1500>,  /* FL_EN */
+		<&range 7 8 0x100>,
 		<&range 15 1 0x1700>,   /* dif_reset */
 		<&range 16 55 0x100>,
 		<&range 71 1 0x1700>,   /* gnss_poweron */
