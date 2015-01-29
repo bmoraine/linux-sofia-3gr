@@ -133,6 +133,7 @@
 #else
 		intel,dcc-use-fences = <1>;
 		intel,dcc-mem = < 0x00400000 >;
+		intel,prot-mem = < 0x08000000 0x08000000>;
 #endif
 	};
 
