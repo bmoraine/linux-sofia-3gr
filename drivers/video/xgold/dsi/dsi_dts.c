@@ -28,6 +28,7 @@
 #include <linux/reset.h>
 
 #include "dsi_device.h"
+#include "dsi_hwregs.h"
 #include "dsi_dts.h"
 
 #define PROP_DISPLAY            "intel,display"
@@ -38,6 +39,8 @@
 #define PROP_DISPLAY_PREINIT    "intel,display-preinit"
 #define PROP_DISPLAY_VIDEOMODE  "intel,display-vid-mode"
 #define PROP_DISPLAY_VIDEOID    "intel,display-vid-id"
+#define PROP_DISPLAY_EOT        "intel,display-eot"
+#define PROP_DISPLAY_GATE       "intel,display-gate"
 
 #define PROP_DISPLAY_GPIORST    "intel,display-gpio-reset"
 #define PROP_DISPLAY_GPIOVH     "intel,display-gpio-vhigh"
@@ -309,21 +312,31 @@ dsi_of_parse_display_timing(struct xgold_mipi_dsi_device *mipi_dsi)
 int dsi_of_parse_display(struct platform_device *pdev,
 			 struct xgold_mipi_dsi_device *mipi_dsi)
 {
-	int mode, ret = 0;
+	int value, ret = 0;
 	const char *string;
 	struct device_node *display_dev_n, *child;
 	struct dsi_display *display = &mipi_dsi->display;
 
 	dsi_of_parse_gpio(pdev, display);
 	dsi_of_parse_display_timing(mipi_dsi);
+	display->dsi_reset = devm_reset_control_get(&pdev->dev, "dsi");
+	if (IS_ERR(display->dsi_reset)) {
+		pr_err("%s: get dsi reset control failed\n", __func__);
+		display->dsi_reset = NULL;
+	}
+
 	display_dev_n = of_find_matching_node(NULL, sofia_display_of_match);
 	if (!display_dev_n) {
 		pr_err("%s: Can't find display matching node\n", __func__);
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_RAMLESS, &mode);
-	if (ret || mode)
+	/* DSI_CFG default value */
+	display->dif.dsi.dsi_cfg_reg = BITFLDS(EXR_DSI_CFG_VSYNC, 1) |
+		BITFLDS(EXR_DSI_CFG_PSYNC, 1);
+
+	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_RAMLESS, &value);
+	if (ret || value)
 		display->dif.dsi.mode = DSI_VIDEO;
 	else
 		display->dif.dsi.mode = DSI_CMD;
@@ -337,6 +350,14 @@ int dsi_of_parse_display(struct platform_device *pdev,
 				   &display->dif.dsi.nblanes);
 	if (ret)
 		display->dif.dsi.nblanes = 4;
+
+	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_EOT, &value);
+	if (ret || value)
+		display->dif.dsi.dsi_cfg_reg |= BITFLDS(EXR_DSI_CFG_EOT, 1);
+
+	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_GATE, &value);
+	if (ret || value)
+		display->dif.dsi.dsi_cfg_reg |= BITFLDS(EXR_DSI_CFG_GATE, 1);
 
 	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_PREINIT,
 				   &display->dif.dsi.display_preinit);
@@ -395,12 +416,6 @@ int dsi_of_parse_display(struct platform_device *pdev,
 				child->name, ret);
 		}
 	};
-
-	display->dsi_reset = devm_reset_control_get(&pdev->dev, "dsi");
-	if (IS_ERR(display->dsi_reset)) {
-		pr_err("%s: get dsi reset control failed\n", __func__);
-		display->dsi_reset = NULL;
-	}
 
 	return 0;
 }

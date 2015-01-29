@@ -396,10 +396,10 @@ error:
 int
 dsi_write_field(struct dsi_display *display, unsigned int id, unsigned int val)
 {
-	int ret = 0;
+	if (id == EXR_DSI_CFG)
+		val |= display->dif.dsi.dsi_cfg_reg;
 
-	ret = dsi_wrextfield(display->regbase, id, val);
-	return ret;
+	return dsi_wrextfield(display->regbase, id, val);
 }
 
 /**

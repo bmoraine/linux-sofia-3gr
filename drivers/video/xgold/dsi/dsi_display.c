@@ -54,21 +54,8 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 #define DSI_CFG_SOURCE_DPI 0
 #define DSI_CFG_SOURCE_TXD 1
 
-#define DSI_CFG_COMMON(_en_) (\
-	BITFLDS(EXR_DSI_CFG_GATE,	0) |\
-	BITFLDS(EXR_DSI_CFG_EOT,	1) |\
-	BITFLDS(EXR_DSI_CFG_TURN,	0) |\
-	BITFLDS(EXR_DSI_CFG_VALID,	0) |\
-	BITFLDS(EXR_DSI_CFG_STP,	0) |\
-	BITFLDS(EXR_DSI_CFG_ULPS,	0) |\
-	BITFLDS(EXR_DSI_CFG_ID,	0) |\
-	BITFLDS(EXR_DSI_CFG_VSYNC,	1) |\
-	BITFLDS(EXR_DSI_CFG_PSYNC,	1) |\
-	BITFLDS(EXR_DSI_CFG_EN,	_en_) \
-	)
-
 #define DSI_CFG_OFF(_mode_) (\
-		DSI_CFG_COMMON(0) |\
+		BITFLDS(EXR_DSI_CFG_EN, 0) |\
 		BITFLDS(EXR_DSI_CFG_LANES, 0) |\
 		BITFLDS(EXR_DSI_CFG_LP, 0) |\
 		BITFLDS(EXR_DSI_CFG_MODE, _mode_)|\
@@ -76,7 +63,7 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 		BITFLDS(EXR_DSI_CFG_SOURCE, DSI_CFG_SOURCE_TXD))
 
 #define DSI_CFG_INIT(_nlanes_) (\
-		DSI_CFG_COMMON(1) |\
+		BITFLDS(EXR_DSI_CFG_EN, 1) |\
 		BITFLDS(EXR_DSI_CFG_LANES, (_nlanes_-1)) |\
 		BITFLDS(EXR_DSI_CFG_LP, 0) |\
 		BITFLDS(EXR_DSI_CFG_MODE, DSI_CMD)|\
@@ -84,7 +71,7 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 		BITFLDS(EXR_DSI_CFG_SOURCE, DSI_CFG_SOURCE_TXD))
 /* need_to_modify
 #define DSI_CFG_RX_LP_DATA(_nlanes_) (\
-		DSI_CFG_COMMON(1) |\
+		BITFLDS(EXR_DSI_CFG_EN, 1) |\
 		BITFLDS(EXR_DSI_CFG_LANES, (_nlanes_-1)) |\
 		BITFLDS(EXR_DSI_CFG_TX, 1) |\
 		BITFLDS(EXR_DSI_CFG_LP, 1) |\
@@ -94,7 +81,7 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 		BITFLDS(EXR_DSI_CFG_SOURCE, DSI_CFG_SOURCE_TXD))
 */
 #define DSI_CFG_RX_LP_STP(_stp_) (\
-		DSI_CFG_COMMON(1) |\
+		BITFLDS(EXR_DSI_CFG_EN, 1) |\
 		BITFLDS(EXR_DSI_CFG_LANES, 0) |\
 		BITFLDS(EXR_DSI_CFG_TX, 0) |\
 		BITFLDS(EXR_DSI_CFG_LP, 1) |\
@@ -104,7 +91,7 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 		BITFLDS(EXR_DSI_CFG_SOURCE, DSI_CFG_SOURCE_TXD))
 
 #define DSI_CFG_TX_LP_DATA(_nlanes_) (\
-		DSI_CFG_COMMON(1) |\
+		BITFLDS(EXR_DSI_CFG_EN, 1) |\
 		BITFLDS(EXR_DSI_CFG_LANES, (0)) |\
 		BITFLDS(EXR_DSI_CFG_LP, 1) |\
 		BITFLDS(EXR_DSI_CFG_MODE, DSI_CMD)|\
@@ -113,7 +100,7 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 
 /* need_to_modify
 #define DSI_CFG_TX_HS_DATA_ACK(_nlanes_) (\
-		DSICFG_COMMON(1) |\
+		BITFLDS(EXR_DSI_CFG_EN, 1) |\
 		BITFLDS(EXR_DSI_CFG_LANES, (_nlanes_-1)) |\
 		BITFLDS(EXR_DSI_CFG_TX, 1) |\
 		BITFLDS(EXR_DSI_CFG_LP, 0) |\
@@ -124,7 +111,7 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 */
 
 #define DSI_CFG_TX_HS_DATA(_nlanes_) (\
-		DSI_CFG_COMMON(1) |\
+		BITFLDS(EXR_DSI_CFG_EN, 1) |\
 		BITFLDS(EXR_DSI_CFG_LANES, (_nlanes_-1)) |\
 		BITFLDS(EXR_DSI_CFG_LP, 0) |\
 		BITFLDS(EXR_DSI_CFG_MODE, DSI_CMD)|\
@@ -132,7 +119,7 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 		BITFLDS(EXR_DSI_CFG_SOURCE, DSI_CFG_SOURCE_TXD))
 
 #define DSI_CFG_TX_HS_PIXEL(_nlanes_, _mode_) (\
-		DSI_CFG_COMMON(1) |\
+		BITFLDS(EXR_DSI_CFG_EN, 1) |\
 		BITFLDS(EXR_DSI_CFG_LANES, (_nlanes_-1)) |\
 		BITFLDS(EXR_DSI_CFG_TX, 1) |\
 		BITFLDS(EXR_DSI_CFG_LP, 0) |\
