@@ -96,9 +96,7 @@ struct dsi_display_if_mipi_dsi {
 	unsigned int dc_clk_rate;
 
 	int mode;
-	int brmin;
-	int brdef;
-	int brmax;
+	int bitrate;
 	int nblanes;
 	int id;
 /* phy0 */

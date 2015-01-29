@@ -127,12 +127,14 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 		BITFLDS(EXR_DSI_CFG_DATA, DSI_CFG_DATA_PIX)|\
 		BITFLDS(EXR_DSI_CFG_SOURCE, DSI_CFG_SOURCE_DPI))
 
-#define DSI_RATE_N_MAX	(0xFF)
-#define DSI_RATE_M_MAX	(0xF)
-#define DSI_RATE_MAX	(1000000000)
-#define DSI_REF_CLK_KHZ (26000)
+#define DSI_REF_CLK_KHZ         (26000)
+#define DSI_RATE_N_MAX          (0xFF)
+#define DSI_RATE_M_MAX          (0xF)
+#define DSI_RATE_MAX            (1000000000)
+#define DSI_RATE_MIN            (160000000)
+#define DSI_RATE(n, m)          (DSI_REF_CLK_KHZ * (n + 1) / (m + 1) * 1000)
+#define DSI_RATE_OVERHEAD(r)    (r / 10 * 11)
 
-#define DSI_RATE(n, m) (DSI_REF_CLK_KHZ * (n + 1) / (m + 1) * 1000)
 #define TLPX_NS 50
 
 static void dsi_wr32tofifo(struct dsi_display *display, unsigned int data)
@@ -632,9 +634,9 @@ static void dsi_dphy_calculation(struct dsi_display *display)
 	int ui_ps = 0, ths_prepare_ns, ths_trail_ns, ths_prepare_zero_ns,
 		tclk_post_ns, tclk_prepare_ns;
 
-	if (display->dif.dsi.brdef)
+	if (display->dif.dsi.bitrate)
 		ui_ps = DIV_ROUND_CLOSEST(1000000000,
-					  display->dif.dsi.brdef / 1000);
+					  display->dif.dsi.bitrate / 1000);
 
 	/*
 	 * THS-PREPARE is between 40ns + 4UI and 85ns + 6UI,
@@ -679,9 +681,9 @@ static void dsi_dphy_calculation(struct dsi_display *display)
 		DIV_ROUND_UP(display->dif.dsi.dc_clk_rate / 1000 * TLPX_NS,
 		1000000) - 1;
 	display->dif.dsi.to_lp_hs_req = display->dif.dsi.lp_clk_div;
-	display->dif.dsi.to_hs_flip = DIV_ROUND_UP(display->dif.dsi.brdef /
+	display->dif.dsi.to_hs_flip = DIV_ROUND_UP(display->dif.dsi.bitrate /
 		1000 * ths_trail_ns, 1000000 * 8) - 1;
-	display->dif.dsi.to_hs_zero = DIV_ROUND_UP(display->dif.dsi.brdef /
+	display->dif.dsi.to_hs_zero = DIV_ROUND_UP(display->dif.dsi.bitrate /
 		1000 * ths_prepare_zero_ns, 1000000 * 8) - 5;
 	display->dif.dsi.to_lp_hs_eot =
 		DIV_ROUND_UP(display->dif.dsi.dc_clk_rate / 1000 * ths_trail_ns,
@@ -701,20 +703,22 @@ static void dsi_rate_calculation(struct dsi_display *display)
 {
 	int diff, diff_min = DSI_RATE_MAX, n = 0, m = 0;
 
-	display->dif.dsi.brdef = (display->xres +
+	display->dif.dsi.bitrate = DSI_RATE_OVERHEAD((display->xres +
 		BYTES_TO_PIXELS(display->dif.dsi.hfp, display->bpp) +
 		BYTES_TO_PIXELS(display->dif.dsi.hbp, display->bpp) +
 		BYTES_TO_PIXELS(display->dif.dsi.hsa, display->bpp)) *
 		(display->yres + display->dif.dsi.vfp +
-		 display->dif.dsi.vbp + display->dif.dsi.vsa) *
-		display->fps / display->dif.dsi.nblanes * display->bpp;
+		display->dif.dsi.vbp + display->dif.dsi.vsa) *
+		display->fps / display->dif.dsi.nblanes * display->bpp);
 
-	if (display->dif.dsi.brdef > DSI_RATE_MAX)
-		display->dif.dsi.brdef = DSI_RATE_MAX;
+	if (display->dif.dsi.bitrate > DSI_RATE_MAX)
+		display->dif.dsi.bitrate = DSI_RATE_MAX;
+	else if (display->dif.dsi.bitrate < DSI_RATE_MIN)
+		display->dif.dsi.bitrate = DSI_RATE_MIN;
 
 	for (m = 1; m <= DSI_RATE_M_MAX; m++) {
 		for (n = 1; n <= DSI_RATE_N_MAX; n++) {
-			diff = DSI_RATE(n, m) - display->dif.dsi.brdef;
+			diff = DSI_RATE(n, m) - display->dif.dsi.bitrate;
 
 			if (diff < 0)
 				continue;
