@@ -132,6 +132,9 @@
 #define CC_PERSIST_CLR_O	(3)
 #define CC_PERSIST_CLR_M	(0x1)
 
+#define CC_OFF_O		(0)
+#define CC_OFF_M		(0x1)
+
 /* Base address of DEV4 */
 #define BASE_ADDRESS_DEV4	(0x5f)
 #define BASE_ADDRESS_DEV4_VMM	(BASE_ADDRESS_DEV4<<24)
@@ -1077,6 +1080,22 @@ static int __init pmic_swfg_hal_probe(struct platform_device
 		return ret;
 	}
 
+	p_fg_hal->hw_rev.major_rev = (reg >> MAJREV_O) & MAJREV_M;
+	p_fg_hal->hw_rev.minor_rev = (reg >> MINREV_O) & MINREV_M;
+
+	dev_dbg(&p_platform_dev->dev, "%s: PMIC majrev=0x%X, minrev=0x%X\n",
+		__func__, p_fg_hal->hw_rev.major_rev,
+		p_fg_hal->hw_rev.minor_rev);
+
+	/* Enable coulomb counter HW */
+	ret = pmic_reg_set_field(CC_CTRL0_VMM, CC_OFF_M << CC_OFF_O, 0);
+	if (ret) {
+		dev_err(&p_platform_dev->dev,
+				"%s: fail to enable coulomb counter HW\n",
+				__func__);
+		return ret;
+	}
+
 	ret = pmic_swfg_hal_setup_irq(p_fg_hal);
 
 	if (ret) {
@@ -1084,13 +1103,6 @@ static int __init pmic_swfg_hal_probe(struct platform_device
 				__func__);
 		return ret;
 	}
-
-	p_fg_hal->hw_rev.major_rev = (reg >> MAJREV_O) & MAJREV_M;
-	p_fg_hal->hw_rev.minor_rev = (reg >> MINREV_O) & MINREV_M;
-
-	dev_dbg(&p_platform_dev->dev, "%s: PMIC majrev=0x%X, minrev=0x%X\n",
-		__func__, p_fg_hal->hw_rev.major_rev,
-		p_fg_hal->hw_rev.minor_rev);
 
 	/*
 	 * Calculate the coulomb counter scaling factor from platform data.
