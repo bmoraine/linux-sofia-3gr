@@ -100,8 +100,6 @@ static int dcc_core_hwsetup(struct dcc_drvdata *pdata)
 	gra_write_field(pdata, EXR_DIF_RUNCTRL, DCC_MODE_RUN);
 	gra_write_field(pdata, EXR_DIF_CSREG_GRACMD, 1);
 	dcc_setbufferformat(pdata, dcc_get_fb_fmt(pdata));
-	dcc_format_set_convertmatrix(pdata,
-			DCC_FMT_ABGR8888, DCC_FMT_RGB565, 1);
 
 	return ret;
 }

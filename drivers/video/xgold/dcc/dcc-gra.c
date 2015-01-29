@@ -934,6 +934,29 @@ int setclipping(struct dcc_drvdata *p, struct x_rect_t *win)
 }
 #endif
 
+static inline int dcc_wait_status(struct dcc_drvdata *pdata,
+		unsigned int reg,
+		unsigned int pattern,
+		int to)
+{
+	int wait_delay_ms = 5;
+	int wait_loop_n = to / wait_delay_ms;
+
+	gra_read_field(pdata, reg, &reg);
+	DCC_DBG2("wait idle 0x%08x (0x%08x)\n", reg, pattern);
+
+	while ((reg & pattern) != pattern) {
+		mdelay(wait_delay_ms);
+		wait_loop_n--;
+		if (!wait_loop_n) {
+			dcc_err("idle loop timedout!\n");
+			return -EBUSY;
+		}
+		gra_read_field(pdata, reg, &reg);
+	}
+	return 0;
+}
+
 void dcc_setBGR2RGBcoeff(struct dcc_drvdata *p)
 {
 	unsigned int reg1 = 0, reg2 = 0, reg3 = 0, regoff = 0;
@@ -961,6 +984,7 @@ void dcc_setBGR2RGBcoeff(struct dcc_drvdata *p)
 	DCC_DBG2("BGR 2 RGB coeff(0x%08x,0x%08x,0x%08x) offset(0x%08x)\n",
 		reg1, reg2, reg3, regoff);
 
+	dcc_wait_status(p, EXR_DIF_STAT, BITFLDS(EXR_DIF_STAT_BSY, 0), 2000);
 	gra_write_field(p, EXR_DIF_RUNCTRL, DCC_MODE_CONF);
 	gra_write_field(p, EXR_DIF_COEFF_REG1, reg1);
 	gra_write_field(p, EXR_DIF_COEFF_REG2, reg2);
