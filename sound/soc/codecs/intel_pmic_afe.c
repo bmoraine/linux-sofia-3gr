@@ -495,6 +495,40 @@ static const struct snd_kcontrol_new afe_snd_controls[] = {
 	SOC_ENUM("HS Pop Suppression Ramp", afe_hsps_ramp_enum),
 	SOC_SINGLE("LS ClassD Frequency Divider", AFE_AUDOUTCTRL2D_REG, 0,
 		   255, 0),
+	SOC_SINGLE("DMO Enable Switch", AFE_AUDIOINCTRL2_REG, 0, 1, 0),
+	SOC_SINGLE("DMO Feeze Switch", AFE_AUDIOINCTRL2_REG, 1, 1, 0),
+	/* Recommended value 100001b */
+	SOC_SINGLE("DMO AVR value", AFE_AUDIOINCTRL2_REG, 2, 63, 0),
+};
+
+/* FIXME: remove A0 when deprecated */
+static const struct snd_kcontrol_new afe_snd_controls_a0[] = {
+	/* FIXME: SF_3G is setting gains for the left dac for RDAC widget.
+	IS this because of an AFE bug? */
+	SOC_SINGLE_TLV("RDAC Coarse Gain", AFE_GAIN_OUT1_REG, 2, 6, 0,
+		DGAINCR_TLV),
+	SOC_SINGLE_TLV("RDAC Fine Gain", AFE_GAIN_OUT1_REG, 0, 3, 0,
+		DGAINFR_TLV),
+	SOC_SINGLE_TLV("LDAC Coarse Gain", AFE_GAIN_OUT2_REG, 2, 6, 0,
+		DGAINCL_TLV),
+	SOC_SINGLE_TLV("LDAC Fine Gain", AFE_GAIN_OUT2_REG, 0, 3, 0,
+		DGAINFR_TLV),
+	SOC_SINGLE_TLV("Earpiece Gain", AFE_GAIN_OUT3_REG, 0, 8, 0,
+		EPGAIN_TLV),
+	SOC_SINGLE_TLV("Headset Gain", AFE_GAIN_OUT4_REG, 0, 28, 0,
+		HSGAIN_TLV),
+	SOC_SINGLE_TLV("LS Gain", AFE_GAIN_OUT3_REG, 4, 7, 0, LSGAIN_TLV),
+	SOC_SINGLE_TLV("MIC Gain", AFE_GAIN_IN1_REG, 5, 7, 0, MICGAIN_TLV),
+	SOC_ENUM("Earpiece Output Mode", afe_ep_out_enum),
+	SOC_ENUM("Earpiece Robust Mode", afe_ep_robust_enum),
+	SOC_ENUM("MIC1 Voltage", afe_mic1_voltage_enum),
+	SOC_ENUM("MIC2 Voltage", afe_mic2_voltage_enum),
+	SOC_ENUM("HS Pop Supression Enable", afe_hsps_enum),
+	SOC_ENUM("HS Output SWG", afe_hsout_swg_enum),
+	/* SOC_ENUM("HS High Current Mode", afe_hshcm_enum), */
+	SOC_ENUM("HS Pop Suppression Ramp", afe_hsps_ramp_enum),
+	SOC_SINGLE("LS ClassD Frequency Divider", AFE_AUDOUTCTRL2D_REG, 0,
+		   255, 0),
 };
 
 static int afe_handle_codec_power(struct snd_soc_codec *codec,
@@ -1711,8 +1745,8 @@ static struct snd_soc_codec_driver soc_codec_dev_afe_a0 = {
 	.reg_word_size = sizeof(u8),
 	.reg_cache_default = afe_reg_cache_a0,
 	.readable_register = afe_is_reg_readable,
-	.num_controls = ARRAY_SIZE(afe_snd_controls),
-	.controls = afe_snd_controls
+	.num_controls = ARRAY_SIZE(afe_snd_controls_a0),
+	.controls = afe_snd_controls_a0
 };
 
 static struct snd_soc_dai_ops afe_dai_ops = {
