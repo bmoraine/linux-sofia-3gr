@@ -313,25 +313,25 @@ struct band {
 struct agc {
 	bool enable;
 	enum agc_gain_index idx;
-};
+} __packed;
 
 struct rssi_notify {
 	bool enable;
 	s16 lo_thr;
 	s16 hi_thr;
-};
+} __packed;
 
 struct snc {
 	bool enable;
 	s16 lo_thr;
 	s16 hi_thr;
-};
+} __packed;
 
 struct sm {
 	bool enable;
 	s16 thr;
 	u16 step;
-};
+} __packed;
 
 struct volume {
 	u8 left;
@@ -371,7 +371,7 @@ struct other_params {
 	u32 clk_switch_range_104;
 	s16 int_rssi_other_offset;
 	s16 ext_rssi_other_offset;
-};
+} __packed;
 
 struct rds {
 	enum rds_onmode mode;
@@ -385,18 +385,18 @@ struct af_info {
 
 struct fmrx_config {
 	struct band band_cfg;
-	bool force_mono;
 	enum antenna_type antenna;
 	enum routing_mode routing;
 	struct agc agc_cfg;
 	struct rssi_notify rssi_cfg;
+	bool force_mono;
 	bool mute;
 	struct snc snc_cfg;
 	struct sm sm_cfg;
 	enum injection_side side;
 	struct volume vol_cfg;
 	struct rds rds_cfg;
-	struct other_params	other_cfg;
+	struct other_params other_cfg;
 	struct rssi_offsets int_rssi_offsets;
 	struct rssi_offsets ext_rssi_offsets;
 	struct rssi_offsets int_ext_lna_offsets;

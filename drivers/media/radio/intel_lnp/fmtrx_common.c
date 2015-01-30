@@ -224,6 +224,9 @@ int fmrx_power_on(
 		goto fmrx_power_on_exit1;
 	}
 
+	/* Wait to fw get uncompressed */
+	fmtrx_sys_idle_wait(2);
+
 	err = fmtrx_hw_start_minidsp();
 	if (0 != err) {
 		fmtrx_sys_log

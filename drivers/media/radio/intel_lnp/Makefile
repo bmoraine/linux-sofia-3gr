@@ -54,7 +54,7 @@ ccflags-y	+= -DFMR_BASE="0x00000000"
 ccflags-y	+= -DFMR_DCDC_TOP_REGISTER="0x0000F000"
 ccflags-y	+= -DLD_DRIVER
 #ccflags-y	+= -DLNP_EVB
-ccflags-y       += -DFMR_104MHZ_WORKAROUND
+#ccflags-y       += -DFMR_104MHZ_WORKAROUND
 else
 ccflags-y	+= -DFMR_ABB_BASE="0x01000000"
 ccflags-y	+= -DFMR_BASE="0xE7000000"
