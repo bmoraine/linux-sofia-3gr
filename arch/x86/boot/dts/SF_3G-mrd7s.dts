@@ -38,19 +38,11 @@
 			limit = <0x00000000>;
 			linux,cma-default;
 		};
-		/* special region for secured processing devices */
-		secured_region: region@8000000 {
-			reg = <0x08000000 0x08000000>;
-			no-map;
-			linux,cma;
-		};
 	};
-
 	vmodem {
 		compatible = "intel,vmodem";
-		reg = < 0x1D000000 0x02C00000 >;
+		reg = < 0x3c000000 0x04000000 >;
 	};
-
 	ion {
 		compatible = "intel,ion";
 #ifndef RECOVERY_KERNEL
@@ -58,9 +50,6 @@
 #endif
 		cma-heap {
 			memory-region = <&cma_default_region>;
-		};
-		secured-heap {
-			memory-region = <&secured_region>;
 		};
 	};
 
