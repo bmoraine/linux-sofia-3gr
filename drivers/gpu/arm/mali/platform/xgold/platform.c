@@ -286,6 +286,7 @@ int mali_platform_device_init(struct platform_device *pdev)
 {
 	int ret = -1;
 	struct device_node *np;
+	u32 val32 = 0;
 
 	mali_info("%s()\n", __func__);
 
@@ -387,8 +388,13 @@ int mali_platform_device_init(struct platform_device *pdev)
 		return ret;
 	}
 
-	/* Use AMR DVFS with 500ms intervall */
-	plf_data.gpu_data->control_interval = 500;
+	/* Use AMR DVFS with 500ms intervall or by setting it by dtsi*/
+	ret = of_property_read_u32(np, "dvfs_interval", &val32);
+	if (ret)
+		plf_data.gpu_data->control_interval = 500;
+	else
+		plf_data.gpu_data->control_interval = val32;
+
 	plf_data.gpu_data->set_freq = mali_gpu_set_clock_step;
 	plf_data.gpu_data->get_clock_info = mali_report_gpu_clock_info;
 	plf_data.gpu_data->get_freq = mali_gpu_get_clock_step;

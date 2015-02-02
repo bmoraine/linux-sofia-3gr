@@ -1,4 +1,7 @@
 /*
+* Copyright (C) 2014-2015 Rockchip Electronics Co., Ltd.
+*/
+/*
  * Copyright (C) 2010-2012, 2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
@@ -28,6 +31,13 @@ void mali_control_timer_add(u32 timeout)
 	_mali_osk_timer_add(mali_control_timer, _mali_osk_time_mstoticks(timeout));
 }
 
+static void mali_control_timer_mod(u32 timeout)
+{
+	_mali_osk_timer_mod(mali_control_timer,
+		_mali_osk_time_mstoticks(timeout));
+}
+
+
 static void mali_control_timer_callback(void *arg)
 {
 	if (mali_utilization_enabled()) {
@@ -46,7 +56,7 @@ static void mali_control_timer_callback(void *arg)
 		}
 
 		if (MALI_TRUE == timer_running) {
-			mali_control_timer_add(mali_control_timeout);
+			mali_control_timer_mod(mali_control_timeout);
 		}
 	}
 }
