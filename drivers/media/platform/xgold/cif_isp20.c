@@ -4506,6 +4506,10 @@ static int cif_isp20_stop(
 			cif_isp20_stop_sp(dev);
 		cif_iowrite32AND_verify(~CIF_MI_SP_FRAME,
 			dev->config.base_addr + CIF_MI_IMSC, ~0);
+
+		cif_iowrite32(0, dev->config.base_addr + CIF_SRSZ_CTRL);
+		cif_iowrite32OR(CIF_RSZ_CTRL_CFG_UPD,
+			dev->config.base_addr + CIF_SRSZ_CTRL);
 	} else /* stop_mp */ {
 		if (!dev->config.mi_config.async_updt) {
 			local_irq_save(flags);
@@ -4517,6 +4521,10 @@ static int cif_isp20_stop(
 		cif_iowrite32AND_verify(~(CIF_MI_MP_FRAME |
 			CIF_JPE_STATUS_ENCODE_DONE),
 			dev->config.base_addr + CIF_MI_IMSC, ~0);
+
+		cif_iowrite32(0, dev->config.base_addr + CIF_MRSZ_CTRL);
+		cif_iowrite32OR(CIF_RSZ_CTRL_CFG_UPD,
+			dev->config.base_addr + CIF_MRSZ_CTRL);
 	}
 
 	if (stop_mp && (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING))
@@ -5880,9 +5888,7 @@ int marvin_isp_isr(void *cntxt)
 				dev->config.base_addr + CIF_ISP_CTRL);
 	}
 
-	if (!((isp_mis & CIF_ISP_FRAME_IN) &&
-		(isp_mis & CIF_ISP_FRAME)))
-		cifisp_isp_isr(&dev->isp_dev, isp_mis);
+	cifisp_isp_isr(&dev->isp_dev, isp_mis);
 
 	if (isp_mis & CIF_ISP_FRAME) {
 		do_gettimeofday(&dev->curr_frame_time);
