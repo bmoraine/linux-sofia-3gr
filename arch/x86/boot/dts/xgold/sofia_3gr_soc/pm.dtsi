@@ -1489,7 +1489,7 @@ i2c4_pm_user:i2c4_pm_user {
 rga_pm_user:rga_pm_user {
 	compatible = "intel,xgold_pm_user";
 	intel,name = "rga";
-	intel,user-id = <PRH_USER_FM_SUBSYS_PM>;
+	intel,user-id = <PRH_USER_RGA>;
 	intel,per-id = <PRH_PER_RGA>;
 	intel,class = <&rga_pm_class>;
 };
