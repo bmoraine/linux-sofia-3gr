@@ -1899,10 +1899,6 @@ static int agold_afe_codec_probe(struct snd_soc_codec *codec)
 
 	agold_afe_handle_codec_power(codec, SND_SOC_BIAS_STANDBY);
 	if (*audio_native) {
-		if (agold_afe->dev->controller->send_break)
-			agold_afe->dev->controller->send_break(
-				agold_afe->dev->controller, 3);
-
 		/* Prepare AFE registers */
 		agold_afe->aud2idictrl_cfg = BIT(31);
 
