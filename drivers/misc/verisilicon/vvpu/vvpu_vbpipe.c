@@ -261,6 +261,9 @@ static int vvpu_vbpipe_call(struct device *dev,
 
 			if (done < 0) {
 				dev_err(dev, "error %d writing vbpipe", done);
+				if (done == -EINTR)
+					continue;
+
 				break;
 			}
 
@@ -289,6 +292,9 @@ static int vvpu_vbpipe_call(struct device *dev,
 
 			if (done < 0) {
 				dev_err(dev, "error %d reading vbpipe", done);
+				if (done == -EINTR)
+					continue;
+
 				break;
 			}
 
