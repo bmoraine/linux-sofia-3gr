@@ -451,7 +451,8 @@
 						intel,tap_reg2 = < 0xc0008 >;	/* used for feedback clock control */
 						intel,corecfg_reg = < 0xc0004 0xc0008 0xc0020>;
 #ifdef SOFIALTE_ES2
-						intel,corecfg_val = < 0xfe1ada20 0x0074176 0x00001e>;
+						intel,corecfg_val = < 0xfe1ada20 0x0074F76 0x00001e>;
+						intel,rpm_enabled = <1>;
 #else
 						intel,corecfg_val = < 0xfe1ada20 0x0074176 0x0000FF>;
 #endif
@@ -601,6 +602,7 @@
 						intel,mask,5 = < 0x84 5 1 >; /* CCx_CCINT5 */
 						intel,mask,6 = < 0x84 6 1 >; /* CCx_CCINT6 */
 						intel,mask,7 = < 0x84 7 1 >; /* CCx_CCINT7 */
+						intel,preack,7 = <1>; /* CCx_CCINT7 */
 						intel,ack,0 = < 0x8C 0 1 >; /* CCx_CCINT0 */
 						intel,ack,1 = < 0x8C 1 1 >; /* CCx_CCINT1 */
 						intel,ack,2 = < 0x8C 2 1 >; /* CCx_CCINT2 */
