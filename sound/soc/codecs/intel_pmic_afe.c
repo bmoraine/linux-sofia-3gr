@@ -1627,13 +1627,13 @@ static int afe_set_bias(struct snd_soc_codec *codec,
 			&& (codec->dapm.bias_level != SND_SOC_BIAS_OFF)) {
 			afe_debug("%s : Shutdown AFE\n", __func__);
 
+			/*disable AUDOUT STRT  */
+			reg &= ~(1 << BCON_AUDOUTSTART_BIT);
+			snd_soc_write(codec, AFE_BCON1_REG, reg);
+
 			/*disable BCON mode */
 			reg = snd_soc_read(codec, AFE_BCON1_REG);
 			reg &= ~(1 << BCON_MODE_BIT);
-			snd_soc_write(codec, AFE_BCON1_REG, reg);
-
-			/*disable AUDOUT STRT */
-			reg &= ~(1 << BCON_AUDOUTSTART_BIT);
 			snd_soc_write(codec, AFE_BCON1_REG, reg);
 
 			/* Disable AFE power */

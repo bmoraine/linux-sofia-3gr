@@ -185,7 +185,8 @@
 *  2,  :bit 3-4 'frame_period' - 0: 64 clocks, 1: 48, 2: 32
 *  0   :bit 5-7 'sample_width' - configured at interface level
 */
-#define I2S_DEFAULT_SETTING_RXCONF_LOW_REG 0x12
+
+#define I2S_DEFAULT_SETTING_RXCONF_LOW_REG 0x16
 
 /*
 *  0,  :bit 0 'data_alignment'- 0: left aligned, 1: right aligned
