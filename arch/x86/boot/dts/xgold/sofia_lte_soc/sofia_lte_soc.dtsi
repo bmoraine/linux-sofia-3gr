@@ -60,7 +60,9 @@
 		intel,chipid = <0x60 0x8 0x8>;
 		intel,rev = <0x60 0x0 0x8>;
 		intel,machine = "sofia_lte_soc-es1-svb";
+#ifndef PSV_DEEP_SLEEP
 		intel,nodeepsleep;
+#endif
 		intel,nosteal;
 
 		#include "xgold/sofia_lte_soc/irq-apic.dtsi"
