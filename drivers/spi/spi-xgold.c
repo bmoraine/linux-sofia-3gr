@@ -357,6 +357,11 @@ static int xgold_spi_init_ctrl_from_platdata(struct platform_device *pdev)
 	if (IS_ERR(platdata->pins_inactive))
 		dev_err(dev, "could not get inactive pinstate\n");
 
+	platdata->pins_reset = pinctrl_lookup_state(platdata->pinctrl,
+			"reset");
+	if (IS_ERR(platdata->pins_reset))
+		dev_err(dev, "could not get reset pinstate\n");
+
 skip_pinctrl:
 	return 0;
 
@@ -1186,6 +1191,31 @@ static void xgold_spi_work(struct work_struct *work)
 	spin_unlock_irqrestore(&ctl_drv->lock, flags);
 }
 
+static int xgold_spi_reset(struct spi_device *spi, bool reset)
+{
+	struct xgold_spi_ctl_drv *ctl_drv = spi_master_get_devdata(spi->master);
+	struct xgold_spi_platdata *pdata = ctl_drv->platdata;
+	struct pinctrl_state *pinstate;
+	int ret = 0;
+
+	if (!pdata) {
+		dev_err(ctl_drv->dev, "Unable to retrieve usif platform data\n");
+		return -EINVAL;
+	}
+
+	if (reset)
+		pinstate = pdata->pins_reset;
+	else
+		pinstate = pdata->pins_default;
+
+	if (!IS_ERR_OR_NULL(pinstate)) {
+		ret = pinctrl_select_state(pdata->pinctrl, pinstate);
+		if (ret)
+			dev_err(ctl_drv->dev, "could not set pins\n");
+	}
+	return ret;
+}
+
 static int xgold_spi_transfer(struct spi_device *spi, struct spi_message *msg)
 {
 	struct xgold_spi_ctl_drv *ctl_drv = spi_master_get_devdata(spi->master);
@@ -1671,6 +1701,7 @@ static int xgold_spi_probe(struct platform_device *pdev)
 	master->cleanup = xgold_spi_cleanup;
 	master->setup = xgold_spi_setup;
 	master->transfer = xgold_spi_transfer;
+	master->reset = xgold_spi_reset;
 	xgold_spi_debug(XGOLD_SPI_DEBUG, "%s: %s: bus num: %d\n",
 			DRIVER_NAME, __func__, master->bus_num);
 

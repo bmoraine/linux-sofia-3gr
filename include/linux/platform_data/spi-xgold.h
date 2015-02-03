@@ -25,6 +25,7 @@ struct xgold_spi_platdata {
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
+	struct pinctrl_state *pins_reset;
 	char *clk_spi_name;
 	char *clk_ahb_name;
 	struct clk *clock_ahb;
