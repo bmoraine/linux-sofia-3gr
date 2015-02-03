@@ -208,6 +208,7 @@ static struct xgold_spi_platdata *xgold_spi_get_platdata(
 		struct platform_device *pdev)
 {
 	struct spi_master *master = spi_master_get(platform_get_drvdata(pdev));
+	struct xgold_spi_ctl_drv *ctl_drv = spi_master_get_devdata(master);
 	struct xgold_spi_platdata *platdata;
 	struct device_node *nspi;
 	int ret;
@@ -229,8 +230,8 @@ static struct xgold_spi_platdata *xgold_spi_get_platdata(
 
 	platdata->clock_spi = of_clk_get_by_name(nspi, OF_KERNEL_CLK);
 	if (IS_ERR(platdata->clock_spi)) {
-		dev_err(&pdev->dev, "Clk %s not found\n", OF_KERNEL_CLK);
-		return ERR_PTR(-EINVAL);
+		dev_err(&pdev->dev, "Clk %s not found: fixed to 104MHz\n", OF_KERNEL_CLK);
+		ctl_drv->clk_spi_rate = 104 * 1000 * 1000;
 	}
 
 	platdata->clock_ahb = of_clk_get_by_name(nspi, OF_AHB_CLK);
@@ -256,13 +257,12 @@ static struct xgold_spi_platdata *xgold_spi_get_platdata(
 		return ERR_PTR(-EINVAL);
 	}
 
-#ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	platdata->pm_platdata = of_device_state_pm_setup(nspi);
 	if (IS_ERR(platdata->pm_platdata)) {
 		dev_err(&pdev->dev, "Error during device state pm init\n");
 		return ERR_PTR(-EINVAL);
 	}
-#endif
+
 	/* DMA request */
 	if (of_property_read_string(nspi, OF_SPI_DMA_TXREQ,
 					&platdata->dma_tx_name)
@@ -540,7 +540,8 @@ static inline void xgold_spi_set_cs_usif(struct xgold_spi_ctl_drv *ctl_drv,
 				<< USIF_CS_CFG_CSO_OFFSET;
 
 	iowrite32(reg, USIF_CS_CFG(ctl_drv->base));
-	xgold_spi_set_run_mode(ctl_drv);
+	/* XXX: Not to enable clock here */
+	/* xgold_spi_set_run_mode(ctl_drv); */
 }
 
 
