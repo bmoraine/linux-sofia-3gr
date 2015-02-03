@@ -41,7 +41,6 @@ struct idi_controller_device {
 	int (*request_queue_status) (struct idi_controller_device *, int, int);
 	int (*set_power_state) (struct idi_controller_device *,
 			struct idi_peripheral_device *, void *, char *, bool);
-	int (*send_break)(struct idi_controller_device *, int);
 	unsigned long		private[0] ____cacheline_aligned;
 };
 

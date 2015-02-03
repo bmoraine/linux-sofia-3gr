@@ -2542,9 +2542,6 @@ static int imc_set_channel_config(struct idi_controller_device *idi,
 	if ((channel < 0) || (channel >= IDI_MAX_CHANNEL))
 		return -EINVAL;
 
-	if (idi->send_break)
-		idi->send_break(idi, 3);
-
 	imc_idi = idi_controller_get_drvdata(idi);
 	if (imc_idi == NULL)
 		return -EINVAL;
@@ -3200,31 +3197,6 @@ static int imc_set_power_state(struct idi_controller_device *idi,
 	return err;
 }
 
-/**
- * imc_send_break -
- * @idi: IDI controller reference
- * @nb: number of breaks to be issued
- */
-static int imc_send_break(struct idi_controller_device *idi, int nb)
-{
-	struct imc_controller *imc_idi;
-	void __iomem *ctrl;
-	int i = 0;
-
-	if (!idi)
-		return -EINVAL;
-
-	imc_idi = idi_controller_get_drvdata(idi);
-	ctrl = imc_idi->ctrl_io;
-
-	while (i++ < nb)
-		iowrite32(IMC_IDI_TXCON2_BREAK, IMC_IDI_TXCON2(ctrl));
-
-	pr_debug("%s: TXSTAT %X\n", __func__, ioread32(IMC_IDI_TXSTAT(ctrl)));
-
-	return 0;
-}
-
 static int imc_mid_channel_flush(struct idi_controller_device *idi,
 						int tx_not_rx, int channel)
 {
@@ -3292,7 +3264,6 @@ static void imc_idi_device_init(struct idi_controller_device *idi,
 	idi->request_buffer_flush = imc_buffer_flush;
 	idi->request_queue_status = imc_queue_status;
 	idi->set_power_state = imc_set_power_state;
-	idi->send_break = imc_send_break;
 	idi_controller_set_drvdata(idi, imc_idi);
 
 }				/* imc_idi_device_init() */
