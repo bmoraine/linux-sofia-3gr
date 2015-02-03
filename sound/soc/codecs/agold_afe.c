@@ -937,13 +937,13 @@ static const struct soc_enum agold_afe_hsps_ramp_enum =
 SOC_ENUM_SINGLE(AGOLD_AFE_AUDOUTCTRL1, 26, 4, agold_afe_hsps_ramp);
 
 static const struct snd_kcontrol_new agold_afe_snd_controls[] = {
-	SOC_SINGLE_TLV("RDAC Coarse Gain", AGOLD_AFE_GAIN_OUT, 7, 6, 0,
+	SOC_SINGLE_TLV("RDAC Coarse Gain", AGOLD_AFE_GAIN_OUT, 2, 6, 0,
 		DGAINCR_TLV),
-	SOC_SINGLE_TLV("RDAC Fine Gain", AGOLD_AFE_GAIN_OUT, 5, 3, 0,
+	SOC_SINGLE_TLV("RDAC Fine Gain", AGOLD_AFE_GAIN_OUT, 0, 3, 0,
 		DGAINFR_TLV),
-	SOC_SINGLE_TLV("LDAC Coarse Gain", AGOLD_AFE_GAIN_OUT, 2, 6, 0,
+	SOC_SINGLE_TLV("LDAC Coarse Gain", AGOLD_AFE_GAIN_OUT, 7, 6, 0,
 		DGAINCL_TLV),
-	SOC_SINGLE_TLV("LDAC Fine Gain", AGOLD_AFE_GAIN_OUT, 0, 3, 0,
+	SOC_SINGLE_TLV("LDAC Fine Gain", AGOLD_AFE_GAIN_OUT, 5, 3, 0,
 		DGAINFR_TLV),
 	SOC_SINGLE_TLV("Earpiece Gain", AGOLD_AFE_GAIN_OUT, 16, 8, 0,
 		EPGAIN_TLV),
