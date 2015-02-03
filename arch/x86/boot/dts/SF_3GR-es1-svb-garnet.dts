@@ -208,15 +208,16 @@
 
 &usif1 {
 	pinctrl-names = "default", "sleep", "inactive";
-	pinctrl-0 = <&usif2_default_pins>;
-	pinctrl-1 = <&usif2_sleep_pins>;
-	pinctrl-2 = <&usif2_inactive_pins>;
+	pinctrl-0 = <&usif1_default_pins>;
+	pinctrl-1 = <&usif1_sleep_pins>;
+	pinctrl-2 = <&usif1_inactive_pins>;
 };
 &usif2 {
-	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-names = "default", "sleep", "inactive", "reset";
 	pinctrl-0 = <&usif2_default_pins>;
 	pinctrl-1 = <&usif2_sleep_pins>;
 	pinctrl-2 = <&usif2_inactive_pins>;
+	pinctrl-3 = <&usif2_reset_pins>;
 };
 
 &i2c_1 {

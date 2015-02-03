@@ -224,14 +224,17 @@
 					};
 
 					usif2:usif2{
-						/* compatible = "intel,usif-serial"; */
+						compatible = "intel,usif-spi";
 						#address-cells = <0>;
 						reg = <0xE1200000 0x100000>;
+						reg-names = "register";
 						interrupts = <0 1>;
 						interrupt-names = "usif-int", "wk_int";
 						interrupt-parent = <&usif2>;
 						#interrupt-cells = <1>;
-						intel,serial-port = < 0 >;
+						intel,spi,numcs = <1>;
+						intel,spi,hw_type = <2>;
+						intel,spi,bus_num = <0>;
 						wakeup-source;
 						interrupt-map = <
 							0 &pic USIF2_INT IRQ_TYPE_DEFAULT
