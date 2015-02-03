@@ -390,6 +390,8 @@ struct spi_master {
 	int			(*transfer)(struct spi_device *spi,
 						struct spi_message *mesg);
 
+	/* XXX: hack hook here, some slave drive need a reset signal */
+	int			(*reset)(struct spi_device *spi, bool reset);
 	/* called on release() to free memory provided by spi_master */
 	void			(*cleanup)(struct spi_device *spi);
 
@@ -739,6 +741,7 @@ extern int spi_sync(struct spi_device *spi, struct spi_message *message);
 extern int spi_sync_locked(struct spi_device *spi, struct spi_message *message);
 extern int spi_bus_lock(struct spi_master *master);
 extern int spi_bus_unlock(struct spi_master *master);
+extern int spi_bus_reset(struct spi_device *spi, bool reset);
 
 /**
  * spi_write - SPI synchronous write

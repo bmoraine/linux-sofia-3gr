@@ -2058,6 +2058,14 @@ int spi_write_then_read(struct spi_device *spi,
 }
 EXPORT_SYMBOL_GPL(spi_write_then_read);
 
+int spi_bus_reset(struct spi_device *spi, bool reset)
+{
+	struct spi_master *master = spi->master;
+
+	return master->reset(spi, reset);
+}
+EXPORT_SYMBOL_GPL(spi_bus_reset);
+
 /*-------------------------------------------------------------------------*/
 
 static int __init spi_init(void)
