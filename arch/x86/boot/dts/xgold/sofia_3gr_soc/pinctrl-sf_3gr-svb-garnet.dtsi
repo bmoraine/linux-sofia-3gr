@@ -530,8 +530,8 @@ sdmmc_default_pins:sdmmc_default_pins {
 		0x29c 0x3011	/* sdmmc_dat1 */
 		0x2a0 0x3011	/* sdmmc_dat2 */
 		0x2a4 0x3011	/* sdmmc_dat3 */
-		0x2a8 0x1010	/* sdmmc_clk */
-		0x2ac 0x1	/* sdmmc_card_detect */
+		0x2a8 0x1011	/* sdmmc_clk */
+		0x2ac 0x2001	/* sdmmc_card_detect */
 	>;
 };
 sdmmc_inactive_pins:sdmmc_inactive_pins {
@@ -542,7 +542,7 @@ sdmmc_inactive_pins:sdmmc_inactive_pins {
 		0x2a0 0x4001	/* sdmmc_dat2 */
 		0x2a4 0x4001	/* sdmmc_dat3 */
 		0x2a8 0x4000	/* sdmmc_clk */
-		0x2ac 0x1	/* sdmmc_card_detect */
+		0x2ac 0x2001	/* sdmmc_card_detect */
 	>;
 };
 sdmmc_sleep_pins:sdmmc_sleep_pins {
@@ -552,8 +552,8 @@ sdmmc_sleep_pins:sdmmc_sleep_pins {
 		0x29c 0x3011	/* sdmmc_dat1 */
 		0x2a0 0x3011	/* sdmmc_dat2 */
 		0x2a4 0x3011	/* sdmmc_dat3 */
-		0x2a8 0x1010	/* sdmmc_clk */
-		0x2ac 0x1	/* sdmmc_card_detect */
+		0x2a8 0x1011	/* sdmmc_clk */
+		0x2ac 0x2001	/* sdmmc_card_detect */
 	>;
 };
 sdmmc_open_drain_function_B_active_pins:sdmmc_open_drain_function_B_active_pins {

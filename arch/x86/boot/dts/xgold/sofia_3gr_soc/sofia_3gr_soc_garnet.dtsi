@@ -430,7 +430,7 @@
 							0 &pic SDMMC_INT IRQ_TYPE_DEFAULT
 							1 &eint EINT_SDMMC_DETECT XGOLD_IRQ_TYPE_EDGE_BOTH >;
 						interrupt-names = "host", "wake";
-						/* vqmmc-supply = <&lmmc1>; */
+						vqmmc-supply = <&lmmc1>;
 						intel,max_clock = <96000000>;
 						intel,min_clock = <203125>;
 						intel,tap-hwbase = < &stsbc12 >;
