@@ -701,15 +701,8 @@ static void intel_otg_start_host(struct usb_otg *otg, int on)
 	if (on) {
 		dev_dbg(iphy->dev, "host on\n");
 
-#ifdef CONFIG_USB
-		usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
-#endif
 	} else {
 		dev_dbg(iphy->dev, "host off\n");
-
-#ifdef CONFIG_USB
-		usb_remove_hcd(hcd);
-#endif
 	}
 }
 
