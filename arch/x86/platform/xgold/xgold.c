@@ -263,44 +263,67 @@ static int xgold_pci_arch_init(void)
 	return 0;
 }
 
-/*
- * FIXME: Shall I use default_clock_source() to retrieve stm clocksource,
- *	and not using this ugly exported xgold_stm_clock_source_read()?
- * What is the impact of overriding default jiffies clocksource ?
- * */
+#define XGOLD_CALIB_DURATION 10 /* ms */
+#define XGOLD_STM_1MS 26000 /* Assuming STM clock is 26MHz */
+#define APIC_DIVISOR 16
 extern cycle_t xgold_stm_clock_source_read(struct clocksource *);
-static unsigned long __init xgold_calibrate_tsc(void)
+static unsigned long xgold_calibrate_tsc(void)
 {
-#define STM_1MS 26000 /* Assuming STM clock is 26MHz*/
-	struct clocksource *cs = NULL;
-	cycle_t t1, t2, delta;
-	u64 prev_tsc = 0, tsc, delta_tsc;
+	long lapic_cal_t1, lapic_cal_t2;
+	unsigned long long lapic_cal_tsc1, lapic_cal_tsc2;
+	cycle_t xgold_stm_cal_t1, xgold_stm_cal_t2, delta_stm;
+	long delta, deltatsc;
+	uint32_t reg;
+	pr_info("%s: Run it for %d ms\n", __func__, XGOLD_CALIB_DURATION);
+	/*
+	 * Setup the APIC counter to maximum. There is no way the lapic
+	 * can underflow in the 100ms detection time frame
+	 * Divide PICLK by 16
+	 */
+	reg = LOCAL_TIMER_VECTOR;
+	reg |= APIC_LVT_TIMER_PERIODIC;
+	reg |= APIC_LVT_MASKED;
+	apic_write(APIC_LVTT, reg);
+	reg = APIC_TDR_DIV_16;
+	apic_write(APIC_TDCR, reg);
+	reg = (0xffffffff / APIC_DIVISOR);
+	apic_write(APIC_TMICT, reg);
 
-	t1 = xgold_stm_clock_source_read(cs);
-	prev_tsc = get_cycles();
+	lapic_cal_t1 = apic_read(APIC_TMCCT);
+	lapic_cal_tsc1 = get_cycles();
+	xgold_stm_cal_t1 = xgold_stm_clock_source_read(NULL);
+	/* Calibrate for 10ms */
 	while (1) {
-		t2 = xgold_stm_clock_source_read(cs);
-		delta = t2 - t1;
-		if (delta >= (10 * STM_1MS))
+		xgold_stm_cal_t2 = xgold_stm_clock_source_read(NULL);
+		delta_stm = xgold_stm_cal_t2 - xgold_stm_cal_t1;
+		if (delta_stm >= (XGOLD_CALIB_DURATION * XGOLD_STM_1MS))
 			break;
 	}
-	tsc = get_cycles();
-	delta_tsc = tsc - prev_tsc;
+	lapic_cal_t2 = apic_read(APIC_TMCCT);
+	lapic_cal_tsc2 = get_cycles();
+	pr_debug("%s: ... xgold stm t1 = %lld\n", __func__, xgold_stm_cal_t1);
+	pr_debug("%s: ... xgold stm t2 = %lld\n", __func__, xgold_stm_cal_t2);
+	pr_debug("%s: ... xgold stm delta = %lld\n", __func__, delta_stm);
 
-	/* Because of wrong CPU fuses values, we have to divide by 9 */
-	do_div(delta_tsc, 90000);
-	pr_info("%s: Tsc rate estimated to %llu MHz\n", __func__, delta_tsc);
-	/* FIXME:
-	 * tsc rate is inconsistent on FPGA/VP, return tsc as unstable for now
-	 *	The lapic timer frequency needs to come from hw...
-	 * */
-#ifdef CONFIG_X86_LOCAL_APIC
-	/* CPU clock is 4x timer clock  (1 000 000 / 4)*/
-	lapic_timer_frequency = ((unsigned int)delta_tsc * 250000);
-	pr_info("lapic frequency is %d Hz\n", lapic_timer_frequency);
+	/* Build delta t1-t2 as apic timer counts down */
+	delta = lapic_cal_t1 - lapic_cal_t2;
+	pr_debug("%s: ... lapic t1 = %ld\n", __func__, lapic_cal_t1);
+	pr_debug("%s: ... lapic t2 = %ld\n", __func__, lapic_cal_t2);
+	pr_debug("%s: ... lapic delta = %ld\n", __func__, delta);
+
+	deltatsc = (long)(lapic_cal_tsc2 - lapic_cal_tsc1);
+	pr_debug("%s: ... tsc t1 = %lld\n", __func__, lapic_cal_tsc1);
+	pr_debug("%s: ... tsc t2 = %lld\n", __func__, lapic_cal_tsc2);
+	pr_debug("%s: ... tsc delta = %ld\n", __func__, deltatsc);
+
+	lapic_timer_frequency = (delta * APIC_DIVISOR);
+	lapic_timer_frequency /= XGOLD_CALIB_DURATION; /* in kHZ */
+	pr_info("%s: LAPIC Timer frequency is %u.%04u MHz.\n", __func__,
+		    lapic_timer_frequency / 1000, lapic_timer_frequency % 1000);
+	lapic_timer_frequency *= 1000; /* in HZ */
 	lapic_timer_frequency /= HZ;
-#endif
-	return 0;
+
+	return deltatsc/XGOLD_CALIB_DURATION;
 }
 
 void xgold_save_clock_state(void)
