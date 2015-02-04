@@ -471,6 +471,8 @@
 						     pm,state-D1 = "mid_perf";
 						     pm,state-D2 = "low_perf";
 						     pm,state-D3 = "disable";
+
+						     rockchip,iommu-enabled = <1>;
 					     };
 
 					mipi_dsi: mipi_dsi@E1080000 {
@@ -529,8 +531,35 @@
 					};
 #endif
 #ifndef RECOVERY_KERNEL
+					vpu_mmu@0xE2D00800 {
+                                                dbgname = "vpu";
+                                                compatible = "rockchip,vpu_mmu";
+                                                reg = <0xE2D00800 0x100>;
+                                                interrupts = <VID_HINT_ENC IRQ_TYPE_DEFAULT>;
+                                                interrupt-names = "vpu_mmu";
+                                        };
+
+					hevc_mmu@0xE2D00800 {
+                                                dbgname = "hevc";
+                                                compatible = "rockchip,hevc_mmu";
+                                                reg = <0xE2D00440 0x40>,
+                                                      <0xE2D00480 0x40>;
+                                                interrupts = <HEVC_DEC_INT IRQ_TYPE_DEFAULT>;
+                                                interrupt-names = "hevc_mmu";
+                                        };
+
+					vop_mmu@0xE1000300 {
+						dbgname = "vop";
+						compatible = "rockchip,vop_mmu";
+						reg = <0xE1000300 0x100>;
+						interrupts = <VOP_INT IRQ_TYPE_DEFAULT>;
+						interrupt-names = "vop_mmu";
+					};
+#endif
+#ifndef RECOVERY_KERNEL
 					vpu:vpu {
 						compatible = "rockchip,vpu_service";
+						iommu_enabled = <1>;
 						reg = < 0xE2D00000 0x1000 >;
 						interrupt-names = "irq_enc", "irq_dec";
 						interrupts = < VID_HINT_ENC IRQ_TYPE_DEFAULT >,
@@ -553,6 +582,7 @@
 #ifndef RECOVERY_KERNEL
 					hevc:hevc {
 						compatible = "rockchip,hevc_service";
+						iommu_enabled = <1>;
 						reg = < 0xE2D00000 0x1000 >;
 						interrupt-names = "irq_dec";
 						interrupts = < HEVC_DEC_INT IRQ_TYPE_DEFAULT >;

@@ -424,6 +424,7 @@
 &vop {
 	status = "okay";
 	rockchip,fb-win-map = <FB_DEFAULT_ORDER>;
+	rockchip,iommu-enabled = <1>;
 	pm,state-D0 = "low_perf";
 };
 
