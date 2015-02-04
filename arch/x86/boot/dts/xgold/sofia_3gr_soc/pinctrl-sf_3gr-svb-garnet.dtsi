@@ -23,6 +23,10 @@
 	<&range 45 1 0x1500>,
 	<&range 46 1 0x1500>,
 	<&range 47 1 0x1500>,/*gpio47, otg enable, output low, PP*/
+	<&range 56 1 0x01500>,
+	<&range 62 1 0x01500>,
+	<&range 63 1 0x01500>,
+	<&range 69 1 0x01500>,
  	<&range 71 1 0x1700>,
  	<&range 72 33 0x100>;
 
@@ -1105,18 +1109,21 @@ i2c1_default_pins:i2c1_default_pins {
 	pinctrl-single,pins = <
 		0x350 0x10011	/* i2c1_scl */
 		0x354 0x10011	/* i2c1_sda */
+		0x3a4 0x1010 /*mclk*/
 	>;
 };
 i2c1_inactive_pins:i2c1_inactive_pins {
 	pinctrl-single,pins = <
 		0x350 0x100	/* i2c1_scl */
 		0x354 0x100	/* i2c1_sda */
+		0x3a4 0x1410 /*mclk*/
 	>;
 };
 i2c1_sleep_pins:i2c1_sleep_pins {
 	pinctrl-single,pins = <
 		0x350 0x100	/* i2c1_scl */
 		0x354 0x100	/* i2c1_sda */
+		0x3a4 0x1410 /*mclk*/
 	>;
 };
 i2c2_default_pins:i2c2_default_pins {
