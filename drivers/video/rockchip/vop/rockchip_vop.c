@@ -28,6 +28,11 @@
 #include <linux/uaccess.h>
 #include "rockchip_vop.h"
 
+#if defined(CONFIG_ROCKCHIP_IOMMU)
+#include <linux/rockchip_iovmm.h>
+#include "../rockchip_disp_drv.h"
+#endif
+
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 #include <linux/platform_device_pm.h>
 #endif
@@ -541,6 +546,40 @@ static void rockchip_vop_reg_restore(struct vop_device *vop_dev)
 	memcpy((u8 *)vop_dev->regs, (u8 *)vop_dev->regsbak, 0xfc);
 }
 
+static int rockchip_vop_mmu_en(struct rockchip_vop_driver *dev_drv, bool enable)
+{
+	u32 mask, val;
+	struct vop_device *vop_dev =
+		container_of(dev_drv, struct vop_device, driver);
+
+	/*spin_lock(&vop_dev->reg_lock);*/
+	if (likely(vop_dev->clk_on)) {
+		mask = M_MMU_EN | M_AXI_MAX_OUTSTANDING_EN |
+			M_AXI_OUTSTANDING_MAX_NUM;
+		val = V_MMU_EN(enable) | V_AXI_OUTSTANDING_MAX_NUM(31) |
+			V_AXI_MAX_OUTSTANDING_EN(1);
+		vop_msk_reg(vop_dev, VOP_BUS_INTF_CTRL, mask, val);
+	}
+	/*spin_unlock(&vop_dev->reg_lock);*/
+
+#if defined(CONFIG_ROCKCHIP_IOMMU)
+	if (dev_drv->iommu_enabled) {
+		if (!dev_drv->mmu_dev)
+			return -ENODEV;
+		if (enable && !vop_dev->iommu_status) {
+			vop_dev->iommu_status = 1;
+			rockchip_iovmm_activate(dev_drv->dev);
+		}
+		if (!enable && vop_dev->iommu_status) {
+			vop_dev->iommu_status = 0;
+			rockchip_iovmm_deactivate(dev_drv->dev);
+		}
+	}
+#endif
+
+	return 0;
+}
+
 static int rockchip_vop_set_hwc_lut(struct rockchip_vop_driver *dev_drv,
 				    int *hwc_lut, int mode)
 {
@@ -631,6 +670,19 @@ static int rockchip_vop_pre_init(struct rockchip_vop_driver *dev_drv)
 
 	if (vop_dev->pre_init)
 		return 0;
+
+#if defined(CONFIG_ROCKCHIP_IOMMU)
+	if (dev_drv->iommu_enabled) {
+		dev_drv->mmu_dev =
+			rockchip_disp_get_sysmmu_device(dev_drv->mmu_dts_name);
+		if (dev_drv->mmu_dev)
+			rockchip_disp_platform_set_sysmmu(dev_drv->mmu_dev,
+							   dev_drv->dev);
+		else
+			dev_err(dev_drv->dev,
+				"failed to get rockchip iommu device\n");
+	}
+#endif
 
 	vop_dev->dclk = devm_clk_get(vop_dev->dev, "dclk_vop");
 
@@ -953,6 +1005,7 @@ static int rockchip_vop_open(struct rockchip_vop_driver *dev_drv, int win_id,
 			rockchip_vop_set_dclk(dev_drv);
 			rockchip_vop_enable_irq(dev_drv);
 		} else {
+			rockchip_vop_mmu_en(dev_drv, open);
 			rockchip_vop_load_screen(dev_drv, 1);
 		}
 
@@ -969,6 +1022,7 @@ static int rockchip_vop_open(struct rockchip_vop_driver *dev_drv, int win_id,
 	/* when all layer closed,disable clk */
 	if ((!open) && (!vop_dev->atv_layer_cnt)) {
 		rockchip_vop_disable_irq(vop_dev);
+		rockchip_vop_mmu_en(dev_drv, open);
 		rockchip_vop_clk_disable(vop_dev);
 	}
 	return 0;
@@ -1248,6 +1302,7 @@ static int rockchip_vop_early_suspend(struct rockchip_vop_driver *dev_drv)
 		spin_unlock(&vop_dev->reg_lock);
 		return 0;
 	}
+	rockchip_vop_mmu_en(dev_drv, false);
 	rockchip_vop_clk_disable(vop_dev);
 	rockchip_disp_pwr_disable(screen);
 	return 0;
@@ -1268,6 +1323,7 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 	if (vop_dev->atv_layer_cnt) {
 		rockchip_vop_clk_enable(vop_dev);
 		rockchip_vop_reg_restore(vop_dev);
+		rockchip_vop_mmu_en(dev_drv, true);
 
 		/* config for the FRC mode of dither down */
 		if (dev_drv->cur_screen &&
@@ -1848,6 +1904,7 @@ static struct rockchip_vop_drv_ops vop_drv_ops = {
 	.set_hwc_lut = rockchip_vop_set_hwc_lut,
 	.set_irq_to_cpu = rockchip_vop_set_irq_to_cpu,
 	.lcdc_reg_update = rockchip_vop_reg_update,
+	.mmu_en = rockchip_vop_mmu_en,
 	.reg_writel = rockchip_vop_reg_writel,
 	.reg_readl = rockchip_vop_reg_readl,
 };
@@ -1863,6 +1920,15 @@ static int rockchip_vop_parse_dt(struct vop_device *vop_dev)
 {
 	struct device_node *np = vop_dev->dev->of_node;
 	u32 val;
+
+#if defined(CONFIG_ROCKCHIP_IOMMU)
+	if (of_property_read_u32(np, "rockchip,iommu-enabled", &val))
+		vop_dev->driver.iommu_enabled = 0;
+	else
+		vop_dev->driver.iommu_enabled = val;
+#else
+	vop_dev->driver.iommu_enabled = 0;
+#endif
 
 	if (of_property_read_u32(np, "rockchip,fb-win-map", &val))
 		vop_dev->driver.fb_win_map = FB_DEFAULT_ORDER;
@@ -1934,6 +2000,11 @@ static int rockchip_vop_probe(struct platform_device *pdev)
 			vop_dev->irq, ret);
 		goto err_request_irq;
 	}
+
+#if defined(CONFIG_ROCKCHIP_IOMMU)
+	if (dev_drv->iommu_enabled)
+		strcpy(dev_drv->mmu_dts_name, VOP_IOMMU_COMPATIBLE_NAME);
+#endif
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	vop_dev->pm_platdata = of_device_state_pm_setup(dev->of_node);

@@ -38,6 +38,7 @@
 #if defined(CONFIG_ION)
 #if defined(CONFIG_ION_ROCKCHIP)
 #include <linux/rockchip_ion.h>
+#include <linux/rockchip_iovmm.h>
 #endif
 #include <linux/dma-buf.h>
 #include <linux/highmem.h>
@@ -440,6 +441,59 @@ static int rockchip_fb_check_config_var(struct rockchip_fb_area_par *area_par,
 	return 0;
 }
 
+#ifdef CONFIG_ROCKCHIP_IOMMU
+static int g_last_addr[4];
+static int g_last_timeout;
+static u32 freed_addr[10];
+static u32 freed_index;
+
+#define DUMP_CHUNK 256
+char buf[PAGE_SIZE];
+
+/*
+ * rockchip_fb_sysmmu_fault_handler
+ * this is a mmu fault handler function
+ */
+int rockchip_fb_sysmmu_fault_handler(struct device *dev,
+				 enum rockchip_iommu_inttype itype,
+				 unsigned long pgtable_base,
+				 unsigned long fault_addr,
+				 unsigned int status)
+{
+	struct rockchip_vop_driver *dev_drv = get_prmry_vop_drv();
+	int i = 0;
+	static int page_fault_cnt;
+
+	if ((page_fault_cnt++) >= 10)
+		return 0;
+	pr_err
+	    ("PAGE FAULT at 0x%lx (Page table base: 0x%lx),status=%d\n",
+	     fault_addr, pgtable_base, status);
+	pr_info("last config addr:\n" "win0:0x%08x\n" "win1:0x%08x\n"
+	       "win2:0x%08x\n" "win3:0x%08x\n", g_last_addr[0], g_last_addr[1],
+	       g_last_addr[2], g_last_addr[3]);
+	pr_info("last freed buffer:\n");
+	for (i = 0; (freed_addr[i] != 0xfefefefe) && freed_addr[i]; i++)
+		pr_info("%d:0x%08x\n", i, freed_addr[i]);
+	pr_info("last timeout:%d\n", g_last_timeout);
+	dev_drv->ops->get_disp_info(dev_drv, buf, 0);
+	for (i = 0; i < PAGE_SIZE; i += DUMP_CHUNK) {
+		if ((PAGE_SIZE - i) > DUMP_CHUNK) {
+			char c = buf[i + DUMP_CHUNK];
+
+			buf[i + DUMP_CHUNK] = 0;
+			pr_cont("%s", buf + i);
+			buf[i + DUMP_CHUNK] = c;
+		} else {
+			buf[PAGE_SIZE - 1] = 0;
+			pr_cont("%s", buf + i);
+		}
+	}
+
+	return 0;
+}
+#endif
+
 static void rockchip_fb_free_dma_buf(struct rockchip_vop_driver *dev_drv,
 				 struct rockchip_vop_win *win)
 {
@@ -453,6 +507,13 @@ static void rockchip_fb_free_dma_buf(struct rockchip_vop_driver *dev_drv,
 	for (i = 0; i < win->area_num; i++) {
 		area = &win->area[i];
 
+#if defined(CONFIG_ROCKCHIP_IOMMU)
+		if (dev_drv->iommu_enabled) {
+			ion_unmap_iommu(dev_drv->dev, sfb_info->ion_client,
+					area->ion_hdl);
+			freed_addr[freed_index++] = area->smem_start;
+		}
+#endif
 		if (area->ion_hdl)
 			ion_free(sfb_info->ion_client, area->ion_hdl);
 
@@ -480,6 +541,10 @@ static void rockchip_fb_free_last_regs(struct rockchip_vop_driver *dev_drv,
 	kfree(regs);
 
 	mutex_unlock(&dev_drv->regs_lock);
+#if defined(CONFIG_ROCKCHIP_IOMMU)
+	if (dev_drv->iommu_enabled)
+		freed_addr[freed_index] = 0xfefefefe;
+#endif
 }
 
 static int rockchip_fb_set_win_par(struct fb_info *info,
@@ -626,6 +691,10 @@ static int rockchip_fb_set_win_buffer(struct fb_info *info,
 	int ion_fd, acq_fence_fd;
 	size_t len;
 	int ret = 0, i = 0;
+#if defined(CONFIG_ROCKCHIP_IOMMU)
+	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)info->par;
+	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
+#endif
 
 	vop_win->area[0].smem_start = 0;
 	vop_win->area_num = 0;
@@ -647,8 +716,19 @@ static int rockchip_fb_set_win_buffer(struct fb_info *info,
 			vop_win->area_num++;
 			vop_win->area[i].ion_hdl = hdl;
 
+#ifndef CONFIG_ROCKCHIP_IOMMU
 			ret = ion_phys(sfb_info->ion_client, hdl, &phy_addr,
 				       &len);
+#else
+			if (dev_drv->iommu_enabled)
+				ret = ion_map_iommu(dev_drv->dev,
+						sfb_info->ion_client, hdl,
+						(unsigned long *)&phy_addr,
+						(unsigned long *)&len);
+			else
+				ret = ion_phys(sfb_info->ion_client, hdl,
+						   &phy_addr, &len);
+#endif
 			if (ret < 0) {
 				pr_err("%s:ion map to get phy addr failed\n",
 				       __func__);
@@ -730,6 +810,11 @@ static void rockchip_fb_update_reg(struct rockchip_vop_driver *dev_drv,
 			dev_drv->ops->set_par(dev_drv, i);
 			dev_drv->ops->pan_display(dev_drv, i);
 			mutex_unlock(&dev_drv->win_cfg_lock);
+#if defined(CONFIG_ROCKCHIP_IOMMU)
+			if (dev_drv->iommu_enabled)
+				g_last_addr[i] = win->area[0].smem_start +
+					win->area[0].y_offset;
+#endif
 		} else {
 			win->z_order = -1;
 			win->state = 0;
@@ -775,8 +860,17 @@ static void rockchip_fb_update_reg(struct rockchip_vop_driver *dev_drv,
 	sw_sync_timeline_inc(dev_drv->timeline, 1);
 #endif
 
-	if (dev_drv->last_regs)
+	if (dev_drv->last_regs) {
+#if defined(CONFIG_ROCKCHIP_IOMMU)
+		if (dev_drv->iommu_enabled) {
+			if (support_uboot_display() && dev_drv->ops->mmu_en)
+				dev_drv->ops->mmu_en(dev_drv, true);
+			freed_index = 0;
+			g_last_timeout = timeout;
+		}
+#endif
 		rockchip_fb_free_last_regs(dev_drv, dev_drv->last_regs);
+	}
 
 	mutex_lock(&dev_drv->regs_lock);
 	dev_drv->last_regs = regs;
@@ -1752,6 +1846,7 @@ static int rockchip_fb_alloc_buffer_by_ion(struct fb_info *fbi,
 	ion_phys_addr_t phy_addr;
 	size_t len;
 	int ret = 0;
+	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
 
 	if (IS_ERR_OR_NULL(sfb_info->ion_client)) {
 		pr_err("%s: ion client is err or null\n", __func__);
@@ -1759,9 +1854,19 @@ static int rockchip_fb_alloc_buffer_by_ion(struct fb_info *fbi,
 	}
 
 	if (sfb_info->ion_server_type == ION_DRV_RK) {
-		handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
-				ION_HEAP(ION_CMA_HEAP_ID), 0);
+		if (dev_drv->iommu_enabled) {
+			pr_err("ion_alloc iommu enbled\n");
+			handle = ion_alloc(sfb_info->ion_client,
+				(size_t)fb_mem_size,
+				0, ION_HEAP(ION_VMALLOC_HEAP_ID), 0);
+		} else {
+			pr_err("ion_alloc iommu disabled\n");
+			handle = ion_alloc(sfb_info->ion_client,
+				(size_t)fb_mem_size,
+				0, ION_HEAP(ION_CMA_HEAP_ID), 0);
+		}
 	} else if (sfb_info->ion_server_type == ION_DRV_XGOLD) {
+		pr_err("ion_alloc xgold\n");
 		handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
 				ION_HEAP(ION_HEAP_TYPE_DMA), 0);
 	}
@@ -1778,7 +1883,16 @@ static int rockchip_fb_alloc_buffer_by_ion(struct fb_info *fbi,
 		goto err_share_dma_buf;
 	}
 
+#ifdef CONFIG_ROCKCHIP_IOMMU
+	if (dev_drv->iommu_enabled && dev_drv->mmu_dev)
+		ret = ion_map_iommu(dev_drv->dev, sfb_info->ion_client, handle,
+					(unsigned long *)&phy_addr,
+					(unsigned long *)&len);
+	else
+		ret = ion_phys(sfb_info->ion_client, handle, &phy_addr, &len);
+#else
 	ret = ion_phys(sfb_info->ion_client, handle, &phy_addr, &len);
+#endif
 	if (ret < 0) {
 		dev_err(fbi->dev, "ion map to get phy addr failed\n");
 		goto err_share_dma_buf;
@@ -2046,16 +2160,6 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 		fbi->flags = FBINFO_FLAG_DEFAULT;
 		fbi->pseudo_palette = dev_drv->win[i]->pseudo_pal;
 
-		if (i == 0) {	/* only alloc memory for main fb */
-			ret = rockchip_fb_alloc_buffer(fbi, 0);
-			if (ret < 0) {
-				dev_err(&fb_pdev->dev,
-					"%s fb%d alloc buffer fail!\n",
-					__func__, sfb_info->num_fb);
-				return ret;
-			}
-		}
-
 		ret = register_framebuffer(fbi);
 		if (ret < 0) {
 			dev_err(&fb_pdev->dev,
@@ -2112,13 +2216,25 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 		}
 	}
 
-#if !defined(CONFIG_FRAMEBUFFER_CONSOLE) && defined(CONFIG_LOGO)
 	/* show logo for primary display device */
 	if (dev_drv->prop == PRMRY) {
 		struct fb_info *main_fbi = sfb_info->fb[0];
 
 		main_fbi->fbops->fb_open(main_fbi, 1);
 
+		/* only alloc memory for main fb */
+		ret = rockchip_fb_alloc_buffer(main_fbi, 0);
+		if (ret < 0)
+			return ret;
+
+#if defined(CONFIG_ROCKCHIP_IOMMU)
+		if (dev_drv->iommu_enabled) {
+			if (dev_drv->mmu_dev)
+				rockchip_iovmm_set_fault_handler(dev_drv->dev,
+					rockchip_fb_sysmmu_fault_handler);
+		}
+#endif
+#if !defined(CONFIG_FRAMEBUFFER_CONSOLE) && defined(CONFIG_LOGO)
 		if (support_uboot_display())
 			return 0;
 		main_fbi->fbops->fb_set_par(main_fbi);
@@ -2136,8 +2252,8 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 #endif
 		main_fbi->fbops->fb_pan_display(&main_fbi->var, main_fbi);
 		dev_drv->ops->cfg_done(dev_drv);
-	}
 #endif
+	}
 	return 0;
 }
 

@@ -386,7 +386,7 @@ struct rockchip_vop_drv_ops {
 
 	int (*dump_reg)(struct rockchip_vop_driver *dev_drv);
 	int (*cfg_done)(struct rockchip_vop_driver *dev_drv);
-	int (*mmu_en)(struct rockchip_vop_driver *dev_drv);
+	int (*mmu_en)(struct rockchip_vop_driver *dev_drv, bool enable);
 	int (*reg_writel)(struct rockchip_vop_driver *dev_drv, u32 offset,
 			  u32 val);
 	u32 (*reg_readl)(struct rockchip_vop_driver *dev_drv, u32 offset);

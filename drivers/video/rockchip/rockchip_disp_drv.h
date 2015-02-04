@@ -34,4 +34,10 @@ extern struct platform_driver xgold_mipi_dsi_driver;
 #endif
 extern struct platform_driver rockchip_vop_driver;
 
+#ifdef CONFIG_ROCKCHIP_IOMMU
+struct device *rockchip_disp_get_sysmmu_device(const char *compt);
+void rockchip_disp_platform_set_sysmmu(struct device *sysmmu,
+			struct device *dev);
+#endif
+
 #endif

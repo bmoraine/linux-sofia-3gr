@@ -27,9 +27,61 @@
 
 #include <linux/platform_device.h>
 #include "rockchip_disp_drv.h"
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#endif
+#ifdef CONFIG_ROCKCHIP_IOMMU
+#include <linux/rockchip_iovmm.h>
+#endif
 
 /* platform device pointer for rockchip display device. */
 static struct platform_device *rockchip_disp_pdev;
+
+#ifdef CONFIG_ROCKCHIP_IOMMU
+
+/* rockchip_disp_get_sysmmu_device()
+ * @compt: dts device compatible name
+ * return:
+ *	success: pointer to the device inside of platform device
+ *	fail: NULL
+ */
+struct device *rockchip_disp_get_sysmmu_device(const char *compt)
+{
+	struct device_node *dev_node = NULL;
+	struct platform_device *plat_dev = NULL;
+	struct device *dev = NULL;
+
+	dev_node = of_find_compatible_node(NULL, NULL, compt);
+	if (!dev_node) {
+		pr_err("can't find device node %s \r\n", compt);
+		return NULL;
+	}
+
+	plat_dev = of_find_device_by_node(dev_node);
+	if (!plat_dev) {
+		pr_err("can't find platform device in device node %s \r\n",
+		       compt);
+		return  NULL;
+	}
+	dev = &plat_dev->dev;
+
+	return dev;
+}
+#endif
+
+#ifdef CONFIG_IOMMU_API
+void rockchip_disp_platform_set_sysmmu(struct device *sysmmu,
+		struct device *dev)
+{
+	dev->archdata.iommu = sysmmu;
+}
+#else
+void rockchip_disp_platform_set_sysmmu(struct device *sysmmu,
+		struct device *dev)
+{
+}
+#endif
 
 static int rockchip_disp_platform_probe(struct platform_device *pdev)
 {
