@@ -3528,6 +3528,9 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
 	hsotg->gadget.max_speed = USB_SPEED_HIGH;
 	hsotg->gadget.ops = &s3c_hsotg_gadget_ops;
 	hsotg->gadget.name = dev_name(dev);
+#if IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
+	hsotg->gadget.is_otg = 1;
+#endif
 
 	/* reset the system */
 
