@@ -511,7 +511,7 @@
 							"IRQPP2", "IRQPPMMU2",
 							"IRQPP3", "IRQPPMMU3";
 
-						dvfs_off;
+						dvfs_interval = <20>;
 						dvfs_clock_config = < 312 1000 >, < 416 2000 >, < 480 3000 >;
 
 						clocks = <&clk_gpu>, <&clk_ahb_per2>;
