@@ -700,9 +700,11 @@ static void intel_otg_start_host(struct usb_otg *otg, int on)
 
 	if (on) {
 		dev_dbg(iphy->dev, "host on\n");
+		hcd->driver->start(hcd);
 
 	} else {
 		dev_dbg(iphy->dev, "host off\n");
+		hcd->driver->stop(hcd);
 	}
 }
 
