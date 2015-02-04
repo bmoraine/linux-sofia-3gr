@@ -9,7 +9,7 @@ display-timings {
 		out-face    = <OUT_P888>;
 		color-mode = <COLOR_RGB>;
 		clock-frequency = <148500000>;
-		hactive = <608>;
+		hactive = <600>;
 		vactive = <1024>;
 		hback-porch = <60>;
 		hfront-porch = <100>;
