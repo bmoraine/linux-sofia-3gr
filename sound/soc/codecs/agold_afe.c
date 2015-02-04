@@ -1720,7 +1720,6 @@ static int agold_afe_startup(struct snd_pcm_substream *substream,
 		snd_soc_codec_get_drvdata(dai->codec);
 	u32 reg = 0;
 	int ret = 0;
-
 	afe_debug("%s: DAC transit %d\n", __func__, agold_afe->dac_dsp_transit);
 
 	mutex_lock(&dai->codec->mutex);
@@ -1735,9 +1734,14 @@ static int agold_afe_startup(struct snd_pcm_substream *substream,
 					SND_SOC_BIAS_PREPARE);
 	}
 
+	/* Program BCON MODE bit before AUDOUTSTRT bit */
+	reg = snd_soc_read(dai->codec, AGOLD_AFE_BCON);
+	reg |= (AFE_BCON_MODE);
+	snd_soc_write(dai->codec, AGOLD_AFE_BCON, reg);
+
 	if (!ret &&
 		substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		reg = snd_soc_read(dai->codec, AGOLD_AFE_BCON);
+
 		afe_debug("%s : Enabling IDI HS bit\n",
 				__func__);
 		if (!(reg & AFE_BCON_FMR_DIRECT)) {
@@ -1781,12 +1785,10 @@ static void agold_afe_shutdown(struct snd_pcm_substream *substream,
 			struct snd_soc_dai *dai)
 {
 	u32 reg = 0;
-
 	/* Ensure that AFE stops the input data to DSP. This is required
 	 * in case of delayed powered down where bias may still be kept
 	 * while the receiver(DSP) is not powered and ready */
 	afe_debug("%s\n", __func__);
-
 	mutex_lock(&dai->codec->mutex);
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE &&
 			!dai->capture_active) {
@@ -1882,8 +1884,6 @@ static int agold_afe_hw_params(struct snd_pcm_substream *substream,
 	reg &= 0xFFFFFFE3;
 	reg |= (0x4 << AFE_BCON_AUD_OUTRATE_POS);
 
-	/* Enable BCON mode */
-	reg |= AFE_BCON_MODE;
 
 	if (*audio_native)
 		reg |= AFE_BCON_AFE_PWR | AFE_BCON_AUDOUTSTRT;
@@ -2031,6 +2031,7 @@ static int agold_afe_set_bias(struct snd_soc_codec *codec,
 {
 	u32 reg = snd_soc_read(codec, AGOLD_AFE_BCON);
 	int ret = 0;
+	int i;
 	struct agold_afe_data *agold_afe =
 		(struct agold_afe_data *)snd_soc_codec_get_drvdata(codec);
 
@@ -2105,13 +2106,11 @@ static int agold_afe_set_bias(struct snd_soc_codec *codec,
 		if ((!codec->active || agold_afe->codec_force_shutdown) &&
 				codec->dapm.bias_level != SND_SOC_BIAS_OFF) {
 
-
-			/* Disable BCON mode */
-			reg &= ~AFE_BCON_MODE;
-			snd_soc_write(codec, AGOLD_AFE_BCON, reg);
-
 			/* Disable AUDOUT STRT */
 			reg &= ~AFE_BCON_AUDOUTSTRT;
+			snd_soc_write(codec, AGOLD_AFE_BCON, reg);
+			/* Disable BCON mode */
+			reg &= ~AFE_BCON_MODE;
 			snd_soc_write(codec, AGOLD_AFE_BCON, reg);
 
 			/* Disable IDI handshake */
@@ -2123,6 +2122,18 @@ static int agold_afe_set_bias(struct snd_soc_codec *codec,
 			reg = snd_soc_read(codec, AGOLD_AFE_BCON);
 			reg &= ~(AFE_BCON_AFE_PWR | AFE_BCON_XBON);
 			snd_soc_write(codec, AGOLD_AFE_BCON, reg);
+
+			/* Apply AFE reset to avoid channel swap */
+			if (agold_afe->aferst != NULL) {
+				reset_control_assert(agold_afe->aferst);
+				udelay(10);
+				reset_control_deassert(agold_afe->aferst);
+				for (i = 0; i < ARRAY_SIZE(agold_afe_reg_cache);
+							i++) {
+					reg = snd_soc_read(codec, i);
+					snd_soc_write(codec, i, reg);
+				}
+			}
 
 			/* Disable AFE power */
 			ret = agold_afe_handle_codec_power(codec, level);
