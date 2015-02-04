@@ -44,6 +44,7 @@
 #define SYSPROF_EVENT_CLASS_ECT                 10
 #define SYSPROF_EVENT_CLASS_SYSMON              11
 #define SYSPROF_EVENT_CLASS_SPIN                12
+#define SYSPROF_EVENT_CLASS_DVFS                15
 #define SYSPROF_NOF_EVENT_CLASSES               32
 
 #define SYSPROF_LINUX_CTX_INST                  0x10
@@ -95,6 +96,17 @@
 						  SYS_PROF_IF(RTOS))
 #define sysprof_vmentry_end()		iowrite32((0x00000F02), \
 						  SYS_PROF_IF(RTOS))
+
+/* DVFS */
+#define sysprof_dvfs_vcore_load(data)       iowrite32((0x002C0000 | \
+						   (data & 0xFFFF)), \
+						  SYS_PROF_IF(DVFS))
+#define sysprof_dvfs_vcore_load_bal(data)   iowrite32((0x002D0000 | \
+						   (data & 0xFFFF)), \
+						  SYS_PROF_IF(DVFS))
+#define sysprof_dvfs_cpu_freq_notif(data)   iowrite32((0x002E0000 | \
+						   (data & 0xFFFF)), \
+						  SYS_PROF_IF(DVFS))
 
 extern uint32_t __iomem
 	*sys_prof_if[SYSPROF_NOF_PHYSICAL_CORES][SYSPROF_NOF_EVENT_CLASSES];
