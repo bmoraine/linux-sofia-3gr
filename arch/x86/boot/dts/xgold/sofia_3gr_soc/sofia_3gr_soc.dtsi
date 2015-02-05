@@ -794,7 +794,7 @@
 						intel,stat-reg = <0xbcc>;
 					};
 					spcu_thermal4{
-						/* DTS close to GPU */
+						/* DTS close to SPCU */
 						compatible = "intel,spcu-thermal";
 						reg = <0xE4700000 0x1000>;
 						interrupt-parent = <&hirq>;
@@ -805,6 +805,19 @@
 						intel,config-reg = <0xbb0>;
 						intel,ctrl-reg = <0xbb4>;
 						intel,stat-reg = <0xbd0>;
+					};
+					spcu_thermal5{
+						/* DTS close to GPU */
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4700000 0x1000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <19 IRQ_TYPE_DEFAULT>,
+							     <20 IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,thermal-id = <5>;
+						intel,config-reg = <0xbb8>;
+						intel,ctrl-reg = <0xbbc>;
+						intel,stat-reg = <0xbd4>;
 					};
 					dbb_rst1:reset-controller1 {
 						compatible = "intel,xgold-reset";
