@@ -3659,82 +3659,101 @@ static void cifisp_dump_reg(struct xgold_isp_dev *isp_dev, int level)
 }
 
 /* Not called when the camera active, thus not isr protection. */
-void cifisp_configure_isp(struct xgold_isp_dev *isp_dev,
-						unsigned int capture)
+void cifisp_configure_isp(
+		struct xgold_isp_dev *isp_dev,
+		enum cif_isp20_pix_fmt in_pix_fmt,
+		unsigned int capture)
 {
 	CIFISP_DPRINT(CIFISP_DEBUG_INFO, "%s\n", __func__);
 
 	mutex_lock(&isp_dev->mutex);
 
+	if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(in_pix_fmt)) {
 #ifndef CIFISP_DEBUG_DISABLE_BLOCKS
-	if (isp_dev->bpc_en) {
-		cifisp_bp_config(isp_dev);
-		cifisp_bp_en(isp_dev);
-		isp_dev->isp_param_bpc_update_needed = false;
-	}
+		if (isp_dev->bpc_en) {
+			cifisp_bp_config(isp_dev);
+			cifisp_bp_en(isp_dev);
+			isp_dev->isp_param_bpc_update_needed = false;
+		}
 
-	if (isp_dev->lsc_en) {
-		if (cifisp_lsc_config(isp_dev))
-			isp_dev->isp_param_lsc_update_needed = false;
-	}
+		if (isp_dev->lsc_en) {
+			if (cifisp_lsc_config(isp_dev))
+				isp_dev->isp_param_lsc_update_needed = false;
+		}
 
-	if (isp_dev->bls_en) {
-		cifisp_bls_config(isp_dev);
-		cifisp_bls_en(isp_dev);
-		isp_dev->isp_param_bls_update_needed = false;
-	}
+		if (isp_dev->bls_en) {
+			cifisp_bls_config(isp_dev);
+			cifisp_bls_en(isp_dev);
+			isp_dev->isp_param_bls_update_needed = false;
+		}
 
-	if (isp_dev->sdg_en) {
-		cifisp_sdg_config(isp_dev);
-		cifisp_sdg_en(isp_dev);
-		isp_dev->isp_param_sdg_update_needed = false;
-	}
+		if (isp_dev->sdg_en) {
+			cifisp_sdg_config(isp_dev);
+			cifisp_sdg_en(isp_dev);
+			isp_dev->isp_param_sdg_update_needed = false;
+		}
 
-	if (isp_dev->goc_en) {
-		cifisp_goc_config(isp_dev);
-		cifisp_goc_en(isp_dev);
-		isp_dev->isp_param_goc_update_needed = false;
-	}
+		if (isp_dev->goc_en) {
+			cifisp_goc_config(isp_dev);
+			cifisp_goc_en(isp_dev);
+			isp_dev->isp_param_goc_update_needed = false;
+		}
 
-	if (isp_dev->bdm_en) {
-		cifisp_bdm_config(isp_dev);
-		cifisp_bdm_en(isp_dev);
-		isp_dev->isp_param_bdm_update_needed = false;
-	}
+		if (isp_dev->bdm_en) {
+			cifisp_bdm_config(isp_dev);
+			cifisp_bdm_en(isp_dev);
+			isp_dev->isp_param_bdm_update_needed = false;
+		}
 
-	if (isp_dev->flt_en) {
-		cifisp_flt_config(isp_dev);
-		cifisp_flt_en(isp_dev);
-		isp_dev->isp_param_flt_update_needed = false;
-	}
+		if (isp_dev->flt_en) {
+			cifisp_flt_config(isp_dev);
+			cifisp_flt_en(isp_dev);
+			isp_dev->isp_param_flt_update_needed = false;
+		}
 
-	if (isp_dev->awb_gain_en) {
-		cifisp_awb_gain_config(isp_dev);
-		cifisp_awb_gain_en(isp_dev);
-		isp_dev->isp_param_awb_gain_update_needed = false;
-	}
+		if (isp_dev->awb_gain_en) {
+			cifisp_awb_gain_config(isp_dev);
+			cifisp_awb_gain_en(isp_dev);
+			isp_dev->isp_param_awb_gain_update_needed = false;
+		}
 
-	if (isp_dev->ctk_en) {
-		cifisp_ctk_config(isp_dev);
-		cifisp_ctk_en(isp_dev);
-		isp_dev->isp_param_ctk_update_needed = false;
-	}
+		if (isp_dev->ctk_en) {
+			cifisp_ctk_config(isp_dev);
+			cifisp_ctk_en(isp_dev);
+			isp_dev->isp_param_ctk_update_needed = false;
+		}
 
-	if (isp_dev->cproc_en) {
-		cifisp_cproc_config(isp_dev);
-		cifisp_cproc_en(isp_dev);
-		isp_dev->isp_param_cproc_update_needed = false;
-	}
+		if (isp_dev->cproc_en) {
+			cifisp_cproc_config(isp_dev);
+			cifisp_cproc_en(isp_dev);
+			isp_dev->isp_param_cproc_update_needed = false;
+		}
 
-	if (isp_dev->ycflt_en) {
-		cifisp_ycflt_config(isp_dev);
-		cifisp_ycflt_en(isp_dev);
-		isp_dev->isp_param_ycflt_update_needed = false;
-	}
-	isp_dev->ycflt_update = false;
+		if (isp_dev->ycflt_en) {
+			cifisp_ycflt_config(isp_dev);
+			cifisp_ycflt_en(isp_dev);
+			isp_dev->isp_param_ycflt_update_needed = false;
+		}
+		isp_dev->ycflt_update = false;
 
 #if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
-	if (capture) {
+		if (capture) {
+			if (isp_dev->macc_en) {
+				cifisp_macc_config(isp_dev);
+				cifisp_macc_en(isp_dev);
+				isp_dev->isp_param_macc_update_needed = false;
+			}
+
+			if (isp_dev->tmap_en) {
+				cifisp_tmap_config(isp_dev);
+				cifisp_tmap_en(isp_dev);
+				isp_dev->isp_param_tmap_update_needed = false;
+			}
+		} else {
+			cifisp_macc_end(isp_dev);
+			cifisp_tmap_end(isp_dev);
+		}
+#else
 		if (isp_dev->macc_en) {
 			cifisp_macc_config(isp_dev);
 			cifisp_macc_en(isp_dev);
@@ -3745,58 +3764,115 @@ void cifisp_configure_isp(struct xgold_isp_dev *isp_dev,
 			cifisp_tmap_config(isp_dev);
 			cifisp_tmap_en(isp_dev);
 			isp_dev->isp_param_tmap_update_needed = false;
-	}
+		}
+#endif
+#endif
+
+		if (isp_dev->afc_en) {
+			cifisp_afc_config(isp_dev);
+			cifisp_afc_en(isp_dev);
+			isp_dev->isp_param_afc_update_needed = false;
+		}
+
+		if (isp_dev->awb_meas_en) {
+			cifisp_awb_meas_config(isp_dev);
+			cifisp_awb_meas_en(isp_dev);
+			isp_dev->isp_param_awb_meas_update_needed = false;
+		}
+
+		if (isp_dev->aec_en) {
+			cifisp_aec_config(isp_dev);
+			cifisp_aec_en(isp_dev);
+			isp_dev->isp_param_aec_update_needed = false;
+		}
+
+		if (isp_dev->hst_en) {
+			cifisp_hst_config(isp_dev);
+			cifisp_hst_en(isp_dev);
+			isp_dev->isp_param_hst_update_needed = false;
+		}
+
+		if (isp_dev->ie_en) {
+			cifisp_ie_config(isp_dev);
+			cifisp_ie_en(isp_dev);
+			isp_dev->isp_param_ie_update_needed = false;
+		}
+
+		if (capture)
+			cifisp_reg_dump_capture(isp_dev);
 	} else {
+		/* Disable modules for raw */
+		cifisp_bp_end(isp_dev);
+		isp_dev->bpc_en = false;
+
+		cifisp_lsc_end(isp_dev);
+		isp_dev->lsc_en = false;
+
+		cifisp_bls_end(isp_dev);
+		isp_dev->bls_en = false;
+
+		cifisp_sdg_end(isp_dev);
+		isp_dev->sdg_en = false;
+
+		cifisp_goc_end(isp_dev);
+		isp_dev->goc_en = false;
+
+		cifisp_bdm_end(isp_dev);
+		isp_dev->bdm_en = false;
+
+		cifisp_flt_end(isp_dev);
+		isp_dev->flt_en = false;
+
+		cifisp_awb_meas_end(isp_dev);
+		isp_dev->awb_meas_en = false;
+
+		cifisp_awb_gain_end(isp_dev);
+		isp_dev->awb_gain_en = false;
+
+		cifisp_aec_end(isp_dev);
+		isp_dev->aec_en = false;
+
+		cifisp_ctk_end(isp_dev);
+		isp_dev->ctk_en = false;
+
+		/* cproc can be used for yuv */
+		if (isp_dev->cproc_en) {
+			cifisp_cproc_config(isp_dev);
+			cifisp_cproc_en(isp_dev);
+			isp_dev->isp_param_cproc_update_needed = false;
+		}
+
+		/* ycflt can be used for yuv */
+		if (isp_dev->ycflt_en) {
+			cifisp_ycflt_config(isp_dev);
+			cifisp_ycflt_en(isp_dev);
+			isp_dev->isp_param_ycflt_update_needed = false;
+		} else {
+			cifisp_ycflt_end(isp_dev);
+		}
+		isp_dev->ycflt_update = false;
+
 		cifisp_macc_end(isp_dev);
+		isp_dev->macc_en = false;
+
 		cifisp_tmap_end(isp_dev);
-	}
-#else
-	if (isp_dev->macc_en) {
-		cifisp_macc_config(isp_dev);
-		cifisp_macc_en(isp_dev);
-		isp_dev->isp_param_macc_update_needed = false;
-	}
+		isp_dev->tmap_en = false;
 
-	if (isp_dev->tmap_en) {
-		cifisp_tmap_config(isp_dev);
-		cifisp_tmap_en(isp_dev);
-		isp_dev->isp_param_tmap_update_needed = false;
-	}
-#endif
-#endif
+		cifisp_hst_end(isp_dev);
+		isp_dev->hst_en = false;
 
-	if (isp_dev->afc_en) {
-		cifisp_afc_config(isp_dev);
-		cifisp_afc_en(isp_dev);
-		isp_dev->isp_param_afc_update_needed = false;
-	}
+		cifisp_afc_end(isp_dev);
+		isp_dev->afc_en = false;
 
-	if (isp_dev->awb_meas_en) {
-		cifisp_awb_meas_config(isp_dev);
-		cifisp_awb_meas_en(isp_dev);
-		isp_dev->isp_param_awb_meas_update_needed = false;
+		/* ie can be used for yuv */
+		if (isp_dev->ie_en) {
+			cifisp_ie_config(isp_dev);
+			cifisp_ie_en(isp_dev);
+			isp_dev->isp_param_ie_update_needed = false;
+		} else {
+			cifisp_ie_end(isp_dev);
+		}
 	}
-
-	if (isp_dev->aec_en) {
-		cifisp_aec_config(isp_dev);
-		cifisp_aec_en(isp_dev);
-		isp_dev->isp_param_aec_update_needed = false;
-	}
-
-	if (isp_dev->hst_en) {
-		cifisp_hst_config(isp_dev);
-		cifisp_hst_en(isp_dev);
-		isp_dev->isp_param_hst_update_needed = false;
-	}
-
-	if (isp_dev->ie_en) {
-		cifisp_ie_config(isp_dev);
-		cifisp_ie_en(isp_dev);
-		isp_dev->isp_param_ie_update_needed = false;
-	}
-
-	if (capture)
-		cifisp_reg_dump_capture(isp_dev);
 
 	cifisp_dump_reg(isp_dev, CIFISP_DEBUG_INFO);
 

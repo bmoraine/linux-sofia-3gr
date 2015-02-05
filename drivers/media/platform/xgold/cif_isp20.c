@@ -1921,11 +1921,9 @@ static int cif_isp20_config_isp(
 	cif_iowrite32(irq_mask,
 		dev->config.base_addr + CIF_ISP_IMSC);
 
-	if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(
-			dev->config.isp_config.input->pix_fmt) &&
-		!dev->config.mi_config.raw_enable)
-		cifisp_configure_isp(&dev->isp_dev,
-			dev->config.jpeg_config.enable);
+	if (!dev->config.mi_config.raw_enable)
+		cifisp_configure_isp(&dev->isp_dev, in_pix_fmt,
+				dev->config.jpeg_config.enable);
 	else
 		cifisp_disable_isp(&dev->isp_dev);
 
