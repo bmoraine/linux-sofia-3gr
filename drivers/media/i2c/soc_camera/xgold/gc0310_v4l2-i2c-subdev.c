@@ -620,7 +620,6 @@ static int gc0310_s_ext_ctrls(struct gc_camera_module *cam_mod,
 static int gc0310_start_streaming(struct gc_camera_module *cam_mod)
 {
 	int ret = 0;
-	u32 val;
 
 	gc_camera_module_pr_debug(cam_mod, "\n");
 
@@ -686,10 +685,10 @@ static int gc0310_check_camera_id(struct gc_camera_module *cam_mod)
 	gc_camera_module_pr_debug(cam_mod, "\n");
 
 	ret = gc_camera_module_read_reg(cam_mod, 1, GC0310_PID_H_ADDR, &val);
-	dev_info(cam_mod, "gc0310 id high = 0x%02x\n", val);
+	gc_camera_module_pr_debug(cam_mod, "gc0310 id high = 0x%02x\n", val);
 	pid = (val << 8) & 0xff00;
 	ret = gc_camera_module_read_reg(cam_mod, 1, GC0310_PID_L_ADDR, &val);
-	dev_info(cam_mod, "gc0310 id low = 0x%02x\n", val);
+	gc_camera_module_pr_debug(cam_mod, "gc0310 id low = 0x%02x\n", val);
 	pid |= val;
 
 	if (IS_ERR_VALUE(ret)) {
