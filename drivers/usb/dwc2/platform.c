@@ -158,19 +158,39 @@ MODULE_DEVICE_TABLE(of, dwc2_of_match_table);
  */
 static int dwc2_driver_probe(struct platform_device *dev)
 {
-	const struct of_device_id *match;
+	struct device_node *np = dev->dev.of_node;
 	const struct dwc2_core_params *params;
 	struct dwc2_core_params defparams;
+	const struct of_device_id *match;
 	struct dwc2_hsotg *hsotg;
 	struct resource *res;
 	struct phy *phy;
 	struct usb_phy *uphy;
 	int retval;
 	int irq;
+	int len;
 
 	match = of_match_device(dwc2_of_match_table, &dev->dev);
 	if (match && match->data) {
 		params = match->data;
+	} else if (of_find_property(np, "dwc2_params", &len)) {
+		/* Try to get params from device tree */
+		int i = 0;
+		params = devm_kzalloc(&dev->dev,
+				sizeof(struct dwc2_core_params), GFP_KERNEL);
+		len /= sizeof(u32);
+		if (of_property_read_u32_array(np, "dwc2_params",
+					(u32 *) params, len)) {
+			dev_err(&dev->dev,
+				"can't get dwc2 params from device tree\n");
+			return -EINVAL;
+		}
+		/* Dump all paramters */
+		while (i < len) {
+			dev_dbg(&dev->dev, "dwc_params[%d] = %d\n",
+					i, ((int *) params)[i]);
+			i++;
+		}
 	} else {
 		/* Default all params to autodetect */
 		dwc2_set_all_params(&defparams, -1);
