@@ -24,6 +24,7 @@ Refer to phy/phy-bindings.txt for generic phy consumer properties
 - g_rx_fifo_size: size of rx fifo size in gadget mode.
 - g_np_tx_fifo_size: size of non-periodic tx fifo size in gadget mode.
 - g_tx_fifo_size: size of periodic tx fifo per endpoint (except ep0) in gadget mode.
+- dwc2_params: parameters of the controller corresponding to struct dwc2_core_params
 
 Example:
 
