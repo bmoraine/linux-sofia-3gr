@@ -310,6 +310,10 @@
 	pinctrl-0 = <&i2c3_default_pins>;
 	pinctrl-1 = <&i2c3_sleep_pins>;
 	pinctrl-2 = <&i2c3_inactive_pins>;
+	leds-lp8557-driver {
+		compatible = "ti,lp8557";
+		reg = < 0x2c >;
+	};
 };
 
 
