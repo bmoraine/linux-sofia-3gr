@@ -51,7 +51,7 @@ static struct device_state_pm_state gpu_pm_states[] = {
 	{ .name = "low_perf",  }, /* D0i3 */
 	{ .name = "mid_perf",  }, /* D0i2 */
 	{ .name = "high_perf", }, /* D0 */
-/*	{ .name = "ultra_high_perf", },*/ /* D0 */
+	{ .name = "ultra_high_perf", }, /* D0 */
 };
 
 DECLARE_DEVICE_STATE_PM_CLASS(gpu);

@@ -30,21 +30,15 @@
 #define mali_warn(fmt, arg...)	pr_warn(MALI_PLF_NAME" [W]: " fmt, ##arg)
 #define mali_dbg(fmt, arg...)	pr_debug(MALI_PLF_NAME" [D]: " fmt, ##arg)
 
-/* ToDo: Should we get this in probe from DTS? */
-#undef GPU_USE_ULTRA_HIGH_PERF /* Enable to use ultra_high_perf mode */
-#if defined(GPU_USE_ULTRA_HIGH_PERF)
 #define GPU_NUM_PM_STATES 5
-#else
-#define GPU_NUM_PM_STATES 4
-#endif /* defined(GPU_USE_ULTRA_HIGH_PERF) */
+
 #define GPU_MIN_PM_STATE 1
-#define GPU_MAX_PM_STATE (GPU_NUM_PM_STATES - 1)
-#define GPU_INITIAL_PM_STATE GPU_MAX_PM_STATE
+/*#define GPU_MAX_PM_STATE (GPU_NUM_PM_STATES - 1)*/
+/*#define GPU_INITIAL_PM_STATE GPU_MAX_PM_STATE*/
 
 /* PM states index */
 #define MALI_PLF_PM_STATE_D3	0
-#define MALI_PLF_PM_STATE_D0	GPU_MAX_PM_STATE
-
+/*#define MALI_PLF_PM_STATE_D0	GPU_MAX_PM_STATE*/
 
 struct mali_platform_data {
 #if !defined(CONFIG_PLATFORM_DEVICE_PM_VIRT)
@@ -65,6 +59,7 @@ struct mali_platform_pm {
 	struct mali_dev_dvfs_work_t *dvfs_work;
 	bool dvfs_off;
 	int req_clock_index;
+	int pm_status_num;
 	struct platform_device *pdev;
 };
 

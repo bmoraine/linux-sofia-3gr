@@ -59,6 +59,9 @@ static struct of_device_id xgold_graphics_of_match[] = {
 	{ },
 };
 
+#define GPU_MAX_PM_STATE (mali_dev_pm.pm_status_num-1)
+#define GPU_INITIAL_PM_STATE GPU_MAX_PM_STATE
+
 
 #define GPU_NUM_DVFS_STEPS (GPU_NUM_PM_STATES - 1)
 struct work_struct mali_setting_clock_work;
@@ -287,6 +290,7 @@ int mali_platform_device_init(struct platform_device *pdev)
 	int ret = -1;
 	struct device_node *np;
 	u32 val32 = 0;
+	bool ultra_high_flag = false;
 
 	mali_info("%s()\n", __func__);
 
@@ -311,6 +315,16 @@ int mali_platform_device_init(struct platform_device *pdev)
 		mali_err("Device state pm set class\n");
 		return ret;
 	}
+	ultra_high_flag = of_property_read_bool(np, "dvfs_ultra_high");
+	mali_info("ultra_high_perf is %s\n",
+		ultra_high_flag?"enabled":"disabled");
+
+	if (ultra_high_flag)
+		mali_clock_items.num_of_steps = 4;
+	else
+		mali_clock_items.num_of_steps = 3;
+
+	mali_dev_pm.pm_status_num = mali_clock_items.num_of_steps+1;
 
 	/* Is this the right way to get the state handlers when you use DTS? */
 	mali_dev_pm.pm_states[0] =
@@ -325,21 +339,25 @@ int mali_platform_device_init(struct platform_device *pdev)
 	mali_dev_pm.pm_states[3] =
 		platform_device_pm_get_state_handler(pdev,
 		"high_perf");
-#if defined(GPU_USE_ULTRA_HIGH_PERF)
-	mali_dev_pm.pm_states[4] =
-		platform_device_pm_get_state_handler(pdev,
-		"ultra_high_perf");
-#endif /* defined(GPU_USE_ULTRA_HIGH_PERF) */
+
+
 	if (mali_dev_pm.pm_states[0] == 0
 		|| mali_dev_pm.pm_states[1] == 0
 		|| mali_dev_pm.pm_states[2] == 0
 		|| mali_dev_pm.pm_states[3] == 0
-#if defined(GPU_USE_ULTRA_HIGH_PERF)
-		|| mali_dev_pm.pm_states[4] == 0
-#endif /* defined(GPU_USE_ULTRA_HIGH_PERF) */
 		) {
 		mali_err("Device pm unable to get state handler\n");
 		return -1;
+	}
+	if (ultra_high_flag) {
+		mali_dev_pm.pm_states[4] =
+			platform_device_pm_get_state_handler(pdev,
+			"ultra_high_perf");
+
+		if (mali_dev_pm.pm_states[4] == 0) {
+			mali_err("Device pm unable to get state handler\n");
+			return -1;
+		}
 	}
 
 #if defined(CONFIG_PM_RUNTIME)

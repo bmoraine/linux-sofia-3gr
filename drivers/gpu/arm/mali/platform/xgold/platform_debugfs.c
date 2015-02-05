@@ -37,6 +37,8 @@ static struct mali_platform_pm *p_dev_pm;
 static struct platform_device *p_dev;
 static const struct dev_pm_ops *p_dev_pm_ops;
 
+#define GPU_INITIAL_PM_STATE (p_dev_pm->pm_status_num-1)
+
 
 static ssize_t dev_gpu_dvfs_read(struct file *filp, char __user *ubuf,
 	size_t cnt, loff_t *ppos) {
@@ -240,7 +242,7 @@ static ssize_t dev_gpu_pm_write(struct file *filp, const char __user *ubuf,
 	}
 
 	/* Call debug function based on received control_value */
-	if ((0 < control_value) && (GPU_NUM_PM_STATES > control_value)) {
+	if ((0 < control_value) && (p_dev_pm->pm_status_num > control_value)) {
 #if defined(CONFIG_PM_RUNTIME)
 		if (pm_runtime_suspended(&(p_dev->dev)))
 			p_dev_pm->resume_pm_state = control_value;
