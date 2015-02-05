@@ -21,41 +21,14 @@
 
 #include <linux/types.h>
 #include <linux/io.h>
-#include <linux/types.h>
-#include <linux/time.h>
-
-/*completion*/
-#include <linux/hrtimer.h>
-#include <linux/completion.h>
+#include <linux/delay.h>
 
 #include "dsi_hwregs.h"
 
-/*#define DCC_HW_STUB*/
-/* need_to_modify
-#define CMD_MAX_WORDS	(17)
-#define CMDHEADER(_iten_, _opcode_) \
-			(((!!_iten_)<<7) | (_opcode_&0x1F))
-#define COORDINATES(_y_, _x_)	\
-	(((_y_&0x7FF) << 20) | ((_x_&0x7FF) << 8))
-#define COLORRGB(_r_, _g_, _b_)	\
-	(((_r_&0xFF) << 24) | ((_g_&0xFF) << 16) | ((_b_&0xFF) << 8))
-#define COLORARGB(_a_, _r_, _g_, _b_)	\
-	(((_a_&0xFF) << 24) \
-	 | ((_r_&0xFF) << 16) | ((_g_&0xFF) << 8) | (_b_&0xFF))
-#define TWO16BITS(_a_, _b_)		\
-	(((_a_&0xFFFF) << 16) | (_b_&0xFFFF))
-
-#define CMD_TYPE_INTREG 1
-#define CMD_TYPE_EXTREG 2
-*/
 #define EXTREG(_id_, _addr_, _mask_, _shift_) \
 	{#_id_, _addr_, _mask_, _shift_}
 
-/*external registers*/
 struct dsi_command dsi_regs[] = {
-	/*-------------------------------------------------------*/
-	/*      EXTERNAL REGISTERS                                   */
-	/*-------------------------------------------------------*/
 [EXR_DSI_CLC] =
 	EXTREG(EXR_DSI_CLC, DSI_CLC, 0xFFFFFFFF, 0),
 [EXR_DSI_CLC_RUN] =
@@ -131,23 +104,23 @@ struct dsi_command dsi_regs[] = {
 [EXR_DSI_CFG_ULPS] =
 	EXTREG(EXR_DSI_CFG_ULPS, DSI_CFG, 0x1, 11),
 [EXR_DSI_CFG_EN] =
-	EXTREG(EXR_DSI_CFG_EN,	DSI_CFG, 0x1, 12),
+	EXTREG(EXR_DSI_CFG_EN, DSI_CFG, 0x1, 12),
 [EXR_DSI_CFG_LANES] =
 	EXTREG(EXR_DSI_CFG_LANES, DSI_CFG, 0x3, 13),
 [EXR_DSI_CFG_ID] =
-	EXTREG(EXR_DSI_CFG_ID,	DSI_CFG, 0x3, 15),
+	EXTREG(EXR_DSI_CFG_ID, DSI_CFG, 0x3, 15),
 [EXR_DSI_CFG_TXS] =
-	EXTREG(EXR_DSI_CFG_TXS,	DSI_CFG, 0x1, 17),
+	EXTREG(EXR_DSI_CFG_TXS, DSI_CFG, 0x1, 17),
 [EXR_DSI_CFG_TE] =
-	EXTREG(EXR_DSI_CFG_TE,	DSI_CFG, 0x1, 18),
+	EXTREG(EXR_DSI_CFG_TE, DSI_CFG, 0x1, 18),
 [EXR_DSI_CFG_FIN] =
-	EXTREG(EXR_DSI_CFG_FIN,	DSI_CFG, 0x1, 19),
+	EXTREG(EXR_DSI_CFG_FIN, DSI_CFG, 0x1, 19),
 [EXR_DSI_CFG_VSYNC] =
-	EXTREG(EXR_DSI_CFG_VSYNC,	DSI_CFG, 0x1, 24),
+	EXTREG(EXR_DSI_CFG_VSYNC, DSI_CFG, 0x1, 24),
 [EXR_DSI_CFG_PSYNC] =
-	EXTREG(EXR_DSI_CFG_PSYNC,	DSI_CFG, 0x1, 25),
+	EXTREG(EXR_DSI_CFG_PSYNC, DSI_CFG, 0x1, 25),
 [EXR_DSI_CFG_SOURCE] =
-	EXTREG(EXR_DSI_CFG_SOURCE,	DSI_CFG, 0x1, 31),
+	EXTREG(EXR_DSI_CFG_SOURCE, DSI_CFG, 0x1, 31),
 [EXR_DSI_CLK] =
 	EXTREG(EXR_DSI_CLK, DSI_CLK, 0xFFFFFFFF, 0),
 [EXR_DSI_HEAD] =
@@ -290,124 +263,50 @@ struct dsi_command dsi_regs[] = {
 	EXTREG(EXR_DSI_RXD, DSI_RXD, 0xFFFFFFFF, 0),
 };
 
-/**
- * Wait for a specific value of a register
- */
-DECLARE_COMPLETION(dsi_comp);
-static enum hrtimer_restart complete_timer_func(struct hrtimer *timer)
+void dsi_wait_status(struct dsi_display *display, unsigned int reg,
+		     unsigned int value, unsigned int mask, unsigned int delay,
+		     unsigned int count)
 {
-	complete(&dsi_comp);
-	return HRTIMER_NORESTART;
-}
+	unsigned int read_value;
 
-int dsi_waitfor_external(void *base, unsigned int field, unsigned int value)
-{
-	unsigned int fieldval = value - 1;	/* just to invalid first test */
-	int ret = 0;
-	struct dsi_command *cmd = &dsi_regs[field];
+	do {
+		read_value = dsi_read_field(display, reg);
+		if ((read_value & mask) == value)
+			break;
 
-	fieldval = ioread32(base + cmd->addr);
-	if (fieldval != value) {
-		struct hrtimer timer;
-
-		hrtimer_init(&timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-		timer.function = complete_timer_func;
-		while (fieldval != value) {
-			hrtimer_start(&timer, ktime_set(0, 700 * 1000),
-				      HRTIMER_MODE_REL);
-			wait_for_completion(&dsi_comp);
-			fieldval = ioread32(base + cmd->addr);
-		}
-		hrtimer_cancel(&timer);
-	}
-
-	return ret;
-}
-
-/**
- * Reads DSI external register field value
- */
-static unsigned int dsi_rdextfield(void *regbase, unsigned int id)
-{
-	unsigned int retval = 0, regval = 0;
-	struct dsi_command *cmd = &dsi_regs[id];
-
-	if (regbase) {
-		regval = ioread32(regbase + cmd->addr);
-	} else {
-		pr_info("%s, mmio base address is null\n", __func__);
-		return -1;
-	}
-
-	retval = (regval >> cmd->shift) & cmd->mask;
-
-	return retval;
-}
-
-/**
- * Write DSI external register field value
- */
-static int dsi_wrextfield(void *regbase, unsigned int id, unsigned int val)
-{
-	unsigned int regval = 0;
-	struct dsi_command *cmd = &dsi_regs[id];
-
-	if (regbase) {
-		if (cmd->mask == 0xFFFFFFFF) {
-			iowrite32(val, regbase + cmd->addr);
-		} else {
-			val = (val << cmd->shift) & (cmd->mask << cmd->shift);
-			regval =
-			    ioread32(regbase + cmd->addr)
-					& ~(cmd->mask << cmd->shift);
-
-			iowrite32(val | regval, regbase + cmd->addr);
-		}
-	} else {
-		pr_err("%s, mmio base address is null\n", __func__);
-		return -1;
-	}
-
-	return 0;
+		if (delay)
+			msleep(delay);
+	} while (--count);
 }
 
 /**
  * Read DSI register
  */
-int dsi_read_field(struct dsi_display *display, unsigned int id,
-		   unsigned int *reg_value)
+unsigned int dsi_read_field(struct dsi_display *display, unsigned int id)
 {
-	unsigned int retval = 0xDEADDEAD;
+	struct dsi_command *cmd = &dsi_regs[id];
 
-	retval = dsi_rdextfield(display->regbase, id);
-
-	if (!retval)
-		goto error;
-
-	*reg_value = retval;
-	return 0;
-error:
-	return -1;
+	return (ioread32(display->regbase + cmd->addr) >> cmd->shift) &
+		cmd->mask;
 }
 
 /**
  * Write DSI register
  */
-int
-dsi_write_field(struct dsi_display *display, unsigned int id, unsigned int val)
+void dsi_write_field(struct dsi_display *display, unsigned int id, u32 val)
 {
+	u32 regval = 0;
+	struct dsi_command *cmd = &dsi_regs[id];
+
 	if (id == EXR_DSI_CFG)
 		val |= display->dif.dsi.dsi_cfg_reg;
 
-	return dsi_wrextfield(display->regbase, id, val);
-}
-
-/**
- * @brief Directly writes to hw (without using fifo)
- * @param data 32 bit data to write to hwfifo
- */
-static inline void
-dsi_wr_to_hwfifo(struct dsi_display *display, unsigned int data)
-{
-	dsi_wrextfield(display->regbase, EXR_DSI_TXD, data);
+	if (cmd->mask == 0xFFFFFFFF) {
+		iowrite32(val, display->regbase + cmd->addr);
+	} else {
+		val = (val << cmd->shift) & (cmd->mask << cmd->shift);
+		regval = ioread32(display->regbase + cmd->addr) &
+			~(cmd->mask << cmd->shift);
+		iowrite32(val | regval, display->regbase + cmd->addr);
+	}
 }

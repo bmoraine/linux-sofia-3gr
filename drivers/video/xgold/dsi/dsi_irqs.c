@@ -84,9 +84,9 @@ if (dsi_irq_status & _irq_) { \
 #define DSI_LOG_INTERRUPT_ERROR(_irq_, _p_) {\
 if (dsi_irq_status & _irq_) { \
 	unsigned int stat, ris, txffs; \
-	dsi_read_field(_p_, EXR_DSI_STAT, &stat); \
-	dsi_read_field(_p_, EXR_DSI_RIS, &ris); \
-	dsi_read_field(_p_, EXR_DSI_FIFO_STAT, &txffs); \
+	stat = dsi_read_field(_p_, EXR_DSI_STAT); \
+	ris = dsi_read_field(_p_, EXR_DSI_RIS); \
+	txffs = dsi_read_field(_p_, EXR_DSI_FIFO_STAT); \
 pr_info("[dsi]"#_irq_\
 " DSI_STAT:0x%08x DSI_RIS:0x%08x DSI_FIFO_STAT:0x%08x\n",\
 	stat, ris, txffs); \
@@ -99,7 +99,7 @@ static irqreturn_t dsi_hal_irq_err(int irq, void *dev_id)
 	unsigned int dsi_irq_clear = 0;
 	struct dsi_display *display = (struct dsi_display *)dev_id;
 
-	dsi_read_field(display, EXR_DSI_RIS, &dsi_irq_status);
+	dsi_irq_status = dsi_read_field(display, EXR_DSI_RIS);
 
 	/*pr_info("%s: Hardware Interrupt EXR_DSI_RIS = 0x%08x\n",
 		__func__, dsi_irq_status);*/
@@ -195,16 +195,9 @@ int dsi_irq_remove(struct dsi_display *display)
 	return 0;
 }
 
-int dsi_interrupt_setup(struct dsi_display *display)
+void dsi_interrupt_setup(struct dsi_display *display)
 {
-	if (dsi_write_field(display, EXR_DSI_ICR, 0x7FFFFF) != 0) {
-		pr_info("unable to write to the icr register\n");
-		goto error;
-	}
+	dsi_write_field(display, EXR_DSI_ICR, 0x7FFFFF);
 	dsi_write_field(display, EXR_DSI_IMSC, 0x3FFFFF);
-
-	return 0;
-
-error:
-	return -EIO;
 }
+

@@ -25,10 +25,6 @@
 #include "dsi_display.h"
 
 /* register addresses external */
-/* external registers are all registers which can be accessed
-   directly via a specified address.
-   These are mainly DIF registers and gRacr control registers
-*/
 #define DSI_CLC               0x0
 #define DSI_CLC_STAT          0x8
 #define DSI_ID                0xC
@@ -67,33 +63,30 @@
 #define DSI_TXD               0x4000
 #define DSI_RXD               0x10000
 
-/**
- * Interrupt source bit masks
- */
-
-#define DSI_IRQ_RXLSREQ	(1<<0)
-#define DSI_IRQ_RXSREQ	(1<<1)
-#define DSI_IRQ_RXLBREQ	(1<<2)
-#define DSI_IRQ_RXBREQ	(1<<3)
-#define DSI_IRQ_TXLSREQ	(1<<4)
-#define DSI_IRQ_TXSREQ	(1<<5)
-#define DSI_IRQ_TXLBREQ	(1<<6)
-#define DSI_IRQ_TXBREQ	(1<<7)
-#define DSI_IRQ_ERR_DSITR0	(1<<8)
-#define DSI_IRQ_ERR_DSITR1	(1<<9)
-#define DSI_IRQ_ERR_DSITR2	(1<<10)
-#define DSI_IRQ_ERR_DSITR3	(1<<11)
-#define DSI_IRQ_ERR_DSIUFL	(1<<12)
-#define DSI_IRQ_ERR_DSIFIN	(1<<13)
-#define DSI_IRQ_ERR_DSILTO	(1<<14)
-#define DSI_IRQ_ERR_DSIHTO	(1<<15)
-#define DSI_IRQ_ERR_DSIRTO	(1<<16)
-#define DSI_IRQ_ERR_DSIESC	(1<<17)
-#define DSI_IRQ_ERR_DSISYN	(1<<18)
-#define DSI_IRQ_ERR_DSICTR	(1<<19)
-#define DSI_IRQ_ERR_DSICON	(1<<20)
-#define DSI_IRQ_ERR_DSIOFL	(1<<21)
-#define DSI_IRQ_ERR_IDLE	(1<<22)
+/* Interrupt source bit masks */
+#define DSI_IRQ_RXLSREQ         (1<<0)
+#define DSI_IRQ_RXSREQ          (1<<1)
+#define DSI_IRQ_RXLBREQ         (1<<2)
+#define DSI_IRQ_RXBREQ          (1<<3)
+#define DSI_IRQ_TXLSREQ         (1<<4)
+#define DSI_IRQ_TXSREQ          (1<<5)
+#define DSI_IRQ_TXLBREQ         (1<<6)
+#define DSI_IRQ_TXBREQ          (1<<7)
+#define DSI_IRQ_ERR_DSITR0      (1<<8)
+#define DSI_IRQ_ERR_DSITR1      (1<<9)
+#define DSI_IRQ_ERR_DSITR2      (1<<10)
+#define DSI_IRQ_ERR_DSITR3      (1<<11)
+#define DSI_IRQ_ERR_DSIUFL      (1<<12)
+#define DSI_IRQ_ERR_DSIFIN      (1<<13)
+#define DSI_IRQ_ERR_DSILTO      (1<<14)
+#define DSI_IRQ_ERR_DSIHTO      (1<<15)
+#define DSI_IRQ_ERR_DSIRTO      (1<<16)
+#define DSI_IRQ_ERR_DSIESC      (1<<17)
+#define DSI_IRQ_ERR_DSISYN      (1<<18)
+#define DSI_IRQ_ERR_DSICTR      (1<<19)
+#define DSI_IRQ_ERR_DSICON      (1<<20)
+#define DSI_IRQ_ERR_DSIOFL      (1<<21)
+#define DSI_IRQ_ERR_IDLE        (1<<22)
 
 #define DSI_IRQ_ERR_MASK (\
 	DSI_IRQ_ERR_RXFUFL |\
@@ -119,13 +112,10 @@
 	DSI_IRQ_ERR_DSICTR |\
 	DSI_IRQ_ERR_DSICON)
 
-#define DSI_MODE_CONF	2
-#define DSI_MODE_RUN	1
+#define DSI_MODE_CONF   2
+#define DSI_MODE_RUN    1
 
-/* ---------------------  */
 /* Reg description table indices */
-/* ---------------------  */
-
 enum {
 	EXR_DSI_CLC = 1,
 	EXR_DSI_CLC_RUN,
@@ -247,28 +237,20 @@ enum {
 };
 
 struct dsi_command {
-	char *name;		/* command name string */
-	/*int access; *//* access restrictions */
-	unsigned int addr;	/* command register address */
-	unsigned int mask;	/* value field mask */
-	int shift;		/* value field shift */
+	char *name;             /* command name string */
+	unsigned int addr;      /* command register address */
+	unsigned int mask;      /* value field mask */
+	int shift;              /* value field shift */
 };
 
-/* -------------------------  */
-/* Declaration for Reg description table  */
-/* -------------------------  */
+/* Declaration for Reg description table */
 extern struct dsi_command dsi_regs[];
-
-/* -------------------------  */
-/* Macro definitions          */
-/* -------------------------  */
 #define BITFLDS(_id_, _val_) \
-		(((_val_) & dsi_regs[_id_].mask) << (dsi_regs[_id_].shift))
+	(((_val_) & dsi_regs[_id_].mask) << (dsi_regs[_id_].shift))
 
-int dsi_waitfor_external(void *base, unsigned int field, unsigned int value);
-int dsi_read_field(struct dsi_display *display, unsigned int id,
-		   unsigned int *reg_value);
-int dsi_write_field(struct dsi_display *display, unsigned int id,
-		    unsigned int value);
-
+void dsi_wait_status(struct dsi_display *display, unsigned int reg,
+		     unsigned int value, unsigned int mask, unsigned int delay,
+		     unsigned int count);
+unsigned int dsi_read_field(struct dsi_display *display, unsigned int id);
+void dsi_write_field(struct dsi_display *display, unsigned int id, u32 val);
 #endif

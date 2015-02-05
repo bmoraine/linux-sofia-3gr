@@ -137,23 +137,6 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 
 #define TLPX_NS 50
 
-static void dsi_wr32tofifo(struct dsi_display *display, unsigned int data)
-{
-	/* Write data to the DIF FIFO */
-	dsi_write_field(display, EXR_DSI_TXD, data);
-}
-
-int dsi_waitfor_dsidir(struct dsi_display *display, unsigned int value)
-{
-	unsigned int reg = 0xFF;
-	int ret = 0;
-
-	while (reg != value)
-		dsi_read_field(display, EXR_DSI_STAT_DSI_DIR, &reg);
-
-	return ret;
-}
-
 /**
  * Common TX functions
  */
@@ -221,7 +204,7 @@ static void dsi_mipidsi_send_long_packet_dma(struct dsi_display *display,
 			reg |= ((uint8_t) *data_msg++)<<(j*8);
 		}
 
-		dsi_wr32tofifo(display, reg);
+		dsi_write_field(display, EXR_DSI_TXD, reg);
 		DSI_DBG2("payload 0x%08x\n", reg);
 	}
 
@@ -386,7 +369,7 @@ static int dsi_configure_video_mode(struct dsi_display *display,
  */
 void dsi_set_phy(struct dsi_display *display, int on)
 {
-	unsigned int phy0 = 0, phy1 = 0, phy2 = 0, phy3 = 0, stat = 0, pllstat;
+	unsigned int phy0 = 0, phy1 = 0, phy2 = 0, phy3 = 0;
 
 	if (!on) {
 		phy0 = BITFLDS(EXR_DSI_PHY0_SHARE, 0x0) |
@@ -446,15 +429,7 @@ void dsi_set_phy(struct dsi_display *display, int on)
 
 	if (on) {
 		/* wait for PLL lock */
-		pllstat = BITFLDS(EXR_DSI_STAT_DSI_LOCK, 1);
-		dsi_read_field(display, EXR_DSI_STAT, &stat);
-		DSI_DBG2("wait dsi pll lock 0x%08x (0x%08x)\n", stat, pllstat);
-
-		while ((stat & pllstat) != pllstat) {
-			dsi_read_field(display, EXR_DSI_STAT, &stat);
-			DSI_DBG2("wait dsi pll lock 0x%08x (0x%08x)\n",
-				 stat, pllstat);
-		}
+		dsi_wait_status(display, EXR_DSI_STAT_DSI_LOCK, 1, 1, 0, 1000);
 	}
 }
 
@@ -514,7 +489,7 @@ int dsi_stop(struct dsi_display *display)
 
 int dsi_init(struct dsi_display *display)
 {
-	unsigned int stat, clcstat;
+	unsigned int clcstat;
 
 	dsi_write_field(display, EXR_DSI_CLC,
 			BITFLDS(EXR_DSI_CLC_RUN, DSI_MODE_RUN));
@@ -522,21 +497,12 @@ int dsi_init(struct dsi_display *display)
 	clcstat = BITFLDS(EXR_DSI_CLC_STAT_RUN, 1) |
 		BITFLDS(EXR_DSI_CLC_STAT_MODEN, 1) |
 		BITFLDS(EXR_DSI_CLC_STAT_KID, 1);
-	dsi_read_field(display, EXR_DSI_CLC, &stat);
-
-	while ((stat & clcstat) != clcstat) {
-		dsi_read_field(display, EXR_DSI_CLC, &stat);
-		DSI_DBG2("wait dsi state run 0x%08x (0x%08x)\n",
-			 stat, clcstat);
-	}
-
+	dsi_wait_status(display, EXR_DSI_CLC, clcstat, clcstat, 0, 1000);
 	dsi_write_field(display, EXR_DSI_CLK, 0x000F000F);
 	dsi_write_field(display, EXR_DSI_TO0, 0);
 	dsi_write_field(display, EXR_DSI_TO1, 0);
 	dsi_write_field(display, EXR_DSI_CFG, DSI_CFG_RX_LP_STP(1));
-	/* need_to_modify
-	SMS05120496_once = 1;
-	*/
+
 	return 0;
 }
 
