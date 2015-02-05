@@ -60,4 +60,9 @@ void dcc_bootscreen(struct dcc_drvdata *p);
 void dcc_clearscreen(struct dcc_drvdata *p);
 void dcc_bootlogo(struct dcc_drvdata *p);
 void dcc_clearvideomem(struct dcc_drvdata *p);
+
+int dcc_wait_status(struct dcc_drvdata *pdata,
+		unsigned int reg,
+		unsigned int pattern,
+		int to);
 #endif

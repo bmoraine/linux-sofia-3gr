@@ -934,7 +934,7 @@ int setclipping(struct dcc_drvdata *p, struct x_rect_t *win)
 }
 #endif
 
-static inline int dcc_wait_status(struct dcc_drvdata *pdata,
+int dcc_wait_status(struct dcc_drvdata *pdata,
 		unsigned int reg,
 		unsigned int pattern,
 		int to)
@@ -1020,6 +1020,7 @@ void dcc_setYUV2RGBcoeff(struct dcc_drvdata *p)
 	DCC_DBG2("YUV 2 RGB coeff(0x%08x,0x%08x,0x%08x) offset(0x%08x)\n",
 		reg1, reg2, reg3, regoff);
 
+	dcc_wait_status(p, EXR_DIF_STAT, BITFLDS(EXR_DIF_STAT_BSY, 0), 2000);
 	gra_write_field(p, EXR_DIF_RUNCTRL, DCC_MODE_CONF);
 	gra_write_field(p, EXR_DIF_COEFF_REG1, reg1);
 	gra_write_field(p, EXR_DIF_COEFF_REG2, reg2);

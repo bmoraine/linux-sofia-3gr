@@ -906,6 +906,8 @@ static int dcc_dsi_stop(struct dcc_display *lcd)
 	/* switch off DSI block */
 	gra_write_field(pdata, INR_DIF_DSICFG,	DSI_CFG_OFF(DSI_CMD));
 
+	dcc_wait_status(pdata, EXR_DIF_STAT,
+			BITFLDS(EXR_DIF_STAT_BSY, 0), 2000);
 	gra_write_field(pdata, EXR_DIF_RUNCTRL, DCC_MODE_CONF);
 	/* disable mipi dsi */
 	gra_write_field(pdata, EXR_DIF_PERREG,
@@ -920,6 +922,8 @@ static int dcc_dsi_init(struct dcc_display *lcd)
 	struct dcc_drvdata *pdata = m_to_dccdata(lcd, display);
 	DCC_DBG2("%s\n", __func__);
 
+	dcc_wait_status(pdata, EXR_DIF_STAT,
+			BITFLDS(EXR_DIF_STAT_BSY, 0), 2000);
 	gra_write_field(pdata, EXR_DIF_RUNCTRL, DCC_MODE_CONF);
 	gra_write_field(pdata, EXR_DIF_PERREG,
 			BITFLDS(EXR_DIF_PERREG_MIPIEN, 1));
