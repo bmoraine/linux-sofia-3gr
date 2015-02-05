@@ -252,8 +252,73 @@ static void dsi_send_cmd(struct dsi_display *display,
 	mdelay(msg->delay);
 }
 
+void dsi_read_cmd(struct dsi_display *display, u32 type, u8 *cmd,
+		  unsigned int cmd_len, u8 *data, unsigned int data_len)
+{
+	struct display_msg msg;
+	u32 dsicfg = DSI_CFG_TX_LP_DATA(1);
+	u32 nwords, nbytes;
+	u16 rxdata[2];
+	int i = 0;
 
+	if (type != MIPI_DSI_DCS_READ &&
+		type != MIPI_DSI_GENERIC_READ_REQUEST_0_PARAM &&
+		type != MIPI_DSI_GENERIC_READ_REQUEST_1_PARAM &&
+		type != MIPI_DSI_GENERIC_READ_REQUEST_2_PARAM)
+		return;
 
+	msg.type = type;
+	msg.datas = cmd;
+	msg.length = cmd_len;
+
+	if (msg.length <= 2)
+		dsi_mipidsi_send_short_packet(display, &msg, dsicfg);
+	else
+		dsi_mipidsi_send_long_packet_dma(display, &msg, dsicfg);
+
+	if (!dsi_completion_timeout_ms(&display->sync.dsifin,
+		display->sync.dsifin_to)) {
+		DSI_DBG3("dsifin interrupt timedout %dms\n",
+			 display->sync.dsifin_to);
+		return;
+	}
+
+	dsicfg |= BITFLDS(EXR_DSI_CFG_TURN, 1);
+	dsi_write_field(display, EXR_DSI_CFG, dsicfg |
+			BITFLDS(EXR_DSI_CFG_TX, 1) |
+			BITFLDS(EXR_DSI_CFG_CFG_LAT, 1));
+	dsi_write_field(display, EXR_DSI_CFG, dsicfg |
+			BITFLDS(EXR_DSI_CFG_TX, 1));
+	dsi_wait_status(display, EXR_DSI_STAT_DSI_DIR, DSI_DIR_RX, 0, 0, 1000);
+	dsi_wait_status(display, EXR_DSI_STAT_DSI_DIR, DSI_DIR_TX, 0, 0, 1000);
+	nwords = dsi_read_field(display, EXR_DSI_FIFO_STAT_RXFFS);
+	nbytes = dsi_read_field(display, EXR_DSI_RPS_STAT);
+
+	DSI_DBG3("EXR_DSI_FIFO_STAT_RXFFS = %#x\n", nwords);
+	DSI_DBG3("EXR_DSI_RPS_STAT = %#x\n", nbytes);
+
+	while (nwords && nbytes > 0 && data_len > 0) {
+		rxdata[0] = dsi_read_field(display, EXR_DSI_RXD);
+		rxdata[0] = swab16(rxdata[0]);
+		rxdata[1] = swab16(rxdata[1]);
+
+		DSI_DBG3("EXR_DSI_RXD = 0x%x%x\n", rxdata[0], rxdata[1]);
+
+		if (data_len < 4 || nbytes < 4) {
+			if (nbytes > data_len)
+				memcpy(data + i, rxdata, data_len);
+			else
+				memcpy(data + i, rxdata, nbytes);
+		} else {
+			memcpy(data + i, rxdata, 4);
+		}
+
+		nbytes -= 4;
+		data_len -= 4;
+		i += 4;
+		nwords--;
+	}
+}
 
 static int dsi_get_rate(struct dsi_display *display)
 {
@@ -367,7 +432,7 @@ static int dsi_configure_video_mode(struct dsi_display *display,
 /**
  * Callbacks
  */
-void dsi_set_phy(struct dsi_display *display, int on)
+static void dsi_set_phy(struct dsi_display *display, int on)
 {
 	unsigned int phy0 = 0, phy1 = 0, phy2 = 0, phy3 = 0;
 

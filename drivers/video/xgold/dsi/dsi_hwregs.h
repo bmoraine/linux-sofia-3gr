@@ -115,6 +115,9 @@
 #define DSI_MODE_CONF   2
 #define DSI_MODE_RUN    1
 
+#define DSI_DIR_TX 0
+#define DSI_DIR_RX 1
+
 /* Reg description table indices */
 enum {
 	EXR_DSI_CLC = 1,
