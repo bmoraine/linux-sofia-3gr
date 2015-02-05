@@ -1215,6 +1215,7 @@ int fmtrx_sys_get_rx_default_config(
 		data->other_cfg.clk_switch_range_104 = 150;
 		data->other_cfg.int_rssi_other_offset = 0;
 		data->other_cfg.ext_rssi_other_offset = 0;
+		data->other_cfg.seek_thr = 0;
 
 		memcpy(data->int_lna_offsets, (u8 *) int_lna_offsets,
 		       sizeof(int_lna_offsets));
@@ -1724,9 +1725,24 @@ static int fmr_hci_send_cmd(
 #endif
 
 #ifdef FMR_DEBUG_MEAS
-	print_hex_dump(KERN_DEBUG, "FMR <send>: ", DUMP_PREFIX_NONE, 32, 1,
-		       data, size, 0);
-	g_total_sent += size;
+	{
+		int idx;
+		char *ptr = kzalloc(1024, GFP_KERNEL);
+		if (0 == ptr) {
+			err = -ENOMEM;
+			fmtrx_sys_log
+			("%s: %s %d,Trace buffer alloc failed! %d\n",
+				FILE, __func__,
+				__LINE__, err);
+			goto fmr_hci_send_cmd_exit;
+		}
+
+		for (idx = 0; idx < size; idx++)
+			snprintf((ptr + (idx * 3)), 10, "%02x ", data[idx]);
+		fmtrx_sys_log("FMR <send>: %s\n", ptr);
+		g_total_sent += size;
+		kfree(ptr);
+	}
 #endif
 
  fmr_hci_send_cmd_exit:
@@ -2154,10 +2170,25 @@ static long fmr_plat_hci_event_handler(
 		goto fmr_plat_hci_event_handler_exit;
 	}
 #ifdef FMR_DEBUG_MEAS
-	print_hex_dump(KERN_DEBUG, "FMR <recv>: ",
-					DUMP_PREFIX_NONE, 32, 1,
-					skb->data, skb->len, 0);
-	g_total_recv += skb->len;
+	{
+		int idx;
+		char *ptr = kzalloc(1024, GFP_KERNEL);
+		if (0 == ptr) {
+			err = -ENOMEM;
+			fmtrx_sys_log
+			("%s: %s %d,Trace buffer alloc failed! %d\n",
+				FILE, __func__,
+				__LINE__, err);
+			goto fmr_plat_hci_event_handler_exit;
+		}
+
+		for (idx = 0; idx < skb->len; idx++)
+			snprintf((ptr + (idx * 3)), 10, "%02x ",
+				skb->data[idx]);
+		fmtrx_sys_log("FMR <recv>: %s\n", ptr);
+		g_total_recv += skb->len;
+		kfree(ptr);
+	}
 #endif
 
 	/* Get the data packet */

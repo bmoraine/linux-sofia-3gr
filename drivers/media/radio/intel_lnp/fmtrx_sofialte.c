@@ -1253,6 +1253,7 @@ int fmtrx_sys_get_rx_default_config(
 		data->other_cfg.clk_switch_range_104 = 150;
 		data->other_cfg.int_rssi_other_offset = 0;
 		data->other_cfg.ext_rssi_other_offset = 0;
+		data->other_cfg.seek_thr = 0;
 
 		memcpy(data->int_lna_offsets, (u8 *) int_lna_offsets,
 		       sizeof(int_lna_offsets));

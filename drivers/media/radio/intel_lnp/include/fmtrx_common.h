@@ -371,6 +371,7 @@ struct other_params {
 	u32 clk_switch_range_104;
 	s16 int_rssi_other_offset;
 	s16 ext_rssi_other_offset;
+	s16 seek_thr;
 } __packed;
 
 struct rds {
@@ -528,11 +529,9 @@ int fmrx_set_mute(
 
 /* Search up/down station
  * @mode Type of seek mode
- * @rssi Minimum signal strength to pass as valid channel
  */
 int fmrx_station_seeking(
-	enum seek_mode mode,
-	s16 rssi);
+	enum seek_mode mode);
 
 /* Cancel any ongoing operation like seek/auto evaluate/etc.
  */

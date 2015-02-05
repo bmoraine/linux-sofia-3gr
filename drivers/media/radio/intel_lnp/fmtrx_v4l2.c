@@ -1253,8 +1253,7 @@ static int fmtrx_v4l2_iops_hw_freq_seek(
 	mutex_lock(&interface_lock);
 	/* reserved[1] will have the signal level
 		to detect */
-	err = fmrx_station_seeking(mode,
-			data->reserved[1]);
+	err = fmrx_station_seeking(mode);
 	if (0 != err) {
 		fmtrx_sys_log
 			("%s: %s %d,FM station seeking failed! %d\n",

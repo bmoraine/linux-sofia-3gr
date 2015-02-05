@@ -796,8 +796,7 @@ fmrx_set_mute_exit:
 }
 
 int fmrx_station_seeking(
-		enum seek_mode mode,
-		s16 rssi)
+		enum seek_mode mode)
 {
 	int err = 0;
 	u32 start_frequency = 0, stop_frequency = 0, step = 0;
@@ -849,7 +848,7 @@ int fmrx_station_seeking(
 
 	err = fmrx_hw_channel_search(start_frequency,
 			stop_frequency, step, fmrx_cfg->side,
-			rssi, fmrx_cfg->other_cfg.pn_thr);
+			fmrx_cfg->other_cfg.seek_thr, fmrx_cfg->other_cfg.pn_thr);
 	if (0 != err) {
 		fmtrx_sys_log
 			("%s: %s %d,Channel search configuration failed! %d\n",
@@ -1228,6 +1227,7 @@ int fmrx_set_other_params(
 	/* Copy values that don't need any change in register settings */
 	fmrx_cfg->other_cfg.pn_thr = data->pn_thr;
 	fmrx_cfg->other_cfg.clk_switch_range_104 = data->clk_switch_range_104;
+	fmrx_cfg->other_cfg.seek_thr = data->seek_thr;
 
 	/* Set RSSI other offset configuration */
 	if ((fmrx_cfg->other_cfg.ext_rssi_other_offset !=
