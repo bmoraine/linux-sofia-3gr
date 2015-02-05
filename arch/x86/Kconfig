@@ -593,6 +593,12 @@ config X86_BOOT_SECTOR_ADDR
 	  Should be bImage adress - setup_sector size if both are
 	  concatenated
 
+config LOCAL_APIC_TIMER_VECTOR_NR
+	hex "Local APIC timer vector number"
+	default 0x6E
+	help
+	  Specify local APIC timer vector number
+
 endif
 
 config X86_INTEL_LPSS
