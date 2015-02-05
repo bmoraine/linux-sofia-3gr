@@ -79,7 +79,7 @@
 #define PN_M 0x3
 
 #define REV_O 0
-#define REV_M 0x3
+#define REV_M 0x7
 
 /* REG_CHARGE_CTRL1 */
 #define HZ_MODE_O 6
