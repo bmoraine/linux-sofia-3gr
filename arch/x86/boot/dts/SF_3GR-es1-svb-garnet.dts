@@ -365,6 +365,18 @@
 	};
 };
 
+&gnss {
+	pinctrl-names = "default", "sleep", "inactive", "default_lna", "inactive_lna", "default_fta", "inactive_fta", "gnss_default", "gnss_inactive";
+	pinctrl-0 = <&tcxo_agold_default_pins>;
+	pinctrl-1 = <&tcxo_agold_sleep_pins>;
+	pinctrl-2 = <&tcxo_agold_inactive_pins>;
+	pinctrl-3 = <&ext_agold_default_pins>;
+	pinctrl-4 = <&ext_agold_sleep_pins>;
+	pinctrl-5 = <&gnss_agold_default_pins>;
+	pinctrl-6 = <&gnss_agold_sleep_pins>;
+	pinctrl-7 = <&gnss_default_pins>;
+	pinctrl-8 = <&gnss_inactive_pins>;
+};
 
 #ifndef RECOVERY_KERNEL
 &afe {
