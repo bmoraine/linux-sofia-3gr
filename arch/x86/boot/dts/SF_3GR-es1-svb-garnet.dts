@@ -107,14 +107,14 @@
 	};*/
 #endif
 	fb {
-		compatible = "rockchip,rockchip-fb";
+		compatible = "rockchip,fb";
 		rockchip,disp-mode = <NO_DUAL>;
 		rockchip,uboot-logo-on = <0>;
 		rockchip,ion-drv = "rockchip";
 	};
 
 	screen {
-		compatible = "rockchip,rockchip-screen";
+		compatible = "rockchip,screen";
 		pm,class-name = "generic_class";
 		pm,user-name = "lcd";
 		pm,state-D0 = "enable";

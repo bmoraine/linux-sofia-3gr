@@ -434,7 +434,7 @@
 					};
 
 					vop: vop@E1000000 {
-						     compatible = "rockchip,rockchip-vop";
+						     compatible = "rockchip,vop";
 						     reg = <0xE1000000 0x148>;
 						     interrupts = < VOP_INT IRQ_TYPE_DEFAULT >;
 
@@ -538,7 +538,7 @@
 #endif
 #ifndef RECOVERY_KERNEL
 					rga {
-						compatible = "rockchip,rockchip-rga";
+						compatible = "rockchip,rga";
 						reg = <0xE2500000 0x200>;
 						interrupts = < RGA_INT IRQ_TYPE_DEFAULT >;
 						pm,class-name = "rga_class";
