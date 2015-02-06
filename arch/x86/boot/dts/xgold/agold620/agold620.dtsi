@@ -602,6 +602,11 @@ agold {
 					&meas 6	&meas 7 &meas 8 &meas 9>;
 		};
 
+		ag620_thermal {
+			compatible = "intel,ag620_thermal";
+			intel,sensor-names = "PMICTEMP_SENSOR";
+		};
+
 		meas_thermal {
 			compatible = "intel,meas_thermal";
 			intel,thermal-names = "pmictemp";
