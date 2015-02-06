@@ -231,6 +231,7 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 			 */
 			if (((dep->busy_slot & DWC3_TRB_MASK) ==
 				DWC3_TRB_NUM- 1) &&
+				dep->endpoint.desc &&
 				usb_endpoint_xfer_isoc(dep->endpoint.desc))
 				dep->busy_slot++;
 		} while(++i < req->request.num_mapped_sgs);
@@ -1934,6 +1935,7 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 		do {
 			slot = req->start_slot + i;
 			if ((slot == DWC3_TRB_NUM - 1) &&
+				dep->endpoint.desc &&
 				usb_endpoint_xfer_isoc(dep->endpoint.desc))
 				slot++;
 			slot %= DWC3_TRB_NUM;
@@ -1951,7 +1953,8 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 			break;
 	} while (1);
 
-	if (usb_endpoint_xfer_isoc(dep->endpoint.desc) &&
+	if (dep->endpoint.desc &&
+			usb_endpoint_xfer_isoc(dep->endpoint.desc) &&
 			list_empty(&dep->req_queued)) {
 		if (list_empty(&dep->request_list))
 			/*
@@ -2036,7 +2039,8 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 	case DWC3_DEPEVT_XFERCOMPLETE:
 		dep->resource_index = 0;
 
-		if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
+		if (dep->endpoint.desc &&
+			usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 			dev_dbg(dwc->dev, "%s is an Isochronous endpoint\n",
 					dep->name);
 			return;
@@ -2045,7 +2049,8 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		dwc3_endpoint_transfer_complete(dwc, dep, event, 1);
 		break;
 	case DWC3_DEPEVT_XFERINPROGRESS:
-		if (!usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
+		if (dep->endpoint.desc &&
+			!usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 			dev_dbg(dwc->dev, "%s is not an Isochronous endpoint\n",
 					dep->name);
 			return;
@@ -2054,7 +2059,8 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		dwc3_endpoint_transfer_complete(dwc, dep, event, 0);
 		break;
 	case DWC3_DEPEVT_XFERNOTREADY:
-		if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
+		if (dep->endpoint.desc &&
+			usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 			dwc3_gadget_start_isoc(dwc, dep, event);
 		} else {
 			int ret;
@@ -2075,7 +2081,8 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 
 		break;
 	case DWC3_DEPEVT_STREAMEVT:
-		if (!usb_endpoint_xfer_bulk(dep->endpoint.desc)) {
+		if (dep->endpoint.desc &&
+			!usb_endpoint_xfer_bulk(dep->endpoint.desc)) {
 			dev_err(dwc->dev, "Stream event for non-Bulk %s\n",
 					dep->name);
 			return;
