@@ -1757,7 +1757,7 @@ static int rockchip_fb_alloc_buffer_by_ion(struct fb_info *fbi,
 {
 	struct rockchip_fb *sfb_info = platform_get_drvdata(fb_pdev);
 	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)fbi->par;
-	struct ion_handle *handle;
+	struct ion_handle *handle = NULL;
 	ion_phys_addr_t phy_addr;
 	size_t len;
 	int ret = 0;
