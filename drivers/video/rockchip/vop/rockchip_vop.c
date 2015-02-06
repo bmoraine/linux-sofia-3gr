@@ -1807,9 +1807,8 @@ static struct rockchip_vop_drv_ops vop_drv_ops = {
 
 #if defined(CONFIG_OF)
 static const struct of_device_id rockchip_vop_dt_ids[] = {
-	{
-	 .compatible = "rockchip,rockchip-vop",
-	 },
+	{ .compatible = "rockchip,vop", },
+	{ },
 };
 #endif
 

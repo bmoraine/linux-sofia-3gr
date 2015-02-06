@@ -1065,7 +1065,7 @@ struct miscdevice rga_dev = {
 
 #if defined(CONFIG_OF)
 static const struct of_device_id rk_rga_dt_ids[] = {
-	{.compatible = "rockchip,rockchip-rga",},
+	{.compatible = "rockchip,rga",},
 	{},
 };
 #endif

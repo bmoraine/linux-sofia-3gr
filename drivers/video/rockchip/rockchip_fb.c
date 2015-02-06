@@ -2282,7 +2282,7 @@ static void rockchip_fb_shutdown(struct platform_device *pdev)
 }
 
 static const struct of_device_id rockchip_fb_dt_ids[] = {
-	{.compatible = "rockchip,rockchip-fb",},
+	{.compatible = "rockchip,fb",},
 	{}
 };
 

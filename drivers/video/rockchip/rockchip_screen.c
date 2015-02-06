@@ -482,7 +482,7 @@ static int rockchip_screen_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id rockchip_screen_dt_ids[] = {
-	{.compatible = "rockchip,rockchip-screen",},
+	{.compatible = "rockchip,screen",},
 	{}
 };
 
