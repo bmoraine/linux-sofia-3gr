@@ -1555,19 +1555,20 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *g, int is_active)
 		dwc3_gadget_reinit(dwc);
 		dwc3_gadget_enable_irq(dwc);
 		ret = dwc3_gadget_run_stop(dwc, is_active);
-		dev_info(dwc->dev, "vbus_session activated\n");
 	} else if (!is_active && !dwc->vbus_session_allow) {
 		dwc->vbus_session_allow = true;
 		ret = dwc3_gadget_run_stop(dwc, is_active);
 		dwc3_gadget_disable_irq(dwc);
+		dwc3_event_buffers_cleanup(dwc);
 		if (dwc->start_config_issued)
 			dwc3_gadget_disconnect_interrupt(dwc);
 		__dwc3_gadget_ep_disable(dwc->eps[0]);
 		__dwc3_gadget_ep_disable(dwc->eps[1]);
-		dev_info(dwc->dev, "vbus_session deactivated\n");
 	}
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
+	dev_info(dwc->dev, "vbus_session %s\n",
+			is_active ? "activated" : "deactivated");
 	return ret;
 }
 
@@ -2614,6 +2615,11 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
+	if (dwc->vbus_session_allow == true) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return IRQ_HANDLED;
+	}
+
 	for (i = 0; i < dwc->num_event_buffers; i++)
 		ret |= dwc3_process_event_buf(dwc, i);
 
@@ -2653,6 +2659,11 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 	irqreturn_t			ret = IRQ_NONE;
 
 	spin_lock(&dwc->lock);
+
+	if (dwc->vbus_session_allow == true) {
+		spin_unlock(&dwc->lock);
+		return IRQ_HANDLED;
+	}
 
 	for (i = 0; i < dwc->num_event_buffers; i++) {
 		irqreturn_t status;
