@@ -258,6 +258,7 @@ static int agold_afe_get_cp_frequency_info(struct snd_kcontrol *kcontrol,
 	afe_debug("%s :\n", __func__);
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 1;
+	uinfo->value.integer.max = 13000;
 	return 0;
 }
 
