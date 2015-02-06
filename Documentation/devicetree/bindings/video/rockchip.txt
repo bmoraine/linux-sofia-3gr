@@ -1,4 +1,5 @@
-compatible = "rockchip,rockchip-fb"
-compatible = "rockchip,rockchip-screen"
-compatible = "rockchip,rockchip-vop"
+compatible = "rockchip,fb"
+compatible = "rockchip,screen"
+compatible = "rockchip,vop"
+compatible = "rockchip,rga"
 
