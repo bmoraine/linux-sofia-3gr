@@ -64,9 +64,22 @@
 #define CFG_CHARGE_CURRENT_PCC_SHIFT        3
 #define CFG_CHARGE_CURRENT_TC_MASK        0x07
 #define CFG_CHARGE_CURRENT_ALL        0x41
+#define CFG_CURRENT_LIMIT            0x01
+#define CFG_CURRENT_LIMIT_DC_MASK        0xf0
+#define CFG_CURRENT_LIMIT_DC_SHIFT        4
+#define CFG_CURRENT_LIMIT_USB_MASK        0x0f
+#define CFG_CURRENT_LIMIT_SMB346_MASK   0xf0
+#define CFG_CURRENT_LIMIT_SMB346_VALUE_2000 0x70
+#define CFG_CURRENT_LIMIT_SMB346_VALUE_1800 0x60
+#define CFG_CURRENT_LIMIT_SMB346_VALUE_1500 0x50
+#define CFG_CURRENT_LIMIT_SMB346_VALUE_1200 0x40
+#define CFG_CURRENT_LIMIT_SMB346_VALUE_1000 0x30
+#define CFG_CURRENT_LIMIT_SMB346_VALUE_700 0x20
+#define CFG_CURRENT_LIMIT_SMB346_VALUE_500 0x10
 #define IBUS_MIN_LIMIT_MA 100
 #define IBUS_LIMIT_STEP_MA 400
 #define IBUS_MAX_LIMIT_MA 900
+#define FLOAT_VOLTAGE_REG        0x03
 
 #define IOCHARGE_MAX_MA 1500
 #define DEFAULT_CC 350
@@ -186,6 +199,8 @@
 #define SYSFS_FAKE_VBUS_SUPPORT 1
 
 #define SYSFS_INPUT_VAL_LEN (1)
+struct workqueue_struct *charger_work_queue = NULL;
+struct delayed_work charger_work;
 
 enum {
 	POK_B_VALID = 0,
@@ -361,6 +376,7 @@ struct smb345_charger {
 	struct device_pm_platdata *pm_platdata;
 
 	int chg_otg_en_gpio;
+	struct power_supply_cable_props *props;
 };
 
 static int smb345_otg_notification_handler(struct notifier_block *nb,
@@ -390,12 +406,13 @@ static struct smb345_charger chrgr_data = {
 
 	},
 };
+static int smb345_enable_charging(struct smb345_charger *chrgr,
+		bool enable, int ma);
+static int smb345_i2c_read_reg(struct i2c_client *client,
+		u8 reg_addr, u8 *data);
 
-static int smb345_i2c_read_reg(
-			struct i2c_client *client, u8 reg_addr, u8 *data);
-
-static int smb345_i2c_write_reg(
-			struct i2c_client *client, u8 reg_addr, u8 data);
+static int smb345_i2c_write_reg(struct i2c_client *client,
+		u8 reg_addr, u8 data);
 
 static struct charger_debug_data chrgr_dbg;
 
@@ -491,7 +508,7 @@ static ssize_t fake_vbus_store(
 
 		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_FAKE_VBUS,
 						chrgr->fake_vbus, 0);
-		pr_info("fake vbus removal sent\n");
+		pr_info("fake vbus removal sent.\n");
 
 	} else if (sysfs_val == 1 && !chrgr->state.charging_enabled) {
 		chrgr->fake_vbus = 1;
@@ -543,13 +560,16 @@ static inline void smb345_setup_fake_vbus_sysfs_attr(
 
 #endif /*SYSFS_FAKE_VBUS_SUPPORT*/
 
-static int smb345_i2c_read_reg(struct i2c_client *client, u8 reg, u8 *val) {
+static int smb345_i2c_read_reg(struct i2c_client *client, u8 reg, u8 *val)
+{
 	int ret;
 	struct smb345_charger *chrgr  = i2c_get_clientdata(client);
 
 	ret = i2c_smbus_read_byte_data(chrgr->client, reg);
 	if (ret < 0) {
-		dev_warn(&chrgr->client->dev, "i2c read fail: can't read reg 0x%02X: %d\n", reg, ret);
+		dev_warn(&chrgr->client->dev,
+				"i2c read fail: can't read reg 0x%02X: %d\n",
+				reg, ret);
 		return ret;
 	} else {
 		*val = ret;
@@ -558,7 +578,9 @@ static int smb345_i2c_read_reg(struct i2c_client *client, u8 reg, u8 *val) {
 	return 0;
 }
 
-static int smb345_i2c_write_reg(struct i2c_client *client, u8 reg, u8 val) {
+static int smb345_i2c_write_reg(struct i2c_client *client,
+		u8 reg, u8 val)
+{
 	int ret;
 	struct smb345_charger *chrgr = i2c_get_clientdata(client);
 
@@ -572,7 +594,9 @@ static int smb345_i2c_write_reg(struct i2c_client *client, u8 reg, u8 val) {
 	return 0;
 }
 
-static int smb345_masked_write(struct i2c_client *client, int reg, u8 mask, u8 val) {
+static int smb345_masked_write(struct i2c_client *client, int reg,
+		u8 mask, u8 val)
+{
 	s32 rc;
 	u8 temp;
 
@@ -592,7 +616,8 @@ static int smb345_masked_write(struct i2c_client *client, int reg, u8 mask, u8 v
 	return 0;
 }
 
-static int smb345_set_writable(struct smb345_charger *chrgr, bool writable) {
+static int smb345_set_writable(struct smb345_charger *chrgr, bool writable)
+{
 	int ret;
 	u8 val = 0;
 
@@ -644,7 +669,8 @@ static int __maybe_unused smb345_charger_get_property(struct power_supply *psy,
 static void smb345_set_boost(struct work_struct *work)
 {
 	int ret;
-	struct smb345_charger *chrgr = container_of(work, struct smb345_charger, boost_op_bh.work);
+	struct smb345_charger *chrgr =
+		container_of(work, struct smb345_charger, boost_op_bh.work);
 	int on = chrgr->state.to_enable_boost;
 
 	pr_info("%s(): %s\n", __func__, (on) ? "enable" : "disable");
@@ -978,21 +1004,239 @@ static int smb345_configure_pmu_regs(struct smb345_charger *chrgr)
 	return 0;
 }
 
-static int smb345_otg_notification_handler(struct notifier_block *nb,
-		unsigned long event, void *data)
+static void do_charger(struct work_struct *work)
 {
 	struct smb345_charger *chrgr = &chrgr_data;
 
-	switch (event) {
-		case INTEL_USB_DRV_VBUS:
-			if (!data)
-				return NOTIFY_BAD;
-			chrgr->state.to_enable_boost = *((bool *)data);
-			unfreezable_bh_schedule(&chrgr->boost_op_bh);
+	down(&chrgr->prop_lock);
+
+	pr_info("%s(), ma = %u, type = %d, connect = %d\n",
+			__func__, chrgr->props->ma, chrgr->props->chrg_type,
+			chrgr->props->chrg_evt);
+
+	if (chrgr->props->chrg_evt == POWER_SUPPLY_CHARGER_EVENT_CONNECT) {
+		chrgr->state.cable_type = chrgr->props->chrg_type;
+		switch (chrgr->props->chrg_type) {
+		case POWER_SUPPLY_CHARGER_TYPE_NONE:
+			break;
+
+		case POWER_SUPPLY_CHARGER_TYPE_USB_SDP:
+		case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
+		case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
+			smb345_enable_charging(chrgr, true, chrgr->props->ma);
+
 			break;
 
 		default:
 			break;
+
+		}
+	} else if (chrgr->props->chrg_evt
+			== POWER_SUPPLY_CHARGER_EVENT_DISCONNECT) {
+		smb345_enable_charging(chrgr, false, 0);
+	}
+	up(&chrgr->prop_lock);
+}
+
+static int smb345_write(struct smb345_charger *chrgr, u8 reg, u8 val)
+{
+	int ret;
+	int retry_count = I2C_RETRY_COUNT;
+
+	do {
+		ret = i2c_smbus_write_byte_data(chrgr->client, reg, val);
+		if (ret < 0) {
+			retry_count--;
+			dev_warn(&chrgr->client->dev,
+					"fail to write reg %02xh: %d\n",
+					reg, ret);
+			msleep(I2C_RETRY_DELAY);
+		}
+	} while (ret < 0 && retry_count > 0);
+
+	return ret;
+}
+
+static int smb345_read(struct smb345_charger *chrgr, u8 reg)
+{
+	int ret;
+	int retry_count = I2C_RETRY_COUNT;
+
+	do {
+		ret = i2c_smbus_read_byte_data(chrgr->client, reg);
+		if (ret < 0) {
+			retry_count--;
+			dev_warn(&chrgr->client->dev, "fail to read reg %02xh: %d\n",
+					reg, ret);
+			msleep(I2C_RETRY_DELAY);
+		}
+	} while (ret < 0 && retry_count > 0);
+
+	return ret;
+}
+static int smb345_set_current_limits(struct smb345_charger *chrgr,
+		int current_limit, bool is_twinsheaded)
+{
+	int ret;
+	ret = smb345_set_writable(chrgr, true);
+	if (ret < 0) {
+		pr_info("%s() set writable as true failed, return %d\n",
+				__func__, ret);
+		return ret;
+	}
+
+	pr_info("%s()-cable_type = %d, current_limit = %d\n",
+			__func__, chrgr->state.cable_type, current_limit);
+	if (chrgr->state.cable_type == POWER_SUPPLY_CHARGER_TYPE_USB_SDP
+			&& current_limit > 500) {
+		pr_info("USB IN but current limit > 500, return\n");
+		return 0;
+	}
+
+	switch (current_limit) {
+	case 500:
+		ret = smb345_masked_write(chrgr->client,
+					CFG_CURRENT_LIMIT,
+					CFG_CURRENT_LIMIT_SMB346_MASK,
+					CFG_CURRENT_LIMIT_SMB346_VALUE_500);
+		break;
+	case 700:
+		ret = smb345_masked_write(chrgr->client,
+					CFG_CURRENT_LIMIT,
+					CFG_CURRENT_LIMIT_SMB346_MASK,
+					CFG_CURRENT_LIMIT_SMB346_VALUE_700);
+		break;
+	case 1000:
+		ret = smb345_masked_write(chrgr->client,
+					CFG_CURRENT_LIMIT,
+					CFG_CURRENT_LIMIT_SMB346_MASK,
+					CFG_CURRENT_LIMIT_SMB346_VALUE_1000);
+		break;
+
+	case 1200:
+		ret = smb345_masked_write(chrgr->client,
+					CFG_CURRENT_LIMIT,
+					CFG_CURRENT_LIMIT_SMB346_MASK,
+					CFG_CURRENT_LIMIT_SMB346_VALUE_1200);
+		break;
+
+	case 1500:
+		ret = smb345_masked_write(chrgr->client,
+					CFG_CURRENT_LIMIT,
+					CFG_CURRENT_LIMIT_SMB346_MASK,
+					CFG_CURRENT_LIMIT_SMB346_VALUE_1500);
+		break;
+
+	case 1800:
+		ret = smb345_masked_write(chrgr->client,
+					CFG_CURRENT_LIMIT,
+					CFG_CURRENT_LIMIT_SMB346_MASK,
+					CFG_CURRENT_LIMIT_SMB346_VALUE_1800);
+		break;
+
+	case 2000:
+		ret = smb345_masked_write(chrgr->client,
+					CFG_CURRENT_LIMIT,
+					CFG_CURRENT_LIMIT_SMB346_MASK,
+					CFG_CURRENT_LIMIT_SMB346_VALUE_2000);
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
+
+static int smb345_enable_charging(struct smb345_charger *chrgr,
+		bool enable, int ma)
+{
+	int ret = 0;
+
+	ret = smb345_set_writable(chrgr, true);
+	if (ret < 0) {
+		pr_err("%s() set writable as true failed, return %d\n",
+				__func__, ret);
+		goto fail;
+	}
+
+	pr_info("%s(), enable = %d for type=%d, ma=%d\n",
+			__func__, enable, chrgr->state.cable_type, ma);
+	if (enable == true) {
+		if (ma < 500)
+			return 0;
+
+		/* config charge voltage as 4.3v */
+		ret = smb345_masked_write(chrgr->client,
+					FLOAT_VOLTAGE_REG,
+					BIT(0) | BIT(1) | BIT(2) |
+					BIT(3) | BIT(4) | BIT(5),
+					BIT(0) | BIT(1) | BIT(5));
+
+
+		/* charger enable */
+		ret = smb345_read(chrgr, CFG_PIN);
+		if (ret < 0)
+			goto fail;
+
+		ret &= ~CFG_PIN_EN_CTRL_MASK;
+		if (enable) {
+			/*
+			 * Set Pin active low
+			 * (ME371MG connect EN to GROUND)
+			 */
+			ret |= CFG_PIN_EN_CTRL_ACTIVE_LOW;
+		} else {
+		}
+		ret = smb345_write(chrgr, CFG_PIN, ret);
+		if (ret < 0)
+			goto fail;
+
+
+		if (smb345_set_current_limits(chrgr, ma, false) < 0) {
+			dev_err(&chrgr->client->dev,
+				"%s: fail to set max current limits\n",
+				__func__);
+			goto fail;
+		}
+
+		if (chrgr->state.cable_type ==
+				POWER_SUPPLY_CHARGER_TYPE_USB_SDP) {
+			power_supply_changed(&chrgr->usb_psy);
+		} else if (chrgr->state.cable_type
+				== POWER_SUPPLY_CHARGER_TYPE_USB_CDP ||
+				chrgr->state.cable_type
+				== POWER_SUPPLY_CHARGER_TYPE_USB_DCP) {
+			power_supply_changed(&chrgr->ac_psy);
+		}
+
+	} else {
+		power_supply_changed(&chrgr->ac_psy);
+		power_supply_changed(&chrgr->usb_psy);
+	}
+
+fail:
+	return ret;
+}
+
+static int smb345_otg_notification_handler(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+	struct smb345_charger *chrgr = &chrgr_data;
+	chrgr->props = (struct power_supply_cable_props *)data;
+
+	switch (event) {
+	case USB_EVENT_CHARGER:
+		queue_delayed_work(charger_work_queue, &charger_work, 0);
+		break;
+	case INTEL_USB_DRV_VBUS:
+		pr_info("%s() INTEL_USB_DRV_VBUS\n", __func__);
+		if (!data)
+			return NOTIFY_BAD;
+		chrgr->state.to_enable_boost = *((bool *)data);
+		unfreezable_bh_schedule(&chrgr->boost_op_bh);
+		break;
+
+	default:
+		break;
 	}
 	return NOTIFY_OK;
 }
@@ -1199,7 +1443,8 @@ static int smb345_i2c_probe(struct i2c_client *client,
 		pr_err("ERROR!: registration for OTG notifications failed\n");
 		goto boost_reg_fail;
 	}
-
+	charger_work_queue = create_singlethread_workqueue("charger_workqueue");
+	INIT_DELAYED_WORK(&charger_work, do_charger);
 	device_init_wakeup(&client->dev, true);
 
 	return 0;
