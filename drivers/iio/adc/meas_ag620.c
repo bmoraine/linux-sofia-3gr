@@ -52,6 +52,17 @@
 #define MEAS_AG620_VBAT_TYP_DET_MS			(10)
 /* This is used as the timeout for VBAT MIN measurement detecting in ms */
 #define MEAS_AG620_VBAT_MIN_DET_MS			(20)
+/* Threshold limit(in milli kelvin) for enabling AGOLD620 thermal protection */
+#define MEAS_TEMP_ALERT_ON_THRESHOLD (338150)
+/* Threshold limit(in milli kelvin) for disabling AGOLD620 thermal protection
+   due to HW problem. Due to this issue, system shuts down automatically < -5
+   degree C. To avoid this automaticatic shutdown, thermal protection is
+   disabled when agold temperature is lower than this limit */
+#define MEAS_TEMP_ALERT_OFF_THRESHOLD (333150)
+/* Bit position of STOPALT bit from LSB in MEAS_TEMP_ALERT register*/
+#define MEAS_TEMP_ALERT_STOPALT_BIT_POS (4)
+/* Bit position of ON bit from LSB in MEAS_TEMP_ALERT register*/
+#define MEAS_TEMP_ALERT_ON_BIT_POS (0)
 
 /* ADC resolution in bits */
 #define MEAS_AG620_ADC_RESOLUTION_BITS			(12)
@@ -68,6 +79,12 @@
 
 /* Size of debug data array (has to be power of 2!!!) */
 #define MEAS_AG620_DEBUG_DATA_SIZE (1<<6)
+
+/* MEAS AG620 chip revision number for ES2.0 */
+#define SCU_CHIP_ID_CHREV_ES_2_00 (0x20)
+
+/* Mask for extracting chip revision from SCU_CHIP_ID register */
+#define SCU_CHIP_ID_CHREV_MASK  (0xFF)
 
 /* Macro to log debug data */
 #define MEAS_AG620_DEBUG_DATA_LOG(_event, _context, _context2, \
@@ -137,7 +154,13 @@ struct meas_ag620_calibration {
  * @pd_timer:		Timer used to time peak detector search.
  * @irq_num:		IRQ number for underlying HW. It comes from device data.
  * @meas_done:		Completion used to wait for measurement done.
- * @operation_done_cb:	Pointer to HAL callback.
+ * @temp_alert_on_flag:	Flag to indicate TEMP ALERT macro is enabled.
+ * @temp_alert_off_flag:	Flag to indicate TEMP ALERT macro is disabled.
+ * @temp_alert_at_boot:	 TEMP ALERT register value at boot.
+ * @temp_alert_flag_at_boot:	Flag for TEMP ALERT macro at boot.
+ * @agold_chip_rev:	AGold chip revesion
+ *  e.g. for ES2.0, agold_chip_rev is 0x20
+ *       for ES2.01, agold_chip_rev is 0x21
  */
 struct meas_ag620_state_data {
 	spinlock_t lock;
@@ -155,6 +178,11 @@ struct meas_ag620_state_data {
 	int irq_num;
 	struct completion meas_done;
 	adc_hal_cb_t operation_done_cb;
+	int temp_alert_on_flag;
+	int temp_alert_off_flag;
+	int temp_alert_at_boot;
+	int temp_alert_flag_at_boot;
+	int agold_chip_rev;
 	bool meas_pending;
 };
 
@@ -163,6 +191,11 @@ static struct meas_ag620_state_data meas_ag620_state = {
 	.suspended = false,
 	.active_channel = ADC_MAX_NO_OF_CHANNELS,
 	.meas_pending = false,
+	.temp_alert_on_flag = false,
+	.temp_alert_off_flag = false,
+	.temp_alert_at_boot = false,
+	.temp_alert_flag_at_boot = true,
+	.agold_chip_rev = 0,
 };
 
 /** Enum for driver debug events */
@@ -172,7 +205,9 @@ enum meas_ag620_debug_event {
 	MEAS_AG620_SUSPEND_OK,
 	MEAS_AG620_SUSPEND_EBUSY,
 	MEAS_AG620_RESUME,
-	MEAS_AG620_CAL_DONE
+	MEAS_AG620_CAL_DONE,
+	MEAS_AG620_TEMP_ALERT_ON,
+	MEAS_AG620_TEMP_ALERT_OFF
 };
 /**
  * meas_ag620_debug_data - Structure to collect debug data.
@@ -337,6 +372,84 @@ static inline int avg_sample_level_to_reg(enum adc_hal_avg_sample_level
 	}
 
 	return ret;
+}
+
+/**
+ * meas_ag620_temp_alert_handler() - This function enabled/disabled thermal protection
+ * based on measurement of AGOLD620 temperature. If temperature is more than
+ * MEAS_TEMP_ALERT_ON_THRESHOLD, then thermal protection is enabled.
+ * If temperature is less than MEAS_TEMP_ALERT_OFF_THRESHOLD, then
+ * thermal protection is disabled.
+ *
+ * @meas_val			[in] Measured value in milli kelvin.
+ */
+static void meas_ag620_temp_alert_handler(int meas_result_mk)
+{
+	unsigned int val;
+	void __iomem *hw_base = meas_ag620_state.hw_base;
+
+	if (true == meas_ag620_state.temp_alert_flag_at_boot) {
+		meas_ag620_state.temp_alert_flag_at_boot = false;
+		meas_ag620_state.temp_alert_at_boot =
+			ioread32(AG620_MEAS_TEMP_ALERT(hw_base));
+		pr_info("AGOLD TEMP_ALERT_REG 0x%08x at boot\n",
+			meas_ag620_state.temp_alert_at_boot);
+
+		BUG_ON(meas_ag620_state.temp_alert_at_boot &
+			((1 << MEAS_TEMP_ALERT_ON_BIT_POS) |
+			(1 << MEAS_TEMP_ALERT_STOPALT_BIT_POS)));
+	}
+
+	if ((meas_result_mk <= MEAS_TEMP_ALERT_OFF_THRESHOLD) &&
+		(true != meas_ag620_state.temp_alert_off_flag)) {
+		val = ioread32(AG620_MEAS_TEMP_ALERT(hw_base));
+		/* Disable meas temp alert analog macro */
+		val = val & (~(1 << MEAS_TEMP_ALERT_ON_BIT_POS));
+
+		if (meas_ag620_state.agold_chip_rev >
+			SCU_CHIP_ID_CHREV_ES_2_00)
+			/* Set STOPALT bit to disable automatic HW
+			shutdown in ES2.01 or higher revision */
+			val = val | (1 << MEAS_TEMP_ALERT_STOPALT_BIT_POS);
+		else
+			/* Reset STOPALT bit to disable automatic HW
+			shutdown in ES2.00 or earlier revision */
+			val = val & (~(1 << MEAS_TEMP_ALERT_STOPALT_BIT_POS));
+
+		iowrite32(val, AG620_MEAS_TEMP_ALERT(hw_base));
+		meas_ag620_state.temp_alert_on_flag = false;
+		meas_ag620_state.temp_alert_off_flag = true;
+		MEAS_AG620_DEBUG_DATA_LOG(MEAS_AG620_TEMP_ALERT_OFF,
+						meas_result_mk, 0, 0, 0);
+		pr_info("AGOLD thermal protection disabled at %u mK,",
+			meas_result_mk);
+		pr_info("TEMP_ALERT_REG 0x%08x\n", val);
+	} else if ((meas_result_mk >= MEAS_TEMP_ALERT_ON_THRESHOLD)
+		 && (true != meas_ag620_state.temp_alert_on_flag)) {
+		val = ioread32(AG620_MEAS_TEMP_ALERT(hw_base));
+
+		/* Enable meas temp alert analog macro */
+		val = val | (1 << MEAS_TEMP_ALERT_ON_BIT_POS);
+
+		if (meas_ag620_state.agold_chip_rev >
+			SCU_CHIP_ID_CHREV_ES_2_00)
+			/* Reset STOPALT bit to enable automatic HW
+			shutdown in ES2.01 or higher revision*/
+			val = val & (~(1 << MEAS_TEMP_ALERT_STOPALT_BIT_POS));
+		else
+			/* Set STOPALT bit to enable automatic HW
+			shutdown in ES2.0 or earlier revision */
+			val = val | (1 << MEAS_TEMP_ALERT_STOPALT_BIT_POS);
+
+		iowrite32(val, AG620_MEAS_TEMP_ALERT(hw_base));
+		meas_ag620_state.temp_alert_on_flag = true;
+		meas_ag620_state.temp_alert_off_flag = false;
+		MEAS_AG620_DEBUG_DATA_LOG(MEAS_AG620_TEMP_ALERT_ON,
+						meas_result_mk, 0, 0, 0);
+		pr_info("AGOLD thermal protection enabled at %u mK,",
+			meas_result_mk);
+		pr_info("TEMP_ALERT_REG 0x%08x\n", val);
+	}
 }
 
 /**
@@ -521,6 +634,8 @@ static int meas_ag620_read_raw(int reg_channel,
 			/* The internal die temperature must be converted to uV
 			representing Kelvin */
 			ret = meas_ag620_internal_temperature_calc(ret);
+			meas_ag620_temp_alert_handler(ret);
+			break;
 		default:
 			/* Nothing to do here. */
 			break;
@@ -1164,6 +1279,7 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 	struct adc_hal_channel_info *p_channel_info;
 	int ret, chan;
 	u32 period_s = 0;
+	unsigned int agold_scu_chip_id;
 
 	dev_info(dev, "Initializing MEAS AG620 HAL\n");
 
@@ -1232,6 +1348,13 @@ static int meas_ag620_probe(struct idi_peripheral_device *ididev,
 		goto err_ioremap;
 	}
 
+	/* Get ag620 scu chip id */
+	idi_get_client_id(ididev, &agold_scu_chip_id);
+	meas_ag620_state.agold_chip_rev = (agold_scu_chip_id &
+		SCU_CHIP_ID_CHREV_MASK);
+
+	pr_info("%s: agold_chip_rev=0x%04x\n",
+		__func__, meas_ag620_state.agold_chip_rev);
 	ret =  idi_device_pm_set_class(ididev);
 	if (ret) {
 		dev_err(dev, "%s: Unable to register for generic pm class\n",
