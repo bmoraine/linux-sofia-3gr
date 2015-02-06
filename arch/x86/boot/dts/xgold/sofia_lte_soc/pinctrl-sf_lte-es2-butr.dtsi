@@ -36,7 +36,8 @@
 		<&range 88 1 0x01500>,  /* touch_irq */
 		<&range 89 23 0x100>,
 		<&range 112 1 0x1700>,  /* touch_reset */
-		<&range 113 9 0x100>,
+		<&range 113 8 0x100>,
+		<&range 121 1 0x01500>,	/* cam1_rst */
 		<&range 122 1 0x01500>,	/* cam2_pd */
 		<&range 123 2 0x100>,
 		<&range 125 1 0x01500>,	/* cam1_pd */
@@ -1141,16 +1142,19 @@
 	cam1_function_B_active_pins:cam1_function_B_active_pins {
 		pinctrl-single,pins = <
 			0x3f4 0x1500	/* cam1_pd */
+			0x3e4 0x1700	/* cam1_rst */
 		>;
 	};
 	cam1_function_B_inactive_pins:cam1_function_B_inactive_pins {
 		pinctrl-single,pins = <
 			0x3f4 0x4100	/* cam1_pd */
+			0x3e4 0x4100	/* cam1_rst */
 		>;
 	};
 	cam1_function_B_sleep_pins:cam1_function_B_sleep_pins {
 		pinctrl-single,pins = <
 			0x3f4 0x4100	/* cam1_pd */
+			0x3e4 0x1500	/* cam1_rst */
 		>;
 	};
 	s50_default_pins:s50_default_pins {
