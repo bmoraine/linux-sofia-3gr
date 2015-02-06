@@ -744,14 +744,14 @@ enum dsp_err_code dsp_audio_intr_activate(
 					irq_no);
 		break;
 		case XGOLD_DSP_XG742_FBA:
-			if (irq_no > 3)
+			if (irq_no >= DSP_FBA_IRQ_0)
 				ret = dsp_audio_irq_activate(dsp_dev,
 						irq_no);
 			else
 				ret = DSP_ERR_INVALID_REQUEST;
 		break;
 		case XGOLD_DSP_XG742_SBA:
-			if (irq_no < 4)
+			if (irq_no < DSP_IRQ_4)
 				ret = dsp_audio_irq_activate(dsp_dev,
 						irq_no);
 			else
@@ -777,14 +777,14 @@ enum dsp_err_code dsp_audio_intr_deactivate(
 			ret = dsp_audio_irq_deactivate(dsp_dev, irq_no);
 		break;
 		case XGOLD_DSP_XG742_FBA:
-			if (irq_no > 3)
+			if (irq_no >= DSP_FBA_IRQ_0)
 				ret = dsp_audio_irq_deactivate(dsp_dev,
 						irq_no);
 			else
 				ret = DSP_ERR_INVALID_REQUEST;
 		break;
 		case XGOLD_DSP_XG742_SBA:
-			if (irq_no < 4)
+			if (irq_no < DSP_IRQ_4)
 				ret = dsp_audio_irq_deactivate(dsp_dev,
 						irq_no);
 			else
@@ -1977,7 +1977,7 @@ static int dsp_audio_runtime_resume(struct device *dev)
 	if (XGOLD_DSP_XG742_FBA == dsp_dev->id) {
 		/* Activate FBA DSP interrupt 2 for VOLTE call */
 		(void)dsp_dev->p_dsp_common_data->
-			ops->irq_activate(DSP_IRQ_6);
+			ops->irq_activate(DSP_FBA_IRQ_2);
 	}
 	return ret;
 }

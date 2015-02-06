@@ -665,13 +665,14 @@ static int xgold_speech_probe_trigger(struct snd_pcm_substream *substream,
 				xrtd->stream->runtime,
 				xrtd->stream->runtime->period_size);
 
-		/* For SOFIA 3G IRQ 2 is mapped to speech probes */
+		/* For SOFIA 3G IRQ 2 is mapped to speech probes
+		 For SOFIA LTE FBA Interrupt 2 is hared with VOLTE */
 		if (xgold_ptr->dsp->id == XGOLD_DSP_XG642)
 			xgold_ptr->dsp->p_dsp_common_data->ops->
 				irq_activate(DSP_IRQ_2);
 		else
 			xgold_ptr->dsp->p_dsp_common_data->ops->
-				irq_activate(DSP_IRQ_6);
+				irq_activate(DSP_FBA_IRQ_2);
 
 #ifdef CONFIG_SPEECH_PROBE_DEBUG
 		speech_path_on.setting = 1;
