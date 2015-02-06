@@ -320,22 +320,23 @@
 	pinctrl-2 = <&i2c4_inactive_pins>;
 #ifndef RECOVERY_KERNEL
 	touchscreen {
-		compatible = "VTL-TS";
-		reg = < 0x01 >;
+		compatible = "himax,8528d";
+		reg = < 0x48 >;
 		interrupt-parent = <&eint>;
-		interrupts = < EINT_EXI12 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_FALLING >;
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&touch_default_pins>;
 		pinctrl-1 = <&touch_sleep_pins>;
 		pinctrl-2 = <&touch_inactive_pins>;
-		intel,ts-gpio-reset = <&xgold_pmx_gpio 14 0>;
-		intel,ts-gpio-irq = <&xgold_pmx_gpio 54 0>;
-		pm,class-name = "gt9xx_class";
-		pm,user-name = "tp";
+		himax,rst-gpio = <&xgold_pmx_gpio 14 0>;
+		himax,irq-gpio = <&xgold_pmx_gpio 54 0>;
+		pm,class-name = "himax_8528d_class";
+		pm,user-name = "himax_tp";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
-		intel,max-x = <800>;
-		intel,max-y = <1280>;
+		himax,panel-coords = <0 600 0 1024>;
+		himax,display-coords = <0 600 0 1024>;
+		report_type = <1>;
 	};
 #endif
 };

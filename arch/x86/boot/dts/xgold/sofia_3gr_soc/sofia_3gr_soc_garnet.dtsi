@@ -314,7 +314,7 @@
                                                 clocks = <&clk_i2c4>, <&clk_ahb_per1>;
                                                 clock-names = "clk_kernel", "clk_ahb";
                                                 interrupts = < I2C4_INT IRQ_TYPE_DEFAULT >;
-                                                intel,i2c,b400 = < 1 54 13 0 >;
+                                                intel,i2c,b400 = < 1 31 13 0 >;
                                                 intel,i2c,b100 = < 1 256 0 0 >;
                                                 resets = <&dbb_rst1 10>;
                                                 reset-names = "i2c";
