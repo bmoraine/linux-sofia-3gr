@@ -184,7 +184,8 @@ fail:
 			WARN((retval == 0), "Timeout waiting for PRH async interrupt\n");
 			retval = PRH_ERR_INTERNAL;
 		} else {
-			retval = 0;
+			retval = (ePRH_RETURN_T) vpower->shared_data
+			->pm_control_shared_data.prh_request_return_value;
 		}
 	}
 
