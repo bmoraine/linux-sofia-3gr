@@ -189,6 +189,11 @@ static int pwm_backlight_parse_dt(struct device *dev,
 		data->max_brightness--;
 	}
 
+	/* read sysfs node name */
+	ret = of_property_read_string(node, "dev-name", &data->dev_name);
+	if (ret < 0)
+		data->dev_name = NULL;
+
 	data->enable_gpio = of_get_named_gpio_flags(node, "enable-gpios", 0,
 						    &flags);
 	if (data->enable_gpio == -EPROBE_DEFER)
@@ -315,8 +320,9 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.type = BACKLIGHT_RAW;
 	props.max_brightness = data->max_brightness;
-	bl = backlight_device_register(dev_name(&pdev->dev), &pdev->dev, pb,
-				       &pwm_backlight_ops, &props);
+	bl = backlight_device_register(
+			data->dev_name?data->dev_name:dev_name(&pdev->dev),
+			&pdev->dev, pb, &pwm_backlight_ops, &props);
 	if (IS_ERR(bl)) {
 		dev_err(&pdev->dev, "failed to register backlight\n");
 		ret = PTR_ERR(bl);

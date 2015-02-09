@@ -23,6 +23,7 @@ struct platform_pwm_backlight_data {
 	void (*notify_after)(struct device *dev, int brightness);
 	void (*exit)(struct device *dev);
 	int (*check_fb)(struct device *dev, struct fb_info *info);
+	const char *dev_name;
 };
 
 #endif
