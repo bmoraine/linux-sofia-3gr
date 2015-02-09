@@ -19,7 +19,7 @@ speech_probe:speech_probe {
 pcm_music:pcm_music {
 	compatible = "intel,xgold-snd-pcm";
 	intel,dsp = < &dspaud_sb >;
-	intel,pcm,dma_en;
+	/*intel,pcm,dma_en;*/
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = < &i2s2_default_pins >;
 	pinctrl-1 = < &i2s2_sleep_pins >;
