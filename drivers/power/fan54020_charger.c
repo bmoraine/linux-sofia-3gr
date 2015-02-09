@@ -475,6 +475,7 @@ static enum power_supply_property fan54020_power_props[] = {
 	POWER_SUPPLY_PROP_INLMT,
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_MANUFACTURER,
+	POWER_SUPPLY_PROP_HEALTH
 };
 
 #ifdef SYSFS_FAKE_VBUS_SUPPORT
@@ -1386,6 +1387,11 @@ static int fan54020_charger_set_property(struct power_supply *psy,
 								val->intval, 0);
 		break;
 
+	case POWER_SUPPLY_PROP_HEALTH:
+		chrgr->state.health = val->intval;
+		call_psy_changed = true;
+		break;
+
 	default:
 		break;
 	};
@@ -1755,9 +1761,10 @@ static void fan54020_chgint_cb_work_func(struct work_struct *work)
 		goto fail;
 	}
 
-	chrgr->state.health = (chrgr->state.vbus == VBUS_ON) ?
+	if (chrgr->state.health != POWER_SUPPLY_HEALTH_DEAD) {
+		chrgr->state.health = (chrgr->state.vbus == VBUS_ON) ?
 			POWER_SUPPLY_HEALTH_GOOD : POWER_SUPPLY_HEALTH_UNKNOWN;
-
+	}
 
 	if (chrgr->state.vbus_fault) {
 		chrgr->state.health = POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
@@ -2149,6 +2156,22 @@ static int fan54020_otg_notification_handler(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static int fan54020_property_is_writeable(struct power_supply *psy,
+		enum power_supply_property psp)
+{
+	int ret;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_HEALTH:
+		ret = 1;
+		break;
+	default:
+		ret = 0;
+	}
+
+	return ret;
+}
+
 
 static int fan54020_i2c_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
@@ -2316,6 +2339,7 @@ static int fan54020_i2c_probe(struct i2c_client *client,
 	chrgr->usb_psy.throttle_states = fan54020_dummy_throttle_states;
 	chrgr->usb_psy.num_throttle_states =
 				ARRAY_SIZE(fan54020_dummy_throttle_states);
+	chrgr->usb_psy.property_is_writeable = fan54020_property_is_writeable;
 
 	chrgr->current_psy = &chrgr->usb_psy;
 
