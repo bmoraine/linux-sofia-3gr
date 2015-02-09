@@ -3260,41 +3260,6 @@ static void cif_isp20_config_clk(
 		cif_ioread32(dev->config.base_addr + CIF_ICCL));
 }
 
-static void cif_isp20_config_ie(
-	struct cif_isp20_device *dev)
-{
-	cif_isp20_pltfrm_pr_dbg(NULL,
-		"image effect %d\n",
-		dev->config.isp_config.ie_config.effect);
-
-	if ((dev->config.input_sel < CIF_ISP20_INP_DMA_SP) &&
-		(dev->config.isp_config.ie_config.effect !=
-		CIF_ISP20_IE_NONE)) {
-		if (dev->config.isp_config.ie_config.effect <
-			CIF_ISP20_IE_NONE) {
-			cif_iowrite32OR(CIF_ICCL_IE_CLK,
-				dev->config.base_addr + CIF_ICCL);
-			cif_iowrite32(CIF_IMG_EFF_CTRL_ENABLE |
-				dev->config.isp_config.ie_config.effect << 1,
-				dev->config.base_addr + CIF_IMG_EFF_CTRL);
-			cif_iowrite32OR(CIF_IMG_EFF_CTRL_CFG_UPD,
-				dev->config.base_addr + CIF_IMG_EFF_CTRL);
-		} else {
-			cif_isp20_pltfrm_pr_warn(NULL,
-				"unknown/unsupported image effect %d ignored\n",
-				dev->config.isp_config.ie_config.effect);
-		}
-		cif_isp20_pltfrm_pr_dbg(dev->dev,
-			"\n  IMG_EFF_CTRL 0x%08x\n",
-			cif_ioread32(dev->config.base_addr + CIF_IMG_EFF_CTRL));
-	} else {
-		cif_iowrite32AND(~CIF_ICCL_IE_CLK,
-			dev->config.base_addr + CIF_ICCL);
-		cif_isp20_pltfrm_pr_dbg(NULL,
-			"image effects disabled\n");
-	}
-}
-
 static int cif_isp20_config_cif(
 	struct cif_isp20_device *dev,
 	u32 stream_ids)
@@ -3374,8 +3339,6 @@ static int cif_isp20_config_cif(
 			dev->config.sp_config.rsz_config.ism_adjust = true;
 		if (stream_ids & CIF_ISP20_STREAM_MP)
 			dev->config.mp_config.rsz_config.ism_adjust = true;
-
-		cif_isp20_config_ie(dev);
 
 		/* YC filter enabled in secondary path causes sync fifo
 			overflows for interleaved output */
