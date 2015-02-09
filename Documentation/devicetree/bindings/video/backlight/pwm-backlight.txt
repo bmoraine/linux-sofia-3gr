@@ -11,6 +11,7 @@ Required properties:
   - default-brightness-level: the default brightness level (index into the
       array defined by the "brightness-levels" property)
   - power-supply: regulator for supply voltage
+  - dev-name: the pwm backlight device register name
 
 Optional properties:
   - pwm-names: a list of names for the PWM devices specified in the
