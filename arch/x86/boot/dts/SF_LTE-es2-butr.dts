@@ -90,7 +90,7 @@
 		intel,display-preinit = <0>;
 		intel,display-if = <&mipi_dsi>;
 		intel,display-if-rate = <375000000>;
-		/include/ "xgold/display/HX8394.dtsi"
+		/include/ "xgold/display/HX8394-LC.dtsi"
 		mipi_dsi:mipi-dsi {
 				intel,display-if-min = <104000000>;
 				intel,display-if-max = <550000000>;
@@ -357,8 +357,8 @@
 	pinctrl-1 = <&i2c3_sleep_pins>;
 	pinctrl-2 = <&i2c3_inactive_pins>;
 	touchscreen {
-		compatible = "goodix,GT9157";
-		reg = < 0x14 >;
+		compatible = "focaltech,ft5x06";
+		reg = < 0x38 >;
 		interrupt-parent = <&eint>;
 		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_FALLING >;
 		pinctrl-names = "default", "sleep", "inactive", "gpio";
@@ -368,7 +368,17 @@
 		pinctrl-3 = <&touch_gpio_pins>;
 		intel,ts-gpio-reset = <&xgold_pmx_gpio 112 0>;
 		intel,ts-gpio-irq = <&xgold_pmx_gpio 88 0>;
-		pm,class-name = "gt9xx_class";
+		intel,x_pos_max = < 720 >;
+		intel,x_pos_min = < 0 >;
+		intel,y_pos_max = < 1280 >;
+		intel,y_pos_min = < 0 >;
+		intel,screen_max_y = < 1280 >;
+		intel,screen_max_x = < 720 >;
+		intel,key_y = < 1350 >;
+		intel,key_back = < 160 >;
+		intel,key_menu = < 580 >;
+		intel,key_home = < 360 >;
+		pm,class-name = "ft5x0x_class";
 		pm,user-name = "ext_tp";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
