@@ -195,7 +195,7 @@ config LEDS_LP3944
 
 config LEDS_LP55XX_COMMON
 	tristate "Common Driver for TI/National LP5521/5523/55231/5562/8501"
-	depends on LEDS_LP5521 || LEDS_LP5523 || LEDS_LP5562 || LEDS_LP8501
+	depends on LEDS_LP5521 || LEDS_LP5523 || LEDS_LP5562 || LEDS_LP8501 || LEDS_LP8557
 	select FW_LOADER
 	help
 	  This option supports common operations for LP5521/5523/55231/5562/8501
