@@ -31,6 +31,7 @@
 #include <sofia/mv_hypercalls.h>
 #include <sofia/vmcalls.h>
 #include <linux/sysprofile.h>
+#include <linux/types.h>
 #else
 #include "mv_hypercalls.h"
 #include "vmcalls.h"
@@ -207,9 +208,9 @@ void mv_vcpu_stop(uint32_t vcpu_id)
 	mv_call(VMCALL_VCPU_STOP, vcpu_id, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
-struct vmm_shared_data *mv_vcpu_get_data(void)
+phys_addr_t mv_vcpu_get_data(void)
 {
-	return (struct vmm_shared_data *)mv_call(VMCALL_VCPU_GET_DATA,
+	return mv_call(VMCALL_VCPU_GET_DATA,
 			UNUSED_ARG, UNUSED_ARG,
 			UNUSED_ARG, UNUSED_ARG);
 }

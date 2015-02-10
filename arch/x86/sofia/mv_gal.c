@@ -107,12 +107,14 @@ void *mv_gal_ptov(vmm_paddr_t paddr)
 					p_shared_data->pmem_paddr));
 			return ptr;
 		} else {
-			return (void *)paddr;
+
+			return (void *)paddr; /* How would this ever work? */
 		}
 	} else
 		return NULL;
 }
 
+/* This function is never used! */
 vmm_paddr_t mv_gal_vtop(void *vaddr)
 {
 	if (pmem_vbase) {
@@ -129,18 +131,17 @@ vmm_paddr_t mv_gal_vtop(void *vaddr)
 	} else
 		return 0;
 }
-
 static unsigned int myid;
 
 void mv_gal_init(struct vmm_shared_data *data)
 {
 	myid = data->os_id;
-	vm_command_line = mv_gal_ptov((vmm_paddr_t) data->vm_cmdline);
+	vm_command_line = data->vm_cmdline; /* vm_command_line is never used! */
 }
 
 static int sofia_vmm_map_vcpu_shmem(void)
 {
-	uintptr_t ptr;
+	phys_addr_t ptr;
 
 	if (mv_gal_get_shared_data())
 		return 0;
@@ -152,9 +153,9 @@ static int sofia_vmm_map_vcpu_shmem(void)
 		return -EINVAL;
 	}
 
-	vmm_shared_data[smp_processor_id()] = phys_to_virt((phys_addr_t)ptr);
-	pr_debug("ptr=0x%08X vmm_shared_data=0x%08X\n",
-		(unsigned int)ptr, (unsigned int)mv_gal_get_shared_data());
+	vmm_shared_data[smp_processor_id()] = phys_to_virt(ptr);
+	pr_debug("ptr=0x%pa vmm_shared_data=0x%p\n",
+		&ptr, mv_gal_get_shared_data());
 
 	return 0;
 }
@@ -191,10 +192,10 @@ int __init sofia_vmm_init(void)
 	    ioremap_cache(mv_gal_get_shared_data()->pmem_paddr,
 			  mv_gal_get_shared_data()->pmem_size);
 	pr_debug(
-		"pmem_paddr=0x%08X pmem_size=0x%08X pmem_vbase=0x%08X\n",
+		"pmem_paddr=0x%x pmem_size=0x%x pmem_vbase=0x%p\n",
 		mv_gal_get_shared_data()->pmem_paddr,
 		mv_gal_get_shared_data()->pmem_size,
-		(unsigned int)pmem_vbase);
+		pmem_vbase);
 	if (!pmem_vbase)
 		panic("Unable to map PMEM\n");
 

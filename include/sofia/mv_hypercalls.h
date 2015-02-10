@@ -283,11 +283,11 @@ void mv_vcpu_start(uint32_t vcpu_id, uint32_t entry_addr);
  */
 void mv_vcpu_stop(uint32_t vcpu_id);
 
-/** @brief Returns VMM-vcpu shared data struct vmm_shared_data *
+/** @brief Returns a physical address to the VMM-vcpu shared data
  *    for the calling vcpu
  *
  */
-struct vmm_shared_data *mv_vcpu_get_data(void);
+phys_addr_t mv_vcpu_get_data(void);
 
 /** @brief Check if the calling vcpu has any pending interrupts.
  *
