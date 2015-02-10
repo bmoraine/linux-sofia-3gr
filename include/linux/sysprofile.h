@@ -21,6 +21,10 @@
 #include <linux/smp.h>
 #include <linux/types.h>
 
+#if defined(CONFIG_SYSTEM_PROFILING)
+#include <sofia/vmcalls.h>
+#endif
+
 #ifdef CONFIG_SMP
 #define SYSPROF_CORE_ID                 raw_smp_processor_id()
 #else
@@ -94,6 +98,13 @@
 						  SYS_PROF_IF(RTOS))
 #define sysprof_vmentry_end()		iowrite32((0x00000F02), \
 						  SYS_PROF_IF(RTOS))
+#define sysprof_vmcall_entry(nr)	iowrite32((0x00001B00 | \
+						   (nr & 0xFF)), \
+						  SYS_PROF_IF(RTOS))
+#define sysprof_platsvc_entry(svc, op)	iowrite32((0x003B0000 | \
+						   ((svc & 0xFF) << 8) | \
+						   (op & 0xFF)), \
+						  SYS_PROF_IF(RTOS))
 
 /* DVFS */
 #define sysprof_dvfs_vcore_load(data)       iowrite32((0x002C0000 | \
@@ -105,6 +116,13 @@
 #define sysprof_dvfs_cpu_freq_notif(data)   iowrite32((0x002E0000 | \
 						   (data & 0xFFFF)), \
 						  SYS_PROF_IF(DVFS))
+
+#define mv_guest_trace_vmcall_entry(nr, svc, op)	{ \
+		if (nr != VMCALL_PLATFORM_SERVICE) \
+			sysprof_vmcall_entry(nr); \
+		else \
+			sysprof_platsvc_entry(svc, op); \
+	}
 
 extern uint32_t __iomem
 	*sys_prof_if[CONFIG_NR_CPUS][SYSPROF_NOF_EVENT_CLASSES];
@@ -125,12 +143,17 @@ extern uint32_t __iomem
 #define sysprof_hw_interrupt(line)
 #define sysprof_vmexit_start()
 #define sysprof_vmentry_end()
+#define sysprof_vmcall_entry(nr)
+#define sysprof_platsvc_entry(svc, op)
+
+#define mv_guest_trace_vmcall_entry(nr, svc, op)
 
 #endif
 
-#define mv_guest_trace_vmcall_entry()		sysprof_vmexit_start()
 #define mv_guest_trace_vmcall_exit()		sysprof_vmentry_end()
 #define mv_guest_trace_xirq_post(num)		sysprof_xirq_to_mex(num)
 #define mv_guest_trace_ipi_post(num)		sysprof_xirq_to_linux(num)
+#define mv_guest_trace_virq_mask(virq)
+#define mv_guest_trace_virq_unmask(virq)
 
 #endif

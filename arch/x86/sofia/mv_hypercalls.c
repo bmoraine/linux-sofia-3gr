@@ -46,13 +46,19 @@
  * needed as this file is built into lib_guest.a which the guest is linked.
  * The guest should implement its own functions to replace them if needed.
  */
-void __attribute__ ((weak)) mv_guest_trace_vmcall_entry(void);
+void __attribute__ ((weak)) mv_guest_trace_vmcall_entry(uint32_t nr,
+						uint32_t svc, uint32_t op);
 void __attribute__ ((weak)) mv_guest_trace_vmcall_exit(void);
 void __attribute__ ((weak)) mv_guest_trace_xirq_post(uint32_t xirq);
 void __attribute__ ((weak)) mv_guest_trace_ipi_post(uint32_t virq);
+void __attribute__ ((weak)) mv_guest_trace_virq_mask(uint32_t virq);
+void __attribute__ ((weak)) mv_guest_trace_virq_unmask(uint32_t virq);
 
-void mv_guest_trace_vmcall_entry(void)
+void mv_guest_trace_vmcall_entry(uint32_t nr, uint32_t svc, uint32_t op)
 {
+	(void)nr;
+	(void)svc;
+	(void)op;
 }
 
 void mv_guest_trace_vmcall_exit(void)
@@ -68,6 +74,16 @@ void mv_guest_trace_ipi_post(uint32_t virq)
 {
 	(void)virq;
 }
+
+void mv_guest_trace_virq_mask(uint32_t virq)
+{
+	(void)virq;
+}
+
+void mv_guest_trace_virq_unmask(uint32_t virq)
+{
+	(void)virq;
+}
 #endif
 
 static inline int32_t mv_call(uint32_t nr, uint32_t arg0,
@@ -75,7 +91,7 @@ static inline int32_t mv_call(uint32_t nr, uint32_t arg0,
 {
 	uint32_t ret = 0;
 
-	mv_guest_trace_vmcall_entry();
+	mv_guest_trace_vmcall_entry(nr, arg0, arg1);
 	asm volatile (VMCALL_OPCODE:"=a"(ret)
 		      : "a"(nr), "b"(arg0), "c"(arg1), "d"(arg2), "S"(arg3)
 		      : "memory");
@@ -92,7 +108,7 @@ static inline int mv_call_5(uint32_t nr, uint32_t arg0,
 {
 	uint32_t results[5];
 
-	mv_guest_trace_vmcall_entry();
+	mv_guest_trace_vmcall_entry(nr, arg0, arg1);
 	asm volatile (VMCALL_OPCODE:"=a"(results[0]), "=b"(results[1]),
 		      "=c"(results[2]), "=d"(results[3]), "=S"(results[4])
 		      : "a"(nr), "b"(arg0), "c"(arg1), "d"(arg2), "S"(arg3)
@@ -150,6 +166,7 @@ EXPORT_SYMBOL(mv_virq_eoi);
 
 void mv_virq_mask(uint32_t virq)
 {
+	mv_guest_trace_virq_mask(virq);
 	mv_call(VMCALL_VIRQ_MASK, virq, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
@@ -159,6 +176,7 @@ EXPORT_SYMBOL(mv_virq_mask);
 
 void mv_virq_unmask(uint32_t virq)
 {
+	mv_guest_trace_virq_unmask(virq);
 	mv_call(VMCALL_VIRQ_UNMASK, virq, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
