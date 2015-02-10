@@ -103,7 +103,7 @@ static u32 rpc_alloc_data(struct t_rpc_data_list *g_data_list, u32 length)
 	/* Allocate new data element */
 	rpc_data_elm = kzalloc(sizeof(struct t_rpc_data), GFP_KERNEL);
 	if (rpc_data_elm == NULL) {
-		pr_err("Failed to allocate new data element (%d bytes)\n",
+		pr_err("Failed to allocate new data element (%zu bytes)\n",
 		       sizeof(struct t_rpc_data));
 		return 0;
 	}
@@ -315,13 +315,12 @@ static int rpc_thread_tx(struct t_rpc_cmd *cmd, u8 *inp_data, u32 inp_data_len,
 
 	/* Copy command data to shared memory */
 	if (cmd->action != RPC_DONE) {
-		pr_err("Copy %d bytes from 0x%08X to 0x%08X\n",
-		       sizeof(struct t_rpc_cmd), (u32)&ctx->cmd,
-		       (u32)shared_cmd);
+		pr_err("Copy %zu bytes from 0x%p to 0x%p\n",
+		       sizeof(struct t_rpc_cmd), &ctx->cmd, shared_cmd);
 		memcpy(shared_cmd, &ctx->cmd, sizeof(struct t_rpc_cmd));
 	} else {
-		pr_err("Copy %d bytes from 0x%08X to 0x%08X\n",
-		       sizeof(struct t_rpc_cmd), (u32)cmd, (u32)shared_cmd);
+		pr_err("Copy %zu bytes from 0x%p to 0x%p\n",
+		       sizeof(struct t_rpc_cmd), cmd, shared_cmd);
 		memcpy(shared_cmd, cmd, sizeof(struct t_rpc_cmd));
 	}
 
@@ -353,7 +352,7 @@ static int rpc_thread_tx(struct t_rpc_cmd *cmd, u8 *inp_data, u32 inp_data_len,
 			goto cleanup;
 		}
 
-		pr_debug("CTX (0x%08X) @ L:%d\n", (u32)ctx, __LINE__);
+		pr_debug("CTX (0x%p) @ L:%d\n", ctx, __LINE__);
 
 		/* Command handler should have updated current RPC context */
 		result = ctx->cmd.result;
@@ -374,8 +373,8 @@ static int rpc_dispatch_sec(u32 opcode, u8 *io_data, u32 *io_data_len)
 	int rpc_result = -1;
 
 	if (io_data == NULL || io_data_len == NULL) {
-		pr_err("Invalid input : data(0x%08X),", (u32)io_data);
-		pr_err("io_data_len(0x%08X)\n", (u32)io_data_len);
+		pr_err("Invalid input : data(0x%p),", io_data);
+		pr_err("io_data_len(0x%p)\n", io_data_len);
 		goto cleanup;
 	}
 
@@ -534,8 +533,8 @@ void rpc_handle_cmd(void *shared_mem)
 		   length from transfer buffer */
 		if ((ctx->data_out != NULL) && (0 < cmd->tx_size) &&
 		    (cmd->tx_size <= ctx->max_len)) {
-			pr_err("Transfer data (%d bytes) to 0x%08X\n",
-			       cmd->tx_size, (uint32_t)ctx->data_out);
+			pr_err("Transfer data (%d bytes) to 0x%p\n",
+			       cmd->tx_size, ctx->data_out);
 			memcpy(ctx->data_out, data, cmd->tx_size);
 		}
 
@@ -584,9 +583,9 @@ void rpc_handle_cmd(void *shared_mem)
 			   length from transfer buffer */
 			if (0 < cmd->tx_size &&
 			    cmd->tx_size <= cmd->param.buf_len) {
-				pr_err("%d bytes: 0x%08X -> 0x%08X\n",
-				       cmd->tx_size, (u32)data,
-				       (u32)dispatch->data);
+				pr_err("%d bytes: 0x%p -> 0x%p\n",
+				       cmd->tx_size, data,
+				       dispatch->data);
 				memcpy(dispatch->data, data, cmd->tx_size);
 			}
 		} else {
@@ -606,7 +605,7 @@ void rpc_handle_cmd(void *shared_mem)
 			}
 		}
 
-		pr_debug("dispatch->data = 0x%08X\n", (u32)dispatch->data);
+		pr_debug("dispatch->data = 0x%p\n", dispatch->data);
 		pr_debug("dispatch->cmd.action = %d\n", dispatch->cmd.action);
 		pr_debug("dispatch->cmd.ctx_id = %d\n", dispatch->cmd.ctx_id);
 		pr_debug("dispatch->cmd.tx_size = %d\n", dispatch->cmd.tx_size);
