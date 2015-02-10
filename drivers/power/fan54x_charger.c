@@ -1454,18 +1454,6 @@ static void fan54x_chgint_cb_work_func(struct work_struct *work)
 		 chrgr->state.health != POWER_SUPPLY_HEALTH_UNKNOWN)
 				power_supply_changed(chrgr->current_psy);
 
-
-	/* when vbus is disconnected all registers are reseted (known HW bug)
-	therefore need to reconfigure the chip */
-	if (chrgr->state.vbus == VBUS_OFF && vbus_state_prev == VBUS_ON) {
-		chrgr->state.cc = chrgr->default_cc;
-		chrgr->state.cv = chrgr->default_cv;
-		ret = fan54x_configure_chip(
-					chrgr, chrgr->state.charging_enabled);
-		if (ret != 0)
-			goto fail;
-	}
-
 	/* If vbus status changed, then notify USB OTG */
 	if (chrgr->state.vbus != vbus_state_prev) {
 
