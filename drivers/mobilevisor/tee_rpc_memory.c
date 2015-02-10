@@ -91,7 +91,7 @@ static int copy_to_contig(struct iovec *iov, struct pvec *pvec_iov)
 	if (!address)
 		return -ENOMEM;
 
-	pr_debug("copy_from_user address 0x%p, %d",
+	pr_debug("copy_from_user address 0x%p, %zu",
 		 iov->iov_base, iov->iov_len);
 
 	if (copy_from_user(address, iov->iov_base, iov->iov_len)) {
