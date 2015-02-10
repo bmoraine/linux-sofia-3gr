@@ -1169,7 +1169,7 @@ static int cif_isp20_img_src_set_state(
 
 	if ((dev->config.flash_mode != CIF_ISP20_FLASH_MODE_OFF) &&
 		(IS_ERR_VALUE(ret) ||
-		(state != CIF_ISP20_IMG_SRC_STATE_STREAMING)))
+		(state == CIF_ISP20_IMG_SRC_STATE_OFF)))
 		cif_isp20_img_src_s_ctrl(dev->img_src,
 			CIF_ISP20_CID_FLASH_MODE,
 			CIF_ISP20_FLASH_MODE_OFF);
@@ -4958,6 +4958,13 @@ int cif_isp20_streamoff(
 		streamoff_sp,
 		streamoff_mp,
 		streamoff_dma);
+
+	if (dev->config.flash_mode != CIF_ISP20_FLASH_MODE_OFF &&
+		((streamoff_sp && dev->mp_stream.state == CIF_ISP20_STATE_INACTIVE) ||
+		(streamoff_mp && dev->sp_stream.state == CIF_ISP20_STATE_INACTIVE)))
+		cif_isp20_img_src_s_ctrl(dev->img_src,
+			CIF_ISP20_CID_FLASH_MODE,
+			CIF_ISP20_FLASH_MODE_OFF);
 
 	ret = cif_isp20_stop(dev, streamoff_sp, streamoff_mp);
 	if (IS_ERR_VALUE(ret))
