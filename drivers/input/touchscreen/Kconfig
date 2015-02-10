@@ -968,6 +968,18 @@ config TOUCHSCREEN_FOCALTECH_FT5X06
 	  To compile this driver as a module, Choose M here: the
 	  module will be called ft5x06_ts.
 
+config TOUCHSCREEN_HIMAX
+        tristate "HIMAX HM852xES serious i2c touchscreen"
+		depends on I2C
+		help
+		This enables support for HIMAX HM852xES over I2C based touchscreens.
+
+config TOUCHSCREEN_HIMAX_DEBUG
+        tristate "HIMAX HM852xES debug function"
+		depends on TOUCHSCREEN_HIMAX
+		help
+		This enables support for HIMAX HM852xES debug function.
+
 source "drivers/input/touchscreen/gt910/Kconfig"
 source "drivers/input/touchscreen/vtl_ts/Kconfig"
 endif

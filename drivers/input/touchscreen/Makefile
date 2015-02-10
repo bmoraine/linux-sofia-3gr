@@ -82,3 +82,4 @@ obj-$(CONFIG_TOUCHSCREEN_FT5X0X)	+= ft5x0x_ts.o
 obj-$(CONFIG_TOUCHSCREEN_GT910)		+= gt910/
 obj-$(CONFIG_TOUCHSCREEN_GT915)		+= gt910/
 obj-$(CONFIG_TOUCHSCREEN_VTL_CT36X)		+= vtl_ts/
+obj-$(CONFIG_TOUCHSCREEN_HIMAX)   	+= himax_platform.o himax_852xES.o
