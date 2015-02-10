@@ -278,7 +278,7 @@ ssize_t mvpipe_dev_read(struct file *filp, char __user *buf, size_t count,
 
 	ring = dev->ring[!dev->writer_id];
 
-	mvpipe_info("mvpipe going to read %d bytes\n", count);
+	mvpipe_info("mvpipe going to read %zu bytes\n", count);
 	while (count != 0) {
 
 		buffer_size = get_read_buf_size(ring);
@@ -332,7 +332,7 @@ ssize_t mvpipe_dev_read(struct file *filp, char __user *buf, size_t count,
 	if (ring->writer_status)
 		mv_ipc_mbox_post(dev->token, ring->ring_event);
 
-	mvpipe_info("mvpipe read out %d bytes\n", retval);
+	mvpipe_info("mvpipe read out %zd bytes\n", retval);
 	up(&dev->read_sem);
 	return retval;
 }
@@ -373,7 +373,7 @@ ssize_t mvpipe_dev_write(struct file *filp, const char __user *buf,
 
 			retval += write_size;
 			count -= write_size;
-			mvpipe_info("retval=%d, count=%d\n", retval, count);
+			mvpipe_info("retval=%zd , count=%zu\n", retval, count);
 			advance_index(ring->writer_index, ring->size,
 				      write_size);
 		} else {
@@ -416,7 +416,7 @@ ssize_t mvpipe_dev_write(struct file *filp, const char __user *buf,
 	}
 
 	up(&dev->write_sem);
-	mvpipe_info("returning %d\n", retval);
+	mvpipe_info("returning %zd\n", retval);
 	return retval;
 }
 
