@@ -952,11 +952,7 @@ static int rockchip_fb_close(struct fb_info *info, int user)
 		info->var.yres = dev_drv->screen0->mode.yres;
 		info->var.grayscale |=
 		    (info->var.xres << 8) + (info->var.yres << 20);
-#ifdef CONFIG_LOGO_LINUX_BMP
 		info->var.bits_per_pixel = 32;
-#else
-		info->var.bits_per_pixel = 16;
-#endif
 		info->var.xres_virtual = ALIGN_N_TIMES(info->var.xres, 32);
 		info->var.yres_virtual = info->var.yres;
 		info->fix.line_length =
@@ -1371,6 +1367,7 @@ static int rockchip_fb_pan_display(struct fb_var_screeninfo *var,
 	}
 
 	dev_drv->ops->pan_display(dev_drv, win_id);
+	dev_drv->ops->cfg_done(dev_drv);
 
 	return 0;
 }
@@ -1559,19 +1556,11 @@ static struct fb_ops fb_ops = {
 };
 
 static struct fb_var_screeninfo def_var = {
-#ifdef CONFIG_LOGO_LINUX_BMP
-	.red = {16, 8, 0},
+	.red = {0, 8, 0},
 	.green = {8, 8, 0},
-	.blue = {0, 8, 0},
-	.transp = {0, 0, 0},
-	.nonstd = HAL_PIXEL_FORMAT_BGRA_8888,
-#else
-	.red = {11, 5, 0},
-	.green = {5, 6, 0},
-	.blue = {0, 5, 0},
-	.transp = {0, 0, 0},
-	.nonstd = HAL_PIXEL_FORMAT_RGB_565,
-#endif
+	.blue = {16, 8, 0},
+	.transp = {24, 0, 0},
+	.nonstd = HAL_PIXEL_FORMAT_RGBX_8888,
 	.grayscale = 0,
 	.activate = FB_ACTIVATE_NOW,
 	.accel_flags = 0,
@@ -2043,11 +2032,7 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 		fb_videomode_to_var(&fbi->var, &dev_drv->cur_screen->mode);
 		fbi->var.grayscale |=
 		    (fbi->var.xres << 8) + (fbi->var.yres << 20);
-#if defined(CONFIG_LOGO_LINUX_BMP)
 		fbi->var.bits_per_pixel = 32;
-#else
-		fbi->var.bits_per_pixel = 16;
-#endif
 		fbi->var.xres_virtual = ALIGN_N_TIMES(fbi->var.xres, 32);
 		fbi->fix.line_length =
 		    (fbi->var.xres_virtual) * (fbi->var.bits_per_pixel >> 3);
