@@ -47,12 +47,16 @@
 #define CHGRIRQ1 0x0A
 #define MCHGRIRQ1 0x18
 #define VBUSDET_O 0
+#define USBIDGNDDET_O 4
+#define USBIDFLTDET_O 3
 
 #define IRQLVL1 0x02
 #define MIRQLVL1 0x0E
 #define CHGR_O 5
 
 #define SPWRSRC 0x20
+#define SUSBIDDET_O 3
+#define SUSBIDDET_W 2
 #define SVBUSDET_O 0
 
 /* PMIC DEV3 registers */
@@ -68,6 +72,10 @@
 #define USBPHYCTRL 0x08
 #define USBPHYRSTB_O 0
 #define CTYP_DIS_O 3
+
+#define USBIDCTRL 0x05
+#define ACA_DETEN_O 1
+#define USB_IDEN_O 0
 
 #define set_field(_reg, _offset, _size, _val)\
 do {\
@@ -88,6 +96,10 @@ enum {
 	VBUS_OFF = 0,
 	VBUS_ON,
 
+	ID_ACA = 0,
+	ID_GND = 1,
+	ID_FLT = 2,
+
 	CLEAR = 0,
 	SET = 1,
 
@@ -103,22 +115,30 @@ enum {
 };
 
 /**
- * PMIC charger detection driver internal structure
+ * PMIC USB detection driver internal structure
  *
+ * @pdev		Device pointer for USB detection driver
  * @otg_handle		USB OTG handle used for sending notifications
  * @cable_props		Power supply class cable property (notification payload)
  * @vbus_state		VBUS presence status
  * @cable_type		USB cable type detected
+ * @usbid_state		USBID ground status
  * @irq_vbusdet		IRQ number for VBUS detection
  * @irq_ctyp		IRQ number for USB cable type detection
+ * @irq_idflt		IRQ number for USBID floating detection
+ * @irq_idgnd		IRQ number for USBID grounded detection
  */
 struct pmic_usb_det_data {
+	struct device *pdev;
 	struct usb_phy *otg_handle;
 	struct power_supply_cable_props cable_props;
 	int vbus_state;
 	int cable_type;
+	int usbid_state;
 	int irq_vbusdet;
 	int irq_ctyp;
+	int irq_idflt;
+	int irq_idgnd;
 	struct device_pm_platdata *pm_platdata;
 };
 
@@ -185,17 +205,22 @@ static int pmic_reg_set(u32 dev, u32 reg, u8 mask, u8 val)
 /**
  * Interface to enable/disable PMIC USB type detection
  *
+ * @pdata	Pointer to the charger type detection driver data structure
  * @enable	Whether to enable/disable USB type detection
  * return	0 on success, otherwise error code
  */
-static int pmic_usb_enable_usb_det(bool enable)
+static int pmic_usb_enable_usb_det(struct pmic_usb_det_data *pdata, bool enable)
 {
 	int ret;
 	u8 reg;
 
+	if (!pdata || !pdata->pdev)
+		return -EINVAL;
+
 	ret = pmic_reg_read(DEV3, USBPHYCTRL, &reg);
 	if (ret) {
-		pr_err("%s - fail to read DEV3 USBPHYCTRL\n", __func__);
+		dev_err(pdata->pdev, "%s - fail to read DEV3 USBPHYCTRL\n",
+			__func__);
 		return ret;
 	}
 
@@ -208,7 +233,50 @@ static int pmic_usb_enable_usb_det(bool enable)
 	}
 	ret = pmic_reg_write(DEV3, USBPHYCTRL, reg);
 	if (ret) {
-		pr_err("%s - fail to write DEV3 USBPHYCTRL\n", __func__);
+		dev_err(pdata->pdev, "%s - fail to write DEV3 USBPHYCTRL\n",
+			__func__);
+		return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * Interface to enable/disable USBID and ACA detection
+ *
+ * @pdata	Pointer to the charger type detection driver data structure
+ * @id_enable	Whether to enable/disable USBID detection
+ * @aca_enable	Whether to enable/disable ACA detection
+ * return	0 on success, otherwise error code
+ */
+static int pmic_usb_enable_id_aca_det(struct pmic_usb_det_data *pdata,
+					bool id_enable, bool aca_enable)
+{
+	int ret;
+	u8 reg;
+
+	if (!pdata || !pdata->pdev)
+		return -EINVAL;
+
+	ret = pmic_reg_read(DEV3, USBIDCTRL, &reg);
+	if (ret) {
+		dev_err(pdata->pdev, "%s - fail to read DEV3 USBIDCTRL\n",
+			__func__);
+		return ret;
+	}
+
+	if (id_enable) {
+		set_field(reg, USB_IDEN_O, 1, SET);
+		if (aca_enable)
+			set_field(reg, ACA_DETEN_O, 1, SET);
+	} else {
+		set_field(reg, USB_IDEN_O, 1, CLEAR);
+		set_field(reg, ACA_DETEN_O, 1, CLEAR);
+	}
+	ret = pmic_reg_write(DEV3, USBIDCTRL, reg);
+	if (ret) {
+		dev_err(pdata->pdev, "%s - fail to write DEV3 USBIDCTRL\n",
+			__func__);
 		return ret;
 	}
 
@@ -225,46 +293,65 @@ static int pmic_usb_vbus_det(struct pmic_usb_det_data *pdata)
 {
 	u8 reg;
 	int ret;
+	bool during_boot = false;
 
-	if (!pdata)
+	if (!pdata || !pdata->pdev)
 		return -EINVAL;
+
+	if (pdata->vbus_state == -1)
+		during_boot = true;
+
+	/* Ignore the VBUS report during boost */
+	if (pdata->usbid_state == ID_GND || pdata->usbid_state == ID_ACA)
+		return 0;
 
 	ret = pmic_reg_read(DEV1, SPWRSRC, &reg);
 	if (ret) {
-		pr_err("%s - fail to read DEV1 SPWRSRC\n", __func__);
+		dev_err(pdata->pdev, "%s - fail to read DEV1 SPWRSRC\n",
+			__func__);
 		return ret;
 	}
 
 	if (get_field(reg, SVBUSDET_O, 1)) {
-		pr_info("VBUS connected\n");
+		dev_info(pdata->pdev, "VBUS connected\n");
 
 		/* Enable the detection circuit and start CTYP detection */
-		ret = pmic_usb_enable_usb_det(true);
+		ret = pmic_usb_enable_usb_det(pdata, true);
 		if (ret) {
-			pr_err("%s - fail to enable USB detection\n", __func__);
+			dev_err(pdata->pdev,
+				"%s - fail to enable USB detection\n",
+				__func__);
 			return ret;
 		}
 
 		pdata->vbus_state = VBUS_ON;
 	} else {
-		pr_info("VBUS disconnected\n");
-		pdata->cable_props.chrg_evt =
-			POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
-		pdata->cable_props.chrg_type = pdata->cable_type;
-		pdata->cable_props.ma = 0;
+		/* Ignore the unwanted VBUS removal after stopping boost */
+		if (pdata->vbus_state == VBUS_OFF)
+			return 0;
 
+		dev_info(pdata->pdev, "VBUS disconnected\n");
 		/* Disable the internal detection circuit */
-		ret = pmic_usb_enable_usb_det(false);
+		ret = pmic_usb_enable_usb_det(pdata, false);
 		if (ret) {
-			pr_err("%s - fail to disable USB detection\n",
+			dev_err(pdata->pdev,
+				"%s - fail to disable USB detection\n",
 								__func__);
 			return ret;
 		}
 		pdata->vbus_state = VBUS_OFF;
 
-		/* Notify PSY about charger removal */
-		atomic_notifier_call_chain(&pdata->otg_handle->notifier,
+		/* Notify PSY/USB about NONE event if it's not during boot */
+		if (!during_boot) {
+			pdata->cable_props.chrg_evt =
+				POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
+			pdata->cable_props.chrg_type = pdata->cable_type;
+			pdata->cable_props.ma = 0;
+			pdata->cable_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
+
+			atomic_notifier_call_chain(&pdata->otg_handle->notifier,
 					USB_EVENT_NONE, &pdata->cable_props);
+		}
 	}
 
 	return 0;
@@ -281,22 +368,26 @@ static int pmic_usb_cable_det(struct pmic_usb_det_data *pdata)
 	u8 reg, val;
 	int ret;
 	int *p_cable_type;
+	enum usb_phy_events event = USB_EVENT_VBUS;
 
-	if (!pdata)
+	if (!pdata || !pdata->pdev)
 		return -EINVAL;
 
 	p_cable_type = &pdata->cable_type;
 
 	ret = pmic_reg_read(DEV3, USBSRCDETSTATUS0, &reg);
 	if (ret) {
-		pr_err("%s - fail to read DEV3 USBSRCDETSTATUS0\n", __func__);
+		dev_err(pdata->pdev,
+			"%s - fail to read DEV3 USBSRCDETSTATUS0\n",
+			__func__);
 		return ret;
 	}
 
 	/* Check for detection status */
 	val = get_field(reg, SUSBHWDET_O, SUSBHWDET_W);
 	if (val != 0x2) {
-		pr_err("Detection not completed, status=%d\n", val);
+		dev_err(pdata->pdev,
+			"Detection not completed, status=%d\n", val);
 		return -EIO;
 	}
 
@@ -305,44 +396,52 @@ static int pmic_usb_cable_det(struct pmic_usb_det_data *pdata)
 	switch (val) {
 	case USB_UNKNOWN:
 		*p_cable_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
-		pr_info("USB cable type - Unknown\n");
+		dev_info(pdata->pdev, "USB cable type - Unknown\n");
 		break;
 	case USB_SDP:
 		*p_cable_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
-		pr_info("USB cable type - SDP\n");
+		dev_info(pdata->pdev, "USB cable type - SDP\n");
 		break;
 	case USB_DCP:
 		*p_cable_type = POWER_SUPPLY_CHARGER_TYPE_USB_DCP;
-		pr_info("USB cable type - DCP\n");
+		dev_info(pdata->pdev, "USB cable type - DCP\n");
 		break;
 	case USB_CDP:
 		*p_cable_type = POWER_SUPPLY_CHARGER_TYPE_USB_CDP;
-		pr_info("USB cable type - CDP\n");
+		dev_info(pdata->pdev, "USB cable type - CDP\n");
 		break;
 	case USB_ACA:
-		/* ACA, report it as Unknown at this moment */
-		*p_cable_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
-		pr_info("USB cable type - ACA, report it as Unknown\n");
+		if (*p_cable_type == POWER_SUPPLY_CHARGER_TYPE_USB_ACA) {
+			dev_info(pdata->pdev,
+				"ACA charger already reported by USBID\n");
+			return 0;
+		}
+		*p_cable_type = POWER_SUPPLY_CHARGER_TYPE_USB_ACA;
+		event = USB_EVENT_ID;
+		dev_info(pdata->pdev, "USB cable type - ACA\n");
 		break;
 	case USB_SE1:
 		/* SE1, report it as DCP at this moment */
 		*p_cable_type = POWER_SUPPLY_CHARGER_TYPE_USB_DCP;
-		pr_info("USB cable type - SE1, report it as DCP\n");
+		dev_info(pdata->pdev,
+			"USB cable type - SE1, report it as DCP\n");
 		break;
 	case USB_MHL:
 		/* MHL, report it as NONE at this moment */
 		*p_cable_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
-		pr_info("USB cable type - MHL, report it as Unknown\n");
+		dev_info(pdata->pdev,
+			"USB cable type - MHL, report it as Unknown\n");
 		break;
 	case USB_FLOAT:
 		/* FLOATING, report it as NONE */
 		*p_cable_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
-		pr_info("USB cable type - Floating, report it as Unknown\n");
+		dev_info(pdata->pdev,
+			"USB cable type - Floating, report it as Unknown\n");
 		break;
 
 	default:
 		*p_cable_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
-		pr_info("USB cable type - Unknown\n");
+		dev_info(pdata->pdev, "USB cable type - Unknown\n");
 		break;
 	}
 
@@ -352,16 +451,108 @@ static int pmic_usb_cable_det(struct pmic_usb_det_data *pdata)
 	pdata->cable_props.ma = 0;
 
 	/* Disable the internal detection circuit */
-	ret = pmic_usb_enable_usb_det(false);
+	ret = pmic_usb_enable_usb_det(pdata, false);
 	if (ret) {
-		pr_err("%s - fail to disable USB detection\n", __func__);
+		dev_err(pdata->pdev,
+			"%s - fail to disable USB detection\n", __func__);
 		return ret;
 	}
 
 	/* Notify USB driver about the type detection result */
-	atomic_notifier_call_chain(&pdata->otg_handle->notifier,
-					USB_EVENT_VBUS,
-					&pdata->cable_props);
+	atomic_notifier_call_chain(&pdata->otg_handle->notifier, event,
+				&pdata->cable_props);
+
+	return 0;
+}
+
+/**
+ * Detects USBID presence status and notifies USB driver
+ *
+ * @pdata	Pointer to the charger type detection driver data structure
+ * @gnd		Indicating whether USBID is grounded (true) or floating (false)
+ * @validation	Perform validation between interurpt and ID result
+ * return	0 on success, otherwise error code
+ */
+static int pmic_usb_id_det(struct pmic_usb_det_data *pdata, bool gnd,
+				bool validation)
+{
+	u8 reg, id;
+	int ret;
+	struct power_supply_cable_props *pcp;
+	enum usb_phy_events event;
+	bool during_boot = false;
+
+	if (!pdata || !pdata->pdev)
+		return -EINVAL;
+
+	if (pdata->usbid_state == -1)
+		during_boot = true;
+
+	pcp = &pdata->cable_props;
+
+	ret = pmic_reg_read(DEV1, SPWRSRC, &reg);
+	if (ret) {
+		dev_err(pdata->pdev,
+			"%s - fail to read DEV1 SPWRSRC\n", __func__);
+		return ret;
+	}
+
+	id = get_field(reg, SUSBIDDET_O, SUSBIDDET_W);
+
+	if (validation && ((gnd && (id > ID_GND)) || (!gnd && (id < ID_FLT)))) {
+		dev_err(pdata->pdev,
+			"%s - USBID detection error (gnd=%d, id=%d)\n",
+			__func__, gnd, id);
+		return -EIO;
+	}
+
+	switch (id) {
+	case ID_ACA:
+		if (pdata->cable_type == POWER_SUPPLY_CHARGER_TYPE_USB_ACA) {
+			dev_info(pdata->pdev,
+				"ACA charger already reported by CTYP\n");
+			return 0;
+		}
+
+		dev_info(pdata->pdev, "ACA charger detected\n");
+		event = USB_EVENT_ID;
+		pdata->cable_type = POWER_SUPPLY_CHARGER_TYPE_USB_ACA;
+		pcp->chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_ACA;
+		pcp->chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
+		break;
+
+	case ID_GND:
+		dev_info(pdata->pdev, "USBID grounded\n");
+		event = USB_EVENT_ID;
+		pdata->cable_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
+		pcp->chrg_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
+		pcp->chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
+		break;
+
+	case ID_FLT:
+		dev_info(pdata->pdev, "USBID floating\n");
+		event = USB_EVENT_NONE;
+		pcp->chrg_type = pdata->cable_type;
+		pcp->chrg_evt = POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
+		pdata->cable_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
+		break;
+
+	default:
+		dev_err(pdata->pdev,
+			"%s - USBID detection error (gnd=%d, id=%d)\n",
+			__func__, gnd, id);
+		return -EIO;
+		break;
+	}
+
+	pdata->usbid_state = id;
+
+	pcp->ma = 0;
+
+	/* Notify PSY/USB if not during boot or VBUS is not detected */
+	if (!during_boot || pdata->vbus_state == VBUS_OFF)
+		atomic_notifier_call_chain(&pdata->otg_handle->notifier, event,
+					pcp);
 
 	return 0;
 }
@@ -378,16 +569,20 @@ static irqreturn_t pmic_usb_det_cb(int irq, void *pd)
 	irqreturn_t irqret = IRQ_NONE;
 	struct pmic_usb_det_data *pdata = (struct pmic_usb_det_data *)pd;
 
-	if (!pdata) {
-		pr_err("%s: fail to get platform data\n", __func__);
+	if (!pdata)
 		return irqret;
-	}
 
 	if (irq == pdata->irq_vbusdet) {
 		pmic_usb_vbus_det(pdata);
 		irqret = IRQ_HANDLED;
 	} else if (irq == pdata->irq_ctyp) {
 		pmic_usb_cable_det(pdata);
+		irqret = IRQ_HANDLED;
+	} else if (irq == pdata->irq_idflt) {
+		pmic_usb_id_det(pdata, false, true);
+		irqret = IRQ_HANDLED;
+	} else if (irq == pdata->irq_idgnd) {
+		pmic_usb_id_det(pdata, true, true);
 		irqret = IRQ_HANDLED;
 	}
 
@@ -406,38 +601,47 @@ static int pmic_usb_setup_det_irq(struct pmic_usb_det_data *pdata)
 	int ret;
 	u8 mask = 0;
 
-	if (!pdata)
+	if (!pdata || !pdata->pdev)
 		return -EINVAL;
 
-	if (!IS_ERR_VALUE(pdata->irq_vbusdet)) {
-		ret = request_threaded_irq(pdata->irq_vbusdet, NULL,
-					pmic_usb_det_cb,
-					IRQF_SHARED | IRQF_ONESHOT,
-					DRIVER_NAME, pdata);
-
-		if (ret) {
-
-			pr_err("%s: setup irq %d failed: %d\n", __func__,
-					pdata->irq_vbusdet, ret);
-			pdata->irq_vbusdet = -ENXIO;
-			pdata->irq_ctyp = -ENXIO;
-			return -EINVAL;
-		}
+	ret = devm_request_threaded_irq(pdata->pdev, pdata->irq_vbusdet, NULL,
+				pmic_usb_det_cb, IRQF_SHARED | IRQF_ONESHOT,
+				DRIVER_NAME, pdata);
+	if (ret) {
+		dev_err(pdata->pdev, "%s: setup irq %d failed: %d\n", __func__,
+				pdata->irq_vbusdet, ret);
+		pdata->irq_vbusdet = -ENXIO;
+		pdata->irq_ctyp = -ENXIO;
+		pdata->irq_idflt = -ENXIO;
+		pdata->irq_idgnd = -ENXIO;
+		return -EINVAL;
 	}
 
-	if (!IS_ERR_VALUE(pdata->irq_ctyp)) {
-		ret = request_threaded_irq(pdata->irq_ctyp, NULL,
-					pmic_usb_det_cb,
-					IRQF_SHARED | IRQF_ONESHOT,
-					DRIVER_NAME, pdata);
+	ret = devm_request_threaded_irq(pdata->pdev, pdata->irq_ctyp, NULL,
+				pmic_usb_det_cb, IRQF_SHARED | IRQF_ONESHOT,
+				DRIVER_NAME, pdata);
+	if (ret) {
+		dev_err(pdata->pdev, "%s: setup irq %d failed: %d\n", __func__,
+				pdata->irq_ctyp, ret);
+		return ret;
+	}
 
-		if (ret) {
+	ret = devm_request_threaded_irq(pdata->pdev, pdata->irq_idflt, NULL,
+				pmic_usb_det_cb, IRQF_SHARED | IRQF_ONESHOT,
+				DRIVER_NAME, pdata);
+	if (ret) {
+		dev_err(pdata->pdev, "%s: setup irq %d failed: %d\n", __func__,
+				pdata->irq_idflt, ret);
+		return ret;
+	}
 
-			pr_err("%s: setup irq %d failed: %d\n", __func__,
-					pdata->irq_ctyp, ret);
-			ret = -EINVAL;
-			goto setup_ctyp_irq_fail;
-		}
+	ret = devm_request_threaded_irq(pdata->pdev, pdata->irq_idgnd, NULL,
+				pmic_usb_det_cb, IRQF_SHARED | IRQF_ONESHOT,
+				DRIVER_NAME, pdata);
+	if (ret) {
+		dev_err(pdata->pdev, "%s: setup irq %d failed: %d\n", __func__,
+				pdata->irq_idgnd, ret);
+		return ret;
 	}
 
 	/* Clear Pending CTYP interrupt */
@@ -445,8 +649,8 @@ static int pmic_usb_setup_det_irq(struct pmic_usb_det_data *pdata)
 	set_field(mask, CTYPE_O, 1, SET);
 	ret = pmic_reg_write(DEV1, CHGRIRQ0, mask);
 	if (ret) {
-		pr_err("%s: fail to clear CTYP IRQ\n", __func__);
-		goto unmask_or_clear_fail;
+		dev_err(pdata->pdev, "%s: fail to clear CTYP IRQ\n", __func__);
+		return ret;
 	}
 
 	/* Clear Pending VBUSDET interrupt */
@@ -454,16 +658,17 @@ static int pmic_usb_setup_det_irq(struct pmic_usb_det_data *pdata)
 	set_field(mask, VBUSDET_O, 1, SET);
 	ret = pmic_reg_write(DEV1, CHGRIRQ1, mask);
 	if (ret) {
-		pr_err("%s: fail to clear VBUSDET IRQ\n", __func__);
-		goto unmask_or_clear_fail;
+		dev_err(pdata->pdev, "%s: fail to clear VBUSDET IRQ\n",
+			__func__);
+		return ret;
 	}
 	/* Unmask CTYP interrupts */
 	mask = 0;
 	set_field(mask, CTYPE_O, 1, SET);
 	ret = pmic_reg_set(DEV1, MCHGRIRQ0, mask, 0);
 	if (ret) {
-		pr_err("%s: fail to umask CTYP IRQ\n", __func__);
-		goto unmask_or_clear_fail;
+		dev_err(pdata->pdev, "%s: fail to umask CTYP IRQ\n", __func__);
+		return ret;
 	}
 
 	/* Unmask VBUSDET interrupt */
@@ -471,8 +676,29 @@ static int pmic_usb_setup_det_irq(struct pmic_usb_det_data *pdata)
 	set_field(mask, VBUSDET_O, 1, SET);
 	ret = pmic_reg_set(DEV1, MCHGRIRQ1, mask, 0);
 	if (ret) {
-		pr_err("%s: fail to umask VBUSDET IRQ\n", __func__);
-		goto unmask_or_clear_fail;
+		dev_err(pdata->pdev, "%s: fail to umask VBUSDET IRQ\n",
+			__func__);
+		return ret;
+	}
+
+	/* Unmask USBIDFLTDET interrupt */
+	mask = 0;
+	set_field(mask, USBIDFLTDET_O, 1, SET);
+	ret = pmic_reg_set(DEV1, MCHGRIRQ1, mask, 0);
+	if (ret) {
+		dev_err(pdata->pdev, "%s: fail to umask USBIDFLTDET IRQ\n",
+			__func__);
+		return ret;
+	}
+
+	/* Unmask USBIDGNDDET interrupt */
+	mask = 0;
+	set_field(mask, USBIDGNDDET_O, 1, SET);
+	ret = pmic_reg_set(DEV1, MCHGRIRQ1, mask, 0);
+	if (ret) {
+		dev_err(pdata->pdev, "%s: fail to umask USBIDGNDDET IRQ\n",
+			__func__);
+		return ret;
 	}
 
 	/* Unmask LVL1 CHGR interrupt */
@@ -480,32 +706,25 @@ static int pmic_usb_setup_det_irq(struct pmic_usb_det_data *pdata)
 	set_field(mask, CHGR_O, 1, SET);
 	ret = pmic_reg_set(DEV1, MIRQLVL1, mask, 0);
 	if (ret) {
-		pr_err("%s: fail to umask LVL1 CHGR IRQ\n", __func__);
-		goto unmask_or_clear_fail;
+		dev_err(pdata->pdev, "%s: fail to umask LVL1 CHGR IRQ\n",
+			__func__);
+		return ret;
 	}
 
 	/* Enable VBUSDETCTRL_REG:VBUSDETEN bit */
 	mask = 0;
 	ret = pmic_reg_read(DEV3, VBUSDETCTRL, &mask);
 	if (ret) {
-		pr_err("%s: fail to read DEV3 VBUSDETCTRL\n", __func__);
-		goto unmask_or_clear_fail;
+		dev_err(pdata->pdev, "%s: fail to read DEV3 VBUSDETCTRL\n",
+			__func__);
+		return ret;
 	}
 	set_field(mask, VBUSDETEN_O , 1, SET);
 	ret = pmic_reg_write(DEV3, VBUSDETCTRL, mask);
 	if (ret) {
-		pr_err("%s: fail to write DEV3 VBUSDETCTRL\n", __func__);
-		goto unmask_or_clear_fail;
+		dev_err(pdata->pdev, "%s: fail to write DEV3 VBUSDETCTRL\n",
+			__func__);
 	}
-
-	return 0;
-
-unmask_or_clear_fail:
-	free_irq(pdata->irq_ctyp, pdata);
-setup_ctyp_irq_fail:
-	pdata->irq_ctyp = -ENXIO;
-	pdata->irq_vbusdet = -ENXIO;
-	free_irq(pdata->irq_vbusdet, pdata);
 
 	return ret;
 }
@@ -523,21 +742,24 @@ static int pmic_usb_det_drv_probe(struct platform_device *pdev)
 				GFP_KERNEL);
 
 	if (!pdata) {
-		pr_err("%s: out of memory\n", __func__);
+		dev_err(&pdev->dev, "%s: out of memory\n", __func__);
 		return -ENOMEM;
 	}
 
+	pdata->pdev = &pdev->dev;
 	pdata->vbus_state = -1;
 	pdata->cable_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
+	pdata->usbid_state = -1;
 	pdata->irq_ctyp = -ENXIO;
 	pdata->irq_vbusdet = -ENXIO;
 
 	platform_set_drvdata(pdev, pdata);
 
 	/* Get USB phy */
-	otg_handle = usb_get_phy(USB_PHY_TYPE_USB2);
+	otg_handle = devm_usb_get_phy(&pdev->dev, USB_PHY_TYPE_USB2);
 	if (IS_ERR_OR_NULL(otg_handle)) {
-		pr_err("%s: fail to get OTG transceiver\n", __func__);
+		dev_err(&pdev->dev, "%s: fail to get OTG transceiver\n",
+			__func__);
 		return -EBUSY;
 	}
 
@@ -546,60 +768,50 @@ static int pmic_usb_det_drv_probe(struct platform_device *pdev)
 	/* Get interrupt from device tree */
 	pdata->irq_vbusdet = platform_get_irq_byname(pdev, "vbusdet");
 	pdata->irq_ctyp = platform_get_irq_byname(pdev, "ctype");
+	pdata->irq_idflt = platform_get_irq_byname(pdev, "usbidflt");
+	pdata->irq_idgnd = platform_get_irq_byname(pdev, "usbidgnd");
 
-	if (!pdata->irq_vbusdet || !pdata->irq_ctyp) {
+	if (IS_ERR_VALUE(pdata->irq_vbusdet) ||
+		IS_ERR_VALUE(pdata->irq_ctyp) ||
+		IS_ERR_VALUE(pdata->irq_idflt) ||
+		IS_ERR_VALUE(pdata->irq_idgnd)) {
 		ret = -EBUSY;
-		pr_err("%s: can't get irq, irq_vbusdet=%d, irq_ctyp=%d\n",
-			__func__, pdata->irq_vbusdet, pdata->irq_ctyp);
-		goto fail;
+		dev_err(&pdev->dev,
+			"%s: can't get irq, vbus=%d ctyp=%d idflt=%d idgnd=%d\n",
+			__func__, pdata->irq_vbusdet, pdata->irq_ctyp,
+			pdata->irq_idflt, pdata->irq_idgnd);
+		return ret;
 	}
 
 	ret = pmic_usb_setup_det_irq(pdata);
 	if (ret)
-		goto fail;
+		return ret;
 
 	/* Disable the internal detection circuit */
-	ret = pmic_usb_enable_usb_det(false);
+	ret = pmic_usb_enable_usb_det(pdata, false);
 	if (ret)
-		goto fail;
+		return ret;
 
 	/* Read the VBUS presence status for initial update, and trigger
 	USB type detection if applicable */
 	ret = pmic_usb_vbus_det(pdata);
 	if (ret)
-		goto fail;
+		return ret;
 
-	return 0;
+	/* Enable USBID and ACA detection */
+	ret = pmic_usb_enable_id_aca_det(pdata, true, true);
+	if (ret)
+		return ret;
 
-fail:
-	usb_put_phy(otg_handle);
+	/* Read the USBID and ACA detection result */
+	ret = pmic_usb_id_det(pdata, false, false);
 
 	return ret;
 }
 
 static int __exit pmic_usb_det_drv_remove(struct platform_device *pdev)
 {
-	struct pmic_usb_det_data *pdata;
-
-	if (!pdev)
-		return -EINVAL;
-
-	pdata = platform_get_drvdata(pdev);
-
-	if (!pdata) {
-		pr_err("%s: fail to get platform data\n", __func__);
-		return -EINVAL;
-	}
-	if (pdata->irq_vbusdet != -ENXIO)
-		free_irq(pdata->irq_vbusdet, pdata);
-	if (pdata->irq_ctyp != -ENXIO)
-		free_irq(pdata->irq_ctyp, pdata);
-
-	if (pdata->otg_handle)
-		usb_put_phy(pdata->otg_handle);
-
-	devm_kfree(&pdev->dev, pdata);
-
+	/* Managed device resources will be freed automatically */
 	return 0;
 }
 
@@ -618,7 +830,7 @@ static int pmic_usb_det_suspend(struct device *pdev)
 	pdata = dev_get_drvdata(pdev);
 
 	if (!pdata) {
-		pr_err("%s: fail to get platform data\n", __func__);
+		dev_err(pdev, "%s: fail to get platform data\n", __func__);
 		return -EINVAL;
 	}
 
@@ -645,7 +857,7 @@ static int pmic_usb_det_resume(struct device *pdev)
 	pdata = dev_get_drvdata(pdev);
 
 	if (!pdata) {
-		pr_err("%s: fail to get platform data\n", __func__);
+		dev_err(pdev, "%s: fail to get platform data\n", __func__);
 		return -EINVAL;
 	}
 
