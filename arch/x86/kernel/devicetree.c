@@ -12,6 +12,7 @@
  *
  * Architecture specific OF callbacks.
  *
+ * based on original arch/x86/kernel/devicetree.c
  */
 
 #include <linux/bootmem.h>
