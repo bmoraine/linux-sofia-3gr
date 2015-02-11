@@ -1504,7 +1504,8 @@ err3:
 	gpio_free(stat->pdata->gpio_int1);
 err2:
 #endif
-	destroy_workqueue(stat->irq1_work_queue);
+	if (stat->pdata->gpio_int1 >= 0)
+		destroy_workqueue(stat->irq1_work_queue);
 err1_1:
 	kfree(stat->pdata);
 err1:
