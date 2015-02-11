@@ -33,6 +33,7 @@ struct xgold_i2c_platdata {
 	struct pinctrl_state *pins_inactive;
 	u32 rxbs;
 	u32 txbs;
+	unsigned long flags;
 };
 
 #define FDIV_INC	0

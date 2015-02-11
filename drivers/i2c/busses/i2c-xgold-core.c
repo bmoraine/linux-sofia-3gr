@@ -46,6 +46,9 @@
 #define XGOLD_I2C_SLAVE_ADDR_7_BIT_MASK		0x7f
 #define XGOLD_I2C_SLAVE_ADDR_10_BIT_MASK	0x3ff
 
+#define XGOLD_I2C_ALLOW_DEBUG			BIT(0)
+
+
 #define I2C_MSG_WR(_flag_) \
 	(0 == (_flag_ & I2C_M_RD))
 
@@ -63,7 +66,7 @@
 	((_address_ << 1) | (_flag_ & I2C_M_RD))
 
 #define reg_write(_r_, _a_) {\
-	/* i2c_debug("wr @%p -- 0x%08x\n",_a_, _r_); */\
+	/* pr_debug("wr @%p -- 0x%08x\n",_a_, _r_); */\
 	iowrite32(_r_, _a_); }
 
 
@@ -322,6 +325,9 @@ skip_pinctrl:
 		platdata->regulator2 = NULL;
 #endif
 
+	if (of_find_property(np, "intel,i2c,debug", NULL))
+		platdata->flags |= XGOLD_I2C_ALLOW_DEBUG;
+
 	return platdata;
 }
 #endif /* CONFIG_OF */
@@ -370,7 +376,7 @@ static void xgold_i2c_dma_callback_txrx(void *param)
 
 	if (dma_async_is_tx_complete(data->dmach, data->dma_cookie, NULL, NULL)
 			== DMA_COMPLETE) {
-		i2c_debug("DMA transfer complete\n");
+		i2c_debug(data, "DMA transfer complete\n");
 
 		if (I2C_MSG_RD(data->flags) && data->dma_buf_len % 4)
 			memcpy(data->buf, data->dma_buf, data->dma_buf_len);
@@ -380,7 +386,7 @@ static void xgold_i2c_dma_callback_txrx(void *param)
 				16, 1, data->dma_buf, data->dma_buf_len, 0);
 	} else {
 		data->cmd_err = -EAGAIN;
-		i2c_debug("DMA error\n");
+		i2c_debug(data, "DMA error\n");
 	}
 
 	xgold_i2c_dma_finish(data);
@@ -389,7 +395,7 @@ static void xgold_i2c_dma_callback_txrx(void *param)
 	else
 		data->buf_len = 0;
 
-	i2c_debug("<-- %s\n", __func__);
+	i2c_debug(data, "<-- %s\n", __func__);
 }
 
 static int xgold_i2c_dma_config(struct xgold_i2c_algo_data *data,
@@ -472,7 +478,7 @@ static int xgold_i2c_dma_setup_xfer(struct xgold_i2c_algo_data *data)
 		 * which would prevent the I2C to send odds amount of data.
 		 */
 		sg_init_one(&data->sg_io, data->dma_buf,
-			round_up(data->buf_len + 1, 4));
+			data->buf_len + 1);
 
 		dma_map_sg(data->i2c_dev->dev, &data->sg_io, 1, DMA_TO_DEVICE);
 		desc = dmaengine_prep_slave_sg(data->dmach, &data->sg_io, 1,
@@ -543,7 +549,7 @@ static void xgold_i2c_xmit_word(struct xgold_i2c_algo_data *data)
 	to_copy = data->buf_len;
 	to_copy += (data->addr_sent == 0) ? 1 : 0;
 
-	i2c_debug("%s: to_copy %d, buf_len %d stages %d\n",
+	i2c_debug(data, "%s: to_copy %d, buf_len %d stages %d\n",
 			__func__, to_copy, data->buf_len, stages);
 
 	if (data->addr_sent == 0) {
@@ -563,7 +569,7 @@ static void xgold_i2c_xmit_word(struct xgold_i2c_algo_data *data)
 			/* update counters */
 			to_copy -= copy;
 
-			i2c_debug("WR: write word %X\n", word);
+			i2c_debug(data, "WR: write word %X\n", word);
 
 			reg_write(word, data->regs + I2C_TXD_OFFSET);
 			stages = ioread32(data->regs + I2C_FFS_STAT_OFFSET) &
@@ -572,7 +578,7 @@ static void xgold_i2c_xmit_word(struct xgold_i2c_algo_data *data)
 			i = 0; /* reset i now address is sent */
 		}
 	} else {
-		i2c_debug("RD: write word %X\n", word);
+		i2c_debug(data, "RD: write word %X\n", word);
 		reg_write(word, data->regs + I2C_TXD_OFFSET);
 	}
 }
@@ -592,7 +598,7 @@ static void xgold_i2c_recv_word(struct xgold_i2c_algo_data *data, bool last)
 	unsigned long word;
 	__u8 *ptr = (__u8 *) &word;
 
-	i2c_debug("len %d, stages %d, packets %d, last %d\n",
+	i2c_debug(data, "len %d, stages %d, packets %d, last %d\n",
 			data->buf_len, stages, packets, last);
 
 	if (!last) {
@@ -607,7 +613,7 @@ static void xgold_i2c_recv_word(struct xgold_i2c_algo_data *data, bool last)
 	while (packets > 0 && stages > 0) {
 		copy = data->buf_len < 4 ? data->buf_len : 4;
 		word = ioread32(data->regs + I2C_RXD_OFFSET);
-		i2c_debug("rcvd word %x\n", (unsigned int)word);
+		i2c_debug(data, "rcvd word %x\n", (unsigned int)word);
 		memcpy(data->buf, ptr, copy);
 		data->buf += copy;
 		data->buf_len -= copy;
@@ -639,7 +645,7 @@ static void xgold_i2c_set_baud(struct i2c_adapter *adap,
 	cbaud = xgold_i2c_get_client_baud(flags);
 
 	if (cbaud != data->current_baud) {
-		i2c_debug("%s baud rate = %skHz\n", __func__,
+		i2c_debug(data, "%s baud rate = %skHz\n", __func__,
 			 cbaud == I2C_XGOLD_B100 ? "100" : "400");
 		data->state = XGOLD_I2C_CONFIGURE;
 
@@ -760,21 +766,21 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 	struct xgold_i2c_algo_data *data = i2c_get_adapdata(adap);
 	u32 irqss = ioread32(data->regs + I2C_P_IRQSS_OFFSET);
 
-	i2c_debug("%s irqss = 0x%X\n", __func__, irqss);
+	i2c_debug(data, "%s irqss = 0x%X\n", __func__, irqss);
 
 	if (!(irqss & XGOLD_I2C_P_MASK_ALL))
 		return IRQ_NONE;
 
 	if (irqss & I2C_P_IRQSS_NACK_INTRS_PEND) {
 		/* Not Acknowledged */
-		i2c_debug("M13: NACK recvd.\n");
+		i2c_debug(data, "M13: NACK recvd.\n");
 		data->cmd_err = -EREMOTEIO;
 		complete(&data->cmd_complete);
 		reg_write(I2C_P_IRQSC_NACK, data->regs + I2C_P_IRQSC_OFFSET);
 
 	} else if (irqss & I2C_P_IRQSS_RX_INTRS_PEND) {
 		/* Receiving data */
-		i2c_debug("M2: switching TX to RX.\n");
+		i2c_debug(data, "M2: switching TX to RX.\n");
 		data->state = XGOLD_I2C_RECEIVE;
 		if (data->dma_mode == true && I2C_MSG_RD(data->flags))
 			xgold_i2c_dmae(data, true);
@@ -787,7 +793,7 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 		if (!data->cmd_err && data->state == XGOLD_I2C_RECEIVE &&
 			data->buf_len > 0 && !data->dma_mode) {
 
-			i2c_debug("WARN : Flush RX FIFO %d bytes remaining\n",
+			i2c_debug(data, "WARN : Flush RX FIFO %d bytes remaining\n",
 				data->buf_len);
 
 			/*
@@ -800,7 +806,7 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 			return IRQ_NONE;
 		}
 
-		i2c_debug("M3 or M20: flags=%d, count=%d, device.state= %d\n",
+		i2c_debug(data, "M3 or M20: flags=%d, count=%d, device.state= %d\n",
 				data->flags, data->buf_len, data->state);
 
 		reg_write(I2C_P_IRQSC_TX_END_INTRS_CLR,
@@ -825,7 +831,7 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 				I2C_P_IRQSS_GC_INTRS_PEND |
 				I2C_P_IRQSS_MC_INTRS_PEND)) {
 		/* Adress Match */
-		i2c_debug("M4: %x ACK recvd.\n", (unsigned int)irqss);
+		i2c_debug(data, "M4: %x ACK recvd.\n", (unsigned int)irqss);
 		reg_write(I2C_P_IRQSC_AM_INTRS_CLR | I2C_P_IRQSC_GC_INTRS_CLR |
 				I2C_P_IRQSC_MC_INTRS_CLR,
 				data->regs + I2C_P_IRQSC_OFFSET);
@@ -846,18 +852,18 @@ static irqreturn_t xgold_i2c_irq_handler(int irq, void *dev)
 	irqreturn_t ret = IRQ_NONE;
 
 	do {
-		i2c_debug("%s: mis = 0x%X\n", __func__, mis);
+		i2c_debug(data, "%s: mis = 0x%X\n", __func__, mis);
 
 		if (mis & I2C_MIS_I2C_ERR_INT_INT_PEND) {
 			/* Error interrupt Received */
 			ret = xgold_i2c_err_handler(dev);
-			i2c_debug("%s: error interrupt ret = %d",
+			i2c_debug(data, "%s: error interrupt ret = %d",
 					__func__, ret);
 		}
 
 		if (mis & XGOLD_I2C_IMSC_P_BIT) {
 			ret = xgold_i2c_p_handler(dev);
-			i2c_debug("%s protocol interrupt ret %d\n",
+			i2c_debug(data, "%s protocol interrupt ret %d\n",
 					__func__, ret);
 		}
 
@@ -866,14 +872,14 @@ static irqreturn_t xgold_i2c_irq_handler(int irq, void *dev)
 					I2C_MIS_LBREQ_INT_INT_PEND |
 					I2C_MIS_BREQ_INT_INT_PEND)) {
 
-			i2c_debug("xREQ_INT/LxREQ_INT recvd, state %d\n",
+			i2c_debug(data, "xREQ_INT/LxREQ_INT recvd, state %d\n",
 					data->state);
 
 			if (data->state == XGOLD_I2C_TRANSMIT) {
-				i2c_debug("M1 MASTER TRANSMITS BYTES\n");
+				i2c_debug(data, "M1 MASTER TRANSMITS BYTES\n");
 				xgold_i2c_xmit_word(data);
 			} else {
-				i2c_debug("M2: MASTER Receives BYTES\n");
+				i2c_debug(data, "M2: MASTER Receives BYTES\n");
 				xgold_i2c_recv_word(data,
 					mis & (I2C_MIS_LSREQ_INT_INT_PEND |
 						I2C_MIS_LBREQ_INT_INT_PEND));
@@ -941,7 +947,7 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 	data->dma_mode = (data->dmach && data->buf_len > 32) ? true : false;
 
 	if (I2C_MSG_RD(data->flags)) {
-		i2c_debug("--> RD dev=0x%x, %d bytes, flags=%d, mode %s\n",
+		i2c_debug(data, "--> RD dev=0x%x, %d bytes, flags=%d, mode %s\n",
 			data->addr, data->buf_len, data->flags,
 			(data->dma_mode == true) ? "DMA" : "PIO");
 
@@ -975,7 +981,7 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 				dma_async_is_tx_complete(
 					data->dmach, data->dma_cookie,
 					NULL, NULL) != DMA_COMPLETE) {
-			i2c_debug("An error occured %#X. Terminate all dma\n",
+			i2c_debug(data, "An error occured %#X. Terminate all dma\n",
 				data->cmd_err);
 			dmaengine_terminate_all(data->dmach);
 			xgold_i2c_dma_finish(data);
@@ -984,9 +990,9 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 			data->cmd_err = -ETIMEDOUT;
 		}
 
-		i2c_debug("<-- RD dev=0x%x done\n", data->addr);
+		i2c_debug(data, "<-- RD dev=0x%x done\n", data->addr);
 	} else {
-		i2c_debug("--> WR dev=0x%x, len=%d, reg=0x%x, flags=%d, mode %s\n",
+		i2c_debug(data, "--> WR dev=0x%x, len=%d, reg=0x%x, flags=%d, mode %s\n",
 			data->addr, data->buf_len, data->buf[0], data->flags,
 			(data->dma_mode == true) ? "DMA" : "PIO");
 
@@ -1016,7 +1022,7 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 				dma_async_is_tx_complete(data->dmach,
 				data->dma_cookie, NULL, NULL) != DMA_COMPLETE) {
 
-			i2c_debug("An error occured %#X. Terminate all dma\n",
+			i2c_debug(data, "An error occured %#X. Terminate all dma\n",
 				data->cmd_err);
 			dmaengine_terminate_all(data->dmach);
 			xgold_i2c_dma_finish(data);
@@ -1025,7 +1031,7 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 			data->cmd_err = -ETIMEDOUT;
 		}
 
-		i2c_debug("<-- WR dev=0x%x done\n", data->addr);
+		i2c_debug(data, "<-- WR dev=0x%x done\n", data->addr);
 	}
 
 out:
@@ -1040,7 +1046,7 @@ out:
 	}
 
 	if (data->cmd_err) {
-		i2c_debug("An error occured %#X\n", data->cmd_err);
+		i2c_debug(data, "An error occured %#X\n", data->cmd_err);
 		return data->cmd_err;
 	}
 
@@ -1136,7 +1142,7 @@ static void xgold_i2c_hw_init(struct xgold_i2c_algo_data *data)
 		data->state = XGOLD_I2C_CONFIGURE;
 	}
 
-	i2c_debug("%s baud rate = %skbps\n", __func__,
+	i2c_debug(data, "%s baud rate = %skbps\n", __func__,
 		data->current_baud == I2C_XGOLD_B100 ? "100" : "400");
 
 	/* Fixing kernel clk to 52 Mhz */
@@ -1236,6 +1242,8 @@ static int xgold_i2c_core_probe(struct device *dev)
 	algo_data->default_baud = I2C_XGOLD_B100;
 	algo_data->current_baud = I2C_XGOLD_B100;
 	algo_data->i2c_dev = i2c_dev;
+	algo_data->debug =
+		(platdata->flags & XGOLD_I2C_ALLOW_DEBUG) ? true : false;
 	init_completion(&algo_data->cmd_complete);
 	spin_lock_init(&algo_data->lock);
 
@@ -1284,7 +1292,7 @@ static int xgold_i2c_core_probe(struct device *dev)
 
 	/* Register I2C adapter */
 	ret = i2c_add_numbered_adapter(adap);
-	i2c_debug("xgold: i2c_add_numbered_adapter= %d", ret);
+	i2c_debug(algo_data, "xgold: i2c_add_numbered_adapter= %d", ret);
 	if (ret < 0) {
 		dev_err(&adap->dev, "failed to add bus to i2c core\n");
 		goto err_add_adapter;
@@ -1374,7 +1382,7 @@ static int xgold_i2c_core_suspend(struct device *dev)
 	struct xgold_i2c_platdata *platdata = dev_get_platdata(dev);
 	int ret = 0;
 
-	i2c_debug("suspend %s\n", dev->init_name);
+	i2c_debug(data, "suspend %s\n", dev->init_name);
 
 	xgold_i2c_hw_stop(data);
 
@@ -1394,7 +1402,7 @@ static int xgold_i2c_core_resume(struct device *dev)
 	struct xgold_i2c_platdata *platdata = dev_get_platdata(dev);
 	int ret;
 
-	i2c_debug("resume %s\n", dev->init_name);
+	i2c_debug(data, "resume %s\n", dev->init_name);
 
 	ret = device_state_pm_set_state_by_name(dev,
 			platdata->pm_platdata->pm_state_D0_name);

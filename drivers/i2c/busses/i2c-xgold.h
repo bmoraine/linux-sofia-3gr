@@ -5,8 +5,11 @@
 #define i2c_warn(fmt, arg...)  \
 	pr_warn("I2C: " fmt, ##arg);
 
-#define i2c_debug(fmt, arg...) \
-	pr_debug("I2C: " fmt, ##arg);
+#define i2c_debug(data, fmt, arg...) \
+{ \
+	if (data->debug) \
+		pr_debug("I2C: " fmt, ##arg); \
+}
 
 #define i2c_info(fmt, arg...) \
 	pr_info("I2C: " fmt, ##arg);
@@ -116,6 +119,7 @@ struct xgold_i2c_algo_data {
 	int num_of_msg;
 	int recvd;
 	int retries;
+	bool debug;
 	/* DMA */
 	dma_addr_t regs_phys;
 	bool dma_mode;
