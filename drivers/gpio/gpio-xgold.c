@@ -380,6 +380,8 @@ static int xgold_gpio_probe(struct platform_device *pdev)
 	tofield(&xgold_gpio->in_field, array[1], array[2]);
 	xgold_gpio->in_field.name = "input";
 
+	if (of_find_property(np, "intel,lvds-ttl-as-gpio", NULL))
+		pcl_write(pchip, 0xc, 0x4);
 
 	return 0;
 
