@@ -4,6 +4,8 @@
  * Copyright (c) 2013, The Linux Foundation. All Rights Reserved.
  * Copyright (c) 2013,2014 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
+ *
  * Author: Marek Szyprowski <m.szyprowski@samsung.com>
  * Author: Josh Cartwright <joshc@codeaurora.org>
  *

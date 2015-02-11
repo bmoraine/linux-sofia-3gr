@@ -5,6 +5,7 @@
  *
  * Copyright (c) 2013 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
  * Author: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
  *

@@ -4,6 +4,7 @@
  * A Logging Subsystem
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
  * Robert Love <rlove@google.com>
  *

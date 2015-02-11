@@ -5,6 +5,8 @@
  *
  *	Copyright (C) 1997 Geert Uytterhoeven
  *
+ *      Copyright (C) 2014-2015 Intel Mobile Communications GmbH
+ *
  *  This file is subject to the terms and conditions of the GNU General Public
  *  License. See the file COPYING in the main directory of this archive for
  *  more details.

@@ -2,6 +2,7 @@
  * Secure Digital Host Controller Interface ACPI driver.
  *
  * Copyright (c) 2012, Intel Corporation.
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,

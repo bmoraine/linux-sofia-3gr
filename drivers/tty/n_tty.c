@@ -14,6 +14,7 @@
  *
  * This file also contains code originally written by Linus Torvalds,
  * Copyright 1991, 1992, 1993, and by Julian Cowley, Copyright 1994.
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
  * This file may be redistributed under the terms of the GNU General Public
  * License.

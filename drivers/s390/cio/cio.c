@@ -2,6 +2,8 @@
  *   S/390 common I/O routines -- low level i/o calls
  *
  *    Copyright IBM Corp. 1999, 2008
+ *    Copyright (C) 2014-2015 Intel Mobile Communications GmbH
+ *
  *    Author(s): Ingo Adlung (adlung@de.ibm.com)
  *		 Cornelia Huck (cornelia.huck@de.ibm.com)
  *		 Arnd Bergmann (arndb@de.ibm.com)

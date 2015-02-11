@@ -2,6 +2,8 @@
  * Functions for working with the Flattened Device Tree data format
  *
  * Copyright 2009 Benjamin Herrenschmidt, IBM Corp
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
+ *
  * benh@kernel.crashing.org
  *
  * This program is free software; you can redistribute it and/or

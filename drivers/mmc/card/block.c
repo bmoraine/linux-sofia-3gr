@@ -3,6 +3,7 @@
  *
  * Copyright 2002 Hewlett-Packard Company
  * Copyright 2005-2008 Pierre Ossman
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
  * Use consistent with the GNU GPL is permitted,
  * provided that this copyright notice is

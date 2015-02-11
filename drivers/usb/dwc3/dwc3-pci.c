@@ -2,6 +2,7 @@
  * dwc3-pci.c - PCI Specific glue layer
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>

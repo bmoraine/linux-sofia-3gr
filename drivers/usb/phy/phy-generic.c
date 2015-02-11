@@ -5,6 +5,8 @@
  * into USB IP or which are mostly autonomous.
  *
  * Copyright (C) 2009 Texas Instruments Inc
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
+ *
  * Author: Ajay Kumar Gupta <ajay.gupta@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify
