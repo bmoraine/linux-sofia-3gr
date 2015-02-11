@@ -119,7 +119,7 @@ static int xgold_i2c_set_pm_state(struct device *dev,
 	int id = device_state_pm_get_state_id(dev, state->name);
 	int ret;
 
-	pr_info("%s: pm state %s\n", __func__, state->name);
+	dev_debug(dev, "%s: pm state %s\n", __func__, state->name);
 	switch (id) {
 	case XGOLD_I2C_D0:
 		clk_prepare_enable(platdata->clk_bus);
@@ -512,10 +512,14 @@ static void xgold_i2c_xmit_word(struct xgold_i2c_algo_data *data)
 	unsigned int word = 0;
 	__u8 *ptr = (__u8 *) &word;
 	__u8 *addr = (__u8 *) &data->addr;
+	unsigned int stages = ioread32(data->regs + I2C_FFS_STAT_OFFSET) &
+		I2C_FFS_STAT_FFS_MASK;
 
 	to_copy = data->buf_len;
 	to_copy += (data->addr_sent == 0) ? 1 : 0;
-	copy = (to_copy < 4) ? to_copy : 4;
+
+	i2c_debug("%s: to_copy %d, buf_len %d stages %d\n",
+			__func__, to_copy, data->buf_len, stages);
 
 	if (data->addr_sent == 0) {
 		ptr[i++] = I2C_PKT_ADR(data->flags, addr[0]);
@@ -523,13 +527,29 @@ static void xgold_i2c_xmit_word(struct xgold_i2c_algo_data *data)
 	}
 
 	if (I2C_MSG_WR(data->flags)) {
-		memcpy((ptr + i), data->buf, copy - i);
-		data->buf += copy - i;
-		data->buf_len -= (copy - i);
-	}
+		while (to_copy > 0 && stages < XGOLD_I2C_FIFO_DEPTH) {
+			copy = (to_copy < 4) ? to_copy : 4;
+			memcpy((ptr + i), data->buf, copy - i);
 
-	i2c_debug("send word %x\n", word);
-	reg_write(word, data->regs + I2C_TXD_OFFSET);
+			/* move buffer pointers */
+			data->buf += copy - i;
+			data->buf_len -= (copy - i);
+
+			/* update counters */
+			to_copy -= copy;
+
+			i2c_debug("WR: write word %X\n", word);
+
+			reg_write(word, data->regs + I2C_TXD_OFFSET);
+			stages = ioread32(data->regs + I2C_FFS_STAT_OFFSET) &
+				I2C_FFS_STAT_FFS_MASK;
+
+			i = 0; /* reset i now address is sent */
+		}
+	} else {
+		i2c_debug("RD: write word %X\n", word);
+		reg_write(word, data->regs + I2C_TXD_OFFSET);
+	}
 }
 
 /******************************************************************************
@@ -537,17 +557,38 @@ static void xgold_i2c_xmit_word(struct xgold_i2c_algo_data *data)
  * Description: Adapter receives/copies data from I2C bus to
  * buffer
 ******************************************************************************/
-static void xgold_i2c_recv_word(struct xgold_i2c_algo_data *data)
+static void xgold_i2c_recv_word(struct xgold_i2c_algo_data *data, bool last)
 {
-	int copy = data->buf_len < 4 ? data->buf_len : 4;
-
-	unsigned long word = ioread32(data->regs + I2C_RXD_OFFSET);
+	int copy;
+	unsigned int stages = ioread32(data->regs + I2C_FFS_STAT_OFFSET) &
+		I2C_FFS_STAT_FFS_MASK;
+	int packets = ioread32(data->regs + I2C_RPS_STAT_OFFSET) &
+		I2C_RPS_STAT_RPS_MASK;
+	unsigned long word;
 	__u8 *ptr = (__u8 *) &word;
 
-	i2c_debug("rcvd word %x\n", (unsigned int)word);
-	memcpy(data->buf, ptr, copy);
-	data->buf += copy;
-	data->buf_len -= copy;
+	i2c_debug("len %d, stages %d, packets %d, last %d\n",
+			data->buf_len, stages, packets, last);
+
+	if (!last) {
+		/* if not last interrupt, the last filled stage may contain odd
+		 * number of bytes. We copy only the complete filled stages */
+		if (stages > 1)
+			packets = (stages - 1) * 4;
+		else
+			packets = 0;
+	}
+
+	while (packets > 0 && stages > 0) {
+		copy = data->buf_len < 4 ? data->buf_len : 4;
+		word = ioread32(data->regs + I2C_RXD_OFFSET);
+		i2c_debug("rcvd word %x\n", (unsigned int)word);
+		memcpy(data->buf, ptr, copy);
+		data->buf += copy;
+		data->buf_len -= copy;
+		packets -= copy;
+		stages--;
+	}
 }
 
 /******************************************************************************
@@ -796,38 +837,27 @@ static irqreturn_t xgold_i2c_irq_handler(int irq, void *dev)
 		}
 
 		if (mis & (I2C_MIS_LSREQ_INT_INT_PEND |
-					I2C_MIS_SREQ_INT_INT_PEND)) {
-			/* SREQ/LSREQ Received */
-			i2c_debug("SREQ_INT/LSREQ_INT recvd, state %d\n",
-					data->state);
-			if (data->state == XGOLD_I2C_TRANSMIT)
-				xgold_i2c_xmit_word(data);
-			else
-				xgold_i2c_recv_word(data);
-
-			reg_write(I2C_ICR_LSREQ_INT_CLR_INT |
-					I2C_ICR_SREQ_INT_CLR_INT,
-					data->regs + I2C_ICR_OFFSET);
-
-			ret = IRQ_HANDLED;
-		}
-
-		if (mis & (I2C_MIS_LBREQ_INT_INT_PEND |
+					I2C_MIS_SREQ_INT_INT_PEND |
+					I2C_MIS_LBREQ_INT_INT_PEND |
 					I2C_MIS_BREQ_INT_INT_PEND)) {
-			/* BREQ/LBREQ Received */
-			int i;
-			/* FIXME: check FIFO stage ?!? */
-			i2c_debug("BREQ_INT/LBREQ_INT recvd\n");
+
+			i2c_debug("xREQ_INT/LxREQ_INT recvd, state %d\n",
+					data->state);
+
 			if (data->state == XGOLD_I2C_TRANSMIT) {
-				for (i = 0; i < data->txbs; ++i)
-					xgold_i2c_xmit_word(data);
+				i2c_debug("M1 MASTER TRANSMITS BYTES\n");
+				xgold_i2c_xmit_word(data);
 			} else {
-				for (i = 0; i < data->rxbs; ++i)
-					xgold_i2c_recv_word(data);
+				i2c_debug("M2: MASTER Receives BYTES\n");
+				xgold_i2c_recv_word(data,
+					mis & (I2C_MIS_LSREQ_INT_INT_PEND |
+						I2C_MIS_LBREQ_INT_INT_PEND));
 			}
 
-			reg_write(I2C_ICR_LBREQ_INT_CLR_INT |
-					I2C_ICR_BREQ_INT_CLR_INT,
+			reg_write(mis & (I2C_ICR_LSREQ_INT_CLR_INT |
+						I2C_ICR_SREQ_INT_CLR_INT |
+						I2C_ICR_LBREQ_INT_CLR_INT |
+						I2C_ICR_BREQ_INT_CLR_INT),
 					data->regs + I2C_ICR_OFFSET);
 
 			ret = IRQ_HANDLED;
@@ -929,8 +959,7 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 			data->cmd_err = -ETIMEDOUT;
 		}
 
-		i2c_debug("<-- RD dev=0x%x, %d bytes val=0x%x\n",
-				data->addr, data->buf_len, data->buf[0]);
+		i2c_debug("<-- RD dev=0x%x done\n", data->addr);
 	} else {
 		i2c_debug("--> WR dev=0x%x, len=%d, reg=0x%x, flags=%d, mode %s\n",
 			data->addr, data->buf_len, data->buf[0], data->flags,
@@ -1124,9 +1153,6 @@ static void xgold_i2c_hw_init(struct xgold_i2c_algo_data *data)
 		I2C_FIFO_CFG_RXFA_RXFA1 | I2C_FIFO_CFG_TXFA_TXFA1 |
 		I2C_FIFO_CFG_RXFC_RXFC | I2C_FIFO_CFG_TXFC_TXFC;
 	reg_write(reg, data->regs + I2C_FIFO_CFG_OFFSET);
-
-	data->rxbs = 1 << (I2C_FIFO_CFG_RXBS_RXBS4 >> I2C_FIFO_CFG_RXBS_OFFSET);
-	data->txbs = 1 << (I2C_FIFO_CFG_TXBS_TXBS4 >> I2C_FIFO_CFG_TXBS_OFFSET);
 
 	/* Set MRPS to unlimited receive */
 	reg_write(0, data->regs + I2C_MRPS_CTRL_OFFSET);
@@ -1322,7 +1348,7 @@ static int xgold_i2c_core_suspend(struct device *dev)
 	struct xgold_i2c_platdata *platdata = dev_get_platdata(dev);
 	int ret = 0;
 
-	i2c_info("suspend %s\n", dev->init_name);
+	i2c_debug("suspend %s\n", dev->init_name);
 
 	xgold_i2c_hw_stop(data);
 
@@ -1342,7 +1368,7 @@ static int xgold_i2c_core_resume(struct device *dev)
 	struct xgold_i2c_platdata *platdata = dev_get_platdata(dev);
 	int ret;
 
-	i2c_info("resume %s\n", dev->init_name);
+	i2c_debug("resume %s\n", dev->init_name);
 
 	ret = device_state_pm_set_state_by_name(dev,
 			platdata->pm_platdata->pm_state_D0_name);

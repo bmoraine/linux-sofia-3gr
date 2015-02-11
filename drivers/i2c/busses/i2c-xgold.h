@@ -48,6 +48,9 @@
 #define XGOLD_I2C_DMAE_ENABLE			0xF
 #define XGOLD_I2C_FDIV_HIGH_CFG_DISABLE		0x0
 
+/* FIFO depth */
+#define XGOLD_I2C_FIFO_DEPTH		8
+
 /* change default baud rate of i2c bus */
 #define I2C_XGOLD_BAUD        0x0730
 
@@ -113,8 +116,6 @@ struct xgold_i2c_algo_data {
 	int num_of_msg;
 	int recvd;
 	int retries;
-	unsigned char rxbs;
-	unsigned char txbs;
 	/* DMA */
 	dma_addr_t regs_phys;
 	bool dma_mode;
