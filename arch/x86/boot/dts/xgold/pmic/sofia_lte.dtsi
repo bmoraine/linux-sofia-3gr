@@ -304,8 +304,10 @@ pmic {
 			compatible = "intel,pmic_usb_det";
 			interrupt-parent = <&hirq>;
 			interrupts = < HIRQ_PMIC_VBUSDET IRQ_TYPE_DEFAULT
-				HIRQ_PMIC_CTYP IRQ_TYPE_DEFAULT>;
-			interrupt-names = "vbusdet", "ctype";
+				HIRQ_PMIC_CTYP IRQ_TYPE_DEFAULT
+				HIRQ_PMIC_USBID_FLT IRQ_TYPE_DEFAULT
+				HIRQ_PMIC_USBID_GND IRQ_TYPE_DEFAULT>;
+			interrupt-names = "vbusdet", "ctype", "usbidflt", "usbidgnd";
 
 		};
 	};
