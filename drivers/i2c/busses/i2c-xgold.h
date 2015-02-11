@@ -116,9 +116,11 @@ struct xgold_i2c_algo_data {
 	unsigned char rxbs;
 	unsigned char txbs;
 	/* DMA */
+	dma_addr_t regs_phys;
 	bool dma_mode;
 	struct dma_chan *dmach;
 	unsigned char *dma_buf;
+	int dma_buf_len;
 	struct scatterlist sg_io;
 	dma_cookie_t dma_cookie;
 };

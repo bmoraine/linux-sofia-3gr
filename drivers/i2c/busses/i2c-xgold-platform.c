@@ -50,8 +50,6 @@ int xgold_platform_i2c_probe(struct platform_device *pdev)
 	struct xgold_i2c_platdata *platdata;
 	struct xgold_i2c_algo_data *algo_data;
 	struct resource *res;
-	resource_size_t res_size;
-	dma_cap_mask_t mask;
 
 	i2c_dev = xgold_i2c_init_driver(&pdev->dev);
 	if (IS_ERR(i2c_dev))
@@ -65,23 +63,19 @@ int xgold_platform_i2c_probe(struct platform_device *pdev)
 	if (!res)
 		return -ENOENT;
 
-	res_size = resource_size(res);
-	if (!devm_request_mem_region(&pdev->dev, res->start, res_size,
-				res->name))
+	if (!devm_request_mem_region(&pdev->dev, res->start,
+				resource_size(res), res->name))
 		return -EBUSY;
 
-	algo_data->regs = devm_ioremap(&pdev->dev, res->start, res_size);
+	algo_data->regs = devm_ioremap(&pdev->dev, res->start,
+			resource_size(res));
 	if (!algo_data->regs)
 		return -EBUSY;
 
+	algo_data->regs_phys = res->start;
+
 	/* request DMA channel */
-	if (platdata->dma_txrx) {
-		dma_cap_zero(mask);
-		dma_cap_set(DMA_SLAVE, mask);
-		algo_data->dmach = dma_request_channel(mask,
-			pl08x_filter_id, (void *)platdata->dma_txrx);
-	} else
-		algo_data->dmach = NULL;
+	algo_data->dmach = dma_request_slave_channel(&pdev->dev, "rxtx");
 
 	/* i2c core probe */
 	if (i2c_dev->core_ops->probe)

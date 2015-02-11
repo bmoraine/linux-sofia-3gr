@@ -195,7 +195,7 @@ static struct xgold_i2c_platdata *xgold_i2c_of_get_platdata(struct device *dev)
 	np = dev->of_node;
 
 	if (!np) {
-		i2c_err("Can't find i2c matching node\n");
+		dev_err(dev, "Can't find i2c matching node\n");
 		return NULL;
 	}
 
@@ -210,24 +210,24 @@ static struct xgold_i2c_platdata *xgold_i2c_of_get_platdata(struct device *dev)
 	/* clock */
 	platdata->clk_kernel = of_clk_get_by_name(np, OF_KERNEL_CLK);
 	if (IS_ERR(platdata->clk_kernel))
-		i2c_err("Clk %s not found\n", OF_KERNEL_CLK);
+		dev_err(dev, "Clk %s not found\n", OF_KERNEL_CLK);
 
 	platdata->clk_bus = of_clk_get_by_name(np, OF_AHB_CLK);
 	if (IS_ERR(platdata->clk_bus))
-		i2c_err("Clk %s not found\n", OF_AHB_CLK);
+		dev_err(dev, "Clk %s not found\n", OF_AHB_CLK);
 #endif
 
 	/* Interrupts */
 	platdata->irq_num = n = of_irq_count(np);
 	if (!n) {
-		i2c_err("Error parsing interrupts in %s\n", np->name);
+		dev_err(dev, "Error parsing interrupts in %s\n", np->name);
 		return NULL;
 	}
 
 	for (i = n; i > 0; i--) {
 		ret = irq_of_parse_and_map(np, i - 1);
 		if (!ret) {
-			i2c_err("cannot map irq index %d", i);
+			dev_err(dev, "cannot map irq index %d", i);
 			return NULL;
 		}
 	}
@@ -238,7 +238,7 @@ static struct xgold_i2c_platdata *xgold_i2c_of_get_platdata(struct device *dev)
 	if (of_property_read_u32_array(np, OF_CFG_B100,
 		platdata->cfg_baud[I2C_XGOLD_B100], 4) < 0) {
 
-		i2c_err("Error parsing %s propery of node %s\n",
+		dev_err(dev, "Error parsing %s propery of node %s\n",
 			OF_CFG_B100, np->name);
 		return NULL;
 	}
@@ -247,7 +247,7 @@ static struct xgold_i2c_platdata *xgold_i2c_of_get_platdata(struct device *dev)
 	if (of_property_read_u32_array(np, OF_CFG_B400,
 		platdata->cfg_baud[I2C_XGOLD_B400], 4) < 0) {
 
-		i2c_err("Error parsing %s propery of node %s\n",
+		dev_err(dev, "Error parsing %s propery of node %s\n",
 			OF_CFG_B400, np->name);
 		return NULL;
 	}
@@ -281,10 +281,6 @@ skip_pinctrl:
 	}
 
 /* Optional properties */
-	/* DMA request */
-	if (of_property_read_string(np, OF_I2C_DMA_REQ, &platdata->dma_txrx))
-		platdata->dma_txrx = NULL;
-
 	/* Reset */
 	platdata->rst = reset_control_get(dev, "i2c");
 	if (IS_ERR(platdata->rst))
@@ -333,14 +329,14 @@ static inline int xgold_i2c_set_pinctrl_state(struct device *dev,
 /* DMA engine API usage */
 static void xgold_i2c_dma_finish(struct xgold_i2c_algo_data *data)
 {
-	if (I2C_MSG_RD(data->flags)) {
+	if (I2C_MSG_RD(data->flags))
 		dma_unmap_sg(data->i2c_dev->dev, &data->sg_io, 1,
 				DMA_FROM_DEVICE);
-	} else {
+	else
 		dma_unmap_sg(data->i2c_dev->dev, &data->sg_io, 1,
 				DMA_TO_DEVICE);
-		kfree(data->dma_buf);
-	}
+
+	kfree(data->dma_buf);
 }
 
 static void xgold_i2c_dma_callback_txrx(void *param)
@@ -350,6 +346,13 @@ static void xgold_i2c_dma_callback_txrx(void *param)
 	if (dma_async_is_tx_complete(data->dmach, data->dma_cookie, NULL, NULL)
 			== DMA_COMPLETE) {
 		i2c_debug("DMA transfer complete\n");
+
+		if (I2C_MSG_RD(data->flags) && data->dma_buf_len % 4)
+			memcpy(data->buf, data->dma_buf, data->dma_buf_len);
+
+		if (I2C_MSG_RD(data->flags))
+			print_hex_dump_debug("<RX< ", DUMP_PREFIX_NONE,
+				16, 1, data->dma_buf, data->dma_buf_len, 0);
 	} else {
 		data->cmd_err = -EAGAIN;
 		i2c_debug("DMA error\n");
@@ -375,13 +378,13 @@ static int xgold_i2c_dma_config(struct xgold_i2c_algo_data *data,
 
 	if (I2C_MSG_RD(flags)) {
 		config.direction = DMA_FROM_DEVICE;
-		config.src_addr = (dma_addr_t)(data->regs + I2C_RXD_OFFSET);
+		config.src_addr = data->regs_phys + I2C_RXD_OFFSET;
 		config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		config.src_maxburst = 4;
 		config.device_fc = true;
 	} else {
 		config.direction = DMA_TO_DEVICE;
-		config.dst_addr = (dma_addr_t)(data->regs + I2C_TXD_OFFSET);
+		config.dst_addr = data->regs_phys + I2C_TXD_OFFSET;
 		config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		config.dst_maxburst = 4;
 		config.device_fc = true;
@@ -396,10 +399,25 @@ static int xgold_i2c_dma_setup_xfer(struct xgold_i2c_algo_data *data)
 {
 	struct dma_async_tx_descriptor *desc;
 
+	/* Ensure dma_buff is NULL so that kfree doesn't have side effect if
+	 * dma_buf is not used (ie: RX transaction 4Bytes aligned) */
+	data->dma_buf = NULL;
+
 	if (I2C_MSG_RD(data->flags)) {
 		/* Queue the read buffer */
-		sg_init_one(&data->sg_io, data->buf,
-				round_up(data->buf_len, 4));
+		data->dma_buf_len = data->buf_len;
+		if (data->buf_len % 4) {
+			data->dma_buf = kmalloc(round_up(data->buf_len, 4),
+					GFP_DMA);
+
+			if (!data->dma_buf)
+				return -ENOMEM;
+
+			sg_init_one(&data->sg_io, data->dma_buf,
+					round_up(data->buf_len, 4));
+		} else
+			sg_init_one(&data->sg_io, data->buf, data->buf_len);
+
 		dma_map_sg(data->i2c_dev->dev, &data->sg_io, 1,
 				DMA_FROM_DEVICE);
 		desc = dmaengine_prep_slave_sg(data->dmach, &data->sg_io, 1,
@@ -411,14 +429,16 @@ static int xgold_i2c_dma_setup_xfer(struct xgold_i2c_algo_data *data)
 		}
 	} else {
 		__u8 *addr = (__u8 *)&data->addr;
-		data->dma_buf = kmalloc(sizeof(char) * (data->buf_len + 1),
-				GFP_KERNEL);
+		data->dma_buf =
+			kmalloc(sizeof(char) * round_up(data->buf_len + 1, 4),
+					GFP_DMA);
 		if (!data->dma_buf)
 			return -ENOMEM;
 
 		data->dma_buf[0] = I2C_PKT_ADR(data->flags, addr[0]);
 		memcpy(data->dma_buf + 1, data->buf, data->buf_len);
-
+		print_hex_dump_debug(">TX> ", DUMP_PREFIX_NONE,
+				16, 1, data->dma_buf, data->buf_len + 1, 0);
 		/*
 		 * Prepare DMA buffer.
 		 *
@@ -450,11 +470,14 @@ static int xgold_i2c_dma_setup_xfer(struct xgold_i2c_algo_data *data)
 	return 0;
 
 read_buff_dma_fail:
+	if (data->buf_len % 4)
+		kfree(data->dma_buf);
 	dma_unmap_sg(data->i2c_dev->dev, &data->sg_io, 1, DMA_FROM_DEVICE);
 	dmaengine_terminate_all(data->dmach);
 	return -EINVAL;
 
 write_init_dma_fail:
+	kfree(data->dma_buf);
 	dma_unmap_sg(data->i2c_dev->dev, &data->sg_io, 1, DMA_TO_DEVICE);
 	dmaengine_terminate_all(data->dmach);
 	return -EINVAL;
@@ -652,7 +675,7 @@ static irqreturn_t xgold_i2c_err_handler(void *dev)
 	if (!(err_irqss))
 		return IRQ_NONE;
 
-	i2c_err("%s, ERR_INT 0x%X recvd.\n", __func__,
+	dev_err(&adap->dev, "%s, ERR_INT 0x%X recvd.\n", __func__,
 			(unsigned int)err_irqss);
 
 	data->cmd_err = -EAGAIN;
@@ -687,13 +710,16 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 		/* Receiving data */
 		i2c_debug("M2: switching TX to RX.\n");
 		data->state = XGOLD_I2C_RECEIVE;
+		if (data->dma_mode == true && I2C_MSG_RD(data->flags))
+			xgold_i2c_dmae(data, true);
+
 		reg_write(I2C_P_IRQSC_RX_INTRS_CLR,
 				data->regs + I2C_P_IRQSC_OFFSET);
 
 	} else if (irqss & I2C_P_IRQSS_TX_END_INTRS_PEND) {
 		/* End of transfer */
 		if (!data->cmd_err && data->state == XGOLD_I2C_RECEIVE &&
-			data->buf_len > 0 && !data->dmach) {
+			data->buf_len > 0 && !data->dma_mode) {
 
 			i2c_debug("WARN : Flush RX FIFO %d bytes remaining\n",
 				data->buf_len);
@@ -723,7 +749,7 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 
 	} else if (irqss & I2C_P_IRQSS_AL_INTRS_PEND) {
 		/* Arbitration lost */
-		i2c_err("M5: AL recvd.\n");
+		dev_err(&adap->dev, "M5: AL recvd.\n");
 		data->cmd_err = -EACCES;
 		complete(&data->cmd_complete);
 		reg_write(I2C_P_IRQSC_AL_INTRS_CLR,
@@ -825,7 +851,7 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 	int ret = 0;
 
 	if (xgold_i2c_invalid_address(msg)) {
-		i2c_err("Invalid address.\n");
+		dev_err(&adap->dev, "Invalid address.\n");
 		ret = -EINVAL;
 		return ret;
 	}
@@ -851,11 +877,11 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 	/*
 	 * PIO/DMA mode selection:
 	 * Current boundary to select betwen PIO/DMA mode is set to 32 bytes.
-	 * Transfers shorter that 16B are transfered in PIO mode, while longer
+	 * Transfers shorter that 32B are transfered in PIO mode, while longer
 	 * transfers use DMA mode.
 	 * This limit is fixed as for reception, RXOVF (overflow) could be
 	 * observed if interrupt latency is too long when receiving more that 32
-	 * bytes. Fix limit to half of this value.
+	 * bytes.
 	 */
 	data->dma_mode = (data->dmach && data->buf_len > 32) ? true : false;
 
@@ -876,12 +902,14 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 				data->cmd_err = ret;
 				goto out;
 			}
-		}
 
-		xgold_i2c_dmae(data, data->dma_mode);
+			/* Program data lengths */
+			reg_write(round_up(data->buf_len, 4),
+					data->regs + I2C_MRPS_CTRL_OFFSET);
+		} else
+			reg_write(data->buf_len,
+					data->regs + I2C_MRPS_CTRL_OFFSET);
 
-		/* Program data lengths */
-		reg_write(data->buf_len, data->regs + I2C_MRPS_CTRL_OFFSET);
 		reg_write(1 , data->regs + I2C_TPS_CTRL_OFFSET);
 
 		/* Wait for transfer completion */
@@ -897,7 +925,7 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 			dmaengine_terminate_all(data->dmach);
 			xgold_i2c_dma_finish(data);
 		} else if (ret == 0) {
-			i2c_err("timeout waiting end of cmd RD\n");
+			dev_err(&adap->dev, "timeout waiting end of cmd RD\n");
 			data->cmd_err = -ETIMEDOUT;
 		}
 
@@ -920,9 +948,9 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 				data->cmd_err = ret;
 				goto out;
 			}
-		}
 
-		xgold_i2c_dmae(data, data->dma_mode);
+			xgold_i2c_dmae(data, true);
+		}
 
 		reg_write(data->buf_len + 1,
 				data->regs + I2C_TPS_CTRL_OFFSET);
@@ -939,7 +967,7 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 			dmaengine_terminate_all(data->dmach);
 			xgold_i2c_dma_finish(data);
 		} else if (ret == 0) {
-			i2c_err("timeout waiting end of cmd WR\n");
+			dev_err(&adap->dev, "timeout waiting end of cmd WR\n");
 			data->cmd_err = -ETIMEDOUT;
 		}
 
@@ -981,7 +1009,7 @@ static int xgold_i2c_xfer(struct i2c_adapter *adap,
 
 	spin_lock(&data->lock);
 	if (data->state != XGOLD_I2C_LISTEN) {
-		i2c_err("Transaction ongoing\n");
+		dev_err(&adap->dev, "Transaction ongoing\n");
 		spin_unlock(&data->lock);
 		return -EAGAIN;
 	}
@@ -992,8 +1020,9 @@ static int xgold_i2c_xfer(struct i2c_adapter *adap,
 
 	/* FIXME: while bus not free */
 	if (xgold_i2c_bus_status(data) != XGOLD_I2C_BUS_FREE) {
-		i2c_info("BUSY\n");
-		i2c_info("Driver state %d, Bus state %u.\n", data->state,
+		dev_err(&adap->dev, "BUSY\n");
+		dev_err(&adap->dev, "Driver state %d, Bus state %u.\n",
+				data->state,
 				(unsigned int)xgold_i2c_bus_status(data));
 		return -EBUSY;
 	}
@@ -1150,7 +1179,6 @@ static int xgold_i2c_core_probe(struct device *dev)
 
 	/* Initialize algo data */
 	algo_data = &i2c_dev->algo_data;
-	algo_data = &i2c_dev->algo_data;
 	algo_data->state = XGOLD_I2C_CONFIGURE;
 	algo_data->timeout = XGOLD_I2C_TIMEOUT;
 	algo_data->default_baud = I2C_XGOLD_B100;
@@ -1196,7 +1224,8 @@ static int xgold_i2c_core_probe(struct device *dev)
 		ret = request_irq(platdata->irq + i, xgold_i2c_irq_handler,
 					IRQF_DISABLED, adap->name, adap);
 		if (ret) {
-			i2c_err("Cannot allocate IRQ %d", platdata->irq+i);
+			dev_err(&adap->dev, "Cannot allocate IRQ %d",
+					platdata->irq+i);
 			goto free_irqs;
 		}
 	}
@@ -1205,7 +1234,7 @@ static int xgold_i2c_core_probe(struct device *dev)
 	ret = i2c_add_numbered_adapter(adap);
 	i2c_debug("xgold: i2c_add_numbered_adapter= %d", ret);
 	if (ret < 0) {
-		i2c_err("failed to add bus to i2c core\n");
+		dev_err(&adap->dev, "failed to add bus to i2c core\n");
 		goto err_add_adapter;
 	}
 
@@ -1358,14 +1387,14 @@ struct xgold_i2c_dev *xgold_i2c_init_driver(struct device *dev)
 #ifdef CONFIG_OF
 	platdata = xgold_i2c_of_get_platdata(dev);
 	if (!platdata) {
-		i2c_err("Error during dts file parsing\n");
+		dev_err(dev, "Error during dts file parsing\n");
 		return ERR_PTR(-EINVAL);
 	}
 
 	dev->platform_data = platdata;
 #else
 	if (!dev_get_platdata(dev)) {
-		i2c_err("No platdata\n");
+		dev_err(dev, "No platdata\n");
 		return ERR_PTR(-EINVAL);
 	}
 #endif
