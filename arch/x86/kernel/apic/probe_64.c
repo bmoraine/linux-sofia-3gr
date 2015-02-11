@@ -1,5 +1,7 @@
 /*
  * Copyright 2004 James Cleverdon, IBM.
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
+ *
  * Subject to the GNU Public License, v.2
  *
  * Generic APIC sub-arch probe layer.

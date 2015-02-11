@@ -1,11 +1,28 @@
-#ifndef _ASM_X86_DMA_MAPPING_H
-#define _ASM_X86_DMA_MAPPING_H
+/*
+* Changes to original  arch/x86/include/asm/dma-mapping.h
+*
+* Copyright (C) 2014-2015 Intel Mobile Communications GmbH
+*
+* This software is licensed under the terms of the GNU General Public
+* License version 2, as published by the Free Software Foundation, and
+* may be copied, distributed, and modified under those terms.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* Architecture specific OF callbacks.
+*
+*/
 
 /*
  * IOMMU interface. See Documentation/DMA-API-HOWTO.txt and
  * Documentation/DMA-API.txt for documentation.
  */
 
+#ifndef _ASM_X86_DMA_MAPPING_H
+#define _ASM_X86_DMA_MAPPING_H
 #include <linux/kmemcheck.h>
 #include <linux/scatterlist.h>
 #include <linux/dma-debug.h>

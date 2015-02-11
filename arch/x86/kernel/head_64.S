@@ -1,11 +1,20 @@
 /*
  *  linux/arch/x86_64/kernel/head.S -- start in 32bit and switch to 64bit
  *
- *  Copyright (C) 2000 Andrea Arcangeli <andrea@suse.de> SuSE
- *  Copyright (C) 2000 Pavel Machek <pavel@suse.cz>
- *  Copyright (C) 2000 Karsten Keil <kkeil@suse.de>
- *  Copyright (C) 2001,2002 Andi Kleen <ak@suse.de>
- *  Copyright (C) 2005 Eric Biederman <ebiederm@xmission.com>
+ *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ *  Enhanced CPU detection and feature setting code by Mike Jagdis
+ *  and Martin Mares, November 1997.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 

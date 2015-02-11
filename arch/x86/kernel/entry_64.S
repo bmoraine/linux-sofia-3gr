@@ -1,10 +1,12 @@
 /*
- *  linux/arch/x86_64/entry.S
+ * linux/arch/x86_64/entry.S
  *
- *  Copyright (C) 1991, 1992  Linus Torvalds
- *  Copyright (C) 2000, 2001, 2002  Andi Kleen SuSE Labs
- *  Copyright (C) 2000  Pavel Machek <pavel@suse.cz>
+ * Copyright (C) 1991, 1992 Linus Torvalds
+ * Copyright (C) 2000, 2001, 2002 Andi Kleen SuSE Labs
+ * Copyright (C) 2000 Pavel Machek <pavel@suse.cz>
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  */
+
 
 /*
  * entry.S contains the system-call and fault low-level handling routines.

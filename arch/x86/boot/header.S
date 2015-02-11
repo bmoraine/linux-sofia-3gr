@@ -2,6 +2,7 @@
  *	header.S
  *
  *	Copyright (C) 1991, 1992 Linus Torvalds
+ *	Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
  *	Based on bootsect.S and setup.S
  *	modified by more people than can be counted

@@ -1,5 +1,6 @@
 /*
  *  Copyright (C) 1995  Linus Torvalds
+ *  Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
  *  Support of BIGMEM added by Gerhard Wichert, Siemens AG, July 1999
  *

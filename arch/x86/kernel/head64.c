@@ -1,7 +1,9 @@
 /*
- *  prepare to run common code
+ *  linux/arch/i386/kernel/head64.c -- prepare to run common code
  *
  *  Copyright (C) 2000 Andrea Arcangeli <andrea@suse.de> SuSE
+ *  Copyright (C) 2007 Eric Biederman <ebiederm@xmission.com>
+ *  Copyright (c) 2014 Intel Mobile Communications GmbH
  */
 
 #include <linux/init.h>
