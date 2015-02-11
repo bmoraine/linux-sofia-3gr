@@ -1,6 +1,8 @@
 /*
  * Gadget Driver for Android DvC.Dfx Debug Capability
  *
+ * Copyright (C) 2003-2008 David Brownell
+ * Copyright (C) 2008 by Nokia Corporation
  * Copyright (C) 2008-2010, Intel Corporation.
  *
  * This software is licensed under the terms of the GNU General Public
