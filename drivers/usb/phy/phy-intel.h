@@ -172,6 +172,7 @@ struct intel_usbphy {
 	unsigned cur_power;
 	u8 active_tmout;
 	unsigned long tmouts;
+	bool tmout;
 	struct hrtimer timer;
 	struct notifier_block usb_nb;
 	struct completion bms_vbus_init;
