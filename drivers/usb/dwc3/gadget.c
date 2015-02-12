@@ -1454,6 +1454,10 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on)
 	u32			reg;
 	u32			timeout = 500;
 
+	/* return if we are powering down USB HW */
+	if (dwc->vbus_session_allow == true)
+		return 0;
+
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 	if (is_on) {
 		if (dwc->revision <= DWC3_REVISION_187A) {
@@ -1556,8 +1560,8 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *g, int is_active)
 		dwc3_gadget_enable_irq(dwc);
 		ret = dwc3_gadget_run_stop(dwc, is_active);
 	} else if (!is_active && !dwc->vbus_session_allow) {
-		dwc->vbus_session_allow = true;
 		ret = dwc3_gadget_run_stop(dwc, is_active);
+		dwc->vbus_session_allow = true;
 		dwc3_gadget_disable_irq(dwc);
 		dwc3_event_buffers_cleanup(dwc);
 		if (dwc->start_config_issued)
