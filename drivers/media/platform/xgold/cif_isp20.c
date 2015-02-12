@@ -1929,8 +1929,10 @@ static int cif_isp20_config_isp(
 		dev->config.base_addr + CIF_ISP_IMSC);
 
 	if (!dev->config.mi_config.raw_enable)
-		cifisp_configure_isp(&dev->isp_dev, in_pix_fmt,
-				dev->config.jpeg_config.enable);
+		cifisp_configure_isp(&dev->isp_dev,
+			in_pix_fmt,
+			dev->config.jpeg_config.enable &&
+			(dev->config.input_sel > CIF_ISP20_INP_CPI));
 	else
 		cifisp_disable_isp(&dev->isp_dev);
 
@@ -2657,11 +2659,18 @@ static int cif_isp20_config_jpeg_enc(
 	cif_iowrite32(inp_fmt->height,
 		dev->config.base_addr + CIF_JPE_ENC_VSIZE);
 
-	/* upscaling of BT601 color space to full range 0..255 */
-	cif_iowrite32(CIF_JPE_LUM_SCALE_ENABLE,
-		dev->config.base_addr + CIF_JPE_Y_SCALE_EN);
-	cif_iowrite32(CIF_JPE_CHROM_SCALE_ENABLE,
-		dev->config.base_addr + CIF_JPE_CBCR_SCALE_EN);
+	if (dev->config.input_sel > CIF_ISP20_INP_CPI ||
+		!CIF_ISP20_PIX_FMT_IS_RAW_BAYER(
+		dev->config.isp_config.input->pix_fmt)) {
+		/*
+		upscaling of BT601 color space to full range 0..255
+		TODO: DMA or YUV sensor input in full range.
+		*/
+		cif_iowrite32(CIF_JPE_LUM_SCALE_ENABLE,
+			dev->config.base_addr + CIF_JPE_Y_SCALE_EN);
+		cif_iowrite32(CIF_JPE_CHROM_SCALE_ENABLE,
+			dev->config.base_addr + CIF_JPE_CBCR_SCALE_EN);
+	}
 
 	switch (inp_fmt->pix_fmt) {
 	case CIF_YUV422I:

@@ -117,6 +117,8 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_ISP_CTRL_ISP_GAMMA_OUT_DIS         (0<<11)
 #define CIF_ISP_CTRL_ISP_FLASH_MODE_ENA        (1<<12)
 #define CIF_ISP_CTRL_ISP_FLASH_MODE_DIS        (0<<12)
+#define CIF_ISP_CTRL_ISP_CSM_Y_FULL_ENA        (1<<13)
+#define CIF_ISP_CTRL_ISP_CSM_C_FULL_ENA        (1<<14)
 #define CIF_ISP_CTRL_ISP_YUV_FAST_MODE_ENA     (0<<15)/* new SG3HS ES2*/
 #define CIF_ISP_CTRL_ISP_YUV_FAST_MODE_DIS     (1<<15)/* new SG3HS ES2*/
 

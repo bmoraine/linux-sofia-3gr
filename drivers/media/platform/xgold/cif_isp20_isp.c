@@ -2584,7 +2584,8 @@ static void cifisp_ctk_end(const struct xgold_isp_dev *isp_dev)
 
 /* CPROC */
 /*****************************************************************************/
-static void cifisp_cproc_config(const struct xgold_isp_dev *isp_dev)
+static void cifisp_cproc_config(const struct xgold_isp_dev *isp_dev,
+	bool capture)
 {
 	const struct cifisp_cproc_config *pconfig = &(isp_dev->cproc_config);
 
@@ -2593,9 +2594,19 @@ static void cifisp_cproc_config(const struct xgold_isp_dev *isp_dev)
 	cifisp_iowrite32(pconfig->sat, CIF_C_PROC_SATURATION);
 	cifisp_iowrite32(pconfig->brightness, CIF_C_PROC_BRIGHTNESS);
 
-	cifisp_iowrite32OR(pconfig->c_out_range << 3 |
+	if (!capture) {
+		cifisp_iowrite32OR(
+			pconfig->c_out_range << 3 |
 			pconfig->y_in_range << 2 |
-			pconfig->y_out_range << 1, CIF_C_PROC_CTRL);
+			pconfig->y_out_range << 1,
+			CIF_C_PROC_CTRL);
+	} else {
+		cifisp_iowrite32OR(
+			1 << 3 |
+			1 << 2 |
+			1 << 1,
+			CIF_C_PROC_CTRL);
+	}
 }
 
 #ifdef LOG_CAPTURE_PARAMS
@@ -3048,6 +3059,42 @@ static void cifisp_ie_end(const struct xgold_isp_dev *isp_dev)
 	/*Disable measurement */
 	cifisp_iowrite32AND(~CIF_IMG_EFF_CTRL_ENABLE, CIF_IMG_EFF_CTRL);
 	cifisp_iowrite32AND(~CIF_ICCL_IE_CLK, CIF_ICCL);
+}
+
+/*****************************************************************************/
+static void cifisp_csm_config(const struct xgold_isp_dev *isp_dev,
+				bool capture)
+{
+	if (!capture) {
+		/* Reduced range conversion */
+		cifisp_iowrite32(0x21, CIF_ISP_CC_COEFF_0);
+		cifisp_iowrite32(0x40, CIF_ISP_CC_COEFF_1);
+		cifisp_iowrite32(0xd, CIF_ISP_CC_COEFF_2);
+		cifisp_iowrite32(0x1ed, CIF_ISP_CC_COEFF_3);
+		cifisp_iowrite32(0x1db, CIF_ISP_CC_COEFF_4);
+		cifisp_iowrite32(0x38, CIF_ISP_CC_COEFF_5);
+		cifisp_iowrite32(0x38, CIF_ISP_CC_COEFF_6);
+		cifisp_iowrite32(0x1d1, CIF_ISP_CC_COEFF_7);
+		cifisp_iowrite32(0x1f7, CIF_ISP_CC_COEFF_8);
+		cifisp_iowrite32AND(~CIF_ISP_CTRL_ISP_CSM_Y_FULL_ENA,
+			CIF_ISP_CTRL);
+		cifisp_iowrite32AND(~CIF_ISP_CTRL_ISP_CSM_C_FULL_ENA,
+			CIF_ISP_CTRL);
+	} else {
+		cifisp_iowrite32(0x26, CIF_ISP_CC_COEFF_0);
+		cifisp_iowrite32(0x4b, CIF_ISP_CC_COEFF_1);
+		cifisp_iowrite32(0xf, CIF_ISP_CC_COEFF_2);
+		cifisp_iowrite32(0x1ea, CIF_ISP_CC_COEFF_3);
+		cifisp_iowrite32(0x1d6, CIF_ISP_CC_COEFF_4);
+		cifisp_iowrite32(0x40, CIF_ISP_CC_COEFF_5);
+		cifisp_iowrite32(0x40, CIF_ISP_CC_COEFF_6);
+		cifisp_iowrite32(0x1ca, CIF_ISP_CC_COEFF_7);
+		cifisp_iowrite32(0x1f6, CIF_ISP_CC_COEFF_8);
+		cifisp_iowrite32OR(CIF_ISP_CTRL_ISP_CSM_Y_FULL_ENA,
+			CIF_ISP_CTRL);
+		cifisp_iowrite32OR(CIF_ISP_CTRL_ISP_CSM_C_FULL_ENA,
+			CIF_ISP_CTRL);
+	}
 }
 
 /* ================================QUEUE OPS ================== */
@@ -3650,7 +3697,7 @@ static void cifisp_dump_reg(struct xgold_isp_dev *isp_dev, int level)
 void cifisp_configure_isp(
 		struct xgold_isp_dev *isp_dev,
 		enum cif_isp20_pix_fmt in_pix_fmt,
-		unsigned int capture)
+		bool capture)
 {
 	CIFISP_DPRINT(CIFISP_DEBUG, "%s\n", __func__);
 
@@ -3712,7 +3759,7 @@ void cifisp_configure_isp(
 		}
 
 		if (isp_dev->cproc_en) {
-			cifisp_cproc_config(isp_dev);
+			cifisp_cproc_config(isp_dev, capture);
 			cifisp_cproc_en(isp_dev);
 			isp_dev->isp_param_cproc_update_needed = false;
 		}
@@ -3724,24 +3771,6 @@ void cifisp_configure_isp(
 		}
 		isp_dev->ycflt_update = false;
 
-#if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
-		if (capture) {
-			if (isp_dev->macc_en) {
-				cifisp_macc_config(isp_dev);
-				cifisp_macc_en(isp_dev);
-				isp_dev->isp_param_macc_update_needed = false;
-			}
-
-			if (isp_dev->tmap_en) {
-				cifisp_tmap_config(isp_dev);
-				cifisp_tmap_en(isp_dev);
-				isp_dev->isp_param_tmap_update_needed = false;
-			}
-		} else {
-			cifisp_macc_end(isp_dev);
-			cifisp_tmap_end(isp_dev);
-		}
-#else
 		if (isp_dev->macc_en) {
 			cifisp_macc_config(isp_dev);
 			cifisp_macc_en(isp_dev);
@@ -3753,7 +3782,14 @@ void cifisp_configure_isp(
 			cifisp_tmap_en(isp_dev);
 			isp_dev->isp_param_tmap_update_needed = false;
 		}
-#endif
+
+		if (isp_dev->ie_en) {
+			cifisp_ie_config(isp_dev);
+			cifisp_ie_en(isp_dev);
+			isp_dev->isp_param_ie_update_needed = false;
+		}
+
+		cifisp_csm_config(isp_dev, capture);
 #endif
 
 		if (isp_dev->afc_en) {
@@ -3780,16 +3816,10 @@ void cifisp_configure_isp(
 			isp_dev->isp_param_hst_update_needed = false;
 		}
 
-		if (isp_dev->ie_en) {
-			cifisp_ie_config(isp_dev);
-			cifisp_ie_en(isp_dev);
-			isp_dev->isp_param_ie_update_needed = false;
-		}
-
 		if (capture)
 			cifisp_reg_dump_capture(isp_dev);
 	} else {
-		/* Disable modules for raw */
+		/* Disable modules for yuv */
 		cifisp_bp_end(isp_dev);
 		isp_dev->bpc_en = false;
 
@@ -3823,9 +3853,9 @@ void cifisp_configure_isp(
 		cifisp_ctk_end(isp_dev);
 		isp_dev->ctk_en = false;
 
-		/* cproc can be used for yuv */
+		/* cproc can be used for yuv in reduced range */
 		if (isp_dev->cproc_en) {
-			cifisp_cproc_config(isp_dev);
+			cifisp_cproc_config(isp_dev, false);
 			cifisp_cproc_en(isp_dev);
 			isp_dev->isp_param_cproc_update_needed = false;
 		}
@@ -4327,7 +4357,7 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 			if (isp_dev->isp_param_cproc_update_needed &&
 				time_left >= CIFISP_MODULE_CPROC_PROC_TIME) {
 				/*update cprc config */
-				cifisp_cproc_config(isp_dev);
+				cifisp_cproc_config(isp_dev, false);
 
 				if (isp_dev->cproc_en)
 					cifisp_cproc_en(isp_dev);
