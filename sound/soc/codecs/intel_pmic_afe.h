@@ -178,14 +178,16 @@
 #define I2S_DEFAULT_SETTING_RXCONF_HIGH_REG 0x0
 
 /*
-*  1,  :bit 0 'edge'- 0: falling(normal)/rising(pcm),
+*  0,  :bit 0 'edge'- 0: falling(normal)/rising(pcm),
 *						1: rising/falling
 *  1,  :bit 1 'wa_delay' - 0: at edge, 1: one clock after edge
-*  0,  :bit 2 'wa_polarity' - 0: wa=1 means right, 1: wa=1 means left
+*  1,  :bit 2 'wa_polarity' - 0: wa=1 means right, 1: wa=1 means left
 *  2,  :bit 3-4 'frame_period' - 0: 64 clocks, 1: 48, 2: 32
 *  0   :bit 5-7 'sample_width' - configured at interface level
+*
+*  Polarity bit set to compensate for left/right swap I2S IP block on
+*  PMIC RX side.
 */
-
 #define I2S_DEFAULT_SETTING_RXCONF_LOW_REG 0x16
 
 /*
@@ -201,14 +203,18 @@
 #define I2S_DEFAULT_SETTING_TXCONF_HIGH_REG 0x00
 
 /*
-*  0,  :bit 0 'edge'- 0: falling(normal)/rising(pcm),
+*  1,  :bit 0 'edge'- 0: falling(normal)/rising(pcm),
 *						1: rising/falling
 *  1,  :bit 1 'wa_delay' - 0: at edge, 1: one clock after edge
-*  0,  :bit 2 'wa_polarity' - 0: wa=1 means right, 1: wa=1 means left
+*  1,  :bit 2 'wa_polarity' - 0: wa=1 means right, 1: wa=1 means left
 *  2,  :bit 3-4 'frame_period' - 0: 64 clocks, 1: 48, 2: 32
 *  0   :bit 5-7 'sample_width' - configured at interface level
+*
+*  Polarity bit set to compensate for left/right swap in digital filter
+*  inputs, which is found needed on Sofia LTE to achieve a noise free
+*  digital mic configuration. (see AFE_DIGMICCTRL_REG)
 */
-#define I2S_DEFAULT_SETTING_TXCONF_LOW_REG 0x13
+#define I2S_DEFAULT_SETTING_TXCONF_LOW_REG 0x17
 
 enum afe_requester {
 	AFE_REQUESTER_ASOC, /* /< Request is from ASOC module */

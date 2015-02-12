@@ -97,11 +97,11 @@ static const u8 afe_reg_cache[] = {
 	0x13, /* AFE_GAIN_OUT2_REG */
 	0x06, /* AFE_GAIN_OUT3_REG */
 	0x0E, /* AFE_GAIN_OUT4_REG */
-	0x1A, /* AFE_GAIN_IN1_REG */
-	0x06, /* AFE_GAIN_IN2_REG */
+	0x5A, /* AFE_GAIN_IN1_REG digmic: 0dB, analog gain: 39 dB */
+	0x02, /* AFE_GAIN_IN2_REG digmic: 0dB */
 	0x0,  /* AFE_GAIN_IN3_REG */
 	0x0,  /* AFE_GAIN_IN4_REG */
-	0x0,  /* AFE_DIGMICCTRL_REG */
+	0x30, /* AFE_DIGMICCTRL_REG */
 	0x0,  /* I2S_CTRL_LOW_REG */
 	0x0,  /* I2S_CTRL_HIGH_REG */
 	0x0,  /* I2S_CSEL_LOW_REG */
@@ -163,11 +163,11 @@ static const u8 afe_reg_cache_a0[] = {
 	0x13, /* AFE_GAIN_OUT2_REG */
 	0x06, /* AFE_GAIN_OUT3_REG */
 	0x0E, /* AFE_GAIN_OUT4_REG */
-	0x1A, /* AFE_GAIN_IN1_REG */
-	0x06, /* AFE_GAIN_IN2_REG */
+	0x5A, /* AFE_GAIN_IN1_REG digmic: 0dB, analog gain: 39 dB */
+	0x02, /* AFE_GAIN_IN2_REG digmic: 0dB */
 	0x0,  /* AFE_GAIN_IN3_REG */
 	0x0,  /* AFE_GAIN_IN4_REG */
-	0x0,  /* AFE_DIGMICCTRL_REG */
+	0x30, /* AFE_DIGMICCTRL_REG */
 	0x0,  /* I2S_CTRL_LOW_REG */
 	0x0,  /* I2S_CTRL_HIGH_REG */
 	0x0,  /* I2S_CSEL_LOW_REG */
