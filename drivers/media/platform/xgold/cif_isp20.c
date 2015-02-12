@@ -31,6 +31,13 @@
 #define MEASURE_VERTICAL_BLANKING
 */
 
+/*
+If this macro is defined, the asyncrhronised update (software update)
+is used to update CIF shadowed registers.
+Currently, we have issues with synchronized update in several cases,
+so we will use the software update.
+*/
+#define CIF_ISP_ALWAYS_ASYNC
 
 static int marvin_mipi_isr(
 	void *cntxt);
@@ -3321,7 +3328,11 @@ static int cif_isp20_config_cif(
 					goto err;
 			}
 		} else
+#ifdef CIF_ISP_ALWAYS_ASYNC
+			dev->config.mi_config.async_updt = true;
+#else
 			dev->config.mi_config.async_updt = false;
+#endif
 
 		ret = cif_isp20_config_mipi(dev);
 		if (IS_ERR_VALUE(ret))
