@@ -2795,7 +2795,6 @@ void cifisp_ycflt_config(const struct xgold_isp_dev *isp_dev)
 {
 	const struct cifisp_ycflt_config *pconfig = &(isp_dev->ycflt_config);
 
-	cifisp_iowrite32(pconfig->chr_ss_ctrl, CIF_YC_FLT_CHR_SS_CTRL);
 	cifisp_iowrite32(pconfig->chr_ss_fac, CIF_YC_FLT_CHR_SS_FAC);
 	cifisp_iowrite32(pconfig->chr_ss_offs, CIF_YC_FLT_CHR_SS_OFFS);
 	cifisp_iowrite32(pconfig->chr_nr_ctrl, CIF_YC_FLT_CHR_NR_CTRL);
@@ -2837,17 +2836,19 @@ static void cifisp_ycflt_config_read(const struct xgold_isp_dev *isp_dev,
 #endif
 
 /*****************************************************************************/
-static void cifisp_ycflt_en(struct xgold_isp_dev *isp_dev)
+void cifisp_ycflt_en(const struct xgold_isp_dev *isp_dev)
 {
 	const struct cifisp_ycflt_config *pconfig = &(isp_dev->ycflt_config);
 
 	cifisp_iowrite32(pconfig->ctrl, CIF_YC_FLT_CTRL);
+	cifisp_iowrite32(pconfig->chr_ss_ctrl, CIF_YC_FLT_CHR_SS_CTRL);
 }
 
 /*****************************************************************************/
-static void cifisp_ycflt_end(struct xgold_isp_dev *isp_dev)
+void cifisp_ycflt_end(const struct xgold_isp_dev *isp_dev)
 {
-	cifisp_iowrite32(0, CIF_YC_FLT_CTRL);
+	cifisp_iowrite32(1<<6|1<<5|1<<4, CIF_YC_FLT_CTRL);
+	cifisp_iowrite32(3<<8|2<<4, CIF_YC_FLT_CHR_SS_CTRL);
 }
 
 static void cifisp_afc_config(const struct xgold_isp_dev *isp_dev)
@@ -3536,6 +3537,7 @@ static int cifisp_open(struct file *file)
 	isp_dev->streamon = false;
 	isp_dev->active_meas = 0;
 
+	isp_dev->ycflt_update = false;
 	return 0;
 }
 
@@ -3764,12 +3766,8 @@ void cifisp_configure_isp(
 			isp_dev->isp_param_cproc_update_needed = false;
 		}
 
-		if (isp_dev->ycflt_en) {
-			cifisp_ycflt_config(isp_dev);
-			cifisp_ycflt_en(isp_dev);
-			isp_dev->isp_param_ycflt_update_needed = false;
-		}
-		isp_dev->ycflt_update = false;
+		isp_dev->ycflt_update = true;
+		isp_dev->isp_param_ycflt_update_needed = false;
 
 		if (isp_dev->macc_en) {
 			cifisp_macc_config(isp_dev);
@@ -4295,15 +4293,10 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 				time_left,
 				isp_dev->isp_param_ycflt_update_needed);
 
+			/* This filter is outside of the Bayer ISP block. */
+			/* Configured later in the MI ISR.*/
 			if (isp_dev->isp_param_ycflt_update_needed &&
 				time_left >= CIFISP_MODULE_YCFLT_PROC_TIME) {
-				cifisp_ycflt_config(isp_dev);
-
-				if (isp_dev->ycflt_en)
-					cifisp_ycflt_en(isp_dev);
-				else
-					cifisp_ycflt_end(isp_dev);
-
 				isp_dev->isp_param_ycflt_update_needed = false;
 				isp_dev->ycflt_update = true;
 				time_left -= CIFISP_MODULE_YCFLT_PROC_TIME;
@@ -4990,6 +4983,9 @@ static void cifisp_param_dump(const void *config, unsigned int module)
 			CIFISP_DPRINT(CIFISP_DEBUG,
 				      "#### %s: YCFLT Parameters - BEGIN ####\n",
 				      ISP_DEV_NAME);
+			CIFISP_DPRINT(CIFISP_DEBUG, " chr_ss_ctrl: %d\n",
+			CIFISP_DPRINT(CIFISP_DEBUG, " ctrl: %d\n",
+					pconfig->ctrl);
 			CIFISP_DPRINT(CIFISP_DEBUG, " chr_ss_ctrl: %d\n",
 				      pconfig->chr_ss_ctrl);
 			CIFISP_DPRINT(CIFISP_DEBUG, " chr_ss_fac: %d\n",

@@ -3360,10 +3360,11 @@ static int cif_isp20_config_cif(
 
 		/* YC filter enabled in secondary path causes sync fifo
 			overflows for interleaved output */
-		if (((stream_ids & CIF_ISP20_STREAM_SP) &&
+		if ((!dev->isp_dev.ycflt_en) ||
+		     ((stream_ids & CIF_ISP20_STREAM_SP) &&
 			CIF_ISP20_PIX_FMT_IS_INTERLEAVED(
 			dev->config.mi_config.sp.output.pix_fmt)) ||
-			(dev->config.input_sel == CIF_ISP20_INP_DMA_SP))
+		     (dev->config.input_sel == CIF_ISP20_INP_DMA_SP))
 			dev->config.sp_config.inp_yc_filt = false;
 		else
 			dev->config.sp_config.inp_yc_filt =
@@ -3393,11 +3394,9 @@ static int cif_isp20_config_cif(
 			investigated. */
 		if (dev->isp_dev.ycflt_en) {
 			cifisp_ycflt_config(&dev->isp_dev);
-			cif_iowrite32(dev->isp_dev.ycflt_config.ctrl,
-				dev->config.base_addr + CIF_YC_FLT_CTRL);
+			cifisp_ycflt_en(&dev->isp_dev);
 		} else
-			cif_iowrite32(0,
-				dev->config.base_addr + CIF_YC_FLT_CTRL);
+			cifisp_ycflt_end(&dev->isp_dev);
 		dev->isp_dev.ycflt_update = false;
 		dev->config.mp_config.rsz_config.ycflt_adjust = true;
 		if (dev->config.sp_config.inp_yc_filt)
@@ -4647,11 +4646,9 @@ static int cif_isp20_update_ism_ycflt_rsz(
 	if (dev->isp_dev.ycflt_update) {
 		if (dev->isp_dev.ycflt_en) {
 			cifisp_ycflt_config(&dev->isp_dev);
-			cif_iowrite32(dev->isp_dev.ycflt_config.ctrl,
-				dev->config.base_addr + CIF_YC_FLT_CTRL);
+			cifisp_ycflt_en(&dev->isp_dev);
 		} else
-			cif_iowrite32(0,
-				dev->config.base_addr +	CIF_YC_FLT_CTRL);
+			cifisp_ycflt_end(&dev->isp_dev);
 
 		dev->isp_dev.ycflt_update = false;
 

@@ -131,6 +131,7 @@ void cifisp_configure_isp(
 void cifisp_disable_isp(struct xgold_isp_dev *isp_dev);
 int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis);
 void cifisp_ycflt_config(const struct xgold_isp_dev *isp_dev);
-
+void cifisp_ycflt_en(const struct xgold_isp_dev *isp_dev);
+void cifisp_ycflt_end(const struct xgold_isp_dev *isp_dev);
 
 #endif
