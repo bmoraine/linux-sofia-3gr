@@ -34,7 +34,7 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 	int ret = -1;
 	struct xgold_platform_context *plf_context;
 	struct platform_device *pdev;
-	return;
+
 	mali_dbg("%s()\n", __func__);
 
 	if (!kbdev) {
@@ -95,21 +95,7 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 	/* return 1 if the GPU state may have been lost, 0 otherwise */
 	return 1;
 }
-#if 0
-static void pm_callback_suspend(struct kbase_device *kbdev)
-{
-	mali_dbg("%s()\n", __func__);
 
-	pm_callback_power_off(kbdev);
-}
-
-static void pm_callback_resume(struct kbase_device *kbdev)
-{
-	mali_dbg("%s()\n", __func__);
-
-	(void) pm_callback_power_on(kbdev);
-}
-#endif
 #ifdef CONFIG_PM_RUNTIME
 static mali_error pm_callback_runtime_init(struct kbase_device *kbdev)
 {
