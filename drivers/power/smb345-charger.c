@@ -1427,6 +1427,7 @@ static int smb345_i2c_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, chrgr);
 
 	smb345_setup_fake_vbus_sysfs_attr(chrgr);
+	charger_work_queue = create_singlethread_workqueue("charger_workqueue");
 
 	/* Read the VBUS presence status for initial update by
 	making a dummy interrupt bottom half invocation */
@@ -1443,7 +1444,6 @@ static int smb345_i2c_probe(struct i2c_client *client,
 		pr_err("ERROR!: registration for OTG notifications failed\n");
 		goto boost_reg_fail;
 	}
-	charger_work_queue = create_singlethread_workqueue("charger_workqueue");
 	INIT_DELAYED_WORK(&charger_work, do_charger);
 	device_init_wakeup(&client->dev, true);
 
