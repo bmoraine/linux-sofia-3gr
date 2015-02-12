@@ -254,8 +254,10 @@ static int intel_phy_otg_fsm_pre_process(struct intel_phy *iphy)
 		set_bit(EVENT, intel_phy_get_input(iphy));
 		/* during boot up if no USB cable attached than force
 		 * fsm protocol to PROTO_GADGET to switch off USB HW */
-		if (OTG_STATE_UNDEFINED == intel_phy_get_state(iphy))
+		if (OTG_STATE_B_IDLE == intel_phy_get_state(iphy)) {
+			fsm->otg->phy->state = OTG_STATE_UNDEFINED;
 			fsm->protocol = PROTO_GADGET;
+		}
 	} else {
 		fsm->id         = test_bit(ID,   intel_phy_get_input(iphy));
 		fsm->b_sess_vld = test_bit(VBUS, intel_phy_get_input(iphy));
