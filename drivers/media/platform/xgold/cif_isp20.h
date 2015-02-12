@@ -526,6 +526,8 @@ struct cif_isp20_device {
 	struct cif_isp20_stream dma_stream;
 	struct timeval curr_frame_time; /* updated each frame */
 	void (*eof_event)(__u32 frame_sequence);
+	bool   b_isp_frame_in;
+	bool   b_mi_frame_end;
 #ifdef SOFIA_ES1_BU_PM_NATIVE
 	struct clk *clk_kernel;
 	struct clk *clk_slave;

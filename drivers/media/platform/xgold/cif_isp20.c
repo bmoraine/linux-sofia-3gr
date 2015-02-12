@@ -4637,6 +4637,65 @@ err:
 	return ret;
 }
 
+/* Function to be called inside ISR to update CIF ISM/YCFLT/RSZ */
+static int cif_isp20_update_ism_ycflt_rsz(
+	struct cif_isp20_device *dev)
+{
+	int ret = 0;
+
+	/* Update YCFLT */
+	if (dev->isp_dev.ycflt_update) {
+		if (dev->isp_dev.ycflt_en) {
+			cifisp_ycflt_config(&dev->isp_dev);
+			cif_iowrite32(dev->isp_dev.ycflt_config.ctrl,
+				dev->config.base_addr + CIF_YC_FLT_CTRL);
+		} else
+			cif_iowrite32(0,
+				dev->config.base_addr +	CIF_YC_FLT_CTRL);
+
+		dev->isp_dev.ycflt_update = false;
+
+		if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)
+			dev->config.mp_config.rsz_config.ycflt_adjust = true;
+		if (dev->config.sp_config.inp_yc_filt &&
+			(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING))
+			dev->config.sp_config.rsz_config.ycflt_adjust = true;
+	}
+
+	/* Update ISM, cif_isp20_config_ism() changes the output size of isp,
+	so it must be called before cif_isp20_config_rsz() */
+	if (dev->config.isp_config.ism_config.ism_update_needed) {
+		cif_isp20_config_ism(dev, false);
+		if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)
+			dev->config.mp_config.rsz_config.ism_adjust = true;
+		if (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)
+			dev->config.sp_config.rsz_config.ism_adjust = true;
+		dev->config.isp_config.ism_config.ism_update_needed = false;
+		cif_iowrite32OR(CIF_ISP_CTRL_ISP_CFG_UPD,
+			dev->config.base_addr + CIF_ISP_CTRL);
+	}
+
+	/* Update RSZ */
+	if ((dev->config.mp_config.rsz_config.ycflt_adjust ||
+		dev->config.mp_config.rsz_config.ism_adjust)) {
+		ret = cif_isp20_config_rsz(dev,	CIF_ISP20_STREAM_MP, true);
+		if (IS_ERR_VALUE(ret))
+			goto err;
+	}
+	if ((dev->config.sp_config.rsz_config.ycflt_adjust ||
+		dev->config.sp_config.rsz_config.ism_adjust)) {
+		ret = cif_isp20_config_rsz(dev, CIF_ISP20_STREAM_SP, true);
+		if (IS_ERR_VALUE(ret))
+			goto err;
+	}
+
+	return 0;
+err:
+	cif_isp20_pltfrm_pr_err(dev->dev,
+		"failed with err %d\n", ret);
+	return ret;
+}
+
 static int cif_isp20_mi_isr(void *cntxt)
 {
 	struct cif_isp20_device *dev = cntxt;
@@ -4662,24 +4721,6 @@ static int cif_isp20_mi_isr(void *cntxt)
 		cif_isp20_pltfrm_pr_warn(dev->dev, "AHB error\n");
 		cif_iowrite32(CIF_MI_AHB_ERROR,
 			dev->config.base_addr + CIF_MI_ICR);
-	}
-
-	/* TODO: YC flt configuration should not be done
-		here, but when done in ISP frame interrupt, it
-		leads to corrupted frames. To be further
-		investigated. */
-	if (dev->isp_dev.ycflt_update) {
-		if (dev->isp_dev.ycflt_en) {
-			cifisp_ycflt_config(&dev->isp_dev);
-			cif_iowrite32(dev->isp_dev.ycflt_config.ctrl,
-				dev->config.base_addr + CIF_YC_FLT_CTRL);
-		} else
-			cif_iowrite32(0,
-				dev->config.base_addr + CIF_YC_FLT_CTRL);
-		dev->isp_dev.ycflt_update = false;
-		dev->config.mp_config.rsz_config.ycflt_adjust = true;
-		if (dev->config.sp_config.inp_yc_filt)
-			dev->config.sp_config.rsz_config.ycflt_adjust = true;
 	}
 
 	if (mi_mis & CIF_MI_SP_FRAME) {
@@ -4714,6 +4755,8 @@ static int cif_isp20_mi_isr(void *cntxt)
 		to do a synchronised update */
 	if (!CIF_ISP20_MI_IS_BUSY(dev) &&
 		!dev->config.jpeg_config.busy) {
+
+		dev->b_mi_frame_end = true;
 
 		if (dev->mp_stream.stop &&
 			(dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)) {
@@ -4754,24 +4797,13 @@ static int cif_isp20_mi_isr(void *cntxt)
 				dev->config.mi_config.mp.busy = true;
 		}
 
-		if (dev->config.isp_config.ism_config.ism_update_needed) {
-			dev->config.mp_config.rsz_config.ism_adjust = true;
-			dev->config.sp_config.rsz_config.ism_adjust = true;
-			cif_isp20_config_ism(dev, false);
-		}
+		if (dev->b_isp_frame_in == true) {
+			cif_isp20_update_ism_ycflt_rsz(dev);
 
-		if ((dev->config.mp_config.rsz_config.ycflt_adjust ||
-			dev->config.mp_config.rsz_config.ism_adjust) &&
-			((mi_mis & CIF_MI_MP_FRAME) ||
-			dev->mp_stream.first_frame))
-			(void)cif_isp20_config_rsz(dev,
-				CIF_ISP20_STREAM_MP, true);
-		if ((dev->config.sp_config.rsz_config.ycflt_adjust ||
-			dev->config.sp_config.rsz_config.ism_adjust) &&
-			((mi_mis & CIF_MI_SP_FRAME) ||
-			dev->sp_stream.first_frame))
-			(void)cif_isp20_config_rsz(dev,
-				CIF_ISP20_STREAM_SP, true);
+			if (!dev->config.mi_config.async_updt)
+				cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
+					dev->config.base_addr + CIF_ISP_CTRL);
+		}
 	}
 
 	cif_iowrite32(~(CIF_MI_MP_FRAME |
@@ -5780,6 +5812,8 @@ int marvin_isp_isr(void *cntxt)
 
 	if (isp_mis & CIF_ISP_V_START) {
 		dev->isp_dev.frame_id += 2;
+		dev->b_isp_frame_in = false;
+		dev->b_mi_frame_end = false;
 		cif_iowrite32(CIF_ISP_V_START,
 		      dev->config.base_addr + CIF_ISP_ICR);
 		if (dev->eof_event)
@@ -5838,18 +5872,16 @@ int marvin_isp_isr(void *cntxt)
 	}
 
 	if (isp_mis & CIF_ISP_FRAME_IN) {
-		if (dev->config.isp_config.ism_config.ism_update_needed) {
-			dev->config.isp_config.
-				ism_config.ism_update_needed = false;
-			cif_iowrite32OR(CIF_ISP_CTRL_ISP_CFG_UPD,
-				dev->config.base_addr + CIF_ISP_CTRL);
-		}
+		if (dev->b_mi_frame_end == true) {
+			cif_isp20_update_ism_ycflt_rsz(dev);
 
+			if (!dev->config.mi_config.async_updt)
+				cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
+					dev->config.base_addr + CIF_ISP_CTRL);
+		}
 		cif_iowrite32(CIF_ISP_FRAME_IN,
 			dev->config.base_addr + CIF_ISP_ICR);
-		if (!dev->config.mi_config.async_updt)
-			cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
-				dev->config.base_addr + CIF_ISP_CTRL);
+		dev->b_isp_frame_in = true;
 	}
 
 	cifisp_isp_isr(&dev->isp_dev, isp_mis);
