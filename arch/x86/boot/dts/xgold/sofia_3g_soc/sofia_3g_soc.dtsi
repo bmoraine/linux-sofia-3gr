@@ -412,7 +412,7 @@
 							pm,user-name = "emmc";
 							pm,state-D0 = "mid_perf";
 							pm,state-D0i2 = "mid_perf";
-							pm,state-D3 = "disable";
+							pm,state-D3 = "mid_perf";
 						};
 
 					};
@@ -454,7 +454,7 @@
 							pm,user-name = "usd";
 							pm,state-D0 = "high_perf";
 							pm,state-D0i2 = "mid_perf";
-							pm,state-D3 = "disable";
+							pm,state-D3 = "high_perf";
 						};
 					};
 					dcc: dcc{
