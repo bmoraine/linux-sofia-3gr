@@ -15,6 +15,7 @@
 	#include "xgold/pmic/sofia_lte.dtsi"
 	#include "xgold/sofia_lte_soc/clock-es2.dtsi"
 	#include "xgold/sofia_lte_soc/device-pm-reg.dtsi"
+	#include "xgold/sofia_lte_soc/cpufreq.dtsi"
 	/* FIXME: Add regulator.dtsi */
 
 	chosen {
@@ -39,10 +40,6 @@
 		};
 	};
 
-
-	cpufreq {
-		/* FIXME:Add cpufreq desc */
-	};
 
 	ion {
 		compatible = "intel,ion";

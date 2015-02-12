@@ -1,0 +1,13 @@
+cpufreq:cpufreq {
+		compatible = "intel,xgold-cpufreq";
+		clocks = <&clk_cpu_kernel>,<&MUX_CPU>,<&B_0_1>,<&G_0_1>;
+		clock-names = "core","mux","pll","bank";
+		intel,cpufreq-table = <208000 416000 832000 12480000>;
+		intel,clock_latency = <350000>;
+		#address-cells = < 0 >;
+		interrupts = < 0 >;
+		interrupt-parent = <&cpufreq>;
+		#interrupt-cells = < 1 >;
+		interrupt-map = < 0 &hirq HIRQ_CPU_CLK_NOTIFY IRQ_TYPE_DEFAULT>;
+		interrupt-names = "CPU_CLK_CHANGE";
+	};
