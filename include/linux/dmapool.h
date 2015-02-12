@@ -1,6 +1,8 @@
 /*
  * include/linux/dmapool.h
  *
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
+ *
  * Allocation pools for DMAable (coherent) memory.
  *
  * This file is licensed under  the terms of the GNU General Public 

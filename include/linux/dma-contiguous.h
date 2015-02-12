@@ -4,6 +4,7 @@
 /*
  * Contiguous Memory Allocator for DMA mapping framework
  * Copyright (c) 2010-2011 by Samsung Electronics.
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  * Written by:
  *	Marek Szyprowski <m.szyprowski@samsung.com>
  *	Michal Nazarewicz <mina86@mina86.com>

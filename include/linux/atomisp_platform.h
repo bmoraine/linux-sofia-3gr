@@ -2,6 +2,7 @@
  * Support for Medifield PNW Camera Imaging ISP subsystem.
  *
  * Copyright (c) 2010 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2014-2015 Intel Mobile Communications GmbH
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version

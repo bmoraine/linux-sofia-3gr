@@ -3,6 +3,8 @@
  * Header for PPP on PPTP Network Server / PPPoPNS Socket (RFC 2637)
  *
  * Copyright (C) 2009 Google, Inc.
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
+ *
  * Author: Chia-chi Yeh <chiachi@android.com>
  *
  * This software is licensed under the terms of the GNU General Public

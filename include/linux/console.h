@@ -2,6 +2,7 @@
  *  linux/include/linux/console.h
  *
  *  Copyright (C) 1993        Hamish Macdonald
+ *  Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file COPYING in the main directory of this archive

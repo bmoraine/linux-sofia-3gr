@@ -1,5 +1,6 @@
 /*
  * Copyright 2012 Steffen Trumtrar <s.trumtrar@pengutronix.de>
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
  * description of display timings
  *
