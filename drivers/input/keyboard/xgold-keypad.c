@@ -512,6 +512,48 @@ static int xgold_keypad_parse_dt(struct device *dev,
 
 		goto failed;
 	}
+
+	/*kp_in for keys*/
+	error = of_property_read_u32(np, "keypad,kp_in0",
+			&(keypad_data->keycodes[64]));
+	if (error != 0)
+		dev_err(dev, "get keypad,kp_in0 error\n");
+
+	error = of_property_read_u32(np, "keypad,kp_in1",
+			&(keypad_data->keycodes[65]));
+	if (error != 0)
+		dev_err(dev, "get keypad,kp_in1 error\n");
+
+	error = of_property_read_u32(np, "keypad,kp_in2",
+			&(keypad_data->keycodes[66]));
+	if (error != 0)
+		dev_err(dev, "get keypad,kp_in2 error\n");
+
+	error = of_property_read_u32(np, "keypad,kp_in3",
+			&(keypad_data->keycodes[67]));
+	if (error != 0)
+		dev_err(dev, "get keypad,kp_in3 error\n");
+
+	error = of_property_read_u32(np, "keypad,kp_in4",
+			&(keypad_data->keycodes[68]));
+	if (error != 0)
+		dev_err(dev, "get keypad,kp_in4 error\n");
+
+	error = of_property_read_u32(np, "keypad,kp_in5",
+			&(keypad_data->keycodes[69]));
+	if (error != 0)
+		dev_err(dev, "get keypad,kp_in5 error\n");
+
+	error = of_property_read_u32(np, "keypad,kp_in6",
+			&(keypad_data->keycodes[70]));
+	if (error != 0)
+		dev_err(dev, "get keypad,kp_in6 error\n");
+
+	error = of_property_read_u32(np, "keypad,kp_in7",
+			&(keypad_data->keycodes[71]));
+	if (error != 0)
+		dev_err(dev, "get keypad,kp_in7 error\n");
+
 	/* gpio */
 	pdata->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(pdata->pinctrl))
