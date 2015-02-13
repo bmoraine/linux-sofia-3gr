@@ -53,6 +53,11 @@
 #define AF_RDWR     00000002
 
 enum {
+	SPCU_TDEV_THERMAL = 0,
+	SPCU_TDEV_OVERHEAT,
+};
+
+enum {
 	TRIGGER_BELOW = 0,
 	TRIGGER_ABOVE,
 };
@@ -67,6 +72,7 @@ enum {
 	CONFIG_REG,
 	CTRL_REG,
 	STAT_REG,
+	OHCONF_REG,
 	REG_COUNT,
 };
 
@@ -74,11 +80,14 @@ static char *dts_reg[REG_COUNT] = {
 	[CONFIG_REG] = "intel,config-reg",
 	[CTRL_REG] = "intel,ctrl-reg",
 	[STAT_REG] = "intel,stat-reg",
+	[OHCONF_REG] = "intel,ohconf-reg",
 };
 
 struct spcu_thermal_platform_data {
 	int id;
 	int reg_offset[REG_COUNT];
+
+	int device_type;
 };
 
 static struct {
@@ -132,6 +141,8 @@ struct spcu_thermal_device {
 	int cached_temp;
 	int trend;
 	struct thermal_trip trip[TRIP_COUNT];
+
+	int device_type;
 };
 
 struct field_attr {
@@ -217,6 +228,11 @@ DEFINE_SPCU_REG_FIELD(STAT_REG, STAT_TLOWVALID, 1, 1, AF_RDONLY)
 DEFINE_SPCU_REG_FIELD(STAT_REG, STAT_THIGH, 2, 1, AF_RDONLY)
 DEFINE_SPCU_REG_FIELD(STAT_REG, STAT_TLOW, 3, 1, AF_RDONLY)
 
+/* SpcuTSenseXohconf */
+DEFINE_SPCU_REG_FIELD(OHCONF_REG, OHCONF_MEASOHEN, 0, 1, AF_RDWR)
+DEFINE_SPCU_REG_FIELD(OHCONF_REG, OHCONF_OHRSTEN, 1, 1, AF_RDWR)
+DEFINE_SPCU_REG_FIELD(OHCONF_REG, OHCONF_OHTHRESHOLD, 24, 8, AF_RDWR)
+
 #define round_div_s64(n, d) (div_s64(((n) + (div_s64((d), 2))), (d)))
 
 /* regval = (degree + 22.4) / (degree *  0.001447 + 0.4192)*/
@@ -291,6 +307,10 @@ DEFINE_SENSOR_ATTR_OPS(sensor_power_off, CTRL_TSENSEOFF)
 DEFINE_SENSOR_ATTR_OPS(hw_meas_start, CTRL_TMEASTIMSTART)
 DEFINE_SENSOR_ATTR_OPS(hw_meas_stop, CTRL_TMEASTIMSTOP)
 DEFINE_SENSOR_ATTR_OPS(meas_reset, CTRL_TMEASRES)
+DEFINE_SENSOR_ATTR_OPS(meas_oh_en, OHCONF_MEASOHEN)
+DEFINE_SENSOR_ATTR_OPS(oh_rst_en, OHCONF_OHRSTEN)
+DEFINE_SENSOR_ATTR_OPS(oh_threshold, OHCONF_OHTHRESHOLD)
+
 
 static void set_intr_enable(struct threshold *threshold, u32 enable)
 {
@@ -474,7 +494,8 @@ static int do_bisect_temp_val(struct threshold *test_thres, u32 thres_low_val,
 	return high_val;
 }
 
-static int bisect_calc_temp_val(struct spcu_thermal_device *dev, u32 *cur_temp_val)
+static int bisect_calc_temp_val(struct spcu_thermal_device *dev,
+			u32 *cur_temp_val)
 {
 	u32 trigger_val;
 	int trigger_type;
@@ -617,9 +638,8 @@ static void check_trips(struct spcu_thermal_device *dev)
 		return;
 	}
 
-	if (notify_trip_id >= 0) {
+	if (notify_trip_id >= 0)
 		notify_thermal_event(dev, notify_trip_id);
-	}
 }
 
 static void spcu_thermal_device_isr_work(struct work_struct *work)
@@ -674,10 +694,20 @@ static ssize_t show_debug(struct device *dev,
 				"stat addr: 0x%x val: 0x%x\n",
 				info->reg_offset[STAT_REG], val);
 
+	mv_svc_reg_read(info->phy_base+info->reg_offset[OHCONF_REG], &val, -1);
+	desc += sprintf(buf + desc,
+				"ohconf addr: 0x%x val: 0x%x\n",
+				info->reg_offset[OHCONF_REG], val);
+
 	return desc;
 }
 
-static DEVICE_ATTR(debug, 0444, show_debug, NULL);
+static DEVICE_ATTR(debug, S_IRUGO, show_debug, NULL);
+
+static struct device_attribute *thermal_attributes[] = {
+	&dev_attr_debug,
+	NULL
+};
 
 static int show_temp(struct thermal_zone_device *thermal, unsigned long *temp)
 {
@@ -824,14 +854,223 @@ static int spcu_thermal_get_of_pdata(struct device *dev,
 	if (of_property_read_u32(node, "intel,thermal-id", &pdata->id))
 		return -EINVAL;
 
+	if (of_property_read_u32(node, "intel,dev-type", &pdata->device_type))
+		pdata->device_type = SPCU_TDEV_THERMAL;
+
 	for (i = 0; i < REG_COUNT; i++)
 		if (of_property_read_u32(node, dts_reg[i],
-				 &pdata->reg_offset[i]))
-			return -EINVAL;
+				 &pdata->reg_offset[i])) {
 
+			if ((pdata->device_type != SPCU_TDEV_OVERHEAT) &&
+				(i == OHCONF_REG))
+				continue;
+
+			return -EINVAL;
+	}
 	return 0;
 }
 #endif
+
+
+/*****for thermal hardware overheat*********************/
+
+static int enable_hw_overheat_reset(struct spcu_thermal_device *dev,
+		bool enable)
+{
+	int ret;
+
+	if (enable) {
+		set_wakeup_en(dev, 1);
+		set_meas_reset(dev, 1);
+		set_hw_meas_interval(dev, MEAS_INTERVAL);
+		set_hw_meas_start(dev, 1);
+
+		ret = set_oh_rst_en(dev, 1);
+		if (ret)
+			return -EINVAL;
+
+		ret = set_meas_oh_en(dev, 1);
+		if (ret)
+			return -EINVAL;
+	} else {
+		set_wakeup_en(dev, 0);
+		set_hw_meas_stop(dev, 1);
+
+		ret = set_oh_rst_en(dev, 0);
+		if (ret)
+			return -EINVAL;
+
+		ret = set_meas_oh_en(dev, 0);
+		if (ret)
+			return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int set_hw_overheat_thres(struct spcu_thermal_device *dev,
+		int temp)
+{
+	int ret;
+	u32 regval;
+
+	regval = temp2regval(temp);
+	ret = set_oh_threshold(dev, regval);
+	if (ret)
+		return -EINVAL;
+
+	return 0;
+}
+
+static ssize_t show_debug_oh(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct spcu_thermal_device *info = platform_get_drvdata(pdev);
+	int desc = 0;
+	u32 val;
+
+	mv_svc_reg_read(info->phy_base+info->reg_offset[CONFIG_REG], &val, -1);
+	desc += sprintf(buf + desc,
+				"config addr: 0x%x val: 0x%x\n",
+				info->reg_offset[CONFIG_REG], val);
+
+	mv_svc_reg_read(info->phy_base+info->reg_offset[STAT_REG], &val, -1);
+	desc += sprintf(buf + desc,
+				"stat addr: 0x%x val: 0x%x\n",
+				info->reg_offset[STAT_REG], val);
+
+	mv_svc_reg_read(info->phy_base+info->reg_offset[OHCONF_REG], &val, -1);
+	desc += sprintf(buf + desc,
+				"ohconf addr: 0x%x val: 0x%x\n",
+				info->reg_offset[OHCONF_REG], val);
+
+	return desc;
+}
+
+static ssize_t show_hw_oh_reset_en(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct spcu_thermal_device *info = platform_get_drvdata(pdev);
+	int desc = 0;
+	int hw_oh_en;
+	int ret;
+
+	ret = get_oh_rst_en(info, &hw_oh_en);
+	if (ret)
+		return -EINVAL;
+
+	desc += sprintf(buf, "%u\n", hw_oh_en);
+
+	return desc;
+}
+
+static ssize_t store_hw_oh_reset_en(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t size)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct spcu_thermal_device *info = platform_get_drvdata(pdev);
+	int ret;
+	int hw_oh_en;
+
+	ret = sscanf(buf, "%u", &hw_oh_en);
+	if (ret != 1)
+		return -EINVAL;
+
+	ret = enable_hw_overheat_reset(info, hw_oh_en);
+	if (ret)
+		return -EINVAL;
+
+	return size;
+}
+
+static ssize_t show_hw_oh_reset_thres(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct spcu_thermal_device *info = platform_get_drvdata(pdev);
+	int desc = 0;
+	int hw_oh_threshold;
+	int ret;
+
+	ret = get_oh_threshold(info, &hw_oh_threshold);
+	if (ret)
+		return -EINVAL;
+
+	hw_oh_threshold = regval2temp(hw_oh_threshold);
+
+	desc += sprintf(buf, "%d\n", hw_oh_threshold);
+
+	return desc;
+}
+
+static ssize_t store_hw_oh_reset_thres(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t size)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct spcu_thermal_device *info = platform_get_drvdata(pdev);
+	int ret;
+	int hw_oh_threshold;
+
+	ret = sscanf(buf, "%d", &hw_oh_threshold);
+	if (ret != 1)
+		return -EINVAL;
+
+	ret = set_hw_overheat_thres(info, hw_oh_threshold);
+	if (ret)
+		return -EINVAL;
+
+	return size;
+}
+
+static DEVICE_ATTR(debug_oh, S_IRUGO, show_debug_oh, NULL);
+static DEVICE_ATTR(hw_oh_reset_en, S_IRUGO | S_IWUSR, show_hw_oh_reset_en,
+						store_hw_oh_reset_en);
+static DEVICE_ATTR(hw_oh_reset_thres, S_IRUGO | S_IWUSR, show_hw_oh_reset_thres,
+						store_hw_oh_reset_thres);
+
+static struct device_attribute *thermal_oh_attributes[] = {
+	&dev_attr_debug_oh,
+	&dev_attr_hw_oh_reset_en,
+	&dev_attr_hw_oh_reset_thres,
+	NULL
+};
+
+static int spcu_thermal_overheat_init(struct platform_device *pdev,
+				 struct spcu_thermal_platform_data *pdata)
+{
+	int i;
+	int err;
+	struct spcu_thermal_device *dev = platform_get_drvdata(pdev);
+
+	dev->id = pdata->id;
+	dev->reg_offset = pdata->reg_offset;
+
+	for (i = 0; thermal_oh_attributes[i]; i++) {
+		err = device_create_file(&pdev->dev, thermal_oh_attributes[i]);
+		if (err)
+			return err;
+	}
+
+	set_hw_overheat_thres(dev, 110000);
+	enable_hw_overheat_reset(dev, 1);
+
+	return 0;
+}
+
+static int spcu_thermal_overheat_deinit(struct platform_device *pdev)
+{
+	int i;
+
+	for (i = 0; thermal_oh_attributes[i]; i++)
+		device_remove_file(&pdev->dev, thermal_oh_attributes[i]);
+
+	return 0;
+}
+/*****!!for thermal hardware overheat*********************/
 
 static int spcu_thermal_probe(struct platform_device *pdev)
 {
@@ -840,6 +1079,7 @@ static int spcu_thermal_probe(struct platform_device *pdev)
 	struct spcu_thermal_platform_data *pdata = pdev->dev.platform_data;
 	struct resource *res;
 	char thermal_type[THERMAL_NAME_LENGTH];
+	int i;
 
 #ifdef CONFIG_OF
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
@@ -864,10 +1104,17 @@ static int spcu_thermal_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no I/O memory defined in platform data\n");
 		return -EINVAL;
 	}
-
 	thermal_device->phy_base = res->start;
 
 	mutex_init(&thermal_device->lock);
+
+	thermal_device->device_type = pdata->device_type;
+
+	if (thermal_device->device_type == SPCU_TDEV_OVERHEAT) {
+		err = spcu_thermal_overheat_init(pdev, pdata);
+		return err;
+	}
+
 	INIT_DELAYED_WORK(&thermal_device->isr_work,
 		  spcu_thermal_device_isr_work);
 
@@ -887,7 +1134,12 @@ static int spcu_thermal_probe(struct platform_device *pdev)
 	}
 	dev_info(&pdev->dev, "Thermal zone device registered.\n");
 
-	err = device_create_file(&thermal_device->tzd->device, &dev_attr_debug);
+	for (i = 0; thermal_attributes[i]; i++) {
+		err = device_create_file(&thermal_device->tzd->device,
+				thermal_attributes[i]);
+		if (err)
+			return err;
+	}
 
 	set_meas_reset(thermal_device, 1);
 	set_hw_meas_interval(thermal_device, MEAS_INTERVAL);
@@ -899,10 +1151,19 @@ static int spcu_thermal_probe(struct platform_device *pdev)
 static int spcu_thermal_remove(struct platform_device *pdev)
 {
 	struct spcu_thermal_device *dev = platform_get_drvdata(pdev);
+	int i;
+
+	if (dev->device_type == SPCU_TDEV_OVERHEAT) {
+		spcu_thermal_overheat_deinit(pdev);
+		return 0;
+	}
 
 	set_hw_meas_stop(dev, 1);
 	spcu_thermal_irq_deinit(dev);
-	device_remove_file(&dev->tzd->device, &dev_attr_debug);
+
+	for (i = 0; thermal_attributes[i]; i++)
+		device_remove_file(&dev->tzd->device, thermal_attributes[i]);
+
 	thermal_zone_device_unregister(dev->tzd);
 
 	return 0;
