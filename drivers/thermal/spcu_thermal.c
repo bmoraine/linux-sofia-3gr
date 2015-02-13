@@ -694,10 +694,13 @@ static ssize_t show_debug(struct device *dev,
 				"stat addr: 0x%x val: 0x%x\n",
 				info->reg_offset[STAT_REG], val);
 
-	mv_svc_reg_read(info->phy_base+info->reg_offset[OHCONF_REG], &val, -1);
-	desc += sprintf(buf + desc,
-				"ohconf addr: 0x%x val: 0x%x\n",
-				info->reg_offset[OHCONF_REG], val);
+	if (info->reg_offset[OHCONF_REG] != 0) {
+		mv_svc_reg_read(info->phy_base+info->reg_offset[OHCONF_REG],
+				&val, -1);
+		desc += sprintf(buf + desc,
+					"ohconf addr: 0x%x val: 0x%x\n",
+					info->reg_offset[OHCONF_REG], val);
+	}
 
 	return desc;
 }
