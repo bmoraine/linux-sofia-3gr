@@ -727,7 +727,7 @@ static const struct dev_pm_ops dwc3_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_suspend, dwc3_resume)
 };
 
-#define DWC3_PM_OPS	&(dwc3_dev_pm_ops)
+#define DWC3_PM_OPS	NULL
 #else
 #define DWC3_PM_OPS	NULL
 #endif
