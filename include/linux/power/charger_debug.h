@@ -133,6 +133,9 @@ enum charger_debug_event {
 
 	CHG_DBG_LAST_NO_PARAM_EVENT,
 
+	CHG_DBG_BOOST_ENABLED,
+	CHG_DBG_BOOST_DISABLED,
+
 	/* Events with one paramater */
 	CHG_DBG_VBUS_FAULT,
 
