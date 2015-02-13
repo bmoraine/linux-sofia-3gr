@@ -63,7 +63,8 @@
 #define PMU_AG620_CC_CTRL2					(0x18)
 
 /* Coulomb counter CTRL register setting. */
-#define PMU_AG620_CC_CTRL_ENABLE				(0x00)
+/* Enable the coulomb counter with asymmetrical chopping */
+#define PMU_AG620_CC_CTRL_ENABLE				(0x20004)
 /* Coulomb counter CTRL2 register setting. */
 #define PMU_AG620_CC_CTRL2_CLEAR				(0x00)
 /* Bitfield mask for positive part of 13 bit battery current field. */
@@ -1129,6 +1130,9 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 	/* Switch on the coulomb counter */
 	pmu_iowrite(&sw_fuel_gauge_hal_instance,
 			PMU_AG620_CC_CTRL, PMU_AG620_CC_CTRL_ENABLE);
+
+	SW_FUEL_GAUGE_HAL_DEBUG_PARAM(SW_FUEL_GAUGE_DEBUG_HAL_CC_CTRL_REG,
+		pmu_ioread(&sw_fuel_gauge_hal_instance, PMU_AG620_CC_CTRL));
 
 	/* Clear the coulomb counter delta threshold */
 	pmu_iowrite(&sw_fuel_gauge_hal_instance,
