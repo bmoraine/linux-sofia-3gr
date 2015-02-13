@@ -83,10 +83,14 @@ compatible = "rockchip,ion-heap"
 * List of compatibles used by IMC and defined as non-intel compatibles
 To be described or renamed or cleaned
 
-compatible = "omnivision,ov13850-v4l2-i2c-subdev"
+compatible = "himax,hm2051-v4l2-i2c-subdev"
+compatible = "himax,8528d"
+
+compatible = "omnivision,ov5670-v4l2-i2c-subdev"
 compatible = "omnivision,ov8825-v4l2-i2c-subdev"
 compatible = "omnivision,ov9740-v4l2-i2c-subdev"
 compatible = "omnivision,ov9760-v4l2-i2c-subdev"
+compatible = "omnivision,ov13850-v4l2-i2c-subdev"
 compatible = "goodix,Goodix-TS"
 compatible = "focaltech,ft5x06"
 compatible = "st,l3gd20_gyr"
@@ -95,3 +99,4 @@ compatible = "st,lsm303dlhc_mag"
 compatible = "avago,apds990x"
 compatible = "inv,mpu6050"
 compatible = "nanosilicon,nanosilicon-lvds"
+
