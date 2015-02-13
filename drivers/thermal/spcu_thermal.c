@@ -217,28 +217,28 @@ DEFINE_SPCU_REG_FIELD(STAT_REG, STAT_TLOWVALID, 1, 1, AF_RDONLY)
 DEFINE_SPCU_REG_FIELD(STAT_REG, STAT_THIGH, 2, 1, AF_RDONLY)
 DEFINE_SPCU_REG_FIELD(STAT_REG, STAT_TLOW, 3, 1, AF_RDONLY)
 
-#define round_div_u64(n, d) (div_u64(((n) + (div_u64((d), 2))), (d)))
+#define round_div_s64(n, d) (div_s64(((n) + (div_s64((d), 2))), (d)))
 
 /* regval = (degree + 22.4) / (degree *  0.001447 + 0.4192)*/
-static inline u32 temp2regval(u32 temp)
+static inline s32 temp2regval(s32 temp)
 {
-	u64 temp64 = (u64)temp;
-	u64 regval64;
+	s64 temp64 = (s64)temp;
+	s64 regval64;
 
-	regval64 = round_div_u64((temp64 * 1000000ULL + 22400000000ULL),
-			 (temp64 * 1447ULL + 419200000ULL));
-	return (u32)regval64;
+	regval64 = round_div_s64((temp64 * 1000000LL + 22400000000LL),
+			 (temp64 * 1447LL + 419200000LL));
+	return (s32)regval64;
 }
 
 /* degree = (regval * 0.4192 - 22.4) / (1 - regval * 0.001447) */
-static inline u32 regval2temp(u32 regval)
+static inline s32 regval2temp(s32 regval)
 {
-	u64 regval64 = (u64)regval;
-	u64 temp64;
+	s64 regval64 = (s64)regval;
+	s64 temp64;
 
-	temp64 = round_div_u64((419200000ULL * regval64 - 22400000000ULL),
-		   (1000000ULL - regval64 * 1447ULL));
-	return (u32)temp64;
+	temp64 = round_div_s64((419200000LL * regval64 - 22400000000LL),
+		   (1000000LL - regval64 * 1447LL));
+	return (s32)temp64;
 }
 
 static inline int spcu_reg_read(struct spcu_thermal_device *dev,
