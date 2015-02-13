@@ -1169,6 +1169,62 @@ static int spcu_thermal_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int spcu_thermal_suspend(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+	struct spcu_thermal_device *dev = platform_get_drvdata(pdev);
+	int i;
+
+	if (dev->device_type != SPCU_TDEV_THERMAL)
+		return 0;
+
+	for (i = 0; i < THRESHOLD_COUNT; i++)
+		disable_irq(dev->threshold[i].virq);
+
+	cancel_delayed_work_sync(&dev->isr_work);
+
+	set_hw_meas_stop(dev, 1);
+
+	for (i = 0; i < THRESHOLD_COUNT; i++)
+		set_intr_enable(&dev->threshold[i], 0);
+
+	return 0;
+}
+
+static int spcu_thermal_resume(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+	struct spcu_thermal_device *dev = platform_get_drvdata(pdev);
+	int i;
+
+	if (dev->device_type != SPCU_TDEV_THERMAL)
+		return 0;
+
+	set_hw_meas_start(dev, 1);
+
+	for (i = 0; i < THRESHOLD_COUNT; i++)
+		set_intr_enable(&dev->threshold[i], 1);
+
+	for (i = 0; i < THRESHOLD_COUNT; i++)
+		enable_irq(dev->threshold[i].virq);
+
+	return 0;
+}
+
+
+static const struct dev_pm_ops spcu_thermal_pm_ops = {
+	.suspend = spcu_thermal_suspend,
+	.resume = spcu_thermal_resume,
+};
+
+#define SPCU_THERMAL_PM_OPS		(&spcu_thermal_pm_ops)
+
+#else
+#define SPCU_THERMAL_PM_OPS		NULL
+#endif
+
+
 static struct of_device_id of_spcu_thermal_match[] = {
 	{ .compatible = "intel,spcu-thermal", },
 	{},
@@ -1182,6 +1238,7 @@ static struct platform_driver spcu_thermal_driver = {
 #ifdef CONFIG_OF
 		.of_match_table = of_match_ptr(of_spcu_thermal_match),
 #endif
+		.pm = SPCU_THERMAL_PM_OPS,
 	},
 };
 
