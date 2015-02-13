@@ -1784,7 +1784,7 @@ static int xgold_spi_suspend(struct device *dev)
 	xgold_spi_set_pinctrl_state(dev, pdata->pins_sleep);
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	ret = device_state_pm_set_state_by_name(dev,
-				pdata->pm_platdata->pm_state_D0i3_name);
+				pdata->pm_platdata->pm_state_D3_name);
 #else
 	ret = xgold_spi_set_power_state(dev, XGOLD_SPI_D0i3);
 #endif
