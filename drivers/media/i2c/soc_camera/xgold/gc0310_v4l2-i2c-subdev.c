@@ -767,18 +767,19 @@ static int __init gc0310_probe(
 	v4l2_i2c_subdev_init(&gc0310.sd, client, &gc0310_camera_module_ops);
 	ret = gc_camera_module_init(&gc0310,
 			&gc0310_custom_config);
-
-	gc_camera_module_s_power(&gc0310.sd, 1);
-
-	gc_camera_module_s_power(&gc0310.sd, 0);
-
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
+	ret = gc_camera_module_s_power(&gc0310.sd, 1);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	gc_camera_module_s_power(&gc0310.sd, 0);
 	dev_info(&client->dev, "probing successful\n");
 	return 0;
 err:
 	dev_err(&client->dev, "probing failed with error (%d)\n", ret);
+	gc_camera_module_release(&gc0310);
 	return ret;
 }
 

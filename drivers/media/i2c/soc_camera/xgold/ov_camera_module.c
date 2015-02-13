@@ -1083,5 +1083,6 @@ void ov_camera_module_release(struct ov_camera_module *cam_mod)
 	cam_mod->custom.configs = NULL;
 
 	pltfrm_camera_module_release(&cam_mod->sd);
+	v4l2_device_unregister_subdev(&cam_mod->sd);
 }
 

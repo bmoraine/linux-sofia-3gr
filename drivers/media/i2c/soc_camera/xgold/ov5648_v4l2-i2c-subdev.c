@@ -1380,10 +1380,16 @@ static int __init ov5648_probe(
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
+	ret = ov_camera_module_s_power(&ov5648.sd, 1);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	ov_camera_module_s_power(&ov5648.sd, 0);
 	dev_info(&client->dev, "probing successful,addr=0x%x\n", client->addr);
 	return 0;
 err:
 	dev_err(&client->dev, "probing failed with error (%d)\n", ret);
+	ov_camera_module_release(&ov5648);
 	return ret;
 }
 

@@ -306,14 +306,19 @@ static int gc_probe(struct i2c_client *client,
 		dev->product_info->name,
 		i2c_adapter_id(client->adapter), client->addr);
 
-	gc_s_power(&dev->sd, 1);
+	ret = gc_s_power(&dev->sd, 1);
+	if (ret != 0) {
+		pltfrm_camera_module_pr_err(&(dev->sd),
+				"failed with error %d\n", ret);
+		goto power_up_error;
+	}
 
 	/* Query device specifics */
 	ret = query_device_specifics(dev);
 	if (ret != 0) {
 		pltfrm_camera_module_pr_err(&(dev->sd),
 				"failed with error %d\n", ret);
-		goto out_pltfrm_data_free;
+		goto power_up_error;
 	}
 
 	gc_s_power(&dev->sd, 0);
@@ -340,6 +345,8 @@ static int gc_probe(struct i2c_client *client,
 out_ctrl_handler_free:
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 #endif
+power_up_error:
+	pltfrm_camera_module_release(&dev->sd);
 out_pltfrm_data_free:
 	devm_kfree(&(client->dev), dev->pltfrm_data);
 

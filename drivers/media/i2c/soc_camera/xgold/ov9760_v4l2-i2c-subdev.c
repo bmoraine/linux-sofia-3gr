@@ -948,10 +948,16 @@ static int __init ov9760_probe(
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
+	ret = ov_camera_module_s_power(&ov9760.sd, 1);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	ov_camera_module_s_power(&ov9760.sd, 0);
 	dev_info(&client->dev, "probing successful\n");
 	return 0;
 err:
 	dev_err(&client->dev, "probing failed with error (%d)\n", ret);
+	ov_camera_module_release(&ov9760);
 	return ret;
 }
 

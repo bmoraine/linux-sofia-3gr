@@ -1962,6 +1962,7 @@ static int __init ov13850_probe(
 	return 0;
 err:
 	dev_err(&client->dev, "probing failed with error (%d)\n", ret);
+	ov_camera_module_release(&ov13850);
 	return ret;
 }
 

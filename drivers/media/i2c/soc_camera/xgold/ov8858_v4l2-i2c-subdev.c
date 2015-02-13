@@ -2572,9 +2572,9 @@ static int __init OV8858_probe(
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
-	ov_camera_module_s_power(&OV8858.sd, 1);
-	dev_info(&client->dev, "check camera id in probing...\n");
-	OV8858_check_camera_id(&OV8858);
+	ret = ov_camera_module_s_power(&OV8858.sd, 1);
+	if (IS_ERR_VALUE(ret))
+		goto err;
 
 	if (is_R1A_module == true) {
 		OV8858.custom.configs = OV8858_configs_R1A;
@@ -2595,6 +2595,7 @@ static int __init OV8858_probe(
 	return 0;
 err:
 	dev_err(&client->dev, "probing failed with error (%d)\n", ret);
+	ov_camera_module_release(&OV8858);
 	return ret;
 }
 

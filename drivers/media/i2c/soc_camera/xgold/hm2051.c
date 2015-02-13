@@ -1558,6 +1558,8 @@ static int hm2051_remove(struct i2c_client *client)
 	struct hm2051_device *dev = to_hm2051_sensor(sd);
 	dev_dbg(&client->dev, "hm2051_remove...\n");
 
+	pltfrm_camera_module_release(sd);
+	devm_kfree(&(client->dev), dev->platform_data);
 	v4l2_device_unregister_subdev(sd);
 	kfree(dev);
 
@@ -1594,11 +1596,12 @@ static int hm2051_probe(struct i2c_client *client,
 	ret = hm2051_s_config(&dev->sd, client->irq,
 				   client->dev.platform_data);
 	if (ret) {
-		v4l2_device_unregister_subdev(&dev->sd);
-		kfree(dev);
 		pr_info("[Progress][%s] Probe fails\n", HM2051_NAME);
+		hm2051_remove(client);
 		return ret;
 	}
+
+	return ret;
 
 #else
 	if (client->dev.platform_data) {
@@ -1616,9 +1619,7 @@ static int hm2051_probe(struct i2c_client *client,
 	ret = media_entity_init(&dev->sd.entity, 1, &dev->pad, 0);
 	if (ret)
 		hm2051_remove(client);
-#endif
 	return ret;
-#if 0
 out_free:
 	v4l2_device_unregister_subdev(&dev->sd);
 	kfree(dev);

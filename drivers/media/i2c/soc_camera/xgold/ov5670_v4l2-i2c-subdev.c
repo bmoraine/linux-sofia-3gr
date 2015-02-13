@@ -1537,15 +1537,16 @@ static int __init ov5670_probe(
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
-	ov_camera_module_s_power(&ov5670.sd, 1);
-	dev_info(&client->dev, "check camera id in probing...\n");
-	ov5670_check_camera_id(&ov5670);
+	ret = ov_camera_module_s_power(&ov5670.sd, 1);
+	if (IS_ERR_VALUE(ret))
+		goto err;
 
 	ov_camera_module_s_power(&ov5670.sd, 0);
 	dev_info(&client->dev, "probing successful\n");
 	return 0;
 err:
 	dev_err(&client->dev, "probing failed with error (%d)\n", ret);
+	ov_camera_module_release(&ov5670);
 	return ret;
 }
 
