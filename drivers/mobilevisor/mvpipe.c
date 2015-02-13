@@ -263,6 +263,10 @@ int mvpipe_dev_release(struct inode *inode, struct file *filp)
 		goto wait_was_interrupted;
 	}
 
+	/* set status, and inform peer */
+	set_pipe_status(dev, MVPIPE_CLOSE);
+	mv_ipc_mbox_post(dev->token, dev->pipe_event);
+
 	mvpipe_info("Release mvpipe successful!\n");
 
 wait_was_interrupted:
@@ -564,16 +568,13 @@ static void mvpipe_on_event(uint32_t token, uint32_t event_id, void *cookie)
 			mv_ipc_mbox_post(dev->token, dev->pipe_event);
 			break;
 		case MVPIPE_OPENING:
-			if (get_pipe_status(dev) == MVPIPE_CLOSING) {
-				set_pipe_status(dev, MVPIPE_CLOSE);
+			if (get_pipe_status(dev) == MVPIPE_CLOSING)
 				wake_up_interruptible(&dev->close_wait);
-			}
-			/* send ACK */
-			mv_ipc_mbox_post(dev->token, dev->pipe_event);
+			else /* send ACK */
+				mv_ipc_mbox_post(dev->token, dev->pipe_event);
 			break;
 		case MVPIPE_CLOSE:
 			if (get_pipe_status(dev) == MVPIPE_CLOSING) {
-				set_pipe_status(dev, MVPIPE_CLOSE);
 				wake_up_interruptible(&dev->close_wait);
 			}
 			break;
