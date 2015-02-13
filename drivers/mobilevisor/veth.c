@@ -666,7 +666,7 @@ void on_mveth_instance(char *instance_name, uint32_t instance_index,
 	char *cmdline;
 	struct mveth_instance *mveth;
 	uint32_t token;
-	uint32_t p_share_mem;
+	void *p_share_mem;
 	int res;
 	struct net_device *netdev;
 
@@ -731,7 +731,7 @@ void on_mveth_instance(char *instance_name, uint32_t instance_index,
 		 */
 
 		/* p_share_mem = share mem start */
-		p_share_mem = (uint32_t) shared_mem_start;
+		p_share_mem = shared_mem_start;
 		mveth->p_event = (struct mveth_event *)p_share_mem;
 
 		/* p_share_mem = ring 0 start */
