@@ -39,7 +39,6 @@ static int send_i2c_command(struct i2c_client *client, int addr, int value)
 	int ret;
 	int i = 0;
 	for (i = 0; i < 3; i++) {
-		usleep_range(1000, 2000);
 		ret = i2c_smbus_write_byte_data(client, addr, value);
 		if (ret < 0)
 			continue;
@@ -59,6 +58,8 @@ static int lp8557_post_init_device(struct i2c_client *client)
 	ret = send_i2c_command(client, 0x11, 0x05);
 	ret = send_i2c_command(client, 0x12, 0x2c);
 	ret = send_i2c_command(client, 0x13, 0x03);
+	ret = send_i2c_command(client, 0x00, 0x01);
+	usleep_range(1000, 2000);
 	return 0;
 }
 
