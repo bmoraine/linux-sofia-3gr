@@ -133,6 +133,7 @@
 #else
 		intel,dcc-use-fences = <1>;
 		intel,dcc-mem = < 0x00400000 >;
+		intel,prot-mem = < 0x08000000 0x08000000>;
 #endif
 	};
 
@@ -208,15 +209,16 @@
 
 &usif1 {
 	pinctrl-names = "default", "sleep", "inactive";
-	pinctrl-0 = <&usif2_default_pins>;
-	pinctrl-1 = <&usif2_sleep_pins>;
-	pinctrl-2 = <&usif2_inactive_pins>;
+	pinctrl-0 = <&usif1_default_pins>;
+	pinctrl-1 = <&usif1_sleep_pins>;
+	pinctrl-2 = <&usif1_inactive_pins>;
 };
 &usif2 {
-	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-names = "default", "sleep", "inactive", "reset";
 	pinctrl-0 = <&usif2_default_pins>;
 	pinctrl-1 = <&usif2_sleep_pins>;
 	pinctrl-2 = <&usif2_inactive_pins>;
+	pinctrl-3 = <&usif2_reset_pins>;
 };
 
 &i2c_1 {
@@ -224,6 +226,83 @@
 	pinctrl-0 = <&i2c1_default_pins>;
 	pinctrl-1 = <&i2c1_sleep_pins>;
 	pinctrl-2 = <&i2c1_inactive_pins>;
+#ifndef RECOVERY_KERNEL
+	camera0: camera-module@0 {
+		compatible = "omnivision,ov5670-v4l2-i2c-subdev";
+		reg = < 0x10 >;
+		device_type = "v4l2-i2c-subdev";
+
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&cam1_default_pins>;
+		pinctrl-1 = <&cam1_sleep_pins>;
+		pinctrl-2 = <&cam1_inactive_pins>;
+
+		intel,pd-gpio = <&xgold_pmx_gpio 69 0>;
+		/*intel,rst-gpio = <&xgold_pmx_gpio 56 0>;*/
+		/*intel,pd-gpio_1v2 = <&xgold_pmx_gpio 68 0>;*/
+		intel,pd-gpio-is_active_low;
+		/*intel,rst-gpio-is_active_low;*/
+
+		pm,class-name = "generic_class";
+		pm,user-name = "primcam";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+
+		/* ["front","back"] */
+		intel,camera-module-facing = "back";
+		/* ["landscape","landscape-flipped","portrait","portrait-flipped"] */
+		intel,camera-module-mounting = "landscape";
+		intel,camera-module-flash-support = <1>;
+		intel,camera-module-flash-exp-time = <5000>;
+
+		/*intel,af-ctrl = <&afc0>;*/
+
+		intel,camera-module-csi-config-0 {
+			intel,csi-pixels-per-second = <0>;
+			intel,csi-vc = <0>;
+			intel,csi-lanes = <2>;
+			intel,csi-dphy1 = <0x2014183>;
+			intel,csi-dphy2 = <0x00>;
+			intel,csi-ana-bandgap-bias = <3>;
+		};
+	};
+
+	camera1: camera-module@1 {
+		compatible = "himax,hm2051-v4l2-i2c-subdev";
+		reg = < 0x24 >;
+		device_type = "v4l2-i2c-subdev";
+
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&cam2_default_pins>;
+		pinctrl-1 = <&cam2_sleep_pins>;
+		pinctrl-2 = <&cam2_inactive_pins>;
+
+		intel,pd-gpio = <&xgold_pmx_gpio 63 0>;
+		intel,pd-gpio-is_active_low;
+		intel,rst-gpio = <&xgold_pmx_gpio 62 0>;
+		intel,rst-gpio-is_active_low;
+
+		pm,class-name = "generic_class";
+		pm,user-name = "seccam";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+
+		/* ["front","back"] */
+		intel,camera-module-facing = "front";
+		/* ["landscape","landscape-flipped","portrait","portrait-flipped"] */
+		intel,camera-module-mounting = "landscape";
+
+		intel,camera-module-csi-config-0 {
+			intel,csi-pixels-per-second = <0>;
+			intel,csi-vc = <0>;
+			intel,csi-lanes = <1>;
+			intel,csi-dphy1 = <0x60151A9>;
+			intel,csi-dphy2 = <0x00>;
+			intel,csi-ana-bandgap-bias = <3>;
+		};
+	};
+
+#endif
 };
 
 &i2c_3 {
@@ -231,6 +310,10 @@
 	pinctrl-0 = <&i2c3_default_pins>;
 	pinctrl-1 = <&i2c3_sleep_pins>;
 	pinctrl-2 = <&i2c3_inactive_pins>;
+	leds-lp8557-driver {
+		compatible = "ti,lp8557";
+		reg = < 0x2c >;
+	};
 };
 
 
@@ -241,22 +324,23 @@
 	pinctrl-2 = <&i2c4_inactive_pins>;
 #ifndef RECOVERY_KERNEL
 	touchscreen {
-		compatible = "VTL-TS";
-		reg = < 0x01 >;
+		compatible = "himax,8528d";
+		reg = < 0x48 >;
 		interrupt-parent = <&eint>;
-		interrupts = < EINT_EXI12 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_FALLING >;
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&touch_default_pins>;
 		pinctrl-1 = <&touch_sleep_pins>;
 		pinctrl-2 = <&touch_inactive_pins>;
-		intel,ts-gpio-reset = <&xgold_pmx_gpio 14 0>;
-		intel,ts-gpio-irq = <&xgold_pmx_gpio 54 0>;
-		pm,class-name = "gt9xx_class";
-		pm,user-name = "tp";
+		himax,rst-gpio = <&xgold_pmx_gpio 14 0>;
+		himax,irq-gpio = <&xgold_pmx_gpio 54 0>;
+		pm,class-name = "himax_8528d_class";
+		pm,user-name = "himax_tp";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
-		intel,max-x = <800>;
-		intel,max-y = <1280>;
+		himax,panel-coords = <0 600 0 1024>;
+		himax,display-coords = <0 600 0 1024>;
+		report_type = <1>;
 	};
 #endif
 };
@@ -281,6 +365,18 @@
 	};
 };
 
+&gnss {
+	pinctrl-names = "default", "sleep", "inactive", "default_lna", "inactive_lna", "default_fta", "inactive_fta", "gnss_default", "gnss_inactive";
+	pinctrl-0 = <&tcxo_agold_default_pins>;
+	pinctrl-1 = <&tcxo_agold_sleep_pins>;
+	pinctrl-2 = <&tcxo_agold_inactive_pins>;
+	pinctrl-3 = <&ext_agold_default_pins>;
+	pinctrl-4 = <&ext_agold_sleep_pins>;
+	pinctrl-5 = <&gnss_agold_default_pins>;
+	pinctrl-6 = <&gnss_agold_sleep_pins>;
+	pinctrl-7 = <&gnss_default_pins>;
+	pinctrl-8 = <&gnss_inactive_pins>;
+};
 
 #ifndef RECOVERY_KERNEL
 &afe {
@@ -337,7 +433,7 @@
 
 #ifndef RECOVERY_KERNEL
 &cif {
-//	intel,camera-modules-attached = <&camera0 &camera1>;
+	intel,camera-modules-attached = <&camera0 &camera1>;
 };
 #endif
 
