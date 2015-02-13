@@ -879,6 +879,8 @@
 						intel,config-reg = <0xb90>;
 						intel,ctrl-reg = <0xb94>;
 						intel,stat-reg = <0xba0>;
+						intel,ohconf-reg = <0xc90>;
+						intel,dev-type = <0>;
 					};
 					spcu_thermal1{
 						compatible = "intel,spcu-thermal";
@@ -891,6 +893,8 @@
 						intel,config-reg = <0xb98>;
 						intel,ctrl-reg = <0xb9c>;
 						intel,stat-reg = <0xba4>;
+						intel,ohconf-reg = <0xc94>;
+						intel,dev-type = <0>;
 					};
 #if defined(SOFIA3G_ES21)
 					spcu_thermal2{
