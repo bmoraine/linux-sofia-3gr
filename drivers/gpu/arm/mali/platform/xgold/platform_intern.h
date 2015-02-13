@@ -60,6 +60,9 @@ struct mali_platform_pm {
 	bool dvfs_off;
 	int req_clock_index;
 	int pm_status_num;
+	int pm_limit_level;
+	struct class *sys_class;
+	struct device *sys_dev;
 	struct platform_device *pdev;
 };
 

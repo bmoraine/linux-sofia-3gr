@@ -33,6 +33,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/slab.h>
+#include <linux/kdev_t.h>
 
 #include <linux/platform_device.h>
 #include <linux/platform_device_pm.h>
@@ -147,6 +148,13 @@ int mali_gpu_set_clock_step(int setting_clock_step)
 	if (mali_dev_pm.curr_pm_state > 0) {
 		mali_dev_pm.req_clock_index = setting_clock_step;
 
+		if (mali_dev_pm.req_clock_index + 1 >
+					mali_dev_pm.pm_limit_level) {
+			mali_dbg("Thermal limit pm level to %d\n",
+				mali_dev_pm.pm_limit_level);
+			mali_dev_pm.req_clock_index =
+				mali_dev_pm.pm_limit_level - 1;
+		}
 		/*
 		Only schedule clock / pm level change if DVFS is on. If it is
 		switched off, we just update the requested clock index, but
@@ -272,6 +280,55 @@ static int mali_platform_memory_layout(struct mali_gpu_device_data *gpu_data)
 
 }
 
+static ssize_t max_freq_level_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int max_freq_level = -1;
+	int ret = 0;
+	unsigned int prev_pm_state = 0;
+
+	ret = sscanf(buf, "%d", &max_freq_level);
+	if (ret != 1)
+		return 0;
+
+	mali_info("set max freq %d\n", max_freq_level);
+	if (max_freq_level > 0 && max_freq_level <= GPU_MAX_PM_STATE) {
+		mali_dev_pm.pm_limit_level = max_freq_level;
+		mali_dev_pm.resume_pm_state = max_freq_level;
+		flush_workqueue(mali_dev_pm.dvfs_wq);
+		if (!mali_dev_pm.dvfs_off) {
+			if (mali_dev_pm.curr_pm_state >
+					mali_dev_pm.pm_limit_level)
+				mali_gpu_set_clock_step(
+					mali_dev_pm.pm_limit_level - 1);
+		} else if (mali_dev_pm.curr_pm_state != max_freq_level) {
+			prev_pm_state = mali_dev_pm.curr_pm_state;
+			mali_dev_pm.curr_pm_state = max_freq_level;
+			mali_dev_pause();
+			ret = platform_device_pm_set_state(mali_dev_pm.pdev,
+					mali_dev_pm.pm_states[max_freq_level]);
+			mali_dev_resume();
+			if (ret) {
+				mali_dev_pm.curr_pm_state = prev_pm_state;
+				mali_err("set pm state failed (%d)\n", ret);
+				return 0;
+			}
+		}
+	}
+
+	return count;
+}
+
+static ssize_t max_freq_level_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	return sprintf(buf, "%d\n", mali_dev_pm.pm_limit_level);
+}
+
+static DEVICE_ATTR(max_freq_level, S_IRUGO | S_IWUSR,
+			max_freq_level_show, max_freq_level_store);
 
 int mali_platform_init(void)
 {
@@ -324,6 +381,7 @@ int mali_platform_device_init(struct platform_device *pdev)
 		mali_clock_items.num_of_steps = 3;
 
 	mali_dev_pm.pm_status_num = mali_clock_items.num_of_steps+1;
+	mali_dev_pm.pm_limit_level = GPU_MAX_PM_STATE;
 
 	/* Is this the right way to get the state handlers when you use DTS? */
 	mali_dev_pm.pm_states[0] =
@@ -384,6 +442,25 @@ int mali_platform_device_init(struct platform_device *pdev)
 
 	mali_dev_pm.req_clock_index = mali_dev_pm.resume_pm_state - 1;
 	mali_dev_pm.pdev = pdev;
+
+
+	mali_dev_pm.sys_class = class_create(THIS_MODULE, "mali");
+	if (IS_ERR(mali_dev_pm.sys_class)) {
+		mali_err("Create sys class failed\n");
+		return -ENOMEM;
+	}
+
+	mali_dev_pm.sys_dev = device_create(mali_dev_pm.sys_class,
+					NULL, MKDEV(0, 0), NULL, "pm");
+	if (IS_ERR(mali_dev_pm.sys_dev)) {
+		mali_err("Create sys pm device failed\n");
+		return -ENOMEM;
+	}
+
+	if (device_create_file(mali_dev_pm.sys_dev, &dev_attr_max_freq_level)) {
+		mali_err("Create device attribute failed\n");
+		return -ENOMEM;
+	}
 
 	ret = mali_platform_memory_layout(plf_data.gpu_data);
 	if (ret) {
@@ -450,6 +527,9 @@ int mali_platform_device_deinit(struct platform_device *pdev)
 	mali_dev_pm.dvfs_off = true;
 	flush_workqueue(mali_dev_pm.dvfs_wq);
 	destroy_workqueue(mali_dev_pm.dvfs_wq);
+	device_remove_file(mali_dev_pm.sys_dev, &dev_attr_max_freq_level);
+	device_destroy(mali_dev_pm.sys_class, MKDEV(0, 0));
+	class_destroy(mali_dev_pm.sys_class);
 
 	return 0;
 }
