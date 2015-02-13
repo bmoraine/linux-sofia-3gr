@@ -101,7 +101,7 @@ static const u8 afe_reg_cache[] = {
 	0x02, /* AFE_GAIN_IN2_REG digmic: 0dB */
 	0x0,  /* AFE_GAIN_IN3_REG */
 	0x0,  /* AFE_GAIN_IN4_REG */
-	0x30, /* AFE_DIGMICCTRL_REG */
+	0xC0, /* AFE_DIGMICCTRL_REG */
 	0x0,  /* I2S_CTRL_LOW_REG */
 	0x0,  /* I2S_CTRL_HIGH_REG */
 	0x0,  /* I2S_CSEL_LOW_REG */
@@ -167,7 +167,7 @@ static const u8 afe_reg_cache_a0[] = {
 	0x02, /* AFE_GAIN_IN2_REG digmic: 0dB */
 	0x0,  /* AFE_GAIN_IN3_REG */
 	0x0,  /* AFE_GAIN_IN4_REG */
-	0x30, /* AFE_DIGMICCTRL_REG */
+	0xC0, /* AFE_DIGMICCTRL_REG */
 	0x0,  /* I2S_CTRL_LOW_REG */
 	0x0,  /* I2S_CTRL_HIGH_REG */
 	0x0,  /* I2S_CSEL_LOW_REG */
