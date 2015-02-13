@@ -153,7 +153,6 @@ int mali_gpu_set_clock_step(int setting_clock_step)
 		do not queue the work.
 		*/
 		if (!mali_dev_pm.dvfs_off) {
-			INIT_WORK(&mali_setting_clock_work, mali_dev_do_dvfs);
 			queue_work(mali_dev_pm.dvfs_wq,
 				&mali_setting_clock_work);
 		}
@@ -417,6 +416,7 @@ int mali_platform_device_init(struct platform_device *pdev)
 	plf_data.gpu_data->get_clock_info = mali_report_gpu_clock_info;
 	plf_data.gpu_data->get_freq = mali_gpu_get_clock_step;
 
+	INIT_WORK(&mali_setting_clock_work, mali_dev_do_dvfs);
 	mali_dev_pm.dvfs_wq = alloc_ordered_workqueue("mali_setting_clock_wq",
 		WQ_NON_REENTRANT);
 	if (mali_dev_pm.dvfs_wq == 0) {
