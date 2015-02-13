@@ -179,10 +179,8 @@ uint32_t mv_ipc_mbox_get_info(char *name,
 		return MBOX_INIT_ERR;
 
 	info = (struct mbox_db_guest_entry *)mv_gal_ptov(pinfo);
-	*cmdline = (char *)mv_gal_ptov((uint32_t)
-				       info->cmd_line);
-	*shared_mem_start = (unsigned char *)mv_gal_ptov((uint32_t)
-			    &info->shared_mem[0]);
+	*cmdline = info->cmd_line;
+	*shared_mem_start = info->shared_mem;
 	*shared_mem_size = info->size_of_shared_memory;
 
 	irq_on_connect = irq_create_mapping(hirq_domain,
