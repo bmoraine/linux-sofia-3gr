@@ -44,20 +44,22 @@ long (*fm_cmd_write)(struct sk_buff *skb);
 };
 
 
-extern long register_fmdrv_to_ld_driv(struct fm_ld_drv_register *fm_ld_drv_reg);
+extern long register_fmdrv_to_ld_driv
+		(struct fm_ld_drv_register *fm_ld_drv_reg);
 
-extern long unregister_fmdrv_from_ld_driv(
-			struct fm_ld_drv_register *fm_ld_drv_reg);
+extern long unregister_fmdrv_from_ld_driv
+		(struct fm_ld_drv_register *fm_ld_drv_reg);
 
+/*-------------MACRO---------------*/
 
-#define LL_SLEEP_ACK    0xF1
-#define LL_WAKE_UP_ACK  0xF0
+#define LPM_PKT	0xF1
 
 /*---- HCI data types ------------*/
 #define HCI_COMMAND_PKT 0x01
 #define HCI_ACLDATA_PKT 0x02
 #define HCI_SCODATA_PKT 0x03
 #define HCI_EVENT_PKT   0x04
+#define PM_PKT		0x00
 
 /* ---- HCI Packet structures ---- */
 #define HCI_COMMAND_HDR_SIZE	3
@@ -66,10 +68,23 @@ extern long unregister_fmdrv_from_ld_driv(
 #define HCI_SCO_HDR_SIZE	3
 
 #define INVALID -1
-#define HCI_COMMAND_COMPLETE_EVENT      0x0E
+#define HCI_COMMAND_COMPLETE_EVENT	0x0E
 #define HCI_INTERRUPT_EVENT		0xFF
 #define HCI_COMMAND_STATUS_EVT		0x0F
 #define FMR_DEBUG_EVENT			0x2B
+
+/* ---- PM PKT RESP ---- */
+#define ACK_RSP			0x02
+#define WAKE_UP_RSP		0x03
+#define TX_HOST_NOTIFICATION	0x00
+
+/*-----------D States-----------*/
+
+#define D0			0
+#define D2			1
+#define D3			2
+#define D0_TO_D2		3
+#define D2_TO_D0		4
 
 /*----------- FMR Command ----*/
 #define FMR_WRITE       0xFC58
@@ -94,40 +109,19 @@ extern long unregister_fmdrv_from_ld_driv(
 #define TTY_THRESHOLD_UNTHROTTLE	128
 
 #define BT_FW_DOWNLOAD_INIT	_IOR('L', 1, uint64_t)
-#define BT_FW_DOWNLOAD_COMPLETE	_IOW('L', 2, uint64_t)
+#define BT_FW_DOWNLOAD_COMPLETE _IOW('L', 2, uint64_t)
+#define BT_FMR_IDLE		_IOW('L', 3, uint64_t)
+#define BT_FMR_LPM_ENABLE	_IOW('L', 4, uint64_t)
+#define BT_HOST_WAKE		_IOW('L', 5, uint64_t)
 
 #define RELEVANT_IFLAG(iflag) ((iflag) & (IGNBRK|BRKINT|IGNPAR|PARMRK|INPCK))
 
+enum {
+	LOW,
+	HIGH
+};
+
 #define ENABLE  1
 #define DISABLE 0
-
-struct bcm_bt_lpm_platform_data {
-	int gpio_wake;          /* CPU -> BCM wakeup gpio */
-	int gpio_host_wake;     /* BCM -> CPU wakeup gpio */
-	int int_host_wake;      /* BCM -> CPU wakeup irq */
-	int gpio_enable;        /* GPIO enable/disable BT/FM */
-	int port;               /* UART port to use with BT/FM */
-};
-
-
-enum proto_type {
-	LBF_BT,
-	LBF_FM = 5,
-};
-
-enum ioctl_status {
-	DO_FW_DL,
-	DO_STACK_INIT,
-	FW_FAILED,
-	FW_SUCCESS
-};
-
-
-struct st_proto_s {
-	enum proto_type type;
-	unsigned char chnl_id;
-	unsigned char hdr_len;
-	unsigned char offset_len_in_hdr;
-	unsigned char len_size;
-	unsigned char reserve;
-};
+#define IDLE	0
+#define ACTIVE	1
