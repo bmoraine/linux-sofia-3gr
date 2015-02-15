@@ -55,14 +55,14 @@
 		compatible = "rockchip,ion";
 		#address-cells = < 1 >;
 		#size-cells = < 0 >;
-		rockchip,ion-heap@1 {
+		rockchip,ion-heap@4 {
 			compatible = "rockchip,ion-heap";
-			rockchip,ion_heap = < 1 >;
+			rockchip,ion_heap = < 4 >;
 			reg = < 0x00000000 0x08000000 >;
 		};
-		rockchip,ion-heap@3 {
+		rockchip,ion-heap@0 {
 			compatible = "rockchip,ion-heap";
-			rockchip,ion_heap = < 3 >;
+			rockchip,ion_heap = < 0 >;
 		};
 	};
 
