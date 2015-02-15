@@ -289,5 +289,7 @@ struct vpuhwfusestatus_t {
 	u32 custommpeg4supportfuse;
 };
 
+extern struct ion_client *rockchip_ion_client_create(const char *name);
+
 #endif
 
