@@ -255,6 +255,149 @@ static ssize_t set_fb_win_map(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+static ssize_t show_hwc_lut(struct device *dev,
+			    struct device_attribute *attr, char *buf)
+{
+	int i = 0, len = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)fbi->par;
+	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
+
+	if (dev_drv->hwc_lut) {
+		memset(buf, 0, PAGE_SIZE);
+		for (i = 0; i < 256; i++) {
+			snprintf(buf + len, PAGE_SIZE - len, "0x%08x ",
+				 dev_drv->hwc_lut[i]);
+			if (((i + 1) % 8) == 0)
+				strcat(buf, "\n");
+
+			len = strlen(buf);
+		}
+		return len;
+	}
+
+	return 0;
+}
+
+static ssize_t set_hwc_lut(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	u32 *hwc_lut = NULL;
+	const char *start = buf;
+	int i = 0, temp = 0;
+	int space_max;
+	size_t size = 256 * 4;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)fbi->par;
+	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
+
+	hwc_lut = devm_kzalloc(dev, size, GFP_KERNEL);
+	if (!hwc_lut)
+		return 0;
+
+	/* printk("count:%d\n>>%s\n\n", count, start); */
+	for (i = 0; i < 256; i++) {
+		space_max = 15;	/* max space number 15 */
+		kstrtoul(start, 16, (unsigned long *)&temp);
+		hwc_lut[i] = temp;
+		do {
+			start++;
+			space_max--;
+		} while ((*start != ' ') && space_max);
+
+		if (!space_max)
+			break;
+
+		start++;
+	}
+#ifdef FBSYS_DEBUG
+	for (i = 0; i < 16; i++) {
+		for (j = 0; j < 16; j++)
+			pr_info("0x%08x ", hwc_lut[i * 16 + j]);
+		pr_info("\n");
+	}
+#endif
+	if (dev_drv->ops->set_hwc_lut)
+		dev_drv->ops->set_hwc_lut(dev_drv, hwc_lut, 1);
+
+	return count;
+}
+
+static ssize_t show_dsp_lut(struct device *dev,
+			    struct device_attribute *attr, char *buf)
+{
+	int i = 0, len = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)fbi->par;
+	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
+
+	if (dev_drv->cur_screen->dsp_lut) {
+		memset(buf, 0, PAGE_SIZE);
+		for (i = 0; i < 256; i++) {
+			snprintf(buf + len, PAGE_SIZE - len, "0x%08x ",
+				 dev_drv->cur_screen->dsp_lut[i]);
+			if (((i + 1) % 8) == 0)
+				strcat(buf, "\n");
+
+			len = strlen(buf);
+		}
+		return len;
+	}
+
+	return 0;
+}
+
+static ssize_t set_dsp_lut(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	u32 *dsp_lut = NULL;
+	const char *start = buf;
+	int i = 0, temp = 0;
+	int space_max = 10;
+	size_t size = 256 * 4;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)fbi->par;
+	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
+
+	dsp_lut = devm_kzalloc(dev, size, GFP_KERNEL);
+	if (!dsp_lut)
+		return 0;
+
+	/* init by default value */
+	for (i = 0; i < 256; i++) {
+		temp = i;
+		dsp_lut[i] = temp + (temp << 8) + (temp << 16);
+	}
+
+	/* printk("count:%d\n>>%s\n\n",count,start); */
+
+	for (i = 0; i < 256; i++) {
+		space_max = 10;	/* max space number 10 */
+		kstrtoul(start, 10, (unsigned long *)&temp);
+		dsp_lut[i] = temp;
+		do {
+			start++;
+			space_max--;
+		} while ((*start != ' ') && space_max);
+
+		if (!space_max)
+			break;
+
+		start++;
+	}
+#ifdef FBSYS_DEBUG
+	for (i = 0; i < 16; i++) {
+		for (j = 0; j < 16; j++)
+			pr_info("0x%08x ", dsp_lut[i * 16 + j]);
+		pr_info("\n");
+	}
+#endif
+	if (dev_drv->ops->set_dsp_lut)
+		dev_drv->ops->set_dsp_lut(dev_drv, dsp_lut, 1);
+
+	return count;
+}
+
 static ssize_t show_dsp_bcsh(struct device *dev,
 			     struct device_attribute *attr, char *buf)
 {
@@ -369,6 +512,8 @@ static struct device_attribute rockchip_fb_attrs[] = {
 	__ATTR(overlay, S_IRUGO | S_IWUSR, show_overlay, set_overlay),
 	__ATTR(fps, S_IRUGO | S_IWUSR, show_fps, set_fps),
 	__ATTR(map, S_IRUGO | S_IWUSR, show_fb_win_map, set_fb_win_map),
+	__ATTR(dsp_lut, S_IRUGO | S_IWUSR, show_dsp_lut, set_dsp_lut),
+	__ATTR(hwc_lut, S_IRUGO | S_IWUSR, show_hwc_lut, set_hwc_lut),
 	__ATTR(bcsh, S_IRUGO | S_IWUSR, show_dsp_bcsh, set_dsp_bcsh),
 };
 

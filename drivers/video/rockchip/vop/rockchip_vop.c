@@ -583,7 +583,7 @@ static int rockchip_vop_mmu_en(struct rockchip_vop_driver *dev_drv, bool enable)
 }
 
 static int rockchip_vop_set_hwc_lut(struct rockchip_vop_driver *dev_drv,
-				    int *hwc_lut, int mode)
+				    u32 *hwc_lut, int mode)
 {
 	int i = 0;
 	int __iomem *c;
@@ -612,21 +612,33 @@ static int rockchip_vop_set_hwc_lut(struct rockchip_vop_driver *dev_drv,
 	return 0;
 }
 
-static int rockchip_vop_set_lut(struct rockchip_vop_driver *dev_drv)
+static int rockchip_vop_set_lut(struct rockchip_vop_driver *dev_drv,
+				u32 *dsp_lut, int mode)
 {
 	int i = 0;
 	int __iomem *c;
 	int v;
+	size_t len = 256 * 4;
 	struct vop_device *vop_dev =
 	    container_of(dev_drv, struct vop_device, driver);
+
+	if (!dsp_lut)
+		return 0;
+
+	if (mode == 1 && !dev_drv->cur_screen->dsp_lut)
+		dev_drv->cur_screen->dsp_lut =
+			devm_kzalloc(vop_dev->dev, len, GFP_KERNEL);
 
 	spin_lock(&vop_dev->reg_lock);
 	vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_DSP_LUT_EN, V_DSP_LUT_EN(0));
 	vop_cfg_done(vop_dev);
 	mdelay(25);
 	for (i = 0; i < 256; i++) {
-		v = dev_drv->cur_screen->dsp_lut[i];
-		c = vop_dev->dsp_lut_addr_base + (i << 2);
+		if (mode == 1)
+			dev_drv->cur_screen->dsp_lut[i] = dsp_lut[i];
+
+		v = dsp_lut[i];
+		c = vop_dev->dsp_lut_addr_base + i;
 		writel(v, c);
 	}
 	vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_DSP_LUT_EN, V_DSP_LUT_EN(1));
@@ -1013,7 +1025,8 @@ static int rockchip_vop_open(struct rockchip_vop_driver *dev_drv, int win_id,
 
 		/* set screen lut */
 		if (dev_drv->cur_screen->dsp_lut)
-			rockchip_vop_set_lut(dev_drv);
+			rockchip_vop_set_lut(dev_drv,
+				dev_drv->cur_screen->dsp_lut, 0);
 	}
 
 	if (win_id < ARRAY_SIZE(vop_win))
@@ -1339,7 +1352,8 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 
 		/* set screen lut */
 		if (dev_drv->cur_screen && dev_drv->cur_screen->dsp_lut)
-			rockchip_vop_set_lut(dev_drv);
+			rockchip_vop_set_lut(dev_drv,
+				dev_drv->cur_screen->dsp_lut, 0);
 		/*set hwc lut */
 		rockchip_vop_set_hwc_lut(dev_drv, dev_drv->hwc_lut, 0);
 
@@ -1903,6 +1917,7 @@ static struct rockchip_vop_drv_ops vop_drv_ops = {
 	.get_dsp_bcsh_hue = rockchip_vop_get_bcsh_hue,
 	.get_dsp_bcsh_bcs = rockchip_vop_get_bcsh_bcs,
 	.open_bcsh = rockchip_vop_open_bcsh,
+	.set_dsp_lut = rockchip_vop_set_lut,
 	.set_hwc_lut = rockchip_vop_set_hwc_lut,
 	.set_irq_to_cpu = rockchip_vop_set_irq_to_cpu,
 	.lcdc_reg_update = rockchip_vop_reg_update,

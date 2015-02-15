@@ -72,7 +72,7 @@ struct rockchip_screen {
 	u16 width;
 	u16 height;
 	u16 ft;
-	int *dsp_lut;
+	u32 *dsp_lut;
 
 	u8 hdmi_resolution;
 	u8 mcu_wrperiod;

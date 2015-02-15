@@ -365,8 +365,9 @@ struct rockchip_vop_drv_ops {
 			const char *id);
 	int (*fb_win_remap)(struct rockchip_vop_driver *dev_drv,
 			    u16 fb_win_map_order);
-	int (*set_dsp_lut)(struct rockchip_vop_driver *dev_drv, int *lut);
-	int (*set_hwc_lut)(struct rockchip_vop_driver *dev_drv, int *hwc_lut,
+	int (*set_dsp_lut)(struct rockchip_vop_driver *dev_drv, u32 *lut,
+				int mode);
+	int (*set_hwc_lut)(struct rockchip_vop_driver *dev_drv, u32 *hwc_lut,
 			   int mode);
 	int (*read_dsp_lut)(struct rockchip_vop_driver *dev_drv, int *lut);
 	int (*set_irq_to_cpu)(struct rockchip_vop_driver *dev_drv, int enable);
