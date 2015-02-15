@@ -279,6 +279,52 @@ static int rockchip_vop_alpha_cfg(struct vop_device *vop_dev)
 	return 0;
 }
 
+static int rockchip_vop_axi_gather_cfg(struct vop_device *vop_dev,
+				       struct rockchip_vop_win *win)
+{
+	u16 yrgb_gather_num = 8;
+	u16 cbcr_gather_num = 2;
+
+	switch (win->area[0].format) {
+	case ARGB888:
+	case XBGR888:
+	case ABGR888:
+		yrgb_gather_num = 8;
+		break;
+	case RGB888:
+	case RGB565:
+		yrgb_gather_num = 4;
+		break;
+	case YUV444:
+	case YUV422:
+	case YUV420:
+		yrgb_gather_num = 2;
+		cbcr_gather_num = 4;
+		break;
+	default:
+		dev_err(vop_dev->driver.dev, "%s:un supported format!\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (win->id == 0)
+		vop_msk_reg(vop_dev, VOP_DMA_GATHER,
+			    M_WIN0_YRGB_AXI_GATHER_EN |
+			    M_WIN0_YRGB_AXI_GATHER_NUM |
+			    M_WIN0_CBCR_AXI_GATHER_NUM,
+			    V_WIN0_YRGB_AXI_GATHER_EN(1) |
+			    V_WIN0_YRGB_AXI_GATHER_NUM(yrgb_gather_num) |
+			    V_WIN0_CBCR_AXI_GATHER_NUM(cbcr_gather_num));
+	else if (win->id == 1)
+		vop_msk_reg(vop_dev, VOP_DMA_GATHER,
+			    M_WIN1_AXI_GATHER_EN |
+			    M_WIN1_AXI_GATHER_NUM,
+			    V_WIN1_AXI_GATHER_EN(1) |
+			    V_WIN1_AXI_GATHER_NUM(yrgb_gather_num));
+
+	return 0;
+}
+
 static void vop_win_csc_mode(struct vop_device *vop_dev,
 			     struct rockchip_vop_win *win)
 {
@@ -417,6 +463,7 @@ static void vop_win_update_regs(struct vop_device *vop_dev,
 				    V_HWC_EN(0));
 	}
 	rockchip_vop_alpha_cfg(vop_dev);
+	rockchip_vop_axi_gather_cfg(vop_dev, win);
 }
 
 static void vop_win_enable(struct vop_device *vop_dev, unsigned int win_id,
