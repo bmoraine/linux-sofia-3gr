@@ -60,6 +60,7 @@ static void modem_state_work(struct work_struct *ws)
 	struct vmodem_drvdata *pdata =
 		container_of(ws, struct vmodem_drvdata, work);
 	int new_state = pdata->modem_state;
+	struct device *misc_dev = pdata->devfile.this_device;
 	char *on[2] = { "MODEM_STATE=ON", NULL };
 	char *off[2] = { "MODEM_STATE=OFF", NULL };
 	char *trap[2] = { "MODEM_STATE=TRAP", NULL };
@@ -82,7 +83,8 @@ static void modem_state_work(struct work_struct *ws)
 
 	if (new_state != pdata->modem_state) {
 		pdata->modem_state = new_state;
-		kobject_uevent_env(&pdata->dev->kobj, KOBJ_CHANGE, uevent_envp);
+		kobject_uevent_env(&misc_dev->kobj,
+				KOBJ_CHANGE, uevent_envp);
 		/*sysfs_notify(&(pdata->dev->kobj), NULL, "vmodem");*/
 	}
 }
@@ -246,6 +248,7 @@ int vmodem_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	dev_set_drvdata(pdata->devfile.this_device, pdata);
 	pdata->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!pdata->res) {
 		dev_err(dev, "could not determine modem address\n");
@@ -255,7 +258,8 @@ int vmodem_probe(struct platform_device *pdev)
 	/*
 	 * /sys/bus/platform/drivers/vmodem/vmodem.173/modem_state
 	 */
-	if (device_create_file(&pdev->dev, &dev_attr_modem_state))
+	if (device_create_file(pdata->devfile.this_device,
+				&dev_attr_modem_state))
 		return -ENOMEM;
 
 	INIT_WORK(&pdata->work, modem_state_work);
