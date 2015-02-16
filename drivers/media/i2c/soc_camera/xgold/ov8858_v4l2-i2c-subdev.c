@@ -2395,7 +2395,7 @@ static int ov8858_otp_read(struct ov_camera_module *cam_mod)
 		ov_camera_module_pr_debug(cam_mod, "otp read phase1 pass\n");
 
 	ret |= ov_camera_module_write_reg(cam_mod, 0x5002,
-					(0x00&0x08|(temp&(~0x08))));
+					((temp&(~0x08))));
 
 	ret |= ov_camera_module_write_reg(cam_mod, 0x3d84, 0xc0);
 	/*otp start addr*/
@@ -2459,7 +2459,7 @@ static int ov8858_otp_read(struct ov_camera_module *cam_mod)
 		ov_camera_module_pr_debug(cam_mod, "0x5002 is 0x%0x\n", temp);
 
 	ret |= ov_camera_module_write_reg(cam_mod, 0x5002,
-					(0x08&0x08|(temp&(~0x08))));
+					(0x08|(temp&(~0x08))));
 	ov_camera_module_write_reg(cam_mod, 0x0100, 0);
 
 	return ret;
