@@ -116,6 +116,7 @@ struct xgold_isp_dev {
 
 	unsigned int frame_id;
 	unsigned int active_meas;
+	struct timeval frame_start_tv;
 };
 
 int register_cifisp_device(
@@ -133,5 +134,7 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis);
 void cifisp_ycflt_config(const struct xgold_isp_dev *isp_dev);
 void cifisp_ycflt_en(const struct xgold_isp_dev *isp_dev);
 void cifisp_ycflt_end(const struct xgold_isp_dev *isp_dev);
+void cifisp_v_start(struct xgold_isp_dev *isp_dev,
+	const struct timeval *timestamp);
 
 #endif

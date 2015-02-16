@@ -3896,6 +3896,14 @@ void cifisp_configure_isp(
 
 }
 
+void cifisp_v_start(struct xgold_isp_dev *isp_dev,
+	const struct timeval *timestamp)
+{
+	/* Called in an interrupt context. */
+	isp_dev->frame_id += 2;
+	isp_dev->frame_start_tv = *timestamp;
+}
+
 /* Not called when the camera active, thus not isr protection. */
 void cifisp_disable_isp(struct xgold_isp_dev *isp_dev)
 {
@@ -4000,9 +4008,7 @@ static void cif_isp_send_measurement(struct work_struct *work)
 		spin_unlock_irqrestore(&isp_dev->irq_lock, lock_flags);
 
 		if (bufs_needed == 0) {
-			struct timeval tv;
 			unsigned int frame_id;
-			do_gettimeofday(&tv);
 
 			if (active_meas & CIF_ISP_AWB_DONE) {
 				vb = vb_array[index];
@@ -4035,7 +4041,8 @@ static void cif_isp_send_measurement(struct work_struct *work)
 				int i;
 				for (i = 0; i < 3; i++) {
 					if (vb_array[i] != NULL) {
-						vb_array[i]->ts = tv;
+						vb_array[i]->ts =
+						isp_dev->frame_start_tv;
 						vb_array[i]->field_count =
 							meas_work->frame_id;
 						vb_array[i]->state =

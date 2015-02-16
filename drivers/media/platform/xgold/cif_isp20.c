@@ -5663,9 +5663,10 @@ int marvin_isp_isr(void *cntxt)
 		cif_ioread32(dev->config.base_addr + CIF_ISP_IMSC));
 
 	if (isp_mis & CIF_ISP_V_START) {
-		dev->isp_dev.frame_id += 2;
+		do_gettimeofday(&dev->curr_frame_time);
 		dev->b_isp_frame_in = false;
 		dev->b_mi_frame_end = false;
+		cifisp_v_start(&dev->isp_dev, &dev->curr_frame_time);
 		cif_iowrite32(CIF_ISP_V_START,
 		      dev->config.base_addr + CIF_ISP_ICR);
 		if (!dev->config.mi_config.async_updt) {
@@ -5738,7 +5739,6 @@ int marvin_isp_isr(void *cntxt)
 	}
 
 	if (isp_mis & CIF_ISP_FRAME) {
-		do_gettimeofday(&dev->curr_frame_time);
 
 		/* Clear Frame In (ISP) */
 		cif_iowrite32(CIF_ISP_FRAME,
