@@ -63,7 +63,9 @@
 #ifndef PSV_DEEP_SLEEP
 		intel,nodeepsleep;
 #endif
+#ifndef SOFIALTE_ES2
 		intel,nosteal;
+#endif
 
 		#include "xgold/sofia_lte_soc/irq-apic.dtsi"
 #ifdef SOFIALTE_ES2
