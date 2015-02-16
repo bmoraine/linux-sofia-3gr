@@ -38,6 +38,7 @@
 #include <linux/delay.h>
 #include <linux/wakelock.h>
 #include <linux/power/charger_debug.h>
+#include <linux/usb/phy-intel.h>
 #include <sofia/vmm_pmic.h>
 #include <sofia/vmm_pmic-ext.h>
 
@@ -147,9 +148,11 @@
 #define ICHRG_MAX_MA		3000
 #define ICHRG_STEP_MA		100
 
-/* Logging and debugging parameters */
 #define CHRGR_WORK_DELAY (10*HZ)
+#define BOOST_WORK_DELAY (10*HZ)
 #define EVT_WAKELOCK_TIMEOUT (2*HZ)
+
+/* Logging and debugging parameters */
 #define LOG_LINE_LENGTH (64)
 #define LINES_PER_PAGE (PAGE_SIZE/LOG_LINE_LENGTH)
 #define DBGFS_REG_LEN 16
@@ -206,16 +209,18 @@ enum charger_status {
 };
 
 /*
- * @status		charger driver status.
- * @cc			current output current [mA] set on HW.
- * @max_cc		maximum output current [mA] that can be set on HW.
- * @cv			current output voltage [mV] set on HW.
- * @iterm		HW charging termination current [mA]. Not used.
- * @inlmt		input current limit [mA].
- * @health		charger chip health.
- * @cable_type		type of currently attached cable.
- * @charger_enabled	informs if charger is enabled for use.
- * @charging_enabled	informs if charging is currently enabled or not.
+ * @status		charger driver status
+ * @cc			current output current [mA] set on HW
+ * @max_cc		maximum output current [mA] that can be set on HW
+ * @cv			current output voltage [mV] set on HW
+ * @iterm		HW charging termination current [mA]
+ * @inlmt		input current limit [mA]
+ * @health		charger chip health
+ * @cable_type		type of currently attached cable
+ * @charger_enabled	indicates if charger is enabled for use
+ * @charging_enabled	indicates if charging is currently enabled or not
+ * @to_enable_boost	indicates whether boost mode is to be enabled
+ * @boost_enabled	indicates whether boost mode is enabled
  * @vbus_ovp_fault	VBUS over voltage fault flag and boost mode OVP flag
  * @low_supply_fault	low supply connected fault flag and boost mode OCP flag
  * @thermal_fault	thermal fault flag
@@ -235,6 +240,8 @@ struct bq24261_state {
 	int cable_type;
 	bool charger_enabled;
 	bool charging_enabled;
+	bool to_enable_boost;
+	bool boost_enabled;
 	unsigned int vbus_ovp_fault:1;
 	unsigned int low_supply_fault:1;
 	unsigned int thermal_fault:1;
@@ -264,7 +271,9 @@ struct	unfreezable_bh_struct {
 /*
  * @client		i2c client device pointer
  * @chgerr_bh		charger error handler bottom half
- * @charging_work	work providing charging heartbeat for PSC
+ * @boost_en_bh		boost enable bottom half
+ * @charging_work	work providing charging heartbeat
+ * @boost_work		work providing boost heartbeat
  * @otg_handle		pointer to USB OTG internal structure
  * @usb_psy		power supply instance struct for USB path
  * @ac_psy		power supply instance struct for AC path
@@ -273,6 +282,7 @@ struct	unfreezable_bh_struct {
  * @model_name		model name of charger chip
  * @manufacturer	manufacturer name of charger chip
  * @ack_time		last CONTINUE_CHARGING timestamp in jiffies
+ * @otg_nb		OTG notifier block
  * @state		charger state structure
  * @irq			irq number for charger error interrupt
  * @debugfs_root_dir	debugfs bq24261 charger root directory
@@ -281,7 +291,9 @@ struct	unfreezable_bh_struct {
 struct bq24261_data {
 	struct i2c_client *client;
 	struct unfreezable_bh_struct chgerr_bh;
+	struct unfreezable_bh_struct boost_en_bh;
 	struct delayed_work charging_work;
+	struct delayed_work boost_work;
 	struct usb_phy *otg_handle;
 	struct power_supply_cable_props cable_props;
 	struct power_supply usb_psy;
@@ -292,6 +304,7 @@ struct bq24261_data {
 	const char *model_name;
 	const char *manufacturer;
 	unsigned long ack_time;
+	struct notifier_block otg_nb;
 	struct bq24261_state state;
 	int irq;
 	struct dentry *debugfs_root_dir;
@@ -728,7 +741,8 @@ static int bq24261_dbg_state_show(struct seq_file *m, void *data)
 	seq_printf(m, "charger_enabled = %d\n", pdata->state.charger_enabled);
 	seq_printf(m, "charging_enabled = %d\n\n",
 				pdata->state.charging_enabled);
-
+	seq_printf(m, "to_enable_boost = %d\n", pdata->state.to_enable_boost);
+	seq_printf(m, "boost_enabled = %d\n", pdata->state.boost_enabled);
 	seq_printf(m, "vbus_ovp_fault = %u\n", pdata->state.vbus_ovp_fault);
 	seq_printf(m, "low_supply_fault = %u\n", pdata->state.low_supply_fault);
 	seq_printf(m, "thermal_fault = %u\n", pdata->state.thermal_fault);
@@ -1447,7 +1461,7 @@ static inline bool bq24261_is_online(struct bq24261_data *pdata,
 }
 
 /**
- * Worker function to trigger watchdog and update PSY
+ * Worker function to trigger watchdog and update PSY during charging
  *
  * @work	pointer to work instance
  */
@@ -1458,8 +1472,11 @@ static void bq24261_charging_worker(struct work_struct *work)
 		container_of(work, struct bq24261_data, charging_work.work);
 
 	ret = bq24261_trigger_wdt(pdata);
-	if (ret)
+	if (ret) {
+		dev_err(&pdata->client->dev, "%s: Fail to clear WDT\n",
+			__func__);
 		return;
+	}
 
 	if (!time_after(jiffies, pdata->ack_time + (60*HZ))) {
 		power_supply_changed(pdata->current_psy);
@@ -1470,6 +1487,109 @@ static void bq24261_charging_worker(struct work_struct *work)
 	schedule_delayed_work(&pdata->charging_work, CHRGR_WORK_DELAY);
 
 	return;
+}
+
+/**
+ * Worker function to trigger watchdog and update PSY during boost mode
+ *
+ * @work	pointer to work instance
+ */
+static void bq24261_boost_worker(struct work_struct *work)
+{
+	int ret;
+	struct bq24261_data *pdata =
+		container_of(work, struct bq24261_data, boost_work.work);
+
+	if (pdata->state.boost_enabled) {
+		ret = bq24261_trigger_wdt(pdata);
+		if (ret) {
+			dev_err(&pdata->client->dev, "%s: Fail to clear WDT\n",
+				__func__);
+			return;
+		}
+		schedule_delayed_work(&pdata->boost_work, BOOST_WORK_DELAY);
+	}
+}
+
+/**
+ * Worker function to enable/disable boost mode
+ *
+ * @work	pointer to work instance
+ */
+static void bq24261_enable_boost(struct work_struct *work)
+{
+	u8 reg0, reg1;
+	struct bq24261_data *pdata =
+		container_of(work, struct bq24261_data, boost_en_bh.work);
+	int ret;
+	bool to_enable = pdata->state.to_enable_boost;
+
+	down(&pdata->prop_lock);
+
+	pdata->state.vbus_ovp_fault = 0;
+	pdata->state.low_supply_fault = 0;
+
+	ret = bq24261_i2c_reg_read(pdata->client, REG0_STAT_CTRL, &reg0);
+	if (ret) {
+		dev_err(&pdata->client->dev, "%s: Fail to read REG0\n",
+			__func__);
+		goto exit_boost1;
+	}
+
+	ret = bq24261_i2c_reg_read(pdata->client, REG1_CONTROL, &reg1);
+	if (ret) {
+		dev_err(&pdata->client->dev, "%s: Fail to read REG1\n",
+			__func__);
+		goto exit_boost1;
+	}
+
+	if (to_enable) {
+		set_reg_field(reg0, EN_BOOST_O, 1, SET);
+		set_reg_field(reg1, HZ_MODE_O, 1, CLEAR);
+		wake_lock(&pdata->suspend_lock);
+		schedule_delayed_work(&pdata->boost_work, BOOST_WORK_DELAY);
+	} else {
+		set_reg_field(reg0, EN_BOOST_O, 1, CLEAR);
+		set_reg_field(reg1, HZ_MODE_O, 1, SET);
+		cancel_delayed_work(&pdata->boost_work);
+		wake_unlock(&pdata->suspend_lock);
+	}
+
+	set_reg_field(reg1, RESET_O, 1, CLEAR);
+
+	ret = bq24261_i2c_reg_write(pdata->client, REG0_STAT_CTRL, reg0);
+	if (ret) {
+		dev_err(&pdata->client->dev, "%s: Fail to write REG0\n",
+			__func__);
+		goto exit_boost2;
+	}
+
+	ret = bq24261_i2c_reg_write(pdata->client, REG1_CONTROL, reg1);
+	if (ret) {
+		dev_err(&pdata->client->dev, "%s: Fail to write REG1\n",
+			__func__);
+		goto exit_boost2;
+	}
+
+	pdata->state.boost_enabled = to_enable;
+
+	if (to_enable)
+		dev_info(&pdata->client->dev, "Boost mode enabled\n");
+	else
+		dev_info(&pdata->client->dev, "Boost mode disabled\n");
+
+	up(&pdata->prop_lock);
+	return;
+
+exit_boost2:
+	if (to_enable) {
+		cancel_delayed_work(&pdata->boost_work);
+		wake_unlock(&pdata->suspend_lock);
+	}
+exit_boost1:
+	pdata->state.boost_enabled = false;
+	pdata->state.to_enable_boost = false;
+	up(&pdata->prop_lock);
 }
 
 /**
@@ -2001,13 +2121,14 @@ static void bq24261_charger_error_handler(struct work_struct *work)
 {
 	int  health_prev, ret = 0;
 	u8 val, reg = 0;
+	bool boost_fault = false;
 	struct bq24261_data *pdata = container_of(work,
 				struct bq24261_data, chgerr_bh.work);
+	struct device *pdev = &pdata->client->dev;
 
 	ret = bq24261_i2c_reg_read(pdata->client, REG0_STAT_CTRL, &reg);
 	if (ret) {
-		dev_err(&pdata->client->dev, "%s: Fail to read REG0\n",
-			__func__);
+		dev_err(pdev, "%s: Fail to read REG0\n", __func__);
 		return;
 	}
 
@@ -2037,14 +2158,26 @@ static void bq24261_charger_error_handler(struct work_struct *work)
 		pdata->state.vbus_ovp_fault = 1;
 		pdata->state.health = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_VBUS_FAULT, 0, 0);
-		dev_err(&pdata->client->dev,
-			"%s - VBUS over voltage!\n", __func__);
+		if (pdata->state.boost_enabled) {
+			dev_err(pdev, "%s - Boost mode over voltage!\n",
+				__func__);
+			boost_fault = true;
+		} else {
+			dev_err(pdev, "%s - VBUS over voltage!\n", __func__);
+		}
 		break;
 
 	case FAULT_LOW_SUPPLY:
-		/* Low supply connected. */
-		dev_dbg(&pdata->client->dev,
-			"Low supply connected (not considered as fault)!\n");
+		if (pdata->state.boost_enabled) {
+			dev_err(pdev, "%s - Boost mode over current!\n",
+				__func__);
+			boost_fault = true;
+		} else {
+			/* Low supply connected */
+			dev_dbg(pdev,
+				"%s - Low supply connected (not fault)!\n",
+				__func__);
+		}
 		break;
 
 	case FAULT_THERMAL:
@@ -2052,15 +2185,14 @@ static void bq24261_charger_error_handler(struct work_struct *work)
 		pdata->state.thermal_fault = 1;
 		pdata->state.health = POWER_SUPPLY_HEALTH_OVERHEAT;
 		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_TSD_IS_ON, 0, 0);
-		dev_err(&pdata->client->dev,
-			"%s - Chip Over-temperature Shutdown!\n", __func__);
+		dev_err(pdev, "%s - Chip Over-temperature Shutdown!\n",
+			__func__);
 		break;
 
 	case FAULT_BAT_TEMP:
 		/* Battery temperature fault */
 		pdata->state.bat_temp_fault = 1;
-		dev_err(&pdata->client->dev,
-			"%s - Battery temperature fault!\n", __func__);
+		dev_err(pdev, "%s - Battery temperature fault!\n", __func__);
 		break;
 
 	case FAULT_TIMER:
@@ -2073,8 +2205,7 @@ static void bq24261_charger_error_handler(struct work_struct *work)
 					 0, 0);
 
 			pdata->state.timer_fault = 1;
-			dev_err(&pdata->client->dev,
-				"%s - Timer expired!\n", __func__);
+			dev_err(pdev, "%s - Timer expired!\n", __func__);
 		}
 		break;
 
@@ -2084,8 +2215,7 @@ static void bq24261_charger_error_handler(struct work_struct *work)
 		if (pdata->state.charger_enabled &&
 			pdata->state.charging_enabled) {
 			pdata->state.bat_ovp_fault = 1;
-			dev_err(&pdata->client->dev,
-				"%s - Battery over voltage!\n", __func__);
+			dev_err(pdev, "%s - Battery over voltage!\n", __func__);
 		}
 		break;
 
@@ -2094,17 +2224,23 @@ static void bq24261_charger_error_handler(struct work_struct *work)
 		pdata->state.bat_ovp_fault = 1;
 		pdata->state.health = POWER_SUPPLY_HEALTH_DEAD;
 		pdata->state.status = BQ24261_STATUS_FAULT;
-		dev_err(&pdata->client->dev, "%s - No battery!", __func__);
+		dev_err(pdev, "%s - No battery!", __func__);
 		break;
 
 	default:
 		break;
 	}
 
-	if (health_prev != pdata->state.health &&
+	if (boost_fault) {
+		/* Notify USB about the VBUS error, payload is dummy */
+		atomic_notifier_call_chain(&pdata->otg_handle->notifier,
+					INTEL_USB_DRV_VBUS_ERR, &ret);
+		pdata->state.boost_enabled = false;
+	} else if (health_prev != pdata->state.health &&
 		pdata->state.health != POWER_SUPPLY_HEALTH_GOOD &&
-		 pdata->state.health != POWER_SUPPLY_HEALTH_UNKNOWN)
-				power_supply_changed(pdata->current_psy);
+		 pdata->state.health != POWER_SUPPLY_HEALTH_UNKNOWN) {
+			power_supply_changed(pdata->current_psy);
+	}
 
 	up(&pdata->prop_lock);
 
@@ -2204,6 +2340,27 @@ static int bq24261_configure_pmic_irq(struct bq24261_data *pdata)
 	return ret;
 }
 
+static int bq24261_otg_notification_handler(struct notifier_block *nb,
+				unsigned long event, void *data)
+{
+	struct bq24261_data *pdata =
+			container_of(nb, struct bq24261_data, otg_nb);
+
+	switch (event) {
+	case INTEL_USB_DRV_VBUS:
+		if (!data)
+			return NOTIFY_BAD;
+		pdata->state.to_enable_boost = *((bool *)data);
+		unfreezable_bh_schedule(&pdata->boost_en_bh);
+		break;
+
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int bq24261_i2c_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
@@ -2226,6 +2383,9 @@ static int bq24261_i2c_probe(struct i2c_client *client,
 	pdata->manufacturer = "Texas Instrument";
 	pdata->chgerr_bh.in_suspend = false;
 	pdata->chgerr_bh.pending_evt = false;
+	pdata->boost_en_bh.in_suspend = false;
+	pdata->boost_en_bh.pending_evt = false;
+	pdata->otg_nb.notifier_call = bq24261_otg_notification_handler;
 	pdata->state.status = BQ24261_STATUS_UNKNOWN;
 	pdata->state.cc = DEFAULT_ICHRG_MA;
 	pdata->state.max_cc = ICHRG_MAX_MA;
@@ -2235,6 +2395,8 @@ static int bq24261_i2c_probe(struct i2c_client *client,
 	pdata->state.cable_type = POWER_SUPPLY_CHARGER_TYPE_NONE,
 	pdata->state.charger_enabled = false;
 	pdata->state.charging_enabled = false;
+	pdata->state.to_enable_boost = false;
+	pdata->state.boost_enabled = false;
 	pdata->state.vbus_ovp_fault = 0;
 	pdata->state.low_supply_fault = 0;
 	pdata->state.thermal_fault = 0;
@@ -2249,55 +2411,60 @@ static int bq24261_i2c_probe(struct i2c_client *client,
 	ret = bq24261_sw_control_override(pdata);
 	if (ret) {
 		dev_err(pdev, "%s - fail to disable CCSM\n", __func__);
-		goto get_phy_fail;
+		return ret;
 	}
 
 	/* Enable charger IC via CHGDIS pin */
 	ret = bq24261_enable_ic(pdata, true);
 	if (ret) {
 		dev_err(pdev, "%s - fail to enable charger IC\n", __func__);
-		goto get_phy_fail;
+		return ret;
 	}
 
 	/* Read charger HW ID and check if it's supported */
 	ret = bq24261_i2c_reg_read(client, REG3_IC_INFO, &ic_info);
 	if (ret) {
 		dev_err(pdev, "%s - fail to read IC_INFO\n", __func__);
-		goto get_phy_fail;
+		return ret;
 	}
 
 	if (get_reg_field(ic_info, VENDOR_O, VENDOR_W) != BQ24261_VENDOR ||
 			get_reg_field(ic_info, PN_O, PN_W) != BQ24261_PN) {
 		dev_err(pdev, "%s - IC is not supported. ic_info=0x%X\n",
 					__func__, ic_info);
-		ret = -ENODEV;
-		goto get_phy_fail;
+		return -ENODEV;
 	}
 
 	pdata->client = client;
 
 	/* Get USB phy */
-	otg_handle = usb_get_phy(USB_PHY_TYPE_USB2);
+	otg_handle = devm_usb_get_phy(pdev, USB_PHY_TYPE_USB2);
 	if (IS_ERR_OR_NULL(otg_handle)) {
 		dev_err(pdev, "%s - fail to get OTG transceiver\n", __func__);
-		ret = -EINVAL;
-		goto get_phy_fail;
+		return -ENODEV;
 	}
 	pdata->otg_handle = otg_handle;
 
-	INIT_DELAYED_WORK(&pdata->charging_work, bq24261_charging_worker);
-
 	sema_init(&pdata->prop_lock, 1);
+
+	INIT_DELAYED_WORK(&pdata->charging_work, bq24261_charging_worker);
+	INIT_DELAYED_WORK(&pdata->boost_work, bq24261_boost_worker);
 
 	/* Set up the wake lock to prevent suspend when charging. */
 	wake_lock_init(&pdata->suspend_lock,
 			WAKE_LOCK_SUSPEND,
 			"bq24261_wake_lock");
 
-	if (unfreezable_bh_create(&pdata->chgerr_bh, "pdata_err_wq",
+	if (unfreezable_bh_create(&pdata->chgerr_bh, "bq24261_err_wq",
 			"bq24261_err_lock", bq24261_charger_error_handler)) {
 		ret = -ENOMEM;
-		goto wq_creation_fail;
+		goto err_wq_fail;
+	}
+
+	if (unfreezable_bh_create(&pdata->boost_en_bh, "bq24261_boost_wq",
+			"bq24261_boost_lock", bq24261_enable_boost)) {
+		ret = -ENOMEM;
+		goto boost_wq_fail;
 	}
 
 	ret = bq24261_set_default_targets(pdata);
@@ -2358,6 +2525,12 @@ static int bq24261_i2c_probe(struct i2c_client *client,
 	if (ret)
 		goto pmu_irq_fail;
 
+	ret = usb_register_notifier(otg_handle, &pdata->otg_nb);
+	if (ret) {
+		dev_err(pdev, "fail to register OTG notification\n");
+		goto pmu_irq_fail;
+	}
+
 	pdata->ack_time = jiffies;
 	pdata->state.status = BQ24261_STATUS_READY;
 
@@ -2369,12 +2542,11 @@ pmu_irq_fail:
 ac_register_fail:
 	power_supply_unregister(&pdata->usb_psy);
 set_target_fail:
+	unfreezable_bh_destroy(&pdata->boost_en_bh);
+boost_wq_fail:
 	unfreezable_bh_destroy(&pdata->chgerr_bh);
-wq_creation_fail:
+err_wq_fail:
 	wake_lock_destroy(&pdata->suspend_lock);
-	usb_put_phy(otg_handle);
-get_phy_fail:
-	devm_kfree(pdev, pdata);
 
 	return ret;
 }
@@ -2385,15 +2557,13 @@ static int __exit bq24261_i2c_remove(struct i2c_client *client)
 	CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_I2C_REMOVE, 0, 0);
 
 	bq24261_remove_debugfs_dir(pdata);
-	devm_free_irq(&pdata->client->dev, pdata->irq, pdata);
 	power_supply_unregister(&pdata->usb_psy);
 	power_supply_unregister(&pdata->ac_psy);
 	wake_lock_destroy(&pdata->suspend_lock);
+	unfreezable_bh_destroy(&pdata->boost_en_bh);
 	unfreezable_bh_destroy(&pdata->chgerr_bh);
+	cancel_delayed_work_sync(&pdata->boost_work);
 	cancel_delayed_work_sync(&pdata->charging_work);
-	if (pdata->otg_handle)
-		usb_put_phy(pdata->otg_handle);
-	devm_kfree(&pdata->client->dev, pdata);
 
 	return 0;
 }
