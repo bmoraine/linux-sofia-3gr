@@ -357,7 +357,6 @@ static int dwc2_hcd_urb_enqueue(struct dwc2_hsotg *hsotg,
 				gfp_t mem_flags)
 {
 	struct dwc2_qtd *qtd;
-	unsigned long flags;
 	u32 intr_mask;
 	int retval;
 	int dev_speed;
@@ -408,11 +407,9 @@ static int dwc2_hcd_urb_enqueue(struct dwc2_hsotg *hsotg,
 			 */
 			return 0;
 
-		spin_lock_irqsave(&hsotg->lock, flags);
 		tr_type = dwc2_hcd_select_transactions(hsotg);
 		if (tr_type != DWC2_TRANSACTION_NONE)
 			dwc2_hcd_queue_transactions(hsotg, tr_type);
-		spin_unlock_irqrestore(&hsotg->lock, flags);
 	}
 
 	return 0;
@@ -2430,6 +2427,7 @@ static int _dwc2_hcd_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
 	void *buf;
 	unsigned long flags;
 
+	spin_lock_irqsave(&hsotg->lock, flags);
 	if (dbg_urb(urb)) {
 		dev_vdbg(hsotg->dev, "DWC OTG HCD URB Enqueue\n");
 		dwc2_dump_urb_info(hcd, urb, "urb_enqueue");
@@ -2440,10 +2438,8 @@ static int _dwc2_hcd_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
 
 	if (usb_pipetype(urb->pipe) == PIPE_ISOCHRONOUS ||
 	    usb_pipetype(urb->pipe) == PIPE_INTERRUPT) {
-		spin_lock_irqsave(&hsotg->lock, flags);
 		if (!dwc2_hcd_is_bandwidth_allocated(hsotg, ep))
 			alloc_bandwidth = 1;
-		spin_unlock_irqrestore(&hsotg->lock, flags);
 	}
 
 	switch (usb_pipetype(urb->pipe)) {
@@ -2508,9 +2504,7 @@ static int _dwc2_hcd_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
 
 	urb->hcpriv = dwc2_urb;
 
-	spin_lock_irqsave(&hsotg->lock, flags);
 	retval = usb_hcd_link_urb_to_ep(hcd, urb);
-	spin_unlock_irqrestore(&hsotg->lock, flags);
 	if (retval)
 		goto fail1;
 
@@ -2519,23 +2513,21 @@ static int _dwc2_hcd_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
 		goto fail2;
 
 	if (alloc_bandwidth) {
-		spin_lock_irqsave(&hsotg->lock, flags);
 		dwc2_allocate_bus_bandwidth(hcd,
 				dwc2_hcd_get_ep_bandwidth(hsotg, ep),
 				urb);
-		spin_unlock_irqrestore(&hsotg->lock, flags);
 	}
 
+	spin_unlock_irqrestore(&hsotg->lock, flags);
 	return 0;
 
 fail2:
-	spin_lock_irqsave(&hsotg->lock, flags);
 	dwc2_urb->priv = NULL;
 	usb_hcd_unlink_urb_from_ep(hcd, urb);
-	spin_unlock_irqrestore(&hsotg->lock, flags);
 fail1:
 	urb->hcpriv = NULL;
 	kfree(dwc2_urb);
+	spin_unlock_irqrestore(&hsotg->lock, flags);
 
 	return retval;
 }
