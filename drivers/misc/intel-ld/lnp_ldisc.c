@@ -1215,8 +1215,10 @@ static int lbf_ldisc_open(struct tty_struct *tty)
 		tty->ldisc->ops->flush_buffer(tty);
 	tty_driver_flush_buffer(tty);
 	intel_lbf_lpm.lpm_enable = DISABLE;
-	intel_lbf_lpm.rx_refcount = 0;
-	intel_lbf_lpm.tx_refcount = 0;
+	lbf_serial_get();
+	intel_lbf_lpm.rx_refcount = 1;
+	lbf_serial_get();
+	intel_lbf_lpm.tx_refcount = 1;
 
 	trace_lbf_func_end(__func__);
 
@@ -1235,6 +1237,16 @@ static void lbf_ldisc_close(struct tty_struct *tty)
 	tty->disc_data = NULL; /* Detach from the tty */
 	bt_rfkill_set_power(DISABLE);
 	trace_lbf_func_start(__func__);
+
+	if (intel_lbf_lpm.rx_refcount > 0) {
+		lbf_serial_put();
+		intel_lbf_lpm.rx_refcount = 0;
+	}
+	if (intel_lbf_lpm.tx_refcount > 0) {
+		lbf_serial_put();
+		intel_lbf_lpm.tx_refcount = 0;
+	}
+
 
 	if (intel_lbf_lpm.lpm_enable == ENABLE &&
 		intel_lbf_lpm.module_refcount > 0) {
@@ -1302,7 +1314,7 @@ static inline int select_proto(int type)
  */
 static int st_send_frame(struct tty_struct *tty, struct lbf_uart *lbf_uart)
 {
-	unsigned int i = 0;
+	unsigned int i = 0, j = 0;
 	int ret = 0;
 	int chnl_id = MODULE_BT;
 	unsigned char *buff;
@@ -1331,8 +1343,9 @@ static int st_send_frame(struct tty_struct *tty, struct lbf_uart *lbf_uart)
 	STREAM_TO_UINT16(opcode, buff);
 	pr_debug("opcode : 0x%x event code: 0x%x registered", opcode,
 			 lbf_uart->rx_skb->data[1]);
-	/* for (i = lbf_uart->rx_skb->len, j = 0; i > 0; i--, j++)
-	 printk (KERN_ERR " --%d : 0x%x " ,j ,lbf_uart->rx_skb->data[j]);*/
+	if (lbf_uart->rx_skb->data[0] == LPM_PKT)
+		for (i = lbf_uart->rx_skb->len, j = 0; i > 0; i--, j++)
+			pr_debug("--%d : 0x%x ", j, lbf_uart->rx_skb->data[j]);
 
 	if (HCI_COMMAND_COMPLETE_EVENT == lbf_uart->rx_skb->data[1]) {
 		switch (opcode) {
@@ -1547,7 +1560,7 @@ static int wait_d0_exit(void)
 
 		if (ret == 0 && lbf_get_device_state() == D0_TO_D2) {
 			ret = FAILED;
-			lbf_set_device_state(D2);
+			lbf_set_device_state(D0);
 			pr_err("%s D0_TO_D2 time out\n", __func__);
 			break;
 		} else
@@ -1650,7 +1663,7 @@ check_refcount:
 		break;
 	}
 
-	if (ret != 0 && lbf_get_device_state() == D2_TO_D0) {
+	if (ret == IGNORE && lbf_get_device_state() == D2) {
 		ret = wait_d2_exit();
 		if (ret == 0)
 			goto check_refcount;
