@@ -127,15 +127,44 @@ static void xgold_irq_capcom_maskack(struct irq_data *data)
 	xgold_irq_capcom_ack(data);
 }
 
+static LIST_HEAD(set_type_list);
+static DEFINE_MUTEX(set_type_list_mtx);
+bool irq_capcom_power_ready;
+struct xgold_irq_set_type_rq {
+	uint32_t type;
+	struct irq_data *data;
+	struct list_head list;
+};
+static void xgold_irq_capcom_add_req(struct xgold_irq_set_type_rq *req)
+{
+	mutex_lock(&set_type_list_mtx);
+	list_add_tail(&req->list, &set_type_list);
+	mutex_unlock(&set_type_list_mtx);
+}
+
 static int xgold_irq_capcom_set_type(struct irq_data *data, unsigned int type)
 {
 	struct xgold_irq_chip_data *chipdata = irq_data_get_irq_chip_data(data);
 	u32 irq = data->hwirq;
 	u32 edge = XGOLD_CC_IRQ_TYPE_EDGE_DISABLED;
+	struct xgold_irq_set_type_rq *req;
 	pr_debug("%s(%d, %#x)\n", __func__, irq, type);
 
-	if (!chipdata->edge[irq])
+	if (!irq_capcom_power_ready) {
+		pr_debug("%s: Store the request to replay later\n", __func__);
+		/* We are getting set_type requests too early while capcom is
+		 * not yet powered ON as PRH is not ready to be used.
+		 * Let's store them to replay them at capcom probe time */
+		req = kzalloc(sizeof(struct xgold_irq_set_type_rq), GFP_KERNEL);
+		if (!req)
+			return -ENOMEM;
+		req->type = type;
+		req->data = data;
+		xgold_irq_capcom_add_req(req);
 		return 0;
+	}
+	if (!chipdata->edge[irq])
+		return -EINVAL;
 
 	switch (type) {
 	case IRQ_TYPE_EDGE_RISING:
@@ -166,7 +195,6 @@ static int xgold_irq_capcom_set_type(struct irq_data *data, unsigned int type)
 
 static struct irq_chip xgold_irq_capcom_chip = {
 	.name = "xgold_irq_capcom",
-/*	.irq_startup = xgold_irq_capcom_startup,*/
 	.irq_mask = xgold_irq_capcom_mask,
 	.irq_disable = xgold_irq_capcom_mask,
 	.irq_unmask = xgold_irq_capcom_unmask,
@@ -240,6 +268,7 @@ static int __init xgold_capcom_probe(struct platform_device *pdev)
 {
 	struct xgold_capcom_pdata *pdata;
 	struct device_node *np;
+	struct xgold_irq_set_type_rq *req;
 	int ret;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
@@ -287,7 +316,15 @@ static int __init xgold_capcom_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Set state return %d\n", ret);
 		goto out;
 	}
+	irq_capcom_power_ready = true;
 
+	/* Replay set_type requests and free them */
+	mutex_lock(&set_type_list_mtx);
+	list_for_each_entry(req, &set_type_list, list) {
+		xgold_irq_capcom_set_type(req->data, req->type);
+		kfree(req);
+	}
+	mutex_unlock(&set_type_list_mtx);
 	return 0;
 
 out:
