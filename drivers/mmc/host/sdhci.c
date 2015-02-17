@@ -2705,6 +2705,9 @@ int sdhci_resume_host(struct sdhci_host *host)
 		disable_irq_wake(host->irq);
 	}
 
+	if (host->ops->platform_resume)
+		host->ops->platform_resume(host);
+
 	if ((host->mmc->pm_flags & MMC_PM_KEEP_POWER) &&
 	    (host->quirks2 & SDHCI_QUIRK2_HOST_OFF_CARD_ON)) {
 		/* Card keeps power but host controller does not */
@@ -2719,8 +2722,6 @@ int sdhci_resume_host(struct sdhci_host *host)
 
 	sdhci_enable_card_detection(host);
 
-	if (host->ops->platform_resume)
-		host->ops->platform_resume(host);
 
 	/* Set the re-tuning expiration flag */
 	if (host->flags & SDHCI_USING_RETUNING_TIMER)
