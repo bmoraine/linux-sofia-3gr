@@ -580,10 +580,10 @@
 						pm,state-D0 = "enable_104M_hperf";
 						pm,state-D3 = "disable";
 
-						pm,runtime = "disable";
+						pm,runtime = "enable";
 						pm,debug_rpm = "disable";
 						pm,rpm_suspend_delay = < 300 >;
-						pm,auto_suspend_enable = "disable";
+						pm,auto_suspend_enable = "enable";
 					};
 
 					capcom1:capcom1 {
