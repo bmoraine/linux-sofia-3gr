@@ -150,7 +150,7 @@ static int xgold_irq_eint_set_wake(struct irq_data *data, unsigned on)
 #endif
 
 static struct irq_chip xgold_irq_eint_chip = {
-	.name = "xgold_irq_eint",
+	.name = "EINT",
 	.irq_mask = xgold_irq_eint_mask,
 	.irq_disable = xgold_irq_eint_mask,
 	.irq_unmask = xgold_irq_eint_unmask,

@@ -104,7 +104,7 @@ static int sofia_vpic_set_affinity(struct irq_data *data,
 }
 
 static struct irq_chip sofia_vpic_chip = {
-	.name = "SoFIA VPIC",
+	.name = "VPIC",
 	.irq_mask = sofia_vpic_irq_mask,
 	.irq_unmask = sofia_vpic_irq_unmask,
 	.irq_enable = sofia_vpic_irq_enable,

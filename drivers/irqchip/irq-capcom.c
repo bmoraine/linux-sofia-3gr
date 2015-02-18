@@ -194,7 +194,7 @@ static int xgold_irq_capcom_set_type(struct irq_data *data, unsigned int type)
 }
 
 static struct irq_chip xgold_irq_capcom_chip = {
-	.name = "xgold_irq_capcom",
+	.name = "CAPCOM",
 	.irq_mask = xgold_irq_capcom_mask,
 	.irq_disable = xgold_irq_capcom_mask,
 	.irq_unmask = xgold_irq_capcom_unmask,

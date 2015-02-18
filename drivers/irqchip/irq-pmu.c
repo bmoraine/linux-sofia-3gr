@@ -55,7 +55,7 @@ static int xgold_irq_pmu_set_wake(struct irq_data *data, unsigned on)
 #endif
 
 static struct irq_chip xgold_irq_pmu_chip = {
-	.name = "xgold_irq_pmu",
+	.name = "PMU",
 	.irq_mask = xgold_irq_pmu_mask,
 	.irq_disable = xgold_irq_pmu_mask,
 	.irq_unmask = xgold_irq_pmu_unmask,

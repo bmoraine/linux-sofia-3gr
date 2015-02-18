@@ -86,7 +86,7 @@ static int xgold_irq_abb_set_wake(struct irq_data *data, unsigned on)
 #endif
 
 static struct irq_chip xgold_irq_abb_chip = {
-	.name = "xgold_irq_abb",
+	.name = "ABB",
 	.irq_mask = xgold_irq_abb_mask,
 	.irq_disable = xgold_irq_abb_mask,
 	.irq_unmask = xgold_irq_abb_unmask,
