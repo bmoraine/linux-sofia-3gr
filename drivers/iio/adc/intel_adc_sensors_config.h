@@ -132,23 +132,17 @@ static struct adc_sensors_data_table_uv_to_degc adc_sensors_tbat_data = {
 };
 
 /**
- * Battery ID for AG620 is measured as follows:
+ * Battery ID is measured as follows:
  *
  *	10kOhm series resistor.
  */
-#define BATID_SERIES_RESITOR_OHM	(10000)
+#define BATID_SERIES_RESISTOR_OHM	(10000)
 static struct adc_sensors_data_linear_uv_to_ohm adc_sensors_ag620_batid_data = {
-	BATID_SERIES_RESITOR_OHM
+	BATID_SERIES_RESISTOR_OHM
 };
 
-/**
- * Battery ID for PMIC is measured as follows:
- *
- *	No series resistor.
- */
-#define BATID_NO_SERIES_RESITOR_OHM	(0)
 static struct adc_sensors_data_linear_uv_to_ohm adc_sensors_pmic_batid_data = {
-	BATID_NO_SERIES_RESITOR_OHM
+	BATID_SERIES_RESISTOR_OHM
 };
 
 /**
