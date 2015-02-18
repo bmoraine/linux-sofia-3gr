@@ -47,6 +47,15 @@ struct soc_cal_point {
 	u32	full_battery_cap_mah;
 };
 
+
+/*					State of Charge (SoC) data reported to
+ *					user space.
+ */
+struct soc_nvm {
+	u32 current_soc;
+};
+
+
 /**
  *					Retrieves the most recent NVS stored
  *					calibration data if it is valid.
@@ -113,5 +122,27 @@ void sw_fuel_gauge_nvs_dbg_set(int debug_val);
  *					otherwise false.
  */
 bool sw_fuel_guage_nvs_cal_point_invalidate(void);
+
+/*
+ * Function to retrieve the soc data from NVM
+ *
+ * @p_soc_data			[out] SoC data to be returned from the NVM
+ *
+ * Returns				true if the SoC data was
+ *					was successfully retrieved,
+ *					otherwise false.
+ */
+bool sw_fuel_gauge_nvs_retrieve_soc_data(struct soc_nvm *p_soc_data);
+
+/*
+ * Function to store the soc data in NVM
+ *
+ * @p_soc_data			[in] SoC data to be stored to the NVM.
+ *
+ * Returns				true if the SoC data was
+ *					was successfully stored,
+ *					otherwise false.
+ */
+bool sw_fuel_gauge_nvs_store_soc_data(struct soc_nvm *p_soc_data);
 
 #endif /* _SW_FUEL_GAUGE_NVS_H */
