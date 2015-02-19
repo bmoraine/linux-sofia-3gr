@@ -57,6 +57,12 @@ static int xgold_cpu_freq_pm_notifier(struct notifier_block *nb,
 static struct notifier_block xgold_cpufreq_pm_notifier = {
 	.notifier_call = xgold_cpu_freq_pm_notifier
 };
+static int xgold_cpu_freq_notifier(struct notifier_block *nb,
+					unsigned long val, void *data);
+static struct notifier_block xgold_cpufreq_notifier = {
+	.notifier_call = xgold_cpu_freq_notifier
+};
+
 
 static int xgold_cpu_freq_pm_notifier(struct notifier_block *nb,
 					unsigned long val, void *data)
@@ -70,6 +76,15 @@ static int xgold_cpu_freq_pm_notifier(struct notifier_block *nb,
 		frequency_locked = false;
 	}
 
+	return 0;
+}
+
+static int xgold_cpu_freq_notifier(struct notifier_block *nb,
+					unsigned long val, void *data)
+{
+	struct cpufreq_policy *policy = data;
+	if (val == CPUFREQ_NOTIFY)
+		sofia_set_cpu_policy(policy->min / 1000, policy->max / 1000);
 	return 0;
 }
 #endif
@@ -460,6 +475,9 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 #ifdef CONFIG_PM
 	register_pm_notifier(&xgold_cpufreq_pm_notifier);
 #endif
+	cpufreq_register_notifier(&xgold_cpufreq_notifier,
+			CPUFREQ_POLICY_NOTIFIER);
+
 	return 0;
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 err_cpufreq:
