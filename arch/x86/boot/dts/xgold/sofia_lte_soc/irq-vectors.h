@@ -127,8 +127,8 @@
 #define GPU_INT 100
 #define DMA1_ERR_INT 103
 #define DMA1_CH0_7_INT 104
+#define FBADSP_INT2 105
 #define FBADSP_INT1 106
-#define FBADSP_INT0 107
 #define STM_INT1 108
 #define STM_INT0 109
 #define COMMTX 134
@@ -154,7 +154,7 @@
 #define SPCU_INT2 157
 #define SPCU_INT3 158
 #define WDT0 159
-#define FBADSP_INT2 163
+#define FBADSP_INT0 163
 #define LC_SP_CHANGE_RESP_INT 164
 #define LC_RESERVED_INT2 165
 #define LC_RESERVED_INT 166
