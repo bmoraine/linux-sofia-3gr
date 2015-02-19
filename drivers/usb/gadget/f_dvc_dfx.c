@@ -443,7 +443,7 @@ fail:
 static ssize_t dvc_dfx_start_transfer(size_t count)
 {
 	struct dvc_dfx_dev *dev = _dvc_dfx_dev;
-	struct usb_request *req = NULL;
+	struct usb_request *req;
 	int r = count, xfer;
 	int ret = -ENODEV;
 

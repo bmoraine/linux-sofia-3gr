@@ -431,7 +431,7 @@ static ssize_t dvc_trace_start_transfer(size_t count)
 	struct dvc_trace_dev *dev = _dvc_trace_dev;
 	struct usb_request *req = 0;
 	int r = count, xfer;
-	int ret = -EINVAL;
+	int ret = 0;
 
 	pr_debug("%s\n", __func__);
 	if (!_dvc_trace_dev)
