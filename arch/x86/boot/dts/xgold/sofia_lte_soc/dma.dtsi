@@ -1,20 +1,12 @@
 #define dma_rq_desc \
 	compatible = "intel,dma-pl08x,slave-chan"; \
-	intel,dma-signals = < 3 15 >; /* min, max */ \
+	intel,dma-signals = < 0 15 >; /* min, max */ \
 	intel,dma-bus = < 2 >; /* AHB2 */
 
 usif1_rx	{ dma_rq_desc };
 usif1_tx	{ dma_rq_desc };
-usif3_rx	{
-	compatible = "intel,dma-pl08x,slave-chan"; \
-	intel,dma-signals = < 0 0 >; /* min, max */ \
-	intel,dma-bus = < 2 >; /* AHB2 */
-};
-usif3_tx	{
-	compatible = "intel,dma-pl08x,slave-chan"; \
-	intel,dma-signals = < 1 1 >; /* min, max */ \
-	intel,dma-bus = < 2 >; /* AHB2 */
-};
+usif3_rx	{ dma_rq_desc };
+usif3_tx	{ dma_rq_desc };
 usif_gnss_rx	{ dma_rq_desc };
 usif_gnss_tx	{ dma_rq_desc };
 i2c1_txrx	{ dma_rq_desc };
@@ -22,11 +14,7 @@ i2c2_txrx	{ dma_rq_desc };
 usim1		{ dma_rq_desc };
 guc_rx		{ dma_rq_desc };
 guc_tx		{ dma_rq_desc };
-dsp_req1	{
-	compatible = "intel,dma-pl08x,slave-chan"; \
-	intel,dma-signals = < 2 2 >; /* min, max */ \
-	intel,dma-bus = < 2 >; /* AHB2 */
-};
+dsp_req1	{ dma_rq_desc };
 dsp_req2	{ dma_rq_desc };
 dsp_req3	{ dma_rq_desc };
 usim2		{ dma_rq_desc };
