@@ -655,8 +655,6 @@ invalid:
 
 	/* respond with data transfer or status phase? */
 	if (value >= 0) {
-		if (!cdev->req || !cdev->gadget || !cdev->gadget->ep0)
-			return -EINVAL;
 		cdev->req->zero = 0;
 		cdev->req->length = value;
 		value = usb_ep_queue(cdev->gadget->ep0, cdev->req, GFP_ATOMIC);
