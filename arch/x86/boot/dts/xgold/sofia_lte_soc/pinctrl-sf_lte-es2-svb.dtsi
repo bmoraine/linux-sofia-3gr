@@ -952,7 +952,7 @@
 	};
 	touch_inactive_pins:touch_inactive_pins {
 		pinctrl-single,pins = <
-			0x3c0 0x1500	/* touch_reset_n */
+			0x3c0 0x1700	/* touch_reset_n */
 			0x360 0x4100	/* touch_irq_n */
 		>;
 	};
@@ -960,11 +960,6 @@
 		pinctrl-single,pins = <
 			0x3c0 0x1500	/* touch_reset_n */
 			0x360 0x4100	/* touch_irq_n */
-		>;
-	};
-	touch_gpio_pins:touch_gpio_pins {
-		pinctrl-single,pins = <
-			0x360 0x1500 /* touch_irq_n */
 		>;
 	};
 	accel_default_pins:accel_default_pins {

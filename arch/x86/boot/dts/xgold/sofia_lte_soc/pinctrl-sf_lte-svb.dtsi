@@ -770,26 +770,6 @@
 			0x80360 0x2001	/* touch_irq_n */
 		>;
 	};
-	touch_gpio_pins:touch_gpio_pins {
-		pinctrl-single,pins = <
-			0x80360 0x1500 /* touch_irq_n */
-		>;
-	};
-	touch_function_C_active_pins:touch_function_C_active_pins {
-		pinctrl-single,pins = <
-			0x803b8 0x1500	/* touch_reset_n */
-		>;
-	};
-	touch_function_C_inactive_pins:touch_function_C_inactive_pins {
-		pinctrl-single,pins = <
-			0x803b8 0x1020	/* touch_reset_n */
-		>;
-	};
-	touch_function_C_sleep_pins:touch_function_C_sleep_pins {
-		pinctrl-single,pins = <
-			0x803b8 0x1500	/* touch_reset_n */
-		>;
-	};
 	accel_default_pins:accel_default_pins {
 		pinctrl-single,pins = <
 			0x80364 0x2001	/* accel_mag_irq */

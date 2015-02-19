@@ -340,11 +340,10 @@
 		reg = < 0x5d >;
 		interrupt-parent = <&eint>;
 		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_FALLING >;
-		pinctrl-names = "default", "sleep", "inactive", "gpio";
+		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&touch_default_pins>;
 		pinctrl-1 = <&touch_sleep_pins>;
 		pinctrl-2 = <&touch_inactive_pins>;
-		pinctrl-3 = <&touch_gpio_pins>;
 		intel,ts-gpio-reset = <&xgold_pmx_gpio 110 0>;
 		intel,ts-gpio-irq = <&xgold_pmx_gpio 88 0>;
 		pm,class-name = "gt9xx_class";
