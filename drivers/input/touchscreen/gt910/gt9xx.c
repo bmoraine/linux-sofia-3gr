@@ -139,11 +139,10 @@ u8 grp_cfg_version;
 
 int GTP_GPIO_REQUEST(unsigned pin, const char *label)
 {
-	int ret = gpio_request(pin, label);
 	gt9xx_set_pinctrl_state(
-	&i2c_connect_client->dev,
-	(((struct gt9xx_ts_platform_data *)GTP_PLAT_D)->pins_sleep));
-	return ret;
+		&i2c_connect_client->dev,
+		(((struct gt9xx_ts_platform_data *)GTP_PLAT_D)->pins_sleep));
+	return gpio_request(pin, label);
 }
 /*******************************************************
 Function:
@@ -1257,7 +1256,7 @@ void gtp_reset_guitar(struct i2c_client *client, s32 ms)
 	s32 ret = 0;
 
 	GTP_DEBUG_FUNC();
-	GTP_INFO("Guitar reset\n");
+	GTP_INFO("Guitar reset");
 
 	/* here before GTP_INT_PORT gpio ops, we must
 	 * use pin_config_set change int function to gpio
@@ -1268,7 +1267,7 @@ void gtp_reset_guitar(struct i2c_client *client, s32 ms)
 	if (ret < 0) {
 		GTP_ERROR("Failed to request GPIO:%d, ERRNO:%d",
 			(s32)GTP_INT_PORT, ret);
-		ret = -ENODEV;
+		return;
 	}
 
 	GTP_GPIO_OUTPUT(GTP_RST_PORT, 0);   /*  begin select I2C slave addr */
@@ -1287,7 +1286,6 @@ void gtp_reset_guitar(struct i2c_client *client, s32 ms)
 #if GTP_COMPATIBLE_MODE
 	if (CHIP_TYPE_GT9F == ts->chip_type)
 		return;
-
 #endif
 
 	gtp_int_sync(50);
@@ -1320,7 +1318,7 @@ static s8 gtp_enter_doze(struct goodix_ts_data *ts)
 		i2c_control_buf[1] = 0x46;
 		ret = gtp_i2c_write(ts->client, i2c_control_buf, 3);
 		if (ret < 0) {
-			GTP_DEBUG("failed to set doze flag into 0x8046, %d",
+			GTP_ERROR("failed to set doze flag into 0x8046, %d",
 				retry);
 			continue;
 		}
