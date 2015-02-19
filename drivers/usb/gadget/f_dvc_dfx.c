@@ -263,10 +263,7 @@ static int dvc_dfx_is_enabled(void)
 		pr_info("%s STM and/or USB3DFX is not enabled\n", __func__);
 		return 0;
 	}
-#else
-	pr_warn("%s always true, DvC DFX enumerates but is not functional\n",
-		__func__);
-#endif
+#endif 
 	return 1;
 }
 
@@ -363,9 +360,8 @@ static inline int dvc_dfx_lock(atomic_t *excl)
 		return -1;
 	}
 #else
-	pr_warn("%s always unlocked, DvC DFX is not functional\n", __func__);
 	return 0;
-#endif
+#endif	
 }
 
 static inline void dvc_dfx_unlock(atomic_t *excl)

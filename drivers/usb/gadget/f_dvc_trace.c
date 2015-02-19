@@ -290,9 +290,6 @@ static int dvc_trace_is_enabled(void)
 		pr_info("%s STM/PTI block is not enabled\n", __func__);
 		return 0;
 	}
-#else
-	pr_warn("%s always true, DvC trace enumerates but is not functional\n",
-		__func__);
 #endif
 	return 1;
 }
@@ -379,9 +376,8 @@ static inline int dvc_trace_lock(atomic_t *excl)
 		return -1;
 	}
 #else
-	pr_warn("%s always unlocked, DvC trace is not functional\n", __func__);
 	return 0;
-#endif
+#endif	
 }
 
 static inline void dvc_trace_unlock(atomic_t *excl)
