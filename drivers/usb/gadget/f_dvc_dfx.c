@@ -514,8 +514,8 @@ static ssize_t dvc_dfx_start_transfer(size_t count)
 				r = -EIO;
 				break;
 			}
-			pr_debug("%s xfer=%d/%d  queued req/%p\n", __func__,
-				xfer, r, req);
+			pr_debug("%s xfer=%d/%d  queued req/%x\n", __func__,
+				xfer, r, (uint)req);
 			dvc_dfx_req_put(dev, &dev->tx_xfer, req);
 			r -= xfer;
 
@@ -586,7 +586,7 @@ static int dvc_dfx_disable_transfer(void)
 			r = -EIO;
 			goto end;
 		}
-		pr_debug("%s dequeued tx req/%p\n", __func__, req);
+		pr_debug("%s dequeued tx req/%x\n", __func__, (uint)req);
 	}
 	ret = usb_ep_dequeue(dev->ep_out, dev->rx_req[0]);
 	if (ret < 0) {

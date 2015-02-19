@@ -415,8 +415,8 @@ static int trace_create_bulk_endpoints(struct dvc_trace_dev *dev,
 			goto fail;
 		req->complete = dvc_trace_complete_in;
 		dvc_trace_req_put(dev, &dev->tx_idle, req);
-		pr_debug("%s req= %p : for %s predefined TRB\n", __func__,
-			req, ep->name);
+		pr_debug("%s req= %x : for %s predefined TRB\n", __func__,
+			(uint)req, ep->name);
 	}
 
 	return 0;
@@ -497,8 +497,8 @@ static ssize_t dvc_trace_start_transfer(size_t count)
 				r = -EIO;
 				break;
 			}
-			pr_debug("%s: xfer=%d/%d  queued req/%p\n", __func__,
-				xfer, r, req);
+			pr_debug("%s: xfer=%d/%d  queued req/%x\n", __func__,
+				xfer, r, (uint)req);
 			dvc_trace_req_put(dev, &dev->tx_xfer, req);
 			r -= xfer;
 
@@ -551,7 +551,7 @@ static int dvc_trace_disable_transfer(void)
 			dvc_trace_unlock(&dev->write_excl);
 			return -EIO;
 		}
-		pr_debug("%s: dequeued req/%p\n", __func__, req);
+		pr_debug("%s: dequeued req/%x\n", __func__, (uint)req);
 	}
 
 	dvc_trace_unlock(&dev->write_excl);
