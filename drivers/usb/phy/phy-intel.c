@@ -349,7 +349,6 @@ static int intel_otg_suspend(struct intel_usbphy *iphy)
 		atomic_set(&iphy->in_lpm, 1);
 		atomic_set(&iphy->bus_suspended, 1);
 		dev_dbg(phy->dev, "USB bus in low power mode\n");
-		wake_unlock(&iphy->wlock);
 		return 0;
 	}
 
@@ -398,7 +397,6 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 	if (!atomic_read(&iphy->in_lpm))
 		return 0;
 
-	wake_lock(&iphy->wlock);
 
 	if (atomic_read(&iphy->bus_suspended)) {
 		ret = device_state_pm_set_state(iphy->dev,
@@ -415,6 +413,8 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 		disable_irq(iphy->resume_irq);
 		return 0;
 	}
+
+	wake_lock(&iphy->wlock);
 
 	/* reset USB core and PHY */
 	usb_enable_reset(iphy, true, "usb");
