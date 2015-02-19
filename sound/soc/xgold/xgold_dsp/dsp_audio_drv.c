@@ -166,7 +166,7 @@ int register_dsp_audio_lisr_cb(enum dsp_lisr_cb lisr_type,
 	if (lisr_type >= DSP_LISR_CB_END)
 		return -EINVAL;
 
-	xgold_debug("%s Registering lisr_cb: %d\n",
+	xgold_debug("%segistering lisr_cb: %d\n",
 			(NULL == p_func ? "De-r" : "R"), lisr_type);
 	down_write(&dsp_audio_cb_rwsem);
 	g_dsp_audio_cb_list[lisr_type].p_func = p_func;
@@ -311,11 +311,10 @@ static irqreturn_t dsp_audio_int3_hisr(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-#if 0 /* BU_hack , speech probe interrupt not enabled in MV */
 /* LISR for DSP_FBA_INT2 */
 static irqreturn_t dsp_audio_fba_int2_lisr(int irq, void *dsp_dev)
 {
-	xgold_debug("In %s\n", __func__);
+	xgold_debug("enter func\n");
 	/* clear the interrupt */
 	dsp_audio_irq_ack((struct dsp_audio_device *)dsp_dev, DSP_FBA_IRQ_2);
 
@@ -325,11 +324,10 @@ static irqreturn_t dsp_audio_fba_int2_lisr(int irq, void *dsp_dev)
 /* HISR for DSP_FBA_INT2 */
 static irqreturn_t dsp_audio_fba_int2_hisr(int irq, void *dev)
 {
-	xgold_debug("In %s\n", __func__);
+	xgold_debug("enter func\n");
 	dsp_audio_hisr_cb_handler(DSP_FBA_IRQ_2, dev);
 	return IRQ_HANDLED;
 }
-#endif
 
 /* open call for the device */
 static int dsp_audio_dev_open(void)
@@ -1992,9 +1990,9 @@ static int dsp_audio_runtime_resume(struct device *dev)
 			ops->irq_activate(DSP_IRQ_5);
 	}
 	if (XGOLD_DSP_XG742_FBA == dsp_dev->id) {
-		/* Activate FBA DSP interrupt 2 for VOLTE call */
+		/* Activate FBA DSP interrupt 0 for VOLTE call */
 		(void)dsp_dev->p_dsp_common_data->
-			ops->irq_activate(DSP_FBA_IRQ_2);
+			ops->irq_activate(DSP_FBA_IRQ_0);
 	}
 	return ret;
 }
@@ -2272,6 +2270,8 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 	dsp_dev = devm_kzalloc(&pdev->dev, sizeof(struct dsp_audio_device),
 						GFP_KERNEL);
 
+	xgold_debug("line: %d\n", __LINE__);
+
 	if (!dsp_dev) {
 		xgold_err("Failed to allocate dsp audio device\n");
 		return -ENOMEM;
@@ -2380,6 +2380,11 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 		goto out;
 	}
 
+	if (dsp_dev->id == XGOLD_DSP_XG742_FBA)
+		pr_info("dsp_id: %s\n", "XGOLD_DSP_XG742_FBA");
+	if (dsp_dev->id == XGOLD_DSP_XG742_SBA)
+		pr_info("dsp_id: %s\n", "XGOLD_DSP_XG742_SBA");
+
 	/* Enable dsp power when in native mode */
 	if (dsp_dev->pm_platdata) {
 		ret = platform_device_pm_set_state_by_name(pdev,
@@ -2436,7 +2441,6 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 			goto out;
 		}
 	}
-#if 0 /* BU_hack , speech probe interrupt not enabled in MV */
 	/* register FBA_INT2 interrupt handler */
 	if (dsp_dev->interrupts[SPEECH_PROBES]) {
 		interrupt = dsp_dev->interrupts[SPEECH_PROBES];
@@ -2445,14 +2449,12 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 				dsp_audio_fba_int2_hisr,
 				IRQF_TRIGGER_RISING, "dsp_int6",
 				dsp_dev);
-
 		if (ret < 0) {
 			xgold_err("\n FAILED to attach DSP_INT6 %d\n", ret);
 			goto out;
 
 		}
 	}
-#endif
 
 	init_rwsem(&dsp_audio_cb_rwsem);
 

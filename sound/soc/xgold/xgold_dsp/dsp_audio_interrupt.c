@@ -24,6 +24,12 @@
 #include "dsp_audio_hal_internal.h"
 #include "dsp_audio_internal.h"
 
+#define	xgold_err(fmt, arg...) \
+		pr_err("snd: dsp: "fmt, ##arg)
+
+#define	xgold_debug(fmt, arg...) \
+		pr_debug("snd: dsp: "fmt, ##arg)
+
 /* Interrupt callback list for DSP_INT_0 */
 const struct dsp_lisr_cb_conf lisr_int0_cb[] = {
 	{DSP_LISR_CB_TONE, DSP_IRQ_COMM_FLAG_3},
@@ -140,6 +146,8 @@ enum dsp_err_code dsp_audio_irq_activate(struct dsp_audio_device *dsp,
 {
 	U32 reg;
 
+	xgold_debug("enter - irq_no: %d\n", irq_no);
+
 	if (irq_no >= DSP_IRQ_END)
 		return DSP_ERR_INVALID_IRQ;
 
@@ -150,13 +158,15 @@ enum dsp_err_code dsp_audio_irq_activate(struct dsp_audio_device *dsp,
 
 	/* Read IMSC register for sba DSP */
 	reg = dsp_get_audio_imsc(dsp);
-	/* Check if the interrupt is disabled */
+	xgold_debug("dsp_get_audio_imsc - reg: 0x%X\n", reg);
 
+	/* Check if the interrupt is disabled */
 	if (!(reg & BIT(irq_no))) {
 		/* Set bit in IMSC register for intended interrupt */
 		reg |= BIT(irq_no);
 		/* Set the updated value for the IMSC register */
 		dsp_set_audio_imsc(dsp, reg);
+		xgold_debug("dsp_set_audio_imsc - reg: 0x%X\n", reg);
 	}
 	return DSP_SUCCESS;
 }
@@ -181,6 +191,9 @@ enum dsp_err_code dsp_audio_irq_deactivate(struct dsp_audio_device *dsp,
 {
 	enum dsp_err_code ret = DSP_SUCCESS;
 	U32 reg;
+
+	xgold_debug("enter - irq_no: %d\n", irq_no);
+
 	if (irq_no >= DSP_IRQ_END)
 		return DSP_ERR_INVALID_IRQ;
 
@@ -191,11 +204,13 @@ enum dsp_err_code dsp_audio_irq_deactivate(struct dsp_audio_device *dsp,
 
 	/* Read IMSC register for modem DSP */
 	reg = dsp_get_audio_imsc(dsp);
+	xgold_debug("dsp_get_audio_imsc - reg: 0x%X\n", reg);
 	if (0 != (reg & (1 << irq_no))) {
 		/* Reset bit in IMSC register for intended interrupt */
 		reg &= ~(1 << irq_no);
 		/* Set the updated value for the IMSC register */
 		dsp_set_audio_imsc(dsp, reg);
+		xgold_debug("dsp_set_audio_imsc - reg: 0x%X\n", reg);
 	}
 	return ret;
 }
@@ -227,5 +242,6 @@ enum dsp_err_code dsp_audio_irq_ack(struct dsp_audio_device *dsp_dev,
 
 	/* Set the ICR register */
 	dsp_set_audio_icr(dsp_dev, 1 << irq_no);
+	xgold_debug("dsp_get_audio_imsc - irq_no: 0x%X\n", irq_no);
 	return ret;
 }
