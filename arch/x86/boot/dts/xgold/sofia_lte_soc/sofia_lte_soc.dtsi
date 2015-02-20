@@ -422,7 +422,7 @@
 						/* QUIRK2_POWER_CONTROL_BUG: bit15 */
 						/* QUIRK2_HOST_EXEC_TUNING_WA: bit23 */
 #ifdef SOFIALTE_ES2
-						intel,quirks = < 0x0 0x804008 >;
+						intel,quirks = < 0x0 0x80c008 >;
 #else
 						intel,quirks = < 0x8000 0xc008 >;
 #endif
