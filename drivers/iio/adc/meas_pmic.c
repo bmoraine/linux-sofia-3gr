@@ -60,6 +60,9 @@
 /* Max retry count for VMM read/write access */
 #define VMM_RW_MAX_RETRY (3)
 
+/* Max revision of PMIC chip */
+#define PMIC_CHIP_REV_MAX  (8)
+
 /* PMIC NVM size in byte */
 #define PMIC_NVM_SIZE  (2048)
 /* Gain scaling factor */
@@ -175,6 +178,7 @@ struct meas_pmic_state_data {
 	struct completion meas_done;
 	adc_hal_cb_t operation_done_cb;
 	bool meas_pending;
+	int acd_dummy_measurement;
 };
 
 static struct meas_pmic_state_data meas_pmic_state = {
@@ -192,6 +196,20 @@ static struct meas_pmic_state_data meas_pmic_state = {
 		{0, "ADC_GPMEAS_IRQ"},
 		{0, NULL},
 	}
+};
+
+/* PMIC CHIP revision array */
+static struct meas_pmic_chip_rev {
+	char *str;
+} meas_pmic_chip_rev[PMIC_CHIP_REV_MAX] = {
+	{"A"},
+	{"B"},
+	{"C"},
+	{"D"},
+	{"E"},
+	{"F"},
+	{"G"},
+	{"H"},
 };
 
 /**
@@ -230,6 +248,8 @@ static struct meas_pmic_adc_reg {
 	{ADC_REQ_PEAK,   ADC_STA_PEAK, PEAKRSLTH_REG_ADDR, PEAKRSLTL_REG_ADDR},
 	{ADC_REQ_GPMEAS, ADC_STA_GPMEAS, Y0DATAH_REG_ADDR, Y0DATAL_REG_ADDR},
 	{ADC_REQ_GPMEAS, ADC_STA_GPMEAS, Y1DATAH_REG_ADDR, Y1DATAL_REG_ADDR},
+	{ADC_REQ_USBID, ADC_STA_USBID,
+		ACDRSLTH_REG_ADDR, ACDRSLTL_REG_ADDR},
 	{0, 0, VBATMAXH_REG_ADDR, VBATMAXL_REG_ADDR}
 };
 
@@ -464,6 +484,16 @@ static void meas_pmic_read_raw(int reg_channel,
 	BUG_ON(reg_channel < 0);
 	BUG_ON(reg_channel >= ADC_PHY_MAX);
 
+	/* Dummy measurement for ACD channel in PMIC A0 HW */
+	if ((ADC_PHY_ACCID == reg_channel) &
+			meas_pmic_state.acd_dummy_measurement) {
+		*p_result_uv = 802660;
+		*p_adc_bias_na = 0;
+		MEAS_PMIC_DEBUG_DATA_LOG(MEAS_PMIC_MEAS_DONE, reg_channel,
+				*p_result_uv, *p_adc_bias_na, 0);
+		return;
+		}
+
 	if (ADC_PHY_OCV != reg_channel) {
 
 		vmm_pmic_err = meas_pmic_reg_write(GPADCIRQ_REG_ADDR,
@@ -498,6 +528,15 @@ static void meas_pmic_read_raw(int reg_channel,
 	if (IS_ERR_VALUE(vmm_pmic_err)) {
 		pr_err("%s %d VMM PMIC read error %d\n", __func__,
 			__LINE__, vmm_pmic_err);
+	}
+
+	if (ADC_PHY_ACCID == reg_channel) {
+		vmm_pmic_err = meas_pmic_reg_read(
+			USBIDRSLTL_REG_ADDR, &rslt_hsb);
+		if (IS_ERR_VALUE(vmm_pmic_err)) {
+			pr_err("%s %d VMM PMIC read error %d\n", __func__,
+				__LINE__, vmm_pmic_err);
+		}
 	}
 
 	vmm_pmic_err = meas_pmic_reg_read(
@@ -640,6 +679,11 @@ static int meas_pmic_get_meas(enum adc_channel channel,
 				average_sample, true);
 	/* Clear active channel */
 	meas_pmic_state.active_channel = ADC_MAX_NO_OF_CHANNELS;
+
+	/* Check for ADC saturation */
+	if (*p_result_uv > MEAS_PMIC_ADC_SATURATION_LEVEL_UV)
+		return -ERANGE;
+
 	return 0;
 }
 
@@ -968,7 +1012,7 @@ static struct intel_adc_hal_channel_data channel_data[] = {
 	 ADC_PHY_VBAT, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
 	 ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_VOLTAGE},
 
-	{"intel_adc_sensors", "VBAT_OCV_ADC", "CH12_OCV", ADC_V_BAT_OCV,
+	{"intel_adc_sensors", "VBAT_OCV_ADC", "CH13_OCV", ADC_V_BAT_OCV,
 	 ADC_PHY_OCV, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
 	 ADC_HAL_AVG_SAMPLE_LEVEL_HIGH, IIO_VOLTAGE},
 
@@ -1003,6 +1047,10 @@ static struct intel_adc_hal_channel_data channel_data[] = {
 	{"intel_adc_sensors", "USBID_ADC", "CH08", ADC_ID_USB,
 	 ADC_PHY_USBID, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
 	 ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_RESISTANCE},
+
+	{"intel_adc_sensors", "ACCID_ADC", "CH12", ADC_ID_ACC,
+	 ADC_PHY_ACCID, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
+	 ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_VOLTAGE},
 };
 
 /**
@@ -1019,6 +1067,7 @@ static int meas_pmic_probe(struct platform_device *pdev)
 	struct intel_adc_hal_pdata *pdata;
 	struct adc_hal_channel_info *p_channel_info;
 	int ret, chan, count = 0, count_2 = 0;
+	int chipid = 0, chipid_major = 0, chipid_minor = 0;
 
 	meas_pmic_state.p_platform_device = pdev;
 
@@ -1086,6 +1135,28 @@ static int meas_pmic_probe(struct platform_device *pdev)
 			__LINE__, ret);
 		goto err_register_hal;
 	}
+
+	/* Read of PMIC CHIPID version from PMIC HW */
+	ret = meas_pmic_reg_read(CHIPID_ID0_REG_ADDR,
+		&chipid);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("%s %d VMM PMIC write error %d\n",
+			 __func__, __LINE__, ret);
+		goto err_register_hal;
+	}
+
+	chipid_major = ((chipid >> PMIC_CHIPID_ID0_MAJREV_BIT_POS) &
+		((1 << PMIC_CHIPID_ID0_MAJREV_BIT_LEN) - 1));
+
+	chipid_minor = ((chipid >> PMIC_CHIPID_ID0_MINREV_BIT_POS) &
+		((1 << PMIC_CHIPID_ID0_MINREV_BIT_LEN) - 1));
+
+	pr_info("%s PMIC CHIP ID = %s%d\n",
+		__func__, meas_pmic_chip_rev[chipid_major].str, chipid_minor);
+
+	/* ACD is not supported with older version than B0 PMIC */
+	if (chipid_major < PMIC_CHIPID_ID0_B0_MAJREV)
+		meas_pmic_state.acd_dummy_measurement = true;
 
 	ret = meas_pmic_reg_read(OTPVERSION_REG_ADDR,
 		&meas_pmic_state.otp_version);

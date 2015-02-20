@@ -38,6 +38,21 @@
 #define NVM_STAT0_REG_OTP_PD_ACT_BIT_POS (1)
 #define NVM_STAT0_REG_OTP_PD_ACT_VAL (1<<NVM_STAT0_REG_OTP_PD_ACT_BIT_POS)
 
+/* Major number for B0 PMIC version */
+#define PMIC_CHIPID_ID0_B0_MAJREV (1)
+
+/* Bit position and length for PMIC CHIPID major revision */
+#define PMIC_CHIPID_ID0_MAJREV_BIT_POS (3)
+#define PMIC_CHIPID_ID0_MAJREV_BIT_LEN (3)
+
+/* Bit position and length for PMIC CHIPID minor revision */
+#define PMIC_CHIPID_ID0_MINREV_BIT_POS (0)
+#define PMIC_CHIPID_ID0_MINREV_BIT_LEN (3)
+
+#define CHIPID_ID0_REG_OFFSET	(0x00)
+#define CHIPID_ID0_REG_ADDR \
+		((PMIC_SLAVE_DEVICE_1 << 24) | (CHIPID_ID0_REG_OFFSET))
+
 #define IRQLVL1_REG_OFFSET	(0x02)
 #define IRQLVL1_REG_ADDR \
 		((PMIC_SLAVE_DEVICE_1 << 24) | (IRQLVL1_REG_OFFSET))
@@ -182,6 +197,14 @@
 #define VBATMAXL_REG_ADDR \
 		((PMIC_SLAVE_DEVICE_2 << 24) | (VBATMAXL_REG_OFFSET))
 
+#define ACDRSLTH_REG_OFFSET	(0xFC)
+#define ACDRSLTH_REG_ADDR \
+		((PMIC_SLAVE_DEVICE_2 << 24) | (ACDRSLTH_REG_OFFSET))
+
+#define ACDRSLTL_REG_OFFSET	(0xFD)
+#define ACDRSLTL_REG_ADDR \
+		((PMIC_SLAVE_DEVICE_2 << 24) | (ACDRSLTL_REG_OFFSET))
+
 #define NVM_MB_ADDRH_OFFSET	(0x3A)
 #define NVM_MB_ADDRH_REG_ADDR \
 		((PMIC_SLAVE_DEVICE_4 << 24) | (NVM_MB_ADDRH_OFFSET))
@@ -242,8 +265,9 @@ enum intel_adc_phy_channel {
 	ADC_PHY_PEAK      = 9,
 	ADC_PHY_AGND      = 10,
 	ADC_PHY_VREF      = 11,
-	ADC_PHY_OCV       = 12,
-	ADC_PHY_MAX       = 13
+	ADC_PHY_ACCID     = 12,
+	ADC_PHY_OCV       = 13,
+	ADC_PHY_MAX       = 14
 	};
 
 #endif /* __MEAS_PMIC_REG_H__ */
