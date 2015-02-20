@@ -254,17 +254,12 @@ static void xgold_sdhci_of_suspend(struct sdhci_host *host)
 	if (device_state_pm_set_state_by_name(&mmc_pdata->dev,
 			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D3_name))
 		dev_err(&pdev->dev, "set pm state D0i2 during runtime suspend failed !\n");
-#endif
-	/* TODO: called before sleep commands for card...
-	 * should not stop clock !
-	 */
-#if 0
-	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
-	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
-	if (mmc_pdata->bus_clk)
-		clk_disable(mmc_pdata->bus_clk);
-	if (mmc_pdata->master_clk)
-		clk_disable(mmc_pdata->master_clk);
+	/* on SF boards sd cards power (vmmc) is enabled by IOs power (vqmmc):
+	 * need to disable at suspend otherwise resume is failing
+	 * (card not resetted)
+	 * kernel legacy sdhci is powering off vmmc at suspend */
+	if (host->vqmmc)
+		regulator_disable(host->vqmmc);
 #endif
 }
 
@@ -277,6 +272,8 @@ static void xgold_sdhci_of_resume(struct sdhci_host *host)
 		disable_irq_nosync(mmc_pdata->irq_wk);
 	}
 #if defined CONFIG_PLATFORM_DEVICE_PM && defined CONFIG_PLATFORM_DEVICE_PM_VIRT
+	if (host->vqmmc)
+		regulator_enable(host->vqmmc);
 	if (device_state_pm_set_state_by_name(&mmc_pdata->dev,
 			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name))
 		dev_err(&pdev->dev, "set pm state D0 during runtime resume  failed !\n");
@@ -285,14 +282,6 @@ static void xgold_sdhci_of_resume(struct sdhci_host *host)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-#endif
-#if 0
-	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
-	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
-	if (mmc_pdata->master_clk)
-		clk_enable(mmc_pdata->master_clk);
-	if (mmc_pdata->bus_clk)
-		clk_enable(mmc_pdata->bus_clk);
 #endif
 }
 
