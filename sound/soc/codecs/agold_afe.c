@@ -50,7 +50,7 @@
 #include "afe_acc_det.h"
 #endif
 
-
+#define AFE_MAX_SAMPLING_RATE 3
 #define AGOLD_AFE_NOF_BYTES_PER_REG 4
 
 #ifdef CONFIG_SND_SOC_AGOLD_HSOFC_SUPPORT
@@ -250,6 +250,55 @@ static int agold_afe_get_headset_power_index(int cp_freq)
 		break;
 	}
 	return index;
+}
+
+static int agold_afe_get_inrate_info(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_info *uinfo)
+{
+	afe_debug("%s :\n", __func__);
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.max = 3;
+	return 0;
+}
+
+/* Read current inrate value*/
+static int agold_afe_get_inrate_val(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *uinfo)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct agold_afe_data *agold_afe = snd_soc_codec_get_drvdata(codec);
+	afe_debug("%s:\n", __func__);
+
+	mutex_lock(&codec->mutex);
+	uinfo->value.integer.value[0] = agold_afe->afe_in_samplerate;
+	mutex_unlock(&codec->mutex);
+
+	afe_debug("%s: Current AFE IN Sample rate = %ld\n", __func__,
+			uinfo->value.integer.value[0]);
+	return 0;
+}
+
+/* Set afe inrate */
+static int agold_afe_set_inrate_val(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *uinfo)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct agold_afe_data *agold_afe = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+	afe_debug("%s :\n", __func__);
+
+	if (AFE_MAX_SAMPLING_RATE < uinfo->value.integer.value[0]) {
+		afe_err("%s: %ld is an invalid inrate request\n", __func__,
+			uinfo->value.integer.value[0]);
+		return -EINVAL;
+	}
+	mutex_lock(&codec->mutex);
+	agold_afe->afe_in_samplerate = uinfo->value.integer.value[0];
+	mutex_unlock(&codec->mutex);
+	afe_debug("%s : AFE IN Samplerate set = %d\n", __func__,
+			agold_afe->afe_in_samplerate);
+	return ret;
 }
 
 static int agold_afe_get_cp_frequency_info(struct snd_kcontrol *kcontrol,
@@ -1017,6 +1066,13 @@ static const struct snd_kcontrol_new agold_afe_snd_controls[] = {
 		.get = agold_afe_get_reg_val,
 		.put = agold_afe_set_reg_val,
 	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "AFE SET INRATE",
+		.info = agold_afe_get_inrate_info,
+		.get = agold_afe_get_inrate_val,
+		.put = agold_afe_set_inrate_val
+	},
 #ifdef CONFIG_SND_SOC_AGOLD_HSOFC_SUPPORT
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
@@ -1401,19 +1457,11 @@ static int agold_afe_dmic_event(struct snd_soc_dapm_widget *w,
 	struct agold_afe_data *agold_afe =
 		(struct agold_afe_data *)snd_soc_codec_get_drvdata(w->codec);
 	int ret;
-	u32 reg = 0;
 	afe_debug("%s\n", __func__);
-
-	reg = snd_soc_read(w->codec, AGOLD_AFE_BCON);
-	reg &= 0xFFFFFF3F;
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		afe_debug("%s: SND_SOC_DAPM_PRE_PMU\n", __func__);
-
-		/* Program the INRATE bits */
-		/* For DigMic set sampling rate to 48KHz */
-		reg |= (0x3 << AFE_BCON_AUD_INRATE_POS);
 
 		ret = agold_afe_set_pinctrl_state(w->codec->dev,
 				agold_afe->pins_default);
@@ -1433,14 +1481,10 @@ static int agold_afe_dmic_event(struct snd_soc_dapm_widget *w,
 		afe_debug("%s: SND_SOC_DAPM_POST_PMD\n", __func__);
 		ret = agold_afe_set_pinctrl_state(w->codec->dev,
 				agold_afe->pins_sleep);
-		/* Set default sampling rate to 16KHz */
-		reg |= (0x1 << AFE_BCON_AUD_INRATE_POS);
 		if (ret)
 			afe_err("%s: Deactivating PCL pad failed\n", __func__);
 		break;
 	}
-	snd_soc_write(w->codec, AGOLD_AFE_BCON, reg);
-
 	return 0;
 }
 #endif
@@ -1855,6 +1899,7 @@ static int agold_afe_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_codec *codec = rtd->codec;
 	int *audio_native = snd_soc_card_get_drvdata(codec->card);
+	struct agold_afe_data *agold_afe = snd_soc_codec_get_drvdata(codec);
 	u32 reg = 0;
 
 	unsigned int rate, format;
@@ -1871,8 +1916,10 @@ static int agold_afe_hw_params(struct snd_pcm_substream *substream,
 		/* Program the INRATE bits */
 		reg &= 0xFFFFFF3F;
 
-		/* Default to 16KHz input sampling rate */
-		reg |= (0x1 << AFE_BCON_AUD_INRATE_POS);
+		reg |= (agold_afe->afe_in_samplerate <<
+					AFE_BCON_AUD_INRATE_POS);
+		afe_debug("%s: AFE IN RATE is set to  %d\n", __func__,
+			agold_afe->afe_in_samplerate);
 
 		if (*audio_native)
 			reg |= BIT(5); /* INSTART */
@@ -1914,7 +1961,8 @@ static int agold_afe_codec_probe(struct snd_soc_codec *codec)
 		afe_err("NULL pointer check failed for agold_afe\n");
 		return -EINVAL;
 	}
-
+	/* Default AFE IN sample rate to 48KHz */
+	agold_afe->afe_in_samplerate = 3;
 	agold_afe_handle_codec_power(codec, SND_SOC_BIAS_STANDBY);
 	if (*audio_native) {
 		/* Prepare AFE registers */

@@ -217,6 +217,7 @@ struct agold_afe_data {
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
+	int afe_in_samplerate;
 };
 
 struct agold_afe_data *agold_afe_get_private_data(void);
