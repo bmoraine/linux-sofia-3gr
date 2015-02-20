@@ -151,6 +151,42 @@
 #endif
 };
 
+&eint {
+	/* intel,virq,x = <0>; means EINTx is owned & requested by IRQ framework */
+	intel,virq,0 = <0>; /* EINT_EXI0: ??? */
+	intel,virq,1 = <0>; /* EINT_EXI1: TOUCH */
+	intel,virq,2 = <0>; /* EINT_EXI2: ??? */
+	intel,virq,3 = <0>; /* EINT_EXI3: ??? */
+	intel,virq,4 = <1>; /* EINT_EXI4 */
+	intel,virq,5 = <1>; /* EINT_EXI5 */
+	intel,virq,6 = <0>; /* EINT_EXI6: ??? */
+	intel,virq,7 = <1>; /* EINT_EXI7 */
+	intel,virq,8 = <1>; /* EINT_EXI8 */
+	intel,virq,9 = <1>; /* EINT_EXI9 */
+	intel,virq,10 = <1>; /* EINT_EXI10 */
+	intel,virq,11 = <1>; /* EINT_EXI11 */
+	intel,virq,12 = <0>; /* EINT_EXI12: ??? */
+	intel,virq,13 = <1>; /* EINT_EXI13 */
+	intel,virq,14 = <1>; /* EINT_EXI14 */
+	intel,virq,15 = <1>; /* EINT_EXI15 */
+	intel,virq,16 = <0>; /* EINT_USB_HS_RESUME */
+	intel,virq,17 = <0>; /* EINT_SDMMC_DETECT */
+	intel,virq,18 = <1>; /* EINT_SDIO_DAT3 */
+	intel,virq,19 = <1>; /* EINT_SDIO_DAT1 */
+	intel,virq,20 = <0>; /* EINT_USIF1_WK */
+	intel,virq,21 = <1>; /* EINT_USIF2_WK */
+	intel,virq,22 = <1>; /* EINT_WUP_DBB */
+	intel,virq,23 = <1>; /* EINT_U2H */
+	intel,virq,24 = <1>; /* EINT_G3FP */
+	intel,virq,25 = <1>; /* EINT_DTXS */
+	intel,virq,26 = <1>; /* EINT_DRXS */
+	intel,virq,27 = <1>; /* EINT_WDT0 */
+	intel,virq,28 = <1>; /* EINT_WDT1 */
+	intel,virq,29 = <0>; /* EINT_USB_ID */
+
+	intel,preack,20 = <1>; /* EINT_USIF1_WK */
+};
+
 &idi_per {
 	#define SOFIA_3GR_GARNET_EVB
 	#include "xgold/agold620/agold620.dtsi"

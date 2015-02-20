@@ -15,6 +15,7 @@
 #else
 /* Vectors nodes definitions based on VMM attributions */
 #include "xgold/sofia_3gr_soc/irq-vectors.h"
+#include "xgold/sofia_3gr_soc/irq-vectors-plf.h"
 #endif
 
 /* IRQ DOMAINS HEADERS */

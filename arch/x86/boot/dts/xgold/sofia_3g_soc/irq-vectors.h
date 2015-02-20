@@ -26,17 +26,6 @@
 #define SDIO_INT 0
 #define DIF_RX_BREQ_INT 0
 #define NANDCTRL_INT 0
-#define EXI3 0
-#define EXI4 0
-#define EXI5 0
-#ifdef SOFIA3G_ES2_TAB_SVB
-#define EXI6 59
-#else
-#define EXI6 0
-#endif
-#define EXI7 0
-#define EXI13 0
-#define EXI15 0
 #define AFE_LS_ALERT 0
 #define VM_ID_VIOLATION 0
 #define OCP_DATA_ABORT 0
@@ -56,13 +45,11 @@
 #define GT1_INT7 0
 #define CGU_INT 0
 #define OTG_SRP_INT 0
-#define EXI9 0
 #define ACI_INT 0
 #define DIF_TX_XREQ_INT 0
 #define DIF_RX_XREQ_INT 0
 #define SDIO_DAT3 0
 #define SDIO_DAT1 0
-#define EXI10 0
 #define USIF1_INT 35
 #define USIF2_INT 36
 #define DIF_ERR_INT 37
@@ -83,16 +70,7 @@
 #define FMTX_EV_CALIB 52
 #define FMTX_EV_TUNE 53
 #define USB_INT 54
-#define EXI0 55
-#define EXI1 56
-#define EXI2 57
 #define I2C_RAWIRQ 58
-#ifdef SOFIA3G_ES2_TAB_SVB
-#define EXI11 0
-#else
-#define EXI11 59
-#endif
-#define EXI12 60
 #define USB_HS_RESUME 61
 #define SDMMC_DETECT 62
 #define BTIF_ERR_SRQ 63
@@ -142,8 +120,6 @@
 #define AUDIODSP_INT0 107
 #define STM_INT1 108
 #define STM_INT0 109
-#define EXI8 115
-#define EXI14 116
 #define NOC_ERR_AUDIO_IDI 118
 #define VID_HINT_ENC 126
 #define VID_HINT_DEC 127
