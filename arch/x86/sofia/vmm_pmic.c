@@ -238,7 +238,7 @@ static int32_t vmm_pmic_probe(struct platform_device *pdev)
 	if (!IS_ERR_VALUE(irq_number)) {
 		ret = devm_request_irq(&pdev->dev, irq_number,
 				vmm_pmic_reg_access_irq_hdl,
-				0, "pmic hirq", NULL);
+				IRQF_NO_SUSPEND, "pmic hirq", NULL);
 		if (ret != 0) {
 			dev_err(&pdev->dev, "setup irq %d failed: %d\n",
 					irq_number, ret);
