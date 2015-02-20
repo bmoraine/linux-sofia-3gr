@@ -44,8 +44,6 @@
 #define MEAS_PMIC_ADC_RESOLUTION_BITS			(12)
 /* ADC range for gain=1 (0db) in uV */
 #define MEAS_PMIC_ADC_RANGE_GAIN_0DB_UV		(1200000)
-/* ADC saturation level */
-#define MEAS_PMIC_ADC_SATURATION_LEVEL_UV	(1199000)
 /* PMIC NVM version which works for BATT TEMP and SYS TEMP ADC
 	meausrement without any change */
 #define MEAS_PMIC_TLP2_SEQ_FIX_NVM_VERSION (0x4)
@@ -230,6 +228,8 @@ static struct meas_pmic_adc_reg {
 	{ADC_REQ_PEAK,   ADC_STA_PEAK, PEAKRSLTH_REG_ADDR, PEAKRSLTL_REG_ADDR},
 	{ADC_REQ_GPMEAS, ADC_STA_GPMEAS, Y0DATAH_REG_ADDR, Y0DATAL_REG_ADDR},
 	{ADC_REQ_GPMEAS, ADC_STA_GPMEAS, Y1DATAH_REG_ADDR, Y1DATAL_REG_ADDR},
+	{ADC_REQ_USBID, ADC_STA_USBID,
+		ACDRSLTH_REG_ADDR, ACDRSLTL_REG_ADDR},
 	{0, 0, VBATMAXH_REG_ADDR, VBATMAXL_REG_ADDR}
 };
 
@@ -500,6 +500,15 @@ static void meas_pmic_read_raw(int reg_channel,
 			__LINE__, vmm_pmic_err);
 	}
 
+	if (ADC_PHY_ACCID == reg_channel) {
+		vmm_pmic_err = meas_pmic_reg_read(
+			USBIDRSLTL_REG_ADDR, &rslt_hsb);
+		if (IS_ERR_VALUE(vmm_pmic_err)) {
+			pr_err("%s %d VMM PMIC read error %d\n", __func__,
+				__LINE__, vmm_pmic_err);
+		}
+	}
+
 	vmm_pmic_err = meas_pmic_reg_read(
 		meas_pmic_adc_reg[reg_channel].rslt_hsb_addr, &rslt_hsb);
 	if (IS_ERR_VALUE(vmm_pmic_err)) {
@@ -640,11 +649,6 @@ static int meas_pmic_get_meas(enum adc_channel channel,
 				average_sample, true);
 	/* Clear active channel */
 	meas_pmic_state.active_channel = ADC_MAX_NO_OF_CHANNELS;
-
-	/* Check for ADC saturation */
-	if (*p_result_uv > MEAS_PMIC_ADC_SATURATION_LEVEL_UV)
-		return -ERANGE;
-
 	return 0;
 }
 
@@ -973,7 +977,7 @@ static struct intel_adc_hal_channel_data channel_data[] = {
 	 ADC_PHY_VBAT, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
 	 ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_VOLTAGE},
 
-	{"intel_adc_sensors", "VBAT_OCV_ADC", "CH12_OCV", ADC_V_BAT_OCV,
+	{"intel_adc_sensors", "VBAT_OCV_ADC", "CH13_OCV", ADC_V_BAT_OCV,
 	 ADC_PHY_OCV, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
 	 ADC_HAL_AVG_SAMPLE_LEVEL_HIGH, IIO_VOLTAGE},
 
@@ -1008,6 +1012,10 @@ static struct intel_adc_hal_channel_data channel_data[] = {
 	{"intel_adc_sensors", "USBID_ADC", "CH08", ADC_ID_USB,
 	 ADC_PHY_USBID, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
 	 ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_RESISTANCE},
+
+	{"intel_adc_sensors", "ACCID_ADC", "CH12", ADC_ID_ACC,
+	 ADC_PHY_ACCID, false, 0, ADC_HAL_SIGNAL_SETTLING_DISABLED,
+	 ADC_HAL_AVG_SAMPLE_LEVEL_MEDIUM, IIO_VOLTAGE},
 };
 
 /**
