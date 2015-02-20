@@ -1,4 +1,10 @@
 /*
+ * Copyright (C) 2015 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Feb 20 2015: IMC: Set L1_DCACHE_SIZE to 16KB for SoFIA LTE
+ */
+/*
  *
  * (C) COPYRIGHT ARM Limited. All rights reserved.
  *
@@ -47,7 +53,7 @@
 #define KBASE_CPUPROPS_ID_GET_CODE(cpuid)   (((cpuid) >> 24) & 0xFF)  /* [31:23] ASCII code of implementer trademark */
 
 /*Below value sourced from OSK*/
-#define L1_DCACHE_SIZE ((u32)0x00008000)
+#define L1_DCACHE_SIZE ((u32)0x00004000)
 
 /**
  * @brief Retrieves detailed CPU info from given cpu_val ( ID reg )

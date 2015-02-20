@@ -1,4 +1,10 @@
 /*
+ * Copyright (C) 2015 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Jan 25 2015: IMC: Fix wrong page attribute handling for X86
+ */
+/*
  *
  * (C) COPYRIGHT ARM Limited. All rights reserved.
  *

@@ -21,6 +21,7 @@
 #define mali_info(fmt, arg...)	pr_info(MALI_PLF_NAME": " fmt, ##arg)
 #define mali_warn(fmt, arg...)	pr_warn(MALI_PLF_NAME" [W]: " fmt, ##arg)
 #define mali_dbg(fmt, arg...)	pr_debug(MALI_PLF_NAME" [D]: " fmt, ##arg)
+#define mali_test(fmt, arg...)	pr_err(MALI_PLF_NAME" [TEST]: " fmt, ##arg)
 
 
 #undef GPU_USE_ULTRA_HIGH_PERF /* Enable to use ultra_high_perf mode */

@@ -1,11 +1,4 @@
 /*
- * Copyright (C) 2015 Intel Mobile Communications GmbH
- *
- * Notes:
- * Jan 14 2014: IMC: Change page cache strategy on x86 when
- *                   mapping/unmapping carveout memory
- */
-/*
  *
  * (C) COPYRIGHT ARM Limited. All rights reserved.
  *
@@ -109,7 +102,6 @@ static void kbase_carveout_put_page(struct page *p,
 		dma_unmap_page(allocator->kbdev->dev, kbase_dma_addr(p),
 				PAGE_SIZE,
 				DMA_BIDIRECTIONAL);
-
 		ClearPagePrivate(p);
 		__free_page(p);
 		atomic_dec(&kbase_carveout_system_pages);
@@ -177,7 +169,6 @@ out_rollback:
 		dma_unmap_page(dev, kbase_dma_addr(p),
 				PAGE_SIZE,
 				DMA_BIDIRECTIONAL);
-
 		ClearPagePrivate(p);
 		list_del(&p->lru);
 	}

@@ -44,6 +44,10 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 
 	plf_context = (struct xgold_platform_context *) kbdev->platform_context;
 
+	/* Already powered off */
+	if (MALI_PLF_PM_STATE_D3 == plf_context->curr_pm_state)
+		return;
+
 	pdev = to_platform_device(kbdev->dev);
 	if (IS_ERR_OR_NULL(pdev)) {
 		mali_err("Could not get platform device\n");
@@ -56,6 +60,9 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 		mali_err("Device pm set state failed (%d)\n", ret);
 		return;
 	}
+
+	plf_context->curr_pm_state = MALI_PLF_PM_STATE_D3;
+
 	mali_dbg("powered off\n");
 }
 
@@ -74,6 +81,10 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 
 	plf_context = (struct xgold_platform_context *) kbdev->platform_context;
 
+	/* Already powered up */
+	if (plf_context->resume_pm_state == plf_context->curr_pm_state)
+		return 0;
+
 	pdev = to_platform_device(kbdev->dev);
 	if (IS_ERR_OR_NULL(pdev)) {
 		mali_err("Could not get platform device\n");
@@ -81,12 +92,15 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 	}
 
 	ret = platform_device_pm_set_state(pdev,
-		plf_context->pm_states[MALI_PLF_PM_STATE_D1]);
+		plf_context->pm_states[plf_context->resume_pm_state]);
 	if (ret < 0) {
 		mali_err("Device pm set state failed (%d)\n", ret);
 		return ret;
 	}
 
+	plf_context->curr_pm_state = plf_context->resume_pm_state;
+
+	/* ToDo: Only call once after boot-up and on system resume!!! */
 	/* Need to set GPU QoS on power_on */
 	xgold_noc_qos_set("GPU");
 	mali_dbg("Set GPU QoS\n");
@@ -218,6 +232,12 @@ static mali_bool kbase_platform_xgold_init(struct kbase_device *kbdev)
 		return MALI_FALSE;
 	}
 
+	/* Currently powered off */
+	plf_context->curr_pm_state = MALI_PLF_PM_STATE_D3;
+
+	/* Initial power level (D1=312MHz / D0=456MHz) */
+	plf_context->resume_pm_state = MALI_PLF_PM_STATE_D1;
+
 	kbdev->platform_context = (void *) plf_context;
 	mali_info("Initialized\n");
 
@@ -247,7 +267,7 @@ static int cpu_speed_func(u32 *clock_speed)
 
 	KBASE_DEBUG_ASSERT(NULL != clock_speed);
 
-	*clock_speed = 100;
+	*clock_speed = 832;
 
 	return 0;
 }
@@ -286,6 +306,20 @@ static struct kbase_attribute config_attributes[] = {
 	 KBASE_CONFIG_ATTR_GPU_SPEED_FUNC,
 	 (uintptr_t)&gpu_speed_func
 	},
+#if 0
+	{
+	 KBASE_CONFIG_ATTR_PM_GPU_POWEROFF_TICK_NS,
+	 500000 /* 500us */
+	},
+	{
+	 KBASE_CONFIG_ATTR_PM_POWEROFF_TICK_SHADER,
+	 2 /* 2*500us */
+	},
+	{
+	 KBASE_CONFIG_ATTR_PM_POWEROFF_TICK_GPU,
+	 2 /* 2*500us */
+	},
+#endif
 	{
 	 KBASE_CONFIG_ATTR_END,
 	 0
