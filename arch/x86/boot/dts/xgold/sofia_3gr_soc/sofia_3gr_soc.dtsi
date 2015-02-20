@@ -627,14 +627,42 @@
 						interrupts = < USB_INT IRQ_TYPE_DEFAULT	>;
 						interrupt-names = "core";
 						dr_mode = "otg";
-						g_use_dma;
-						g_rx_fifo_size = < 1744 >;
-						g_np_tx_fifo_size = < 32 >;
-						g_tx_fifo_size = < 512 512 512 512
+						g-use-dma;
+						g-rx-fifo-size = < 1744 >;
+						g-np-tx-fifo-size = < 32 >;
+						g-tx-fifo-size = < 512 512 512 512
 								   512 64 64 64
 								   64 32 32 7
 								   3 3 3 >;
-					    };
+						dwc2_params = <
+							2		/* otg_cap */
+							0xffffffff	/* otg_ver */
+							0xffffffff	/* dma_enable */
+							0		/* dma_desc_enable */
+							0xffffffff	/* speed */
+							0xffffffff	/* enable_dynamic_fifo */
+							0xffffffff	/* en_multiple_tx_fifo */
+							0xffffffff	/* host_rx_fifo_size */
+							0xffffffff	/* host_nperio_tx_fifo_size */
+							0xffffffff	/* host_perio_tx_fifo_size */
+							0xffffffff	/* max_transfer_size */
+							0xffffffff	/* max_packet_count */
+							0xffffffff	/* host_channels */
+							0xffffffff	/* phy_type */
+							0xffffffff	/* phy_utmi_width */
+							0xffffffff	/* phy_ulpi_ddr */
+							0xffffffff	/* phy_ulpi_ext_vbus */
+							0xffffffff	/* i2c_enable */
+							0xffffffff	/* ulpi_fs_ls */
+							0xffffffff	/* host_support_fs_ls_low_power */
+							0xffffffff	/* host_ls_low_power_phy_clk */
+							0xffffffff	/* ts_dline */
+							0xffffffff	/* reload_ctl */
+							0xffffffff	/* ahbcfg */
+							0xffffffff	/* uframe_sched */
+							1		/* external_id_pin_ctl */
+						>;
+					};
 
 #ifndef RECOVERY_KERNEL
 					cif:cif{
