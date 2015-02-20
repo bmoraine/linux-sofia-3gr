@@ -254,13 +254,13 @@ pmic {
 						"BATID_ADC",    "PMICTEMP_ADC",
 						"ANAMON_ADC",   "SYSTEMP0_ADC",
 						"SYSTEMP1_ADC", "SYSTEMP2_ADC",
-						"USBID_ADC";
+						"USBID_ADC", "ACCID_ADC";
 			io-channels = < &meas_pmic 0 &meas_pmic 1
 					&meas_pmic 2 &meas_pmic 3
 					&meas_pmic 4 &meas_pmic 5
 					&meas_pmic 6 &meas_pmic 7
 					&meas_pmic 8 &meas_pmic 9
-					&meas_pmic 10>;
+					&meas_pmic 10 &meas_pmic 11>;
 		};
 
 		/* SW Fuel gauge*/
