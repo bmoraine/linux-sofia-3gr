@@ -341,7 +341,6 @@ static int intel_otg_suspend(struct intel_usbphy *iphy)
 			return -EINVAL;
 		}
 		usb_enable_pll_en(iphy, false);
-		usb_enable_reset(iphy, true, "bus");
 		enable_irq(iphy->resume_irq);
 		if (device_may_wakeup(iphy->dev))
 			enable_irq_wake(iphy->resume_irq);
@@ -407,7 +406,6 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 		atomic_set(&iphy->in_lpm, 0);
 		atomic_set(&iphy->bus_suspended, 0);
 		usb_enable_pll_en(iphy, true);
-		usb_enable_reset(iphy, false, "bus");
 		if (device_may_wakeup(iphy->dev))
 			disable_irq_wake(iphy->resume_irq);
 		disable_irq(iphy->resume_irq);
