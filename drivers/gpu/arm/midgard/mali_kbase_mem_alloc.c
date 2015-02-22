@@ -311,6 +311,10 @@ void kbase_mem_allocator_free(struct kbase_mem_allocator *allocator, size_t nr_p
 						PAGE_SIZE,
 						DMA_BIDIRECTIONAL);
 
+#ifdef CONFIG_X86
+			if (get_page_memtype(p) == _PAGE_CACHE_WC)
+				set_pages_wb(p, 1);
+#endif
 			list_add(&p->lru, &new_free_list_items);
 			page_count++;
 		}
