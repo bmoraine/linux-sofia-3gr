@@ -573,8 +573,7 @@
 							 &dma8ch 3 >;
 						dma-names = "rx", "tx";
 						intel,usif-serial,rx,buffer-size = < 1024 >;
-						intel,ictmo-cfg = < 3000000 0x100 >; /* rate, ictmo */
-
+						intel,ictmo-cfg = < 3000000 0x100 4000000 0x100 >; /* rate, ictmo */
 						pm,class-name = "usif_class";
 						pm,user-name = "usif3";
 						pm,state-D0 = "enable_104M_hperf";
