@@ -1896,6 +1896,12 @@ static void btif_shutdown(struct uart_port *port)
 	struct idi_channel_config *rx_conf = &p_btif->rx_ch_config;
 
 	IMC_IDI_BTIF_ENTER;
+
+#ifdef IMC_IDI_BTIF_PARANOID
+	if (p_btif->state & BT_OFF)
+		return;
+#endif
+
 	btif_stop_tx(&p_btif->port);
 	btif_stop_rx(&p_btif->port);
 
@@ -1922,8 +1928,10 @@ static void btif_shutdown(struct uart_port *port)
 	imc_idi_btip_disable(p_btif);
 	imc_idi_free_irqs(p_device);
 
-	if (p_btif->tx_trans)
+	if (p_btif->tx_trans) {
 		idi_free_transaction(p_btif->tx_trans);
+		p_btif->tx_trans = NULL;
+	}
 
 	/* Free the RX bounce buffer */
 	if (rx_conf->cpu_base) {
