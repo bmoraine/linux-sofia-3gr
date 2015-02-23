@@ -14,7 +14,11 @@ i2c2_txrx	{ dma_rq_desc };
 usim1		{ dma_rq_desc };
 guc_rx		{ dma_rq_desc };
 guc_tx		{ dma_rq_desc };
-dsp_req1	{ dma_rq_desc };
+dsp_req1	{
+	compatible = "intel,dma-pl08x,slave-chan"; \
+	intel,dma-signals = < 0 15 >; /* min, max */ \
+	intel,dma-bus = < 1 >; /* AHB1 */
+};
 dsp_req2	{ dma_rq_desc };
 dsp_req3	{ dma_rq_desc };
 usim2		{ dma_rq_desc };
