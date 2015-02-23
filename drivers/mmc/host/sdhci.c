@@ -2042,7 +2042,9 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 				(SDHCI_QUIRK2_HOST_EXEC_TUNING_WA
 				 & host->quirks2)) {
 				pr_info(DRIVER_NAME ": Arasan workaround: back to autotuning\n");
-				goto out;
+				err = (ctrl & SDHCI_CTRL_EXEC_TUNING) ? -EIO : 0;
+				if (!err)
+					goto out;
 			}
 			ctrl &= ~SDHCI_CTRL_TUNED_CLK;
 			ctrl &= ~SDHCI_CTRL_EXEC_TUNING;
