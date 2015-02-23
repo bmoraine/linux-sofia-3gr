@@ -235,7 +235,7 @@ int dma_init_reg(struct device_node *np,
 #define OF_BUSES		"intel,dma-pl08x,buses"
 #define OF_MEMCPY		"intel,dma-pl08x,memcpy"
 #define OF_PERIPHID		"intel,dma-pl08x,periphid"
-#define OF_MUXNASE		"intel,mux-base"
+#define OF_MUXBASE		"intel,mux-base"
 
 #define OF_CLK_MASTER1		"clk_master1"
 #define OF_CLK_MASTER2		"clk_master2"
@@ -363,7 +363,7 @@ static struct xgold_dma_platdata *xgold_dma_get_platdata(
 	}
 
 	/* Slave request MUX */
-	ret = of_address_to_resource(of_parse_phandle(np, OF_MUXNASE, 0),
+	ret = of_address_to_resource(of_parse_phandle(np, OF_MUXBASE, 0),
 			0, &res);
 	if (!ret)
 		mux_base = devm_ioremap(dev, res.start, resource_size(&res));
@@ -574,7 +574,7 @@ static struct xgold_dma_platdata *xgold_dma_get_platdata(
 static void dma_reg_write(struct dma_reg *dma_reg, unsigned int val)
 {
 	unsigned reg = readl(dma_reg->reg);
-	unsigned mask = (1 << dma_reg->width)-1;
+	unsigned mask = (1 << dma_reg->width) - 1;
 	reg &= ~(mask << dma_reg->shift);
 	reg |= val << dma_reg->shift;
 	writel(reg, dma_reg->reg);
@@ -591,14 +591,8 @@ static int xgold_dma_get_signal(const struct pl08x_channel_data *cd)
 	for (i = cd->min_signal; i <= cd->max_signal; i++) {
 		if (!dma->signals[i].busy) {
 			struct dma_req_mapping *dma_req;
-			/* FIXME check when dma_req is 0 */
-			/*if (dma->signals[i].num_dma_req == 0) {
-				dma->signals[i].busy++;
-				spin_unlock_irqrestore(&dma->lock, flags);
-				return i;
-			}*/
 			list_for_each_entry(dma_req,
-				&dma->signals[i].list, node) {
+					&dma->signals[i].list, node) {
 				if (!strcmp(dma_req->bus_id, cd->bus_id)) {
 					if (dma->signals[i].mux_reg.reg) {
 						dma_reg_write(
@@ -628,9 +622,10 @@ static void xgold_dma_put_signal(
 
 	/* if signal is not used */
 	if (!dma->signals[i].busy)
-		BUG();
+		WARN_ON(true);
+	else
+		dma->signals[i].busy--;
 
-	dma->signals[i].busy--;
 	spin_unlock_irqrestore(&dma->lock, flags);
 }
 
