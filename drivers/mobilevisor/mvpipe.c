@@ -438,9 +438,13 @@ static unsigned int mvpipe_dev_poll(struct file *filp, poll_table *wait)
 
 	if (!is_buffer_empty(read_ring))
 		result |= (POLLIN | POLLRDNORM);
+	else
+		read_ring->reader_status = READ_BUF_EMPTY;
 
 	if (!is_buffer_full(write_ring))
 		result |= (POLLOUT | POLLWRNORM);
+	else
+		write_ring->writer_status = WRITE_BUF_FULL;
 
 	return result;
 }
