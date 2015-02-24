@@ -244,24 +244,15 @@ out:
 
 IRQCHIP_DECLARE(xgold_capcom, "intel,capcom", xgold_irq_capcom_of_init);
 
-
-/* FIXME: should be late suspend */
 static int xgold_capcom_suspend(struct platform_device *pdev,
 		pm_message_t state)
 {
-	struct xgold_capcom_pdata *pdata = dev_get_drvdata(&pdev->dev);
-
-	return device_state_pm_set_state_by_name(&pdev->dev,
-			pdata->pm_platdata->pm_state_D3_name);
+	return 0;
 }
 
-/* FIXME: should be early resume */
 static int xgold_capcom_resume(struct platform_device *pdev)
 {
-	struct xgold_capcom_pdata *pdata = dev_get_drvdata(&pdev->dev);
-
-	return device_state_pm_set_state_by_name(&pdev->dev,
-			pdata->pm_platdata->pm_state_D0_name);
+	return 0;
 }
 
 static int __init xgold_capcom_probe(struct platform_device *pdev)
