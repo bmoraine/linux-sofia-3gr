@@ -45,6 +45,10 @@
 #include <linux/time.h>
 #include <linux/wakelock.h>
 
+#include <linux/alarmtimer.h>
+#include <linux/hrtimer.h>
+
+
 /*
  * Development debugging is not enabled in release image to prevent
  * loss of event history in the debug array which has a limited size
@@ -188,6 +192,8 @@
 #define LINES_PER_PAGE (PAGE_SIZE/LOG_LINE_LENGTH)
 #define SHADOW_REGS_NR 10
 
+#define CHARGER_WATCHDOG_TIMER_SECS (10)
+
 #define fit_in_range(__val, __MIN, __MAX) ((__val > __MAX) ? __MAX : \
 					(__val < __MIN) ? __MIN : __val)
 
@@ -226,6 +232,17 @@ enum charger_status {
 	FAN54020_STATUS_READY,
 	FAN54020_STATUS_FAULT,
 };
+
+#define SET_ALARM_TIMER(__alarm, tout_delay) \
+	do {\
+		struct timespec __delta;\
+		__delta.tv_sec = tout_delay;\
+		__delta.tv_nsec = 0;\
+		alarm_start_relative(__alarm, timespec_to_ktime(__delta));\
+	} while (0)
+
+
+
 
 /**
  * struct fan54020_state - FAN54020 charger current state
@@ -305,6 +322,9 @@ struct	unfreezable_bh_struct {
 	spinlock_t lock;
 };
 
+static void unfreezable_bh_schedule(struct unfreezable_bh_struct *bh);
+
+
 
 /**
  * struct fan54020_charger - FAN54020 charger driver internal structure
@@ -315,8 +335,9 @@ struct	unfreezable_bh_struct {
  *				details.
  * @boost_op_bh			structure describing bottom half of boost
  *				enable/disable operation.
+ * @boost_worker_bh		structure describing bottom half of boost
+ *				timer tick operation.
  * @charging_work		work providing charging heartbeat for PSC
- * @boost_work			work feeding watchdog during boost mode
  * @ctrl_io			PMU Charger regs physical address
  * @otg_handle			Pointer to USB OTG internal structure
  *				used for sending VBUS notifications.
@@ -332,6 +353,7 @@ struct	unfreezable_bh_struct {
  * @otg_nb			OTG notifier block
  * @fake_vbus			value of fake vbus event
  * @state			charger state structure
+ * @chrgr_boost_en_timer	timer to handle keep boost enabled
  */
 struct fan54020_charger {
 	struct i2c_client *client;
@@ -339,9 +361,9 @@ struct fan54020_charger {
 
 	struct unfreezable_bh_struct chgint_bh;
 	struct unfreezable_bh_struct boost_op_bh;
+	struct unfreezable_bh_struct boost_worker_bh;
 
 	struct delayed_work charging_work;
-	struct delayed_work boost_work;
 	struct resource *ctrl_io_res;
 	struct usb_phy *otg_handle;
 
@@ -369,6 +391,8 @@ struct fan54020_charger {
 	struct pinctrl_state *pins_inactive;
 	struct pinctrl_state *pins_active;
 	struct device_pm_platdata *pm_platdata;
+
+	struct alarm chrgr_boost_en_timer;
 
 };
 
@@ -1541,12 +1565,32 @@ static int fan54020_charger_get_property(struct power_supply *psy,
 	return ret;
 }
 
+/*
+* Boost enable timer call back
+*
+* @alrm [in] parameter passed from timer. Not used in this case.
+* @t    [in]    parameter passed from timer. Not used in this case.
+*
+* Returns:	   Whether alarm timer should restart.
+*/
+static enum alarmtimer_restart charger_boost_en_timer_expired_cb(
+		struct alarm *alrm, ktime_t t)
+{
+	(void)alrm;
+
+	/* Schedule the execution of watchdog clearing. */
+	unfreezable_bh_schedule(&(chrgr_data.boost_worker_bh));
+
+	return ALARMTIMER_NORESTART;
+}
+
 static void fan54020_boost_worker(struct work_struct *work)
 {
 	int ret;
 	u8 charge_ctrl2;
 	struct fan54020_charger *chrgr =
-		container_of(work, struct fan54020_charger, boost_work.work);
+		container_of(work, struct fan54020_charger,
+		boost_worker_bh.work);
 
 	down(&chrgr->prop_lock);
 
@@ -1555,8 +1599,16 @@ static void fan54020_boost_worker(struct work_struct *work)
 	charge_ctrl2 &= (1 << BOOST_EN);
 
 	if ((!ret) && charge_ctrl2 && chrgr->state.boost_enabled) {
-		fan54020_trigger_wtd(chrgr);
-		schedule_delayed_work(&chrgr->boost_work, BOOST_WORK_DELAY);
+		ret = fan54020_trigger_wtd(chrgr);
+
+		/* Start the timer again if boost is enabled and
+		 * i2c write successful. */
+		if (!ret)
+			SET_ALARM_TIMER(&(chrgr->chrgr_boost_en_timer),
+				CHARGER_WATCHDOG_TIMER_SECS);
+		else
+			pr_err("%s: I2C write failed. boost timer not enabled.\n",
+					__func__);
 	}
 
 	up(&chrgr->prop_lock);
@@ -1613,13 +1665,15 @@ static void fan54020_set_boost(struct work_struct *work)
 		/* Enable boost mode flag */
 		chrgr->state.boost_enabled = 1;
 
-		wake_lock(&chrgr->suspend_lock);
-		schedule_delayed_work(&chrgr->boost_work, BOOST_WORK_DELAY);
-	} else {
-		cancel_delayed_work(&chrgr->boost_work);
+		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_BOOST_ENABLED, 0, 0);
 
-		/* Release Wake Lock */
-		wake_unlock(&chrgr->suspend_lock);
+		SET_ALARM_TIMER(&(chrgr->chrgr_boost_en_timer),
+						CHARGER_WATCHDOG_TIMER_SECS);
+
+	} else {
+		(void)alarm_cancel(&(chrgr_data.chrgr_boost_en_timer));
+
+		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_BOOST_DISABLED, 0, 0);
 
 		/* Disable boost mode flag */
 		chrgr->state.boost_enabled = 0;
@@ -2281,7 +2335,12 @@ static int fan54020_i2c_probe(struct i2c_client *client,
 		goto pre_fail;
 
 	INIT_DELAYED_WORK(&chrgr->charging_work, fan54020_charging_worker);
-	INIT_DELAYED_WORK(&chrgr->boost_work, fan54020_boost_worker);
+
+	if (unfreezable_bh_create(&chrgr->boost_worker_bh, "boost_wq",
+			"fan54020_boost_trgr_lock", fan54020_boost_worker)) {
+		ret = -ENOMEM;
+		goto pre_fail;
+	}
 
 	sema_init(&chrgr->prop_lock, 1);
 
@@ -2394,12 +2453,17 @@ static int fan54020_i2c_probe(struct i2c_client *client,
 		goto pmu_irq_fail;
 	}
 
+	/* Initialise the alarm timer used for updating the
+	 * t32s timer reset bit. */
+	alarm_init(&(chrgr->chrgr_boost_en_timer),
+			 ALARM_REALTIME,
+			  charger_boost_en_timer_expired_cb);
+
 	ret = usb_register_notifier(otg_handle, &chrgr->otg_nb);
 	if (ret) {
 		pr_err("ERROR!: registration for OTG notifications failed\n");
 		goto boost_fail;
 	}
-
 
 	device_init_wakeup(&client->dev, true);
 
@@ -2413,8 +2477,9 @@ fail_ac_registr:
 	power_supply_unregister(&chrgr->usb_psy);
 fail:
 	unfreezable_bh_destroy(&chrgr->chgint_bh);
-pre_fail:
 wq_creation_fail:
+	unfreezable_bh_destroy(&chrgr->boost_worker_bh);
+pre_fail:
 remap_fail:
 	usb_put_phy(otg_handle);
 	return ret;
@@ -2443,6 +2508,8 @@ static int __exit fan54020_i2c_remove(struct i2c_client *client)
 	if (ret != 0)
 		return ret;
 	fan54020_remove_debugfs_dir(&chrgr_data);
+
+	(void)alarm_cancel(&(chrgr_data.chrgr_boost_en_timer));
 
 	return 0;
 }
@@ -2514,6 +2581,7 @@ static int fan54020_suspend(struct device *dev)
 		}
 		unfreezable_bh_suspend(&chrgr_data.chgint_bh);
 		unfreezable_bh_suspend(&chrgr_data.boost_op_bh);
+		unfreezable_bh_suspend(&chrgr_data.boost_worker_bh);
 		return 0;
 	}
 }
@@ -2533,6 +2601,7 @@ static int fan54020_resume(struct device *dev)
 
 	unfreezable_bh_resume(&chrgr_data.chgint_bh);
 	unfreezable_bh_resume(&chrgr_data.boost_op_bh);
+	unfreezable_bh_resume(&chrgr_data.boost_worker_bh);
 
 	if (device_may_wakeup(dev)) {
 		pr_info("fan: disable wakeirq\n");
