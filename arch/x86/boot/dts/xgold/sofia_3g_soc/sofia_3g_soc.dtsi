@@ -248,7 +248,7 @@
 						compatible = "intel,pl08x";
 						reg = <0xE0100000 0x1000>;
 						reg-names = "register";
-						intel,dma-pl08x,buses =  < 1 1 >;
+						intel,dma-pl08x,buses =  < 2 2 >; /* lli, mem bus */
 						intel,dma-pl08x,memcpy = < 3 3 2 2 1 1 1 >;
 						intel,dma-pl08x,periphid = < 0x00041080 >;
 						interrupts = < DMA1_ERR_INT IRQ_TYPE_DEFAULT >, < DMA1_CH0_7_INT IRQ_TYPE_DEFAULT >;
