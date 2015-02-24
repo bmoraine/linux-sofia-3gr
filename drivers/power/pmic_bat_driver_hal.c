@@ -76,7 +76,7 @@
 /* Power Source Interrupt Status Register */
 #define SPWRSRC_REG (BASE_ADDRESS_DEV1_VMM | 0x20)
 
-#define SBATTDET_M (0x3)
+#define SBATTDET_M 1
 #define SBATTDET_O 2
 
 /* Valid Battery Detection Register 0 */
@@ -237,6 +237,7 @@ enum bat_drv_debug_event {
 	BAT_DRV_DEBUG_HW_INIT,
 	BAT_DRV_DEBUG_PRESENCE_CHANGE_TH_IRQ,
 	BAT_DRV_DEBUG_BATID_IN_OHMS,
+	BAT_DRV_DEBUG_REPORTED_BATID_IN_OHMS,
 
 	BAT_DRV_DEBUG_EVENT_BAT_CHANGED,
 };
@@ -479,9 +480,13 @@ static void bat_drv_batrm_det_irq_en(struct bat_drv_data *pbat, bool new_state)
 static void bat_drv_update_presence_status(struct bat_drv_data *pbat,
 			bool connected, struct battery_type *bat_type)
 {
-	if (connected)
+	if (connected) {
 		battery_prop_changed(POWER_SUPPLY_BATTERY_INSERTED,
 				&bat_type->profile);
+
+		BAT_DRV_DEBUG_PARAM(BAT_DRV_DEBUG_REPORTED_BATID_IN_OHMS,
+						bat_type->batid_ohms);
+	}
 	else
 		battery_prop_changed(POWER_SUPPLY_BATTERY_REMOVED,
 				NULL);
@@ -513,7 +518,8 @@ static void stm_init_state_process_evt(struct bat_drv_data *pbat,
 			int batid_ohm;
 
 			batid_ohm = bat_drv_get_batid_ohm(pbat);
-			bat_type = get_bat_type(pbat, batid_ohm);
+			if (batid_ohm >= 0)
+				bat_type = get_bat_type(pbat, batid_ohm);
 		}
 
 		if (NULL != bat_type) {
@@ -590,7 +596,8 @@ static void stm_bat_disconnected_state_process_evt(struct bat_drv_data *pbat,
 			int batid_ohm;
 
 			batid_ohm = bat_drv_get_batid_ohm(pbat);
-			bat_type = get_bat_type(pbat, batid_ohm);
+			if (batid_ohm >= 0)
+				bat_type = get_bat_type(pbat, batid_ohm);
 		}
 
 		if (NULL != bat_type) {
@@ -662,19 +669,8 @@ static void bat_drv_presence_stm_tick(struct bat_drv_data *pbat,
 static irqreturn_t bat_presence_change_th(int irq, void *dev)
 {
 	struct bat_drv_data *pbat = (struct bat_drv_data *)dev;
-	u32 chgrirq1_reg = 0;
 
 	BAT_DRV_DEBUG_NO_PARAM(BAT_DRV_DEBUG_PRESENCE_CHANGE_TH_IRQ);
-
-	WARN_ON(vmm_pmic_reg_read(CHGRIRQ1_REG, &chgrirq1_reg));
-
-	if (PENDING != reg_read_field(chgrirq1_reg, BATTDET))
-		return IRQ_NONE;
-
-	/* clear the interrupt */
-	chgrirq1_reg = 0;
-	reg_set_field(chgrirq1_reg, BATTDET, CLEAR);
-	WARN_ON(vmm_pmic_reg_write(CHGRIRQ1_REG, chgrirq1_reg));
 
 	BAT_DRV_DEBUG_NO_PARAM(BAT_DRV_DEBUG_EVENT_BAT_CHANGED);
 
@@ -692,8 +688,10 @@ static int bat_drv_get_batid_ohm(struct bat_drv_data *pbat)
 	adc_ret = iio_read_channel_processed(pbat->batid_iio_chan,
 			&adc_batid_ohms);
 
-	if (adc_ret != IIO_VAL_INT)
+	if (adc_ret != IIO_VAL_INT) {
+		pr_err("failed reading battery ID from iio\n");
 		return adc_ret;
+	}
 
 	BAT_DRV_DEBUG_PARAM(BAT_DRV_DEBUG_BATID_IN_OHMS, adc_batid_ohms);
 
