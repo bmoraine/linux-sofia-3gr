@@ -149,6 +149,12 @@
 		intel,spk-gpio-sd = <&xgold_pmx_gpio 44 0>;
 	};
 #endif
+	hwid {
+		compatible = "intel,gpio-hwid";
+		intel,gpio-hw-id =
+			<&xgold_pmx_gpio 55 0>,
+			<&xgold_pmx_gpio 48 0>;
+	};
 };
 
 &eint {
