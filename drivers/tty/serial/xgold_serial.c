@@ -1176,10 +1176,12 @@ static irqreturn_t xgold_usif_handle_wake_interrupt(int irq, void *dev_id)
 static irqreturn_t handle_interrupt(int irq, void *dev_id)
 {
 	struct uart_port *port = dev_id;
+	struct uart_usif_xgold_port *uxp = to_usif_port(port);
 	unsigned int status, mask;
 	unsigned reg;
 
 	spin_lock(&port->lock);
+	uxp->in_interrupt = true;
 
 	if (xgold_usif_runtime_pm_suspended(port, __func__)) {
 		/* We should never get an interrupt while being runtime
@@ -1225,6 +1227,7 @@ static irqreturn_t handle_interrupt(int irq, void *dev_id)
 	xgold_usif_runtime_pm_autosuspend(port);
 
 	spin_unlock(&port->lock);
+	uxp->in_interrupt = false;
 
 	return IRQ_HANDLED;
 }
@@ -2615,7 +2618,7 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 	int locked = 1;
 
 	local_irq_save(flags);
-	if (port->sysrq)
+	if (port->sysrq || uxp->in_interrupt)
 		locked = 0;
 	else if (oops_in_progress)
 		locked = spin_trylock(&port->lock);
@@ -3218,6 +3221,7 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 	uxp->port.ops = &usif_ops;
 	uxp->use_rxbuf_b = false;
 	uxp->is_console = false;
+	uxp->in_interrupt = false;
 	mutex_init(&uxp->runtime_lock);
 	/*
 	 * Enable wakeup capability if possible

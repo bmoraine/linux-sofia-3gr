@@ -92,6 +92,7 @@ struct uart_usif_xgold_port {
 	unsigned int modem_status[2];
 	struct timer_list modem_poll;
 	bool is_console;
+	bool in_interrupt;
 
 	/* For DMA mode */
 	struct dma_chan *dma_rx_channel;
