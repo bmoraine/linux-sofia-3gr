@@ -86,10 +86,14 @@ struct hs_key_cfg {
 };
 
 /* AFE register values */
-#define XGOLD_DETECT_INSERTION		0x80FB
-#define XGOLD_DETECT_REMOVAL		0xC0F3
-#define XGOLD_DETECT_REMOVAL_HOOK	0xCAF3
-#define XGOLD_DETECT_HOOK_RELEASE	0xC2F3
+#define XGOLD_DETECT_INSERTION \
+	0x80FB /* ACD1: insertion; ACD2: disabled */
+#define XGOLD_DETECT_REMOVAL_HEADSET \
+	0xC0F3 /* ACD1: removal; ACD2: headset insertion */
+#define XGOLD_DETECT_REMOVAL_HOOK \
+	0xCAF3 /* ACD1: headset removal; ACD2: hook key press */
+#define XGOLD_DETECT_HOOK_RELEASE \
+	0xC2F3 /* ACD1: removal; ACD2: hook key release */
 
 /* PMIC register offset */
 /* IRQ registers offsets */
@@ -267,8 +271,8 @@ static void xgold_jack_check(struct xgold_jack *jack)
 	switch (state) {
 	case XGOLD_HEADPHONE:
 		xgold_debug("Headphone inserted\n");
-		vbias = XGOLD_VBIAS_ULP_ON;
-		detect = XGOLD_DETECT_REMOVAL;
+		vbias = XGOLD_VBIAS_ENABLE;
+		detect = XGOLD_DETECT_REMOVAL_HEADSET;
 		status = SND_JACK_HEADPHONE;
 		jack->buttons_enabled = false;
 		break;
@@ -360,8 +364,17 @@ static void xgold_button_check(struct xgold_jack *jack)
 static irqreturn_t xgold_button_detection(int irq, void *data)
 {
 	struct xgold_jack *jack = data;
+	xgold_debug("%s\n", __func__);
+
+	if ((jack->hs_jack->status & SND_JACK_HEADSET) != SND_JACK_HEADSET) {
+		/* this interrupt may occurs in case of slow jack insertion */
+		xgold_debug("button detection while no headset\n");
+		return xgold_jack_detection(irq, data);
+	}
+
 	if (jack->buttons_enabled)
 		xgold_button_check(jack);
+
 	return IRQ_HANDLED;
 }
 
