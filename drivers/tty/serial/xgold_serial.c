@@ -3233,7 +3233,8 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 	}
 
 #ifdef CONFIG_SERIAL_XGOLD_CONSOLE
-	if (uxp->port.line == xgold_usif_console.index)
+	if (xgold_usif_console.data == uxp->drv &&
+			uxp->port.line == xgold_usif_console.index)
 		uxp->is_console = true;
 
 	if (uxp->is_console) {
