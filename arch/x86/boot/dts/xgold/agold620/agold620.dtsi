@@ -335,7 +335,7 @@ agold {
 			intel,usif-serial,rx,mrps = < 16384>;
 			intel,usif-serial,ormc = < 1 >;
 			intel,usif-serial,rmc = < 1 >;
-			intel,serial-port = <1>;
+			intel,serial-port = <0>;
 			intel,usif-debug;
 			idi-channels = < 10 >;
 
