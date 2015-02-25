@@ -56,11 +56,11 @@ struct xgold_usif_platdata {
 	unsigned *ictmo;
 	struct device_pm_platdata *pm_platdata;
 	unsigned long flags;
-	unsigned long private[0] ____cacheline_aligned;
 	short runtime_pm_enabled;
 	short runtime_pm_debug;
 	unsigned int rpm_suspend_delay;
 	short rpm_auto_suspend_enable;
+	unsigned long private[0] ____cacheline_aligned;
 };
 
 struct xgold_usif_trace_buffer_list {
