@@ -320,10 +320,8 @@ static int __init xgold_capcom_probe(struct platform_device *pdev)
 
 	/* Replay set_type requests and free them */
 	mutex_lock(&set_type_list_mtx);
-	list_for_each_entry(req, &set_type_list, list) {
+	list_for_each_entry(req, &set_type_list, list)
 		xgold_irq_capcom_set_type(req->data, req->type);
-		kfree(req);
-	}
 	mutex_unlock(&set_type_list_mtx);
 	return 0;
 
