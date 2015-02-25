@@ -487,6 +487,7 @@ config X86_INTEL_XGOLD
 	select XGOLD_RESET
 	select PINCTRL
 	select NO_IOPORT
+	select ARCH_PHYS_ADDR_T_32BIT
         ---help---
           XGOLD is a SoC, using a latest Atom Core integrated
 	  in a ARM SoC interconnect system.
@@ -1379,9 +1380,12 @@ config X86_PAE
 	  has the cost of more pagetable lookup overhead, and also
 	  consumes more pagetable space per process.
 
+config ARCH_PHYS_ADDR_T_32BIT
+	def_bool n
+
 config ARCH_PHYS_ADDR_T_64BIT
 	def_bool y
-	depends on X86_64 || X86_PAE
+	depends on X86_64 || X86_PAE && !ARCH_PHYS_ADDR_T_32BIT
 
 config ARCH_DMA_ADDR_T_64BIT
 	def_bool y
