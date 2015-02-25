@@ -215,42 +215,37 @@ static uint32_t rga_map_pte(uint32_t memory, uint32_t i)
 	unsigned long pfn;
 	pgd_t *pgd;
 	pud_t *pud;
+	pmd_t *pmd;
 
 	do {
 		pgd = pgd_offset(current->mm, (memory + i) <<
-		       PAGE_SHIFT);
-	    if (pgd_val(*pgd) == 0)
+				PAGE_SHIFT);
+		if (!pgd_present(*pgd))
 			break;
-	    pud = pud_offset(pgd, (memory + i) << PAGE_SHIFT);
-	    if (pud) {
-			pmd_t *pmd = pmd_offset(pud, (memory + i) <<
-			       PAGE_SHIFT);
-			if (pmd) {
-				pte =
-					pte_offset_map_lock
-					(current->
-					mm, pmd,
-					(memory +
-					i) <<
-					PAGE_SHIFT,
-					&ptl);
-			    if (!pte) {
-				pte_unmap_unlock
-						(pte,
-						ptl);
-						break;
-			    }
-		    } else {
-			    break;
-		    }
-	    } else {
-		    break;
+
+		pud = pud_offset(pgd, (memory + i) << PAGE_SHIFT);
+		if (!pud_present(*pud))
+			break;
+
+		pmd = pmd_offset(pud, (memory + i) <<
+				PAGE_SHIFT);
+		if (!pmd_present(*pmd))
+			break;
+
+		pte = pte_offset_map_lock(current->mm, pmd, (memory + i) <<
+			 PAGE_SHIFT,
+			 &ptl);
+		if (!pte_present(*pte)) {
+			pte_unmap_unlock
+				(pte,
+				 ptl);
+			break;
 		}
-	    pfn = pte_pfn(*pte);
+		pfn = pte_pfn(*pte);
 		address = ((pfn << PAGE_SHIFT) |
-	     (((unsigned long)((memory + i) << PAGE_SHIFT)) &
-	      ~PAGE_MASK));
-	    pte_unmap_unlock(pte, ptl);
+				(((unsigned long)((memory + i) << PAGE_SHIFT)) &
+				 ~PAGE_MASK));
+		pte_unmap_unlock(pte, ptl);
 
 	} while (0);
 
