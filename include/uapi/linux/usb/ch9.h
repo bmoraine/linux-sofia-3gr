@@ -1,3 +1,19 @@
+/*************************************************************************
+ *
+ *  Copyright (C) 2015 Intel Mobile Communications GmbH
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ ************************************************************************/
 /*
  * This file holds USB constants and structures that are needed for
  * USB device APIs.  These are used by the USB device model, which is
@@ -294,6 +310,7 @@ struct usb_device_descriptor {
 #define USB_CLASS_CSCID			0x0b	/* chip+ smart card */
 #define USB_CLASS_CONTENT_SEC		0x0d	/* content security */
 #define USB_CLASS_VIDEO			0x0e
+#define USB_CLASS_DEBUG			0xdc
 #define USB_CLASS_WIRELESS_CONTROLLER	0xe0
 #define USB_CLASS_MISC			0xef
 #define USB_CLASS_APP_SPEC		0xfe

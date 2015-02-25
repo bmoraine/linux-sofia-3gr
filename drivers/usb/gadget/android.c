@@ -40,6 +40,7 @@
 #include "f_rndis.c"
 #include "rndis.c"
 #include "u_ether.c"
+#include "f_dvc_trace.c"
 
 USB_ETHERNET_MODULE_PARAMETERS();
 
@@ -1110,6 +1111,20 @@ static struct android_usb_function audio_source_function = {
 	.attributes	= audio_source_function_attributes,
 };
 
+
+static int dvc_trace_function_bind_config(
+	struct android_usb_function *f,
+	struct usb_configuration *c)
+{
+	return dvc_trace_bind_config(c);
+}
+
+static struct android_usb_function dvc_trace_function = {
+	.name		= "dvc_trace",
+	.bind_config	= dvc_trace_function_bind_config,
+};
+
+
 static struct android_usb_function *supported_functions[] = {
 	&ffs_function,
 	&acm_function,
@@ -1119,6 +1134,7 @@ static struct android_usb_function *supported_functions[] = {
 	&mass_storage_function,
 	&accessory_function,
 	&audio_source_function,
+	&dvc_trace_function,
 	NULL
 };
 
