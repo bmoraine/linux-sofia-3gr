@@ -106,6 +106,25 @@
 						   (op & 0xFF)), \
 						  SYS_PROF_IF(RTOS))
 
+/* Bandwidth counters */
+
+/* 
+ * Use the current mapping from Modem side.
+ * Workaround till Linux is capable of dumping its own static metadata
+ */
+#define eSP_BWC_IPC_MEM_ul_total    52
+#define eSP_BWC_IPC_MEM_dl_total    54
+
+#define sysprof_bw( name, size )                                                                                                                        \
+{                                                                                                                                                       \
+            unsigned int sz = (unsigned int)size;                                                                                                       \
+            if((sz >> 16) > 0)                                                                                                                          \
+            {                                                                                                                                           \
+                iowrite32(((0x04 << 24) | ( (eSP_##name & 0xFF) << 16 ) | (sz >> 16)),SYS_PROF_IF(BW_COUNTS));                                          \
+            }                                                                                                                                           \
+            iowrite32(((0x01 << 24) | ( (eSP_##name & 0xFF) << 16 ) | (sz & 0xFFFF)),SYS_PROF_IF(BW_COUNTS));                                           \
+}
+
 /* DVFS */
 #define sysprof_dvfs_vcore_load(data)       iowrite32((0x002C0000 | \
 						   (data & 0xFFFF)), \
