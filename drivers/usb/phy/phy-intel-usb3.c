@@ -29,6 +29,9 @@
 #include <linux/reset.h>
 #include <linux/slab.h>
 #include <linux/usb/phy-intel.h>
+#include <linux/usb/debug.h>
+#include <linux/usb/dwc3_extension.h>
+#include <linux/usb/gadget_ioctl.h>
 #include "phy-intel-usb.h"
 
 /*----------------------------------------------------------------------*/
@@ -56,7 +59,9 @@ struct intel_usb3_bf {
 struct intel_usb3 {
 	struct platform_device	*pdev;
 	struct intel_phy	iphy;
-	void __iomem		*iomem;
+	void __iomem		*iomem_scu;
+	void __iomem		*iomem_lmu;
+	dma_addr_t		dma_map_lmu;
 	struct reset_control	*reset_usb_core;
 	struct reset_control	*reset_usb_susp;
 	/* todo: add ID pin irq for OTG support */
@@ -73,6 +78,7 @@ struct intel_usb3 {
 	struct clk		*clk_kernel;
 	struct clk		*clk_bus;
 #endif
+	struct dwc3_ebc_ext	ebc_ext;
 	struct dentry		*debugfs_root;
 };
 
@@ -80,6 +86,7 @@ struct intel_usb3 {
 /* CONSTANTS								*/
 /*----------------------------------------------------------------------*/
 #define INTEL_USB3_MPLL_LOOP_CTL	(0x0030UL)
+#define INTEL_USB3_LMU_TRB_CONFIG	(0x0040UL)
 
 /**
  * todo: comment
@@ -88,6 +95,9 @@ static const struct intel_usb3_bf scu_dppulldown	= {0x0610UL, BIT(29)};
 static const struct intel_usb3_bf scu_dmpulldown	= {0x0610UL, BIT(28)};
 static const struct intel_usb3_bf scu_freq_sel		= {0x0610UL, BIT(27)};
 static const struct intel_usb3_bf scu_ref_ssp_en	= {0x0610UL, BIT(26)};
+static const struct intel_usb3_bf scu_trace_mux_en	= {0x0610UL, BIT(22)};
+static const struct intel_usb3_bf scu_trace_mux_ep	= {0x0610UL,
+							     GENMASK(21, 18)};
 static const struct intel_usb3_bf scu_otgdisable	= {0x0610UL, BIT(17)};
 static const struct intel_usb3_bf scu_commononn		= {0x0610UL, BIT(16)};
 static const struct intel_usb3_bf scu_pipe3_pwr_present	= {0x0610UL, BIT(15)};
@@ -169,7 +179,7 @@ static u32 intel_usb3_hw_bf_read(
 		return intel_phy_kernel_trap();
 	}
 
-	data = ioread32(iusb3->iomem + bf->addr);
+	data = ioread32(iusb3->iomem_scu + bf->addr);
 	return (data & bf->mask) >> __ffs(bf->mask);
 }
 
@@ -187,9 +197,9 @@ static void intel_usb3_hw_bf_write(
 
 	if (~bf->mask) {
 		data = (data << __ffs(bf->mask)) & bf->mask;
-		data |= ioread32(iusb3->iomem + bf->addr) & ~bf->mask;
+		data |= ioread32(iusb3->iomem_scu + bf->addr) & ~bf->mask;
 	}
-	iowrite32(data, iusb3->iomem + bf->addr);
+	iowrite32(data, iusb3->iomem_scu + bf->addr);
 }
 
 /**
@@ -632,6 +642,107 @@ static int intel_usb3_hw_wakeup(struct intel_usb3 *iusb3)
 }
 
 /*----------------------------------------------------------------------*/
+/* MODULE INTERFACE - DWC3 EBC EXT					*/
+/*----------------------------------------------------------------------*/
+/**
+ * see header file
+ */
+static bool intel_usb3_ebc_ext_needed(
+	struct dwc3_ebc_ext *ext, const void *data)
+{
+	if (IS_ERR_OR_NULL(ext)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	if (data) {
+		/* HACK enable EBC only for Debug class interface */
+		/* either f_dvc_trace is aware of hw capabilites */
+		/* or dwc3 must know interface being configured */
+		const struct usb_interface_descriptor *d = data;
+
+		if ((d->bDescriptorType == USB_DT_INTERFACE)
+		&& (d->bInterfaceClass == USB_CLASS_DEBUG)
+		&& (d->bInterfaceSubClass == USB_SUBCLASS_DVC_TRACE)) {
+			intel_phy_warn("ebc mode on: %s",
+					"undefined behavior if OCT DvC is off");
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * see header file
+ */
+static void *intel_usb3_ebc_ext_trb_pool_alloc(
+	struct dwc3_ebc_ext *ext, struct device *dev,
+	size_t size, dma_addr_t *dma, gfp_t flags)
+{
+	struct intel_usb3 *iusb3 = NULL;
+
+	if (IS_ERR_OR_NULL(ext) || IS_ERR_OR_NULL(dev) || !size
+	|| (IS_ERR_OR_NULL(dma))) {
+		intel_phy_err("invalid parameter");
+		intel_phy_kernel_trap();
+		return NULL;
+	}
+	iusb3 = container_of(ext, struct intel_usb3, ebc_ext);
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("initialization issue");
+		intel_phy_kernel_trap();
+		return NULL;
+	}
+	*dma = iusb3->dma_map_lmu;
+	return iusb3->iomem_lmu;
+}
+
+/**
+ * see header file
+ */
+static void intel_usb3_ebc_ext_trb_pool_free(
+	struct dwc3_ebc_ext *ext, struct device *dev,
+	size_t size, void *cpu_addr, dma_addr_t dma)
+{
+	if (IS_ERR_OR_NULL(ext) || IS_ERR_OR_NULL(dev) || !size
+	|| (IS_ERR_OR_NULL(cpu_addr))) {
+		intel_phy_err("invalid parameter");
+		intel_phy_kernel_trap();
+		return;
+	}
+	/* nothing to do here */
+}
+
+/**
+ * see header file
+ */
+static int intel_usb3_ebc_ext_xfer_run_stop(
+	struct dwc3_ebc_ext *ext, unsigned ep, bool run)
+{
+	struct intel_usb3 *iusb3 = NULL;
+
+	if (IS_ERR_OR_NULL(ext) || !ep) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+	iusb3 = container_of(ext, struct intel_usb3, ebc_ext);
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+	if (run) {
+		intel_phy_info("ebc mode for ep%din is active", ep);
+		iowrite32(0x33, iusb3->iomem_lmu + INTEL_USB3_LMU_TRB_CONFIG);
+		intel_usb3_hw_bf_write(iusb3, &scu_trace_mux_ep, ep);
+	} else {
+		intel_usb3_hw_bf_write(iusb3, &scu_trace_mux_ep, ~0);
+		iowrite32(0x00, iusb3->iomem_lmu + INTEL_USB3_LMU_TRB_CONFIG);
+		intel_phy_info("ebc mode for ep%din is idle", ep);
+	}
+	return 0;
+}
+
+/*----------------------------------------------------------------------*/
 /* MODULE INTERFACE - OTG FSM						*/
 /*----------------------------------------------------------------------*/
 /**
@@ -748,6 +859,18 @@ static int intel_usb3_otg_fsm_start_gadget(struct otg_fsm *fsm, int on)
 
 	intel_phy_info("gadget %s", on ? "on" : "off");
 	if (on) {
+		struct usb_gadget_ioctl_params ioctl = {
+			.subcode = VENDOR_DWC3_EBC_EXT_ADD,
+			.params = &iusb3->ebc_ext,
+		};
+
+		ret = usb_gadget_ioctl(gadget, IOCTL_CODE_DWC3, &ioctl);
+		if (IS_ERR_VALUE(ret)
+		&& (-EOPNOTSUPP != ret && -EALREADY != ret)) {
+			intel_phy_err("ebc extension add failed, %d", ret);
+			return intel_phy_kernel_trap();
+		}
+
 		/* do power up of USB core & PHY
 		 * required for initializing USB stack */
 		ret = intel_usb3_hw_powerup(iusb3, false);
@@ -773,7 +896,7 @@ static int intel_usb3_otg_fsm_start_gadget(struct otg_fsm *fsm, int on)
 			return intel_phy_kernel_trap();
 		}
 	}
-	return 0;
+	return ret;
 }
 
 /**
@@ -798,7 +921,7 @@ static int intel_usb3_runtime_suspend(struct device *dev)
 		return intel_phy_kernel_trap();
 	}
 
-	intel_phy_warn("todo: implementation");
+	/* todo: implementation */
 	return 0;
 }
 
@@ -812,7 +935,7 @@ static int intel_usb3_runtime_resume(struct device *dev)
 		return intel_phy_kernel_trap();
 	}
 
-	intel_phy_warn("todo: implementation");
+	/* todo: implementation */
 	return 0;
 }
 
@@ -826,7 +949,7 @@ static int intel_usb3_runtime_idle(struct device *dev)
 		return intel_phy_kernel_trap();
 	}
 
-	intel_phy_warn("todo: implementation");
+	/* todo: implementation */
 	return 0;
 }
 #endif
@@ -842,7 +965,7 @@ static int intel_usb3_system_sleep_suspend(struct device *dev)
 		return intel_phy_kernel_trap();
 	}
 
-	intel_phy_warn("todo: implementation");
+	/* todo: implementation */
 	return 0;
 }
 
@@ -856,7 +979,7 @@ static int intel_usb3_system_sleep_resume(struct device *dev)
 		return intel_phy_kernel_trap();
 	}
 
-	intel_phy_warn("todo: implementation");
+	/* todo: implementation */
 	return 0;
 }
 #endif
@@ -927,29 +1050,50 @@ static int intel_usb3_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, iusb3);
 	iusb3->pdev = pdev;
+	/* EBC extension: 2 TRB, full HW control */
+	iusb3->ebc_ext.needed = intel_usb3_ebc_ext_needed;
+	iusb3->ebc_ext.trb_pool_size = 2;
+	iusb3->ebc_ext.trb_pool_linked = true;
+	iusb3->ebc_ext.trb_pool_alloc =	intel_usb3_ebc_ext_trb_pool_alloc;
+	iusb3->ebc_ext.trb_pool_free = intel_usb3_ebc_ext_trb_pool_free;
+	iusb3->ebc_ext.xfer_run_stop =	intel_usb3_ebc_ext_xfer_run_stop;
 
 	/* map scu into io memory */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "scu_usb");
 	if (IS_ERR_OR_NULL(res)) {
-		intel_phy_err("platform resource iomem not found");
-		goto error_kfree;
+		intel_phy_err("platform resource iomem not found - scu");
+		goto error_exit;
 	}
-	iusb3->iomem = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR_OR_NULL(iusb3->iomem)) {
-		intel_phy_err("ioremap device resource");
-		goto error_kfree;
+	iusb3->iomem_scu = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR_OR_NULL(iusb3->iomem_scu)) {
+		intel_phy_err("ioremap device resource - scu");
+		goto error_exit;
 	}
+
+	/* map lmu into io memory */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "lmu_usb");
+	if (IS_ERR_OR_NULL(res)) {
+		intel_phy_err("platform resource iomem not found - lmu");
+		goto error_exit;
+	}
+	iusb3->iomem_lmu = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR_OR_NULL(iusb3->iomem_lmu)) {
+		intel_phy_err("ioremap device resource - lmu");
+		goto error_exit;
+	}
+	/* store lmu dma address */
+	iusb3->dma_map_lmu = res->start;
 
 	iusb3->reset_usb_core = reset_control_get(&pdev->dev, "usb_core");
 	if (IS_ERR_OR_NULL(iusb3->reset_usb_core)) {
 		intel_phy_err("reset control usb core not found");
-		goto error_iounmap;
+		goto error_exit;
 	}
 
 	iusb3->reset_usb_susp = reset_control_get(&pdev->dev, "usb_susp");
 	if (IS_ERR_OR_NULL(iusb3->reset_usb_susp)) {
 		intel_phy_err("reset control usb susp not found");
-		goto error_iounmap;
+		goto error_exit;
 	}
 
 	ret = of_property_read_u32_array(pdev->dev.of_node,
@@ -958,47 +1102,47 @@ static int intel_usb3_probe(struct platform_device *pdev)
 			ARRAY_SIZE(iusb3->scu_usb_ss_trim));
 	if (IS_ERR_VALUE(ret)) {
 		intel_phy_err("DTS TRIM values property read, %d", ret);
-		goto error_iounmap;
+		goto error_exit;
 	}
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	iusb3->reg_dig = regulator_get(&pdev->dev, "digital");
 	if (IS_ERR(iusb3->reg_dig)) {
 		intel_phy_err("cannot get digital regulator");
-		goto error_iounmap;
+		goto error_exit;
 	}
 	regulator_enable(iusb3->reg_dig);
 
 	iusb3->reg_phy = regulator_get(&pdev->dev, "phy");
 	if (IS_ERR(iusb3->reg_phy)) {
 		intel_phy_err("cannot get phy regulator");
-		goto error_iounmap;
+		goto error_exit;
 	}
 	regulator_enable(iusb3->reg_phy);
 
 	iusb3->reg_iso = regulator_get(&pdev->dev, "iso");
 	if (IS_ERR(iusb3->reg_iso)) {
 		intel_phy_err("cannot get iso regulator");
-		goto error_iounmap;
+		goto error_exit;
 	}
 	regulator_enable(iusb3->reg_iso);
 
 	iusb3->reg_core = regulator_get(&pdev->dev, "core");
 	if (IS_ERR(iusb3->reg_core)) {
 		intel_phy_err("cannot get core regulator");
-		goto error_iounmap;
+		goto error_exit;
 	}
 	regulator_enable(iusb3->reg_core);
 
 	iusb3->clk_kernel = of_clk_get_by_name(pdev->dev.of_node, "clk_kernel");
 	if (IS_ERR(iusb3->clk_kernel)) {
 		intel_phy_err("clk kernel not found");
-		goto error_iounmap;
+		goto error_exit;
 	}
 
 	iusb3->clk_bus = of_clk_get_by_name(pdev->dev.of_node, "clk_bus");
 	if (IS_ERR(iusb3->clk_bus)) {
 		intel_phy_err("clk bus not found");
-		goto error_iounmap;
+		goto error_exit;
 	}
 
 	clk_prepare_enable(iusb3->clk_bus);
@@ -1071,10 +1215,7 @@ error_clk_put:
 	clk_put(iusb3->clk_kernel);
 	clk_put(iusb3->clk_bus);
 #endif
-error_iounmap:
-	devm_iounmap(&pdev->dev, iusb3->iomem);
-error_kfree:
-	devm_kfree(&pdev->dev, iusb3);
+error_exit:
 	return intel_phy_kernel_trap();
 }
 
@@ -1100,9 +1241,6 @@ static int intel_usb3_remove(struct platform_device *pdev)
 	clk_put(iusb3->clk_kernel);
 	clk_put(iusb3->clk_bus);
 #endif
-	devm_iounmap(&pdev->dev, iusb3->iomem);
-	devm_kfree(&pdev->dev, iusb3);
-
 	return 0;
 }
 
@@ -1198,6 +1336,12 @@ static int intel_usb3_test_zero(struct intel_usb3 *iusb3,
 	intel_usb3_hw_suspend(NULL);
 	intel_usb3_hw_wakeup(NULL);
 
+	/* ebc extension */
+	intel_usb3_ebc_ext_needed(NULL, NULL);
+	intel_usb3_ebc_ext_trb_pool_alloc(NULL, NULL, 0, NULL, 0);
+	intel_usb3_ebc_ext_trb_pool_free(NULL, NULL, 0, NULL, 0);
+	intel_usb3_ebc_ext_xfer_run_stop(NULL, 0, false);
+
 	/* interface */
 	intel_usb3_otg_fsm_start_host(NULL, 0);
 	intel_usb3_otg_fsm_start_gadget(NULL, 0);
@@ -1279,8 +1423,15 @@ static ssize_t intel_usb3_debugfs_dbg_read(
 		intel_phy_info("USB_SS_TRIM%u  = 0x%08X", (i + 1),
 			intel_usb3_hw_bf_read(iusb3, &scu_usb_ss_trim[i]));
 
-	intel_phy_info("MPLL_LOOP_CTL = 0x%08X",
-		intel_usb3_phy_io_read(iusb3, INTEL_USB3_MPLL_LOOP_CTL));
+	if (iusb3->state) /* access only when powered */
+		intel_phy_info("MPLL_LOOP_CTL = 0x%08X",
+			intel_usb3_phy_io_read(iusb3,
+				INTEL_USB3_MPLL_LOOP_CTL));
+
+	intel_phy_info("LMU_TRB_CONFIG = 0x%08X", (u32)iusb3->dma_map_lmu);
+	for (i = 0; i <= INTEL_USB3_LMU_TRB_CONFIG; i += 0x4)
+		intel_phy_info("%02X: %08X", i, ioread32(iusb3->iomem_lmu + i));
+
 	return 0;
 }
 
