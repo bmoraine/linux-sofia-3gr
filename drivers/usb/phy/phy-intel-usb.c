@@ -22,6 +22,7 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/platform_device_pm.h>
+#include <linux/usb/phy-intel.h>
 #include "phy-intel-usb.h"
 
 /*----------------------------------------------------------------------*/
@@ -42,7 +43,18 @@ static int intel_phy_otg_set_host(
 	struct usb_otg *otg, struct usb_bus *host);
 static int intel_phy_otg_set_peripheral(
 	struct usb_otg *otg, struct usb_gadget *gadget);
+static void intel_phy_otg_fsm_drv_vbus(
+	struct otg_fsm *fsm, int on);
+static void intel_phy_otg_fsm_add_timer(
+	struct otg_fsm *fsm, enum otg_fsm_timer timer);
+static void intel_phy_otg_fsm_del_timer(
+	struct otg_fsm *fsm, enum otg_fsm_timer timer);
+static int intel_phy_set_vbus(struct usb_phy *phy, int on);
 static int intel_phy_set_power(struct usb_phy *phy, unsigned mA);
+static int intel_phy_notify_connect(
+	struct usb_phy *phy, enum usb_device_speed speed);
+static int intel_phy_notify_disconnect(
+	struct usb_phy *phy, enum usb_device_speed speed);
 static int intel_phy_debugfs_init(struct intel_phy *iphy);
 static int intel_phy_debugfs_exit(struct intel_phy *iphy);
 
@@ -108,6 +120,8 @@ static const char *intel_phy_chrg_to_str(
 		return "CHARGER_USB_CDP";
 	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
 		return "CHARGER_USB_DCP";
+	case POWER_SUPPLY_CHARGER_TYPE_USB_ACA:
+		return "CHARGER_USB_ACA";
 	case POWER_SUPPLY_CHARGER_TYPE_USB_SDP:
 		return "CHARGER_USB_SDP";
 	case POWER_SUPPLY_CHARGER_TYPE_NONE:
@@ -115,6 +129,90 @@ static const char *intel_phy_chrg_to_str(
 	default:
 		return "INVALID_CHARGER";
 	}
+}
+
+/**
+ * @todo: comment
+ */
+static const char *intel_phy_otg_timer_to_str(enum otg_fsm_timer timer)
+{
+	switch (timer) {
+	case A_WAIT_VRISE:
+		return "a_wait_vrise_tmr";
+	case A_WAIT_VFALL:
+		return "a_wait_vfall_tmr";
+	case A_WAIT_BCON:
+		return "a_wait_bcon_tmr";
+	case B_SE0_SRP:
+		return "b_se0_srp";
+	case B_SRP_FAIL:
+		return "b_srp_fail";
+	case B_ASE0_BRST:
+		return "b_ase0_brst";
+	case A_AIDL_BDIS:
+		return "a_aidl_bdis";
+	case A_BIDL_ADIS:
+		return "a_bidl_adis";
+	default:
+		return "invalid timer";
+	}
+}
+
+/**
+ * @todo: comment
+ */
+static void intel_phy_otg_set_tmout(unsigned long data)
+{
+	if (IS_ERR_OR_NULL((void *)data)) {
+		intel_phy_err("invalid parameter");
+		intel_phy_kernel_trap();
+		return;
+	}
+}
+
+/**
+ * @todo: comment
+ */
+static int intel_phy_otg_get_timer_data(
+	struct timer_list *tmr, enum otg_fsm_timer timer)
+{
+	if (IS_ERR_OR_NULL(tmr)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+
+	/* TODO: upgrade specific tmr->function when actual
+	 * timer handling is required */
+	switch (timer) {
+	case A_WAIT_VRISE:
+		tmr->expires = jiffies + msecs_to_jiffies(TA_WAIT_VRISE);
+		break;
+	case A_WAIT_VFALL:
+		tmr->expires = jiffies + msecs_to_jiffies(TSSEND_LKG);
+		break;
+	case A_WAIT_BCON:
+		tmr->expires = jiffies + msecs_to_jiffies(TA_WAIT_BCON);
+		break;
+	case B_SE0_SRP:
+		tmr->expires = jiffies + msecs_to_jiffies(TB_SE0_SRP);
+		break;
+	case B_SRP_FAIL:
+		tmr->expires = jiffies + msecs_to_jiffies(TB_SRP_FAIL);
+		break;
+	case B_ASE0_BRST:
+		tmr->expires = jiffies + msecs_to_jiffies(TB_ASE0_BRST);
+		break;
+	case A_AIDL_BDIS:
+		tmr->expires = jiffies + msecs_to_jiffies(TA_AIDL_BDIS);
+		break;
+	case A_BIDL_ADIS:
+		tmr->expires = jiffies + msecs_to_jiffies(TA_BIDL_ADIS);
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+	return 0;
 }
 
 /*----------------------------------------------------------------------*/
@@ -137,7 +235,10 @@ static int intel_phy_data_init(struct intel_phy *iphy,
 	iphy->phy.label = "intel-phy";
 	iphy->phy.state = OTG_STATE_UNDEFINED;
 	iphy->phy.last_event = USB_EVENT_NONE;
+	iphy->phy.set_vbus = intel_phy_set_vbus;
 	iphy->phy.set_power = intel_phy_set_power;
+	iphy->phy.notify_connect = intel_phy_notify_connect;
+	iphy->phy.notify_disconnect = intel_phy_notify_disconnect;
 
 	/* initialize OTG structure */
 	iphy->phy.otg = &iphy->otg;
@@ -150,6 +251,9 @@ static int intel_phy_data_init(struct intel_phy *iphy,
 	/* initialize OTG FSM structure */
 	iphy->fsm.otg = iphy->phy.otg;
 	iphy->fsm.ops = otg_fsm_ops;
+	iphy->fsm.ops->drv_vbus = intel_phy_otg_fsm_drv_vbus;
+	iphy->fsm.ops->add_timer = intel_phy_otg_fsm_add_timer;
+	iphy->fsm.ops->del_timer = intel_phy_otg_fsm_del_timer;
 	mutex_init(&iphy->fsm.lock);
 
 	/* initialize INTEL structure */
@@ -189,6 +293,8 @@ static int intel_phy_otg_fsm_pre_process_chrg(struct intel_phy *iphy)
 			event = USB_EVENT_ENUMERATED;
 		enumerate = true;
 		break;
+	case POWER_SUPPLY_CHARGER_TYPE_USB_ACA:
+		/* fall through */
 	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
 		iphy->input_props.ma = INTEL_PHY_CHRG_IDEV_CHG;
 		event = USB_EVENT_CHARGER;
@@ -223,6 +329,7 @@ static int intel_phy_otg_fsm_pre_process(struct intel_phy *iphy)
 {
 	struct usb_otg *otg = intel_phy_get_otg(iphy);
 	struct otg_fsm *fsm = intel_phy_get_fsm(iphy);
+	unsigned long *input = NULL;
 	unsigned long flags = 0;
 
 
@@ -233,51 +340,127 @@ static int intel_phy_otg_fsm_pre_process(struct intel_phy *iphy)
 
 	spin_lock_irqsave(intel_phy_get_lck(iphy), flags);
 
+	input = intel_phy_get_input(iphy);
+
 	/* bind change can only occur while detached */
 	if (otg->host != iphy->input_host) {
 		if (!fsm->id)
-			set_bit(NONE, intel_phy_get_input(iphy));
+			set_bit(NONE, input);
 		else
 			otg->host = iphy->input_host;
 	}
 	if (otg->gadget != iphy->input_gadget) {
 		if (fsm->b_sess_vld)
-			set_bit(NONE, intel_phy_get_input(iphy));
+			set_bit(NONE, input);
 		else
 			otg->gadget = iphy->input_gadget;
 	}
 
 	/* at least one detach or re-bind occurred so force detach first */
-	if (test_and_clear_bit(NONE, intel_phy_get_input(iphy))) {
+	if (test_bit(NONE, input)) {
 		fsm->id = 1;
 		fsm->b_sess_vld = 0;
-		set_bit(EVENT, intel_phy_get_input(iphy));
-		/* during boot up if no USB cable attached than force
-		 * fsm protocol to PROTO_GADGET to switch off USB HW */
-		if (OTG_STATE_B_IDLE == intel_phy_get_state(iphy)) {
-			fsm->otg->phy->state = OTG_STATE_UNDEFINED;
-			fsm->protocol = PROTO_GADGET;
-		}
+		fsm->a_bus_drop = 1;
+		fsm->a_bus_req = 0;
+		set_bit(EVENT, input);
+		if (OTG_STATE_UNDEFINED != otg->phy->state)
+			clear_bit(NONE, input);
 	} else {
-		fsm->id         = test_bit(ID,   intel_phy_get_input(iphy));
-		fsm->b_sess_vld = test_bit(VBUS, intel_phy_get_input(iphy));
+		fsm->id         = test_bit(ID,   input);
+		fsm->b_sess_vld = test_bit(VBUS, input);
 	}
 
-	/* if device mode and cable attached */
-	if (fsm->id && fsm->b_sess_vld) {
-		int ret = intel_phy_otg_fsm_pre_process_chrg(iphy);
-		if (IS_ERR_VALUE(ret)) {
-			intel_phy_err("OTG FSM pre processing charger type");
-			goto error;
+	switch (otg->phy->state) {
+	case OTG_STATE_UNDEFINED:
+		/* if ID or NONE during boot up then power
+		 * off GADGET, if VBUS then dont power off GADGET
+		 * and continue fsm execution by forcing it else
+		 * skip fsm execution */
+		if (!test_bit(ID, input)) {
+			fsm->protocol = PROTO_GADGET;
+			set_bit(EVENT, input);
+		} else if (test_and_clear_bit(NONE, input))
+			fsm->protocol = PROTO_GADGET;
+		else if (test_bit(VBUS, input))
+			fsm->protocol = PROTO_UNDEF;
+		else
+			goto skip1;
+		break;
+	case OTG_STATE_B_IDLE:
+		if (!fsm->id || fsm->b_sess_vld)
+			set_bit(EVENT, input);
+		break;
+	case OTG_STATE_B_PERIPHERAL:
+		if (fsm->id && fsm->b_sess_vld) {
+			int ret = intel_phy_otg_fsm_pre_process_chrg(iphy);
+			if (IS_ERR_VALUE(ret)) {
+				intel_phy_err("OTG FSM pre process chg type");
+				goto error;
+			}
+			if (!intel_phy_chrg_enumerate(
+				iphy->cable_props.chrg_type)) {
+				/* if charger will not enumerate us */
+				fsm->b_sess_vld = 0;
+			}
 		}
-		if (!intel_phy_chrg_enumerate(iphy->cable_props.chrg_type)) {
-			/* if charger will not enumerate us */
-			fsm->b_sess_vld = 0;
+		break;
+	case OTG_STATE_A_IDLE:
+		if (!fsm->id) {
+			int ret = intel_phy_otg_fsm_pre_process_chrg(iphy);
+			if (IS_ERR_VALUE(ret)) {
+				intel_phy_err("OTG FSM pre process chg type");
+				goto error;
+			}
+			fsm->a_bus_drop = 0;
+			fsm->a_bus_req = 1;
+			set_bit(EVENT, input);
 		}
+		break;
+	case OTG_STATE_A_WAIT_VRISE:
+		if (!fsm->id && !fsm->a_bus_drop && fsm->a_bus_req)
+			fsm->a_vbus_vld = 1;
+		break;
+	case OTG_STATE_A_WAIT_BCON:
+		if (test_and_clear_bit(VBUS_ERR, input)) {
+			/* go to VBUS ERR state */
+			fsm->a_vbus_vld = 0;
+			set_bit(EVENT, input);
+		} else if (!fsm->id && fsm->a_vbus_vld)
+			fsm->b_conn = test_bit(B_CONN, input);
+		else if (fsm->id)
+			fsm->b_conn = 0;
+		break;
+	case OTG_STATE_A_HOST:
+		if (test_and_clear_bit(VBUS_ERR, input)) {
+			/* go to VBUS ERR state */
+			fsm->a_vbus_vld = 0;
+			fsm->b_conn = 1;
+			set_bit(EVENT, input);
+		} else if (!fsm->id && fsm->a_vbus_vld)
+			fsm->b_conn = test_bit(B_CONN, input);
+		break;
+	case OTG_STATE_A_WAIT_VFALL:
+		fsm->a_wait_vfall_tmout = 1;
+		set_bit(EVENT, input);
+		break;
+	case OTG_STATE_A_VBUS_ERR:
+		fsm->a_bus_drop = 1;
+		fsm->a_bus_req = 0;
+		/* force ID bit to floated and switch to B_IDLE
+		 * else we will always request VBUS and fail in case
+		 * of VBUS ERR condition */
+		set_bit(ID, input);
+		set_bit(EVENT, input);
+		break;
+	default:
+		break;
 	}
 
 	spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
 	return 0;
+skip1:
+	spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
+	return -EPERM;
 error:
 	spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
 	return intel_phy_kernel_trap();
@@ -340,9 +523,10 @@ static void intel_phy_event_wq(struct work_struct *work)
 
 		intel_phy_dbg("%04X", cpu_to_le32(*intel_phy_get_input(iphy)));
 
-		intel_phy_otg_fsm_pre_process(iphy);
-		if (otg_statemachine(fsm))
-			intel_phy_otg_fsm_post_process(iphy);
+		if (!intel_phy_otg_fsm_pre_process(iphy)) {
+			if (otg_statemachine(fsm))
+				intel_phy_otg_fsm_post_process(iphy);
+		}
 	}
 }
 
@@ -403,6 +587,7 @@ static int intel_phy_event_nb(
 		spin_lock_irqsave(intel_phy_get_lck(iphy), flags);
 		set_bit(NONE, input);
 		clear_bit(VBUS, input);
+		clear_bit(VBUS_ERR, input);
 		set_bit(ID, input);
 		iphy->input_props = *((struct power_supply_cable_props *)priv);
 		intel_phy_schedule_event_wq(iphy);
@@ -425,6 +610,12 @@ static int intel_phy_event_nb(
 			set_bit(NONE, input);
 		}
 		iphy->input_props = *((struct power_supply_cable_props *)priv);
+		intel_phy_schedule_event_wq(iphy);
+		spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
+		break;
+	case INTEL_USB_DRV_VBUS_ERR:
+		spin_lock_irqsave(intel_phy_get_lck(iphy), flags);
+		set_bit(VBUS_ERR, input);
 		intel_phy_schedule_event_wq(iphy);
 		spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
 		break;
@@ -497,6 +688,28 @@ static int intel_phy_otg_set_peripheral(
 }
 
 /**
+ * PHY API: vbus on/off
+ */
+static int intel_phy_set_vbus(struct usb_phy *phy, int on)
+{
+	struct intel_phy *iphy = NULL;
+
+
+	if (IS_ERR_OR_NULL(phy)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+	iphy = container_of(phy, struct intel_phy, phy);
+	if (IS_ERR_OR_NULL(iphy)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+
+	intel_phy_otg_fsm_drv_vbus(intel_phy_get_fsm(iphy), on);
+	return 0;
+}
+
+/**
  * PHY API: effective for B devices, ignored for A-peripheral
  */
 static int intel_phy_set_power(struct usb_phy *phy, unsigned mA)
@@ -523,6 +736,172 @@ static int intel_phy_set_power(struct usb_phy *phy, unsigned mA)
 	intel_phy_schedule_event_wq(iphy);
 	spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
 	return 0;
+}
+
+/**
+ * PHY API: effective for A-host only
+ */
+static int intel_phy_notify_connect(
+	struct usb_phy *phy, enum usb_device_speed speed)
+{
+	struct intel_phy *iphy = NULL;
+	unsigned long flags = 0;
+
+
+	if (IS_ERR_OR_NULL(phy)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+	iphy = container_of(phy, struct intel_phy, phy);
+	if (IS_ERR_OR_NULL(iphy)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+
+	spin_lock_irqsave(intel_phy_get_lck(iphy), flags);
+	set_bit(B_CONN, intel_phy_get_input(iphy));
+	intel_phy_schedule_event_wq(iphy);
+	spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
+	return 0;
+}
+
+/**
+ * PHY API: effective for A-host only
+ */
+static int intel_phy_notify_disconnect(
+	struct usb_phy *phy, enum usb_device_speed speed)
+{
+	struct intel_phy *iphy = NULL;
+	unsigned long flags = 0;
+
+
+	if (IS_ERR_OR_NULL(phy)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+	iphy = container_of(phy, struct intel_phy, phy);
+	if (IS_ERR_OR_NULL(iphy)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+
+	spin_lock_irqsave(intel_phy_get_lck(iphy), flags);
+	clear_bit(B_CONN, intel_phy_get_input(iphy));
+	intel_phy_schedule_event_wq(iphy);
+	spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
+	return 0;
+}
+
+/**
+ * OTG FSM API: vbus on/off
+ */
+static void intel_phy_otg_fsm_drv_vbus(struct otg_fsm *fsm, int on)
+{
+	struct intel_phy *iphy = NULL;
+	unsigned long flags = 0;
+
+
+	if (IS_ERR_OR_NULL(fsm)) {
+		intel_phy_err("invalid parameter");
+		intel_phy_kernel_trap();
+		return;
+	}
+	iphy = container_of(fsm, struct intel_phy, fsm);
+	if (IS_ERR_OR_NULL(iphy)) {
+		intel_phy_err("initialization issue");
+		intel_phy_kernel_trap();
+		return;
+	}
+
+	intel_phy_dbg("set vbus %s", on ? "on" : "off");
+
+	spin_lock_irqsave(intel_phy_get_lck(iphy), flags);
+	intel_phy_notify(iphy, INTEL_USB_DRV_VBUS, &on);
+	spin_unlock_irqrestore(intel_phy_get_lck(iphy), flags);
+	return;
+}
+
+/**
+ * OTG FSM API: add timer
+ */
+static void intel_phy_otg_fsm_add_timer(
+	struct otg_fsm *fsm, enum otg_fsm_timer timer)
+{
+	struct intel_phy *iphy = NULL;
+	struct timer_list *tmr = NULL;
+
+
+	if (IS_ERR_OR_NULL(fsm)) {
+		intel_phy_err("invalid parameter");
+		intel_phy_kernel_trap();
+		return;
+	}
+	iphy = container_of(fsm, struct intel_phy, fsm);
+	if (IS_ERR_OR_NULL(iphy)) {
+		intel_phy_err("invalid parameter");
+		intel_phy_kernel_trap();
+		return;
+	}
+
+	if (timer >= NUM_OTG_FSM_TIMERS)
+		return;
+	tmr = &iphy->tmr[timer];
+	if (IS_ERR_OR_NULL(tmr)) {
+		intel_phy_err("invalid parameter");
+		intel_phy_kernel_trap();
+		return;
+	}
+
+	if (timer_pending(tmr)) {
+		intel_phy_warn("Timer %s already running",
+			intel_phy_otg_timer_to_str(timer));
+		return;
+	}
+	init_timer(tmr);
+	tmr->data = (unsigned long)iphy;
+	tmr->function = &intel_phy_otg_set_tmout;
+	if (intel_phy_otg_get_timer_data(tmr, timer))
+		return;
+	intel_phy_dbg("start %s timer", intel_phy_otg_timer_to_str(timer));
+	add_timer(tmr);
+	return;
+}
+
+/**
+ * OTG FSM API: delete timer
+ */
+static void intel_phy_otg_fsm_del_timer(
+	struct otg_fsm *fsm, enum otg_fsm_timer timer)
+{
+	struct intel_phy *iphy = NULL;
+	struct timer_list *tmr = NULL;
+
+
+	if (IS_ERR_OR_NULL(fsm)) {
+		intel_phy_err("invalid parameter");
+		intel_phy_kernel_trap();
+		return;
+	}
+	iphy = container_of(fsm, struct intel_phy, fsm);
+	if (IS_ERR_OR_NULL(iphy)) {
+		intel_phy_err("invalid parameter");
+		intel_phy_kernel_trap();
+		return;
+	}
+
+	if (timer >= NUM_OTG_FSM_TIMERS)
+		return;
+	tmr = &iphy->tmr[timer];
+	if (IS_ERR_OR_NULL(tmr)) {
+		intel_phy_err("invalid parameter");
+		intel_phy_kernel_trap();
+		return;
+	}
+
+	if (timer_pending(tmr))
+		del_timer_sync(tmr);
+	intel_phy_dbg("deleted %s timer", intel_phy_otg_timer_to_str(timer));
+	return;
 }
 
 /**
@@ -680,6 +1059,108 @@ static void intel_phy_ms_pause(unsigned ms)
 /**
  * @todo: comment
  */
+static int intel_phy_test_seven(struct intel_phy *iphy,
+	unsigned loop, unsigned t1, unsigned t2)
+{
+	const unsigned long event[] = {
+		USB_EVENT_NONE,
+		USB_EVENT_ID,
+		INTEL_USB_DRV_VBUS_ERR,
+		USB_EVENT_NONE,
+		USB_EVENT_VBUS,
+		USB_EVENT_NONE,
+		USB_EVENT_ID,
+		INTEL_USB_DRV_VBUS_ERR,
+	};
+	unsigned i = 0, j = 0;
+
+
+	if (IS_ERR_OR_NULL(iphy)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	for (i = 0; i < loop; i++) {
+		intel_phy_info("t1 = %u, initial OTG state: %s", t1,
+				intel_phy_get_state_string(iphy));
+
+		for (j = 0; j < ARRAY_SIZE(event); j++) {
+			intel_phy_notify(iphy, event[j], &iphy->input_props);
+			intel_phy_ms_pause(t1);
+			intel_phy_info("after %u ms, current OTG state: %s",
+					t1, intel_phy_get_state_string(iphy));
+
+		}
+	}
+	intel_phy_info("test loop: %u", loop);
+	return 0;
+}
+
+/**
+ * @todo: comment
+ */
+static int intel_phy_test_six(struct intel_phy *iphy,
+	unsigned loop, unsigned t1, unsigned t2)
+{
+	const unsigned long event[] = {
+		USB_EVENT_NONE,
+		USB_EVENT_ID,
+		INTEL_USB_DRV_VBUS_ERR,
+		USB_EVENT_NONE,
+		USB_EVENT_VBUS,
+		USB_EVENT_NONE,
+		USB_EVENT_ID,
+	};
+	unsigned i = 0, j = 0;
+
+
+	if (IS_ERR_OR_NULL(iphy)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	for (i = 0; i < loop; i++) {
+		intel_phy_info("t1 = %u, initial OTG state: %s", t1,
+				intel_phy_get_state_string(iphy));
+
+		for (j = 0; j < ARRAY_SIZE(event); j++) {
+			intel_phy_notify(iphy, event[j], &iphy->input_props);
+			intel_phy_ms_pause(t1);
+			intel_phy_info("pause %u ms, current OTG state: %s",
+					t1, intel_phy_get_state_string(iphy));
+		}
+	}
+	intel_phy_info("test loop: %u", loop);
+	return 0;
+}
+
+/**
+ * @todo: comment
+ */
+static int intel_phy_test_five(struct intel_phy *iphy,
+	unsigned loop, unsigned t1, unsigned t2)
+{
+	unsigned i = 0;
+
+
+	if (IS_ERR_OR_NULL(iphy)) {
+		intel_phy_err("invalid parameter");
+		return intel_phy_kernel_trap();
+	}
+
+	for (i = 0; i < loop; i++) {
+		intel_phy_notify(iphy, USB_EVENT_NONE, &iphy->input_props);
+		intel_phy_ms_pause(t1);
+		intel_phy_notify(iphy, USB_EVENT_ID, &iphy->input_props);
+		intel_phy_ms_pause(t2);
+	}
+	intel_phy_info("test loop: %u", loop);
+	return 0;
+}
+
+/**
+ * @todo: comment
+ */
 static int intel_phy_test_four(struct intel_phy *iphy,
 	unsigned loop, unsigned t1, unsigned t2)
 {
@@ -806,6 +1287,8 @@ static int intel_phy_test_zero(struct intel_phy *iphy,
 		return intel_phy_kernel_trap();
 	}
 
+	dummy1 = NUM_OTG_FSM_TIMERS;
+
 	/* disable crash during this test */
 	intel_phy_kernel_trap_enable(false);
 
@@ -815,6 +1298,9 @@ static int intel_phy_test_zero(struct intel_phy *iphy,
 	intel_phy_get_fsm(NULL);
 	intel_phy_get_input(NULL);
 	intel_phy_chrg_to_str(0);
+	intel_phy_otg_timer_to_str(0);
+	intel_phy_otg_set_tmout(0);
+	intel_phy_otg_get_timer_data(NULL, 0);
 	intel_phy_otg_fsm_pre_process_chrg(NULL);
 	intel_phy_otg_fsm_pre_process(NULL);
 	intel_phy_otg_fsm_post_process(NULL);
@@ -826,7 +1312,17 @@ static int intel_phy_test_zero(struct intel_phy *iphy,
 	intel_phy_event_nb(intel_phy_get_phy(iphy)->notifier.head, 0, NULL);
 	intel_phy_otg_set_host(NULL, NULL);
 	intel_phy_otg_set_peripheral(NULL, NULL);
+	intel_phy_otg_fsm_drv_vbus(NULL, 0);
+	intel_phy_otg_fsm_add_timer(NULL, 0);
+	intel_phy_otg_fsm_add_timer(intel_phy_get_fsm(iphy), dummy1);
+	intel_phy_otg_fsm_add_timer(intel_phy_get_fsm(iphy), dummy1+1);
+	intel_phy_otg_fsm_del_timer(NULL, 0);
+	intel_phy_otg_fsm_del_timer(intel_phy_get_fsm(iphy), dummy1);
+	intel_phy_otg_fsm_del_timer(intel_phy_get_fsm(iphy), dummy1+1);
+	intel_phy_set_vbus(NULL, 0);
 	intel_phy_set_power(NULL, 0);
+	intel_phy_notify_connect(NULL, 0);
+	intel_phy_notify_disconnect(NULL, 0);
 	intel_phy_init(NULL, NULL, NULL, 0);
 	intel_phy_exit(NULL, NULL);
 	intel_phy_notify(NULL, 0, NULL);
@@ -834,6 +1330,9 @@ static int intel_phy_test_zero(struct intel_phy *iphy,
 
 	/* debugfs and test */
 	intel_phy_ms_pause(0);
+	intel_phy_test_seven(NULL, 0, 0, 0);
+	intel_phy_test_six(NULL, 0, 0, 0);
+	intel_phy_test_five(NULL, 0, 0, 0);
 	intel_phy_test_four(NULL, 0, 0, 0);
 	intel_phy_test_three(NULL, 0, 0, 0);
 	intel_phy_test_two(NULL, 0, 0, 0);
@@ -998,6 +1497,15 @@ static ssize_t intel_phy_debugfs_dbg_write(
 		break;
 	case 4:
 		intel_phy_test_four(iphy, loop, t1, t2);
+		break;
+	case 5:
+		intel_phy_test_five(iphy, loop, t1, t2);
+		break;
+	case 6:
+		intel_phy_test_six(iphy, loop, t1, t2);
+		break;
+	case 7:
+		intel_phy_test_seven(iphy, loop, t1, t2);
 		break;
 	default:
 		intel_phy_err("test not defined!");
