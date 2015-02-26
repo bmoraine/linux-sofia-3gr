@@ -15,6 +15,8 @@
  *
  */
 
+#ifndef __MALI_KBASE_PLATFORM_XGOLD__
+#define __MALI_KBASE_PLATFORM_XGOLD__
 
 #define MALI_PLF_NAME "Mali Midgard Platform"
 #define mali_err(fmt, arg...)	pr_err(MALI_PLF_NAME" [ERROR]: " fmt, ##arg)
@@ -50,3 +52,10 @@ struct xgold_platform_context {
 	bool restore_gpu_qos;
 };
 
+
+mali_error kbase_platform_init(struct kbase_device *kbdev);
+int kbase_platform_xgold_pm_control(struct kbase_device *kbdev,
+							int req_pm_state);
+void kbase_platform_term(struct kbase_device *kbdev);
+
+#endif /*__MALI_KBASE_PLATFORM_XGOLD__*/

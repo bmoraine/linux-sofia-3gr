@@ -16,7 +16,8 @@
  *
  */
 
-
+#ifndef __MALI_KBASE_CONFIG_PLATFORM__
+#define __MALI_KBASE_CONFIG_PLATFORM__
 
 /**
  * Maximum frequency GPU will be clocked at. Given in kHz.
@@ -26,6 +27,7 @@
  * Default value: NA
  */
 #define GPU_FREQ_KHZ_MAX 456000
+
 /**
  * Minimum frequency GPU will be clocked at. Given in kHz.
  * This must be specified as there is no default value.
@@ -34,3 +36,5 @@
  * Default value: NA
  */
 #define GPU_FREQ_KHZ_MIN 104000
+
+#endif /*__MALI_KBASE_CONFIG_PLATFORM__*/
