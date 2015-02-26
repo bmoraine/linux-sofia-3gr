@@ -169,7 +169,10 @@ static void __init xgold_soc_init(void)
 		const char *name;
 
 		nr = of_property_count_strings(np, "intel,platform-dev");
-		match_id = kzalloc(nr * sizeof(struct of_device_id),
+		/*
+		 * Allocate nr + 1 to ensure match_id table is NULL terminated
+		 */
+		match_id = kzalloc((nr + 1) * sizeof(struct of_device_id),
 				GFP_KERNEL);
 		if (!match_id) {
 			ret = -ENOMEM;
