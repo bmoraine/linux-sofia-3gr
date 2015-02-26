@@ -1,0 +1,3 @@
+#define PSV_DEEP_SLEEP
+#undef  PSV_DVFS
+#include "SF_LTE-es2-butr.dts"
