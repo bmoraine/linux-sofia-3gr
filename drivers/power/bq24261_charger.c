@@ -186,6 +186,11 @@ enum {
 	FAULT_TIMER = 5,
 	FAULT_BAT_OVP = 6,
 	FAULT_NO_BAT = 7,
+
+	COOLING_NORMAL = 0,
+	COOLING_WARNING = 1,
+	COOLING_ALERT = 2,
+	COOLING_CRITICAL = 3,
 };
 
 enum chr_led_freq {
@@ -212,15 +217,17 @@ enum charger_status {
  * @status		charger driver status
  * @cc			current output current [mA] set on HW
  * @max_cc		maximum output current [mA] that can be set on HW
+ * @cooling_cc		output current [mA] set on HW during cooling operation
  * @cv			current output voltage [mV] set on HW
  * @iterm		HW charging termination current [mA]
  * @inlmt		input current limit [mA]
  * @health		charger chip health
  * @cable_type		type of currently attached cable
- * @charger_enabled	indicates if charger is enabled for use
- * @charging_enabled	indicates if charging is currently enabled or not
+ * @charger_enabled	informs if charger is enabled for use
+ * @charging_enabled	informs if charging is currently enabled or not
  * @to_enable_boost	indicates whether boost mode is to be enabled
  * @boost_enabled	indicates whether boost mode is enabled
+ * @cooling_state	cooling device state
  * @vbus_ovp_fault	VBUS over voltage fault flag and boost mode OVP flag
  * @low_supply_fault	low supply connected fault flag and boost mode OCP flag
  * @thermal_fault	thermal fault flag
@@ -233,6 +240,7 @@ struct bq24261_state {
 	enum charger_status status;
 	int cc;
 	int max_cc;
+	int cooling_cc;
 	int cv;
 	int iterm;
 	int inlmt;
@@ -242,6 +250,7 @@ struct bq24261_state {
 	bool charging_enabled;
 	bool to_enable_boost;
 	bool boost_enabled;
+	int cooling_state;
 	unsigned int vbus_ovp_fault:1;
 	unsigned int low_supply_fault:1;
 	unsigned int thermal_fault:1;
@@ -323,10 +332,19 @@ struct reg_debug_data {
 static struct charger_debug_data chrgr_dbg = {
 };
 
-static struct power_supply_throttle bq24261_dummy_throttle_states[] = {
+static struct power_supply_throttle bq24261_throttle_states[] = {
 	{
 		.throttle_action = PSY_THROTTLE_CC_LIMIT,
 	},
+	{
+		.throttle_action = PSY_THROTTLE_CC_LIMIT,
+	},
+	{
+		.throttle_action = PSY_THROTTLE_CC_LIMIT,
+	},
+	{
+		.throttle_action = PSY_THROTTLE_CC_LIMIT,
+	}
 };
 
 static char *bq24261_supplied_to[] = {
@@ -338,6 +356,7 @@ static enum power_supply_property bq24261_power_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_INLMT,
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_MANUFACTURER,
 };
@@ -733,6 +752,7 @@ static int bq24261_dbg_state_show(struct seq_file *m, void *data)
 
 	seq_printf(m, "cc = %d\n", pdata->state.cc);
 	seq_printf(m, "max_cc = %d\n", pdata->state.max_cc);
+	seq_printf(m, "cooling_cc = %d\n", pdata->state.cooling_cc);
 	seq_printf(m, "cv = %d\n", pdata->state.cv);
 	seq_printf(m, "iterm = %d\n", pdata->state.iterm);
 	seq_printf(m, "inlmt = %d\n", pdata->state.inlmt);
@@ -743,6 +763,7 @@ static int bq24261_dbg_state_show(struct seq_file *m, void *data)
 				pdata->state.charging_enabled);
 	seq_printf(m, "to_enable_boost = %d\n", pdata->state.to_enable_boost);
 	seq_printf(m, "boost_enabled = %d\n", pdata->state.boost_enabled);
+	seq_printf(m, "cooling_state = %d\n\n", pdata->state.cooling_state);
 	seq_printf(m, "vbus_ovp_fault = %u\n", pdata->state.vbus_ovp_fault);
 	seq_printf(m, "low_supply_fault = %u\n", pdata->state.low_supply_fault);
 	seq_printf(m, "thermal_fault = %u\n", pdata->state.thermal_fault);
@@ -1301,53 +1322,6 @@ static int bq24261_set_vbreg(struct bq24261_data *pdata,
 }
 
 /**
- * Set charger target current
- *
- * @pdata	pointer to charger driver internal structure
- * @curr_to_set	target current to set
- * @curr_set	pointer to current target actually set to HW
- * @propagate	whether to propage to HW
- * @return	0 if successful, else error code
- */
-static int bq24261_set_ichrg(struct bq24261_data *pdata,
-			unsigned int curr_to_set, int *curr_set, bool propagate)
-{
-	u8 iochr_val, reg;
-	int ret = 0;
-
-	if (!curr_set || !pdata || !pdata->client)
-		return -EINVAL;
-
-	curr_to_set = fit_in_range(curr_to_set, ICHRG_MIN_MA, ICHRG_MAX_MA);
-
-	iochr_val = (curr_to_set - ICHRG_MIN_MA) / ICHRG_STEP_MA;
-
-	*curr_set = iochr_val *	ICHRG_STEP_MA + ICHRG_MIN_MA;
-
-	if (propagate) {
-		ret = bq24261_i2c_reg_read(pdata->client, REG4_CURRENT, &reg);
-		if (ret) {
-			dev_err(&pdata->client->dev,
-				"%s - fail to read REG4, err=%d\n", __func__,
-				ret);
-			return ret;
-		}
-
-		set_reg_field(reg, ICHRG_O, ICHRG_W, iochr_val);
-
-		ret = bq24261_i2c_reg_write(pdata->client, REG4_CURRENT, reg);
-		if (ret) {
-			dev_err(&pdata->client->dev,
-				"%s - fail to write REG4, err=%d\n", __func__,
-				ret);
-			return ret;
-		}
-	}
-
-	return ret;
-}
-
-/**
  * Set charger input current limit
  *
  * @pdata	pointer to charger driver internal structure
@@ -1658,6 +1632,154 @@ static int bq24261_enable_charging(struct bq24261_data *pdata, bool enable)
 }
 
 /**
+ * Set charger target current
+ *
+ * @pdata	pointer to charger driver internal structure
+ * @curr_to_set	target current to set
+ * @curr_set	pointer to current target actually set to HW
+ * @propagate	whether to propage to HW
+ * @return	0 if successful, else error code
+ */
+static int bq24261_set_ichrg(struct bq24261_data *pdata,
+			unsigned int curr_to_set, int *curr_set, bool propagate)
+{
+	u8 iochr_val, reg;
+	int ret = 0;
+
+	if (!curr_set || !pdata || !pdata->client)
+		return -EINVAL;
+
+	if (curr_to_set < ICHRG_MIN_MA) {
+		if (pdata->state.charging_enabled && propagate) {
+			ret = bq24261_enable_charging(pdata, false);
+			if (ret != 0)
+				return ret;
+			pdata->state.charging_enabled = 0;
+			dev_info(&pdata->client->dev,
+				"Output %dmA is too low, disable charging",
+				curr_to_set);
+		}
+		*curr_set = 0;
+		return 0;
+	}
+
+	curr_to_set = fit_in_range(curr_to_set, ICHRG_MIN_MA, ICHRG_MAX_MA);
+
+	iochr_val = (curr_to_set - ICHRG_MIN_MA) / ICHRG_STEP_MA;
+
+	*curr_set = iochr_val * ICHRG_STEP_MA + ICHRG_MIN_MA;
+
+	if (propagate) {
+		ret = bq24261_i2c_reg_read(pdata->client, REG4_CURRENT, &reg);
+		if (ret) {
+			dev_err(&pdata->client->dev,
+				"%s - fail to read REG4, err=%d\n", __func__,
+				ret);
+			return ret;
+		}
+
+		set_reg_field(reg, ICHRG_O, ICHRG_W, iochr_val);
+
+		ret = bq24261_i2c_reg_write(pdata->client, REG4_CURRENT, reg);
+		if (ret) {
+			dev_err(&pdata->client->dev,
+				"%s - fail to write REG4, err=%d\n", __func__,
+				ret);
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
+/**
+ * Calculate the output current according to requested output current and
+ * cooling level
+ *
+ * @pdata	pointer to charger driver internal structure
+ * @cc		output current requested
+ * @level	cooling level requested
+ * @return	non-negative current, else error code
+ */
+static int bq24261_calc_cooling_current(struct bq24261_data *pdata, int cc,
+					int level)
+{
+	struct power_supply_throttle *pthrottle;
+	unsigned int num_levels = COOLING_CRITICAL + 1;
+
+	if (!pdata)
+		return -EINVAL;
+
+	switch (level) {
+	case COOLING_NORMAL:
+	case COOLING_WARNING:
+	case COOLING_ALERT:
+	case COOLING_CRITICAL:
+		cc = cc * (num_levels - level) / num_levels;
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	pthrottle = pdata->usb_psy.throttle_states + level;
+
+	if (cc < ICHRG_MIN_MA)
+		pthrottle->throttle_action = PSY_THROTTLE_DISABLE_CHARGING;
+	else
+		pthrottle->throttle_action = PSY_THROTTLE_CC_LIMIT;
+
+	if (pdata->state.cooling_state != level)
+		power_supply_changed(pdata->current_psy);
+
+	return cc;
+}
+
+/**
+ * Cooling request handler
+ *
+ * @pdata	pointer to charger driver internal structure
+ * @level	cooling level requested
+ * @return	0 if successful, else error code
+ */
+static int bq24261_cooling_action(struct bq24261_data *pdata, int level)
+{
+	struct device *pdev;
+	int cc, cc_set, cur_level, ret;
+
+	if (!pdata || !pdata->client)
+		return -EINVAL;
+
+	pdev = &pdata->client->dev;
+	cur_level = pdata->state.cooling_state;
+
+	if (cur_level == level)
+		return 0;
+
+	cc = bq24261_calc_cooling_current(pdata, pdata->state.cc, level);
+
+	if (cc < 0) {
+		dev_err(pdev, "Unknown cooling level - %d\n", level);
+		return -EINVAL;
+	}
+
+	ret = bq24261_set_ichrg(pdata, cc, &cc_set, true);
+
+	if (ret) {
+		dev_err(pdev, "%s - fail to set cc, ret=%d\n", __func__, ret);
+		return ret;
+	}
+
+	dev_info(pdev, "cooling state %d, output current %dmA\n", level,
+		cc_set);
+
+	pdata->state.cooling_cc = cc_set;
+	pdata->state.cooling_state = level;
+
+	return 0;
+}
+
+/**
  * Power supply charger property set function
  *
  * @pdata	pointer to charger driver internal structure
@@ -1748,11 +1870,23 @@ static int bq24261_charger_set_property(struct bq24261_data *pdata,
 		value_to_set = fit_in_range(val->intval, 0,
 						pdata->state.max_cc);
 
-		bq24261_set_ichrg(pdata, value_to_set, &value_set, false);
-		if (value_set == pdata->state.cc)
+		value_to_set = bq24261_calc_cooling_current(pdata, value_to_set,
+						pdata->state.cooling_state);
+		if (value_to_set < 0)
 			break;
+
+		bq24261_set_ichrg(pdata, value_to_set,
+					&value_set, false);
+		if (pdata->state.cooling_state == COOLING_NORMAL) {
+			if (value_set == pdata->state.cc)
+				break;
+		} else {
+			if (value_set == pdata->state.cooling_cc)
+				break;
+		}
+
 		ret = bq24261_set_ichrg(pdata, value_to_set,
-							&value_set, true);
+						&value_set, true);
 
 		if (ret) {
 			pdata->state.status = BQ24261_STATUS_FAULT;
@@ -1761,7 +1895,14 @@ static int bq24261_charger_set_property(struct bq24261_data *pdata,
 			break;
 		}
 
-		pdata->state.cc = value_set;
+		pdata->state.cooling_cc = value_set;
+
+		if (pdata->state.cooling_state == COOLING_NORMAL)
+			pdata->state.cc = value_set;
+		else
+			pdata->state.cc = fit_in_range(val->intval, 0,
+						pdata->state.max_cc);
+
 		break;
 
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
@@ -1820,9 +1961,6 @@ static int bq24261_charger_set_property(struct bq24261_data *pdata,
 		}
 
 		pdata->state.inlmt = value_set;
-		if (value_set > ICHRG_MAX_MA)
-			pdata->state.max_cc =
-				fit_in_range(value_set, 0, ICHRG_MAX_MA);
 		break;
 
 	case POWER_SUPPLY_PROP_CONTINUE_CHARGING:
@@ -1842,6 +1980,13 @@ static int bq24261_charger_set_property(struct bq24261_data *pdata,
 
 	case POWER_SUPPLY_PROP_TEMP_ALERT_MIN:
 		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_SET_PROP_MIN_TEMP,
+								val->intval, 0);
+		break;
+
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		bq24261_cooling_action(pdata, val->intval);
+		CHARGER_DEBUG_DEV(
+			chrgr_dbg, CHG_DBG_SET_PROP_CHARGE_CONTROL_LIMIT,
 								val->intval, 0);
 		break;
 
@@ -1985,12 +2130,17 @@ static int bq24261_charger_get_property(struct bq24261_data *pdata,
 		break;
 
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
-		val->intval = 0;
+		val->intval = pdata->state.cooling_state;
 		CHARGER_DEBUG_DEV(
 			chrgr_dbg, CHG_DBG_GET_PROP_CHARGE_CONTROL_LIMIT,
 								val->intval, 0);
 		break;
-
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
+		val->intval = pdata->usb_psy.num_throttle_states;
+		CHARGER_DEBUG_DEV(
+			chrgr_dbg, CHG_DBG_GET_PROP_CHARGE_CONTROL_LIMIT_MAX,
+								val->intval, 0);
+		break;
 	case POWER_SUPPLY_PROP_MODEL_NAME:
 		val->strval = pdata->model_name;
 		break;
@@ -2389,6 +2539,7 @@ static int bq24261_i2c_probe(struct i2c_client *client,
 	pdata->state.status = BQ24261_STATUS_UNKNOWN;
 	pdata->state.cc = DEFAULT_ICHRG_MA;
 	pdata->state.max_cc = ICHRG_MAX_MA;
+	pdata->state.cooling_cc = 0;
 	pdata->state.cv = DEFAULT_VBREG_MV;
 	pdata->state.iterm = 0;
 	pdata->state.health = POWER_SUPPLY_HEALTH_UNKNOWN;
@@ -2397,6 +2548,7 @@ static int bq24261_i2c_probe(struct i2c_client *client,
 	pdata->state.charging_enabled = false;
 	pdata->state.to_enable_boost = false;
 	pdata->state.boost_enabled = false;
+	pdata->state.cooling_state = COOLING_NORMAL;
 	pdata->state.vbus_ovp_fault = 0;
 	pdata->state.low_supply_fault = 0;
 	pdata->state.thermal_fault = 0;
@@ -2485,9 +2637,9 @@ static int bq24261_i2c_probe(struct i2c_client *client,
 					POWER_SUPPLY_CHARGER_TYPE_USB_FLOATING;
 	pdata->usb_psy.supplied_to = bq24261_supplied_to;
 	pdata->usb_psy.num_supplicants = ARRAY_SIZE(bq24261_supplied_to);
-	pdata->usb_psy.throttle_states = bq24261_dummy_throttle_states;
+	pdata->usb_psy.throttle_states = bq24261_throttle_states;
 	pdata->usb_psy.num_throttle_states =
-				ARRAY_SIZE(bq24261_dummy_throttle_states);
+				ARRAY_SIZE(bq24261_throttle_states);
 
 	pdata->current_psy = &pdata->usb_psy;
 
@@ -2509,9 +2661,9 @@ static int bq24261_i2c_probe(struct i2c_client *client,
 					POWER_SUPPLY_CHARGER_TYPE_USB_FLOATING;
 	pdata->ac_psy.supplied_to = bq24261_supplied_to;
 	pdata->ac_psy.num_supplicants = ARRAY_SIZE(bq24261_supplied_to);
-	pdata->ac_psy.throttle_states = bq24261_dummy_throttle_states;
+	pdata->ac_psy.throttle_states = bq24261_throttle_states;
 	pdata->ac_psy.num_throttle_states =
-				ARRAY_SIZE(bq24261_dummy_throttle_states);
+				ARRAY_SIZE(bq24261_throttle_states);
 
 	ret = power_supply_register(&client->dev, &pdata->ac_psy);
 	if (ret) {
