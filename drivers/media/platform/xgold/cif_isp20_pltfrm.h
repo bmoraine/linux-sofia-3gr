@@ -43,18 +43,52 @@ enum cif_isp20_irq;
 #define CIF_ISP20_PLTFRM_MEM_IO_ADDR void __iomem *
 #define CIF_ISP20_PLTFRM_EVENT wait_queue_head_t
 
+#ifdef CONFIG_CIF_ISP20_REG_TRACE
+int
+cif_isp20_pltfrm_rtrace_printf(
+	struct device *dev,
+	const char *fmt,
+	...);
+
+int
+cif_isp20_pltfrm_ftrace_printf(
+	struct device *dev,
+	const char *fmt,
+	...);
+
+#else
+#define cif_isp20_pltfrm_rtrace_printf(dev, str, ...)
+#define cif_isp20_pltfrm_ftrace_printf(dev, str, ...)
+#endif
+
 #define cif_isp20_pltfrm_pr_dbg(dev, fmt, arg...) \
-	pr_debug("CIF ISP2.0 %s: " fmt, \
-		__func__, ## arg)
+	do { \
+		pr_debug("CIF ISP2.0 %s: " fmt, \
+			__func__, ## arg); \
+		cif_isp20_pltfrm_ftrace_printf(dev, "%s: " fmt, \
+			__func__, ## arg); \
+	} while (0)
 #define cif_isp20_pltfrm_pr_info(dev, fmt, arg...) \
-	pr_info("CIF ISP2.0 %s: " fmt, \
-		__func__, ## arg)
+	do { \
+		pr_info("CIF ISP2.0 %s: " fmt, \
+			__func__, ## arg); \
+		cif_isp20_pltfrm_ftrace_printf(dev, "%s: " fmt, \
+			__func__, ## arg); \
+	} while (0)
 #define cif_isp20_pltfrm_pr_warn(dev, fmt, arg...) \
-	pr_warn("CIF ISP2.0 %s WARN: " fmt, \
-		__func__, ## arg)
+	do { \
+		pr_warn("CIF ISP2.0 %s WARN: " fmt, \
+			__func__, ## arg); \
+		cif_isp20_pltfrm_ftrace_printf(dev, "%s WARN: " fmt, \
+			__func__, ## arg); \
+	} while (0)
 #define cif_isp20_pltfrm_pr_err(dev, fmt, arg...) \
-	pr_err("CIF ISP2.0 %s(%d) ERR: " fmt, \
-		__func__, __LINE__, ## arg)
+	do { \
+		pr_err("CIF ISP2.0 %s(%d) ERR: " fmt, \
+			__func__, __LINE__, ## arg); \
+		cif_isp20_pltfrm_ftrace_printf(dev, "%s(%d) ERR: " fmt, \
+			__func__, __LINE__, ## arg); \
+	} while (0)
 
 void cif_isp20_pltfrm_write_reg(
 	struct device *dev,
@@ -114,16 +148,6 @@ u32 cif_isp20_pltfrm_read_reg(
 	_dev, _event, _condition, _timeout_us) \
 	wait_event_interruptible_timeout( \
 		*(_event), _condition, (_timeout_us * HZ) / 1000000)
-
-#ifdef CONFIG_CIF_ISP20_REG_TRACE
-int
-cif_isp20_pltfrm_reg_trace_printf(
-	struct device *dev,
-	const char *fmt,
-	...);
-#else
-#define cif_isp20_pltfrm_reg_trace_printf(dev, str, ...)
-#endif
 
 void
 cif_isp20_pltfrm_debug_register_print_cb(

@@ -249,7 +249,7 @@ static enum cif_isp20_inp cif_isp20_v4l2_inp2cif_isp20_inp(
 	else if (5 == i)
 		inp = CIF_ISP20_INP_DMA_SP;
 	else {
-		cif_isp20_pltfrm_pr_err(dev->dev,
+		cif_isp20_pltfrm_pr_err(NULL,
 			"index %d out of bounds\n", i);
 		return -EINVAL;
 	}

@@ -25,6 +25,8 @@
 #ifndef _CIF_ISP20_H
 #define _CIF_ISP20_H
 
+#define CONFIG_CIF_ISP20_REG_TRACE
+
 #include <linux/platform_device.h>
 #include "cif_isp20_pltfrm.h"
 #include "cif_isp20_img_src.h"
@@ -34,8 +36,6 @@
 
 /*****************************************************************************/
 #define CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG
-#if defined(CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG)
-#endif
 
 /* Definitions */
 
@@ -418,6 +418,7 @@ struct cif_isp20_buffer {
 #endif
 
 struct cif_isp20_stream {
+	enum cif_isp20_stream_id id;
 	enum cif_isp20_state state;
 	enum cif_isp20_state saved_state;
 	struct list_head buf_queue;
@@ -480,6 +481,7 @@ struct cif_isp20_config {
 	struct cif_isp20_mp_config mp_config;
 	struct cif_isp20_strm_fmt img_src_output;
 	struct cif_isp20_isp_config isp_config;
+	bool out_of_buffer_stall;
 };
 
 struct cif_isp20_mi_state {
@@ -527,7 +529,6 @@ struct cif_isp20_device {
 	void (*eof_event)(__u32 frame_sequence);
 	bool   b_isp_frame_in;
 	bool   b_mi_frame_end;
-	u32 mi_mis;
 #ifdef SOFIA_ES1_BU_PM_NATIVE
 	struct clk *clk_kernel;
 	struct clk *clk_slave;
