@@ -508,13 +508,13 @@ static int cif_isp20_v4l2_streamoff(
 	err = videobuf_streamoff(queue);
 	if (IS_ERR_VALUE(err)) {
 		cif_isp20_pltfrm_pr_err(dev->dev,
-			"videobuf_streamoff failed with error %d\n", ret);
+			"videobuf_streamoff failed with error %d\n", err);
 		ret = -EFAULT;
 	}
 	err = videobuf_mmap_free(queue);
 	if (IS_ERR_VALUE(err)) {
 		cif_isp20_pltfrm_pr_err(dev->dev,
-			"videobuf_mmap_free failed with error %d\n", ret);
+			"videobuf_mmap_free failed with error %d\n", err);
 		ret = -EFAULT;
 	}
 
@@ -545,10 +545,9 @@ static int cif_isp20_v4l2_qbuf(
 		return -EBUSY;
 
 	ret = videobuf_qbuf(queue, buf);
-	if (IS_ERR_VALUE(ret)) {
-		cif_isp20_pltfrm_pr_err(NULL, "videobuf_qbuf failed\n");
-		cif_isp20_pltfrm_pr_err(NULL, "failed with error %d\n", ret);
-	}
+	if (IS_ERR_VALUE(ret))
+		cif_isp20_pltfrm_pr_err(NULL,
+			"videobuf_qbuf failed with error %d\n", ret);
 
 	return ret;
 }
@@ -570,13 +569,13 @@ static int cif_isp20_v4l2_dqbuf(
 		return -EBUSY;
 
 	ret = videobuf_dqbuf(queue, buf, file->f_flags & O_NONBLOCK);
-	if (IS_ERR_VALUE(ret) && (ret != -EAGAIN)) {
-		cif_isp20_pltfrm_pr_err(NULL, "videobuf_dqbuf failed\n");
-		cif_isp20_pltfrm_pr_err(NULL, "failed with error %d\n", ret);
-	} else
+	if (IS_ERR_VALUE(ret) && (ret != -EAGAIN))
+		cif_isp20_pltfrm_pr_err(NULL,
+			"videobuf_dqbuf failed with error %d\n", ret);
+	else
 		cif_isp20_pltfrm_pr_dbg(NULL,
-		"dequeued buffer %d, size %d\n",
-		buf->index, buf->length);
+			"dequeued buffer %d, size %d\n",
+			buf->index, buf->length);
 
 	return ret;
 }
@@ -725,10 +724,9 @@ static int cif_isp20_v4l2_reqbufs(
 	node->owner = fh;
 
 	ret = videobuf_reqbufs(queue, req);
-	if (IS_ERR_VALUE(ret)) {
-		cif_isp20_pltfrm_pr_err(NULL, "videobuf_reqbufs failed\n");
-		cif_isp20_pltfrm_pr_err(NULL, "failed with error %d\n", ret);
-	}
+	if (IS_ERR_VALUE(ret))
+		cif_isp20_pltfrm_pr_err(NULL,
+			"videobuf_reqbufs failed with error %d\n", ret);
 
 	return ret;
 }
@@ -746,10 +744,9 @@ static int cif_isp20_v4l2_querybuf(
 		cif_isp20_v4l2_buf_type_string(queue->type), buf->index);
 
 	ret = videobuf_querybuf(queue, buf);
-	if (IS_ERR_VALUE(ret)) {
-		cif_isp20_pltfrm_pr_err(NULL, "videobuf_querybuf failed\n");
-		cif_isp20_pltfrm_pr_err(NULL, "failed with error %d\n", ret);
-	}
+	if (IS_ERR_VALUE(ret))
+		cif_isp20_pltfrm_pr_err(NULL,
+			"videobuf_querybuf failed with error %d\n", ret);
 
 	return ret;
 }
@@ -800,6 +797,10 @@ static int cif_isp20_v4l2_s_fmt(
 	struct cif_isp20_v4l2_fh *fh = to_fh(file);
 	struct cif_isp20_v4l2_node *node = to_node(fh);
 	struct cif_isp20_strm_fmt strm_fmt;
+
+	cif_isp20_pltfrm_pr_dbg(NULL,
+		"%s\n",
+		cif_isp20_v4l2_buf_type_string(queue->type));
 
 	if (node->owner && node->owner != fh)
 		return -EBUSY;

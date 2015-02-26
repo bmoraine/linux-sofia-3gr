@@ -1648,7 +1648,8 @@ struct device *cif_isp20_pltfrm_get_img_src_device(
 
 			if (!strcmp(camera_list_node->type,
 						"v4l2-i2c-subdev")) {
-				client = of_find_i2c_device_by_node(camera_list_node);
+				client = of_find_i2c_device_by_node(
+					camera_list_node);
 				of_node_put(camera_list_node);
 				if (IS_ERR_OR_NULL(client)) {
 					cif_isp20_pltfrm_pr_warn(dev,

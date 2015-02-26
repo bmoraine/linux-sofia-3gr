@@ -396,7 +396,7 @@ struct cif_isp20_mi_path_config {
 
 struct cif_isp20_mi_config {
 	bool raw_enable;
-	bool async_updt;
+	u32 async_updt;
 	struct cif_isp20_mi_path_config mp;
 	struct cif_isp20_mi_path_config sp;
 	struct cif_isp20_mi_path_config dma;
@@ -425,7 +425,6 @@ struct cif_isp20_stream {
 	struct videobuf_buffer *next_buf;
 	bool updt_cfg;
 	bool stall;
-	bool first_frame;
 	bool stop;
 	CIF_ISP20_PLTFRM_EVENT done;
 
@@ -528,6 +527,7 @@ struct cif_isp20_device {
 	void (*eof_event)(__u32 frame_sequence);
 	bool   b_isp_frame_in;
 	bool   b_mi_frame_end;
+	u32 mi_mis;
 #ifdef SOFIA_ES1_BU_PM_NATIVE
 	struct clk *clk_kernel;
 	struct clk *clk_slave;
