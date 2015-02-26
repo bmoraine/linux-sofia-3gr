@@ -365,8 +365,8 @@ pmic {
 				1 &hirq HIRQ_PMIC_ACC_DET2 IRQ_TYPE_DEFAULT
 			>;
 			interrupt-names = "acd1", "acd2";
-			/*io-channel-names = "ACCID_ADC";
-			io-channels = < &meas_pmic ? >;*/
+			io-channel-names = "ACCID_ADC";
+			io-channels = < &meas_pmic 11 >;
 		};
 #endif
 
