@@ -422,6 +422,8 @@ static void vop_win_update_regs(struct vop_device *vop_dev,
 			vop_msk_reg(vop_dev, VOP_SYS_CTRL, mask, val);
 
 			/* this vop unsupport win1 scale */
+			win->area[0].xsize = win->area[0].xact;
+			win->area[0].ysize = win->area[0].yact;
 			vop_writel(vop_dev, VOP_WIN1_DSP_INFO,
 				   V_DSP_WIDTH(win->area[0].xsize) |
 				   V_DSP_HEIGHT(win->area[0].ysize));
@@ -1318,7 +1320,6 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 		return 0;
 
 	rockchip_disp_pwr_enable(screen);
-	dev_drv->suspend_flag = false;
 
 	if (vop_dev->atv_layer_cnt) {
 		rockchip_vop_clk_enable(vop_dev);
@@ -1351,6 +1352,7 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 
 		spin_unlock(&vop_dev->reg_lock);
 	}
+	dev_drv->suspend_flag = false;
 
 	if (dev_drv->trsm_ops && dev_drv->trsm_ops->enable)
 		dev_drv->trsm_ops->enable();
@@ -2061,8 +2063,15 @@ static int rockchip_vop_remove(struct platform_device *pdev)
 static void rockchip_vop_shutdown(struct platform_device *pdev)
 {
 	struct vop_device *vop_dev = platform_get_drvdata(pdev);
+	struct rockchip_vop_driver *dev_drv = &vop_dev->driver;
 
+	dev_drv->suspend_flag = true;
+	flush_kthread_worker(&dev_drv->update_regs_worker);
+	kthread_stop(dev_drv->update_regs_thread);
+	if (dev_drv->trsm_ops && dev_drv->trsm_ops->disable)
+		dev_drv->trsm_ops->disable();
 	rockchip_vop_deinit(vop_dev);
+	rockchip_vop_mmu_en(dev_drv, false);
 	rockchip_vop_clk_disable(vop_dev);
 	rockchip_disp_pwr_disable(vop_dev->driver.cur_screen);
 }
