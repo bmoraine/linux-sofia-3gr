@@ -14,4 +14,5 @@ enum intel_usb_events {
 	INTEL_USB_EVENT_ENUMERATED,	/* gadget driver enumerated */
 	INTEL_USB_DRV_VBUS,		/* drive vbus */
 	INTEL_USB_DRV_VBUS_ERR,		/* drive vbus error */
+	INTEL_USB_ID_SESSION,		/* id session */
 };

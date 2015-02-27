@@ -28,6 +28,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
 #include <linux/slab.h>
+#include <linux/usb/phy-intel.h>
 #include "phy-intel-usb.h"
 
 /*----------------------------------------------------------------------*/
@@ -83,6 +84,7 @@ struct intel_usb3 {
 /**
  * todo: comment
  */
+static const struct intel_usb3_bf scu_dppulldown	= {0x0610UL, BIT(29)};
 static const struct intel_usb3_bf scu_dmpulldown	= {0x0610UL, BIT(28)};
 static const struct intel_usb3_bf scu_freq_sel		= {0x0610UL, BIT(27)};
 static const struct intel_usb3_bf scu_ref_ssp_en	= {0x0610UL, BIT(26)};
@@ -132,6 +134,14 @@ static inline struct device *intel_usb3_get_device(struct intel_usb3 *iusb3)
 static struct usb_gadget *intel_usb3_get_gadget(struct intel_usb3 *iusb3)
 {
 	return iusb3 ? intel_phy_get_gadget(&iusb3->iphy) : NULL;
+}
+
+/**
+ * todo: comment
+ */
+static struct usb_bus *intel_usb3_get_host(struct intel_usb3 *iusb3)
+{
+	return iusb3 ? intel_phy_get_host(&iusb3->iphy) : NULL;
 }
 
 /**
@@ -403,7 +413,7 @@ static int intel_usb3_hw_init(struct intel_usb3 *iusb3)
  * before using USB controller
  * Asynchronous HW reset sequence of USB SS (HW-team recommendation)
  */
-static int intel_usb3_hw_powerup(struct intel_usb3 *iusb3)
+static int intel_usb3_hw_powerup(struct intel_usb3 *iusb3, bool host)
 {
 	int ret = 0;
 
@@ -436,8 +446,16 @@ static int intel_usb3_hw_powerup(struct intel_usb3 *iusb3)
 	 * powered down in suspend state */
 	intel_usb3_hw_bf_write(iusb3, &scu_commononn, 1);
 
-	/* disable D- pull-down resistor */
-	intel_usb3_hw_bf_write(iusb3, &scu_dmpulldown, 0);
+	if (host) {
+		/* enable D- pull-down resistor */
+		intel_usb3_hw_bf_write(iusb3, &scu_dmpulldown, 1);
+		/* enabel D+ pull-up resistor */
+		intel_usb3_hw_bf_write(iusb3, &scu_dppulldown, 1);
+	} else {
+		/* disable D- pull-down resistor */
+		intel_usb3_hw_bf_write(iusb3, &scu_dmpulldown, 0);
+	}
+
 
 	intel_usb3_hw_reset(iusb3, false);
 	udelay(100);
@@ -621,13 +639,80 @@ static int intel_usb3_hw_wakeup(struct intel_usb3 *iusb3)
  */
 static int intel_usb3_otg_fsm_start_host(struct otg_fsm *fsm, int on)
 {
+	struct intel_phy *iphy = NULL;
+	struct intel_usb3 *iusb3 = NULL;
+	struct usb_bus *host = NULL;
+	struct usb_hcd *hcd = NULL;
+	int ret = 0;
+
+
 	if (IS_ERR_OR_NULL(fsm)) {
 		intel_phy_err("invalid parameter");
 		return intel_phy_kernel_trap();
 	}
+	iphy = container_of(fsm, struct intel_phy, fsm);
+	if (IS_ERR_OR_NULL(iphy)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+	iusb3 = container_of(iphy, struct intel_usb3, iphy);
+	if (IS_ERR_OR_NULL(iusb3)) {
+		intel_phy_err("initialization issue");
+		return intel_phy_kernel_trap();
+	}
+	host = intel_usb3_get_host(iusb3);
+	if (IS_ERR_OR_NULL(host)) {
+		intel_phy_err("host not bind");
+		return intel_phy_kernel_trap();
+	}
+	hcd = bus_to_hcd(host);
+	if (IS_ERR_OR_NULL(hcd) && IS_ERR_OR_NULL(hcd->self.controller)) {
+		intel_phy_err("hcd not found");
+		return intel_phy_kernel_trap();
+	}
 
-	intel_phy_warn("todo: implementation");
+	intel_phy_info("host %s", on ? "on" : "off");
+	if (on) {
+		/* power up USB HW and prepare for host operations  */
+		ret = intel_usb3_hw_powerup(iusb3, true);
+		if (IS_ERR_VALUE(ret)) {
+			intel_phy_err("failed to power up USB");
+			return intel_phy_kernel_trap();
+		}
+
+		/* set host mode by sending event to controller driver */
+		ret = atomic_notifier_call_chain(
+			&iphy->phy.notifier, INTEL_USB_ID_SESSION, &on);
+		if (NOTIFY_OK != ret) {
+			intel_phy_err("failed to set host mode");
+			goto power_down;
+		}
+
+		/* initialize USB host stack */
+		ret = hcd->driver->start(hcd);
+		if (IS_ERR_VALUE(ret)) {
+			intel_phy_err("failed to initialize host");
+			goto power_down;
+		}
+	} else {
+		/* de-initialize host stack */
+		usb_remove_hcd(hcd->shared_hcd);
+		usb_put_hcd(hcd->shared_hcd);
+		usb_remove_hcd(hcd);
+
+		/* power-down USB HW */
+		ret = intel_usb3_hw_powerdown(iusb3);
+		if (IS_ERR_VALUE(ret)) {
+			intel_phy_err("failed to powerdown USB");
+			return intel_phy_kernel_trap();
+		}
+	}
 	return 0;
+
+power_down:
+	intel_usb3_hw_powerdown(iusb3);
+	return intel_phy_kernel_trap();
+
 }
 
 /**
@@ -638,6 +723,7 @@ static int intel_usb3_otg_fsm_start_gadget(struct otg_fsm *fsm, int on)
 	struct intel_phy *iphy = NULL;
 	struct intel_usb3 *iusb3 = NULL;
 	struct usb_gadget *gadget = NULL;
+	int ret = 0;
 
 
 	if (IS_ERR_OR_NULL(fsm)) {
@@ -656,19 +742,36 @@ static int intel_usb3_otg_fsm_start_gadget(struct otg_fsm *fsm, int on)
 	}
 	gadget = intel_usb3_get_gadget(iusb3);
 	if (IS_ERR_OR_NULL(gadget)) {
-		intel_phy_warn("gadget not bind");
-		return 0;
+		intel_phy_err("gadget not bind");
+		return intel_phy_kernel_trap();
 	}
 
 	intel_phy_info("gadget %s", on ? "on" : "off");
 	if (on) {
 		/* do power up of USB core & PHY
 		 * required for initializing USB stack */
-		intel_usb3_hw_powerup(iusb3);
-		usb_gadget_vbus_connect(gadget);
+		ret = intel_usb3_hw_powerup(iusb3, false);
+		if (IS_ERR_VALUE(ret)) {
+			intel_phy_err("failed to powerup USB");
+			return intel_phy_kernel_trap();
+		}
+		ret = usb_gadget_vbus_connect(gadget);
+		if (IS_ERR_VALUE(ret)) {
+			intel_phy_err("failed to initilize USB gadget");
+			intel_usb3_hw_powerdown(iusb3);
+			return intel_phy_kernel_trap();
+		}
 	} else {
-		usb_gadget_vbus_disconnect(gadget);
-		intel_usb3_hw_powerdown(iusb3);
+		ret = usb_gadget_vbus_disconnect(gadget);
+		if (IS_ERR_VALUE(ret)) {
+			intel_phy_err("failed to de-initialize USB gadget");
+			return intel_phy_kernel_trap();
+		}
+		ret = intel_usb3_hw_powerdown(iusb3);
+		if (IS_ERR_VALUE(ret)) {
+			intel_phy_err("failed to powerdown USB");
+			return intel_phy_kernel_trap();
+		}
 	}
 	return 0;
 }
@@ -919,20 +1022,24 @@ static int intel_usb3_probe(struct platform_device *pdev)
 	intel_usb3_hw_init(iusb3);
 
 	/* required for udc driver probing */
-	intel_usb3_hw_powerup(iusb3);
+	ret = intel_usb3_hw_powerup(iusb3, false);
+	if (IS_ERR_VALUE(ret)) {
+		intel_phy_err("failed to powerup USB");
+		goto error_debugfs_exit;
+	}
 
 	/* allocate resume interrupt */
 	iusb3->irq_usb_resume = platform_get_irq_byname(pdev, "usb_resume");
 	if (IS_ERR_VALUE(iusb3->irq_usb_resume)) {
 		intel_phy_err("platform resource irq usb resume not found");
-		goto error_debugfs_exit;
+		goto error_power_down;
 	}
 	ret = devm_request_irq(&pdev->dev, iusb3->irq_usb_resume,
 				intel_usb3_isr_usb_resume, IRQF_SHARED,
 				"usb_resume", iusb3);
 	if (IS_ERR_VALUE(ret)) {
 		intel_phy_err("request irq%d, %d", iusb3->irq_usb_resume, ret);
-		goto error_debugfs_exit;
+		goto error_power_down;
 	}
 #ifdef INTEL_USB3_FORCE_VBUS
 	do {
@@ -953,6 +1060,8 @@ static int intel_usb3_probe(struct platform_device *pdev)
 #endif
 	return 0;
 
+error_power_down:
+	intel_usb3_hw_powerdown(iusb3);
 error_debugfs_exit:
 	intel_usb3_debugfs_exit(iusb3);
 error_phy_exit:
@@ -1084,7 +1193,7 @@ static int intel_usb3_test_zero(struct intel_usb3 *iusb3,
 	intel_usb3_phy_io_write(NULL, 0, 0);
 	/* local - hw configuration */
 	intel_usb3_hw_init(NULL);
-	intel_usb3_hw_powerup(NULL);
+	intel_usb3_hw_powerup(NULL, true);
 	intel_usb3_hw_powerdown(NULL);
 	intel_usb3_hw_suspend(NULL);
 	intel_usb3_hw_wakeup(NULL);
