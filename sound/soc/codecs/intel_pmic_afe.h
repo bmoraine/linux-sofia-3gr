@@ -294,6 +294,7 @@ struct afe_power_state {
 	int hs_on;
 	int direct_dac_on;
 	int cp_freq;
+	enum snd_soc_bias_level pm_state_lvl;
 };
 
 enum pmic_rev {
