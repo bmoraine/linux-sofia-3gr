@@ -1,4 +1,11 @@
 /*
+ * Copyright (C) 2014 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Sep 18 2014: IMC: Add 64bit atomic for Intel x86 xgold platform
+ */
+
+/*
  *
  * (C) COPYRIGHT ARM Limited. All rights reserved.
  *
@@ -77,6 +84,8 @@ static inline void page_table_entry_set(struct kbase_device *kbdev, u64 *pte, u6
 				: "=m" (*pte)
 				: [ptemp] "r" (&phy), [pte] "r" (pte), "m" (phy)
 				: "r0", "r1");
+#elif defined(CONFIG_X86)
+	set_64bit(pte, phy);
 #else
 #error "64-bit atomic write must be implemented for your architecture"
 #endif

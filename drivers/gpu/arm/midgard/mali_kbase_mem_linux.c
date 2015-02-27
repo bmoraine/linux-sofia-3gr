@@ -1,4 +1,11 @@
 /*
+ * Copyright (C) 2015 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Jan 25 2015: IMC: Fix wrong page attribute handling for X86
+ */
+
+/*
  *
  * (C) COPYRIGHT ARM Limited. All rights reserved.
  *
@@ -1042,6 +1049,7 @@ static int kbase_cpu_mmap(struct kbase_va_region *reg, struct vm_area_struct *vm
 	phys_addr_t *page_array;
 	int err = 0;
 	int i;
+	bool is_wc = false;
 
 	map = kzalloc(sizeof(*map), GFP_KERNEL);
 
@@ -1075,8 +1083,10 @@ static int kbase_cpu_mmap(struct kbase_va_region *reg, struct vm_area_struct *vm
 
 	page_array = kbase_get_phy_pages(reg);
 
-	if (!(reg->flags & KBASE_REG_CPU_CACHED) &&
-	    (reg->flags & (KBASE_REG_CPU_WR|KBASE_REG_CPU_RD))) {
+	is_wc = (!(reg->flags & KBASE_REG_CPU_CACHED) &&
+		(reg->flags & (KBASE_REG_CPU_WR|KBASE_REG_CPU_RD)));
+
+	if (is_wc) {
 		/* We can't map vmalloc'd memory uncached.
 		 * Other memory will have been returned from
 		 * kbase_mem_allocator_alloc which would be
@@ -1089,7 +1099,15 @@ static int kbase_cpu_mmap(struct kbase_va_region *reg, struct vm_area_struct *vm
 	if (!kaddr) {
 		vma->vm_flags |= VM_PFNMAP;
 		for (i = 0; i < nr_pages; i++) {
-			err = vm_insert_pfn(vma, vma->vm_start + (i << PAGE_SHIFT), page_array[i + start_off] >> PAGE_SHIFT);
+			unsigned long pfn =
+				page_array[i + start_off] >> PAGE_SHIFT;
+#ifdef CONFIG_X86
+			struct page *pg = pfn_to_page(pfn);
+			if ((is_wc) && (get_page_memtype(pg) != _PAGE_CACHE_WC))
+				set_pages_wc(pg, 1);
+#endif
+			err = vm_insert_pfn(vma, vma->vm_start +
+					(i << PAGE_SHIFT), pfn);
 			if (WARN_ON(err))
 				break;
 		}
@@ -1541,6 +1559,11 @@ void *kbase_vmap(struct kbase_context *kctx, mali_addr64 gpu_addr, size_t size,
 	if (!(reg->flags & KBASE_REG_CPU_CACHED)) {
 		/* Map uncached */
 		prot = pgprot_writecombine(prot);
+#ifdef CONFIG_X86
+		for (i = 0; i < page_count; i++)
+			if (get_page_memtype(pages[i]) != _PAGE_CACHE_WC)
+				set_pages_wc(pages[i], 1);
+#endif
 	}
 
 	cpu_addr = vmap(pages, page_count, VM_MAP, prot);

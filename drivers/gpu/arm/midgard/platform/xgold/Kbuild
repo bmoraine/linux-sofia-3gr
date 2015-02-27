@@ -1,0 +1,23 @@
+#
+# Copyright (C) 2014 Intel Mobile Communications GmbH
+#
+# Notes:
+# Sep 18 2014: IMC: Add initial xgold platform configuration
+#
+
+#
+# (C) COPYRIGHT 2012 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+#
+
+ifeq ($(CONFIG_MALI_MIDGARD),y)
+obj-y += mali_kbase_config_xgold.o
+else ifeq ($(CONFIG_MALI_MIDGARD),m)
+SRC += platform/xgold/mali_kbase_config_xgold.c
+endif
+

@@ -1,4 +1,11 @@
 /*
+ * Copyright (C) 2015 Intel Mobile Communications GmbH
+ *
+ * Notes:
+ * Feb 19 2015: IMC: Switch temporarily to always_on power governor!
+ */
+
+/*
  *
  * (C) COPYRIGHT ARM Limited. All rights reserved.
  *
@@ -262,7 +269,8 @@ mali_error kbase_pm_policy_init(struct kbase_device *kbdev)
 	hrtimer_init(&kbdev->pm.gpu_poweroff_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	kbdev->pm.gpu_poweroff_timer.function = kbasep_pm_do_gpu_poweroff_callback;
 
-	kbdev->pm.pm_current_policy = policy_list[0];
+	/* IMC: Switch temporarily to always_on power governor! */
+	kbdev->pm.pm_current_policy = policy_list[1];
 
 	kbdev->pm.pm_current_policy->init(kbdev);
 
