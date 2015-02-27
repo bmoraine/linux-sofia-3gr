@@ -2,6 +2,7 @@
  * xhci-plat.c - xHCI host controller driver platform Bus Glue.
  *
  * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2015 Intel Mobile Communications GmbH
  * Author: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  *
  * A lot of code borrowed from the Linux xHCI driver.
@@ -16,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/dma-mapping.h>
+#include <linux/usb/otg.h>
 
 #include "xhci.h"
 
@@ -35,6 +37,79 @@ static int xhci_plat_setup(struct usb_hcd *hcd)
 	return xhci_gen_setup(hcd, xhci_plat_quirks);
 }
 
+/* xhci_plat_start -initializes xhci host stack if host
+ * initialization has not started */
+static int xhci_plat_start(struct usb_hcd *hcd)
+{
+	struct xhci_hcd *xhci = NULL;
+	struct platform_device *pdev = NULL;
+	struct device *dev = NULL;
+	int ret = 0;
+
+
+	if (IS_ERR_OR_NULL(hcd) && IS_ERR_OR_NULL(hcd->self.controller))
+		return -ENODEV;
+
+	dev = hcd->self.controller;
+	pdev = container_of(dev, struct platform_device, dev);
+	if (IS_ERR_OR_NULL(pdev)) {
+		dev_dbg(&pdev->dev, "platform device not found\n");
+		return -ENODEV;
+	}
+
+	/* if usb_add_hcd is already running HCD than only start HC */
+	if (HC_STATE_RUNNING == hcd->state)
+		return xhci_run(hcd);
+
+	/* add host and initialize host stack */
+	ret = usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
+	if (IS_ERR_VALUE(ret)) {
+		dev_dbg(&pdev->dev, "hcd not added\n");
+		return ret;
+	}
+	device_wakeup_enable(dev);
+
+	/* USB 2.0 roohub is stored in the platform_device now. */
+	hcd = platform_get_drvdata(pdev);
+	if (IS_ERR_OR_NULL(hcd) && IS_ERR_OR_NULL(hcd->driver)) {
+		dev_dbg(&pdev->dev, "hcd not found\n");
+		hcd->state = HC_STATE_HALT;
+		usb_remove_hcd(hcd);
+		return -ENODEV;
+	}
+
+	xhci = hcd_to_xhci(hcd);
+	if (IS_ERR_OR_NULL(xhci)) {
+		dev_dbg(&pdev->dev, "xhci not found\n");
+		usb_remove_hcd(hcd);
+		return -ENODEV;
+	}
+	xhci->shared_hcd = usb_create_shared_hcd(hcd->driver,
+				hcd->self.controller,
+				dev_name(hcd->self.controller), hcd);
+	if (IS_ERR_OR_NULL(xhci->shared_hcd)) {
+		dev_dbg(&pdev->dev, "xhci shared_hcd not created\n");
+		usb_remove_hcd(hcd);
+		return -ENOMEM;
+	}
+	/*
+	 * Set the xHCI pointer before xhci_plat_setup()
+	 * (aka hcd_driver.reset)
+	 * is called by usb_add_hcd().
+	 */
+	*((struct xhci_hcd **)xhci->shared_hcd->hcd_priv) = xhci;
+
+	ret = usb_add_hcd(xhci->shared_hcd, hcd->irq, IRQF_SHARED);
+	if (IS_ERR_VALUE(ret)) {
+		dev_dbg(&pdev->dev, "xhci shared_hcd not added\n");
+		usb_put_hcd(xhci->shared_hcd);
+		usb_remove_hcd(hcd);
+		return ret;
+	}
+
+	return ret;
+}
+
 static const struct hc_driver xhci_plat_xhci_driver = {
 	.description =		"xhci-hcd",
 	.product_desc =		"xHCI Host Controller",
@@ -50,7 +125,7 @@ static const struct hc_driver xhci_plat_xhci_driver = {
 	 * basic lifecycle operations
 	 */
 	.reset =		xhci_plat_setup,
-	.start =		xhci_run,
+	.start =		xhci_plat_start,
 	.stop =			xhci_stop,
 	.shutdown =		xhci_shutdown,
 
@@ -88,11 +163,12 @@ static const struct hc_driver xhci_plat_xhci_driver = {
 static int xhci_plat_probe(struct platform_device *pdev)
 {
 	const struct hc_driver	*driver;
-	struct xhci_hcd		*xhci;
+	struct xhci_hcd		*xhci = NULL;
 	struct resource         *res;
 	struct usb_hcd		*hcd;
 	int			ret;
 	int			irq;
+	struct device_node	*intel_phy_np = NULL;
 
 	if (usb_disabled())
 		return -ENODEV;
@@ -137,6 +213,14 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		goto release_mem_region;
 	}
 
+	/* save hcd irq */
+	hcd->irq = irq;
+
+	/* if DWC3 USB DRD mode enabled than skip the probe */
+	intel_phy_np = of_find_compatible_node(NULL, NULL, "intel,phy-usb3");
+	if (intel_phy_np)
+		goto skip_probe;
+
 	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (ret)
 		goto unmap_registers;
@@ -162,7 +246,23 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (ret)
 		goto put_usb3_hcd;
 
+skip_probe:
+	hcd->phy = devm_usb_get_phy(&pdev->dev, USB_PHY_TYPE_USB2);
+	if (hcd->phy && hcd->phy->otg) {
+		ret = otg_set_host(hcd->phy->otg, &hcd->self);
+		if (IS_ERR_VALUE(ret)) {
+			dev_dbg(&pdev->dev, "otg_set_host failed\n");
+			if (intel_phy_np)
+				goto release_mem_region;
+			else
+				goto dealloc_usb3_hcd;
+		}
+	}
+
 	return 0;
+
+dealloc_usb3_hcd:
+	usb_remove_hcd(xhci->shared_hcd);
 
 put_usb3_hcd:
 	usb_put_hcd(xhci->shared_hcd);
@@ -186,11 +286,17 @@ static int xhci_plat_remove(struct platform_device *dev)
 {
 	struct usb_hcd	*hcd = platform_get_drvdata(dev);
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
+	struct device_node	*intel_phy_np = NULL;
+
+	intel_phy_np = of_find_compatible_node(NULL, NULL, "intel,phy-usb3");
+	if (intel_phy_np)
+		goto skip_remove;
 
 	usb_remove_hcd(xhci->shared_hcd);
 	usb_put_hcd(xhci->shared_hcd);
 
 	usb_remove_hcd(hcd);
+skip_remove:
 	iounmap(hcd->regs);
 	release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 	usb_put_hcd(hcd);
@@ -227,7 +333,7 @@ static int xhci_plat_resume(struct device *dev)
 static const struct dev_pm_ops xhci_plat_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(xhci_plat_suspend, xhci_plat_resume)
 };
-#define DEV_PM_OPS	(&xhci_plat_pm_ops)
+#define DEV_PM_OPS	NULL
 #else
 #define DEV_PM_OPS	NULL
 #endif /* CONFIG_PM */
