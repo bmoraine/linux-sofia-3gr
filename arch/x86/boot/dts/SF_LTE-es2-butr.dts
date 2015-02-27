@@ -1,5 +1,6 @@
 /dts-v1/;
 #define SOFIALTE_ES2
+#define PMIC_B0
 #include "xgold/sofia_lte_soc/irq.h"
 
 / {
@@ -14,6 +15,7 @@
 	#include "xgold/pmic/sofia_lte.dtsi"
 	#include "xgold/sofia_lte_soc/clock-es2.dtsi"
 	#include "xgold/sofia_lte_soc/device-pm-reg.dtsi"
+	#include "xgold/sofia_lte_soc/cpufreq.dtsi"
 	/* FIXME: Add regulator.dtsi */
 
 	chosen {
@@ -38,10 +40,6 @@
 		};
 	};
 
-
-	cpufreq {
-		/* FIXME:Add cpufreq desc */
-	};
 
 	ion {
 		compatible = "intel,ion";
@@ -557,4 +555,4 @@
 };
 #endif
 
-#include "xgold/sofia_lte_soc/pinctrl-sf_lte-es2-svb.dtsi"
+#include "xgold/sofia_lte_soc/pinctrl-sf_lte-es2-butr.dtsi"
