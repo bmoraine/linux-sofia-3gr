@@ -38,6 +38,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/of.h>
 #include <linux/usb/otg.h>
+#include <linux/usb/phy-intel.h>
 
 #include "platform_data.h"
 #include "core.h"
@@ -346,6 +347,37 @@ static void dwc3_core_exit(struct dwc3 *dwc)
 	usb_phy_shutdown(dwc->usb3_phy);
 }
 
+/* PHY notifier to listen PHY event */
+static int dwc3_phy_notifier(struct notifier_block *nb,
+		unsigned long event, void *priv)
+{
+	struct dwc3	*dwc = NULL;
+	bool on = false;
+
+	if (IS_ERR_OR_NULL(nb) || IS_ERR_OR_NULL(priv)) {
+		dev_err(dwc->dev, "invalid parameter");
+		return notifier_from_errno(-EINVAL);
+	}
+	dwc = container_of(nb, struct dwc3, phy_nb);
+	if (IS_ERR_OR_NULL(dwc)) {
+		dev_err(dwc->dev, "initialization issue");
+		return notifier_from_errno(-ENODEV);
+	}
+
+	switch (event) {
+	case INTEL_USB_ID_SESSION:
+		on = *(bool *)priv;
+		/* just set host mode and return */
+		if (on)
+			dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
 #define DWC3_ALIGN_MASK		(16 - 1)
 
 static int dwc3_probe(struct platform_device *pdev)
@@ -440,6 +472,10 @@ static int dwc3_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 
+	/* register USB PHY notifier */
+	dwc->phy_nb.notifier_call = dwc3_phy_notifier;
+	usb_register_notifier(dwc->usb2_phy, &dwc->phy_nb);
+
 	dwc->xhci_resources[0].start = res->start;
 	dwc->xhci_resources[0].end = dwc->xhci_resources[0].start +
 					DWC3_XHCI_REGS_END;
@@ -521,7 +557,11 @@ static int dwc3_probe(struct platform_device *pdev)
 		}
 		break;
 	case USB_DR_MODE_OTG:
-		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
+		/* HWPARAM6 bit 10 is checking whether core is SRP capable
+		 * or not, and this bit can also be used for checking
+		 * OTG capability of USB DWC core */
+		if (dwc->hwparams.hwparams6 & DWC3_GHWPARAMS6_SRP_ENABLED)
+			dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
 		ret = dwc3_host_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize host\n");

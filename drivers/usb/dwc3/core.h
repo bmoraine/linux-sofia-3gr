@@ -192,6 +192,9 @@
 #define DWC3_GHWPARAMS4_HIBER_SCRATCHBUFS(n)	(((n) & (0x0f << 13)) >> 13)
 #define DWC3_MAX_HIBER_SCRATCHBUFS		15
 
+/* Global HWPARAMS6 Register */
+#define DWC3_GHWPARAMS6_SRP_ENABLED		(1<<10)
+
 /* Device Configuration Register */
 #define DWC3_DCFG_DEVADDR(addr)	((addr) << 3)
 #define DWC3_DCFG_DEVADDR_MASK	DWC3_DCFG_DEVADDR(0x7f)
@@ -667,6 +670,7 @@ struct dwc3 {
 
 	struct usb_phy		*usb2_phy;
 	struct usb_phy		*usb3_phy;
+	struct notifier_block	phy_nb;
 
 	void __iomem		*regs;
 	size_t			regs_size;
