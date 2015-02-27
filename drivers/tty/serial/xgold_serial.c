@@ -39,8 +39,9 @@
 #include <linux/console.h>
 #include <linux/list.h>
 #include <linux/workqueue.h>
-#define RUNTIME_SUSPEND_DELAY		5000 /* ms */
 #endif
+
+#define RUNTIME_SUSPEND_DELAY		5000 /* ms */
 
 #define USIF_FCI_POLL			msecs_to_jiffies(50)
 
@@ -468,15 +469,16 @@ static void xgold_usif_clk_enable(struct uart_port *port)
 	if (platdata->pm_platdata) {
 		ret = device_state_pm_set_state_by_name(port->dev,
 				platdata->pm_platdata->pm_state_D0_name);
-		dev_dbg(port->dev, "%s set state return %d\n", __func__, ret);
+		if (ret)
+			dev_err(port->dev, "%s PM set state return %d\n",
+					__func__, ret);
 	}
 
-	if (USIF_CLC_STAT_RUN(ioread32(USIF_CLC_STAT(port->membase)))) {
+	if (USIF_CLC_STAT_RUN(ioread32(USIF_CLC_STAT(port->membase))))
 		/* We are in run mode which means it's safe to assume that
 		 * clocks are already enabled. Return with no further
 		 * action */
 		return;
-	}
 
 	reg = (platdata->ormc << USIF_CLC_CNT_ORMCSMC_OFFSET) |
 		(platdata->rmc << USIF_CLC_CNT_RMC_OFFSET);
@@ -1234,6 +1236,15 @@ static irqreturn_t handle_interrupt(int irq, void *dev_id)
 	spin_unlock(&port->lock);
 	uxp->in_interrupt = false;
 
+	if (usif_port_is_console(&uxp->port) &&
+		uxp->trace_buf_list &&
+		!list_empty(&uxp->trace_buf_list->list) &&
+		!work_pending(&uxp->usif_rpm_work)) {
+		/* Console only: Flush any logs that we have buffered
+		 * while transferring data through TTY. */
+		schedule_work(&uxp->usif_rpm_work);
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -1273,9 +1284,9 @@ static int xgold_usif_free_irqs(struct uart_port *port)
 static void xgold_usif_shutdown(struct uart_port *port)
 {
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
-	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
 
 #ifdef CONFIG_PM_RUNTIME
+	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
 	if (platdata->runtime_pm_enabled) {
 		pm_runtime_get_sync(port->dev);
 		cancel_work_sync(&uxp->usif_rpm_work);
@@ -1833,6 +1844,7 @@ static void xgold_usif_dma_rx_call_back(void *param)
 		char flg;
 		unsigned int rsr;
 
+#ifdef CONFIG_PM_RUNTIME
 		if ((platdata->runtime_pm_enabled) &&
 			(platdata->rpm_auto_suspend_enable) &&
 			(pm_runtime_enabled(uxp->port.dev))) {
@@ -1856,6 +1868,7 @@ static void xgold_usif_dma_rx_call_back(void *param)
 				pm_runtime_get_noresume(uxp->port.dev);
 			}
 		}
+#endif
 
 		status = dma_async_is_tx_complete(uxp->dma_rx_channel,
 				usif_sg->dma_cookie, NULL, NULL);
@@ -1919,6 +1932,7 @@ static void xgold_usif_dma_tx_call_back(void *param)
 		unsigned long flags;
 		struct uart_usif_xgold_port *uxp = usif_sg->uxp;
 		struct circ_buf *xmit = &uxp->port.state->xmit;
+#ifdef CONFIG_PM_RUNTIME
 		struct xgold_usif_platdata *platdata =
 					dev_get_platdata(uxp->port.dev);
 
@@ -1930,6 +1944,7 @@ static void xgold_usif_dma_tx_call_back(void *param)
 			BUG();
 			return;
 		}
+#endif
 
 		spin_lock_irqsave(&uxp->port.lock, flags);
 
@@ -2393,8 +2408,7 @@ int xgold_usif_serial_pm_runtime_suspend(struct device *dev)
 			 * written to the console and that the TX_FIN interrupt
 			 * is cleared before switching off. */
 			mdelay(1);
-		}
-		else
+		} else
 #endif
 			dev_info(dev, "Port is runtime suspended.\n");
 	}
@@ -2659,17 +2673,43 @@ static void xgold_usif_direct_write(struct uart_port *port, const char *s,
 	iowrite32(old_int_mask, USIF_IMSC(port->membase));
 }
 
+static void xgold_usif_add_list(
+				struct xgold_usif_trace_buffer_list *trace_list,
+				int len, const char *trace_buf)
+{
+	struct xgold_usif_trace_buffer_list *tmp_list;
+	char *buf = kzalloc(len, GFP_ATOMIC);
+
+	if (buf == NULL)
+		return;
+
+	memcpy(buf, trace_buf, len);
+
+	tmp_list = (struct xgold_usif_trace_buffer_list *)
+		kzalloc(sizeof(struct xgold_usif_trace_buffer_list),
+				GFP_ATOMIC);
+
+	if (tmp_list == NULL) {
+		kfree(buf);
+		return;
+	}
+
+	tmp_list->trace_buf = buf;
+	tmp_list->buf_len = len;
+	list_add_tail(&tmp_list->list, &trace_list->list);
+}
+
 static void xgold_usif_console_write(struct console *co, const char *s,
 		unsigned int count)
 {
 	struct uart_port *port = &xgold_usif_ports[co->index]->port;
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
-	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
 	unsigned int old_int_mask;
-	unsigned int flushed = 0;
 	unsigned long flags;
-	unsigned int prevent_lockup = 0;
 	int locked = 1;
+#ifdef CONFIG_PM_RUNTIME
+	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
+#endif
 
 	local_irq_save(flags);
 	if (port->sysrq || uxp->in_interrupt)
@@ -2679,28 +2719,10 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 	else
 		spin_lock(&port->lock);
 
+#ifdef CONFIG_PM_RUNTIME
 	if (platdata->runtime_pm_enabled &&
 		port->dev->power.runtime_status != RPM_ACTIVE) {
-		struct xgold_usif_trace_buffer_list *tmp_list;
-		char *buf = kzalloc(count, GFP_NOWAIT);
-
-		if (buf == NULL)
-			goto console_write_done;
-
-		memcpy(buf, s, count);
-
-		tmp_list = (struct xgold_usif_trace_buffer_list *)
-			kzalloc(sizeof(struct xgold_usif_trace_buffer_list),
-					GFP_NOWAIT);
-
-		if (tmp_list == NULL) {
-			kfree(buf);
-			goto console_write_done;
-		}
-
-		tmp_list->trace_buf = buf;
-		tmp_list->buf_len = count;
-		list_add_tail(&tmp_list->list, &uxp->trace_buf_list->list);
+		xgold_usif_add_list(uxp->trace_buf_list, count, s);
 
 		if (!work_pending(&uxp->usif_rpm_work))
 			schedule_work(&uxp->usif_rpm_work);
@@ -2708,35 +2730,48 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 		goto console_write_done;
 	} else
 		xgold_usif_runtime_pm_suspended(port, __func__);
+#endif
+
+	if ((uxp->tx_tps_cnt > 0) &&
+		!oops_in_progress) {
+		/* TX from user side is in progress and we
+		 * should not write to the console at the same
+		 * time -> buffer the data to write them later.
+		 */
+		xgold_usif_add_list(uxp->trace_buf_list, count, s);
+
+		goto console_write_done;
+	}
 
 	old_int_mask = ioread32(USIF_IMSC(port->membase));
 
-	/* Set interrupt mask control register to RX_IRQ only */
-	iowrite32(USIF_MIS_RECEIVE, USIF_IMSC(port->membase));
+	/* Reset all TX interrupts. */
 	iowrite32(USIF_MIS_CLR_ALL_TX, USIF_ICR(port->membase));
-	/* Flush the FIFOs of pending operation */
 
-	while (uxp->tx_tps_cnt) {
-		unsigned status = ioread32(USIF_RIS(port->membase));
-		if (status & USIF_MIS_TRANSMIT) {
-			/* Note that these interrupts are cleared
-			 * in the service routine
-			 */
-			transmit_chars(port, (status & USIF_MIS_TRANSMIT));
-			prevent_lockup = 0;
-		} else {
-			barrier();
-			prevent_lockup++;
-			if (prevent_lockup > 1000) {
-				/* We are out of sync, with tx_tps_cnt > 0
-					but the HW not expecting any more date.
-					Write TPS_CTRL to prevent a lockup. */
-				iowrite32(uxp->tx_tps_cnt,
-						USIF_TPS_CTRL(port->membase));
-				prevent_lockup = 0;
+	/* Write buffered logs first, if any. */
+	if (uxp->trace_buf_list &&
+		!list_empty(&uxp->trace_buf_list->list)) {
+		struct xgold_usif_trace_buffer_list *tmp;
+		struct list_head *pos, *q;
+
+		list_for_each_entry(tmp, &uxp->trace_buf_list->list, list) {
+			if (tmp && tmp->trace_buf &&
+				tmp->buf_len > 0) {
+				uart_console_write(port,
+						tmp->trace_buf,
+						tmp->buf_len,
+						xgold_usif_putchar);
+				kfree(tmp->trace_buf);
 			}
 		}
-		flushed = 1;
+
+		list_for_each_safe(pos, q, &uxp->trace_buf_list->list) {
+			tmp = list_entry(pos,
+				struct xgold_usif_trace_buffer_list,
+				list);
+			list_del(pos);
+			kfree(tmp);
+		}
 	}
 
 	while (USIF_FIFO_STAT_TXFFS(ioread32(USIF_FIFO_STAT(port->membase))))
@@ -2745,8 +2780,7 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 	uart_console_write(port, s, count, xgold_usif_putchar);
 
 	/* Clear interrupt and set mask back */
-	if (!flushed)
-		iowrite32(USIF_MIS_CLR_ALL_TX, USIF_ICR(port->membase));
+	iowrite32(USIF_MIS_CLR_ALL_TX, USIF_ICR(port->membase));
 
 	iowrite32(old_int_mask, USIF_IMSC(port->membase));
 
@@ -2768,13 +2802,14 @@ static void xgold_serial_usif_rpm_work(struct work_struct *work)
 
 	xgold_usif_runtime_pm_resume(&uxp->port);
 
+	spin_lock_irqsave(&uxp->port.lock, flags);
+
 	if (usif_port_is_console(&uxp->port) &&
+		uxp->tx_tps_cnt == 0 &&
 		uxp->trace_buf_list &&
 		!list_empty(&uxp->trace_buf_list->list)) {
 		struct xgold_usif_trace_buffer_list *tmp;
 		struct list_head *pos, *q;
-
-		spin_lock_irqsave(&uxp->port.lock, flags);
 
 		list_for_each_entry(tmp, &uxp->trace_buf_list->list, list) {
 			if (tmp && tmp->trace_buf && tmp->buf_len > 0) {
@@ -2792,11 +2827,12 @@ static void xgold_serial_usif_rpm_work(struct work_struct *work)
 			kfree(tmp);
 		}
 
-		spin_unlock_irqrestore(&uxp->port.lock, flags);
 	}
 
 	if (uart_circ_chars_pending(xmit) > 0)
 		xgold_usif_start_tx(&uxp->port);
+
+	spin_unlock_irqrestore(&uxp->port.lock, flags);
 
 	xgold_usif_runtime_pm_autosuspend(&uxp->port);
 }
@@ -3323,21 +3359,22 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 		disable_irq_nosync(platdata->irq_wk);
 	}
 
-	if (platdata->runtime_pm_enabled) {
+	if (uxp->is_console) {
+		/* Initialize the list for queuing traces */
+		uxp->trace_buf_list = kzalloc(
+			sizeof(struct xgold_usif_trace_buffer_list),
+			GFP_KERNEL);
+		if (uxp->trace_buf_list == NULL)
+			goto iounmap_ctrl;
+		INIT_LIST_HEAD(&uxp->trace_buf_list->list);
+	}
+
+	if (platdata->runtime_pm_enabled ||
+		uxp->is_console) {
 		/* Initialize the worker function on the global
 		 * work queue */
 		INIT_WORK(&uxp->usif_rpm_work,
 			xgold_serial_usif_rpm_work);
-
-		if (uxp->is_console) {
-			/* Initialize the list for queuing traces */
-			uxp->trace_buf_list = kzalloc(
-				sizeof(struct xgold_usif_trace_buffer_list),
-				GFP_KERNEL);
-			if (uxp->trace_buf_list == NULL)
-				goto iounmap_ctrl;
-			INIT_LIST_HEAD(&uxp->trace_buf_list->list);
-		}
 	}
 
 	xgold_usif_set_pinctrl_state(dev, platdata->pins_default);
