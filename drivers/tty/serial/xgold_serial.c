@@ -42,6 +42,8 @@
 #define RUNTIME_SUSPEND_DELAY		5000 /* ms */
 #endif
 
+#define USIF_FCI_POLL			msecs_to_jiffies(50)
+
 #define XGOLD_USIF_ENTER pr_debug("--> %s\n", __func__);
 #define XGOLD_USIF_EXIT pr_debug("<-- %s\n", __func__);
 
@@ -83,8 +85,7 @@
 #define USIF_STA_INT    (USIF_MIS_TMO_MASK | USIF_MIS_FRM_PAUSE_MASK \
 			| USIF_MIS_TX_FIN_MASK | USIF_MIS_RI_MASK \
 			| USIF_MIS_DCD_MASK | USIF_MIS_DSR_MASK \
-			| USIF_MIS_DTR_MASK | USIF_MIS_FCI_MASK \
-			| USIF_MIS_FCO_MASK)
+			| USIF_MIS_DTR_MASK | USIF_MIS_FCI_MASK)
 
 #define USIF_ERR_INT    (USIF_MIS_MC_MASK | USIF_MIS_SLIP_MASK \
 			| USIF_MIS_CRC_MASK | USIF_MIS_PHE_MASK \
@@ -314,13 +315,19 @@ static int xgold_usif_runtime_pm_suspended(struct uart_port *port,
 {
 #ifdef CONFIG_PM_RUNTIME
 	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
+
 	if (platdata->runtime_pm_enabled) {
 		if (platdata->rpm_auto_suspend_enable &&
 			pm_runtime_enabled(port->dev)) {
 			struct uart_usif_xgold_port *uxp = to_usif_port(port);
 			if (port->dev->power.runtime_status !=  RPM_ACTIVE) {
-				if (!work_pending(&uxp->usif_rpm_work))
+				dev_warn(port->dev,
+					"%s called while suspended\n",
+					function);
+				if (!work_pending(&uxp->usif_rpm_work)) {
+					dev_dbg(port->dev, "scheduling RPM work\n");
 					schedule_work(&uxp->usif_rpm_work);
+				}
 				return 1;
 			} else {
 				/* This call will only increase the usage_count
@@ -801,12 +808,12 @@ _xgold_usif_set_termios(struct uart_port *port, struct ktermios *termios,
 	/* Enable the CTS interrupt, and hw control of the transmission */
 	/* We care about only CTS interrupt, now */
 	if (termios->c_cflag & CRTSCTS) {
-		int_mask |= USIF_MIS_FCI_MASK | USIF_MIS_FCO_MASK;
+		int_mask |= USIF_MIS_FCI_MASK;
 		reg = USIF_MSS_CTRL_FCOEN_FCOEN | USIF_MSS_CTRL_FCIEN_FCIEN;
 		iowrite32(reg, USIF_MSS_CTRL(port->membase));
 
 	} else {
-		int_mask &= ~(USIF_MIS_FCI_MASK | USIF_MIS_FCO_MASK);
+		int_mask &= ~(USIF_MIS_FCI_MASK);
 		reg = USIF_MSS_CTRL_FCOEN_FCODIS | USIF_MSS_CTRL_FCIEN_FCIDIS;
 		iowrite32(reg, USIF_MSS_CTRL(port->membase));
 	}
@@ -903,6 +910,13 @@ static int xgold_usif_verify_port(struct uart_port *port,
 		ret = -EINVAL;
 
 	return ret;
+}
+
+#define USIF_PRINT_IRQ(_X_) \
+{\
+	if (USIF_MIS_##_X_(status) && \
+			(uxp->flags & XGOLD_USIF_ALLOW_DEBUG)) \
+		dev_dbg(port->dev, "%s: "#_X_" detected\n", __func__); \
 }
 
 /*
@@ -1023,24 +1037,9 @@ static irqreturn_t transmit_chars(struct uart_port *port, unsigned status)
 	return IRQ_HANDLED;
 }
 
-#define USIF_PRINT_IRQ(_X_) \
-{\
-	if (USIF_MIS_##_X_(status) && \
-			(uxp->flags & XGOLD_USIF_ALLOW_DEBUG)) \
-		dev_dbg(port->dev, "%s: "#_X_" detected\n", __func__); \
-}
-
 static irqreturn_t handle_err_interrupt(struct uart_port *port, unsigned status)
 {
-	struct uart_usif_xgold_port *uxp = to_usif_port(port);
 	/* TODO: Error recovery */
-
-	USIF_PRINT_IRQ(RXUR)
-	USIF_PRINT_IRQ(TXUR)
-	USIF_PRINT_IRQ(PHE)
-	USIF_PRINT_IRQ(TXOF)
-	USIF_PRINT_IRQ(CRC)
-
 	iowrite32(status, USIF_ICR(port->membase));
 
 	return IRQ_HANDLED;
@@ -1053,9 +1052,11 @@ void xgold_usif_delete_modem_poll(struct uart_port *port)
 	unsigned imsc;
 
 	if (del_timer(&uxp->modem_poll)) {
-		modem_status = ioread32(USIF_MSS_STAT(port->membase));
-		old_fci_stat = USIF_MSS_STAT_FCI(uxp->modem_status[1]);
+		modem_status = USIF_MSS_STAT_FCI(
+			ioread32(USIF_MSS_STAT(port->membase)));
+		old_fci_stat = uxp->modem_status[1];
 
+		pr_debug("%s: FCI %x\n", __func__, modem_status);
 		/* Not really sure it's correct to clear the FCI */
 		iowrite32(USIF_ICR_FCI_MASK, USIF_ICR(port->membase));
 		imsc = ioread32(USIF_IMSC(port->membase));
@@ -1089,15 +1090,26 @@ static irqreturn_t handle_sta_interrupt(struct uart_port *port, unsigned status)
 	USIF_PRINT_IRQ(DTR)
 	USIF_PRINT_IRQ(FCO)
 
-#define USIF_FCI_POLL msecs_to_jiffies(50)
 	if (USIF_MIS_FCI(status)) {
-		uxp->modem_status[0] = ioread32(USIF_MSS_STAT(port->membase));
-		imsc = ioread32(USIF_IMSC(port->membase));
-		imsc &= ~USIF_IMSC_FCI_MASK;
-		iowrite32(imsc, USIF_IMSC(port->membase));
-		pr_debug("--> %s:FCI: modem status %#x\n",
-				__func__, uxp->modem_status[0]);
-		mod_timer(&uxp->modem_poll, jiffies + USIF_FCI_POLL);
+		unsigned modem_status = USIF_MSS_STAT_FCI(
+			ioread32(USIF_MSS_STAT(port->membase)));
+		pr_debug("--> %s:FCI: %#x\n", __func__, modem_status);
+		if (modem_status) {
+			del_timer(&uxp->modem_poll);
+			if (modem_status != uxp->modem_status[0]) {
+				pr_debug("--> %s: update uart\n", __func__);
+				uart_handle_cts_change(port, modem_status);
+				wake_up_interruptible(
+					&port->state->port.delta_msr_wait);
+			}
+		} else {
+			imsc = ioread32(USIF_IMSC(port->membase));
+			imsc &= ~USIF_IMSC_FCI_MASK;
+			iowrite32(imsc, USIF_IMSC(port->membase));
+			mod_timer(&uxp->modem_poll,
+				jiffies + platdata->modem_poll_timeout);
+		}
+		uxp->modem_status[0] = modem_status;
 	}
 
 	if (USIF_MIS_TX_FIN(status)) {
@@ -1152,22 +1164,29 @@ static irqreturn_t xgold_usif_handle_wake_interrupt(int irq, void *dev_id)
 		spin_lock(&port->lock);
 
 		if (!platdata->irq_wk_enabled) {
+			dev_err(port->dev, "irq_wk is not enabled ???\n");
 			spin_unlock(&port->lock);
 			return IRQ_HANDLED;
 		}
 
 		/* Disable the interrupt. */
 		if (platdata->irq_wk) {
+			dev_dbg(port->dev, "disabling irq_wk\n");
 			disable_irq_nosync(platdata->irq_wk);
 			platdata->irq_wk_enabled = 0;
 		}
 
 		spin_unlock(&port->lock);
 
-		/* Resume from work queue. */
-		if (!work_pending(&uxp->usif_rpm_work))
-			schedule_work(&uxp->usif_rpm_work);
-
+		if (jiffies_to_msecs(jiffies - uxp->last_irq_wk_time) < 1) {
+			dev_dbg(port->dev, "irq_wk considered as a glitch, re-enable\n");
+			platdata->irq_wk_enabled = 1;
+			enable_irq(platdata->irq_wk);
+		} else {
+			/* Resume from work queue. */
+			if (!work_pending(&uxp->usif_rpm_work))
+				schedule_work(&uxp->usif_rpm_work);
+		}
 	}
 
 	return IRQ_HANDLED;
@@ -1182,18 +1201,6 @@ static irqreturn_t handle_interrupt(int irq, void *dev_id)
 
 	spin_lock(&port->lock);
 	uxp->in_interrupt = true;
-
-	if (xgold_usif_runtime_pm_suspended(port, __func__)) {
-		/* We should never get an interrupt while being runtime
-		 * suspended. However, we can get here while suspending
-		 * since the suspend message will trigger a TX_FIN interrupt.
-		 * We thus clear all interrupts here and return without
-		 * further action.
-		 */
-		iowrite32(USIF_MIS_CLR_ALL, USIF_ICR(port->membase));
-		spin_unlock(&port->lock);
-		return IRQ_HANDLED;
-	}
 
 	mask = USIF_STA_INT | USIF_ERR_INT;
 
@@ -1223,8 +1230,6 @@ static irqreturn_t handle_interrupt(int irq, void *dev_id)
 		if (status & USIF_MIS_TRANSMIT)
 			transmit_chars(port, status & USIF_MIS_TRANSMIT);
 	}
-
-	xgold_usif_runtime_pm_autosuspend(port);
 
 	spin_unlock(&port->lock);
 	uxp->in_interrupt = false;
@@ -1273,7 +1278,7 @@ static void xgold_usif_shutdown(struct uart_port *port)
 #ifdef CONFIG_PM_RUNTIME
 	if (platdata->runtime_pm_enabled) {
 		pm_runtime_get_sync(port->dev);
-		flush_work(&uxp->usif_rpm_work);
+		cancel_work_sync(&uxp->usif_rpm_work);
 	}
 #endif
 
@@ -1324,38 +1329,57 @@ static void xgold_usif_modem_poll(unsigned long param)
 	struct uart_usif_xgold_port *uxp = to_usif_port(port);
 	unsigned imsc, fci_stat, old_fci_stat, modem_status;
 	unsigned long flags;
-
-	if (xgold_usif_is_clk_enabled(&uxp->port) == false ||
-		xgold_usif_runtime_pm_suspended(port, __func__))
-		/* The port has been powered off ->
-		 * need to return here. */
-		return;
-
-	modem_status = ioread32(USIF_MSS_STAT(port->membase));
-	fci_stat = USIF_MSS_STAT_FCI(modem_status);
-	old_fci_stat = USIF_MSS_STAT_FCI(uxp->modem_status[0]);
-
-	if (fci_stat == old_fci_stat) {
-		pr_debug("--> %s:FCI event @lvl %x has been stable\n",
-						__func__, fci_stat);
-		uart_handle_cts_change(port, fci_stat);
-		wake_up_interruptible(&port->state->port.delta_msr_wait);
-	} else {
-		pr_debug("--> %s:FCI event @lvl %#x considered as a glitch\n",
-				__func__, old_fci_stat);
-	}
+	bool update_uart = false;
 
 	spin_lock_irqsave(&port->lock, flags);
+
+	if (xgold_usif_is_clk_enabled(&uxp->port) == false) {
+		/* The port has been powered off ->
+		 * need to return here. */
+		spin_unlock_irqrestore(&port->lock, flags);
+		return;
+	}
+
+#ifdef CONFIG_PM_RUNTIME
+	if (pm_runtime_enabled(port->dev) &&
+		(port->dev->power.runtime_status !=  RPM_ACTIVE)) {
+		pr_debug("fci timer expired while device inactive. ignore\n");
+		spin_unlock_irqrestore(&port->lock, flags);
+		return;
+	}
+	pm_runtime_get_noresume(port->dev);
+#endif
+
 	iowrite32(USIF_ICR_FCI_MASK, USIF_ICR(port->membase));
 	imsc = ioread32(USIF_IMSC(port->membase));
 	imsc |= USIF_IMSC_FCI_MASK;
 	iowrite32(imsc, USIF_IMSC(port->membase));
+
+	modem_status = ioread32(USIF_MSS_STAT(port->membase));
+	fci_stat = USIF_MSS_STAT_FCI(modem_status);
+	old_fci_stat = uxp->modem_status[0];
+
+	if (fci_stat == old_fci_stat) {
+		pr_debug("--> %s:FCI event @lvl %x has been stable\n",
+						__func__, fci_stat);
+		update_uart = true;
+	} else {
+		pr_debug("--> %s:FCI event @lvl %#x considered as a glitch\n",
+				__func__, old_fci_stat);
+		if (fci_stat > old_fci_stat)
+			update_uart = true;
+	}
+
 	uxp->modem_status[1] = uxp->modem_status[0];
 	spin_unlock_irqrestore(&port->lock, flags);
 
+	if (update_uart) {
+		uart_handle_cts_change(port, fci_stat);
+		wake_up_interruptible(&port->state->port.delta_msr_wait);
+	}
+
 	xgold_usif_runtime_pm_autosuspend(port);
 }
-
 
 static int xgold_usif_startup_idi(struct uart_port *port)
 {
@@ -1674,10 +1698,15 @@ static void xgold_usif_stop_tx(struct uart_port *port)
 {
 	unsigned int cr;
 
-	if (xgold_usif_runtime_pm_suspended(port, __func__))
-		/* Need to return since we are suspended and can't wake up
-		 * in IRQ locked context */
+#ifdef CONFIG_PM_RUNTIME
+	if (pm_runtime_enabled(port->dev) &&
+		(port->dev->power.runtime_status !=  RPM_ACTIVE)) {
+		pr_debug("%s called while device inactive. ignore\n",
+			__func__);
 		return;
+	}
+	pm_runtime_get_noresume(port->dev);
+#endif
 
 	cr = ioread32(USIF_IMSC(port->membase));
 	cr &= ~USIF_MIS_TRANSMIT;
@@ -2076,12 +2105,8 @@ static void xgold_usif_start_tx(struct uart_port *port)
 		return;
 	}
 
-	if (xgold_usif_runtime_pm_suspended(port, __func__)) {
-		if (!work_pending(&uxp->usif_rpm_work))
-			schedule_work(&uxp->usif_rpm_work);
-
+	if (xgold_usif_runtime_pm_suspended(port, __func__))
 		return;
-	}
 
 	/* Initiate the transmission only if the transmission is
 	 * not active already or stopped due to flow control.
@@ -2143,7 +2168,6 @@ static unsigned int xgold_usif_get_mctrl(struct uart_port *port)
 	USIF_PRINT_MSS(RI)
 	USIF_PRINT_MSS(DSR)
 	USIF_PRINT_MSS(FCI)
-	USIF_PRINT_MSS(FCO)
 
 	if (USIF_MSS_STAT_DCD(status))
 		ret |= TIOCM_CAR;
@@ -2156,9 +2180,6 @@ static unsigned int xgold_usif_get_mctrl(struct uart_port *port)
 
 	if (USIF_MSS_STAT_FCI(status))
 		ret |= TIOCM_CTS;
-
-	if (USIF_MSS_STAT_FCO(status))
-		ret |= TIOCM_RTS;
 
 	xgold_usif_runtime_pm_autosuspend(port);
 
@@ -2263,12 +2284,18 @@ static void xgold_usif_pm(struct uart_port *port, unsigned int state,
 
 void xgold_usif_wake_peer(struct uart_port *port)
 {
-	struct uart_usif_xgold_port *uxp = to_usif_port(port);
+	unsigned modem_status;
 
-	if (xgold_usif_runtime_pm_suspended(port, __func__)) {
-		if (!work_pending(&uxp->usif_rpm_work))
-			schedule_work(&uxp->usif_rpm_work);
+	if (xgold_usif_runtime_pm_suspended(port, __func__))
+		/* Need to return since we are suspended and can't wake up
+		 * in IRQ locked context.
+		 */
 		return;
+
+	modem_status = ioread32(USIF_MSS_STAT(port->membase));
+	if (USIF_MSS_STAT_FCI(modem_status)) {
+		uart_handle_cts_change(port, USIF_MSS_STAT_FCI(modem_status));
+		wake_up_interruptible(&port->state->port.delta_msr_wait);
 	}
 
 	xgold_usif_runtime_pm_autosuspend(port);
@@ -2305,8 +2332,32 @@ int xgold_usif_serial_pm_runtime_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct uart_usif_xgold_port *uxp = platform_get_drvdata(pdev);
+	struct uart_port *port = &uxp->port;
 	unsigned long flags;
+	unsigned int imsc;
+	struct circ_buf *xmit = &port->state->xmit;
 	struct xgold_usif_platdata *platdata = dev_get_platdata(dev);
+
+	/* Disable all USIF irq as changing the pinctrl might cuase
+	 * unintended interrupt. it will be restored when resume */
+	spin_lock_irqsave(&uxp->port.lock, flags);
+	imsc = ioread32(USIF_IMSC(port->membase));
+	iowrite32(0, USIF_IMSC(port->membase));
+	spin_unlock_irqrestore(&uxp->port.lock, flags);
+
+	/* Ensure that no TX is going on before we suspend.
+	 */
+	if (USIF_FIFO_STAT_TXFFS(ioread32(USIF_FIFO_STAT(port->membase)))) {
+		dev_dbg(dev, "tx in progress\n");
+		goto device_busy;
+	}
+
+	if (uart_circ_chars_pending(xmit) > 0) {
+		dev_dbg(dev, "uart still need to send\n");
+		goto device_busy;
+	}
+
+	del_timer_sync(&uxp->modem_poll);
 
 	mutex_lock(&uxp->runtime_lock);
 
@@ -2320,14 +2371,12 @@ int xgold_usif_serial_pm_runtime_suspend(struct device *dev)
 		uxp->dma_rx_channel = NULL;
 	}
 
-	del_timer_sync(&uxp->modem_poll);
-
 	if (xgold_usif_is_clk_enabled(&uxp->port) == false) {
 		/* The port is already powered off ->
 		 * nothing to be done here. */
 		if (platdata->runtime_pm_debug &&
 			!usif_port_is_console(&uxp->port))
-			dev_info(dev, "Port is already disabled\n");
+			dev_warn(dev, "Port is already disabled\n");
 		mutex_unlock(&uxp->runtime_lock);
 		return 0;
 	}
@@ -2344,43 +2393,44 @@ int xgold_usif_serial_pm_runtime_suspend(struct device *dev)
 			 * written to the console and that the TX_FIN interrupt
 			 * is cleared before switching off. */
 			mdelay(1);
-		} else
+		}
+		else
 #endif
 			dev_info(dev, "Port is runtime suspended.\n");
 	}
-
-	spin_lock_irqsave(&uxp->port.lock, flags);
-
-	usif_set_enabled_mode(&uxp->port);
-	usif_set_config_mode(&uxp->port);
-	usif_set_disabled_mode(&uxp->port);
-
-	spin_unlock_irqrestore(&uxp->port.lock, flags);
-
-	xgold_usif_clk_disable(&uxp->port);
 
 	/* FIXME: pin config may differ between runtime and normal
 	 * suspend */
 	xgold_usif_set_pinctrl_state(dev, platdata->pins_sleep);
 
 	spin_lock_irqsave(&uxp->port.lock, flags);
+	usif_set_enabled_mode(&uxp->port);
+	usif_set_config_mode(&uxp->port);
+	usif_set_disabled_mode(&uxp->port);
+	spin_unlock_irqrestore(&uxp->port.lock, flags);
 
+	/* Disable USIF clock */
+	xgold_usif_clk_disable(&uxp->port);
+
+	spin_lock_irqsave(&uxp->port.lock, flags);
 	if (platdata->rpm_auto_suspend_enable && platdata->irq_wk) {
 		if (!platdata->irq_wk_enabled) {
-			/* Try a w/a for getting wk_irq with no reason */
-			dev_dbg(dev, "enabling irq_wk\n");
-			enable_irq(platdata->irq_wk);
-			disable_irq_nosync(platdata->irq_wk);
-			enable_irq(platdata->irq_wk);
 			platdata->irq_wk_enabled = 1;
+			enable_irq(platdata->irq_wk);
+			uxp->last_irq_wk_time = jiffies;
 		}
 	}
-
 	spin_unlock_irqrestore(&uxp->port.lock, flags);
 
 	mutex_unlock(&uxp->runtime_lock);
 
 	return 0;
+
+device_busy:
+	spin_lock_irqsave(&uxp->port.lock, flags);
+	iowrite32(imsc, USIF_IMSC(port->membase));
+	spin_unlock_irqrestore(&uxp->port.lock, flags);
+	return -EBUSY;
 }
 
 int xgold_usif_serial_pm_runtime_resume(struct device *dev)
@@ -2396,18 +2446,14 @@ int xgold_usif_serial_pm_runtime_resume(struct device *dev)
 
 	if (platdata->rpm_auto_suspend_enable) {
 		spin_lock_irqsave(&uxp->port.lock, flags);
-
 		if (platdata->irq_wk) {
 			if (platdata->irq_wk_enabled) {
 				disable_irq_nosync(platdata->irq_wk);
 				platdata->irq_wk_enabled = 0;
 			}
 		}
-
 		spin_unlock_irqrestore(&uxp->port.lock, flags);
 	}
-
-	xgold_usif_set_pinctrl_state(dev, platdata->pins_default);
 
 	xgold_usif_clk_enable(&uxp->port);
 
@@ -2437,6 +2483,8 @@ int xgold_usif_serial_pm_runtime_resume(struct device *dev)
 
 	spin_unlock_irqrestore(&uxp->port.lock, flags);
 
+	xgold_usif_set_pinctrl_state(dev, platdata->pins_default);
+
 	if (platdata->runtime_pm_debug) {
 #ifdef CONFIG_SERIAL_XGOLD_CONSOLE
 		if (usif_port_is_console(&uxp->port) && uxp->port.line == 0)
@@ -2463,6 +2511,7 @@ int xgold_usif_serial_pm_runtime_resume(struct device *dev)
 
 	if (locked)
 		mutex_unlock(&uxp->runtime_lock);
+
 	return 0;
 }
 
@@ -2484,6 +2533,7 @@ static int xgold_usif_serial_suspend(struct device *dev)
 	struct uart_usif_xgold_port *uxp = dev_get_drvdata(dev);
 	struct uart_port *port = &uxp->port;
 	struct xgold_usif_platdata *platdata = dev_get_platdata(dev);
+	unsigned long flags;
 	int ret = 0;
 
 	if (!uxp->drv)
@@ -2513,16 +2563,20 @@ static int xgold_usif_serial_suspend(struct device *dev)
 	 * disables the USIF HW and powers it off. */
 	ret = uart_suspend_port(uxp->drv, port);
 
+	xgold_usif_set_pinctrl_state(dev, platdata->pins_sleep);
+
 	/* Even if uart_suspend_port() already calls enable_irq_wake, we need
 	 * to enable the irq_wk anyway as this is not the same interrupt line.
 	 * Indeed uart_suspend_port() will enable the port->irq interrupt, here
 	 * we need the irq_wk interrupt */
+	spin_lock_irqsave(&uxp->port.lock, flags);
 	if (device_may_wakeup(port->dev) && platdata->irq_wk) {
+		platdata->irq_wk_enabled = 1;
+		uxp->last_irq_wk_time = jiffies;
 		enable_irq(platdata->irq_wk);
 		enable_irq_wake(platdata->irq_wk);
 	}
-
-	xgold_usif_set_pinctrl_state(dev, platdata->pins_sleep);
+	spin_unlock_irqrestore(&uxp->port.lock, flags);
 
 	return ret;
 }
@@ -2708,13 +2762,15 @@ static void xgold_serial_usif_rpm_work(struct work_struct *work)
 {
 	struct uart_usif_xgold_port *uxp = container_of(work,
 				struct uart_usif_xgold_port, usif_rpm_work);
+	struct uart_port *port = &uxp->port;
+	struct circ_buf *xmit = &port->state->xmit;
+	unsigned long flags;
 
 	xgold_usif_runtime_pm_resume(&uxp->port);
 
 	if (usif_port_is_console(&uxp->port) &&
 		uxp->trace_buf_list &&
 		!list_empty(&uxp->trace_buf_list->list)) {
-		unsigned long flags;
 		struct xgold_usif_trace_buffer_list *tmp;
 		struct list_head *pos, *q;
 
@@ -2739,7 +2795,8 @@ static void xgold_serial_usif_rpm_work(struct work_struct *work)
 		spin_unlock_irqrestore(&uxp->port.lock, flags);
 	}
 
-	xgold_usif_start_tx(&uxp->port);
+	if (uart_circ_chars_pending(xmit) > 0)
+		xgold_usif_start_tx(&uxp->port);
 
 	xgold_usif_runtime_pm_autosuspend(&uxp->port);
 }
@@ -2853,6 +2910,7 @@ static struct xgold_usif_platdata *xgold_usif_serial_get_platdata(
 	struct xgold_usif_platdata *platdata;
 	const char *str_datapath;
 	const char *str_runtime_pm;
+	unsigned int timer;
 	int i, j, nb_of_it, it_wk, len, ret = 0;
 
 	if (!np)
@@ -3021,6 +3079,14 @@ skip_pinctrl:
 		platdata->flags |= XGOLD_USIF_ALLOW_DEBUG;
 
 	of_address_to_resource(np, 0, &platdata->res_io);
+
+	if (of_property_read_u32(np, "pm,rpm_suspend_delay", &timer)) {
+		platdata->modem_poll_timeout = USIF_FCI_POLL;
+		dev_info(dev, "default 50ms fci poll\n");
+	} else {
+		platdata->modem_poll_timeout = msecs_to_jiffies(timer);
+		dev_info(dev, "%dms fci poll\n", timer);
+	}
 
 	platdata->runtime_pm_enabled = 0;
 	ret =
@@ -3244,9 +3310,10 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 #endif
 	/* Request the interrupt for wakeup of the console */
 	if (platdata->irq_wk) {
+		platdata->irq_wk_enabled = 0;
 		ret = request_irq(platdata->irq_wk,
 				xgold_usif_handle_wake_interrupt,
-				IRQF_TRIGGER_FALLING, uxp->name,
+				IRQF_TRIGGER_NONE, uxp->name,
 				&uxp->port);
 		if (ret) {
 			dev_err(dev, "%s: cannot request irq_wk %d\n",
@@ -3254,7 +3321,6 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 			goto iounmap_ctrl;
 		}
 		disable_irq_nosync(platdata->irq_wk);
-		platdata->irq_wk_enabled = 0;
 	}
 
 	if (platdata->runtime_pm_enabled) {

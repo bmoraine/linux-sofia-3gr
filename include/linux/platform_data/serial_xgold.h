@@ -60,6 +60,7 @@ struct xgold_usif_platdata {
 	short runtime_pm_debug;
 	unsigned int rpm_suspend_delay;
 	short rpm_auto_suspend_enable;
+	unsigned int modem_poll_timeout;
 	unsigned long private[0] ____cacheline_aligned;
 };
 
@@ -110,6 +111,7 @@ struct uart_usif_xgold_port {
 	struct xgold_usif_trace_buffer_list *trace_buf_list;
 	struct work_struct usif_rpm_work;
 	struct mutex runtime_lock;
+	unsigned long last_irq_wk_time;
 
 	int (*startup)(struct uart_port *port);
 	void (*shutdown)(struct uart_port *port);
