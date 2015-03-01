@@ -312,6 +312,7 @@
 						intel,serial-port = < 1 >;
 						wakeup-source;
 						intel,usif-debug;
+						intel,modem_poll_timeout = < 5 >;
 						interrupts = < 0 1 >;
 						interrupt-parent = <&gnss>;
 						#interrupt-cells = < 1 >;
@@ -328,10 +329,9 @@
 						pm,state-D0 = "enable_104M_hperf";
 						pm,state-D3 = "disable";
 
-						pm,runtime = "disable";
-						pm,debug_rpm = "disable";
-						pm,rpm_suspend_delay = < 30 >;
-						pm,auto_suspend_enable = "disable";
+						pm,runtime = "enable";
+						pm,rpm_suspend_delay = < 15 >;
+						pm,auto_suspend_enable = "enable";
 					};
 
 					i2c_1:i2c_1 {
