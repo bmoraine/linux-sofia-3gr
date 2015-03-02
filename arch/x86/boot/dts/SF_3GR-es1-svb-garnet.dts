@@ -398,6 +398,7 @@
 		pinctrl-1 = < &chg_agold_sleep_pins >;
 		pinctrl-2 = < &chg_agold_inactive_pins >;
 		intel,otg-enable = < &xgold_pmx_gpio 47 0 >;
+		intel,chgint-debounce = < 50 >;
 	};
 };
 
