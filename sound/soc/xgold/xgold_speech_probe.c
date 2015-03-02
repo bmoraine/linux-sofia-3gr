@@ -59,8 +59,6 @@
 #define	PROBE_POINT_TO_STREAM_PLAY(a)	(2*a)
 #define	PROBE_POINT_TO_STREAM_REC(a)	(2*a + 1)
 
-#define	PROBE_GAIN_MUTE_VALUE	-960
-
 enum xgold_speech_probe_point_id {
 	PROBE_POINT_A,
 	PROBE_POINT_B,
@@ -601,17 +599,17 @@ static void dsp_cmd_set_params(
 	/* if inject is idle, mute gain 2 to avoid adding same signal again
 	   back to UL/DL path */
 	if (false == play_status)
-		speech_probe_par->gain2 = PROBE_GAIN_MUTE_VALUE;
+		speech_probe_par->gain2 = DSP_GAIN_MUTE_VALUE;
 
 	/* if extract is idle, mute gain 6 to ensure only the samples from
 	   a potential player gets injected */
 	if (false == rec_status)
-		speech_probe_par->gain6 = PROBE_GAIN_MUTE_VALUE;
+		speech_probe_par->gain6 = DSP_GAIN_MUTE_VALUE;
 
 	/* if both inject and extract is active, assume it is for
 	   third party algo processing, hence mute gain1 */
 	if ((true == play_status) && (true == rec_status))
-		speech_probe_par->gain1 = PROBE_GAIN_MUTE_VALUE;
+		speech_probe_par->gain1 = DSP_GAIN_MUTE_VALUE;
 
 	/* TODO: probe points 8 and 9 are used for voip and
 	   mic recording use cases, and therefore controlled from IMAS

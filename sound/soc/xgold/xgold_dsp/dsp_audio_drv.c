@@ -2221,7 +2221,11 @@ int dsp_cmd_hw_probe(struct dsp_audio_device *dsp,
 	/* TODO update hw_probe params using mixer ctl */
 	hw_probe_par.setting = 0x1;
 	hw_probe_par.mix_flag = 0x1;
-	hw_probe_par.injection_gain = 0x0;
+	/* Injection gain should be 0dB if injection is used,
+	 * and otherwise mute.
+	 * Injection is not supported at the moment, so mute the gain.
+	 */
+	hw_probe_par.injection_gain = (U16)DSP_GAIN_MUTE_VALUE;
 
 	cmd_data.command_id = DSP_AUD_HW_PROBE;
 	cmd_data.command_len =
