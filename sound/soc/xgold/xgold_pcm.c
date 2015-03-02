@@ -818,7 +818,7 @@ static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 
 	xgold_debug("%s\n", __func__);
 
-	if (!xrtd)
+	if (!xrtd || !xrtd->dmach)
 		return snd_pcm_lib_free_pages(substream);
 
 	xgold_pcm = xrtd->pcm;
