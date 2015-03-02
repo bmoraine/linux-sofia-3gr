@@ -39,7 +39,8 @@
 		<&range 113 8 0x100>,
 		<&range 121 1 0x01500>,	/* cam1_rst */
 		<&range 122 1 0x01500>,	/* cam2_pd */
-		<&range 123 2 0x100>,
+		<&range 123 1 0x1500>,	/* cam2_rst */
+		<&range 124 1 0x100>,
 		<&range 125 1 0x01500>,	/* cam1_pd */
 		<&range 126 18 0x100>;
 
@@ -1177,7 +1178,8 @@
 	};
 	cam2_function_B_active_pins:cam2_function_B_active_pins {
 		pinctrl-single,pins = <
-			0x3e8 0x1500	/* cam2_pwd */
+			0x3e8 0x1700	/* cam2_pwd */
+			0x3ec 0x1700	/*cam2_rst*/
 		>;
 	};
 	cam2_function_B_inactive_pins:cam2_function_B_inactive_pins {
@@ -1188,6 +1190,7 @@
 	cam2_function_B_sleep_pins:cam2_function_B_sleep_pins {
 		pinctrl-single,pins = <
 			0x3e8 0x4100	/* cam2_pwd */
+			0x3ec 0x1500	/* cam2_rst */
 		>;
 	};
 	cif_function_B_active_pins:cif_function_B_active_pins {
