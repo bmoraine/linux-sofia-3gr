@@ -210,6 +210,7 @@ static const struct adc_sensors_chan_info
 		{"ACCID_SENSOR", "ACCID_ADC", IIO_VOLTAGE},
 		{"HWID_SENSOR", "HWID_ADC", IIO_RESISTANCE},
 		{"USBID_SENSOR", "USBID_ADC", IIO_RESISTANCE},
+		{"TBATID_SENSOR", "BATTEMP0_ADC", IIO_RESISTANCE},
 };
 
 /*

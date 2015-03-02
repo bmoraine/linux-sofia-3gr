@@ -132,6 +132,15 @@ static struct adc_sensors_data_table_uv_to_degc adc_sensors_tbat_data = {
 };
 
 /**
+ * Battery temperature thermistor resistance is measured as follows:
+ *
+ * No series resistor
+ */
+static struct adc_sensors_data_linear_uv_to_ohm adc_sensors_pmic_tbatid_data = {
+	0
+};
+
+/**
  * Battery ID is measured as follows:
  *
  *	10kOhm series resistor.
@@ -283,6 +292,10 @@ static struct adc_sensors_channel intel_adc_sensors_pmic_channels[] = {
 
 	{"sw_fuel_gauge", ADC_SENSORS_CHANNEL_BATTEMP0,
 	ADC_SENSORS_CONVERSION_TABLE_UV_TO_DEGC, &adc_sensors_tbat_data,
+	CAL_DEFAULT, 0},
+
+	{"pmic_bat_drv", ADC_SENSORS_CHANNEL_TBATID,
+	ADC_SENSORS_CONVERSION_LINEAR_UV_TO_OHM, &adc_sensors_pmic_tbatid_data,
 	CAL_DEFAULT, 0},
 
 	{"sw_fuel_gauge", ADC_SENSORS_CHANNEL_BATID,
