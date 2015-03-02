@@ -710,7 +710,7 @@ rndis_function_bind_config(struct android_usb_function *f,
 		struct usb_configuration *c)
 {
 	struct rndis_function_config *rndis = f->config;
-	struct f_rndis *rndis_func;
+	struct f_rndis *rndis_func = func_to_rndis(rndis->f_rndis);
 	struct f_rndis_opts *rndis_opts;
 	struct eth_dev *dev;
 	int ret;
@@ -719,8 +719,6 @@ rndis_function_bind_config(struct android_usb_function *f,
 		pr_err("%s: rndis_pdata\n", __func__);
 		return -1;
 	}
-
-	rndis_func = func_to_rndis(rndis->f_rndis);
 
 	pr_info("%s MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
 		rndis_func->ethaddr[0], rndis_func->ethaddr[1],
