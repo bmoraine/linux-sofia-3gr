@@ -305,7 +305,7 @@ struct smb345_state {
  */
 struct	unfreezable_bh_struct {
 	struct workqueue_struct *wq;
-	struct work_struct work;
+	struct delayed_work work;
 	struct wake_lock evt_wakelock;
 	bool in_suspend;
 	bool pending_evt;
@@ -377,6 +377,7 @@ struct smb345_charger {
 
 	int chg_otg_en_gpio;
 	struct power_supply_cable_props *props;
+	unsigned long chgint_debounce;
 };
 
 static int smb345_otg_notification_handler(struct notifier_block *nb,
@@ -669,8 +670,7 @@ static int __maybe_unused smb345_charger_get_property(struct power_supply *psy,
 static void smb345_set_boost(struct work_struct *work)
 {
 	int ret;
-	struct smb345_charger *chrgr =
-		container_of(work, struct smb345_charger, boost_op_bh.work);
+	struct smb345_charger *chrgr = &chrgr_data;
 	int on = chrgr->state.to_enable_boost;
 
 	pr_info("%s(): %s\n", __func__, (on) ? "enable" : "disable");
@@ -750,7 +750,7 @@ static void smb345_chgint_cb_work_func(struct work_struct *work)
 {
 	u32 regval;
 	struct device_state_pm_state *pm_state_en, *pm_state_dis;
-	struct smb345_charger *chrgr = container_of(work, struct smb345_charger, chgint_bh.work);
+	struct smb345_charger *chrgr = &chrgr_data;
 	int ret, vbus_state_prev;
 	u8 status;
 
@@ -838,7 +838,7 @@ static int unfreezable_bh_create(struct unfreezable_bh_struct *bh,
 	if (NULL == bh->wq)
 		return -ENOMEM;
 
-	INIT_WORK(&bh->work, work_func);
+	INIT_DELAYED_WORK(&bh->work, work_func);
 
 	wake_lock_init(&bh->evt_wakelock,
 			WAKE_LOCK_SUSPEND,
@@ -849,7 +849,7 @@ static int unfreezable_bh_create(struct unfreezable_bh_struct *bh,
 
 static void unfreezable_bh_destroy(struct unfreezable_bh_struct *bh)
 {
-	cancel_work_sync(&bh->work);
+	cancel_delayed_work_sync(&bh->work);
 
 	destroy_workqueue(bh->wq);
 
@@ -858,10 +858,11 @@ static void unfreezable_bh_destroy(struct unfreezable_bh_struct *bh)
 
 static void unfreezable_bh_schedule(struct unfreezable_bh_struct *bh)
 {
+	struct smb345_charger *chrgr = &chrgr_data;
 	spin_lock(&bh->lock);
 
 	if (!bh->in_suspend) {
-		queue_work(bh->wq, &bh->work);
+		queue_delayed_work(bh->wq, &bh->work, chrgr->chgint_debounce);
 
 		wake_lock_timeout(&bh->evt_wakelock, EVT_WAKELOCK_TIMEOUT);
 	} else {
@@ -874,6 +875,7 @@ static void unfreezable_bh_schedule(struct unfreezable_bh_struct *bh)
 static void __maybe_unused unfreezable_bh_resume(struct unfreezable_bh_struct *bh)
 {
 	unsigned long flags;
+	struct smb345_charger *chrgr = &chrgr_data;
 
 	spin_lock_irqsave(&bh->lock, flags);
 
@@ -881,7 +883,7 @@ static void __maybe_unused unfreezable_bh_resume(struct unfreezable_bh_struct *b
 	if (bh->pending_evt) {
 		bh->pending_evt = false;
 
-		queue_work(bh->wq, &bh->work);
+		queue_delayed_work(bh->wq, &bh->work, chrgr->chgint_debounce);
 
 		wake_lock_timeout(&bh->evt_wakelock, EVT_WAKELOCK_TIMEOUT);
 	}
@@ -1265,6 +1267,7 @@ static int smb345_i2c_probe(struct i2c_client *client,
 	struct device *dev = &client->dev;
 	struct device_node *np = dev->of_node;
 	int ret;
+	u32 val;
 
 	INIT_CHARGER_DEBUG_ARRAY(chrgr_dbg);
 
@@ -1333,6 +1336,13 @@ static int smb345_i2c_probe(struct i2c_client *client,
 		if (ret < 0)
 			pr_err("%s: request CHG_OTG gpio fail!\n", __func__);
 	}
+
+	ret = of_property_read_u32(np, "intel,chgint-debounce", &val);
+	if (ret) {
+		pr_err("Unable to retrieve intel,chgint-debounce\n");
+		val = 0;
+	}
+	chrgr->chgint_debounce = msecs_to_jiffies(val);
 
 	/* Setup the PMU registers. The charger IC reset line
 	   is deasserted at this point. From this point onwards
@@ -1431,7 +1441,7 @@ static int smb345_i2c_probe(struct i2c_client *client,
 
 	/* Read the VBUS presence status for initial update by
 	making a dummy interrupt bottom half invocation */
-	queue_work(chrgr->chgint_bh.wq, &chrgr->chgint_bh.work);
+	queue_delayed_work(chrgr->chgint_bh.wq, &chrgr->chgint_bh.work, 0);
 
 	if (unfreezable_bh_create(&chrgr->boost_op_bh, "boost_op_wq",
 				"smb345_boost_lock", smb345_set_boost)) {
@@ -1466,6 +1476,25 @@ remap_fail:
 
 static int __exit smb345_i2c_remove(struct i2c_client *client)
 {
+	int ret = 0;
+	struct smb345_charger *chrgr = &chrgr_data;
+	CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_I2C_REMOVE, 0, 0);
+
+	free_irq(client->irq, chrgr);
+	power_supply_unregister(&chrgr_data.usb_psy);
+	power_supply_unregister(&chrgr_data.ac_psy);
+	wake_lock_destroy(&chrgr_data.suspend_lock);
+
+	unfreezable_bh_destroy(&chrgr_data.chgint_bh);
+	unfreezable_bh_destroy(&chrgr_data.boost_op_bh);
+
+	cancel_delayed_work_sync(&chrgr_data.charging_work);
+	if (chrgr_data.otg_handle)
+		usb_put_phy(chrgr_data.otg_handle);
+
+	ret = smb345_set_pinctrl_state(client, chrgr->pins_inactive);
+	if (ret != 0)
+		return ret;
     return 0;
 }
 
@@ -1538,11 +1567,30 @@ static int __exit smb345_idi_remove(struct idi_peripheral_device *ididev)
 
 static int smb345_suspend(struct device *dev)
 {
+	struct smb345_charger *chrgr = &chrgr_data;
+
+	CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_SUSPEND_OK, 0, 0);
+	if (device_may_wakeup(dev)) {
+		pr_info("%s: enable wakeirq\n", __func__);
+		enable_irq_wake(chrgr->chgdet_irq);
+	}
+	unfreezable_bh_suspend(&chrgr_data.chgint_bh);
+	unfreezable_bh_suspend(&chrgr_data.boost_op_bh);
 	return 0;
 }
 
 static int smb345_resume(struct device *dev)
 {
+	struct smb345_charger *chrgr = &chrgr_data;
+	CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_RESUME, 0, 0);
+
+	unfreezable_bh_resume(&chrgr_data.chgint_bh);
+	unfreezable_bh_resume(&chrgr_data.boost_op_bh);
+
+	if (device_may_wakeup(dev)) {
+		pr_info("%s: disable wakeirq\n", __func__);
+		disable_irq_wake(chrgr->chgdet_irq);
+	}
 	return 0;
 }
 
