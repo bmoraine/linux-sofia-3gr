@@ -11,8 +11,7 @@
 /* AUTO GENERATED - DO NOT MODIFY */
 /* This MUST be sync across full system or system could break! */
 
-#define HIRQ 32
-#define XIRQ 33
+#define HIRQ 33
 #define VMM_IPI_SCHEDULE 34
 #define VMM_PERF_CTR_IRQ 119
 #define VMM_SOCWATCH_IRQ 120
