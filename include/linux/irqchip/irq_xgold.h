@@ -73,13 +73,6 @@ extern int xgold_irq_domain_xlate(struct irq_domain *,
 				      const u32 *, unsigned int,
 					  unsigned long *, unsigned int *);
 
-/* vpic irq-chip operators */
-extern void sofia_vpic_irq_enable(struct irq_data *);
-extern void sofia_vpic_irq_disable(struct irq_data *);
-extern void sofia_vpic_irq_mask(struct irq_data *);
-extern void sofia_vpic_irq_unmask(struct irq_data *);
-extern void sofia_vpic_irq_eoi(struct irq_data *);
-
 /* io accessors */
 extern int32_t _xgold_irq_write(void __iomem *, struct irq_reg *,
 		uint32_t, bool);
