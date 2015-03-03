@@ -29,10 +29,6 @@
 #define APDS_990X_I2C_SAD		0x39
 
 struct als_platform_data {
-	int (*power_on)(struct device *dev);
-	int (*power_off)(struct device *dev);
-	int (*init)(struct device *dev);
-	void (*exit)(void);
 	/* gpio ports for interrupt pads */
 	int gpio_int;
 	/* glass factor is counted into als_gain */

@@ -674,31 +674,36 @@ static irqreturn_t apds990x_interrupt(int vec, void *info)
 	return IRQ_HANDLED;
 }
 
-static void apds990x_power_off(struct apds990x_data *data)
+static int apds990x_power_off(struct apds990x_data *data)
 {
-	int err = -1;
+	struct device_pm_platdata *pm_platdata = data->pdata->pm_platdata;
+	int ret;
 
 	if (data->pdata->gpio_int >= 0)
 		disable_irq_nosync(data->client->irq);
 
-	if (data->pdata->power_off) {
-		err = data->pdata->power_off(&data->client->dev);
-		BUG_ON(err < 0);
-	}
+	ret = device_state_pm_set_state_by_name(&data->client->dev,
+			pm_platdata->pm_state_D3_name);
+
+	if (ret)
+		dev_err(&data->client->dev, "Power OFF Failed: %d\n", ret);
+
+	return ret;
 }
 
 static int apds990x_power_on(struct apds990x_data *data)
 {
-	int err = -1;
+	struct device_pm_platdata *pm_platdata = data->pdata->pm_platdata;
+	int ret;
 
-	if (data->pdata->power_on) {
-		err = data->pdata->power_on(&data->client->dev);
-		if (err < 0) {
-			dev_err(&data->client->dev,
-					"power_on failed: %d\n", err);
-			return err;
-		}
+	ret = device_state_pm_set_state_by_name(&data->client->dev,
+			pm_platdata->pm_state_D0_name);
+
+	if (ret) {
+		dev_err(&data->client->dev, "Power ON Failed: %d\n", ret);
+		return ret;
 	}
+
 	msleep(APDS_STARTUP_DELAY);
 	if (data->pdata->gpio_int >= 0)
 		enable_irq(data->client->irq);
@@ -1257,50 +1262,6 @@ static struct device_state_pm_state *apds990x_get_initial_state(
 #endif
 
 #ifdef CONFIG_OF
-static int als_power_on(struct device *dev)
-{
-	struct apds990x_data *data = dev_get_drvdata(dev);
-	struct device_pm_platdata *pm_platdata = data->pdata->pm_platdata;
-
-	int ret = device_state_pm_set_state_by_name(dev,
-			pm_platdata->pm_state_D0_name);
-
-	if (ret)
-		dev_err(dev, "Power ON Failed: %d\n", ret);
-
-	return ret;
-}
-
-static int als_power_off(struct device *dev)
-{
-	struct apds990x_data *data = dev_get_drvdata(dev);
-	struct device_pm_platdata *pm_platdata = data->pdata->pm_platdata;
-
-	int ret = device_state_pm_set_state_by_name(dev,
-			pm_platdata->pm_state_D3_name);
-
-	if (ret)
-		dev_err(dev, "Power OFF Failed: %d\n", ret);
-
-	return ret;
-}
-
-static int als_init(struct device *dev)
-{
-	struct apds990x_data *data = dev_get_drvdata(dev);
-	struct device_pm_platdata *pm_platdata = data->pdata->pm_platdata;
-
-	if (!pm_platdata || !pm_platdata->pm_state_D0_name ||
-			!pm_platdata->pm_state_D3_name)
-		return -EINVAL;
-
-	return device_state_pm_set_class(dev, pm_platdata->pm_user_name);
-}
-
-static void als_exit(void)
-{
-	return;
-}
 
 #define OF_ALS_GAIN   "intel,als-gain"
 #define OF_COEFF_B    "intel,coeff-B"
@@ -1312,6 +1273,7 @@ static struct als_platform_data *apds990x_of_get_platdata(
 {
 	struct device_node *np = dev->of_node;
 	struct als_platform_data *als_pdata;
+	struct device_pm_platdata *pm_platdata;
 	int ret = 0;
 
 	als_pdata = kzalloc(sizeof(*als_pdata), GFP_KERNEL);
@@ -1369,17 +1331,14 @@ static struct als_platform_data *apds990x_of_get_platdata(
 		dev_err(dev, "could not get inactive pinstate\n");
 
 skip_pinctrl:
-	als_pdata->pm_platdata = of_device_state_pm_setup(np);
-	if (IS_ERR(als_pdata->pm_platdata)) {
+	pm_platdata = of_device_state_pm_setup(np);
+	if (IS_ERR(pm_platdata)) {
 		dev_err(dev, "Error during device state pm init\n");
 		ret = -EINVAL;
 		goto out;
 	}
 
-	als_pdata->init = als_init;
-	als_pdata->exit = als_exit;
-	als_pdata->power_on = als_power_on;
-	als_pdata->power_off = als_power_off;
+	als_pdata->pm_platdata = pm_platdata;
 	als_pdata->gpio_int = 0;
 
 	return als_pdata;
@@ -1539,12 +1498,19 @@ static int __init apds990x_probe(struct i2c_client *client,
 	/* pcl */
 	apds990x_set_pinctrl_state(&client->dev, data->pdata->pins_default);
 
-	if (data->pdata->init) {
-		err = data->pdata->init(&client->dev);
-		if (err < 0) {
-			dev_err(&client->dev, "Plat Init Failed\n");
-			goto exit_unregister_dev_ps;
-		}
+	if (!data->pdata->pm_platdata ||
+			!data->pdata->pm_platdata->pm_state_D0_name ||
+			!data->pdata->pm_platdata->pm_state_D3_name) {
+		err = -EINVAL;
+		dev_err(&client->dev, "Missing PM platdata\n");
+		goto exit_unregister_dev_ps;
+	}
+
+	err = device_state_pm_set_class(&client->dev,
+			data->pdata->pm_platdata->pm_user_name);
+	if (err < 0) {
+		dev_err(&client->dev, "Device PM Init Failed\n");
+		goto exit_unregister_dev_ps;
 	}
 
 	err = apds990x_power_on(data);
@@ -1561,7 +1527,10 @@ static int __init apds990x_probe(struct i2c_client *client,
 		goto exit_power_off;
 	}
 
-	apds990x_power_off(data);
+	err = apds990x_power_off(data);
+	if (err)
+		goto exit_plat_exit;
+
 	/* Register sysfs hooks */
 	err = sysfs_create_group(&client->dev.kobj, &apds990x_attr_group);
 	if (err)
@@ -1574,8 +1543,7 @@ static int __init apds990x_probe(struct i2c_client *client,
 exit_power_off:
 	apds990x_power_off(data);
 exit_plat_exit:
-	if (data->pdata->exit)
-		data->pdata->exit();
+	device_state_pm_remove_device(&client->dev);
 exit_unregister_dev_ps:
 	input_unregister_device(data->input_dev_ps);
 exit_unregister_dev_als:
@@ -1616,10 +1584,11 @@ static int apds990x_remove(struct i2c_client *client)
 
 	sysfs_remove_group(&client->dev.kobj, &apds990x_attr_group);
 
-	if (data->pdata->exit)
-		data->pdata->exit();
-	kfree(data);
+	device_state_pm_remove_device(&client->dev);
 
+	kfree(data->pdata->pm_platdata);
+	kfree(data->pdata);
+	kfree(data);
 
 	return 0;
 }
