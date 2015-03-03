@@ -684,14 +684,16 @@ void dsi_config(struct dsi_display *display, int type)
 
 	if (type == DIF_TX_DATA) {
 		dsi_write_field(display, EXR_DSI_CFG, DSI_CFG_OFF(DSI_CMD));
+		dsi_write_field(display, EXR_DSI_IMSC, DSI_IRQ_ERR_MASK);
 		dsi_set_phy(display, 1);
 		dsi_write_field(display, EXR_DSI_CFG,
 				DSI_CFG_INIT(display->dif.dsi.nblanes));
 		return;
 	}
 
-	dsi_write_field(display,
-			EXR_DSI_CFG, DSI_CFG_OFF(DSI_VIDEO));
+	dsi_write_field(display, EXR_DSI_CFG, DSI_CFG_OFF(DSI_VIDEO));
+	dsi_write_field(display, EXR_DSI_IMSC,
+			DSI_IRQ_ERR_MASK & (~DSI_IRQ_ERR_DSIFIN));
 	dsi_configure_video_mode(display,
 			PIXELS_TO_BYTES(display->xres, display->bpp),
 			display->yres);

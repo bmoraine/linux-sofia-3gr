@@ -198,6 +198,5 @@ int dsi_irq_remove(struct dsi_display *display)
 void dsi_interrupt_setup(struct dsi_display *display)
 {
 	dsi_write_field(display, EXR_DSI_ICR, 0x7FFFFF);
-	dsi_write_field(display, EXR_DSI_IMSC, 0x3FFFFF);
 }
 
