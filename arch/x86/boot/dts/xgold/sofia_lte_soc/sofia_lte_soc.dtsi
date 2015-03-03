@@ -688,9 +688,9 @@
 						compatible = "intel,phy-usb3";
 						#size-cells = < 1 >;
 						#address-cells = < 0 >;
-						/* TODO: add comment */
-						reg = < 0xE4900000 0x100000 >;
-						reg-names = "scu_usb";
+						/* SCU USB for PHY config, LMU TRB for EBC config */
+						reg = < 0xE4900000 0x1000 >, < 0xE9940000 0x100 >;
+						reg-names = "scu_usb", "lmu_usb";
 
 						interrupts = < 0 >;
 						interrupt-parent = < &usb_phy >;
