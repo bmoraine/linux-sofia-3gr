@@ -54,6 +54,7 @@
 	kp_default_pins:kp_default_pins {
 		pinctrl-single,pins = <
 			0x200 0x2001	/* kp_in0 */
+			0x204 0x2001	/* kp_in1 */
 			0x220 0x410	/* kp_out0 */
 			0x228 0x410	/* kp_out2 */
 		>;
@@ -61,6 +62,7 @@
 	kp_inactive_pins:kp_inactive_pins {
 		pinctrl-single,pins = <
 			0x200 0x2001	/* kp_in0 */
+			0x204 0x2001	/* kp_in1 */
 			0x220 0x410	/* kp_out0 */
 			0x228 0x410	/* kp_out2 */
 		>;
@@ -68,6 +70,7 @@
 	kp_sleep_pins:kp_sleep_pins {
 		pinctrl-single,pins = <
 			0x200 0x2001	/* kp_in0 */
+			0x204 0x2001	/* kp_in1 */
 			0x220 0x410	/* kp_out0 */
 			0x228 0x410	/* kp_out2 */
 		>;
