@@ -407,8 +407,8 @@
 	pinctrl-1 = <&i2c5_sleep_pins>;
 	pinctrl-2 = <&i2c5_inactive_pins>;
 	proxsensor {
-		compatible = "avago,apds990x";
-		reg = < 0x39 >;
+		compatible = "liteon,ltr559";
+		reg = < 0x23 >;
 		interrupt-parent = <&eint>;
 		interrupts = < EINT_EXI3 XGOLD_IRQ_TYPE_EDGE_FALLING >;
 		pinctrl-names = "default", "sleep", "inactive";
@@ -418,7 +418,7 @@
 		intel,pdrive = /bits/ 8 < 64 >;
 		intel,ppcount = /bits/ 8 < 64 >;
 		vdd-supply = < &vprog1 >;
-		pm,class-name = "apds990x_class";
+		pm,class-name = "ltr_class";
 		pm,user-name = "ext_proximity_sensor";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
