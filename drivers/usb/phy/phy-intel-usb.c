@@ -254,6 +254,8 @@ static int intel_phy_data_init(struct intel_phy *iphy,
 	iphy->fsm.ops->drv_vbus = intel_phy_otg_fsm_drv_vbus;
 	iphy->fsm.ops->add_timer = intel_phy_otg_fsm_add_timer;
 	iphy->fsm.ops->del_timer = intel_phy_otg_fsm_del_timer;
+	iphy->fsm.id = 1;
+	iphy->fsm.b_sess_vld = 0;
 	mutex_init(&iphy->fsm.lock);
 
 	/* initialize INTEL structure */
@@ -324,6 +326,8 @@ done:
 
 /**
  * OTG FSM pre process
+ * Return: 0 to execute the OTG state machine, -EPERM to avoid
+ * executing OTG state machine
  */
 static int intel_phy_otg_fsm_pre_process(struct intel_phy *iphy)
 {
@@ -378,21 +382,26 @@ static int intel_phy_otg_fsm_pre_process(struct intel_phy *iphy)
 		 * skip fsm execution */
 		if (!test_bit(ID, input)) {
 			fsm->protocol = PROTO_GADGET;
+			/* refer OTG rev 2.0 1.1a, section 7.1 for A-device */
 			set_bit(EVENT, input);
 		} else if (test_and_clear_bit(NONE, input))
 			fsm->protocol = PROTO_GADGET;
-		else if (test_bit(VBUS, input))
-			fsm->protocol = PROTO_UNDEF;
-		else
+		else if (test_bit(VBUS, input)) {
+			set_bit(EVENT, input);
+			/* force USB power off if non-enumerate charger */
+			if (!intel_phy_chrg_enumerate(
+				iphy->input_props.chrg_type))
+				fsm->protocol = PROTO_GADGET;
+		} else
 			goto skip1;
 		break;
 	case OTG_STATE_B_IDLE:
-		if (!fsm->id || fsm->b_sess_vld)
-			set_bit(EVENT, input);
-		break;
-	case OTG_STATE_B_PERIPHERAL:
-		if (fsm->id && fsm->b_sess_vld) {
-			int ret = intel_phy_otg_fsm_pre_process_chrg(iphy);
+		if (!fsm->id || fsm->b_sess_vld) {
+			int ret = 0;
+			/* refer OTG rev 2.0 1.1a, section 7.1 for A-device */
+			if (!fsm->id)
+				set_bit(EVENT, input);
+			ret = intel_phy_otg_fsm_pre_process_chrg(iphy);
 			if (IS_ERR_VALUE(ret)) {
 				intel_phy_err("OTG FSM pre process chg type");
 				goto error;
@@ -404,13 +413,17 @@ static int intel_phy_otg_fsm_pre_process(struct intel_phy *iphy)
 			}
 		}
 		break;
-	case OTG_STATE_A_IDLE:
-		if (!fsm->id) {
+	case OTG_STATE_B_PERIPHERAL:
+		if (fsm->id && fsm->b_sess_vld) {
 			int ret = intel_phy_otg_fsm_pre_process_chrg(iphy);
 			if (IS_ERR_VALUE(ret)) {
 				intel_phy_err("OTG FSM pre process chg type");
 				goto error;
 			}
+		}
+		break;
+	case OTG_STATE_A_IDLE:
+		if (!fsm->id) {
 			fsm->a_bus_drop = 0;
 			fsm->a_bus_req = 1;
 			set_bit(EVENT, input);
@@ -422,7 +435,7 @@ static int intel_phy_otg_fsm_pre_process(struct intel_phy *iphy)
 		break;
 	case OTG_STATE_A_WAIT_BCON:
 		if (test_and_clear_bit(VBUS_ERR, input)) {
-			/* go to VBUS ERR state */
+			/* go to OTG_STATE_A_VBUS_ERR state */
 			fsm->a_vbus_vld = 0;
 			set_bit(EVENT, input);
 		} else if (!fsm->id && fsm->a_vbus_vld)
@@ -432,7 +445,7 @@ static int intel_phy_otg_fsm_pre_process(struct intel_phy *iphy)
 		break;
 	case OTG_STATE_A_HOST:
 		if (test_and_clear_bit(VBUS_ERR, input)) {
-			/* go to VBUS ERR state */
+			/* go to OTG_STATE_A_VBUS_ERR state */
 			fsm->a_vbus_vld = 0;
 			fsm->b_conn = 1;
 			set_bit(EVENT, input);
@@ -440,6 +453,7 @@ static int intel_phy_otg_fsm_pre_process(struct intel_phy *iphy)
 			fsm->b_conn = test_bit(B_CONN, input);
 		break;
 	case OTG_STATE_A_WAIT_VFALL:
+		/* go to OTG_STATE_B_IDLE */
 		fsm->a_wait_vfall_tmout = 1;
 		set_bit(EVENT, input);
 		break;
