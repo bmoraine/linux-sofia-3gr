@@ -16,10 +16,12 @@
 *
 */
 
-#ifndef _VDUMP_H_
-#define _VDUMP_H_
+#ifndef _VDUMP_FILE_H_
+#define _VDUMP_FILE_H_
 
-int vdump_modem(void);
-
+void vdump_set_linux_config(void);
+void vdump_save_coredump(void *ptr, int num_bytes, int end);
+int vdump_get_shmem_config(void);
+void vdump_setting_init(void);
 
 #endif /* _VDUMP_H_ */

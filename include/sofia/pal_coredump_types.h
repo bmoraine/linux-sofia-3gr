@@ -14,6 +14,8 @@
 #ifndef _PAL_COREDUMP_TYPES_H
 #define _PAL_COREDUMP_TYPES_H
 
+#define CD_MEMORY_RANGE_MAX 16
+
 enum cd_dev {
 	CD_DEV_DISABLED  = 0,
 	CD_DEV_USIF1     = 1,
@@ -21,7 +23,8 @@ enum cd_dev {
 	CD_DEV_USIF3     = 3,
 	CD_DEV_USBHS     = 4,
 	CD_DEV_SDCARD    = 5,
-	CD_DEV_MIPIPTI   = 6  /* Supports PTI1 and PTI2 */
+	CD_DEV_MIPIPTI   = 6,  /* Supports PTI1 and PTI2 */
+	CD_DEV_SHAREMEM  = 7   /* Support modem coredump via share memory */
 };
 
 struct cd_config {
@@ -37,6 +40,14 @@ struct cd_ram {
 	uint32_t logical_start;
 	uint32_t physical_start;
 	uint32_t length;
+};
+
+struct cd_sharemem {
+	uint32_t status;       /* status ==1, modem panic */
+	uint32_t number_of_ranges;
+	struct cd_ram memory_range[CD_MEMORY_RANGE_MAX];
+	struct sys_trap trap_ptr;
+	struct sys_vm_dump vm_dump;
 };
 
 #endif /* _PAL_COREDUMP_TYPES_H*/

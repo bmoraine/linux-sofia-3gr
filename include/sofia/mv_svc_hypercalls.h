@@ -118,7 +118,9 @@ enum pinctrl_funcs {
 **/
 enum cd_op_code {
 	CD_SET_CONFIG = 0,
-	CD_ADD_REGION
+	CD_ADD_REGION,
+	CD_CONFIG_SHAREMEM,
+	CD_ALLOW_CONFIG
 };
 
 /**
@@ -326,9 +328,10 @@ enum pwm_op_code {
 
 /**
  @brief  MobileVisor platform pin control service
-         <b> Note, Use PINCTRL_ABB_IDX(agr1) for AGOLD PCL ,<b>
+ <b> Note, Use PINCTRL_ABB_IDX(agr1) for AGOLD PCL ,<b>
  @param  pinctrl_opcode  operation service
- @param  agr1  physical index number of PCL (GET/SET) functional ID (FUNC_CONFIG)
+ @param  agr1  physical index number of PCL
+	(GET/SET) functional ID (FUNC_CONFIG)
  @param  arg2  register value to be written (SET) operation mode (FUNC_CONFIG)
  @param  arg3  return register value read (GET)
  @return return 0 if success, -1 otherwise
@@ -345,7 +348,9 @@ uint32_t mv_svc_pm_control(uint32_t pm_opcode, uint32_t arg1,
 void mv_svc_modem_2g_sleep_time(uint32_t *pal_shared_mem_p, uint32_t duration);
 void mv_svc_modem_3g_sleep_time(uint32_t *pal_shared_mem_p, uint32_t duration);
 void mv_svc_modem_next_timeout(uint32_t *pal_shared_mem_p, uint32_t duration);
-void mv_svc_vm_enter_idle(uint32_t *pal_shared_mem_p, uint32_t target_power_state);
+void mv_svc_vm_enter_idle(
+	uint32_t *pal_shared_mem_p,
+	uint32_t target_power_state);
 
 /**
  @brief  MobileVisor    core dump service
@@ -489,7 +494,10 @@ int32_t mv_svc_reg_write(uint32_t address, uint32_t reg_val, uint32_t mask);
  @param  mask bit to modify
  @return 0 if success, -1 if access disallowed
 **/
-int32_t mv_svc_reg_write_only(uint32_t address, uint32_t reg_val, uint32_t mask);
+int32_t mv_svc_reg_write_only(
+	uint32_t address,
+	uint32_t reg_val,
+	uint32_t mask);
 
 
 /**

@@ -21,6 +21,9 @@
 
 #define TRAP_SW_GENERATED        0xDDDD
 
+#define MAX_VCPU_PER_VM    4
+#define MAX_VM  3
+
 enum sys_exception {
 	SYS_EXCEPTION_MEX = 0,
 	SYS_EXCEPTION_LINUX = 1,
@@ -136,6 +139,17 @@ struct sys_trap {
 		} linux_log;
 		/* other OS dependent log structure to be added here */
 	} os;
+};
+
+struct sys_vm {
+	uint32_t os_id;
+	char no_of_vcpu;
+	struct x86_cpu_regs vcpu_reg[MAX_VCPU_PER_VM];
+};
+
+struct sys_vm_dump {
+	char no_of_vm;
+	struct sys_vm  vm[MAX_VM];
 };
 
 #endif /* _PAL_SYS_EXCEPTION_TYPES_H */

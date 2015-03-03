@@ -27,6 +27,8 @@
 #include <linux/proc_fs.h>
 #include <sofia/mv_gal.h>
 
+#include "vdump.h"
+
 #define NVM_ADDR_SHIFT	(0x3D100000 - 0x3C000000)
 #define SEC_PACK_SIZE 2048
 
@@ -107,7 +109,10 @@ static void modem_state_work(struct work_struct *ws)
 static irqreturn_t modem_state_sysconf_hdl(int xirq, void *arg)
 {
 	struct vmodem_drvdata *p = (struct vmodem_drvdata *)arg;
-	queue_work(p->wq, &p->work);
+	/* Temporary workaround solution, do not trigger modem silent reset
+	if doing modem coredump via Linux */
+	if (!vdump_modem())
+		queue_work(p->wq, &p->work);
 
 	return IRQ_HANDLED;
 }
@@ -279,7 +284,7 @@ int vmodem_probe(struct platform_device *pdev)
 	mv_gal_register_hirq_callback(512, modem_state_sysconf_hdl,
 					pdata);
 	mv_svc_security_getvm_loadinfo(1, &mex_loadaddr, &mex_loadsize);
-	/* 
+	/*
 	  linux2secvm_vlink_init();
 	  p_shared_mem_addr->vm_id = 1;
 	  p_shared_mem_addr->image_startaddr = mex_loadaddr;

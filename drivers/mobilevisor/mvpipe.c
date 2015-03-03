@@ -269,7 +269,11 @@ ssize_t mvpipe_dev_read(struct file *filp, char __user *buf, size_t count,
 
 	if (get_pipe_status(dev) != MVPIPE_OPEN ||
 	    dev->mbox_status != MBOX_CONNECTED) {
-		mvpipe_error("Read before Open!");
+		/* Temporary commented the warning,
+	    becuase RPC is causing alot of this warning printed out
+	    when modem VM is stopped and
+	    affected the operation of coredump to eMMC */
+		/* mvpipe_error("Read before Open!"); */
 		return -EINTR;
 	}
 
