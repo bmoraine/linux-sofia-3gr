@@ -75,12 +75,12 @@
 		pm,user-name = "bl";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
-		intel,led-k2 = <0xFF>;
-		intel,led-k1max = <0xFB>;
+		intel,led-k2 = <0x143>;
+		intel,led-k1max = <0x120>;
 		intel,led-k2max = <0xFFFF>;
-		intel,led-up = <0x116>;
+		intel,led-up = <0x104>;
 		intel,led-down = <0x200>;
-		intel,led-safe = <0x12>;
+		intel,led-safe = <0x811>;
 		intel,bl-gpio-enable = <&xgold_pmx_gpio 71 0>;
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&led_agold_default_pins>;
