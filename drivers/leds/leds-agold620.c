@@ -66,6 +66,7 @@
 #define XGOLD_LED_USE_SECURE_IO_ACCESS	BIT(1)
 #define XGOLD_LED_USE_NATIVE_IO_ACCESS	BIT(2)
 
+#define TOTAL_CLK_20K_IN_26M 1310
 /* In micro secs */
 #define DELAY_TIME_FOR_LED_CTRL_200MV 25
 
@@ -102,11 +103,23 @@ static inline void agold620_led_on(struct device *dev)
 {
 	struct xgold_led_data *led = dev_get_drvdata(dev);
 	int32_t intensity = SCALING_INTENSITY(led->led_brightness);
-	int32_t val = (SCU_K2_VAL * 100)/intensity;
-	pr_debug("%s -->\n", __func__);
-	mdelay(10);
+	int freerun_mode = 0;
+	int generation_mode = SCU_SAFE_LED_UP & 0x03;
+
+	if (generation_mode == 0x01)
+		freerun_mode = 1;
 	led_write32(led, LED_CTRL, SCU_LED_DOWN);
-	led_write32(led, LED_K2_CONTROL, val);
+	pr_debug("%s -->\n", __func__);
+	if (freerun_mode) {
+		int32_t val = (TOTAL_CLK_20K_IN_26M * intensity)/100;
+		mdelay(10);
+		led_write32(led, LED_K2_CONTROL, TOTAL_CLK_20K_IN_26M - val);
+		led_write32(led, LED_K1_CONTROL, val);
+	} else {
+		int32_t val = (SCU_K2_VAL * 100)/intensity;
+		mdelay(10);
+		led_write32(led, LED_K2_CONTROL, val);
+	}
 	led_write32(led, LED_K1MAX, SCU_K1MAX_VAL);
 	led_write32(led, LED_K2MAX, SCU_K2MAX_VAL);
 	if (led->flags & XGOLD_LED_USE_SAFE_CTRL)
