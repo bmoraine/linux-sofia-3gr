@@ -296,7 +296,7 @@
 			intel,csi-pixels-per-second = <0>;
 			intel,csi-vc = <0>;
 			intel,csi-lanes = <2>;
-			intel,csi-dphy1 = <0x2014183>;
+			intel,csi-dphy1 = <0x60102C1>;
 			intel,csi-dphy2 = <0x00>;
 			intel,csi-ana-bandgap-bias = <3>;
 		};
@@ -304,7 +304,7 @@
 			intel,csi-pixels-per-second = <100000000>;
 			intel,csi-vc = <0>;
 			intel,csi-lanes = <4>;
-			intel,csi-dphy1 = <0x600E1C1>;
+			intel,csi-dphy1 = <0x600E2C1>;
 			intel,csi-dphy2 = <0x00>;
 			intel,csi-ana-bandgap-bias = <3>;
 		};
@@ -339,7 +339,7 @@
 			intel,csi-pixels-per-second = <0>;
 			intel,csi-vc = <0>;
 			intel,csi-lanes = <1>;
-			intel,csi-dphy1 = <0x60121A9>;
+			intel,csi-dphy1 = <0x60122A9>;
 			intel,csi-dphy2 = <0x00>;
 			intel,csi-ana-bandgap-bias = <3>;
 		};
