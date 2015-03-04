@@ -474,6 +474,7 @@
 						/* QUIRK2_HOST_EXEC_TUNING_WA: bit23 */
 						intel,quirks = < 0x2000000 0xc00008 >;
 						intel,io-access-guest;
+						keep-power-in-suspend;
 						pm_ctrl{
 							pm,class-name = "mmcsd_volt_class";
 							pm,user-name = "sdio_volt";
