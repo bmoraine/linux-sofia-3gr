@@ -358,14 +358,8 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
 	struct device_node *np = pdev->dev.of_node;
-	unsigned int bits;
-	if ((of_property_read_u32(np, "intel,is_8_bits", &bits) == 0) &&
-		bits == 1)
-		host->mmc->caps |= MMC_CAP_8_BIT_DATA;
 
-	if ((of_property_read_u32(np, "intel,is_non_removable", &bits) == 0) &&
-		bits == 1)
-		host->mmc->caps |= MMC_CAP_NONREMOVABLE;
+	mmc_of_parse(host->mmc);
 
 	mmc_pdata->rpm_enabled = xgold_sdhci_is_rpm_enabled(np);
 	pr_info("sdhci: %s, rpm = %d\n", dev_name(&pdev->dev),
