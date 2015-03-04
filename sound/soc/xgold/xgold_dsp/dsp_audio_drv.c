@@ -2010,6 +2010,13 @@ static int dsp_audio_runtime_resume(struct device *dev)
 		xgold_err("%s : failed with error %d", __func__, ret);
 
 	if (XGOLD_DSP_XG642 == dsp_dev->id) {
+		/* Activate HW probe, pcm rec and pcm play interrupt */
+		(void)dsp_dev->p_dsp_common_data->
+			ops->irq_activate(DSP_IRQ_1);
+		(void)dsp_dev->p_dsp_common_data->
+			ops->irq_activate(DSP_IRQ_2);
+		(void)dsp_dev->p_dsp_common_data->
+			ops->irq_activate(DSP_IRQ_3);
 		/* Activate voice codec interrupt*/
 		(void)dsp_dev->p_dsp_common_data->
 			ops->irq_activate(DSP_IRQ_4);
@@ -2019,7 +2026,13 @@ static int dsp_audio_runtime_resume(struct device *dev)
 		/* Activate FBA DSP interrupt 0 for VOLTE call */
 		(void)dsp_dev->p_dsp_common_data->
 			ops->irq_activate(DSP_FBA_IRQ_0);
+		/* Activate HW probe, pcm rec and pcm play interrupt */
+		(void)dsp_dev->p_dsp_common_data->
+			ops->irq_activate(DSP_IRQ_1);
+		(void)dsp_dev->p_dsp_common_data->
+			ops->irq_activate(DSP_IRQ_2);
 	}
+
 	return ret;
 }
 
@@ -2225,25 +2238,22 @@ int dsp_pcm_stop(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type)
 	return 0;
 }
 
-int dsp_cmd_hw_probe(struct dsp_audio_device *dsp,
-		enum xgold_pcm_stream_type type)
+int dsp_cmd_hw_probe(
+	struct dsp_audio_device *dsp,
+	struct xgold_runtime_data *xgold_rtd)
 {
 	struct T_AUD_DSP_CMD_HW_PROBE hw_probe_par = { 0 };
 	struct dsp_aud_cmd_data cmd_data;
+	enum xgold_pcm_stream_type type =
+		xgold_rtd->stream_type;
+	enum xgold_hw_probe_stream_type hwp_id =
+		((type == HW_PROBE_A) ? HW_PROBE_POINT_A : HW_PROBE_POINT_B);
+	struct xgold_pcm_hw_probe_status *hwp_status =
+		&xgold_rtd->pcm->hw_probe_status[hwp_id];
 
-	/* for now use the probes for afe in/out on xg642 / Sofia 3G,
-	   and use for I2S on other projects (Sofia LTE)
-	   TODO: Create mixer control to dynamically change this
-	   using tinymix or IMAS. */
-	if (dsp->id == XGOLD_DSP_XG642)
-		hw_probe_par.probe_index = (type == HW_PROBE_A) ? 0x1 : 0x2;
-	else
-		hw_probe_par.probe_index = (type == HW_PROBE_A) ? 0x3 : 0x4;
-
+	hw_probe_par.setting = ((hwp_status->active == true) ? 0x1 : 0x0);
 	hw_probe_par.sm_interface = (type == HW_PROBE_A) ? 0x1 : 0x2;
-
-	/* TODO update hw_probe params using mixer ctl */
-	hw_probe_par.setting = 0x1;
+	hw_probe_par.probe_index = hwp_status->hw_probe_sel;
 	hw_probe_par.mix_flag = 0x1;
 	/* Injection gain should be 0dB if injection is used,
 	 * and otherwise mute.
@@ -2259,7 +2269,12 @@ int dsp_cmd_hw_probe(struct dsp_audio_device *dsp,
 	dsp->p_dsp_common_data->ops->set_controls(
 			dsp, DSP_AUDIO_CONTROL_SEND_CMD, &cmd_data);
 
-	xgold_debug("hardware probe configured\n");
+	xgold_debug("hardware probe configured: setting: %d,\n",
+		hw_probe_par.setting);
+	xgold_debug("sm_interface: %d, probe_index: %d\n",
+		hw_probe_par.sm_interface, hw_probe_par.probe_index);
+	xgold_debug("mix_flag: %d, injection_gain: %d\n",
+		hw_probe_par.mix_flag, hw_probe_par.injection_gain);
 
 	return 0;
 }
@@ -2437,6 +2452,17 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 			xgold_err("FAILED to attach DSP_INT1 %d\n", ret);
 			goto out;
 		}
+	} else if ((dsp_dev->id == XGOLD_DSP_XG742_SBA) &&
+			(dsp_dev->interrupts[HW_PROBE])) {
+		interrupt = dsp_dev->interrupts[HW_PROBE];
+		ret = request_threaded_irq(DSP_INT_GET_ID(interrupt),
+			dsp_audio_int1_lisr, dsp_audio_int1_hisr,
+			IRQF_TRIGGER_RISING, "dsp_int1",
+			dsp_dev);
+		if (ret < 0) {
+			xgold_err("FAILED to attach DSP_INT1 %d\n", ret);
+			goto out;
+		}
 	}
 
 	/* register DSP_INT2 interrupt handler */
@@ -2454,7 +2480,8 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 	}
 
 	/* register DSP_INT3 interrupt handler */
-	if (dsp_dev->interrupts[HW_PROBE]) {
+	if ((dsp_dev->id == XGOLD_DSP_XG642) &&
+		(dsp_dev->interrupts[HW_PROBE])) {
 		interrupt = dsp_dev->interrupts[HW_PROBE];
 		ret = request_threaded_irq(DSP_INT_GET_ID(interrupt),
 			dsp_audio_int3_lisr,
@@ -2463,22 +2490,22 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 			dsp_dev);
 
 		if (ret < 0) {
-			xgold_err("DSP_INT3 reg failed%d\n", ret);
+			xgold_err("FAILED to attach DSP_INT3 %d\n", ret);
 			goto out;
 		}
 	}
+
 	/* register FBA_INT2 interrupt handler */
 	if (dsp_dev->interrupts[SPEECH_PROBES]) {
 		interrupt = dsp_dev->interrupts[SPEECH_PROBES];
 		ret = request_threaded_irq(DSP_INT_GET_ID(interrupt),
 				dsp_audio_fba_int2_lisr,
 				dsp_audio_fba_int2_hisr,
-				IRQF_TRIGGER_RISING, "dsp_int6",
+				IRQF_TRIGGER_RISING, "dsp_fba_int2",
 				dsp_dev);
 		if (ret < 0) {
-			xgold_err("\n FAILED to attach DSP_INT6 %d\n", ret);
+			xgold_err("\n FAILED to attach FBA DSP_INT2 %d\n", ret);
 			goto out;
-
 		}
 	}
 

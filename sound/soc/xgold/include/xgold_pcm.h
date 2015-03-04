@@ -20,6 +20,12 @@
 #ifndef __XGOLD_PCM_H__
 #define __XGOLD_PCM_H__
 
+enum xgold_hw_probe_stream_type {
+	HW_PROBE_POINT_A = 0,
+	HW_PROBE_POINT_B,
+	HW_PROBE_POINT_END
+};
+
 enum xgold_pcm_stream_type {
 	STREAM_PLAY = 0,
 	STREAM_PLAY2,
@@ -27,6 +33,11 @@ enum xgold_pcm_stream_type {
 	HW_PROBE_A,
 	HW_PROBE_B,
 	NR_STREAM
+};
+
+struct xgold_pcm_hw_probe_status {
+	bool active;
+	unsigned int hw_probe_sel;
 };
 
 struct xgold_pcm {
@@ -44,6 +55,8 @@ struct xgold_pcm {
 	struct work_struct dma_dump_work;
 	unsigned char *dump_dma_buffer;
 	int dump_dma_buffer_pos;
+	struct xgold_pcm_hw_probe_status
+		hw_probe_status[HW_PROBE_POINT_END];
 };
 
 struct xgold_runtime_data {

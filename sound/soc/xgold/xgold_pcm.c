@@ -77,6 +77,17 @@
 #define XGOLD_MAX_PERIOD_BYTES (960 * 24) /* 24 * 5 = 120 ms */
 #define XGOLD_MAX_BUFFER_BYTES (XGOLD_MAX_PERIOD_BYTES * 16)
 
+/* index of the first HW probe device in the array xgold_dai */
+#define XGOLD_HW_PROBE_DEVICE_OFSET 2
+
+#define XGOLD_MIN_HW_PROBE_SELECT (1)
+#define XGOLD_MAX_HW_PROBE_SELECT (14)
+
+/* convert from device ID in xgold_speech_probe_controls to probe point ID
+	enum xgold_speech_probe_point_id */
+#define	HW_PROBE_DEVICE_TO_PROBE_POINT_ID(a) \
+	(a - XGOLD_HW_PROBE_DEVICE_OFSET)
+
 static unsigned int bt_init_en;
 
 #define	xgold_err(fmt, arg...) \
@@ -135,6 +146,35 @@ static struct snd_pcm_hardware xgold_pcm_record_cfg = {
 };
 
 static u16 xgold_pcm_sysfs_attribute_value;
+
+/* validation arrays for the HW probe points */
+const unsigned xg642_hw_probe_valid[] = {
+	1, 2, 3, 4, 5, 6, 7, 8, 9};
+
+const unsigned hw_probe_valid[] = {
+	1, 2, 3, 4, 9, 10, 11, 12, 13, 14};
+
+static bool is_hw_probe_point_valid(
+	enum dsp_id dsp_id,
+	unsigned int probe_sel_req)
+{
+	int idx = 0;
+
+	if (XGOLD_DSP_XG642 == dsp_id) {
+		int loop_max = sizeof(xg642_hw_probe_valid)/sizeof(unsigned);
+		for (idx = 0; idx < loop_max; idx++) {
+			if (xg642_hw_probe_valid[idx] == probe_sel_req)
+				return true;
+		}
+	} else {
+		int loop_max = sizeof(hw_probe_valid)/sizeof(unsigned);
+		for (idx = 0; idx < loop_max; idx++) {
+			if (hw_probe_valid[idx] == probe_sel_req)
+				return true;
+		}
+	}
+	return false;
+}
 
 /* Info function for pcm rec path select control */
 int xgold_pcm_rec_path_sel_ctl_info(
@@ -659,9 +699,11 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct xgold_runtime_data *xrtd;
+
 	char *substream_id = substream->pcm->id;
 	struct xgold_pcm *xgold_pcm =
 		snd_soc_platform_get_drvdata(rtd->platform);
+
 	int ret = 0;
 	bool power_state = ON;
 
@@ -732,14 +774,12 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 					DSP_LISR_CB_HW_PROBE_A,
 					xgold_dsp_hw_probe_a_handler,
 					(void *)xrtd);
-			dsp_cmd_hw_probe(xgold_pcm->dsp, HW_PROBE_A);
 		} else if (xrtd->stream_type == HW_PROBE_B) {
 			xgold_debug("registering hw_probe_b callback\n");
 			register_dsp_audio_lisr_cb(
 					DSP_LISR_CB_HW_PROBE_B,
 					xgold_dsp_hw_probe_b_handler,
 					(void *)xrtd);
-			dsp_cmd_hw_probe(xgold_pcm->dsp, HW_PROBE_B);
 		} else
 			register_dsp_audio_lisr_cb(
 					DSP_LISR_CB_PCM_RECORDER,
@@ -1031,10 +1071,6 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			if (xgold_pcm->dma_mode)
 				/* request DMA to start tx */
 				dma_async_issue_pending(xrtd->dmach);
-			else
-				/* Activate the interrupt*/
-				dsp->p_dsp_common_data->
-					ops->irq_activate(DSP_IRQ_1);
 
 			dsp_pcm_play(dsp, xrtd->stream_type,
 					substream->runtime->channels,
@@ -1044,26 +1080,27 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			xrtd->period_size_bytes = frames_to_bytes(
 					xrtd->stream->runtime,
 					xrtd->stream->runtime->period_size);
-
-			dsp->p_dsp_common_data->ops->irq_activate(DSP_IRQ_3);
+			xrtd->pcm->
+				hw_probe_status[HW_PROBE_POINT_A].active = true;
 		} else if (xrtd->stream_type == HW_PROBE_B) {
 			xrtd->period_size_bytes = frames_to_bytes(
 					xrtd->stream->runtime,
 					xrtd->stream->runtime->period_size);
-
-			dsp->p_dsp_common_data->ops->irq_activate(DSP_IRQ_3);
+			xrtd->pcm->
+				hw_probe_status[HW_PROBE_POINT_B].active = true;
 		} else {
 			xrtd->period_size_bytes = frames_to_bytes(
 					xrtd->stream->runtime,
 					xrtd->stream->runtime->period_size);
 
-			/* Activate the interrupt*/
-			dsp->p_dsp_common_data->ops->irq_activate(DSP_IRQ_2);
-
 			dsp_pcm_rec(dsp, substream->runtime->channels,
 					substream->runtime->rate,
 					false, xgold_pcm->path_select);
 		}
+		/* call hw probe function with runtime as parameter, and
+		   the function will enable/disable HW probe as requested */
+		dsp_cmd_hw_probe(xgold_pcm->dsp, xrtd);
+
 		/* HW_AFE should be sent after audio codec is powered up */
 		if (xgold_pcm_sysfs_attribute_value ==
 				XGOLD_PCM_ATTR_SEND_DSP_CMD &&
@@ -1078,9 +1115,16 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		dsp_pcm_stop(dsp, xrtd->stream_type);
 		xgold_debug("DSP stopped\n");
 
-		if (xrtd->stream_type == HW_PROBE_B ||
-				xrtd->stream_type == HW_PROBE_A)
-			dsp->p_dsp_common_data->ops->irq_deactivate(DSP_IRQ_3);
+		if (xrtd->stream_type == HW_PROBE_A)
+			xrtd->pcm->
+			hw_probe_status[HW_PROBE_POINT_A].active = false;
+		else if (xrtd->stream_type == HW_PROBE_B)
+			xrtd->pcm->
+			hw_probe_status[HW_PROBE_POINT_B].active = false;
+
+		/* call hw probe function with runtime as parameter, and
+		   the function will enable/disable HW probe as requested */
+		dsp_cmd_hw_probe(xgold_pcm->dsp, xrtd);
 
 		/* HW_AFE should be switched off before audio codec power
 		 * down */
@@ -1300,7 +1344,6 @@ static int xgold_pcm_dma_dump_sel_ctl_get(
 {
 	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
 	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
-
 	xgold_debug("%s - get value %d\n",
 		__func__, (int)xgold_pcm->dma_dump);
 	ucontrol->value.integer.value[0] = (int)xgold_pcm->dma_dump;
@@ -1338,7 +1381,97 @@ static int xgold_pcm_dma_dump_sel_ctl_set(
 		if (xgold_pcm->dump_dma_buffer != NULL)
 			xgold_pcm->dma_dump = 1;
 	}
+	return 0;
+}
 
+/* Info function for HW probe SHMEM / io point mapping */
+int xgold_pcm_hw_probe_ctl_info(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
+{
+	xgold_debug("%s :\n", __func__);
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = XGOLD_MIN_HW_PROBE_SELECT;
+
+	/* TODO: Also check DSP id here... */
+	uinfo->value.integer.max = XGOLD_MAX_HW_PROBE_SELECT;
+	return 0;
+}
+
+/* Get function for HW probe SHMEM / io point mapping */
+static int xgold_pcm_hw_probe_ctl_get(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
+
+	int probe_point_id =
+		HW_PROBE_DEVICE_TO_PROBE_POINT_ID(ucontrol->id.device);
+
+	/* range check probe device id defined in
+	   xgold_speech_probe_controls[] */
+	if (probe_point_id >= HW_PROBE_POINT_END) {
+		xgold_err("device: %d is out of range\n", probe_point_id);
+		return -EINVAL;
+	}
+
+	ucontrol->value.integer.value[0] = (long int)xgold_pcm->
+		hw_probe_status[probe_point_id].hw_probe_sel;
+
+	xgold_debug("%s - get value: %d for device: %d\n",
+		__func__, (int)ucontrol->value.integer.value[0],
+		probe_point_id);
+
+	return 0;
+}
+
+/* Set function for HW probe SHMEM / io point mapping */
+static int xgold_pcm_hw_probe_ctl_set(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
+
+	int probe_point_id =
+		HW_PROBE_DEVICE_TO_PROBE_POINT_ID(ucontrol->id.device);
+
+	unsigned int probe_sel_req =
+		(unsigned int)ucontrol->value.integer.value[0];
+
+	struct xgold_pcm_hw_probe_status *hwp_status =
+		&xgold_pcm->hw_probe_status[probe_point_id];
+
+	/* renge check requested probe point */
+	if (!is_hw_probe_point_valid(xgold_pcm->dsp->id, probe_sel_req)) {
+		xgold_err("requested probe point: %d is out of range\n",
+			probe_sel_req);
+		return -EINVAL;
+	}
+
+	/* range check probe device id defined in
+	   xgold_speech_probe_controls[] */
+	if (probe_point_id >= HW_PROBE_POINT_END) {
+		xgold_err("device: %d is out of range\n", probe_point_id);
+		return -EINVAL;
+	}
+
+	/* if hw probe is active, don't allow to change the probe select */
+	if ((true == hwp_status->active) &&
+		(probe_sel_req != hwp_status->hw_probe_sel)) {
+			xgold_err("fail: %d, hwp_status state: %s\n",
+				probe_sel_req,
+				(hwp_status->active ? "ACTIVE" : "IDLE"));
+			return -EPERM;
+	}
+
+	xgold_pcm->hw_probe_status[probe_point_id].hw_probe_sel =
+		probe_sel_req;
+
+	xgold_debug("%s - set value: %d for device: %d\n",
+		__func__, probe_sel_req, probe_point_id);
 	return 0;
 }
 
@@ -1346,6 +1479,7 @@ static int xgold_pcm_dma_dump_sel_ctl_set(
 static const struct snd_kcontrol_new xgold_pcm_controls[] = {
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.device = 0,
 		.name = "PCM Rec path select",
 		.info = xgold_pcm_rec_path_sel_ctl_info,
 		.get = xgold_pcm_rec_path_sel_ctl_get,
@@ -1357,6 +1491,22 @@ static const struct snd_kcontrol_new xgold_pcm_controls[] = {
 		.info = xgold_pcm_dma_dump_sel_ctl_info,
 		.get = xgold_pcm_dma_dump_sel_ctl_get,
 		.put = xgold_pcm_dma_dump_sel_ctl_set,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
+		.device = 0 + XGOLD_HW_PROBE_DEVICE_OFSET,
+		.name = "PCM HW probe 1",
+		.info = xgold_pcm_hw_probe_ctl_info,
+		.get = xgold_pcm_hw_probe_ctl_get,
+		.put = xgold_pcm_hw_probe_ctl_set,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
+		.device = 1 + XGOLD_HW_PROBE_DEVICE_OFSET,
+		.name = "PCM HW probe 2",
+		.info = xgold_pcm_hw_probe_ctl_info,
+		.get = xgold_pcm_hw_probe_ctl_get,
+		.put = xgold_pcm_hw_probe_ctl_set,
 	},
 };
 
@@ -1375,6 +1525,7 @@ static int xgold_pcm_soc_probe(struct snd_soc_platform *platform)
 		return ret;
 	}
 
+	xgold_debug("Add HW probe mixer control\n");
 	ret = snd_soc_add_platform_controls(platform, xgold_pcm_controls,
 		ARRAY_SIZE(xgold_pcm_controls));
 
@@ -1511,6 +1662,18 @@ skip_pinctrl:
 					__func__, res);
 	}
 #endif
+
+	/* afe_out/i2s2_out default on sofia_3g/sofia_lte */
+	if (pcm->dsp->id == XGOLD_DSP_XG642) {
+		pcm->hw_probe_status[HW_PROBE_POINT_A].hw_probe_sel = 1;
+		pcm->hw_probe_status[HW_PROBE_POINT_B].hw_probe_sel = 2;
+	} else {
+		pcm->hw_probe_status[HW_PROBE_POINT_A].hw_probe_sel = 3;
+		pcm->hw_probe_status[HW_PROBE_POINT_B].hw_probe_sel = 4;
+	}
+	xgold_debug("HW probe select initialized to: %d / %d\n",
+		pcm->hw_probe_status[HW_PROBE_POINT_A].hw_probe_sel,
+		pcm->hw_probe_status[HW_PROBE_POINT_B].hw_probe_sel);
 
 	platform_set_drvdata(pdev, pcm);
 	/* Disable I2S2 pins at init */

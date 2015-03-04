@@ -163,6 +163,10 @@ int dsp_pcm_rec(struct dsp_audio_device *, unsigned int, unsigned int, bool,
 int dsp_pcm_feed(struct dsp_audio_device *, enum xgold_pcm_stream_type,
 		unsigned int, unsigned int);
 int dsp_pcm_stop(struct dsp_audio_device *, enum xgold_pcm_stream_type);
-int dsp_cmd_hw_probe(struct dsp_audio_device *, enum xgold_pcm_stream_type);
+
+int dsp_cmd_hw_probe(struct dsp_audio_device *,
+	struct xgold_runtime_data *);
+
 void dsp_cmd_afe_streaming_off(struct dsp_audio_device *dsp);
+
 #endif /*__DSP_AUDIO_PLATFORM_H__ */

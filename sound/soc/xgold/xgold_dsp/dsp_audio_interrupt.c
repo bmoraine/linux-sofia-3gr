@@ -40,6 +40,8 @@ const struct dsp_lisr_cb_conf lisr_int0_cb[] = {
 const struct dsp_lisr_cb_conf lisr_int1_cb[] = {
 	{DSP_LISR_CB_PCM_PLAYER, DSP_IRQ_COMM_FLAG_3},
 	{DSP_LISR_CB_PCM_PLAYER_A, DSP_IRQ_COMM_FLAG_5},
+	{DSP_LISR_CB_HW_PROBE_A, DSP_IRQ_COMM_FLAG_1},
+	{DSP_LISR_CB_HW_PROBE_B, DSP_IRQ_COMM_FLAG_2},
 	{DSP_LISR_CB_END, (enum dsp_irq_comm_flag)-1},
 };
 

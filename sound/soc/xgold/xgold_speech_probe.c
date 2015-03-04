@@ -987,6 +987,7 @@ static const struct snd_kcontrol_new xgold_speech_probe_controls[] = {
 		.get = xgold_speech_probe_ctl_get,
 		.put = xgold_speech_probe_ctl_set,
 	},
+#ifdef CONFIG_INCREASE_PCM_DEVICE
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
 		.device = 3 + XGOLD_SPEECH_PROBE_DEVICE_OFSET,
@@ -995,7 +996,6 @@ static const struct snd_kcontrol_new xgold_speech_probe_controls[] = {
 		.get = xgold_speech_probe_ctl_get,
 		.put = xgold_speech_probe_ctl_set,
 	},
-#ifdef CONFIG_INCREASE_PCM_DEVICE
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
 		.device = 4 + XGOLD_SPEECH_PROBE_DEVICE_OFSET,
