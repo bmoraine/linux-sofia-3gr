@@ -398,8 +398,8 @@
 						intel,rpm_enabled = < 1 >;
 						/* QUIRK_CAP_CLOCK_BASE_BROKEN: bit 25 + QUIRKS2_HOST_PRESET_VALUE_BROKEN: bit 3 + LED_BROKEN: bit 14*/
 						intel,quirks = < 0x2000000 0x4008 >;
-						intel,is_8_bits = < 1 >;
-						intel,is_non_removable = < 1 >;
+						bus-width = < 8 >;
+						non-removable;
 						pm_ctrl{
 							pm,class-name = "sdhci_class";
 							pm,user-name = "emmc_card";

@@ -377,8 +377,8 @@
 						intel,tap_reg = < 0x40000 >;
 						/* QUIRK_CAP_CLOCK_BASE_BROKEN: bit 25 + QUIRKS2_HOST_PRESET_VALUE_BROKEN: bit 3 + LED_BROKEN: bit 14*/
 						intel,quirks = < 0x2000000 0x4008 >;
-						intel,is_8_bits = < 1 >;
-						intel,is_non_removable = < 1 >;
+						bus-width = < 8 >;
+						non-removable;
 						intel,io-access-guest;
 						pm_ctrl{
 							pm,class-name = "mmcsd_volt_class";
@@ -427,7 +427,6 @@
 						intel,quirks = < 0x0 0x4008 >;
 #else
 						intel,quirks = < 0x8000 0xc008 >;
-						intel,is_non_removable = < 0 >;
 #endif
 						intel,io-access-guest;
 						pm_ctrl{
@@ -468,7 +467,7 @@
 #else
 						intel,corecfg_val = < 0xfe1ada20 0x0074176 0x0000FF>;
 #endif
-						intel,is_non_removable = < 1 >;
+						non-removable;
 						/* QUIRK1_HOST_CLOCK_BASE_BROKEN: bit25 */
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_WA_LNP: bit22 */
