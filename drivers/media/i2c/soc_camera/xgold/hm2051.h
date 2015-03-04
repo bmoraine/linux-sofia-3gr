@@ -165,6 +165,10 @@ struct hm2051_device {
 	int run_mode;
 	u8 res;
 	u8 type;
+	u16 coarse_itg;
+	u16 fine_itg;
+	u16 digital_gain;
+	u16 gain;
 };
 
 enum hm2051_tok_type {

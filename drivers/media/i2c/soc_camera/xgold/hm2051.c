@@ -576,6 +576,24 @@ static int hm2051_set_exposure(struct v4l2_subdev *sd, int exposure,
 	return ret;
 }
 
+static int hm2051_s_ctrl_exposure(struct v4l2_subdev *sd,
+			       int exposure)
+{
+	struct hm2051_device *dev = to_hm2051_sensor(sd);
+	dev->coarse_itg = exposure;
+
+	return __hm2051_set_exposure(sd, dev->coarse_itg, dev->gain, 0x40);
+}
+
+static int hm2051_s_ctrl_gain(struct v4l2_subdev *sd,
+			       int gain)
+{
+	struct hm2051_device *dev = to_hm2051_sensor(sd);
+	dev->gain = gain;
+
+	return __hm2051_set_exposure(sd, dev->coarse_itg, dev->gain, 0x40);
+}
+
 static long hm2051_s_exposure(struct v4l2_subdev *sd,
 			       struct atomisp_exposure *exposure)
 {
@@ -645,6 +663,32 @@ err:
 }
 
 struct hm2051_control hm2051_controls[] = {
+	{
+		.qc = {
+			.id = V4L2_CID_GAIN,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "gain",
+			.minimum = 0x0,
+			.maximum = 0xffff,
+			.step = 0x01,
+			.default_value = 0x00,
+			.flags = 0,
+		},
+		.tweak = hm2051_s_ctrl_gain,
+	},
+	{
+		.qc = {
+			.id = V4L2_CID_EXPOSURE,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "exposure",
+			.minimum = 0x0,
+			.maximum = 0xffff,
+			.step = 0x01,
+			.default_value = 0x00,
+			.flags = 0,
+		},
+		.tweak = hm2051_s_ctrl_exposure,
+	},
 	{
 		.qc = {
 			.id = V4L2_CID_EXPOSURE_ABSOLUTE,
