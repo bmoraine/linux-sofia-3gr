@@ -5689,12 +5689,16 @@ static int himax852xes_resume(struct device *dev)
 		}
 	}
 #endif
+
+#ifdef HX_RST_PIN_FUNC
+	himax_HW_reset(true, false);
+#endif
+
 	//Sense On
 	i2c_himax_write_command(ts->client, 0x83, HIMAX_I2C_RETRY_TIMES);
 	msleep(30);
 	i2c_himax_write_command(ts->client, 0x81, HIMAX_I2C_RETRY_TIMES);
 	atomic_set(&ts->suspend_mode, 0);
-
 	himax_int_enable(ts->client->irq,1);
 
 	ts->suspended = false;
