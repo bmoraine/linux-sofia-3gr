@@ -103,6 +103,7 @@
 #define BATTRMPDEN_M 1
 #define BATTRMPDEN_O 3
 
+#define NTC 2
 #define BATTID 1
 #define VBATT 0
 
@@ -125,6 +126,14 @@
 Max time achievable is ~2ms */
 #define BAT_RM_DBC_MAX 0x1f
 
+/* Threshold in ohm for whether NTC will be detected as dummy battery */
+#define TBATID_DUMMY_THRESHOLD_OHM 300000
+
+#define BATID_DUMMY_STR "dummy"
+
+#define BATID_STANDARD_STR "standrd"
+
+#define BATTID_STR_LEN 8
 
 #define reg_set_field(_reg, _field, _val)\
 do {\
@@ -237,6 +246,7 @@ enum bat_drv_debug_event {
 	BAT_DRV_DEBUG_HW_INIT,
 	BAT_DRV_DEBUG_PRESENCE_CHANGE_TH_IRQ,
 	BAT_DRV_DEBUG_BATID_IN_OHMS,
+	BAT_DRV_DEBUG_TBATID_IN_OHMS,
 	BAT_DRV_DEBUG_REPORTED_BATID_IN_OHMS,
 
 	BAT_DRV_DEBUG_EVENT_BAT_CHANGED,
@@ -293,7 +303,9 @@ struct bat_drv_platform_data {
  * struct bat_drv_data		Battery Driver Hal control structure
  * @initialised			Driver initialisation state
  * @pdev			Pointer to platform device
+ * @use_tbatid			whether to use NTC as battery ID
  * @batid_iio_chan		iio channel to read Battery ID from
+ * @tbatid_iio_chan		iio channel to read NTC resistance
  * @presence_stm		presence state machine
  * @work			messages FIFO
  * @irq				associated battery removal/detection irq
@@ -306,7 +318,9 @@ struct bat_drv_data {
 	bool initialised;
 	struct platform_device *pdev;
 
+	bool use_tbatid;
 	struct iio_channel *batid_iio_chan;
+	struct iio_channel *tbatid_iio_chan;
 
 	struct bat_drv_presence_stm presence_stm;
 	struct bat_drv_work_fifo work;
@@ -324,6 +338,7 @@ static struct bat_drv_data bat_drv_instance = {
 	},
 
 	.initialised = false,
+	.use_tbatid = false,
 };
 
 /* Array to collect debug data */
@@ -334,6 +349,41 @@ static struct battery_type *get_bat_type(struct bat_drv_data *pbat,
 {
 	unsigned int ibatid_min_th, ibatid_max_th;
 	int i, len = pbat->pdata.supported_batteries_len;
+
+	if (!pbat)
+		return NULL;
+
+	if (pbat->use_tbatid) {
+		char *id_str;
+		int id_len;
+		struct ps_pse_mod_prof *p_model;
+
+		if (batid_ohms >= TBATID_DUMMY_THRESHOLD_OHM)
+			id_str = BATID_DUMMY_STR;
+		else
+			id_str = BATID_STANDARD_STR;
+
+		id_len = strnlen(id_str, BATTID_STR_LEN);
+
+		for (i = 0; i < len; i++) {
+			p_model = (struct ps_pse_mod_prof *) pbat->pdata.
+				supported_batteries[i].profile.batt_prof;
+
+			if (!p_model)
+				continue;
+
+			if (0 == strncmp(p_model->batt_id, id_str, id_len)) {
+				pr_info("Profile found for NTC %dohm %s type battery\n",
+					batid_ohms, id_str);
+				return &pbat->pdata.supported_batteries[i];
+			}
+		}
+
+		pr_err("%s - No profile found for NTC %dohm %s type battery",
+			__func__, batid_ohms, id_str);
+
+		return NULL;
+	}
 
 	if (batid_ohms > pbat->pdata.supported_batteries[len-1].batid_ohms)
 		return NULL;
@@ -684,16 +734,30 @@ static irqreturn_t bat_presence_change_th(int irq, void *dev)
 static int bat_drv_get_batid_ohm(struct bat_drv_data *pbat)
 {
 	int adc_ret, adc_batid_ohms;
+	struct iio_channel *chan;
+	enum bat_drv_debug_event dgb_evt;
 
-	adc_ret = iio_read_channel_processed(pbat->batid_iio_chan,
-			&adc_batid_ohms);
+	if (!pbat)
+		return -EINVAL;
+
+	chan = pbat->batid_iio_chan;
+
+	if (pbat->use_tbatid) {
+		chan = pbat->tbatid_iio_chan;
+		dgb_evt = BAT_DRV_DEBUG_TBATID_IN_OHMS;
+	} else {
+		chan = pbat->batid_iio_chan;
+		dgb_evt = BAT_DRV_DEBUG_BATID_IN_OHMS;
+	}
+
+	adc_ret = iio_read_channel_processed(chan, &adc_batid_ohms);
 
 	if (adc_ret != IIO_VAL_INT) {
 		pr_err("failed reading battery ID from iio\n");
 		return adc_ret;
 	}
 
-	BAT_DRV_DEBUG_PARAM(BAT_DRV_DEBUG_BATID_IN_OHMS, adc_batid_ohms);
+	BAT_DRV_DEBUG_PARAM(dgb_evt, adc_batid_ohms);
 
 	return adc_batid_ohms;
 }
@@ -712,16 +776,19 @@ static int pmic_set_bat_type(struct bat_drv_data *pbat,
 
 static int bat_drv_hw_initialize(struct bat_drv_data *pbat)
 {
-	u32 batdetctrl0_reg = 0, batdetctrl1_reg = 0, chgrirq1_reg = 0;
+	u32 batdetctrl0_reg = 0, batdetctrl1_reg = 0, chgrirq1_reg = 0, rmsrc;
 	int ret;
 
-	(void)pbat;
+	if (!pbat)
+		return -EINVAL;
+
+	rmsrc = pbat->use_tbatid ? NTC : BATTID;
 
 	BAT_DRV_DEBUG_NO_PARAM(BAT_DRV_DEBUG_HW_INIT);
 
 	ret = pmic_reg_set_field(PSDETCTRL_REG,
 		(BATTRMSRC_M << BATTRMSRC_O) | (BATTRMPDEN_M << BATTRMPDEN_O),
-		(BATTID << BATTRMSRC_O) | (ENABLE << BATTRMPDEN_O));
+		(rmsrc << BATTRMSRC_O) | (ENABLE << BATTRMPDEN_O));
 	if (ret)
 		return ret;
 
@@ -807,10 +874,11 @@ static inline void bat_drv_release_pdata(struct bat_drv_data *hal)
  */
 static int __init bat_drv_probe(struct platform_device *p_platform_dev)
 {
-	int ret = 0;
+	int batid_ohm = 0, ret = 0;
 	struct bat_drv_data *pbat = &bat_drv_instance;
 
 	struct iio_channel *batid_iio_chan;
+	struct iio_channel *tbatid_iio_chan;
 
 	BAT_DRV_DEBUG_NO_PARAM(BAT_DRV_DEBUG_EVENT_PROBE);
 
@@ -860,6 +928,38 @@ static int __init bat_drv_probe(struct platform_device *p_platform_dev)
 	BUG_ON(NULL == pbat->work.p_work_queue);
 	INIT_KFIFO(pbat->work.fifo);
 
+	batid_iio_chan = iio_channel_get(NULL, "BATID_SENSOR");
+
+	if (IS_ERR(batid_iio_chan)) {
+		pr_info("%s - batid iio_channel_get failed\n", __func__);
+		ret = PTR_ERR(batid_iio_chan);
+		goto iio_ch_get_failed;
+	}
+
+	tbatid_iio_chan = iio_channel_get(NULL, "TBATID_SENSOR");
+
+	if (IS_ERR(tbatid_iio_chan)) {
+		pr_info("%s - tbatid iio_channel_get failed\n", __func__);
+		ret = PTR_ERR(tbatid_iio_chan);
+		goto iio_ch_get_failed;
+	}
+
+	/* Check if the BATTID pin is floating or not. If it is then the
+	BPTHERM0 pin will be used for both bat id detection and battery
+	temperature, else use the BATID pin to determine the battery type. */
+	ret = iio_read_channel_processed(batid_iio_chan, &batid_ohm);
+
+	if (IIO_VAL_INT == ret) {
+		pr_info("BATID is fitted\n");
+		pbat->use_tbatid = false;
+	} else if (-ERANGE == ret) {
+		pr_info("BATID is not fitted, use NTC as BATID\n");
+		pbat->use_tbatid = true;
+	} else {
+		pr_err("%s - fail to measure battery ID %d\n", __func__, ret);
+		goto batid_meas_failed;
+	}
+
 	/* Disable the presence detect interrupt before enabling presence
 	detection hardware. */
 	bat_drv_batrm_det_irq_en(pbat, false);
@@ -870,15 +970,8 @@ static int __init bat_drv_probe(struct platform_device *p_platform_dev)
 		goto hw_init_failed;
 	}
 
-	batid_iio_chan = iio_channel_get(NULL, "BATID_SENSOR");
-
-	if (IS_ERR(batid_iio_chan)) {
-		pr_info("(%s) iio_channel_get failed\n", __func__);
-		ret = PTR_ERR(batid_iio_chan);
-		goto iio_ch_get_failed;
-	}
-
 	pbat->batid_iio_chan = batid_iio_chan;
+	pbat->tbatid_iio_chan = tbatid_iio_chan;
 
 	pbat->initialised = true;
 
@@ -890,8 +983,9 @@ static int __init bat_drv_probe(struct platform_device *p_platform_dev)
 
 	return 0;
 
-iio_ch_get_failed:
 hw_init_failed:
+batid_meas_failed:
+iio_ch_get_failed:
 	destroy_workqueue(pbat->work.p_work_queue);
 	wake_lock_destroy(&pbat->work.kfifo_wakelock);
 	bat_drv_release_pdata(pbat);
@@ -914,6 +1008,7 @@ static int __exit bat_drv_remove(struct platform_device *p_platform_dev)
 		pbat->initialised = false;
 
 		iio_channel_release(pbat->batid_iio_chan);
+		iio_channel_release(pbat->tbatid_iio_chan);
 		bat_drv_batrm_det_irq_en(pbat, false);
 		destroy_workqueue(pbat->work.p_work_queue);
 		wake_lock_destroy(&pbat->work.kfifo_wakelock);
