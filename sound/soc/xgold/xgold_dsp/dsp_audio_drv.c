@@ -2236,6 +2236,26 @@ int dsp_cmd_hw_probe(struct dsp_audio_device *dsp,
 	return 0;
 }
 
+void dsp_cmd_afe_streaming_off(struct dsp_audio_device *dsp)
+{
+	struct dsp_aud_cmd_data dsp_cmd;
+	struct T_AUD_DSP_CMD_VB_HW_AFE_PAR afe_hw_cmd = { 0 };
+
+	if (dsp->id == XGOLD_DSP_XG642) {
+		if (pm_runtime_active(dsp->dev)) {
+			dsp_cmd.command_id = DSP_AUDIO_CMD_VB_HW_AFE;
+			dsp_cmd.command_len =
+				sizeof(struct T_AUD_DSP_CMD_VB_HW_AFE_PAR);
+			dsp_cmd.p_data = (u16 *)&afe_hw_cmd;
+			xgold_debug("%s: Send AFE OFF command\n", __func__);
+			dsp->p_dsp_common_data->ops->set_controls(
+				dsp,
+				DSP_AUDIO_CONTROL_SEND_CMD,
+				&dsp_cmd);
+		}
+	}
+}
+
 /* device probe function */
 static int dsp_audio_drv_probe(struct platform_device *pdev)
 {

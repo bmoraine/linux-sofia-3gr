@@ -89,6 +89,16 @@ static void i2s1_set_device_data(struct device *dev,
 	i2s_dev->pm_platdata = voice->pm_platdata;
 }
 
+static void xgold_voice_shutdown(struct snd_pcm_substream *substream,
+	struct snd_soc_dai *dai)
+{
+	struct xgold_voice *voice = dev_get_drvdata(dai->dev);
+	if (!dai->active) {
+		xgold_debug("%s: voice dai is active\n", __func__);
+		dsp_cmd_afe_streaming_off(voice->dsp);
+	}
+}
+
 static int xgold_voice_trigger(struct snd_pcm_substream *stream,
 		int cmd, struct snd_soc_dai *dai)
 {
@@ -99,6 +109,7 @@ static int xgold_voice_trigger(struct snd_pcm_substream *stream,
 
 static struct snd_soc_dai_ops voice_ops = {
 	.trigger = xgold_voice_trigger,
+	.shutdown = xgold_voice_shutdown,
 };
 
 static struct snd_soc_dai_driver xgold_dai_voice = {
