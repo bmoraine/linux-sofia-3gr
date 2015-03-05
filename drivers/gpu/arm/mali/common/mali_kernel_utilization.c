@@ -260,7 +260,7 @@ void mali_utilization_gp_start(void)
 				 * job loading is light, finish in 10ms, the other time all keep
 				 * in high freq it will wast time.
 				 */
-				mali_control_timer_add(mali_control_first_timeout);
+				mali_control_timer_mod(mali_control_first_timeout);
 			}
 		} else {
 			mali_utilization_data_unlock();
@@ -319,7 +319,7 @@ void mali_utilization_pp_start(void)
 				 * job loading is light, finish in 10ms, the other time all keep
 				 * in high freq it will wast time.
 				 */
-				mali_control_timer_add(mali_control_first_timeout);
+				mali_control_timer_mod(mali_control_first_timeout);
 			}
 		} else {
 			mali_utilization_data_unlock();

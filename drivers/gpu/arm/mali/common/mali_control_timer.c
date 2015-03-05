@@ -31,7 +31,7 @@ void mali_control_timer_add(u32 timeout)
 	_mali_osk_timer_add(mali_control_timer, _mali_osk_time_mstoticks(timeout));
 }
 
-static void mali_control_timer_mod(u32 timeout)
+void mali_control_timer_mod(u32 timeout)
 {
 	_mali_osk_timer_mod(mali_control_timer,
 		_mali_osk_time_mstoticks(timeout));
