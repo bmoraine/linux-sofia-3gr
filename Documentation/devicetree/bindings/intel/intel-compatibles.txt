@@ -97,7 +97,10 @@ compatible = "focaltech,ft5x06"
 compatible = "st,l3gd20_gyr"
 compatible = "st,lsm303dlhc_acc"
 compatible = "st,lsm303dlhc_mag"
+compatible = "st,lsm303c_acc"
+compatible = "st,lsm303c_mag"
 compatible = "avago,apds990x"
 compatible = "inv,mpu6050"
 compatible = "nanosilicon,nanosilicon-lvds"
+compatible = "liteon,ltr559";
 

@@ -61,6 +61,7 @@ kionix	Kionix Ltd.
 memsic  Memsic Ltd.
 lg	LG Corporation
 linux	Linux-specific binding
+liteon	Lite-On Technology Corporation
 lsi	LSI Corp. (LSI Logic)
 marvell	Marvell Technology Group Ltd.
 maxim	Maxim Integrated Products
