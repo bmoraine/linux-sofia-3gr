@@ -848,7 +848,8 @@ int fmrx_station_seeking(
 
 	err = fmrx_hw_channel_search(start_frequency,
 			stop_frequency, step, fmrx_cfg->side,
-			fmrx_cfg->other_cfg.seek_thr, fmrx_cfg->other_cfg.pn_thr);
+			fmrx_cfg->other_cfg.seek_thr,
+			fmrx_cfg->other_cfg.pn_thr);
 	if (0 != err) {
 		fmtrx_sys_log
 			("%s: %s %d,Channel search configuration failed! %d\n",

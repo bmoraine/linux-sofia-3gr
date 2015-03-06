@@ -179,6 +179,11 @@
 #define HCI_INTEL_FMR_CMD_COMPLETE_SUCCESS 0X00
 #define HCI_INTEL_FMR_CMD_COMPLETE_FAILURE 0X01
 
+#define FMR_DCDC_REG_OFFSET 0x8c04
+#define FMR_DCDC_ACTIVE_HIGH_VOLTAGE 0x11E
+#define FMR_DCDC_DEFAULT_VOLTAGE 0x0
+#define FMR_DCDC_REGISTER_BIT 12
+#define FMR_DCDC_REGISTER_WIDTH 9
 /*
 ** =============================================================================
 **
@@ -526,6 +531,11 @@ static int fmtrx_plat_interrupt_handler(
  */
 static int msg_process_task_run(
 		void *args);
+
+/* Request for FMR dcdc 1.8v enable/disable
+ */
+static int fmtrx_sys_request_dcdc(
+	bool enable);
 
 /*
 ** =============================================================================
@@ -946,6 +956,18 @@ int fmtrx_sys_power_enable(
 	int err = 0;
 	struct hci_intel_cmd_pkt cmd_pkt;
 
+	/* Request 1.8v dcdc voltage */
+	if (enable) {
+		err = fmtrx_sys_request_dcdc(enable);
+		if (0 != err) {
+			fmtrx_sys_log
+				("%s: %s %d,dcdc 1.8v enable req failed!%d\n",
+				FILE, __func__,
+				__LINE__, err);
+			goto fmtrx_sys_power_enable_exit;
+		}
+	}
+
 	memset(&cmd_pkt, 0, sizeof(struct hci_intel_cmd_pkt));
 
 	cmd_pkt.cmd_hdr1.opcode = OPCODE(0x3F, 0x5A);
@@ -1021,6 +1043,19 @@ int fmtrx_sys_power_enable(
 		g_total_sent = g_total_recv = g_recv_int_count =
 		    g_req_int_count = 0;
 #endif
+
+	/* Request default dcdc voltage */
+	if (!enable) {
+		err = fmtrx_sys_request_dcdc(enable);
+		if (0 != err) {
+			fmtrx_sys_log
+				("%s: %s %d,dcdc 1.8v disable req failed!%d\n",
+				FILE, __func__,
+				__LINE__, err);
+			goto fmtrx_sys_power_enable_exit;
+		}
+	}
+
 	return err;
 }
 
@@ -2369,23 +2404,70 @@ static int msg_process_task_run(
 /*
 ** =============================================================================
 **
+**				LOCAL FUNCTION DEFINITIONS
+**
+** =============================================================================
+*/
+static int fmtrx_sys_request_dcdc(
+	bool enable)
+{
+	int err = 0;
+	u32 data = 0;
+
+	err =
+		fmr_generic_read(FMR_DCDC_REG_OFFSET, (u8 *) &data,
+		FMR_HCI_READ32_DATA_LEN_SIZE, WIDTH_32BIT, TOP);
+	if (0 != err) {
+		fmtrx_sys_log
+		("%s: %s %d, Generic read 16-bit failed! %d\n",
+		FILE, __func__,
+		__LINE__, err);
+	}
+
+	if (enable) {
+		data = (data &
+			~(((1 << FMR_DCDC_REGISTER_WIDTH) - 1)
+			<< FMR_DCDC_REGISTER_BIT)) |
+			(FMR_DCDC_ACTIVE_HIGH_VOLTAGE << FMR_DCDC_REGISTER_BIT);
+	} else {
+		data = (data &
+			~(((1 << FMR_DCDC_REGISTER_WIDTH) - 1)
+			<< FMR_DCDC_REGISTER_BIT)) |
+			(FMR_DCDC_DEFAULT_VOLTAGE << FMR_DCDC_REGISTER_BIT);
+	}
+
+	err =
+		fmr_generic_write(FMR_DCDC_REG_OFFSET, (u8 *) &data,
+		FMR_HCI_READ32_DATA_LEN_SIZE, WIDTH_32BIT, TOP);
+	if (0 != err) {
+		fmtrx_sys_log
+		("%s: %s %d, Generic write 32-bit failed! %d\n",
+		FILE, __func__,
+		__LINE__, err);
+	}
+
+	return err;
+}
+
+/*
+** =============================================================================
+**
 **				MODULE INTERFACES
 **
 ** =============================================================================
 */
-
-static struct of_device_id intel_fmradio_of_match[] = {
-	{.compatible = "intel,fm-radio",},
-	{},
-};
-
 static struct platform_driver fmtrx_platform_driver = {
 	.driver = {
 		   .name = FMTRX_MODULE_NAME,
-		   .of_match_table = intel_fmradio_of_match,
 		   },
 	.probe = fmtrx_driver_probe,
 	.remove = fmtrx_driver_remove,
+};
+
+static struct platform_device fmtrx_platform_device = {
+	.name	= FMTRX_MODULE_NAME,
+	.id	= 0,
+	.dev.release = fmtrx_device_release
 };
 
 static int fmtrx_driver_probe(
@@ -2438,10 +2520,26 @@ static int fmtrx_driver_remove(
 	return err;
 }
 
+static void fmtrx_device_release(
+	struct device *p_dev)
+{
+
+}
+
 static int __init fmtrx_module_init(
 		void)
 {
 	int err = 0;
+
+	/* Register FM Radio device */
+	err = platform_device_register(&fmtrx_platform_device);
+	if (0 != err) {
+		fmtrx_sys_log
+		("%s: %s %d,Platform device registration failed! %d\n",
+		   FILE, __func__,
+		   __LINE__, err);
+		goto fmtrx_module_init_exit;
+	}
 
 	/* Register FM Radio driver */
 	err = platform_driver_register(&fmtrx_platform_driver);
@@ -2461,6 +2559,7 @@ static void __exit fmtrx_module_exit(
 		void)
 {
 	platform_driver_unregister(&fmtrx_platform_driver);
+	platform_device_unregister(&fmtrx_platform_device);
 }
 
 module_init(fmtrx_module_init);
@@ -2472,5 +2571,5 @@ MODULE_DESCRIPTION
 	("V4L2 driver to control FM Radio IP of Intel's LnP chip");
 MODULE_VERSION(FMTRX_MODULE_VERSION);
 MODULE_LICENSE("GPL");
-MODULE_DEVICE_TABLE(of, intel_fmradio_of_match);
+
 /* end of file */

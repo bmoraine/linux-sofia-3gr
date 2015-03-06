@@ -179,6 +179,11 @@
 #define HCI_INTEL_FMR_CMD_COMPLETE_SUCCESS 0X00
 #define HCI_INTEL_FMR_CMD_COMPLETE_FAILURE 0X01
 
+#define FMR_DCDC_REG_OFFSET 0x8c04
+#define FMR_DCDC_ACTIVE_HIGH_VOLTAGE 0x11E
+#define FMR_DCDC_DEFAULT_VOLTAGE 0x0
+#define FMR_DCDC_REGISTER_BIT 12
+#define FMR_DCDC_REGISTER_WIDTH 9
 /*
 ** =============================================================================
 **
@@ -531,6 +536,11 @@ static int msg_process_task_run(
  */
 static void fmtrx_denotify_mitigation_interference(
 		void);
+
+/* Request for FMR dcdc 1.8v enable/disable
+ */
+static int fmtrx_sys_request_dcdc(
+	bool enable);
 
 /*
 ** =============================================================================
@@ -979,6 +989,18 @@ int fmtrx_sys_power_enable(
 	int err = 0;
 	struct hci_intel_cmd_pkt cmd_pkt;
 
+	/* Request 1.8v dcdc voltage */
+	if (enable) {
+		err = fmtrx_sys_request_dcdc(enable);
+		if (0 != err) {
+			fmtrx_sys_log
+				("%s: %s %d,dcdc 1.8v enable req failed!%d\n",
+				FILE, __func__,
+				__LINE__, err);
+			goto fmtrx_sys_power_enable_exit;
+		}
+	}
+
 	memset(&cmd_pkt, 0, sizeof(struct hci_intel_cmd_pkt));
 
 	cmd_pkt.cmd_hdr1.opcode = OPCODE(0x3F, 0x5A);
@@ -1059,6 +1081,19 @@ int fmtrx_sys_power_enable(
 		g_total_sent = g_total_recv = g_recv_int_count =
 		    g_req_int_count = 0;
 #endif
+
+	/* Request default dcdc voltage */
+	if (!enable) {
+		err = fmtrx_sys_request_dcdc(enable);
+		if (0 != err) {
+			fmtrx_sys_log
+				("%s: %s %d,dcdc 1.8v disable req failed!%d\n",
+				FILE, __func__,
+				__LINE__, err);
+			goto fmtrx_sys_power_enable_exit;
+		}
+	}
+
 	return err;
 }
 
@@ -2431,6 +2466,47 @@ static void fmtrx_denotify_mitigation_interference(void)
 					&freq_mgr_notify_data));
 }
 #endif /* CONFIG_IUI_FM_FMR */
+
+static int fmtrx_sys_request_dcdc(
+	bool enable)
+{
+	int err = 0;
+	u32 data = 0;
+
+	err =
+		fmr_generic_read(FMR_DCDC_REG_OFFSET, (u8 *) &data,
+		FMR_HCI_READ32_DATA_LEN_SIZE, WIDTH_32BIT, TOP);
+	if (0 != err) {
+		fmtrx_sys_log
+		("%s: %s %d, Generic read 16-bit failed! %d\n",
+		FILE, __func__,
+		__LINE__, err);
+	}
+
+	if (enable) {
+		data = (data &
+			~(((1 << FMR_DCDC_REGISTER_WIDTH) - 1)
+			<< FMR_DCDC_REGISTER_BIT)) |
+			(FMR_DCDC_ACTIVE_HIGH_VOLTAGE << FMR_DCDC_REGISTER_BIT);
+	} else {
+		data = (data &
+			~(((1 << FMR_DCDC_REGISTER_WIDTH) - 1)
+			<< FMR_DCDC_REGISTER_BIT)) |
+			(FMR_DCDC_DEFAULT_VOLTAGE << FMR_DCDC_REGISTER_BIT);
+	}
+
+	err =
+		fmr_generic_write(FMR_DCDC_REG_OFFSET, (u8 *) &data,
+		FMR_HCI_READ32_DATA_LEN_SIZE, WIDTH_32BIT, TOP);
+	if (0 != err) {
+		fmtrx_sys_log
+		("%s: %s %d, Generic write 32-bit failed! %d\n",
+		FILE, __func__,
+		__LINE__, err);
+	}
+
+	return err;
+}
 
 /*
 ** =============================================================================
