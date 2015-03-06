@@ -552,6 +552,19 @@ static int dwc2_core_reset(struct dwc2_hsotg *hsotg)
 	}
 
 	/*
+	 * Ensure ID pin status corresponds to otg state.
+	 * If not, force controller to work in host mode.
+	 */
+	if (hsotg->core_params->external_id_pin_ctl > 0 && hsotg->uphy &&
+			hsotg->uphy->state >= OTG_STATE_A_IDLE &&
+					!dwc2_is_host_mode(hsotg)) {
+		gusbcfg = readl(hsotg->regs + GUSBCFG);
+		gusbcfg &= ~GUSBCFG_FORCEDEVMODE;
+		gusbcfg |= GUSBCFG_FORCEHOSTMODE;
+		writel(gusbcfg, hsotg->regs + GUSBCFG);
+	}
+
+	/*
 	 * NOTE: This long sleep is _very_ important, otherwise the core will
 	 * not stay in host mode after a connector ID change!
 	 */
