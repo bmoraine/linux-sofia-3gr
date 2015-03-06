@@ -25,8 +25,6 @@
 #ifndef _CIF_ISP20_H
 #define _CIF_ISP20_H
 
-#define CONFIG_CIF_ISP20_REG_TRACE
-
 #include <linux/platform_device.h>
 #include "cif_isp20_pltfrm.h"
 #include "cif_isp20_img_src.h"
@@ -35,9 +33,9 @@
 #include <media/v4l2-device.h>
 
 /*****************************************************************************/
-#define CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG
-
 /* Definitions */
+
+#define CONFIG_CIF_ISP_AUTO_UPD_CFG_BUG
 
 #define CIF_ISP20_NUM_CSI_INPUTS 2
 
@@ -526,7 +524,12 @@ struct cif_isp20_device {
 	struct cif_isp20_stream mp_stream;
 	struct cif_isp20_stream dma_stream;
 	struct timeval curr_frame_time; /* updated each frame */
-	void (*eof_event)(__u32 frame_sequence);
+	void (*sof_event)(__u32 frame_sequence);
+	/* requeue_bufs() is used to clean and rebuild the local buffer
+	lists xx_stream.buf_queue. This is used e.g. in the CAPTURE use
+	case where we start MP and SP separately and needs to shortly
+	stop and start SP when start MP */
+	void (*requeue_bufs)(enum cif_isp20_stream_id stream_id);
 	bool   b_isp_frame_in;
 	bool   b_mi_frame_end;
 #ifdef SOFIA_ES1_BU_PM_NATIVE
@@ -553,7 +556,9 @@ int get_xgold_output_format_desc_size(void);
 /*Clean code starts from here*************************************************/
 
 struct cif_isp20_device *cif_isp20_create(
-	CIF_ISP20_PLTFRM_DEVICE pdev, void (*eof_event)(__u32 frame_sequence));
+	CIF_ISP20_PLTFRM_DEVICE pdev,
+	void (*sof_event)(__u32 frame_sequence),
+	void (*requeue_bufs)(enum cif_isp20_stream_id stream_id));
 
 void cif_isp20_destroy(
 	struct cif_isp20_device *dev);

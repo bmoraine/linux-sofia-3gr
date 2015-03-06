@@ -690,7 +690,7 @@ static int cif_isp20_v4l2_buf_prepare(
 		ret = videobuf_iolock(queue, buf, NULL);
 		if (IS_ERR_VALUE(ret)) {
 			cif_isp20_pltfrm_pr_err(NULL,
-				"videobuf_iolock failed\n");
+				"videobuf_iolock failed with error %d\n", ret);
 			goto err;
 		}
 	}
@@ -1084,6 +1084,32 @@ static void cif_isp20_v4l2_event(__u32 frame_sequence)
 	ev.u.frame_sync.frame_sequence = frame_sequence;
 	v4l2_event_queue(&cif_isp20_v4l2_dev.node[SP_DEV].vdev, &ev);
 }
+
+static void cif_isp20_v4l2_requeue_bufs(
+	enum cif_isp20_stream_id stream_id)
+{
+	struct videobuf_buffer *buf;
+	struct videobuf_queue *q;
+
+	if (stream_id == CIF_ISP20_STREAM_SP)
+		q = &cif_isp20_v4l2_dev.node[SP_DEV].buf_queue;
+	else if (stream_id == CIF_ISP20_STREAM_MP)
+		q = &cif_isp20_v4l2_dev.node[MP_DEV].buf_queue;
+	else if (stream_id == CIF_ISP20_STREAM_DMA)
+		q = &cif_isp20_v4l2_dev.node[DMA_DEV].buf_queue;
+	else
+		BUG();
+
+	list_for_each_entry(buf, &q->stream, stream) {
+		if (!IS_ERR_VALUE(cif_isp20_qbuf(
+			to_cif_isp20_device(q), stream_id, buf)))
+			buf->state = VIDEOBUF_QUEUED;
+		else
+			cif_isp20_pltfrm_pr_err(NULL,
+				"failed for buffer %d\n", buf->i);
+	}
+}
+
 
 static long v4l2_default_ioctl(struct file *file, void *fh,
 			       bool valid_prio, unsigned int cmd, void *arg)
@@ -1611,7 +1637,8 @@ static int xgold_v4l2_drv_probe(struct platform_device *pdev)
 
 	memset(&cif_isp20_v4l2_dev, 0, sizeof(cif_isp20_v4l2_dev));
 
-	dev = cif_isp20_create(&pdev->dev, cif_isp20_v4l2_event);
+	dev = cif_isp20_create(&pdev->dev, cif_isp20_v4l2_event,
+		cif_isp20_v4l2_requeue_bufs);
 	if (IS_ERR_OR_NULL(dev)) {
 		ret = -ENODEV;
 		goto err;
