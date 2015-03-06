@@ -709,14 +709,19 @@ static void intel_adc_start_meas(struct adc_meas_instance *p_meas)
 						p_meas->channel,
 						&p_meas->latest_result.na,
 						&p_meas->latest_result.uv} }));
-	BUG_ON(ret && (ENODATA != ret));
+	BUG_ON(ret && (ENODATA != ret) && (-ERANGE != ret));
 
-	/* If measurement result is already available then tick stm
+	/* If measurement result is already available or saturated, tick stm
 	with meas_done event */
-	if (ENODATA != ret) {
+	if (!ret) {
 		intel_adc_tick_stm(ADC_STM_MEAS_DONE,
 			((union adc_stm_event_payload) {
-				.adc_result = p_meas->latest_result.uv }));
+				.adc_result = p_meas->latest_result.uv}));
+	} else if (-ERANGE == ret) {
+		intel_adc_tick_stm(ADC_STM_MEAS_DONE,
+			((union adc_stm_event_payload) {
+				.adc_result = -ERANGE}));
+
 	}
 }
 
@@ -1105,11 +1110,20 @@ static void intel_adc_tick_stm(enum adc_stm_events event,
 			/* First of all, stop supervisor timer as the
 			measurement was done */
 			(void)del_timer_sync(&adc_manager.supervisory_timer);
-			/* Store measurement result in instance for later use */
-			hmeas->latest_result.uv = payload.adc_result;
-			/* In principle the measurement was sucessful. Error
-			code might get updated below */
-			hmeas->latest_result.error = 0;
+
+			if (-ERANGE != payload.adc_result) {
+
+				/* Store measurement result in instance for
+				later use */
+				hmeas->latest_result.uv = payload.adc_result;
+				/* In principle the measurement was sucessful.
+				Error code might get updated below */
+				hmeas->latest_result.error = 0;
+			} else {
+				/* ADC measurement saturated */
+				hmeas->latest_result.error = -ERANGE;
+				hmeas->latest_result.uv = 0;
+			}
 
 			/* Check whether signal settling feature is enabled for
 			this measurement */
