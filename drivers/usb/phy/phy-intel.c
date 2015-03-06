@@ -1553,9 +1553,10 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 	/* Register Resume interrupt used to detect Resume from Host */
 	iphy->resume_irq = platform_get_irq_byname(pdev, "resume");
 	if (!IS_ERR_VALUE(iphy->resume_irq)) {
-		ret = devm_request_irq(dev, iphy->resume_irq,
-				intel_usb2phy_resume,
-				IRQF_SHARED, "usb_resume", iphy);
+		ret = devm_request_threaded_irq(dev, iphy->resume_irq,
+				NULL, intel_usb2phy_resume,
+				IRQF_SHARED | IRQF_ONESHOT | IRQF_NO_SUSPEND,
+				"usb_resume", iphy);
 		if (ret != 0) {
 			dev_err(dev,
 				"setup irq%d failed with ret = %d\n",
