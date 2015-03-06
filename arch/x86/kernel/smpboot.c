@@ -1188,9 +1188,8 @@ void __init native_smp_cpus_done(unsigned int max_cpus)
 
 	nmi_selftest();
 	impress_friends();
-#ifdef CONFIG_X86_IO_APIC
-	setup_ioapic_dest();
-#endif
+	if (x86_init.irqs.fixup_affinity)
+		x86_init.irqs.fixup_affinity();
 	mtrr_aps_init();
 }
 

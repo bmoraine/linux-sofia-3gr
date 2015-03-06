@@ -56,6 +56,9 @@ struct x86_init_ops x86_init __initdata = {
 		.pre_vector_init	= init_ISA_irqs,
 		.intr_init		= native_init_IRQ,
 		.trap_init		= x86_init_noop,
+#if defined(CONFIG_X86_IO_APIC) && defined(CONFIG_SMP)
+		.fixup_affinity		= setup_ioapic_dest,
+#endif
 	},
 
 	.oem = {
@@ -105,7 +108,6 @@ struct x86_platform_ops x86_platform = {
 	.save_sched_clock_state 	= tsc_save_sched_clock_state,
 	.restore_sched_clock_state 	= tsc_restore_sched_clock_state,
 };
-
 EXPORT_SYMBOL_GPL(x86_platform);
 
 #if defined(CONFIG_PCI_MSI)

@@ -51,11 +51,13 @@ struct x86_init_resources {
  *				are set up.
  * @intr_init:			interrupt init code
  * @trap_init:			platform specific trap setup
+ * @fixup_affinity:		fixup affinity after smpboot is completed
  */
 struct x86_init_irqs {
 	void (*pre_vector_init)(void);
 	void (*intr_init)(void);
 	void (*trap_init)(void);
+	void (*fixup_affinity)(void);
 };
 
 /**
