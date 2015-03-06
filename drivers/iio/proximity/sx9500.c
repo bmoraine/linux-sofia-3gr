@@ -33,6 +33,7 @@
 #define SX9500_IRQ_NAME			"sx9500_event"
 
 #define SX9500_GPIO_INT			"interrupt"
+#define SX9500_GPIO_RESET		"reset"
 
 /* Register definitions. */
 #define SX9500_REG_IRQ_SRC		0x00
@@ -85,6 +86,7 @@ struct sx9500_data {
 	struct i2c_client *client;
 	struct iio_trigger *trig;
 	struct regmap *regmap;
+	struct gpio_desc *gpiod_rst;
 	/*
 	 * Last reading of the proximity status for each channel.  We
 	 * only send an event to user space when this changes.
@@ -803,6 +805,13 @@ static int sx9500_init_device(struct iio_dev *indio_dev)
 	int ret, i;
 	unsigned int val;
 
+	if (data->gpiod_rst) {
+		gpiod_set_value_cansleep(data->gpiod_rst, 0);
+		usleep_range(1000, 2000);
+		gpiod_set_value_cansleep(data->gpiod_rst, 1);
+		usleep_range(1000, 2000);
+	}
+
 	ret = regmap_write(data->regmap, SX9500_REG_IRQ_MSK, 0);
 	if (ret < 0)
 		return ret;
@@ -857,6 +866,14 @@ static void sx9500_gpio_probe(struct i2c_client *client,
 			client->irq = gpiod_to_irq(gpio);
 	}
 
+	data->gpiod_rst = devm_gpiod_get_index(dev, SX9500_GPIO_RESET, 0);
+	if (IS_ERR(data->gpiod_rst)) {
+		dev_warn(dev, "gpio get reset pin failed\n");
+		data->gpiod_rst = NULL;
+		return;
+	}
+
+	gpiod_direction_output(data->gpiod_rst, 1);
 }
 
 static int sx9500_probe(struct i2c_client *client,
@@ -880,8 +897,6 @@ static int sx9500_probe(struct i2c_client *client,
 	if (IS_ERR(data->regmap))
 		return PTR_ERR(data->regmap);
 
-	sx9500_init_device(indio_dev);
-
 	indio_dev->dev.parent = &client->dev;
 	indio_dev->name = SX9500_DRIVER_NAME;
 	indio_dev->channels = sx9500_channels;
@@ -896,6 +911,10 @@ static int sx9500_probe(struct i2c_client *client,
 		dev_err(&client->dev, "no valid irq found\n");
 		return -EINVAL;
 	}
+
+	ret = sx9500_init_device(indio_dev);
+	if (ret < 0)
+		return ret;
 
 	ret = devm_request_threaded_irq(&client->dev, client->irq,
 					sx9500_irq_handler,
