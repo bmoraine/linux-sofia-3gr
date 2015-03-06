@@ -210,13 +210,18 @@ extern void setup_vector_irq(int cpu);
 #ifdef CONFIG_X86_IO_APIC
 extern void lock_vector_lock(void);
 extern void unlock_vector_lock(void);
-extern void __setup_vector_irq(int cpu);
 extern void enable_IO_APIC(void);
+#else
+static inline void enable_IO_APIC(void) {}
+#if defined CONFIG_X86_INTEL_XGOLD_VPIC
+extern void lock_vector_lock(void);
+extern void unlock_vector_lock(void);
+extern void __setup_vector_irq(int cpu);
 #else
 static inline void lock_vector_lock(void) {}
 static inline void unlock_vector_lock(void) {}
 static inline void __setup_vector_irq(int cpu) {}
-static inline void enable_IO_APIC(void) {}
+#endif
 #endif
 
 #endif /* !ASSEMBLY_ */

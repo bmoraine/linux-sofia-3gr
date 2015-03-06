@@ -53,10 +53,11 @@ struct vmm_shared_data *vmm_shared_data[CONFIG_MAX_VCPUS_PER_VM];
 const char *vm_command_line;
 struct irq_domain *hirq_domain;
 
-
+#if 0
 void irq_force_complete_move(int irq)
 {
 }
+#endif
 
 struct vmm_shared_data *mv_gal_get_shared_data(void)
 {
