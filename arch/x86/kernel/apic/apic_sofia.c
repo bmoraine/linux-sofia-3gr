@@ -31,7 +31,8 @@ static void sofia_apic_send_ipi_mask(const struct cpumask *mask, int vector)
 	if ((vector != RESCHEDULE_VECTOR) &&
 		(vector != CALL_FUNCTION_SINGLE_VECTOR) &&
 		(vector != CALL_FUNCTION_VECTOR) &&
-		(vector != LOCAL_TIMER_VECTOR)) {
+		(vector != LOCAL_TIMER_VECTOR) &&
+		(vector != IRQ_MOVE_CLEANUP_VECTOR)) {
 		pr_err("%s: Unknown vector %x\n", __func__, vector);
 		BUG();
 	}
@@ -208,13 +209,13 @@ static struct apic apic_sofia = {
 	.irq_delivery_mode		= 0,
 	.irq_dest_mode			= 1,
 
-	.target_cpus			= NULL,
+	.target_cpus			= default_target_cpus,
 	.disable_esr			= 0,
 	.dest_logical			= 0,
 	.check_apicid_used		= NULL,
 	.check_apicid_present		= NULL,
 
-	.vector_allocation_domain	= NULL,
+	.vector_allocation_domain	= flat_vector_allocation_domain,
 	.init_apic_ldr			= sofia_init_lapic_ldr,
 
 	.ioapic_phys_id_map		= NULL,
@@ -232,7 +233,7 @@ static struct apic apic_sofia = {
 	.set_apic_id			= NULL,
 	.apic_id_mask			= 0x0F << 24,
 
-	.cpu_mask_to_apicid_and		= NULL,
+	.cpu_mask_to_apicid_and		= flat_cpu_mask_to_apicid_and,
 
 	.send_IPI_mask			= sofia_apic_send_ipi_mask,
 	.send_IPI_mask_allbutself	= NULL,
