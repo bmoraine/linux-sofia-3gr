@@ -53,16 +53,21 @@
 
 	ion {
 		compatible = "rockchip,ion";
+#ifndef RECOVERY_KERNEL
+		secvm-handler;
+#endif
 		#address-cells = < 1 >;
 		#size-cells = < 0 >;
-		rockchip,ion-heap@4 {
-			compatible = "rockchip,ion-heap";
+		cma-heap {
+			memory-region = <&cma_default_region>;
 			rockchip,ion_heap = < 4 >;
-			reg = < 0x00000000 0x08000000 >;
 		};
-		rockchip,ion-heap@0 {
-			compatible = "rockchip,ion-heap";
+		system-heap {
 			rockchip,ion_heap = < 0 >;
+		};
+		secured-heap {
+			memory-region = <&secured_region>;
+			rockchip,ion_heap = < 5 >;
 		};
 	};
 
