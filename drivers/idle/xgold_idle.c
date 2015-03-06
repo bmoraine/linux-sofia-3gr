@@ -212,7 +212,7 @@ static int __init xgold_cpuidle_init(void)
 	 * even with SMP kernel configuration
 	 *  if cpumask is not defined, this will be initialized
 	 *  with cpu_possible_mask that we don't want for UP */
-	xgold_cpuidle_driver.cpumask = cpu_online_mask;
+	xgold_cpuidle_driver.cpumask = (struct cpumask *) cpu_online_mask;
 	return cpuidle_register(&xgold_cpuidle_driver, NULL);
 }
 
