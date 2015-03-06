@@ -463,8 +463,8 @@
 	keypad,num-columns = <8>;
 	keypad,rows = <3 8>;
 	keypad,columns = <3 4>;
-	linux,keymap = <0x03030072	/* KEY_VOLUMEDOWN */
-			0x03040073	/* KEY_VOLUMEUP */
+	linux,keymap = <0x08070072	/* KEY_VOLUMEDOWN */
+			0x08060073	/* KEY_VOLUMEUP */
 			0x08030074	/* KEY_POWER */
 			0x08040066>;	/* KEY_HOME */
 };
