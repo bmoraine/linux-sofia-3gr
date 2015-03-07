@@ -52,7 +52,9 @@
 #include <linux/rockchip_ion.h>
 #endif
 
-#if defined(CONFIG_ROCKCHIP_IOMMU) && defined(CONFIG_ION_ROCKCHIP)
+#if defined(CONFIG_ROCKCHIP_IOMMU) &&	\
+	defined(CONFIG_ION_ROCKCHIP) &&		\
+	!defined(CONFIG_SECURE_PLAYBACK)
 #define CONFIG_VCODEC_MMU
 #endif
 
@@ -1073,6 +1075,7 @@ static void reg_from_wait_to_run(struct vpu_service_info *pservice,
 	list_add_tail(&reg->session_link, &reg->session->running);
 }
 
+#if !defined(CONFIG_SECURE_PLAYBACK)
 static void reg_copy_from_hw(struct vpu_reg *reg, u32 *src, u32 count)
 {
 	int i;
@@ -1144,6 +1147,7 @@ static void reg_from_run_to_done(struct vpu_subdev_data *data,
 	atomic_sub(1, &pservice->total_running);
 	wake_up(&reg->session->wait);
 }
+#endif
 
 static void reg_copy_to_hw(struct vpu_subdev_data *data,
 			   struct vpu_reg *reg)
@@ -1614,10 +1618,12 @@ static const struct file_operations vpu_service_fops = {
 	.release	= vpu_service_release,
 };
 
+#if !defined(CONFIG_SECURE_PLAYBACK)
 static irqreturn_t vdpu_irq(int irq, void *dev_id);
 static irqreturn_t vdpu_isr(int irq, void *dev_id);
 static irqreturn_t vepu_irq(int irq, void *dev_id);
 static irqreturn_t vepu_isr(int irq, void *dev_id);
+#endif
 static void get_hw_info(struct vpu_subdev_data *data);
 
 #ifdef CONFIG_VCODEC_MMU
@@ -1765,7 +1771,7 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 		edev->hwregs = (u32 *)((u8 *)regs+hwinfo->enc_offset);
 		data->reg_size = data->reg_size > edev->iosize ?
 					data->reg_size : edev->iosize;
-
+#if !defined(CONFIG_SECURE_PLAYBACK)
 		data->irq_enc = platform_get_irq_byname(pdev, "irq_enc");
 		if (data->irq_enc < 0) {
 			dev_err(dev, "cannot find IRQ encoder\n");
@@ -1783,8 +1789,10 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 				data->irq_enc);
 			goto err;
 		}
+#endif
 	}
 
+#if !defined(CONFIG_SECURE_PLAYBACK)
 	data->irq_dec = platform_get_irq_byname(pdev, "irq_dec");
 	if (data->irq_dec < 0) {
 		dev_err(dev, "cannot find IRQ decoder\n");
@@ -1802,6 +1810,7 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 			data->irq_dec);
 		goto err;
 	}
+#endif
 
 	atomic_set(&data->dec_dev.irq_count_codec, 0);
 	atomic_set(&data->dec_dev.irq_count_pp, 0);
@@ -2095,6 +2104,7 @@ static void get_hw_info(struct vpu_subdev_data *data)
 	}
 }
 
+#if !defined(CONFIG_SECURE_PLAYBACK)
 static irqreturn_t vdpu_irq(int irq, void *dev_id)
 {
 	struct vpu_subdev_data *data = (struct vpu_subdev_data *)dev_id;
@@ -2235,6 +2245,7 @@ static irqreturn_t vepu_isr(int irq, void *dev_id)
 	mutex_unlock(&pservice->lock);
 	return IRQ_HANDLED;
 }
+#endif
 
 static int __init vcodec_service_init(void)
 {
