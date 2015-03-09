@@ -3,6 +3,7 @@ compatible = "rockchip,screen"
 compatible = "rockchip,vop"
 compatible = "rockchip,rga"
 compatible = "rockchip,vop_mmu"
+compatible = "rockchip,vpu_combo"
 compatible = "rockchip,vpu_mmu"
 compatible = "rockchip,hevc_mmu"
 
