@@ -103,6 +103,7 @@ static enum voemcrypto_devstate_t device_state = VOEMCRYPTO_DEVICE_IDLE;
 uint32_t
 voemcrypto_call_ext(struct voemcrypto_t *p_voemcrypto, const uint32_t size0)
 {
+	uint32_t ret = size0;
 	/* check for invalid size */
 	if (size0 > p_voemcrypto->share_data_size)
 		return 0;
@@ -113,8 +114,10 @@ voemcrypto_call_ext(struct voemcrypto_t *p_voemcrypto, const uint32_t size0)
 
 	/* wait for open */
 	if(wait_event_interruptible(p_voemcrypto->open_wait,
-			p_voemcrypto->status == VOEC_CTL_STATUS_CONNECT))
-		return 0;
+			p_voemcrypto->status == VOEC_CTL_STATUS_CONNECT)) {
+		ret = 0;
+		goto exit;
+	}
 
 	/* cmd+data is formatted beforehand to shared mem. */
 	/* Up to 11 arguments in OEMCrypto interfaces. */
@@ -126,14 +129,15 @@ voemcrypto_call_ext(struct voemcrypto_t *p_voemcrypto, const uint32_t size0)
 
 	/* wait for server respond */
 	if(wait_event_interruptible(p_voemcrypto->client_wait,
-			p_voemcrypto->respond == 1))
-		return 0;
+			p_voemcrypto->respond == 1)) {
+		ret = 0;
+		goto exit;
+	}
 
 	/* at this stage, vrpc_call has returned with data in pmem */
-
+exit:
 	mutex_unlock(&p_voemcrypto->call_mutex);
-
-	return size0;
+	return ret;
 }
 
 
