@@ -520,45 +520,29 @@
 					vpu:vpu {
 						compatible = "rockchip,vpu_service";
 						iommu_enabled = <1>;
-						reg = < 0xE2D00000 0x1000 >;
 						interrupt-names = "irq_enc", "irq_dec";
 						interrupts = < VID_HINT_ENC IRQ_TYPE_DEFAULT >,
 							     < VID_HINT_DEC IRQ_TYPE_DEFAULT >;
-
-						pm,class-name = "vpu_dec_class";
-						pm,user-name = "vpu_dec";
-						pm,state-D3 = "disable";
-						pm,state-D0 = "high_perf"; /*"ultra_high_perf"*/
-
-						video-supply = <&vdd_video>;
-						clocks = <&clk_vpu>, <&clk_ahb_per2>;
-						clock-names = "aclk_vcodec", "hclk_vcodec";
-						hwname = "vpu_service";
-
-						resets = < &dbb_rst1 24 >;
-						reset-names = "vpu";
+						devname = "vpu_service";
 					};
-#endif
-#ifndef RECOVERY_KERNEL
+
 					hevc:hevc {
 						compatible = "rockchip,hevc_service";
 						iommu_enabled = <1>;
-						reg = < 0xE2D00000 0x1000 >;
 						interrupt-names = "irq_dec";
 						interrupts = < HEVC_DEC_INT IRQ_TYPE_DEFAULT >;
+						devname = "hevc_service";
+					};
 
+					vpu_combo:vpu_combo {
+						compatible = "rockchip,vpu_combo";
+						reg = < 0xE2D00000 0x1000 >;
+						subcnt = <2>;
+						intel,sub = <&vpu>, <&hevc>;
 						pm,class-name = "vpu_dec_class";
 						pm,user-name = "vpu_dec";
 						pm,state-D3 = "disable";
 						pm,state-D0 = "high_perf"; /*"ultra_high_perf"*/
-
-						video-supply = <&vdd_video>;
-						clocks = <&clk_video>, <&clk_vpu>, <&clk_ahb_per2>;
-						clock-names = "clk_core", "aclk_vcodec", "hclk_vcodec";
-						hwname = "hevc_service";
-
-						resets = < &dbb_rst1 24 >;
-						reset-names = "hevc";
 					};
 #endif
 #ifndef RECOVERY_KERNEL
