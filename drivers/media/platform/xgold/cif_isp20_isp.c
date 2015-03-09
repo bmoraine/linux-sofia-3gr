@@ -251,10 +251,6 @@
 
 /* Set this flag to enable CIF ISP Register debug
 #define CIFISP_DEBUG_REG*/
-/* Set this flag to dump the parameters
-#define CIFISP_DEBUG_PARAM*/
-/* Set this flag to trace the capture params
-#define LOG_CAPTURE_PARAMS*/
 /* Set this flag to trace the isr execution time
 #define LOG_ISR_EXE_TIME*/
 /* Set this flag to exclude everything except
@@ -283,8 +279,6 @@ static void cifisp_param_dump(const void *config, unsigned int module);
 static void cifisp_reg_dump(const struct xgold_isp_dev *isp_dev,
 			    unsigned int module, int level);
 #endif
-static void cifisp_reg_dump_capture(const struct xgold_isp_dev *isp_dev);
-
 static int cifisp_bpc_enable(struct xgold_isp_dev *isp_dev,
 			     bool flag, __s32 *value)
 {
@@ -3831,9 +3825,6 @@ void cifisp_configure_isp(
 			cifisp_hst_en(isp_dev);
 			isp_dev->isp_param_hst_update_needed = false;
 		}
-
-		if (capture)
-			cifisp_reg_dump_capture(isp_dev);
 	} else {
 		/* Disable modules for yuv */
 		cifisp_bp_end(isp_dev);
@@ -4067,13 +4058,13 @@ static void cif_isp_send_measurement(struct work_struct *work)
 					"Measurement done\n");
 			} else {
 				cleanup = 1;
-				CIFISP_DPRINT(CIFISP_ERROR,
+				CIFISP_DPRINT(CIFISP_DEBUG,
 					"Measurement late\n");
 			}
 		} else {
 			cleanup = 1;
 			CIFISP_DPRINT(CIFISP_DEBUG,
-				"Not enought measurement bufs\n");
+				"Not enough measurement bufs\n");
 		}
 
 		if (cleanup) {
@@ -4520,7 +4511,6 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 
 static void cifisp_param_dump(const void *config, unsigned int module)
 {
-#ifdef CIFISP_DEBUG_PARAM
 	switch (module) {
 	case CIFISP_MODULE_AWB_GAIN:{
 			struct cifisp_awb_gain_config *pconfig =
@@ -4622,8 +4612,34 @@ static void cifisp_param_dump(const void *config, unsigned int module)
 				      ISP_DEV_NAME);
 		} break;
 	case CIFISP_MODULE_LSC:{
+			int i;
+			struct cifisp_lsc_config *pconfig =
+			    (struct cifisp_lsc_config *)config;
 			CIFISP_DPRINT(CIFISP_DEBUG,
 				      "#### LSC Parameters - BEGIN ####\n");
+			CIFISP_DPRINT(CIFISP_DEBUG,	"sect size\n");
+			for (i = 0; i < CIFISP_LSC_SIZE_TBL_SIZE; i++)
+				CIFISP_DPRINT(CIFISP_DEBUG,
+					"x 0x%x y 0x%x\n",
+					*(pconfig->x_size_tbl + i),
+					*(pconfig->y_size_tbl + i));
+			CIFISP_DPRINT(CIFISP_DEBUG,	"\ngrad\n");
+
+			for (i = 0; i < CIFISP_LSC_GRAD_TBL_SIZE; i++)
+				CIFISP_DPRINT(CIFISP_DEBUG,
+					"x 0x%x y 0x%x\n",
+					*(pconfig->x_grad_tbl + i),
+					*(pconfig->y_grad_tbl + i));
+
+			CIFISP_DPRINT(CIFISP_DEBUG,	"\nsample\n");
+
+			for (i = 0; i < CIFISP_LSC_DATA_TBL_SIZE; i++)
+				CIFISP_DPRINT(CIFISP_DEBUG,
+					"r 0x%x g 0x%x b 0x%x\n",
+					*(pconfig->r_data_tbl + i),
+					*(pconfig->g_data_tbl + i),
+					*(pconfig->b_data_tbl + i));
+
 			CIFISP_DPRINT(CIFISP_DEBUG,
 				      "#### LSC Parameters - END ####\n");
 		}
@@ -4987,7 +5003,6 @@ static void cifisp_param_dump(const void *config, unsigned int module)
 			CIFISP_DPRINT(CIFISP_DEBUG,
 				      "#### %s: YCFLT Parameters - BEGIN ####\n",
 				      ISP_DEV_NAME);
-			CIFISP_DPRINT(CIFISP_DEBUG, " chr_ss_ctrl: %d\n",
 			CIFISP_DPRINT(CIFISP_DEBUG, " ctrl: %d\n",
 					pconfig->ctrl);
 			CIFISP_DPRINT(CIFISP_DEBUG, " chr_ss_ctrl: %d\n",
@@ -5067,64 +5082,6 @@ static void cifisp_param_dump(const void *config, unsigned int module)
 			      "####%s: Invalid Module ID ####\n", ISP_DEV_NAME);
 		break;
 	}
-#endif
-}
-
-static void cifisp_reg_dump_capture(const struct xgold_isp_dev *isp_dev)
-{
-#ifdef LOG_CAPTURE_PARAMS
-	memset(&g_last_capture_config, 0, sizeof(g_last_capture_config));
-
-	if (isp_dev->bls_en) {
-		g_last_capture_config.bls.fixed_val.fixed_a =
-		    cifisp_ioread32(CIF_ISP_BLS_A_FIXED);
-		g_last_capture_config.bls.fixed_val.fixed_b =
-		    cifisp_ioread32(CIF_ISP_BLS_B_FIXED);
-		g_last_capture_config.bls.fixed_val.fixed_c =
-		    cifisp_ioread32(CIF_ISP_BLS_C_FIXED);
-		g_last_capture_config.bls.fixed_val.fixed_d =
-		    cifisp_ioread32(CIF_ISP_BLS_D_FIXED);
-	}
-
-	if (isp_dev->lsc_en)
-		cifisp_lsc_config_read(isp_dev, &g_last_capture_config.lsc);
-
-	if (isp_dev->flt_en)
-		cifisp_flt_config_read(isp_dev, &g_last_capture_config.flt);
-
-	if (isp_dev->bdm_en)
-		g_last_capture_config.bdm.demosaic_th =
-		    cifisp_ioread32(CIF_ISP_DEMOSAIC);
-
-	if (isp_dev->sdg_en)
-		cifisp_sdg_config_read(isp_dev, &g_last_capture_config.sdg);
-
-	if (isp_dev->goc_en)
-		cifisp_goc_config_read(isp_dev, &g_last_capture_config.goc);
-
-	if (isp_dev->ctk_en)
-		cifisp_ctk_config_read(isp_dev, &g_last_capture_config.ctk);
-
-	if (isp_dev->awb_meas_en)
-		cifisp_awb_meas_config_read(isp_dev,
-					    &g_last_capture_config.awb_meas);
-
-	if (isp_dev->awb_gain_en)
-		cifisp_awb_gain_config_read(isp_dev,
-					    &g_last_capture_config.awb_gain);
-
-	if (isp_dev->cproc_en)
-		cifisp_cproc_config_read(isp_dev, &g_last_capture_config.cproc);
-
-	if (isp_dev->ycflt_en)
-		cifisp_ycflt_config_read(isp_dev, &g_last_capture_config.ycflt);
-
-	if (isp_dev->macc_en)
-		cifisp_macc_config_read(isp_dev, &g_last_capture_config.macc);
-
-	if (isp_dev->tmap_en)
-		cifisp_tmap_config_read(isp_dev, &g_last_capture_config.tmap);
-#endif
 }
 
 #ifdef CIFISP_DEBUG_REG
