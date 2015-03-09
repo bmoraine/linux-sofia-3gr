@@ -60,7 +60,7 @@ static int xgold_enter_idle(struct cpuidle_device *dev,
 	struct vmm_shared_data *data = mv_gal_get_shared_data();
 
 	mv_svc_vm_enter_idle(data->pal_shared_mem_data, xg_idle->id);
-	native_safe_halt();
+	native_halt();
 	/* back to active */
 	mv_svc_vm_enter_idle(data->pal_shared_mem_data, XGOLD_CPUIDLE_ACTIVE);
 
