@@ -188,6 +188,7 @@ void mvpipe_close(struct mvpipe_instance *dev)
 int mvpipe_dev_open(struct inode *inode, struct file *filp)
 {
 	struct mvpipe_instance *dev;
+	int ret = 0;
 	dev = container_of(inode->i_cdev, struct mvpipe_instance, cdev);
 	filp->private_data = dev;
 
@@ -209,23 +210,29 @@ int mvpipe_dev_open(struct inode *inode, struct file *filp)
 	set_pipe_status(dev, MVPIPE_OPENING);
 
 	mvpipe_info("Wait until connected!\n");
-	wait_event_interruptible(dev->open_wait,
-				 dev->mbox_status == MBOX_CONNECTED);
-
+	if (wait_event_interruptible(dev->open_wait,
+				 dev->mbox_status == MBOX_CONNECTED)) {
+		ret = -ERESTARTSYS;
+		goto wait_was_interrupted;
+	}
 	mvpipe_info("Wait until peer close properly!\n");
-	wait_event_interruptible(dev->open_wait,
-				 get_peer_status(dev) != MVPIPE_CLOSING);
+	if (wait_event_interruptible(dev->open_wait,
+				 get_peer_status(dev) != MVPIPE_CLOSING)) {
+		ret = -ERESTARTSYS;
+		goto wait_was_interrupted;
+	}
 
 	mvpipe_info("Open success!\n");
 	set_pipe_status(dev, MVPIPE_OPEN);
 
+wait_was_interrupted:
 	up(&dev->open_sem);
-
-	return 0;
+	return ret;
 }
 
 int mvpipe_dev_release(struct inode *inode, struct file *filp)
 {
+	int ret = 0;
 	struct mvpipe_instance *dev = filp->private_data;
 	mvpipe_info("Release mvpipe: %s\n", dev->dev_name);
 
@@ -249,14 +256,18 @@ int mvpipe_dev_release(struct inode *inode, struct file *filp)
 		mv_ipc_mbox_post(dev->token, dev->pipe_event);
 
 	/* wait until peer status is not OPEN */
-	wait_event_interruptible(dev->close_wait,
+	if (wait_event_interruptible(dev->close_wait,
 				 get_peer_status(dev) != MVPIPE_OPEN ||
-				 dev->mbox_status != MBOX_CONNECTED);
+				 dev->mbox_status != MBOX_CONNECTED)) {
+		ret = -ERESTARTSYS;
+		goto wait_was_interrupted;
+	}
 
 	mvpipe_info("Release mvpipe successful!\n");
-	up(&dev->open_sem);
 
-	return 0;
+wait_was_interrupted:
+	up(&dev->open_sem);
+	return ret;
 }
 
 ssize_t mvpipe_dev_read(struct file *filp, char __user *buf, size_t count,
