@@ -482,6 +482,16 @@
 		interrupts = < HIRQ_PMIC_CHGINTB IRQ_TYPE_DEFAULT >;
 		interrupt-names = "chgintb";
 	};
+
+	pmic_chgr_fan:pmic_chgr_fan {
+		compatible = "intel,fan54015";
+		reg = < 0x6a >;
+		#address-cells = < 0 >;
+
+		interrupt-parent = <&hirq>;
+		interrupts = < HIRQ_PMIC_CHGINTB IRQ_TYPE_DEFAULT >;
+		interrupt-names = "chgintb";
+	};
 };
 
 &gnss {
