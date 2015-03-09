@@ -242,7 +242,9 @@ static int vdump_thread(void *param)
 
 	while (!kthread_should_stop()) {
 		VD_LOG("Kernel vdump Thread running.\n");
-		wait_event_interruptible(vdump_wq, vdump_events);
+		if (wait_event_interruptible(vdump_wq, vdump_events))
+			return -ERESTARTSYS;
+
 		vdump_events = 0;
 
 		if (vdump_data.cd_info.status) {
