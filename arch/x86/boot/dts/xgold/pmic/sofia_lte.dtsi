@@ -342,7 +342,7 @@ pmic {
 			compatible = "intel,pmic-led";
 			pm,class-name = "bl_class";
 			intel,led-k2 = <0x12a>;
-			intel,led-k1max = <0x00b8>;
+			intel,led-k1max = <0x00e0>;
 			intel,led-ctrl-up = <0x83>;
 			intel,led-ctrl-down = <0x80>;
 			intel,led-up = <0x0A>;
