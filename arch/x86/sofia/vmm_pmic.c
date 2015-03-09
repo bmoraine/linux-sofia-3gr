@@ -33,7 +33,7 @@
 static struct mutex pmic_access_mutex;
 static DECLARE_WAIT_QUEUE_HEAD(pmic_wait_queue);
 static int32_t vmm_pmic_reg_access_initialised;
-static int32_t vmm_pmic_reg_access_done;
+static int32_t vmm_pmic_access_done;
 
 static struct pmic_access_shared_data *vmm_pmic_get_shared_data(void)
 {
@@ -54,6 +54,8 @@ int32_t vmm_pmic_reg_write_by_range(uint32_t reg_address,
 	mutex_lock(&pmic_access_mutex);
 
 	if (size_in_byte + 1 > PMIC_ACCESS_MAX_SIZE) {
+		pr_err("%s: transfer size not supported (%d > %d)\n", __func__,
+				size_in_byte + 1, PMIC_ACCESS_MAX_SIZE);
 		result = -1;
 		goto pmic_write_end;
 	}
@@ -61,20 +63,27 @@ int32_t vmm_pmic_reg_write_by_range(uint32_t reg_address,
 	pmic_access_shared_data = vmm_pmic_get_shared_data();
 	pmic_access_shared_data->data[0] = (uint8_t)(reg_address & 0xFF);
 	memcpy(&(pmic_access_shared_data->data[1]), data, size_in_byte);
-	vmm_pmic_reg_access_done = 0;
-	if (0 != mv_svc_pmic_reg_access(PMIC_REG_WRITE, reg_address,
+	vmm_pmic_access_done = 0;
+	if (mv_svc_pmic_reg_access(PMIC_REG_WRITE, reg_address,
 						size_in_byte + 1)) {
+		pr_err("%s: mv_svc_pmic_reg_access failed\n", __func__);
 		result = -1;
 		goto pmic_write_end;
 	}
-	wait_event_interruptible(pmic_wait_queue, vmm_pmic_reg_access_done);
-
-	if (pmic_access_shared_data->status != 0) {
-		result = -1;
+	if (wait_event_interruptible(pmic_wait_queue, vmm_pmic_access_done)) {
+		pr_err("%s: wait_event interrupted by signal\n", __func__);
+		result = -ERESTARTSYS;
 		goto pmic_write_end;
 	}
 
+	if (pmic_access_shared_data->status) {
+		pr_err("%s: pmic shared data status is wrong\n", __func__);
+		result = -1;
+		goto pmic_write_end;
+	}
 pmic_write_end:
+	pr_debug("%s %s on CPU%d\n", __func__, result < 0 ? "FAILS" : "PASS",
+			raw_smp_processor_id());
 	mutex_unlock(&pmic_access_mutex);
 	return result;
 }
@@ -95,24 +104,33 @@ int32_t vmm_pmic_reg_read_by_range(uint32_t reg_address,
 	mutex_lock(&pmic_access_mutex);
 	if (size_in_byte > PMIC_ACCESS_MAX_SIZE) {
 		result = -1;
+		pr_err("%s: transfer size not supported (%d > %d)\n", __func__,
+				size_in_byte + 1, PMIC_ACCESS_MAX_SIZE);
 		goto pmic_read_end;
 	}
 	pmic_access_shared_data = vmm_pmic_get_shared_data();
 	pmic_access_shared_data->data[0] = (uint8_t)(reg_address & 0xFF);
-	vmm_pmic_reg_access_done = 0;
-	if (0 != mv_svc_pmic_reg_access(PMIC_REG_READ, reg_address,
-				size_in_byte)) {
+	vmm_pmic_access_done = 0;
+	if (mv_svc_pmic_reg_access(PMIC_REG_READ, reg_address, size_in_byte)) {
 		result = -1;
+		pr_err("%s: mv_svc_pmic_reg_access failed\n", __func__);
 		goto pmic_read_end;
 	}
-	wait_event_interruptible(pmic_wait_queue, vmm_pmic_reg_access_done);
-	if (pmic_access_shared_data->status != 0) {
+	if (wait_event_interruptible(pmic_wait_queue, vmm_pmic_access_done)) {
+		result = -ERESTARTSYS;
+		pr_err("%s: wait_event interrupted by signal\n", __func__);
+		goto pmic_read_end;
+	}
+	if (pmic_access_shared_data->status) {
 		result = -1;
+		pr_err("%s: pmic shared data status is wrong\n", __func__);
 		goto pmic_read_end;
 	}
 	memcpy(data, pmic_access_shared_data->data, size_in_byte);
 
 pmic_read_end:
+	pr_debug("%s %s on CPU%d\n", __func__, result < 0 ? "FAILS" : "PASS",
+			raw_smp_processor_id());
 	mutex_unlock(&pmic_access_mutex);
 	return result;
 }
@@ -126,9 +144,8 @@ EXPORT_SYMBOL(vmm_pmic_reg_read);
 
 static irqreturn_t vmm_pmic_reg_access_irq_hdl(int irq, void *dev)
 {
-
-	if (vmm_pmic_reg_access_done != 1) {
-		vmm_pmic_reg_access_done = 1;
+	if (vmm_pmic_access_done != 1) {
+		vmm_pmic_access_done = 1;
 		wake_up(&pmic_wait_queue);
 	}
 	return IRQ_HANDLED;
