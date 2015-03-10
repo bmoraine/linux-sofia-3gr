@@ -483,10 +483,8 @@ err:
 	return ret;
 }
 
-static int cif_isp20_v4l2_streamoff(
-	struct file *file,
-	void *priv,
-	enum v4l2_buf_type buf_type)
+static int cif_isp20_v4l2_do_streamoff(
+	struct file *file)
 {
 	int ret = 0;
 	int err;
@@ -520,6 +518,19 @@ static int cif_isp20_v4l2_streamoff(
 
 	if (IS_ERR_VALUE(ret))
 		cif_isp20_pltfrm_pr_err(dev->dev,
+			"failed with error %d\n", ret);
+
+	return ret;
+}
+
+static int cif_isp20_v4l2_streamoff(
+	struct file *file,
+	void *priv,
+	enum v4l2_buf_type buf_type)
+{
+	int ret = cif_isp20_v4l2_do_streamoff(file);
+	if (IS_ERR_VALUE(ret))
+		cif_isp20_pltfrm_pr_err(NULL,
 			"failed with error %d\n", ret);
 
 	return ret;
@@ -980,7 +991,7 @@ err:
 
 static int cif_isp20_v4l2_release(struct file *file)
 {
-	int ret;
+	int ret = 0;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
 	struct cif_isp20_v4l2_fh *fh = to_fh(file);
@@ -990,18 +1001,31 @@ static int cif_isp20_v4l2_release(struct file *file)
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
 
+	if (node->users)
+		--node->users;
+	else {
+		cif_isp20_pltfrm_pr_warn(dev->dev,
+			"number of users for this device is already 0\n");
+		return 0;
+	}
+
+	if (!node->users) {
+		if (queue->streaming)
+			if (IS_ERR_VALUE(cif_isp20_v4l2_do_streamoff(file)))
+				cif_isp20_pltfrm_pr_warn(dev->dev,
+					"streamoff failed\n");
+
+		/* Last close, so uninitialize hardware */
+		ret = cif_isp20_release(dev, stream_id);
+	}
+
 	if (node->owner == fh)
 		node->owner = NULL;
 
 	v4l2_fh_del(&fh->fh);
 	v4l2_fh_exit(&fh->fh);
 	kfree(fh);
-	if (--node->users > 0)
-		return 0;
 
-	/* Last close, so uninitialize hardware */
-
-	ret = cif_isp20_release(dev, stream_id);
 	if (IS_ERR_VALUE(ret))
 		cif_isp20_pltfrm_pr_err(dev->dev,
 			"failed with error %d\n", ret);
@@ -1522,11 +1546,9 @@ int cif_isp20_v4l2_s_crop(
 	void *fh,
 	const struct v4l2_crop *a)
 {
-	int ret = 0;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
 	unsigned long flags = 0;
-
 
 	local_irq_save(flags);
 
@@ -1536,6 +1558,21 @@ int cif_isp20_v4l2_s_crop(
 		a->c.height,
 		a->c.left,
 		a->c.top);
+
+	/* check legal range*/
+	if ((a->c.left < 0) ||
+		((a->c.left + a->c.width) > dev->isp_dev.input_width) ||
+		(a->c.top < 0) ||
+		((a->c.top + a->c.height) > dev->isp_dev.input_height)) {
+		local_irq_restore(flags);
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"Invalid cropping window %dx%d@(%d,%d)\n",
+			a->c.width,
+			a->c.height,
+			a->c.left,
+			a->c.top);
+		return -EINVAL;
+	}
 
 	dev->config.isp_config.ism_config.ism_update_needed = false;
 	dev->config.isp_config.ism_config.ism_params.recenter = 0;
@@ -1567,7 +1604,7 @@ int cif_isp20_v4l2_s_crop(
 	dev->config.isp_config.ism_config.ism_update_needed = true;
 
 	local_irq_restore(flags);
-	return ret;
+	return 0;
 }
 
 const struct v4l2_ioctl_ops cif_isp20_v4l2_sp_ioctlops = {

@@ -203,6 +203,10 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_MI_AHB_ERROR                   (1<<10)
 #define CIF_MI_DMA_READY                   (1<<11)
 
+/* MI_STATUS */
+#define CIF_MI_STATUS_MP_Y_FIFO_FULL       (1<<0)
+#define CIF_MI_STATUS_SP_Y_FIFO_FULL       (1<<4)
+
 /* CCL */
 #define CIF_CCL_CIF_CLK_ENA                (0<<2)
 #define CIF_CCL_CIF_CLK_DIS                (1<<2)

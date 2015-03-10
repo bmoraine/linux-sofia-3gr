@@ -1124,19 +1124,27 @@ static int cif_isp20_img_src_select_strm_fmt(
 						maximize the size */
 					better_match = true;
 				else if (!dev->config.jpeg_config.enable &&
-					(diff < best_diff))
-					better_match = true;
-				else if (!dev->config.jpeg_config.enable &&
 					((strm_fmt_desc.min_intrvl.denominator
 					/
 					strm_fmt_desc.min_intrvl.numerator)
 					>
 					(request_strm_fmt.frm_intrvl.denominator
 					/
+					request_strm_fmt.frm_intrvl.numerator)))
+					/* maximize fps */
+					better_match = true;
+				else if (!dev->config.jpeg_config.enable &&
+					((strm_fmt_desc.min_intrvl.denominator
+					/
+					strm_fmt_desc.min_intrvl.numerator)
+					==
+					(request_strm_fmt.frm_intrvl.denominator
+					/
 					request_strm_fmt.frm_intrvl.numerator))
 					&&
-					(diff == best_diff))
-					/* maximize fps */
+					(diff < best_diff))
+					/* chose better aspect ratio
+						match if fps equal */
 					better_match = true;
 				else
 					better_match = false;
@@ -5589,9 +5597,19 @@ int marvin_mipi_isr(void *cntxt)
 
 			if (marvin_hw_errors[i].
 			    mask & (mipi_mis & CIF_MIPI_SYNC_FIFO_OVFLW(3))) {
+				u32 mi_status =
+					cif_ioread32(dev->config.base_addr +
+					CIF_MI_STATUS);
 				marvin_hw_errors[i].count++;
-				cif_isp20_pltfrm_pr_err(dev->dev,
-					"CIF_MIPI_SYNC_FIFO_OVFLW\n");
+				if (mi_status &
+					(CIF_MI_STATUS_MP_Y_FIFO_FULL |
+					CIF_MI_STATUS_SP_Y_FIFO_FULL))
+					cif_isp20_pltfrm_pr_err(dev->dev,
+						"CIF_MIPI_SYNC_FIFO_OVFLW, backpressure (0x%08x)\n",
+						mi_status);
+				else
+					cif_isp20_pltfrm_pr_err(dev->dev,
+						"CIF_MIPI_SYNC_FIFO_OVFLW\n");
 				break;
 			}
 		}
