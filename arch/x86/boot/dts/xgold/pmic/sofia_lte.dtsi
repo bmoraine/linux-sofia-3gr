@@ -371,5 +371,15 @@ pmic {
 #endif
 
 		/* Vibrator */
+		/* Key led */
+		pmic_key_led:pmic-key-backlight {
+			compatible = "intel,pmic-key-led";
+			pm,class-name = "bl_class";
+			intel,led-ctrl-up = <0x01>;
+			intel,led-ctrl-down = <0x00>;
+			intel,led-cfg-down = <0x00>;
+			intel,led-cfg-time-step = <0x00>;
+			intel,led-core-suspendresume;
+		};
 	};
 };
