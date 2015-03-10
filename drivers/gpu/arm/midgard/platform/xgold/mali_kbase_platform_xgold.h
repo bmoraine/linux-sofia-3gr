@@ -45,14 +45,23 @@
 struct xgold_platform_context {
 	struct device_pm_platdata *pm_platdata;
 	struct platform_device_pm_state *pm_states[GPU_NUM_PM_STATES];
-
 	unsigned int curr_pm_state;
 	unsigned int resume_pm_state;
-
 	bool restore_gpu_qos;
+#ifdef CONFIG_MALI_MIDGARD_DVFS
+	struct kbase_device *kbdev;
+	unsigned int utilization;
+	struct workqueue_struct *mali_dvfs_wq;
+	struct work_struct dvfs_work;
+	spinlock_t pm_lock;
+	bool dvfs_off;
+#endif
+	struct mutex pm_lock_mutex;
 };
-
-
+#ifdef CONFIG_MALI_MIDGARD_DVFS
+#define map_to_xgold_platform_context(_p_, _m_) \
+		container_of(_p_, struct xgold_platform_context, _m_)
+#endif
 mali_error kbase_platform_init(struct kbase_device *kbdev);
 int kbase_platform_xgold_pm_control(struct kbase_device *kbdev,
 							int req_pm_state);
