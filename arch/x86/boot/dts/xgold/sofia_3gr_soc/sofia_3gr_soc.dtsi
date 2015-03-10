@@ -117,13 +117,7 @@
 				stat,4 = "EMIC1";
 				stat,5 = "EMIC2";
 
-				intel,qos-configs = "GPU", "LCDC";
-				intel,GPU-qos-settings = <
-					0x1C88 0x0      /* prio */
-					0x1C8C 0x1      /* mode limiter */
-					0x1C90 0x120    /* bandwidth */
-					0x1C94 0x90     /* saturation */
-					0x1C98 0x5>;    /* QoSEn */
+				intel,qos-configs = "LCDC";
 
 				intel,LCDC-qos-settings = <
 					0x1D88 0xE      /* prio */
