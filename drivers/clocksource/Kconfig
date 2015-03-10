@@ -57,6 +57,16 @@ config XGOLD_STM_TIMER_SCHED_CLOCK
 	help
 	  Use the STM timer as the sched clock
 
+config XGOLD_CAPCOM_TIMER
+	bool "CapCom clocksource/Clock event"
+	bool
+	select CLKSRC_OF if OF
+	help
+	  Use the CAPCOM timer as clocksource or clockevent.
+	  CAPCOM stands for Capture/Compare, and it's as well
+	  able to trigger interrupts through external pins.
+
+
 config CLKSRC_NOMADIK_MTU
 	bool
 	depends on (ARCH_NOMADIK || ARCH_U8500)
