@@ -137,8 +137,8 @@
 #define SEC_CEU1_GLOBAL_IRQ 134
 #define SEC_CEU1_EOP_IRQ 135
 #define SEC_T_INT 136
-#define CC1_T0INT 137
-#define CC1_T1INT 138
+#define CC1_T0INT 124
+#define CC1_T1INT 125
 #define CC1_CCINT0_7 139
 #define PMU_INT0 140
 #define PROF_ENV_INT 141
