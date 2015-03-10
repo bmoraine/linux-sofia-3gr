@@ -505,6 +505,15 @@ config LCD_LEDS_XGOLD
 	  This allows LEDs to be enabled for xgold driver.
 	  If unsure, say Y.
 
+config KEYPAD_LEDS_XGOLD
+	tristate "Keypad LED Xgold support"
+	depends on X86_INTEL_XGOLD
+	depends on LEDS_CLASS
+	help
+	  This allows LEDs to be enabled for xgold driver.
+	  by CURSINK
+	  If unsure, say Y.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
