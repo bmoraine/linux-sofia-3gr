@@ -107,7 +107,7 @@
 				probe,offset = < 0x2000 >;
 
 #ifdef SOFIALTE_ES2
-				probe,portsel,0 = "CPU_PMI", "CPU_MMIO";
+				probe,portsel,0 = "CPU_MMIO", "CPU_PMI";
 				probe,portsel,1 = "EMIC0", "EMIC1", "EMIC2";
 				probe,portsel,2 = "CIF", "GPU";
 				probe,portsel,3 = "DCC1", "DCC2", "VEC", "VED";
