@@ -20,44 +20,14 @@
 #include <linux/ion.h>
 #endif
 
-enum ion_heap_ids {
-	ION_VMALLOC_HEAP_ID = ION_HEAP_TYPE_SYSTEM,
-	ION_CARVEOUT_HEAP_ID = ION_HEAP_TYPE_CARVEOUT,
-	ION_CMA_HEAP_ID = ION_HEAP_TYPE_DMA,
-
-	ION_HEAP_ID_RESERVED = ION_NUM_HEAPS,
+enum {
+	SOFIA_ION_GET_PARAM = 0,
+	SOFIA_ION_ALLOC_SECURE,
+	SOFIA_ION_FREE_SECURE,
 };
 
-#define ION_HEAP(bit) (1 << (bit))
-
-#define ION_CMA_HEAP_NAME		"cma"
-#define ION_IOMMU_HEAP_NAME		"iommu"
-#define ION_VMALLOC_HEAP_NAME		"vmalloc"
-#define ION_DRM_HEAP_NAME		"drm"
-#define ION_CARVEOUT_HEAP_NAME		"carveout"
-
-#define ION_SET_CACHED(__cache)		(__cache | ION_FLAG_CACHED)
-#define ION_SET_UNCACHED(__cache)	(__cache & ~ION_FLAG_CACHED)
-#define ION_IS_CACHED(__flags)		((__flags) & ION_FLAG_CACHED)
-
-/* struct ion_flush_data - data passed to ion for flushing caches
- *
- * @handle:	handle with data to flush
- * @fd:		fd to flush
- * @vaddr:	userspace virtual address mapped with mmap
- * @offset:	offset into the handle to flush
- * @length:	length of handle to flush
- *
- * Performs cache operations on the handle. If p is the start address
- * of the handle, p + offset through p + offset + length will have
- * the cache operations performed
- */
-struct ion_flush_data {
-	ion_user_handle_t handle;
-	int fd;
-	void *vaddr;
-	unsigned int offset;
-	unsigned int length;
+enum {
+	ION_HEAP_TYPE_SECURE = ION_HEAP_TYPE_CUSTOM,
 };
 
 struct ion_phys_data {
@@ -66,29 +36,24 @@ struct ion_phys_data {
 	unsigned long size;
 };
 
-struct ion_share_id_data {
-	int fd;
-	unsigned int id;
-};
-
 #define ION_IOC_ROCKCHIP_MAGIC 'R'
 
-/* Clean the caches of the handle specified. */
-#define ION_IOC_CLEAN_CACHES	_IOWR(ION_IOC_ROCKCHIP_MAGIC, 0, \
-						struct ion_flush_data)
-/* Invalidate the caches of the handle specified. */
-#define ION_IOC_INV_CACHES	_IOWR(ION_IOC_ROCKCHIP_MAGIC, 1, \
-						struct ion_flush_data)
-/* Clean and invalidate the caches of the handle specified. */
-#define ION_IOC_CLEAN_INV_CACHES	_IOWR(ION_IOC_ROCKCHIP_MAGIC, 2, \
-						struct ion_flush_data)
+#define ION_HEAP_TYPE_SECURE_MASK   (1 << ION_HEAP_TYPE_SECURE)
+
 /* Get phys addr of the handle specified. */
-#define ION_IOC_GET_PHYS	_IOWR(ION_IOC_ROCKCHIP_MAGIC, 3, \
+#define ION_IOC_GET_PHYS	_IOWR(ION_IOC_ROCKCHIP_MAGIC, 0, \
 						struct ion_phys_data)
 /* Get share object of the fd specified. */
-#define ION_IOC_GET_SHARE_ID	_IOWR(ION_IOC_ROCKCHIP_MAGIC, 4, \
-						struct ion_share_id_data)
-/* Set share object and associate new fd. */
-#define ION_IOC_SHARE_BY_ID	_IOWR(ION_IOC_ROCKCHIP_MAGIC, 5, \
-						struct ion_share_id_data)
+#define ION_IOC_ALLOC_SECURE	_IOWR(ION_IOC_ROCKCHIP_MAGIC, 1, \
+				struct ion_phys_data)
+
+/* Free secure region alloced. */
+#define ION_IOC_FREE_SECURE	_IOWR(ION_IOC_ROCKCHIP_MAGIC, 2, \
+				struct ion_phys_data)
+
+int rk_ion_handler_init(struct device_node *node,
+	struct ion_device *idev, struct ion_platform_data *pdata);
+
+void rk_ion_handler_exit(void);
+
 #endif
