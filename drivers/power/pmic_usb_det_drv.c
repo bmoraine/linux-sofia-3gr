@@ -127,6 +127,10 @@ enum {
  * @irq_ctyp		IRQ number for USB cable type detection
  * @irq_idflt		IRQ number for USBID floating detection
  * @irq_idgnd		IRQ number for USBID grounded detection
+ * @irq_vbusdet		Whether wake up is allowed by VBUS detection IRQ
+ * @irq_ctyp		Whether wake up is allowed by USB cable type IRQ
+ * @irq_idflt		Whether wake up is allowed by USBID floating IRQ
+ * @irq_idgnd		Whether wake up is allowed by USBID grounded IRQ
  */
 struct pmic_usb_det_data {
 	struct device *pdev;
@@ -139,6 +143,10 @@ struct pmic_usb_det_data {
 	int irq_ctyp;
 	int irq_idflt;
 	int irq_idgnd;
+	bool irqwake_vbusdet;
+	bool irqwake_ctyp;
+	bool irqwake_idflt;
+	bool irqwake_idgnd;
 	struct device_pm_platdata *pm_platdata;
 };
 
@@ -605,20 +613,18 @@ static int pmic_usb_setup_det_irq(struct pmic_usb_det_data *pdata)
 		return -EINVAL;
 
 	ret = devm_request_threaded_irq(pdata->pdev, pdata->irq_vbusdet, NULL,
-				pmic_usb_det_cb, IRQF_SHARED | IRQF_ONESHOT,
+				pmic_usb_det_cb,
+				IRQF_SHARED | IRQF_NO_SUSPEND | IRQF_ONESHOT,
 				DRIVER_NAME, pdata);
 	if (ret) {
 		dev_err(pdata->pdev, "%s: setup irq %d failed: %d\n", __func__,
 				pdata->irq_vbusdet, ret);
-		pdata->irq_vbusdet = -ENXIO;
-		pdata->irq_ctyp = -ENXIO;
-		pdata->irq_idflt = -ENXIO;
-		pdata->irq_idgnd = -ENXIO;
-		return -EINVAL;
+		return ret;
 	}
 
 	ret = devm_request_threaded_irq(pdata->pdev, pdata->irq_ctyp, NULL,
-				pmic_usb_det_cb, IRQF_SHARED | IRQF_ONESHOT,
+				pmic_usb_det_cb,
+				IRQF_SHARED | IRQF_NO_SUSPEND | IRQF_ONESHOT,
 				DRIVER_NAME, pdata);
 	if (ret) {
 		dev_err(pdata->pdev, "%s: setup irq %d failed: %d\n", __func__,
@@ -627,7 +633,8 @@ static int pmic_usb_setup_det_irq(struct pmic_usb_det_data *pdata)
 	}
 
 	ret = devm_request_threaded_irq(pdata->pdev, pdata->irq_idflt, NULL,
-				pmic_usb_det_cb, IRQF_SHARED | IRQF_ONESHOT,
+				pmic_usb_det_cb,
+				IRQF_SHARED | IRQF_NO_SUSPEND | IRQF_ONESHOT,
 				DRIVER_NAME, pdata);
 	if (ret) {
 		dev_err(pdata->pdev, "%s: setup irq %d failed: %d\n", __func__,
@@ -636,7 +643,8 @@ static int pmic_usb_setup_det_irq(struct pmic_usb_det_data *pdata)
 	}
 
 	ret = devm_request_threaded_irq(pdata->pdev, pdata->irq_idgnd, NULL,
-				pmic_usb_det_cb, IRQF_SHARED | IRQF_ONESHOT,
+				pmic_usb_det_cb,
+				IRQF_SHARED | IRQF_NO_SUSPEND | IRQF_ONESHOT,
 				DRIVER_NAME, pdata);
 	if (ret) {
 		dev_err(pdata->pdev, "%s: setup irq %d failed: %d\n", __func__,
@@ -752,6 +760,10 @@ static int pmic_usb_det_drv_probe(struct platform_device *pdev)
 	pdata->usbid_state = -1;
 	pdata->irq_ctyp = -ENXIO;
 	pdata->irq_vbusdet = -ENXIO;
+	pdata->irqwake_vbusdet = false;
+	pdata->irqwake_ctyp = false;
+	pdata->irqwake_idflt = false;
+	pdata->irqwake_idgnd = false;
 
 	platform_set_drvdata(pdev, pdata);
 
@@ -805,14 +817,27 @@ static int pmic_usb_det_drv_probe(struct platform_device *pdev)
 
 	/* Read the USBID and ACA detection result */
 	ret = pmic_usb_id_det(pdata, false, false);
+	if (ret)
+		return ret;
+
+	ret = device_init_wakeup(&pdev->dev, true);
+	if (ret)
+		dev_err(&pdev->dev, "%s: can't set wakeup src\n", __func__);
 
 	return ret;
 }
 
 static int __exit pmic_usb_det_drv_remove(struct platform_device *pdev)
 {
+	int ret;
+
+	ret = device_init_wakeup(&pdev->dev, false);
+	if (ret)
+		dev_err(&pdev->dev, "%s: can't clear wakeup src\n", __func__);
+
 	/* Managed device resources will be freed automatically */
-	return 0;
+
+	return ret;
 }
 
 /**
@@ -835,8 +860,14 @@ static int pmic_usb_det_suspend(struct device *pdev)
 	}
 
 	if (device_may_wakeup(pdev)) {
-		enable_irq_wake(pdata->irq_vbusdet);
-		enable_irq_wake(pdata->irq_ctyp);
+		if (!enable_irq_wake(pdata->irq_vbusdet))
+			pdata->irqwake_vbusdet = true;
+		if (!enable_irq_wake(pdata->irq_ctyp))
+			pdata->irqwake_ctyp = true;
+		if (!enable_irq_wake(pdata->irq_idflt))
+			pdata->irqwake_idflt = true;
+		if (!enable_irq_wake(pdata->irq_idgnd))
+			pdata->irqwake_idgnd = true;
 	}
 
 	return 0;
@@ -862,8 +893,25 @@ static int pmic_usb_det_resume(struct device *pdev)
 	}
 
 	if (device_may_wakeup(pdev)) {
-		disable_irq_wake(pdata->irq_vbusdet);
-		disable_irq_wake(pdata->irq_ctyp);
+		if (pdata->irqwake_vbusdet) {
+			disable_irq_wake(pdata->irq_vbusdet);
+			pdata->irqwake_vbusdet = false;
+		}
+
+		if (pdata->irqwake_ctyp) {
+			disable_irq_wake(pdata->irq_ctyp);
+			pdata->irqwake_ctyp = false;
+		}
+
+		if (pdata->irqwake_idflt) {
+			disable_irq_wake(pdata->irq_idflt);
+			pdata->irqwake_idflt = false;
+		}
+
+		if (pdata->irqwake_idgnd) {
+			disable_irq_wake(pdata->irq_idgnd);
+			pdata->irqwake_idgnd = false;
+		}
 	}
 
 	return 0;
