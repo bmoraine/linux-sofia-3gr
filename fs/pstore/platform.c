@@ -377,7 +377,8 @@ static void pstore_dump(struct kmsg_dumper *dumper,
 			while (pstore_extra_written < pstore_extra_size) {
 				size_t read;
 				size_t len = min(psinfo->bufsize,
-						pstore_extra_size - pstore_extra_written);
+						(size_t)pstore_extra_size-
+						pstore_extra_written);
 
 				ret = extra_dumper->get_data(psinfo->buf, len, &read,
 						extra_dumper->priv);
