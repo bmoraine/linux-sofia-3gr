@@ -577,6 +577,17 @@ config DEBUG_XGOLD_USIFX_ADDR
 	  0xE1100000 for USIF1
 	  0xE2100000 for USIF3
 
+config X86_INTEL_XGOLD_PSTORE_RAM
+	bool "XGOLD pstore support"
+	select PSTORE
+	select PSTORE_RAM
+	select PSTORE_CONSOLE
+	----help---
+	  This module instantiates the persistent storage on x86 xgold
+	  devices.
+	  It can be used to store away console logs and crash
+	  information across reboots.
+
 config X86_DIRECT_BOOT
 	bool "Direct booting without bootloader"
 	---help---

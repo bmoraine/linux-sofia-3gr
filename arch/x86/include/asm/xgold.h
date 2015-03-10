@@ -12,6 +12,11 @@
 #define _ASM_X86_XGOLD_H
 extern struct console early_xgold_console;
 extern void xgold_early_console_init(unsigned long base);
+#ifdef CONFIG_X86_INTEL_XGOLD_PSTORE_RAM
+extern void __init pstore_ram_reserve_memory(void);
+#else
+static inline void pstore_ram_reserve_memory(void) { }
+#endif
 
 extern bool xgold_platform_needs_broadcast_timer(void);
 #endif

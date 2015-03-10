@@ -15,6 +15,7 @@
 
 obj-$(CONFIG_X86_INTEL_XGOLD) := xgold.o
 obj-$(CONFIG_X86_INTEL_XGOLD_EARLY_PRINTK) += early_printk_xgold.o
+obj-$(CONFIG_X86_INTEL_XGOLD_PSTORE_RAM) += xgold_pstore_ram.o
 
 ifeq ($(CONFIG_X86_INTEL_XGOLD_EXPERIMENTAL),y)
 obj-$(CONFIG_SUSPEND) += pm-suspend.o
