@@ -263,20 +263,32 @@ struct dsi_command dsi_regs[] = {
 	EXTREG(EXR_DSI_RXD, DSI_RXD, 0xFFFFFFFF, 0),
 };
 
-void dsi_wait_status(struct dsi_display *display, unsigned int reg,
+int dsi_wait_status(struct dsi_display *display, unsigned int reg,
 		     unsigned int value, unsigned int mask, unsigned int delay,
 		     unsigned int count)
 {
 	unsigned int read_value;
+	int found = 0;
 
 	do {
 		read_value = dsi_read_field(display, reg);
-		if ((read_value & mask) == value)
+		if ((read_value & mask) == value) {
+			found = 1;
 			break;
-
+		}
 		if (delay)
 			msleep(delay);
 	} while (--count);
+
+	if (!found) {
+		DSI_ERR("%s() FAILED reg 0x%x 0x%08x != 0x%08x\n",
+				__func__, reg, value, read_value);
+		found = -EBUSY;
+	} else
+		pr_debug("%s() reg 0x%x 0x%08x == 0x%08x\n", __func__,
+				reg, value, read_value);
+
+	return found;
 }
 
 /**

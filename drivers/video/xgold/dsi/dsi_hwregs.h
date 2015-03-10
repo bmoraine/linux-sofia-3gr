@@ -253,7 +253,7 @@ extern struct dsi_command dsi_regs[];
 #define BITFLDS(_id_, _val_) \
 	(((_val_) & dsi_regs[_id_].mask) << (dsi_regs[_id_].shift))
 
-void dsi_wait_status(struct dsi_display *display, unsigned int reg,
+int dsi_wait_status(struct dsi_display *display, unsigned int reg,
 		     unsigned int value, unsigned int mask, unsigned int delay,
 		     unsigned int count);
 unsigned int dsi_read_field(struct dsi_display *display, unsigned int id);
