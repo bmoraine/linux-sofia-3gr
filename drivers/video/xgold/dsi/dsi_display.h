@@ -25,6 +25,8 @@
 #include <linux/jiffies.h>
 #include <linux/completion.h>
 
+#define DSI_ERR(x...)	pr_err("[dsi] "x)
+
 #define BYTES_TO_PIXELS(bytes, bpp) (DIV_ROUND_CLOSEST(bytes * 8, bpp))
 #define PIXELS_TO_BYTES(pixels, bpp) (DIV_ROUND_CLOSEST(pixels * bpp, 8))
 

@@ -47,7 +47,6 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 		pr_info("[dsi] "x);		\
 } while (0)
 
-#define DSI_ERR(x...)	pr_err("[dsi] "x)
 
 #define DSI_CFG_DATA_PIX	0
 #define DSI_CFG_DATA_DAT	1
@@ -604,7 +603,7 @@ int dsi_init(struct dsi_display *display)
 	clcstat = BITFLDS(EXR_DSI_CLC_STAT_RUN, 1) |
 		BITFLDS(EXR_DSI_CLC_STAT_MODEN, 1) |
 		BITFLDS(EXR_DSI_CLC_STAT_KID, 1);
-	dsi_wait_status(display, EXR_DSI_CLC, clcstat, clcstat, 0, 1000);
+	dsi_wait_status(display, EXR_DSI_CLC_STAT, clcstat, clcstat, 0, 1000);
 	dsi_write_field(display, EXR_DSI_CLK, 0x000F000F);
 	dsi_write_field(display, EXR_DSI_TO0, 0);
 	dsi_write_field(display, EXR_DSI_TO1, 0);
