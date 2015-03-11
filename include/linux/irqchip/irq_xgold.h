@@ -47,6 +47,7 @@ struct xgold_irq_chip_data {
 	struct irq_reg **status;
 	struct clk *clk_kernel;
 	unsigned int type;
+	irq_flow_handler_t flow_handler;
 	void (*handle_entry)(struct xgold_irq_chip_data *);
 	void (*handle_exit)(struct xgold_irq_chip_data *);
 	unsigned int (*find_mapping)(unsigned int);

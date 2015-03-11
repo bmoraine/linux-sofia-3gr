@@ -186,6 +186,7 @@ static int32_t __init xgold_irq_hirq_of_init(struct device_node *np,
 	data->chip = &xgold_irq_hirq_chip;
 	data->type = XGOLD_IRQ_DOMAIN_CUST;
 	data->find_mapping = xgold_irq_hirq_find_mapping;
+	data->flow_handler = handle_fasteoi_irq;
 	irq_hirq_offset = xgold_irq_get_hirq_offset(np);
 
 	/* extract info form dt */

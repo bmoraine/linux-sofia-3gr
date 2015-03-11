@@ -244,7 +244,10 @@ int xgold_irq_domain_map(struct irq_domain *d, unsigned int virq,
 {
 	struct xgold_irq_chip_data *data = d->host_data;
 	pr_debug("%s: virq(%d) <=> hw(%d)\n", __func__, virq, (unsigned)hw);
-	irq_set_chip_and_handler(virq, data->chip, handle_level_irq);
+	if (!data->flow_handler)
+		data->flow_handler = handle_level_irq;
+
+	irq_set_chip_and_handler(virq, data->chip, data->flow_handler);
 	irq_set_chip_data(virq, data);
 	/* set_irq_flags(virq, IRQF_VALID | IRQF_PROBE); */
 	return 0;
