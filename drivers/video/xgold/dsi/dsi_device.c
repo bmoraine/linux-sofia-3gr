@@ -158,7 +158,6 @@ static int xgold_mipi_dsi_remove(struct platform_device *pdev)
 
 static void xgold_mipi_dsi_shutdown(struct platform_device *pdev)
 {
-	xgold_mipi_dsi_disable();
 }
 
 #ifdef CONFIG_OF
