@@ -1800,10 +1800,6 @@ static ssize_t rockchip_vop_get_disp_info(struct rockchip_vop_driver *dev_drv,
 		x_act_w0 = (act_info & M_ACT_WIDTH) + 1;
 		y_act_w0 = ((act_info & M_ACT_HEIGHT) >> 16) + 1;
 
-		/* rk312x unsupport win1 scaler,so have no act info */
-		x_act_w1 = 0;
-		y_act_w1 = 0;
-
 		/* xsize/ysize */
 		dsp_info = vop_readl(vop_dev, VOP_WIN0_DSP_INFO);
 		x_dsp_w0 = (dsp_info & M_DSP_WIDTH) + 1;
@@ -1812,6 +1808,11 @@ static ssize_t rockchip_vop_get_disp_info(struct rockchip_vop_driver *dev_drv,
 		dsp_info = vop_readl(vop_dev, VOP_WIN1_DSP_INFO);
 		x_dsp_w1 = (dsp_info & M_DSP_WIDTH) + 1;
 		y_dsp_w1 = ((dsp_info & M_DSP_HEIGHT) >> 16) + 1;
+
+		/* If unsupport win1 scaler
+		 * so win1 act info same as dsp info */
+		x_act_w1 = x_dsp_w1;
+		y_act_w1 = y_dsp_w1;
 
 		/* xpos/ypos */
 		dsp_st = vop_readl(vop_dev, VOP_WIN0_DSP_ST);
