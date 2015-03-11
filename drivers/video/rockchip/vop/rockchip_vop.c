@@ -185,7 +185,7 @@ static int rockchip_vop_disable_irq(struct vop_device *vop_dev)
 	return 0;
 }
 
-static void vop_read_reg_defalut_cfg(struct vop_device *vop_dev)
+static void vop_read_reg_default_cfg(struct vop_device *vop_dev)
 {
 	int reg = 0;
 	u32 val = 0;
@@ -193,7 +193,7 @@ static void vop_read_reg_defalut_cfg(struct vop_device *vop_dev)
 	struct rockchip_vop_win *win1 = vop_dev->driver.win[1];
 
 	spin_lock(&vop_dev->reg_lock);
-	for (reg = 0; reg < VOP_FRC_LOWER11_1; reg += 4) {
+	for (reg = 0; reg <= VOP_MIPI_EDPI_CTRL; reg += 4) {
 		val = vop_readl(vop_dev, reg);
 		if (reg == VOP_WIN0_ACT_INFO) {
 			win0->area[0].xact = (val & M_ACT_WIDTH) + 1;
@@ -711,7 +711,7 @@ static int rockchip_vop_pre_init(struct rockchip_vop_driver *dev_drv)
 	xgold_noc_qos_set(NOC_VOP_NAME);
 
 	/* backup reg config at uboot */
-	vop_read_reg_defalut_cfg(vop_dev);
+	vop_read_reg_default_cfg(vop_dev);
 
 	/* config for the FRC mode of dither down */
 	vop_writel(vop_dev, VOP_FRC_LOWER01_0, 0x12844821);
