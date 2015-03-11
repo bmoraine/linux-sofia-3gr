@@ -421,7 +421,8 @@ static void vop_win_update_regs(struct vop_device *vop_dev,
 			    V_WIN1_RB_SWAP(win->area[0].swap_rb);
 			vop_msk_reg(vop_dev, VOP_SYS_CTRL, mask, val);
 
-			/* this vop unsupport win1 scale */
+			/* this vop unsupport win1 scale
+			 * so xsize==xact and ysize==yact */
 			win->area[0].xsize = win->area[0].xact;
 			win->area[0].ysize = win->area[0].yact;
 			vop_writel(vop_dev, VOP_WIN1_DSP_INFO,
@@ -503,6 +504,29 @@ static void vop_win_enable(struct vop_device *vop_dev, unsigned int win_id,
 		}
 	}
 	spin_unlock(&vop_dev->reg_lock);
+}
+
+static int rockchip_vop_direct_set_win_addr(
+	struct rockchip_vop_driver *dev_drv, int win_id, u32 addr)
+{
+	struct vop_device *vop_dev =
+		container_of(dev_drv, struct vop_device, driver);
+
+	if (win_id == 0) {
+		spin_lock(&vop_dev->reg_lock);
+		vop_writel(vop_dev, VOP_WIN0_YRGB_MST, addr);
+		vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_WIN0_EN, V_WIN0_EN(1));
+		vop_cfg_done(vop_dev);
+		spin_unlock(&vop_dev->reg_lock);
+	} else if (win_id == 1) {
+		spin_lock(&vop_dev->reg_lock);
+		vop_writel(vop_dev, VOP_WIN1_MST, addr);
+		vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_WIN1_EN, V_WIN1_EN(1));
+		vop_cfg_done(vop_dev);
+		spin_unlock(&vop_dev->reg_lock);
+	}
+
+	return 0;
 }
 
 static int rockchip_vop_reg_update(struct rockchip_vop_driver *dev_drv)
@@ -705,7 +729,8 @@ static int rockchip_vop_pre_init(struct rockchip_vop_driver *dev_drv)
 			vop_dev->id);
 	}
 
-	rockchip_disp_pwr_enable(screen);
+	if (!support_uboot_display())
+		rockchip_disp_pwr_enable(screen);
 	rockchip_vop_clk_enable(vop_dev);
 
 	xgold_noc_qos_set(NOC_VOP_NAME);
@@ -1380,6 +1405,7 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 
 		spin_unlock(&vop_dev->reg_lock);
 	}
+
 	dev_drv->suspend_flag = false;
 
 	if (dev_drv->trsm_ops && dev_drv->trsm_ops->enable)
@@ -1666,7 +1692,8 @@ static int rockchip_vop_fps_mgr(struct rockchip_vop_driver *dev_drv, int fps,
 		ret = clk_set_rate(vop_dev->dclk, dotclk);
 	}
 
-	pixclock = div_u64(1000000000000llu, clk_get_rate(vop_dev->dclk));
+	pixclock = div_u64(1000000000000llu,
+			vop_dev->driver.cur_screen->mode.pixclock);
 	dev_drv->pixclock = pixclock;
 	vop_dev->pixclock = pixclock;
 	fps = rockchip_fb_calc_fps(vop_dev->screen, pixclock);
@@ -1914,6 +1941,7 @@ static struct rockchip_vop_drv_ops vop_drv_ops = {
 	.load_screen = rockchip_vop_load_screen,
 	.set_par = rockchip_vop_set_par,
 	.pan_display = rockchip_vop_pan_display,
+	.direct_set_addr = rockchip_vop_direct_set_win_addr,
 	.blank = rockchip_vop_blank,
 	.ioctl = rockchip_vop_ioctl,
 	.get_win_state = rockchip_vop_get_win_state,
@@ -2097,8 +2125,10 @@ static void rockchip_vop_shutdown(struct platform_device *pdev)
 	dev_drv->suspend_flag = true;
 	flush_kthread_worker(&dev_drv->update_regs_worker);
 	kthread_stop(dev_drv->update_regs_thread);
+
 	if (dev_drv->trsm_ops && dev_drv->trsm_ops->disable)
 		dev_drv->trsm_ops->disable();
+
 	rockchip_vop_deinit(vop_dev);
 	rockchip_vop_mmu_en(dev_drv, false);
 	rockchip_vop_clk_disable(vop_dev);
