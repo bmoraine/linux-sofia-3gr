@@ -1222,17 +1222,31 @@ exit_boost:
 
 static void fan54x_chgdet_worker(struct work_struct *work)
 {
+	int ret, retry = 0;
 	struct fan54x_charger *chrgr =
 		container_of(work, struct fan54x_charger, chgdet_work.work);
+
+	wake_lock_timeout(&chrgr->suspend_lock, EVT_WAKELOCK_TIMEOUT);
 
 	down(&chrgr->prop_lock);
 
 	/* the CHGDET interrupt is configured as CONNECT only */
-	fan54x_enable_charging(chrgr, 1);
+	while (retry++ < 3) {
+		ret = fan54x_enable_charging(chrgr, 1);
+		if (!ret) {
+			pr_info("fan54x charging enabled\n");
+			break;
+		} else {
+			pr_err("%s, fail to enable charging, retry: %d",
+				__func__, retry);
+			msleep(200);
+		}
+	}
+
 	/* left for CHGINT to trigger other work */
 
 	up(&chrgr->prop_lock);
-	unfreezable_bh_schedule(&chrgr->chgint_bh);
+
 	return;
 }
 
