@@ -281,6 +281,7 @@ struct rockchip_vop_win_area {
 	u32 uv_vir_stride;
 	u32 y_addr;
 	u32 uv_addr;
+	u32 buff_len;
 
 	unsigned long smem_start;
 	unsigned long cbr_start;	/* Cbr memory start address */

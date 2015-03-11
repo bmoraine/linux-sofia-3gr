@@ -45,6 +45,7 @@
 #endif
 
 #define H_USE_FENCE	1
+#define MMU_BUFF_NUM	1
 #define ION_HEAP(bit) (1 << (bit))
 
 enum {
@@ -420,11 +421,13 @@ static int rockchip_fb_check_config_var(struct rockchip_fb_area_par *area_par,
 				    struct rockchip_screen *screen)
 {
 	if ((area_par->x_offset + area_par->xact > area_par->xvir) ||
+	    (area_par->y_offset + area_par->yact > area_par->yvir) ||
 	    (area_par->xact <= 0) || (area_par->yact <= 0) ||
 	    (area_par->xvir <= 0) || (area_par->yvir <= 0)) {
 		pr_err("check config var fail 0:\n"
-		       "x_offset=%d,xact=%d,xvir=%d\n",
-		       area_par->x_offset, area_par->xact, area_par->xvir);
+		       "x_offset=%d,xact=%d,xvir=%d,y_offset=%d,yact=%d,yvir=%d\n",
+		       area_par->x_offset, area_par->xact, area_par->xvir,
+		       area_par->y_offset, area_par->yact, area_par->yvir);
 		return -EINVAL;
 	}
 
@@ -512,10 +515,12 @@ static void rockchip_fb_free_dma_buf(struct rockchip_vop_driver *dev_drv,
 			if (area->ion_hdl)
 				ion_unmap_iommu(dev_drv->dev,
 						sfb_info->ion_client,
-					area->ion_hdl);
+						area->ion_hdl);
+
 			freed_addr[freed_index++] = area->smem_start;
 		}
 #endif
+
 		if (area->ion_hdl)
 			ion_free(sfb_info->ion_client, area->ion_hdl);
 
@@ -569,6 +574,7 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 	bool is_pic_yuv = false;
 	u8 ppixel_a = 0, global_a = 0;
 	int i = 0;
+	int buff_len;
 
 	vop_win->id = win_par->win_id;
 	vop_win->z_order = win_par->z_order;
@@ -618,6 +624,27 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 		else
 			vop_win->area[i].y_offset =
 				yoffset * stride + xoffset * pixel_width / 8;
+		if ((vop_win->area[i].format != YUV420) &&
+		    (vop_win->area[i].format != YUV420_NV21) &&
+		    (vop_win->area[i].format != YUV422) &&
+		    (vop_win->area[i].format != YUV444)) {
+			buff_len = vop_win->area[i].y_offset +
+				win_par->area_par[i].xvir *
+				win_par->area_par[i].yact *
+				pixel_width / 8 -
+				win_par->area_par[i].x_offset *
+				pixel_width / 8;
+			if (buff_len > vop_win->area[i].buff_len) {
+				pr_err("err:fmt=%d,xvir[%d]*yact[%d]*bpp[%d]=",
+				       vop_win->area[i].format,
+				       win_par->area_par[i].xvir,
+				       win_par->area_par[i].yact,
+				       pixel_width);
+				pr_err("buff_len[0x%x]>>mmu len=0x%x\n",
+				       buff_len,
+				       vop_win->area[i].buff_len);
+			}
+		}
 	}
 
 	/* update alpha config */
@@ -677,6 +704,23 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 			vop_win->area[0].c_offset =
 				uv_y_off * uv_stride +
 				uv_x_off * pixel_width / 8;
+		}
+		buff_len = vop_win->area[0].cbr_start +
+			vop_win->area[0].c_offset +
+			win_par->area_par[i].xvir *
+			win_par->area_par[i].yact *
+			pixel_width / 16 -
+			vop_win->area[0].smem_start -
+			win_par->area_par[i].x_offset * pixel_width / 16;
+		if (buff_len > vop_win->area[0].buff_len) {
+			pr_err("err:fmt=%d,xvir[%d]*yact[%d]*bpp[%d]=",
+			       vop_win->area[0].format,
+			       win_par->area_par[0].xvir,
+			       win_par->area_par[0].yact,
+			       pixel_width);
+			pr_err("buff_len[0x%x]>>mmu len=0x%x\n",
+			       buff_len,
+			       vop_win->area[0].buff_len);
 		}
 	}
 
@@ -738,6 +782,8 @@ static int rockchip_fb_set_win_buffer(struct fb_info *info,
 				return -ENOMEM;
 			}
 			vop_win->area[i].smem_start = phy_addr;
+			vop_win->area[i].buff_len = len;
+			vop_win->area[i].state = 1;
 			vop_win->area_buf_num++;
 		}
 	} else {
@@ -781,6 +827,7 @@ static int rockchip_fb_get_win_from_regs(struct rockchip_fb_reg_data *regs,
 	return 0;
 }
 
+struct rockchip_fb_reg_data *last_regs_bak[MMU_BUFF_NUM];
 static void rockchip_fb_update_reg(struct rockchip_vop_driver *dev_drv,
 			       struct rockchip_fb_reg_data *regs)
 {
@@ -792,6 +839,7 @@ static void rockchip_fb_update_reg(struct rockchip_vop_driver *dev_drv,
 	unsigned int dsp_addr[4];
 	long timeout = 0;
 	u32 new_start, reg_start;
+	int win_state = 0;
 
 	/* acq_fence wait */
 	for (i = 0; i < regs->win_num; i++) {
@@ -852,6 +900,14 @@ static void rockchip_fb_update_reg(struct rockchip_vop_driver *dev_drv,
 						 new_start,
 						 reg_start,
 						 101 - count);
+
+					break;
+				}
+			} else if (dev_drv->win[i]->state == 0) {
+				win_state =
+					dev_drv->ops->get_win_state(dev_drv, i);
+				if (win_state) {
+					wait_for_vsync = true;
 					break;
 				}
 			}
@@ -877,7 +933,14 @@ static void rockchip_fb_update_reg(struct rockchip_vop_driver *dev_drv,
 	}
 
 	mutex_lock(&dev_drv->regs_lock);
-	dev_drv->last_regs = regs;
+
+	for (i = 0; i < MMU_BUFF_NUM - 1; i++) {
+		last_regs_bak[MMU_BUFF_NUM-1-i] =
+			last_regs_bak[MMU_BUFF_NUM-2-i];
+	}
+	last_regs_bak[0] = regs;
+
+	dev_drv->last_regs = last_regs_bak[MMU_BUFF_NUM-1];
 	mutex_unlock(&dev_drv->regs_lock);
 }
 
@@ -901,11 +964,14 @@ static void rockchip_fb_update_regs_handler(struct kthread_work *work)
 	if (dev_drv->wait_fs && list_empty(&dev_drv->update_regs_list))
 		wake_up(&dev_drv->update_regs_wait);
 }
+
 static void rockchip_fb_free_update_reg(struct rockchip_vop_driver *dev_drv,
 				    struct rockchip_fb_reg_data *regs)
 {
 	int i = 0, j = 0;
 	struct rockchip_vop_win *win;
+
+	/* acq_fence wait */
 	for (i = 0; i < regs->win_num; i++) {
 		win = &regs->vop_win[i];
 		for (j = 0; j < SFA_WIN_MAX_AREA; j++) {
@@ -914,7 +980,17 @@ static void rockchip_fb_free_update_reg(struct rockchip_vop_driver *dev_drv,
 						   win->area[j].acq_fence);
 		}
 	}
+
+	/* No need update frame when system suspend, so free the buffer */
 	if (dev_drv->suspend_flag) {
+		/*
+		 * where we must not free last fence for it will update
+		 * the last buffer when resume system.
+		 * otherwises the buffer will be rebilt by GPU.
+		 * But it will happen fence timeout if we do not free fence.
+		 * So in order to avoid this problem, we should ensure that
+		 * do not update frame on android when system suspend.
+		 */
 #ifdef H_USE_FENCE
 		sw_sync_timeline_inc(dev_drv->timeline, 1);
 #endif
@@ -1619,6 +1695,7 @@ static int rockchip_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			devm_kzalloc(info->dev, sizeof(*win_data), GFP_KERNEL);
 		if (NULL == win_data)
 			return -ENOMEM;
+
 		if (copy_from_user(win_data,
 				(struct rockchip_fb_win_cfg_data __user *)argp,
 				sizeof(*win_data))) {
@@ -1681,6 +1758,7 @@ static int rockchip_fb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)info->par;
 	struct ion_handle *handle = fb_par->ion_hdl;
 	struct dma_buf *dma_buf = NULL;
+
 	if (IS_ERR_OR_NULL(handle)) {
 		dev_err(info->dev, "failed to get ion handle:%ld\n",
 			PTR_ERR(handle));
@@ -1691,9 +1769,12 @@ static int rockchip_fb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 		dev_err(info->dev, "get ion share dma buf failed\n");
 		return -ENOMEM;
 	}
+
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
 	return dma_buf_mmap(dma_buf, vma, 0);
 }
+
 static struct fb_ops fb_ops = {
 	.owner = THIS_MODULE,
 	.fb_open = rockchip_fb_open,
