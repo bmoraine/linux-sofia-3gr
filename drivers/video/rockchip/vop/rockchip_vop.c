@@ -303,6 +303,7 @@ static int rockchip_vop_axi_gather_cfg(struct vop_device *vop_dev,
 	case YUV444:
 	case YUV422:
 	case YUV420:
+	case YUV420_NV21:
 		yrgb_gather_num = 2;
 		cbcr_gather_num = 4;
 		break;
@@ -384,10 +385,12 @@ static void vop_win_update_regs(struct vop_device *vop_dev,
 		vop_win_csc_mode(vop_dev, win);
 
 		if (win->id == 0) {
-			mask = M_WIN0_EN | M_WIN0_FORMAT | M_WIN0_RB_SWAP;
+			mask = M_WIN0_EN | M_WIN0_FORMAT | M_WIN0_RB_SWAP |
+				M_WIN0_UV_SWAP;
 			val = V_WIN0_EN(win->state) |
 			    V_WIN0_FORMAT(win->area[0].fmt_cfg) |
-			    V_WIN0_RB_SWAP(win->area[0].swap_rb);
+			    V_WIN0_RB_SWAP(win->area[0].swap_rb) |
+			    V_WIN0_UV_SWAP(win->area[0].swap_uv);
 			vop_msk_reg(vop_dev, VOP_SYS_CTRL, mask, val);
 			vop_writel(vop_dev, VOP_WIN0_SCL_FACTOR_YRGB,
 				   V_X_SCL_FACTOR(win->scale_yrgb_x) |
@@ -1140,6 +1143,7 @@ static int rockchip_vop_set_par(struct rockchip_vop_driver *dev_drv, int win_id)
 			win->scale_cbcr_y =
 				CALSCALE(win->area[0].yact, win->area[0].ysize);
 			win->area[0].swap_rb = 0;
+			win->area[0].swap_uv = 0;
 		} else {
 			dev_err(vop_dev->driver.dev,
 				"%s:un supported format!\n", __func__);
@@ -1153,6 +1157,7 @@ static int rockchip_vop_set_par(struct rockchip_vop_driver *dev_drv, int win_id)
 			win->scale_cbcr_y = CALSCALE(win->area[0].yact,
 						     win->area[0].ysize);
 			win->area[0].swap_rb = 0;
+			win->area[0].swap_uv = 0;
 		} else {
 			dev_err(vop_dev->driver.dev,
 				"%s:un supported format!\n", __func__);
@@ -1166,6 +1171,21 @@ static int rockchip_vop_set_par(struct rockchip_vop_driver *dev_drv, int win_id)
 			win->scale_cbcr_y = CALSCALE(win->area[0].yact / 2,
 						     win->area[0].ysize);
 			win->area[0].swap_rb = 0;
+			win->area[0].swap_uv = 0;
+		} else {
+			dev_err(vop_dev->driver.dev,
+				"%s:un supported format!\n", __func__);
+		}
+		break;
+	case YUV420_NV21:
+		if (win_id == 0) {
+			win->area[0].fmt_cfg = VOP_FORMAT_YCBCR420;
+			win->scale_cbcr_x = CALSCALE(win->area[0].xact / 2,
+						     win->area[0].xsize);
+			win->scale_cbcr_y = CALSCALE(win->area[0].yact / 2,
+						     win->area[0].ysize);
+			win->area[0].swap_rb = 0;
+			win->area[0].swap_uv = 1;
 		} else {
 			dev_err(vop_dev->driver.dev,
 				"%s:un supported format!\n", __func__);
@@ -1219,6 +1239,11 @@ static int rockchip_vop_pan_display(struct rockchip_vop_driver *dev_drv,
 			win->area[0].smem_start + win->area[0].y_offset;
 		win->area[0].uv_addr =
 			win->area[0].cbr_start + win->area[0].c_offset;
+		if ((win->area[0].uv_addr == 0) &&
+		    (win->area[0].format == YUV420 ||
+		     win->area[0].format == YUV420_NV21))
+			pr_err("error:uv_addr=0x%x,format=%d\n",
+			       win->area[0].uv_addr, win->area[0].format);
 		if (win->area[0].y_addr)
 			vop_win_update_regs(vop_dev, win);
 		/* vop_cfg_done(vop_dev); */

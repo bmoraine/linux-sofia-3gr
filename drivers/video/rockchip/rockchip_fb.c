@@ -81,6 +81,7 @@ char *get_format_string(enum data_format format, char *fmt)
 		strcpy(fmt, "RGB565");
 		break;
 	case YUV420:
+	case YUV420_NV21:
 		strcpy(fmt, "YUV420");
 		break;
 	case YUV422:
@@ -215,6 +216,7 @@ static int rockchip_fb_get_pixel_width(int data_format)
 		break;
 	case YUV422:
 	case YUV420:
+	case YUV420_NV21:
 	case YUV444:
 		pixel_width = 1 * 8;
 		break;
@@ -252,6 +254,9 @@ static int rockchip_fb_get_data_fmt(int data_format)
 		break;
 	case HAL_PIXEL_FORMAT_YCbCr_422_SP:	/* yuv422 */
 		fb_data_fmt = YUV422;
+		break;
+	case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+		fb_data_fmt = YUV420_NV21;
 		break;
 	case HAL_PIXEL_FORMAT_YCrCb_NV12:	/* YUV420---uvuvuv */
 		fb_data_fmt = YUV420;
@@ -667,6 +672,7 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 		uv_y_act = win_par->area_par[0].yact >> 1;
 		break;
 	case YUV420:
+	case YUV420_NV21:
 	case YUV420_A:
 		is_pic_yuv = true;
 		stride = stride_32bit_1;
@@ -1479,6 +1485,22 @@ static int rockchip_fb_set_par(struct fb_info *info)
 				(yoffset >> 1) * uv_stride + xoffset;
 		}
 		break;
+	case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+		win->area[0].format = YUV420_NV21;
+		stride = xvir;
+		uv_stride = stride;
+		fix->line_length = stride;
+		cblen = (xvir * yvir) >> 2;
+		crlen = cblen;
+		if (screen->interlace == 1) {
+			win->area[0].y_offset = yoffset * stride * 2 + xoffset;
+			win->area[0].c_offset = yoffset  * uv_stride + xoffset;
+		} else {
+			win->area[0].y_offset = yoffset * stride + xoffset;
+			win->area[0].c_offset =
+				(yoffset >> 1) * uv_stride + xoffset;
+		}
+		break;
 	case HAL_PIXEL_FORMAT_YCrCb_444:
 		win->area[0].format = YUV444;
 		stride = xvir;
@@ -1556,6 +1578,7 @@ static int rockchip_fb_pan_display(struct fb_var_screeninfo *var,
 		win->area[0].c_offset = win->area[0].y_offset;
 		break;
 	case YUV420:
+	case YUV420_NV21:
 		win->area[0].y_offset = yoffset * xvir + xoffset;
 		win->area[0].c_offset = (yoffset >> 1) * xvir + xoffset;
 		break;
