@@ -1264,7 +1264,16 @@ static int rockchip_vop_get_win_id(struct rockchip_vop_driver *dev_drv,
 static int rockchip_vop_get_win_state(struct rockchip_vop_driver *dev_drv,
 				      int win_id)
 {
-	return 0;
+	struct vop_device *vop_dev =
+		container_of(dev_drv, struct vop_device, driver);
+
+	if (win_id == 0)
+		return vop_read_bit(vop_dev, VOP_SYS_CTRL, M_WIN0_EN);
+	else if (win_id == 1)
+		return vop_read_bit(vop_dev, VOP_SYS_CTRL, M_WIN1_EN);
+	else if (win_id == 2)
+		return vop_read_bit(vop_dev, VOP_SYS_CTRL, M_HWC_EN);
+	return -1;
 }
 
 static int rockchip_vop_ovl_mgr(struct rockchip_vop_driver *dev_drv, int swap,
