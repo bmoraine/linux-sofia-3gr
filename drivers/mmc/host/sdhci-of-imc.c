@@ -14,8 +14,6 @@
 #include <linux/slab.h>
 #include <linux/mmc/host.h>
 #include <linux/pm_runtime.h>
-#include "sdhci-pltfm.h"
-#include "sdhci-of-imc.h"
 #include <linux/of_address.h>
 #include <linux/clk.h>
 #include <linux/gpio.h>
@@ -24,6 +22,9 @@
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <sofia/mv_svc_hypercalls.h>
 #endif
+
+#include "sdhci-pltfm.h"
+#include "sdhci-of-imc.h"
 
 #define XGOLD_DEFAULT_QUIRKS  (SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK \
 				| SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN)
@@ -60,26 +61,6 @@ DECLARE_DEVICE_STATE_PM_CLASS(sdhci);
 #endif
 #endif
 
-static inline void xgold_sdhci_scu_write(struct xgold_mmc_pdata *mmc_pdata,
-		int offset, int value)
-{
-#ifdef CONFIG_X86_INTEL_SOFIA
-	if (mmc_pdata->io_master
-			== SCU_IO_ACCESS_BY_VMM) {
-		phys_addr_t write_addr = mmc_pdata->scu_base_phys + offset;
-		if (mv_svc_reg_write(write_addr,
-					value, -1))
-			dev_err(&mmc_pdata->dev,
-					"mv_svc_reg_write failed @%pa\n",
-					&write_addr);
-	} else
-#endif
-	{
-		void __iomem *write_addr = mmc_pdata->scu_base + offset;
-		writel(value, write_addr);
-	}
-}
-
 static inline int xgold_sdhci_set_pinctrl_state(struct device *dev,
 						struct pinctrl_state *state)
 {
@@ -115,16 +96,31 @@ static unsigned int xgold_sdhci_of_get_min_clock(struct sdhci_host *host)
 	return min_clock;
 }
 
+static void xgold_default_regs_fixup(struct sdhci_host *host) {
+	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
+	struct xgold_mmc_pdata *pdata = pdev->dev.platform_data;
+	struct device_node *np = pdev->dev.of_node;
+	u32 offset, value;
+	int i;
+
+	for (i = 0; i < xgold_mmc_total_regs; i++) {
+		if (!of_property_read_u32_index(np, "intel,corecfg_reg",
+				i, &offset))
+			if (!of_property_read_u32_index(np,
+					"intel,corecfg_val", i , &value))
+				xgold_sdhci_scu_write(pdata, offset, value);
+	}
+}
+
 int xgold_sdhci_of_set_timing(struct sdhci_host *host, unsigned int uhs)
 {
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
 	unsigned tap_index;
-	int ret = 0;
 	int mode = 0;
 
 	if (mmc_pdata->tap_reg_offset == -1)
-		return ret;
+		goto out;
 
 	switch (uhs) {
 	case MMC_TIMING_LEGACY:
@@ -156,14 +152,18 @@ int xgold_sdhci_of_set_timing(struct sdhci_host *host, unsigned int uhs)
 	}
 	dev_dbg(&pdev->dev, "Set tap values to mode %d\n", mode);
 	xgold_sdhci_scu_write(mmc_pdata, mmc_pdata->tap_reg_offset,
-			mmc_pdata->tap_values[tap_index]);
+			      mmc_pdata->tap_values[tap_index]);
 
-	if (mmc_pdata->tap_reg2_offset == -1)
-		return ret;
-
-	xgold_sdhci_scu_write(mmc_pdata, mmc_pdata->tap_reg2_offset,
-			mmc_pdata->tap_values2[tap_index]);
-	return ret;
+	if (mmc_pdata->tap_reg2_offset > 0)
+		xgold_sdhci_scu_write(mmc_pdata, mmc_pdata->tap_reg2_offset,
+			      mmc_pdata->tap_values2[tap_index]);
+	/*
+	 * Some fixup needed here...
+	 */
+	if (mmc_pdata->fixup & XGOLD_DEFAULT_REGS_FIXUP)
+		xgold_default_regs_fixup(host);
+out:
+	return 0;
 }
 /*
  * Max clock card we have to deal with :
@@ -376,7 +376,8 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 			MMC_CAP_AGGRESSIVE_PM;*/
 	}
 
-
+	if (mmc_pdata->fixup & XGOLD_DEFAULT_REGS_FIXUP)
+		xgold_default_regs_fixup(host);
 }
 
 static struct sdhci_ops xgold_sdhci_ops = {
@@ -439,9 +440,7 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	struct xgold_mmc_pdata *mmc_pdata;
 	struct resource res;
 	struct sdhci_pltfm_data sdhci_xgold_pdata;
-	int offset;
-	int value;
-	int it_wk, i, it_eint;
+	int it_wk, it_eint;
 #if defined CONFIG_PLATFORM_DEVICE_PM && defined CONFIG_PLATFORM_DEVICE_PM_VIRT
 	struct device_node *pm_node;
 #endif
@@ -474,7 +473,6 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	if (of_property_read_u32(np, "intel,tap_reg",
 				&mmc_pdata->tap_reg_offset))
 		mmc_pdata->tap_reg_offset = -1;
-
 	if (of_property_read_u32(np, "intel,tap_reg2",
 				&mmc_pdata->tap_reg2_offset))
 		mmc_pdata->tap_reg2_offset = -1;
@@ -489,22 +487,8 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 		of_property_read_u32_array(np, "intel,tap_values2",
 						&mmc_pdata->tap_values2[0], 7);
 
-	/* correct corecfg register if needed */
-	for (i = 0; i < 5; i++) {
-		if (!of_property_read_u32_index(np, "intel,corecfg_reg",
-				i, &offset))
-			if (!of_property_read_u32_index(np,
-					"intel,corecfg_val", i , &value))
-				xgold_sdhci_scu_write(mmc_pdata, offset, value);
-	}
-
-	/* correct corecfg register if needed */
-	if (!of_property_read_u32(np, "intel,corecfg_reg", &offset))
-		if (!of_property_read_u32(np, "intel,corecfg_val", &value))
-			xgold_sdhci_scu_write(mmc_pdata, offset, value);
-
 	of_property_read_u32_array(np, "intel,quirks", &quirktab[0], 2);
-
+	of_property_read_u32(np, "intel,fixup", &mmc_pdata->fixup);
 	of_property_read_u32_array(np, "intel,card_drive_strength",
 					&mmc_pdata->card_drive_strength[0], 4);
 
