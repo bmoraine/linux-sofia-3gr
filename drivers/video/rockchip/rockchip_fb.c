@@ -46,7 +46,6 @@
 
 #define H_USE_FENCE	1
 #define MMU_BUFF_NUM	1
-#define ION_HEAP(bit) (1 << (bit))
 
 enum {
 	ION_DRV_NONE = 0,
@@ -1571,7 +1570,9 @@ static int rockchip_fb_pan_display(struct fb_var_screeninfo *var,
 	}
 
 	dev_drv->ops->pan_display(dev_drv, win_id);
-	dev_drv->ops->cfg_done(dev_drv);
+	/* if not want the config effect,set reserved[3] as 1 */
+	if (likely((var->reserved[3] & 0x1) == 0))
+		dev_drv->ops->cfg_done(dev_drv);
 
 	return 0;
 }
