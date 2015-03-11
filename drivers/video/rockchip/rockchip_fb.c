@@ -2259,6 +2259,31 @@ static void fb_show_bmp_logo(struct fb_info *info, int rotate)
 }
 #endif
 
+static int rockchip_fb_show_copy_from_slb(struct fb_info *info)
+{
+	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)info->par;
+	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
+	void *dst = info->screen_base;
+	u32 dsp_addr[4];
+	u32 src;
+	struct rockchip_vop_win *win = dev_drv->win[0];
+	u32 size = (win->area[0].xact) * (win->area[0].yact) << 2;
+
+	dev_drv->ops->get_dsp_addr(dev_drv, dsp_addr);
+	src = dsp_addr[0];
+	dev_info(info->dev, "copy fb data %d x %d  from  addr:0x%08x to addr:0x%08x\n",
+		 win->area[0].xact, win->area[0].yact, src,
+		 (u32)info->fix.smem_start);
+
+	memcpy(dst, phys_to_virt(src), size);
+	dev_drv->ops->direct_set_addr(dev_drv, 0, info->fix.smem_start);
+	/* wait blank */
+	rockchip_fb_poll_wait_frame_complete();
+	if (dev_drv->ops->mmu_en)
+		dev_drv->ops->mmu_en(dev_drv, true);
+	return 0;
+}
+
 int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 		     struct rockchip_vop_win *vop_win, int id)
 {
@@ -2401,11 +2426,14 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 					rockchip_fb_sysmmu_fault_handler);
 		}
 #endif
-#if !defined(CONFIG_FRAMEBUFFER_CONSOLE) && defined(CONFIG_LOGO)
-		if (support_uboot_display())
+		if (support_uboot_display()) {
+			if (dev_drv->iommu_enabled)
+				rockchip_fb_show_copy_from_slb(main_fbi);
 			return 0;
-		main_fbi->fbops->fb_set_par(main_fbi);
+		}
 
+#if !defined(CONFIG_FRAMEBUFFER_CONSOLE) && defined(CONFIG_LOGO)
+		main_fbi->fbops->fb_set_par(main_fbi);
 #if  defined(CONFIG_LOGO_LINUX_BMP)
 		if (fb_prepare_bmp_logo(main_fbi, FB_ROTATE_UR)) {
 			fb_set_cmap(&main_fbi->cmap, main_fbi);
