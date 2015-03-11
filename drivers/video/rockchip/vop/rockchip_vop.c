@@ -713,6 +713,11 @@ static int rockchip_vop_pre_init(struct rockchip_vop_driver *dev_drv)
 	/* backup reg config at uboot */
 	vop_read_reg_default_cfg(vop_dev);
 
+	/* config qos */
+	vop_msk_reg(vop_dev, VOP_BUS_INTF_CTRL,
+		    M_NOC_QOS_EN | M_NOC_QOS_VALUE,
+		    V_NOC_QOS_EN(1) | V_NOC_QOS_VALUE(3));
+
 	/* config for the FRC mode of dither down */
 	vop_writel(vop_dev, VOP_FRC_LOWER01_0, 0x12844821);
 	vop_writel(vop_dev, VOP_FRC_LOWER01_1, 0x21488412);
