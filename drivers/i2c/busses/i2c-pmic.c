@@ -309,7 +309,7 @@ int intel_i2c_pmic_probe(struct platform_device *pdev)
 	if (!IS_ERR_VALUE(irq)) {
 		ret = devm_request_threaded_irq(&pdev->dev, irq,
 				NULL, intel_i2c_pmic_irq_handler,
-				IRQF_SHARED | IRQF_ONESHOT,
+				IRQF_SHARED | IRQF_ONESHOT | IRQF_NO_SUSPEND,
 				"pmic_i2c RD", adap);
 		if (ret) {
 			dev_err(&pdev->dev, "Cannot request RD IRQ %d",
@@ -323,7 +323,7 @@ int intel_i2c_pmic_probe(struct platform_device *pdev)
 	if (!IS_ERR_VALUE(irq)) {
 		ret = devm_request_threaded_irq(&pdev->dev, irq,
 				NULL, intel_i2c_pmic_irq_handler,
-				IRQF_SHARED | IRQF_ONESHOT,
+				IRQF_SHARED | IRQF_ONESHOT | IRQF_NO_SUSPEND,
 				"pmic_i2c WR", adap);
 		if (ret) {
 			dev_err(&pdev->dev, "Cannot request WR IRQ %d",
@@ -337,7 +337,7 @@ int intel_i2c_pmic_probe(struct platform_device *pdev)
 	if (!IS_ERR_VALUE(irq)) {
 		ret = devm_request_threaded_irq(&pdev->dev, irq,
 				NULL, intel_i2c_pmic_irq_err_handler,
-				IRQF_SHARED | IRQF_ONESHOT,
+				IRQF_SHARED | IRQF_ONESHOT | IRQF_NO_SUSPEND,
 				"pmic_i2c ERR", adap);
 		if (ret) {
 			dev_err(&pdev->dev, "Cannot request ERR IRQ %d",
