@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
+#include <linux/dma-mapping.h>
 #include <asm/div64.h>
 #include <linux/rockchip_screen.h>
 #include <linux/rockchip_fb.h>
@@ -58,6 +59,123 @@ static ssize_t show_disp_info(struct device *dev,
 		return dev_drv->ops->get_disp_info(dev_drv, buf, win_id);
 
 	return 0;
+}
+
+static void fill_buffer(void *handle, void *vaddr, int size)
+{
+	struct file *filp = handle;
+
+	if (filp)
+		vfs_write(filp, vaddr, size, &filp->f_pos);
+}
+
+static int dump_win(struct rockchip_fb *sfb_info,
+		    struct rockchip_vop_win_area *area_data,
+		    u8 data_format, int win_id, int area_id)
+{
+	void __iomem *vaddr = NULL;
+	struct file *filp;
+	mm_segment_t old_fs;
+	char name[100] = {0};
+	char fmt[10] = {0};
+	struct ion_handle *ion_handle = area_data->ion_hdl;
+	int width = area_data->xvir;
+	int height = area_data->yvir;
+
+	if (ion_handle) {
+		vaddr = ion_map_kernel(sfb_info->ion_client, ion_handle);
+	} else if (area_data->smem_start && area_data->smem_start != -1) {
+		unsigned long start;
+		unsigned int nr_pages;
+		struct page **pages;
+		int i = 0;
+
+		start = area_data->smem_start;
+		nr_pages = width * height * 3 / 2 / PAGE_SIZE;
+		pages = kzalloc(sizeof(struct page) * nr_pages, GFP_KERNEL);
+		while (i < nr_pages) {
+			pages[i] = phys_to_page(start);
+			start += PAGE_SIZE;
+			i++;
+		}
+		vaddr = vmap(pages, nr_pages, VM_MAP,
+			     pgprot_writecombine(PAGE_KERNEL));
+		if (!vaddr) {
+			pr_err("failed to vmap phy addr %lx\n",
+			       area_data->smem_start);
+			return -1;
+		}
+	} else {
+		return -1;
+	}
+
+	snprintf(name, 100, "/data/win%d_%d_%dx%d_%s.bin", win_id, area_id,
+		 width, height, get_format_string(data_format, fmt));
+
+	pr_info("dump win == > %s\n", name);
+
+	filp = filp_open(name, O_RDWR | O_CREAT, 0x664);
+	if (!filp)
+		pr_info("fail to create %s\n", name);
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	fill_buffer(filp, vaddr, width * height * 4);
+
+	set_fs(old_fs);
+
+	if (ion_handle)
+		ion_unmap_kernel(sfb_info->ion_client, ion_handle);
+	else if (vaddr)
+		vunmap(vaddr);
+
+	filp_close(filp, NULL);
+
+	return 0;
+}
+
+static ssize_t set_dump_info(struct device *dev, struct device_attribute *attr,
+			     const char *buf, size_t count)
+
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)fbi->par;
+	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
+	struct rockchip_fb *sfb_info = dev_get_drvdata(fbi->device);
+	struct rockchip_fb_reg_data *last_regs;
+	struct rockchip_vop_win *win_data;
+	struct rockchip_vop_win_area *area_data;
+	int i, j;
+
+	if (!sfb_info->ion_client)
+		return 0;
+
+	last_regs = devm_kzalloc(dev, sizeof(*last_regs), GFP_KERNEL);
+	if (!last_regs)
+		return -ENOMEM;
+
+	mutex_lock(&dev_drv->regs_lock);
+
+	if (!dev_drv->last_regs) {
+		mutex_unlock(&dev_drv->regs_lock);
+		return 0;
+	}
+	memcpy(last_regs, dev_drv->last_regs, sizeof(*last_regs));
+	mutex_unlock(&dev_drv->regs_lock);
+
+	for (i = 0; i < last_regs->win_num; i++) {
+		for (j = 0; j < SFA_WIN_MAX_AREA; j++) {
+			win_data = &last_regs->vop_win[i];
+			area_data = &win_data->area[j];
+			if (dump_win(sfb_info, area_data,
+				     area_data->format, win_data->id, j))
+				continue;
+		}
+	}
+	devm_kfree(dev, last_regs);
+
+	return count;
 }
 
 static ssize_t show_phys(struct device *dev,
@@ -505,7 +623,7 @@ static ssize_t set_dsp_bcsh(struct device *dev, struct device_attribute *attr,
 static struct device_attribute rockchip_fb_attrs[] = {
 	__ATTR(phys_addr, S_IRUGO, show_phys, NULL),
 	__ATTR(virt_addr, S_IRUGO, show_virt, NULL),
-	__ATTR(disp_info, S_IRUGO, show_disp_info, NULL),
+	__ATTR(disp_info, S_IRUGO | S_IWUSR, show_disp_info, set_dump_info),
 	__ATTR(screen_info, S_IRUGO, show_screen_info, NULL),
 	__ATTR(dual_mode, S_IRUGO, show_dual_mode, NULL),
 	__ATTR(enable, S_IRUGO | S_IWUSR, show_fb_state, set_fb_state),
