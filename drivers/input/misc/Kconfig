@@ -82,6 +82,16 @@ config INPUT_APDS990X
 	  To compile this driver as a module, choose M here: the module
 	  will be called apds_990x.
 
+config INPUT_LTR559
+    tristate "LTR559 proximity/light sensor"
+	depends on I2C
+	help
+	  Say Y here to use the LTR559 Proximity and light sensor driver
+	  from LITEON
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called ltr559.
+
 config INPUT_ARIZONA_HAPTICS
 	tristate "Arizona haptics support"
 	depends on MFD_ARIZONA && SND_SOC
