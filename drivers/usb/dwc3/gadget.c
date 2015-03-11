@@ -1561,10 +1561,18 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *g, int is_active)
 		dwc3_gadget_enable_irq(dwc);
 		ret = dwc3_gadget_run_stop(dwc, is_active);
 	} else if (!is_active && !dwc->vbus_session_allow) {
-		ret = dwc3_gadget_run_stop(dwc, is_active);
-		dwc->vbus_session_allow = true;
+		/* Per databook, DEVCTRLHLT bit setting requires
+		 * interrupts to be acknowledged so we acknowledge
+		 * first */
 		dwc3_gadget_disable_irq(dwc);
 		dwc3_event_buffers_cleanup(dwc);
+		/* DEVCTRLHLT bit sometimes does
+		 * not get set even when GEVNTCOUNT is acked so
+		 * do not care run stop function return value
+		 * Case: 8000784543 created to understand the
+		 * problem */
+		dwc3_gadget_run_stop(dwc, is_active);
+		dwc->vbus_session_allow = true;
 		if (dwc->start_config_issued)
 			dwc3_gadget_disconnect_interrupt(dwc);
 		__dwc3_gadget_ep_disable(dwc->eps[0]);
