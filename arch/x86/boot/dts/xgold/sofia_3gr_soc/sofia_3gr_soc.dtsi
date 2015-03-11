@@ -716,6 +716,19 @@
 								< STM_INT1 IRQ_TYPE_DEFAULT >;
 						intel,faf = <0x319>;
 					};
+
+					capcom1:capcom1 {
+						compatible = "intel,capcom,clocksource";
+						reg = <0xE4100000 0x100000>;
+						interrupts = < CC1_T0INT IRQ_TYPE_DEFAULT >,
+								< CC1_T1INT IRQ_TYPE_DEFAULT >;
+						intel,cc,evt,rating = <50>;
+						intel,cc,cpumask = <0xc>;
+						intel,cc,rate = <26000000>;
+						intel,evt,min-ns = <38000>;
+						intel,evt,max-ns = <1000000000>;
+					};
+
 					xgold_pmx_core: pinmux@E4600000 {
 						compatible = "pinctrl-single";
 						reg = <0xE4600000 0x0A00>;
