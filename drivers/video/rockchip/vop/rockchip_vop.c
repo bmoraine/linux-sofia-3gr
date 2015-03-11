@@ -97,11 +97,15 @@ static irqreturn_t rockchip_vop_isr(int irq, void *dev_id)
 	struct vop_device *vop_dev = (struct vop_device *)dev_id;
 	ktime_t timestamp = ktime_get();
 	u32 int_reg = vop_readl(vop_dev, VOP_INT_STATUS);
+	u32 irq_active = 0;
+
+	irq_active = int_reg & INT_STA_MSK;
+	if (irq_active)
+		vop_writel(vop_dev, VOP_INT_STATUS,
+			   int_reg | (irq_active << INT_CLR_SHIFT));
 
 	if (int_reg & M_FS_INT_STA) {
 		timestamp = ktime_get();
-		vop_msk_reg(vop_dev, VOP_INT_STATUS, M_FS_INT_CLEAR,
-			    V_FS_INT_CLEAR(1));
 
 		if (0/* vop_dev->driver.wait_fs */) {
 			spin_lock(&(vop_dev->driver.cpl_lock));
@@ -110,10 +114,6 @@ static irqreturn_t rockchip_vop_isr(int irq, void *dev_id)
 		}
 		vop_dev->driver.vsync_info.timestamp = timestamp;
 		wake_up_interruptible_all(&vop_dev->driver.vsync_info.wait);
-
-	} else if (int_reg & M_LF_INT_STA) {
-		vop_msk_reg(vop_dev, VOP_INT_STATUS, M_LF_INT_CLEAR,
-			    V_LF_INT_CLEAR(1));
 	}
 #ifdef VOP_IRQ_EMPTY_DEBUG
 	if (int_reg & M_WIN0_EMPTY_INT_STA) {
@@ -194,7 +194,7 @@ static void vop_read_reg_default_cfg(struct vop_device *vop_dev)
 
 	spin_lock(&vop_dev->reg_lock);
 	for (reg = 0; reg <= VOP_MIPI_EDPI_CTRL; reg += 4) {
-		val = vop_readl(vop_dev, reg);
+		val = vop_readl_bak(vop_dev, reg);
 		if (reg == VOP_WIN0_ACT_INFO) {
 			win0->area[0].xact = (val & M_ACT_WIDTH) + 1;
 			win0->area[0].yact = ((val & M_ACT_HEIGHT) >> 16) + 1;

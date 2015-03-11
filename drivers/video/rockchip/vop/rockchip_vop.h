@@ -600,6 +600,9 @@ enum _vop_overlay_mode {
 };
 
 #define CALSCALE(x, y)	             ((((u32)(x - 1)) * 0x1000) / (y - 1))
+#define INT_STA_MSK	(M_HS_INT_STA | M_FS_INT_STA |		\
+			 M_LF_INT_STA | M_BUS_ERR_INT_STA)
+#define INT_CLR_SHIFT	8
 
 struct vop_device {
 	int id;
@@ -644,7 +647,7 @@ static inline void vop_writel(struct vop_device *vop_dev, u32 offset, u32 v)
 	writel(v, (u32 __iomem *)(vop_dev->regs + offset));
 }
 
-static inline u32 vop_readl(struct vop_device *vop_dev, u32 offset)
+static inline u32 vop_readl_bak(struct vop_device *vop_dev, u32 offset)
 {
 	u32 v;
 	u32 *_pv = (u32 *)vop_dev->regsbak;
@@ -653,6 +656,11 @@ static inline u32 vop_readl(struct vop_device *vop_dev, u32 offset)
 	v = readl((u32 __iomem *)(vop_dev->regs + offset));
 	*_pv = v;
 	return v;
+}
+
+static inline u32 vop_readl(struct vop_device *vop_dev, u32 offset)
+{
+	return readl((u32 __iomem *)(vop_dev->regs + offset));
 }
 
 static inline u32 vop_read_bit(struct vop_device *vop_dev, u32 offset, u32 msk)
