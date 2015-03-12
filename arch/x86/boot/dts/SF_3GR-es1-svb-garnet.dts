@@ -119,11 +119,13 @@
 	};
 
 	screen {
-		compatible = "rockchip,screen";
+		compatible = "rockchip,screen", "intel,screen";
 		pm,class-name = "generic_class";
 		pm,user-name = "lcd";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
+		intel,display-gpio-vhigh = <&xgold_pmx_gpio 45 0>;
+		intel,display-gpio-reset = <&xgold_pmx_gpio 46 0>;
 		#include "xgold/display/auo_b070atn02.dtsi"
 	};
 
