@@ -63,6 +63,16 @@
 
 #include "vcodec_service.h"
 
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
+
+#include <sofia/vvpu_vbpipe.h>
+
+#ifdef CONFIG_X86_INTEL_SOFIA
+#include <linux/xgold_noc.h>
+#endif
+
+#endif /* CONFIG_MOBILEVISOR_VDRIVER_PIPE */
+
 enum VPU_HW_ID {
 	VPU_DEC_ID_9190		= 0x6731,
 	VPU_ID_8270		= 0x8270,
@@ -1459,6 +1469,25 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 			pr_err("%s: %d\n", __func__, __LINE__);
 			return -EFAULT;
 		}
+		break;
+	}
+	case VPU_IOC_SECVM_CMD: {
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
+		/* IMC: send a VVPU command to secure VM */
+		struct vvpu_secvm_cmd vvpu_cmd;
+
+		if (copy_from_user(&vvpu_cmd, (void __user *)arg,
+				sizeof(vvpu_cmd)))
+			return -EFAULT;
+
+		vvpu_call(pservice->dev, &vvpu_cmd);
+
+		if (copy_to_user((void __user *)arg, &vvpu_cmd,
+				sizeof(vvpu_cmd)))
+			return -EFAULT;
+#else
+		ret = -EFAULT;
+#endif
 		break;
 	}
 	default: {
