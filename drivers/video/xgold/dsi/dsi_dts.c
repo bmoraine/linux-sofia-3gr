@@ -32,6 +32,7 @@
 #include "dsi_dts.h"
 
 #define PROP_DISPLAY            "intel,display"
+#define PROP_SCREEN             "intel,screen"
 
 #define PROP_DISPLAY_RAMLESS    "intel,display-ramless"
 #define PROP_DISPLAY_FPS        "intel,display-fps"
@@ -62,8 +63,13 @@
 #define PROP_DISPLAY_CMDDELAY   "intel,cmd-delay"
 #define PROP_DISPLAY_CMDLP      "intel,cmd-lp"
 
-static struct of_device_id sofia_display_of_match[] = {
+static struct of_device_id display_of_match[] = {
 	{ .compatible = PROP_DISPLAY, },
+	{ },
+};
+
+static struct of_device_id screen_of_match[] = {
+	{ .compatible = PROP_SCREEN, },
 	{ },
 };
 
@@ -223,16 +229,16 @@ static int dsi_of_parse_display_gpiolist(struct platform_device *pdev,
 static int dsi_of_parse_gpio(struct platform_device *pdev,
 			     struct dsi_display *display)
 {
-	struct device_node *mipi_dsi_dev_n = pdev->dev.of_node;
+	struct device_node *screen_dev_n;
 	int ret;
 
-	if (!mipi_dsi_dev_n) {
-		pr_err("%s: Can't find xgold-mipi_dsi matching node\n",
-		       __func__);
+	screen_dev_n = of_find_matching_node(NULL, screen_of_match);
+	if (!screen_dev_n) {
+		pr_err("%s: Can't find screen matching node\n", __func__);
 		return -EINVAL;
 	}
 
-	display->gpio_vhigh = of_get_named_gpio_flags(mipi_dsi_dev_n,
+	display->gpio_vhigh = of_get_named_gpio_flags(screen_dev_n,
 		PROP_DISPLAY_GPIOVH, 0, NULL);
 	if (gpio_is_valid(display->gpio_vhigh)) {
 		ret = gpio_request(display->gpio_vhigh, "disp_vhigh");
@@ -245,7 +251,7 @@ static int dsi_of_parse_gpio(struct platform_device *pdev,
 		display->gpio_vhigh = 0;
 	}
 
-	display->gpio_vlow = of_get_named_gpio_flags(mipi_dsi_dev_n,
+	display->gpio_vlow = of_get_named_gpio_flags(screen_dev_n,
 			PROP_DISPLAY_GPIOVL, 0, NULL);
 	if (gpio_is_valid(display->gpio_vlow)) {
 		ret = gpio_request(display->gpio_vlow, "disp_vlow");
@@ -258,7 +264,7 @@ static int dsi_of_parse_gpio(struct platform_device *pdev,
 		display->gpio_vlow = 0;
 	}
 
-	display->gpio_reset = of_get_named_gpio_flags(mipi_dsi_dev_n,
+	display->gpio_reset = of_get_named_gpio_flags(screen_dev_n,
 			PROP_DISPLAY_GPIORST, 0, NULL);
 	if (gpio_is_valid(display->gpio_reset)) {
 		ret = gpio_request(display->gpio_reset, "disp_rst");
@@ -325,7 +331,7 @@ int dsi_of_parse_display(struct platform_device *pdev,
 		display->dsi_reset = NULL;
 	}
 
-	display_dev_n = of_find_matching_node(NULL, sofia_display_of_match);
+	display_dev_n = of_find_matching_node(NULL, display_of_match);
 	if (!display_dev_n) {
 		pr_err("%s: Can't find display matching node\n", __func__);
 		return -EINVAL;
