@@ -519,6 +519,16 @@ config INPUT_LSM303C_ACC
 	  To compile this driver as a module, choose M here: the module
 	  will be called lsm303c_acc.
 
+config INPUT_LSM303C_MAG
+    tristate "LSM303C STM Magnetometer"
+	depends on I2C
+	help
+	  Say Y here to use the LSM303C 3D Magnetometer
+	  from STM.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called lsm303c_mag.
+
 config SENSORS_MMC3416XPJ_MAG
 	tristate "MMC3416xPJ magnetic sensor support"
 	depends on I2C=y

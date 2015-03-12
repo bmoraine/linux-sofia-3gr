@@ -42,6 +42,7 @@ obj-$(CONFIG_INPUT_KXCJK1013_ACC)	+= kxcjk1013_acc.o
 obj-$(CONFIG_INPUT_LSM303DLHC_ACC)	+= lsm303dlhc_acc.o
 obj-$(CONFIG_INPUT_LSM303DLHC_MAG)	+= lsm303dlhc_mag.o
 obj-$(CONFIG_INPUT_LSM303C_ACC)		+= lsm303c_acc.o
+obj-$(CONFIG_INPUT_LSM303C_MAG)		+= lsm303c_mag.o
 obj-$(CONFIG_SENSORS_MMC3416XPJ_MAG)	+= mmc3416x.o mecs.o
 obj-$(CONFIG_SENSORS_MMC3524XPJ_MAG)	+= mmc3524x.o mecs.o
 obj-$(CONFIG_INPUT_M68K_BEEP)		+= m68kspkr.o
