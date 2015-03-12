@@ -16,24 +16,24 @@
 #include <linux/sizes.h>
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
-#include <linux/rockchip_screen.h>
-#include <video/display_timing.h>
 
-#ifdef CONFIG_OF
 #include <linux/of_gpio.h>
+#include <linux/rockchip_screen.h>
+#include <linux/rockchip_fb.h>
+#include <video/display_timing.h>
 #include <video/of_display_timing.h>
-#include <dt-bindings/sofiafb/sofia_fb.h>
-#endif
 
-#define PROP_DISPLAY_GPIO_RST	"intel,disp-gpio-reset"
+#define NODE_DISPLAY_PANEL	"display-panel0"
 
-#define OF_GET_U32(_n_, _p_, _pval_, _e_) \
-	do { \
-		_e_ = of_property_read_u32(_n_, _p_, _pval_); \
-		if (_e_) { \
-			*_pval_ = 0; \
-		} \
-	} while (0)
+#define PROP_DISPLAY_GPIORST    "intel,display-gpio-reset"
+#define PROP_DISPLAY_GPIOVH     "intel,display-gpio-vhigh"
+#define PROP_DISPLAY_GPIOVL     "intel,display-gpio-vlow"
+
+#define GPIO_LIST_POWER_ON      "gpio-power-on"
+#define GPIO_LIST_POWER_OFF     "gpio-power-off"
+
+#define PROP_DISPLAY_GPIOTYPE   "intel,gpio-type"
+#define PROP_DISPLAY_GPIOVALUE  "intel,gpio-value-delay"
 
 static struct rockchip_screen *sfa_screen;
 
@@ -75,117 +75,240 @@ int rockchip_set_prmry_screen(struct rockchip_screen *screen)
 	return 0;
 }
 
+static void rockchip_screen_set_gpiolist(struct rockchip_screen *screen,
+					 struct display_pwr_gpio *gpios)
+{
+	struct display_pwr_gpio *gpio;
+
+	list_for_each_entry(gpio, &gpios->list, list) {
+		switch (gpio->type) {
+		case DISPLAY_GPIO_VHIGH:
+			if (!screen->gpio_vhigh)
+				break;
+
+			gpio_direction_output(screen->gpio_vhigh, gpio->value);
+			break;
+
+		case DISPLAY_GPIO_VLOW:
+			if (!screen->gpio_vlow)
+				break;
+
+			gpio_direction_output(screen->gpio_vlow, gpio->value);
+			break;
+
+		case DISPLAY_GPIO_RESET:
+			if (!screen->gpio_reset)
+				break;
+
+			gpio_direction_output(screen->gpio_reset, gpio->value);
+			break;
+		}
+
+		if (gpio->delay)
+			mdelay(gpio->delay);
+	}
+}
+
+static void rockchip_screen_power_on(struct rockchip_screen *screen)
+{
+	if (screen->gpios_power_on)
+		rockchip_screen_set_gpiolist(screen, screen->gpios_power_on);
+}
+
+static void rockchip_screen_power_off(struct rockchip_screen *screen)
+{
+	if (screen->gpios_power_off)
+		rockchip_screen_set_gpiolist(screen, screen->gpios_power_off);
+}
+
 /*
  * display power control parse from dts
  */
-#ifdef CONFIG_PLATFORM_DEVICE_PM
-static int rockchip_disp_pwr_ctr_parse_dt(struct device_node *np,
-				       struct rockchip_screen *screen)
-{
-	enum of_gpio_flags flags;
-	int ret = 0, i, length = 0;
-	unsigned int val;
-	const __be32 *p;
-	struct property *prop;
-	int *array;
-	struct rockchip_disp_reset_list *res;
 
+static int rockchip_screen_parse_display_gpio(struct device_node *n,
+					      struct display_pwr_gpio *gpio)
+{
+	const char *string;
+	int array[2];
+	int ret;
+
+	gpio->name = n->name;
+	ret = of_property_read_string(n, PROP_DISPLAY_GPIOTYPE, &string);
+	if (ret) {
+		pr_err("%s: Get %s failed\n", __func__, PROP_DISPLAY_GPIOTYPE);
+		return ret;
+	} else if (!strcmp("vhigh", string)) {
+		gpio->type = DISPLAY_GPIO_VHIGH;
+	} else if (!strcmp("vlow", string)) {
+		gpio->type = DISPLAY_GPIO_VLOW;
+	} else if (!strcmp("reset", string)) {
+		gpio->type = DISPLAY_GPIO_RESET;
+	}
+
+	ret = of_property_read_u32_array(n, PROP_DISPLAY_GPIOVALUE, array, 2);
+	if (ret) {
+		pr_err("%s: Get %s failed\n", __func__, PROP_DISPLAY_GPIOVALUE);
+		return ret;
+	}
+
+	gpio->value = array[0];
+	gpio->delay = array[1];
+
+	return 0;
+}
+
+static int
+rockchip_screen_parse_display_gpiolist(struct rockchip_screen *screen,
+				       struct device_node *n,
+				       struct display_pwr_gpio **gpiolist)
+{
+	struct device_node *child;
+	struct display_pwr_gpio *gpio;
+
+	*gpiolist = devm_kzalloc(screen->dev, sizeof(struct display_pwr_gpio),
+				 GFP_KERNEL);
+	if (!*gpiolist) {
+		pr_err("%s: Can't alloc gpio table\n", __func__);
+		return -ENOMEM;
+	}
+
+	INIT_LIST_HEAD(&(*gpiolist)->list);
+	for_each_child_of_node(n, child) {
+		gpio = devm_kzalloc(screen->dev, sizeof(*gpio), GFP_KERNEL);
+		if (!gpio) {
+			pr_err("%s: Allocation of display gpio failed\n",
+			       __func__);
+			return -EINVAL;
+		}
+
+		if (!rockchip_screen_parse_display_gpio(child, gpio))
+			list_add_tail(&gpio->list, &(*gpiolist)->list);
+		else
+			devm_kfree(screen->dev, gpio);
+	}
+
+	return 0;
+}
+
+static int rockchip_screen_parse_gpio(struct rockchip_screen *screen)
+{
+	struct device_node *np = screen->dev->of_node;
+	int ret;
+
+	if (!np) {
+		pr_err("%s: Can't find screen matching node\n", __func__);
+		return -EINVAL;
+	}
+
+	screen->gpio_vhigh = of_get_named_gpio_flags(np,
+			PROP_DISPLAY_GPIOVH, 0, NULL);
+	if (gpio_is_valid(screen->gpio_vhigh)) {
+		ret = gpio_request(screen->gpio_vhigh, "disp_vhigh");
+		if (ret) {
+			pr_err("%s: request display high power gpio fail: %d\n",
+			       __func__, ret);
+			screen->gpio_vhigh = 0;
+		}
+	} else {
+		screen->gpio_vhigh = 0;
+	}
+
+	screen->gpio_vlow = of_get_named_gpio_flags(np,
+			PROP_DISPLAY_GPIOVL, 0, NULL);
+	if (gpio_is_valid(screen->gpio_vlow)) {
+		ret = gpio_request(screen->gpio_vlow, "disp_vlow");
+		if (ret) {
+			pr_err("%s: request display low power gpio fail: %d\n",
+			       __func__, ret);
+			screen->gpio_vlow = 0;
+		}
+	} else {
+		screen->gpio_vlow = 0;
+	}
+
+	screen->gpio_reset = of_get_named_gpio_flags(np,
+			PROP_DISPLAY_GPIORST, 0, NULL);
+	if (gpio_is_valid(screen->gpio_reset)) {
+		ret = gpio_request(screen->gpio_reset, "disp_rst");
+		if (ret) {
+			pr_err("%s: request display reset gpio fail: %d\n",
+			       __func__, ret);
+			screen->gpio_reset = 0;
+		}
+	} else {
+		screen->gpio_reset = 0;
+	}
+
+	return 0;
+}
+
+static int rockchip_disp_pwr_ctr_parse_dt(struct device_node *np,
+					  struct rockchip_screen *screen)
+{
+	int ret = 0;
+	struct device_node *panel_np;
+	struct device_node *child;
+
+#ifdef CONFIG_PLATFORM_DEVICE_PM
 	screen->pm_platdata = of_device_state_pm_setup(np);
 	if (IS_ERR(screen->pm_platdata)) {
 		dev_err(screen->dev, "Error during device state pm init.\n");
 		screen->pm_platdata = NULL;
 		return -EINVAL;
 	}
+#endif
 
-	screen->gpio_rst =
-		of_get_named_gpio_flags(np, PROP_DISPLAY_GPIO_RST, 0, &flags);
+	if (screen->type != SCREEN_MIPI) {
+		rockchip_screen_parse_gpio(screen);
 
-	if (!gpio_is_valid(screen->gpio_rst)) {
-		dev_err(screen->dev, "ivalid gpio reset\n");
-		return -EINVAL;
-	}
-
-	ret = gpio_request(screen->gpio_rst, "lcd_rst");
-	if (ret) {
-		dev_err(screen->dev, "request lcd rst gpio fail:%d\n", ret);
-		return ret;
-	}
-
-	/* count array size */
-	of_property_for_each_u32(np, "intel,display-reset", prop, p, val) {
-		length++;
-	};
-
-	if (length == 0) {
-		screen->resetlist = NULL;
-		return 0;
-	}
-
-	if (length % 2) {
-		dev_err(screen->dev, "intel,display-reset array length should be even\n");
-		return -EINVAL;
-	}
-
-	array = devm_kzalloc(screen->dev, length * sizeof(int), GFP_KERNEL);
-	ret = of_property_read_u32_array(np, "intel,display-reset",
-					 array, length);
-	if (ret) { /* already checked few lines before but does not hurt */
-		pr_err("Can't read property:%s\n", "intel,display-reset");
-		screen->resetlist = NULL;
-		return 0;
-	}
-
-	screen->resetlist =
-		devm_kzalloc(screen->dev,
-				sizeof(struct rockchip_disp_reset_list),
-				GFP_KERNEL);
-	if (!screen->resetlist) {
-		dev_err(screen->dev, "Can't alloc array for disp_reset_list\n");
-		return -ENOMEM;
-	}
-	INIT_LIST_HEAD(&screen->resetlist->list);
-
-	for (i = 0; i < length; i += 2) {
-		res = (struct rockchip_disp_reset_list *)
-			devm_kzalloc(screen->dev, sizeof(*res), GFP_KERNEL);
-		if (!res) {
-			pr_err("allocation of reset failed\n");
+		panel_np  = of_get_child_by_name(np, NODE_DISPLAY_PANEL);
+		if (!panel_np) {
+			pr_err("%s: Can't find display-panel0 matching node\n",
+			       __func__);
 			return -EINVAL;
 		}
-		res->value = array[i];
-		res->mdelay = array[i+1];
-		list_add_tail(&res->list, &screen->resetlist->list);
+
+		for_each_child_of_node(panel_np, child) {
+			if (!strcmp(child->name, GPIO_LIST_POWER_ON)) {
+				ret = rockchip_screen_parse_display_gpiolist(
+						screen, child,
+						&screen->gpios_power_on);
+			} else if (!strcmp(child->name, GPIO_LIST_POWER_OFF)) {
+				ret = rockchip_screen_parse_display_gpiolist(
+						screen, child,
+						&screen->gpios_power_off);
+			}
+
+			if (ret)
+				pr_info("%s: Node %s parsing failed %d\n",
+					__func__, child->name, ret);
+		}
 	}
-	devm_kfree(screen->dev, array);
+
 	return 0;
 }
 
 int rockchip_disp_pwr_enable(struct rockchip_screen *screen)
 {
 	int ret = 0;
-	struct rockchip_disp_reset_list *resetlist = screen->resetlist;
-	struct rockchip_disp_reset_list *res;
 
+	if (unlikely(!screen))
+		return -ENODEV;
+
+#ifdef CONFIG_PLATFORM_DEVICE_PM
 	if (screen->pm_platdata) {
-		ret = device_state_pm_set_state_by_name(screen->dev,
-				screen->pm_platdata->pm_state_D0_name);
+		ret = device_state_pm_set_state_by_name(
+			screen->dev, screen->pm_platdata->pm_state_D0_name);
 		if (ret < 0) {
 			dev_err(screen->dev, "Error while setting the pm class\n");
 			return ret;
 		}
 	}
+#endif
 
-	if (!resetlist)
-		return 0;
-	res = list_first_entry_or_null(&resetlist->list,
-				       struct rockchip_disp_reset_list, list);
-
-	if (!res)
-		return 0;
-
-	list_for_each_entry(res, &screen->resetlist->list, list) {
-		gpio_direction_output(screen->gpio_rst, res->value);
-		mdelay(res->mdelay);
+	if (screen->type != SCREEN_MIPI) {
+		if (screen->power_on)
+			screen->power_on(screen);
 	}
 
 	return 0;
@@ -194,11 +317,14 @@ int rockchip_disp_pwr_enable(struct rockchip_screen *screen)
 int rockchip_disp_pwr_disable(struct rockchip_screen *screen)
 {
 	int ret = 0;
-	struct rockchip_disp_reset_list *res;
 
+	if (unlikely(!screen))
+		return -ENODEV;
+
+#ifdef CONFIG_PLATFORM_DEVICE_PM
 	if (screen->pm_platdata) {
-		ret = device_state_pm_set_state_by_name(screen->dev,
-				screen->pm_platdata->pm_state_D3_name);
+		ret = device_state_pm_set_state_by_name(
+			screen->dev, screen->pm_platdata->pm_state_D3_name);
 
 		if (ret < 0) {
 			dev_err(screen->dev, "could not set PM state: %s\n",
@@ -206,189 +332,15 @@ int rockchip_disp_pwr_disable(struct rockchip_screen *screen)
 			return ret;
 		}
 	}
-
-	if (screen->resetlist) {
-		res = list_last_entry(&screen->resetlist->list,
-				      struct rockchip_disp_reset_list, list);
-		gpio_direction_output(screen->gpio_rst, !res->value);
-	}
-	return 0;
-}
-
-#else
-static int rockchip_disp_pwr_ctr_parse_dt(struct device_node *np,
-				       struct rockchip_screen *screen)
-{
-	struct device_node *root = of_get_child_by_name(np, "power_ctr");
-	struct device_node *child;
-	struct rockchip_disp_pwr_ctr_list *pwr_ctr;
-	struct list_head *pos;
-	enum of_gpio_flags flags;
-	u32 val = 0;
-	u32 debug = 0;
-	int ret;
-
-	INIT_LIST_HEAD(&screen->pwrlist_head);
-	if (!root) {
-		pr_err("can't find power_ctr node for screen\n");
-		return -ENODEV;
-	}
-
-	for_each_child_of_node(root, child) {
-		pwr_ctr = kzalloc(sizeof(*pwr_ctr), GFP_KERNEL);
-		strcpy(pwr_ctr->pwr_ctr.name, child->name);
-		if (!of_property_read_u32(child, "rockchip,power_type", &val)) {
-			if (val == GPIO) {
-				pwr_ctr->pwr_ctr.type = GPIO;
-				pwr_ctr->pwr_ctr.gpio =
-				    of_get_gpio_flags(child, 0, &flags);
-				if (!gpio_is_valid(pwr_ctr->pwr_ctr.gpio)) {
-					pr_err("%s ivalid gpio\n", child->name);
-					return -EINVAL;
-				}
-				pwr_ctr->pwr_ctr.atv_val =
-				    !(flags & OF_GPIO_ACTIVE_LOW);
-				ret = gpio_request(pwr_ctr->pwr_ctr.gpio,
-						   child->name);
-				if (ret)
-					pr_err("request %s gpio fail:%d\n",
-					       child->name, ret);
-			} else {
-				pwr_ctr->pwr_ctr.type = REGULATOR;
-				pwr_ctr->pwr_ctr.rgl_name = NULL;
-				ret = of_property_read_string(child,
-						"rockchip,regulator_name",
-						&(pwr_ctr->pwr_ctr.rgl_name));
-				if (ret ||
-				    IS_ERR_OR_NULL(pwr_ctr->pwr_ctr.rgl_name))
-					pr_err("get regulator name failed!\n");
-				if (!of_property_read_u32(child,
-							  "rockchip,regulator_voltage",
-							  &val))
-					pwr_ctr->pwr_ctr.volt = val;
-				else
-					pwr_ctr->pwr_ctr.volt = 0;
-			}
-		};
-
-		if (!of_property_read_u32(child, "rockchip,delay", &val))
-			pwr_ctr->pwr_ctr.delay = val;
-		else
-			pwr_ctr->pwr_ctr.delay = 0;
-		list_add_tail(&pwr_ctr->list, &screen->pwrlist_head);
-	}
-
-	of_property_read_u32(root, "rockchip,debug", &debug);
-
-	if (debug) {
-		list_for_each(pos, &screen->pwrlist_head) {
-			pwr_ctr = list_entry(pos,
-					     struct rockchip_disp_pwr_ctr_list,
-					     list);
-			pr_info("pwr_ctr_name:%s\n" "pwr_type:%s\n"
-			       "gpio:%d\n" "atv_val:%d\n" "delay:%d\n\n",
-			       pwr_ctr->pwr_ctr.name,
-			       (pwr_ctr->pwr_ctr.type ==
-				GPIO) ? "gpio" : "regulator",
-			       pwr_ctr->pwr_ctr.gpio, pwr_ctr->pwr_ctr.atv_val,
-			       pwr_ctr->pwr_ctr.delay);
-		}
-	}
-
-	return 0;
-}
-
-int rockchip_disp_pwr_enable(struct rockchip_screen *screen)
-{
-	struct list_head *pos;
-	struct rockchip_disp_pwr_ctr_list *pwr_ctr_list;
-	struct pwr_ctr *pwr_ctr;
-	struct regulator *regulator_lcd = NULL;
-	int count = 10;
-
-	if (unlikely(!screen))
-		return -ENODEV;
-	if (list_empty(&screen->pwrlist_head))
-		return 0;
-	list_for_each(pos, &screen->pwrlist_head) {
-		pwr_ctr_list = list_entry(pos,
-				struct rockchip_disp_pwr_ctr_list, list);
-		pwr_ctr = &pwr_ctr_list->pwr_ctr;
-		if (pwr_ctr->type == GPIO) {
-			gpio_direction_output(pwr_ctr->gpio, pwr_ctr->atv_val);
-			mdelay(pwr_ctr->delay);
-		} else if (pwr_ctr->type == REGULATOR) {
-			if (pwr_ctr->rgl_name)
-				regulator_lcd =
-				    regulator_get(NULL, pwr_ctr->rgl_name);
-			if (regulator_lcd == NULL) {
-				pr_err
-				    ("%s: regulator [%s] get failed\n",
-				     __func__, pwr_ctr->rgl_name);
-				continue;
-			}
-			regulator_set_voltage(regulator_lcd, pwr_ctr->volt,
-					      pwr_ctr->volt);
-			while (!regulator_is_enabled(regulator_lcd)) {
-				if (regulator_enable(regulator_lcd) == 0 ||
-				    count == 0)
-					break;
-
-				pr_err("regulator_enable failed,count=%d\n",
-				       count);
-				count--;
-			}
-			regulator_put(regulator_lcd);
-			msleep(pwr_ctr->delay);
-		}
-	}
-
-	return 0;
-}
-
-int rockchip_disp_pwr_disable(struct rockchip_screen *screen)
-{
-	struct list_head *pos;
-	struct rockchip_disp_pwr_ctr_list *pwr_ctr_list;
-	struct pwr_ctr *pwr_ctr;
-	struct regulator *regulator_lcd = NULL;
-	int count = 10;
-
-	if (unlikely(!screen))
-		return -ENODEV;
-	if (list_empty(&screen->pwrlist_head))
-		return 0;
-	list_for_each(pos, &screen->pwrlist_head) {
-		pwr_ctr_list = list_entry(pos,
-				struct rockchip_disp_pwr_ctr_list, list);
-		pwr_ctr = &pwr_ctr_list->pwr_ctr;
-		if (pwr_ctr->type == GPIO) {
-			gpio_set_value(pwr_ctr->gpio, !pwr_ctr->atv_val);
-		} else if (pwr_ctr->type == REGULATOR) {
-			if (pwr_ctr->rgl_name)
-				regulator_lcd =
-				    regulator_get(NULL, pwr_ctr->rgl_name);
-			if (regulator_lcd == NULL) {
-				pr_err
-				    ("%s: regulator [%s] get failed\n",
-				     __func__, pwr_ctr->rgl_name);
-				continue;
-			}
-			while (regulator_is_enabled(regulator_lcd) > 0) {
-				if (regulator_disable(regulator_lcd) == 0 ||
-				    count == 0)
-					break;
-
-				pr_err("regulator_disable failed,count=%d\n",
-				       count);
-				count--;
-			}
-			regulator_put(regulator_lcd);
-		}
-	}
-	return 0;
-}
 #endif
+
+	if (screen->type != SCREEN_MIPI) {
+		if (screen->power_off)
+			screen->power_off(screen);
+	}
+
+	return 0;
+}
 
 static int rockchip_fb_videomode_from_timing(const struct display_timing *dt,
 					  struct rockchip_screen *screen)
@@ -463,6 +415,9 @@ static int rockchip_screen_probe(struct platform_device *pdev)
 	sfa_screen->dev =  &pdev->dev;
 	ret = rockchip_prase_timing_dt(np, sfa_screen);
 	rockchip_disp_pwr_ctr_parse_dt(np, sfa_screen);
+
+	sfa_screen->power_on = rockchip_screen_power_on;
+	sfa_screen->power_off = rockchip_screen_power_off;
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	if (sfa_screen->pm_platdata) {

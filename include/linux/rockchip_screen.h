@@ -27,26 +27,18 @@
 #define ALIGN_ODD_TIMES(x, align)	\
 	(((x) % ((align) * 2) == 0) ? ((x) + (align)) : (x))
 
-struct pwr_ctr {
-	char name[32];
-	int type;
-	int is_rst;
-	int gpio;
-	int atv_val;
-	const char *rgl_name;
-	int volt;
-	int delay;
+enum display_gpio_t {
+	DISPLAY_GPIO_VHIGH = 0,
+	DISPLAY_GPIO_VLOW = 1,
+	DISPLAY_GPIO_RESET = 2,
 };
 
-struct rockchip_disp_reset_list {
+struct display_pwr_gpio {
 	struct list_head list;
+	const char *name;
+	enum display_gpio_t type;
 	int value;
-	int mdelay;
-};
-
-struct rockchip_disp_pwr_ctr_list {
-	struct list_head list;
-	struct pwr_ctr pwr_ctr;
+	int delay;		/* in ms */
 };
 
 /*
@@ -105,18 +97,21 @@ struct rockchip_screen {
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	struct device_pm_platdata *pm_platdata;
-	struct rockchip_disp_reset_list *resetlist;
-	int gpio_rst;
-#else
-	struct list_head pwrlist_head;
 #endif
+
+	int gpio_vhigh;
+	int gpio_vlow;
+	int gpio_reset;
+	struct display_pwr_gpio *gpios_power_on;
+	struct display_pwr_gpio *gpios_power_off;
+
 	struct rockchip_screen *ext_screen;
 	/* Operation function */
 	int (*init)(void);
 	int (*standby)(u8 enable);
 	int (*refresh)(u8 arg);
-	int (*scandir)(u16 dir);
-	int (*disparea)(u8 area);
+	void (*power_on)(struct rockchip_screen *screen);
+	void (*power_off)(struct rockchip_screen *screen);
 };
 
 size_t get_fb_size(void);
