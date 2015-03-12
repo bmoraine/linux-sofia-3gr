@@ -327,8 +327,8 @@ static int __init idi_peripheral_device_register(struct device_node *np)
 		status = -EINVAL;
 		goto free_resources;
 	}
+	goto free_peripheral;
 
-	return 0;
 free_resources:
 	kfree(info->resources.resource);
 free_peripheral:
