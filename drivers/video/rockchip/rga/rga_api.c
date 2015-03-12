@@ -40,7 +40,7 @@
 
 void  matrix_cal(const struct rga_req *msg, struct TILE_INFO *tile)
 {
-	uint32_t x_time, y_time;
+	uint64_t x_time, y_time;
 	uint64_t sina, cosa;
 	int s_act_w, s_act_h, d_act_w, d_act_h;
 
@@ -70,16 +70,16 @@ void  matrix_cal(const struct rga_req *msg, struct TILE_INFO *tile)
 		tile->matrix[3] = cosa * y_time;
 		break;
 	case 2:
-		tile->matrix[0] = -(x_time << 16);
+		tile->matrix[0] = -(x_time << 32);
 		tile->matrix[1] = 0;
 		tile->matrix[2] = 0;
-		tile->matrix[3] = (y_time << 16);
+		tile->matrix[3] = (y_time << 32);
 		break;
 	case 3:
-		tile->matrix[0] = (x_time << 16);
+		tile->matrix[0] = (x_time << 32);
 		tile->matrix[1] = 0;
 		tile->matrix[2] = 0;
-		tile->matrix[3] = -(y_time << 16);
+		tile->matrix[3] = -(y_time << 32);
 		break;
 	default:
 		tile->matrix[0] = (uint64_t)1 << 32;

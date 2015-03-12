@@ -352,45 +352,45 @@ void  src_tile_info_cal(const struct rga_req *msg, struct TILE_INFO *tile)
 		x_dy = pos[7] - pos[1];
 		y_dx = pos[2] - pos[0];
 		y_dy = pos[3] - pos[1];
-		tile->x_dx = (s32)(x_dx >> 22);
-		tile->x_dy = (s32)(x_dy >> 22);
-		tile->y_dx = (s32)(y_dx >> 22);
-		tile->y_dy = (s32)(y_dy >> 22);
+		tile->x_dx = (s32)(x_dx / (1 << 22));
+		tile->x_dy = (s32)(x_dy / (1 << 22));
+		tile->y_dx = (s32)(y_dx / (1 << 22));
+		tile->y_dy = (s32)(y_dy / (1 << 22));
 		x_temp_start = x0 * xx + y0 * yx;
 		y_temp_start = x0 * xy + y0 * yy;
 		xmax = (MAX(MAX(MAX(epos[0], epos[2]), epos[4]), epos[6]));
 		xmin = (MIN(MIN(MIN(epos[0], epos[2]), epos[4]), epos[6]));
 		ymax = (MAX(MAX(MAX(epos[1], epos[3]), epos[5]), epos[7]));
 		ymin = (MIN(MIN(MIN(epos[1], epos[3]), epos[5]), epos[7]));
-		t_xoff = (x_temp_start - xmin) >> 18;
-		t_yoff = (y_temp_start - ymin) >> 18;
+		t_xoff = (x_temp_start - xmin) / (1 << 18);
+		t_yoff = (y_temp_start - ymin) / (1 << 18);
 		tile->tile_xoff = (s32)t_xoff;
 		tile->tile_yoff = (s32)t_yoff;
-		tile->tile_w = (u16)((xmax - xmin) >> 21);
-		tile->tile_h = (u16)((ymax - ymin) >> 21);
-		tile->tile_start_x_coor = (s16)(xmin >> 29);
-		tile->tile_start_y_coor = (s16)(ymin >> 29);
+		tile->tile_w = (u16)((xmax - xmin) / (1 << 21));
+		tile->tile_h = (u16)((ymax - ymin) / (1 << 21));
+		tile->tile_start_x_coor = (s16)(xmin / (1 << 29));
+		tile->tile_start_y_coor = (s16)(ymin / (1 << 29));
 	} else if (msg->rotate_mode == 2) {
-		tile->x_dx = (s32)((8 * xx) >> 22);
+		tile->x_dx = (s32)((8 * xx) / (1 << 22));
 		tile->x_dy = 0;
 		tile->y_dx = 0;
-		tile->y_dy = (s32)((8 * yy) >> 22);
-		tile->tile_w = ABS((s32)((7 * xx) >> 21));
-		tile->tile_h = ABS((s32)((7 * yy) >> 21));
-		tile->tile_xoff = ABS((s32)((7 * xx) >> 18));
+		tile->y_dy = (s32)((8 * yy) / (1 << 22));
+		tile->tile_w = ABS((s32)((7 * xx) / (1 << 21)));
+		tile->tile_h = ABS((s32)((7 * yy) / (1 << 21)));
+		tile->tile_xoff = ABS((s32)((7 * xx) / (1 << 18)));
 		tile->tile_yoff = 0;
 		tile->tile_start_x_coor =
 		    (((msg->src.act_w - 1) << 11) - (tile->tile_w)) >> 8;
 		tile->tile_start_y_coor = 0;
 	} else if (msg->rotate_mode == 3) {
-		tile->x_dx = (s32)((8 * xx) >> 22);
+		tile->x_dx = (s32)((8 * xx) / (1 << 22));
 		tile->x_dy = 0;
 		tile->y_dx = 0;
-		tile->y_dy = (s32)((8 * yy) >> 22);
-		tile->tile_w = ABS((s32)((7 * xx) >> 21));
-		tile->tile_h = ABS((s32)((7 * yy) >> 21));
+		tile->y_dy = (s32)((8 * yy) / (1 << 22));
+		tile->tile_w = ABS((s32)((7 * xx) / (1 << 21)));
+		tile->tile_h = ABS((s32)((7 * yy) / (1 << 21)));
 		tile->tile_xoff = 0;
-		tile->tile_yoff = ABS((s32)((7 * yy) >> 18));
+		tile->tile_yoff = ABS((s32)((7 * yy) / (1 << 18)));
 		tile->tile_start_x_coor = 0;
 		tile->tile_start_y_coor =
 		    (((msg->src.act_h - 1) << 11) - (tile->tile_h)) >> 8;
@@ -1019,7 +1019,7 @@ RGA_set_bitblt_reg_info(u8 *base, const struct rga_req *msg,
 	u32 *b_RGA_SRC_TILE_OFFSETY;
 	u32 *b_RGA_DST_MST;
 	u32 *b_RGA_DST_CTR_INFO;
-	s32 m0, m1, m2, m3;
+	u32 m0, m1, m2, m3;
 	s32 pos[8];
 
 	s32 xmin, xmax, ymin, ymax;
@@ -1046,10 +1046,10 @@ RGA_set_bitblt_reg_info(u8 *base, const struct rga_req *msg,
 	b_RGA_DST_CTR_INFO = (u32 *)(base + RGA_DST_CTR_INFO_OFFSET);
 
 	    /* Matrix reg fill */
-	m0 = (s32)(tile->matrix[0] >> 18);
-	m1 = (s32)(tile->matrix[1] >> 18);
-	m2 = (s32)(tile->matrix[2] >> 18);
-	m3 = (s32)(tile->matrix[3] >> 18);
+	m0 = (tile->matrix[0] / (1 << 18));
+	m1 = (tile->matrix[1] / (1 << 18));
+	m2 = (tile->matrix[2] / (1 << 18));
+	m3 = (tile->matrix[3] / (1 << 18));
 	*b_RGA_SRC_X_PARA = (m0 & 0xffff) | (m2 << 16);
 	*b_RGA_SRC_Y_PARA = (m1 & 0xffff) | (m3 << 16);
 
