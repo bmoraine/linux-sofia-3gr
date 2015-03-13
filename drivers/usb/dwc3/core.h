@@ -391,8 +391,10 @@ struct dwc3_event_buffer {
  * @endpoint: usb endpoint
  * @request_list: list of requests for this endpoint
  * @req_queued: list of requests on this ep which have TRBs setup
- * @trb_pool: array of transaction buffers
- * @trb_pool_dma: dma address of @trb_pool
+ * @dwc3_trb_pool: internal array of transaction buffers
+ * @dwc3_trb_pool_dma: internal dma address of @trb_pool
+ * @trb_pool: array of transaction buffers in use (maybe external)
+ * @trb_pool_dma: dma address of @trb_pool in use (maybe external)
  * @trb_pool_size: TRB pool size (number of TRBs)
  * @trb_pool_linked: TRB pool is linked
  * @free_slot: next slot which is going to be used
@@ -414,6 +416,8 @@ struct dwc3_ep {
 	struct list_head	request_list;
 	struct list_head	req_queued;
 
+	struct dwc3_trb		*dwc3_trb_pool;
+	dma_addr_t		dwc3_trb_pool_dma;
 	struct dwc3_trb		*trb_pool;
 	dma_addr_t		trb_pool_dma;
 	unsigned		trb_pool_size;		/* must be power of 2 */

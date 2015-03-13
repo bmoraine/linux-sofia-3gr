@@ -395,16 +395,16 @@ static int dwc3_alloc_trb_pool(struct dwc3_ep *dep)
 {
 	struct dwc3		*dwc = dep->dwc;
 
-	if (dep->trb_pool)
+	if (dep->dwc3_trb_pool)
 		return 0;
 
 	if (dep->number == 0 || dep->number == 1)
 		return 0;
 
-	dep->trb_pool = dma_alloc_coherent(dwc->dev,
+	dep->dwc3_trb_pool = dma_alloc_coherent(dwc->dev,
 			sizeof(struct dwc3_trb) * DWC3_TRB_POOL_SIZE,
-			&dep->trb_pool_dma, GFP_KERNEL);
-	if (!dep->trb_pool) {
+			&dep->dwc3_trb_pool_dma, GFP_KERNEL);
+	if (!dep->dwc3_trb_pool) {
 		dev_err(dep->dwc->dev, "failed to allocate trb pool for %s\n",
 				dep->name);
 		return -ENOMEM;
@@ -419,10 +419,10 @@ static void dwc3_free_trb_pool(struct dwc3_ep *dep)
 
 	dma_free_coherent(dwc->dev,
 			sizeof(struct dwc3_trb) * DWC3_TRB_POOL_SIZE,
-			dep->trb_pool, dep->trb_pool_dma);
+			dep->dwc3_trb_pool, dep->dwc3_trb_pool_dma);
 
-	dep->trb_pool = NULL;
-	dep->trb_pool_dma = 0;
+	dep->dwc3_trb_pool = NULL;
+	dep->dwc3_trb_pool_dma = 0;
 }
 
 static int dwc3_gadget_start_config(struct dwc3 *dwc, struct dwc3_ep *dep)
@@ -541,6 +541,12 @@ static int __dwc3_gadget_ep_enable(struct dwc3_ep *dep,
 	int			ret = -ENOMEM;
 
 	dev_vdbg(dwc->dev, "Enabling %s\n", dep->name);
+
+	ret = dwc3_ebc_ext_xfer_stop(dep->ebc_ext, dep->number >> 1);
+	if (ret && -EOPNOTSUPP != ret) {
+		dev_err(dwc->dev, "%s: xfer stop error\n", dep->name);
+		return ret;
+	}
 
 	if (!(dep->flags & DWC3_EP_ENABLED)) {
 		ret = dwc3_gadget_start_config(dwc, dep);
@@ -708,6 +714,8 @@ static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	BUILD_BUG_ON_NOT_POWER_OF_2(DWC3_TRB_POOL_SIZE);
+	dep->trb_pool = dep->dwc3_trb_pool;
+	dep->trb_pool_dma = dep->dwc3_trb_pool_dma;
 	dep->trb_pool_size = DWC3_TRB_POOL_SIZE;
 	dep->trb_pool_linked = usb_endpoint_xfer_isoc(dep->endpoint.desc);
 
@@ -720,6 +728,18 @@ static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 		}
 	}
 
+	if (dwc3_ebc_ext_trb_pool_needed(dep->ebc_ext))
+		dep->trb_pool = dwc3_ebc_ext_trb_pool_alloc(
+				dep->ebc_ext, dwc->dev,
+				sizeof(struct dwc3_trb) * dep->trb_pool_size,
+				&dep->trb_pool_dma, GFP_KERNEL);
+
+	if (!dep->trb_pool || !dep->trb_pool_dma) {
+		dev_err(dwc->dev, "failed to alloc dma pool\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
 	if (dep->ebc_ext) {
 		dep->trb_pool_size = dwc3_ebc_ext_trb_pool_size(dep->ebc_ext);
 		dep->trb_pool_linked = dwc3_ebc_ext_trb_pool_linked(
@@ -727,6 +747,8 @@ static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 	}
 
 	ret = __dwc3_gadget_ep_enable(dep, desc, ep->comp_desc, false);
+
+out:
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return ret;
@@ -760,9 +782,15 @@ static int dwc3_gadget_ep_disable(struct usb_ep *ep)
 	spin_lock_irqsave(&dwc->lock, flags);
 	ret = __dwc3_gadget_ep_disable(dep);
 
+	dwc3_ebc_ext_trb_pool_free(dep->ebc_ext, dwc->dev,
+				sizeof(struct dwc3_trb) * dep->trb_pool_size,
+				dep->trb_pool, dep->trb_pool_dma);
+
 	/* restore default */
 	dep->trb_pool_linked = false;
 	dep->trb_pool_size = DWC3_TRB_POOL_SIZE;
+	dep->trb_pool_dma = dep->dwc3_trb_pool_dma;
+	dep->trb_pool = dep->dwc3_trb_pool;
 	dep->ebc_ext = NULL;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
@@ -1013,6 +1041,12 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param,
 	}
 	dep->flags &= ~DWC3_EP_PENDING_REQUEST;
 
+	ret = dwc3_ebc_ext_xfer_stop(dep->ebc_ext, dep->number >> 1);
+	if (ret && -EOPNOTSUPP != ret) {
+		dev_err(dwc->dev, "%s: xfer stop error\n", dep->name);
+		return ret;
+	}
+
 	/*
 	 * If we are getting here after a short-out-packet we don't enqueue any
 	 * new requests as we try to set the IOC bit only on the last request.
@@ -1047,6 +1081,13 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param,
 	}
 
 	cmd |= DWC3_DEPCMD_PARAM(cmd_param);
+
+	ret = dwc3_ebc_ext_xfer_start(dep->ebc_ext, dep->number >> 1);
+	if (ret && -EOPNOTSUPP != ret) {
+		dev_err(dwc->dev, "%s: xfer start error\n", dep->name);
+		return ret;
+	}
+
 	ret = dwc3_send_gadget_ep_cmd(dwc, dep->number, cmd, &params);
 	if (ret < 0) {
 		dev_dbg(dwc->dev, "failed to send STARTTRANSFER command\n");
