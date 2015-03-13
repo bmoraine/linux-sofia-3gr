@@ -30,6 +30,7 @@
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <linux/usb/gadget_ioctl.h>
 #include <linux/usb/otg.h>
 
 #include "core.h"
@@ -1767,6 +1768,47 @@ static int dwc3_gadget_vbus_draw(struct usb_gadget *g, unsigned mA)
 	return 0;
 }
 
+static int dwc3_gadget_ioctl(
+	struct usb_gadget *gadget, unsigned code, unsigned long param)
+{
+	struct dwc3 *dwc = NULL;
+	struct usb_gadget_ioctl_params *ioctl = NULL;
+	int ret = 0;
+
+
+	if (IS_ERR_OR_NULL(gadget)) {
+		pr_err("%s: invalid parameter\n", __func__);
+		return -EINVAL;
+	}
+	dwc = gadget_to_dwc(gadget);
+	if (IS_ERR_OR_NULL(dwc)) {
+		pr_err("%s: initialization issue\n", __func__);
+		return -EINVAL;
+	}
+	if (IOCTL_CODE_DWC3 != code) {
+		dev_err(dwc->dev, "ioctl code not supported: %d\n", code);
+		return -EOPNOTSUPP;
+	}
+	ioctl = (struct usb_gadget_ioctl_params *)param;
+	if (IS_ERR_OR_NULL(ioctl)) {
+		dev_err(dwc->dev, "invalid ioctl parameter\n");
+		return -EINVAL;
+	}
+
+	switch (ioctl->subcode)	{
+	case VENDOR_DWC3_EBC_EXT_ADD:
+		break;
+	case VENDOR_DWC3_EBC_EXT_REMOVE:
+		break;
+	default:
+		dev_err(dwc->dev, "ioctl subcode not supported: %d\n",
+			ioctl->subcode);
+		return -EOPNOTSUPP;
+	}
+
+	return ret;
+}
+
 static const struct usb_gadget_ops dwc3_gadget_ops = {
 	.get_frame		= dwc3_gadget_get_frame,
 	.wakeup			= dwc3_gadget_wakeup,
@@ -1776,6 +1818,7 @@ static const struct usb_gadget_ops dwc3_gadget_ops = {
 	.udc_stop		= dwc3_gadget_stop,
 	.vbus_session		= dwc3_gadget_vbus_session,
 	.vbus_draw		= dwc3_gadget_vbus_draw,
+	.ioctl			= dwc3_gadget_ioctl,
 };
 
 /* -------------------------------------------------------------------------- */
