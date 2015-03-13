@@ -428,7 +428,7 @@ static int rockchip_fb_check_config_var(struct rockchip_fb_area_par *area_par,
 	    (area_par->y_offset + area_par->yact > area_par->yvir) ||
 	    (area_par->xact <= 0) || (area_par->yact <= 0) ||
 	    (area_par->xvir <= 0) || (area_par->yvir <= 0)) {
-		pr_err("check config var fail 0:\n"
+		pr_debug("check config var fail 0:\n"
 		       "x_offset=%d,xact=%d,xvir=%d,y_offset=%d,yact=%d,yvir=%d\n",
 		       area_par->x_offset, area_par->xact, area_par->xvir,
 		       area_par->y_offset, area_par->yact, area_par->yvir);
