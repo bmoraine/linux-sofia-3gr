@@ -29,6 +29,7 @@
 #include <linux/dma-mapping.h>
 
 #include <linux/usb/ch9.h>
+#include <linux/usb/dwc3_extension.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/gadget_ioctl.h>
 #include <linux/usb/otg.h>
@@ -481,6 +482,12 @@ static int dwc3_gadget_set_ep_config(struct dwc3 *dwc, struct dwc3_ep *dep,
 	if (usb_endpoint_xfer_isoc(desc))
 		params.param1 |= DWC3_DEPCFG_XFER_IN_PROGRESS_EN;
 
+	if (dep->ebc_ext) {
+		params.param1 = DWC3_DEPCFG_EBC_MODE_EN;
+		params.param1 |= DWC3_DEPCFG_XFER_NOT_READY_EN;
+		dep->stream_capable = false;
+	}
+
 	/*
 	 * We are doing 1:1 mapping for endpoints, meaning
 	 * Physical Endpoints 2 maps to Logical Endpoint 2 and
@@ -655,6 +662,8 @@ static int dwc3_gadget_ep0_disable(struct usb_ep *ep)
 static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 		const struct usb_endpoint_descriptor *desc)
 {
+	struct dwc3_ebc_ext *tmp = NULL;
+	struct dwc3_ebc_ext *n = NULL;
 	struct dwc3_ep			*dep;
 	struct dwc3			*dwc;
 	unsigned long			flags;
@@ -702,6 +711,21 @@ static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 	dep->trb_pool_size = DWC3_TRB_POOL_SIZE;
 	dep->trb_pool_linked = usb_endpoint_xfer_isoc(dep->endpoint.desc);
 
+	/* check if some ebc extension can handle it */
+	dep->ebc_ext = NULL;
+	list_for_each_entry_safe(tmp, n, &dwc->ebc_ext_list, list) {
+		if (dwc3_ebc_ext_needed(tmp, ep->driver_data)) {
+			dep->ebc_ext = tmp;
+			break;	/* found */
+		}
+	}
+
+	if (dep->ebc_ext) {
+		dep->trb_pool_size = dwc3_ebc_ext_trb_pool_size(dep->ebc_ext);
+		dep->trb_pool_linked = dwc3_ebc_ext_trb_pool_linked(
+				dep->ebc_ext);
+	}
+
 	ret = __dwc3_gadget_ep_enable(dep, desc, ep->comp_desc, false);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
@@ -739,6 +763,7 @@ static int dwc3_gadget_ep_disable(struct usb_ep *ep)
 	/* restore default */
 	dep->trb_pool_linked = false;
 	dep->trb_pool_size = DWC3_TRB_POOL_SIZE;
+	dep->ebc_ext = NULL;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	return ret;
@@ -788,6 +813,10 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 			length, last ? " last" : "",
 			chain ? " chain" : "");
 
+	if (dwc3_ebc_ext_trb_pool_linked(dep->ebc_ext)) {
+		chain = true;
+		last = false;
+	}
 
 	trb = dwc3_get_trb(dep, dep->free_slot);
 
@@ -1768,6 +1797,49 @@ static int dwc3_gadget_vbus_draw(struct usb_gadget *g, unsigned mA)
 	return 0;
 }
 
+/**
+ * @add if true add ebc extension else remove
+ */
+static int dwc3_gadget_ioctl_ebc_ext(
+	struct dwc3 *dwc, struct dwc3_ebc_ext *ext, bool add)
+{
+	struct dwc3_ebc_ext *tmp = NULL;
+	struct dwc3_ebc_ext *n = NULL;
+
+
+	if (IS_ERR_OR_NULL(dwc)) {
+		pr_err("invalid parameter\n");
+		return -EINVAL;
+	}
+	if (!dwc3_ebc_ext_valid(ext)) {
+		dev_err(dwc->dev, "invalid ebc extension\n");
+		return -EINVAL;
+	}
+
+	list_for_each_entry_safe(tmp, n, &dwc->ebc_ext_list, list) {
+		if (ext == tmp)
+			goto found;
+	}
+	if (add)
+		list_add_tail(&ext->list, &dwc->ebc_ext_list);
+	else {
+		dev_warn(dwc->dev,
+			"%s remove, ebc extension not found\n",	__func__);
+		return -ENODEV;
+	}
+	return 0;
+
+found:
+	if (!add)
+		list_del(&ext->list);
+	else {
+		dev_warn(dwc->dev,
+			"%s add, ignore duplicate extension\n", __func__);
+		return -EALREADY;
+	}
+	return 0;
+}
+
 static int dwc3_gadget_ioctl(
 	struct usb_gadget *gadget, unsigned code, unsigned long param)
 {
@@ -1797,8 +1869,12 @@ static int dwc3_gadget_ioctl(
 
 	switch (ioctl->subcode)	{
 	case VENDOR_DWC3_EBC_EXT_ADD:
+		ret = dwc3_gadget_ioctl_ebc_ext(dwc,
+			(struct dwc3_ebc_ext *)ioctl->params, true);
 		break;
 	case VENDOR_DWC3_EBC_EXT_REMOVE:
+		ret = dwc3_gadget_ioctl_ebc_ext(dwc,
+			(struct dwc3_ebc_ext *)ioctl->params, false);
 		break;
 	default:
 		dev_err(dwc->dev, "ioctl subcode not supported: %d\n",
@@ -2814,6 +2890,8 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	 * on ep out.
 	 */
 	dwc->gadget.quirk_ep_out_aligned_size = true;
+
+	INIT_LIST_HEAD(&dwc->ebc_ext_list);
 
 	/*
 	 * REVISIT: Here we should clear all pending IRQs to be

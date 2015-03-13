@@ -29,6 +29,7 @@
 #include <linux/debugfs.h>
 
 #include <linux/usb/ch9.h>
+#include <linux/usb/dwc3_extension.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
 
@@ -443,6 +444,8 @@ struct dwc3_ep {
 
 	unsigned		direction:1;
 	unsigned		stream_capable:1;
+
+	struct dwc3_ebc_ext	*ebc_ext;
 };
 
 enum dwc3_phy {
@@ -738,6 +741,8 @@ struct dwc3 {
 
 	u8			test_mode;
 	u8			test_mode_nr;
+
+	struct list_head	ebc_ext_list;
 };
 
 /* -------------------------------------------------------------------------- */
