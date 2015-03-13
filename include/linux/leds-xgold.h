@@ -52,9 +52,9 @@ struct xgold_led_data {
 	struct led_classdev led_cdev;
 	struct work_struct work;
 	enum led_brightness led_brightness;
-	spinlock_t lock;
+	struct mutex lock;
 	struct hrtimer timer;
-	spinlock_t timer_lock;
+	struct mutex timer_lock;
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	struct device_pm_platdata *pm_platdata;
 #endif

@@ -17,7 +17,6 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/slab.h>
-#include <linux/spinlock.h>
 #include <linux/leds.h>
 #include <linux/hrtimer.h>
 #include <linux/workqueue.h>
@@ -75,12 +74,11 @@ static void xgold_led_brightness_set(struct led_classdev *led_cdev,
 {
 	struct xgold_led_data *led =
 		container_of(led_cdev, struct xgold_led_data, led_cdev);
-	unsigned long flags;
 	pr_debug("%s -->\n", __func__);
-	spin_lock_irqsave(&led->lock, flags);
+	mutex_lock(&led->lock);
 	led->led_brightness = brightness;
 	schedule_work(&led->work);
-	spin_unlock_irqrestore(&led->lock, flags);
+	mutex_unlock(&led->lock);
 	return;
 }
 
@@ -129,11 +127,10 @@ int32_t xgold_led_probe(struct platform_device *pdev)
 	led->pdev = pdev;
 	led->np = np;
 	led->led_brightness = LED_HALF;
-	spin_lock_init(&led->lock);
 	led->led_cdev.name = "lcd-backlight";
 	led->led_cdev.brightness = LED_HALF;
 	led->led_cdev.brightness_set = xgold_led_brightness_set;
-
+	mutex_init(&led->lock);
 	if (led_classdev_register(NULL, &led->led_cdev)) {
 		dev_err(dev, "unable to register with Leds class\n");
 		return -EINVAL;

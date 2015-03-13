@@ -17,7 +17,6 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/slab.h>
-#include <linux/spinlock.h>
 #include <linux/leds.h>
 #include <linux/hrtimer.h>
 #include <linux/workqueue.h>

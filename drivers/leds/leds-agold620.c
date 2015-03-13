@@ -17,7 +17,6 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/slab.h>
-#include <linux/spinlock.h>
 #include <linux/leds.h>
 #include <linux/hrtimer.h>
 #include <linux/workqueue.h>
@@ -140,7 +139,7 @@ static int32_t agold620_led_hwinit(struct device *dev)
 	struct xgold_led_data *led = dev_get_drvdata(dev);
 	struct device_pm_platdata *pm_platdata = led->pm_platdata;
 	pr_debug("%s -->\n", __func__);
-	spin_lock_init(&led->timer_lock);
+	mutex_init(&led->timer_lock);
 	ret = device_state_pm_set_class(dev, pm_platdata->pm_user_name);
 	hrtimer_init(&led->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	led->timer.function = agold620_led_hrtimer_callback;
@@ -151,7 +150,6 @@ static int32_t agold620_led_hwinit(struct device *dev)
 static int32_t agold620_led_set_clk(struct device *dev, bool on)
 {
 	int32_t ret = 0;
-	unsigned long flags;
 	struct xgold_led_data *led = dev_get_drvdata(dev);
 	struct device_pm_platdata *pm_platdata = led->pm_platdata;
 	pr_debug("%s(%d) -->\n", __func__, on);
@@ -164,15 +162,15 @@ static int32_t agold620_led_set_clk(struct device *dev, bool on)
 			return -EINVAL;
 		}
 retry:
-		spin_lock_irqsave(&led->timer_lock, flags);
+		mutex_lock(&led->timer_lock);
 		if (hrtimer_try_to_cancel(&led->timer) < 0) {
-			spin_unlock_irqrestore(&led->timer_lock, flags);
+			mutex_unlock(&led->timer_lock);
 			goto retry;
 		}
 		hrtimer_start(&led->timer,
 				US_TO_NS(DELAY_TIME_FOR_LED_CTRL_200MV),
 				HRTIMER_MODE_REL);
-		spin_unlock_irqrestore(&led->timer_lock, flags);
+		mutex_unlock(&led->timer_lock);
 	} else {
 		ret = device_state_pm_set_state_by_name(dev,
 			pm_platdata->pm_state_D3_name);
@@ -219,16 +217,14 @@ static int32_t agold620_set_gpio(struct device *dev, bool on)
 static int32_t agold620_led_set_backlight(struct device *dev)
 {
 	struct xgold_led_data *led = dev_get_drvdata(dev);
-	unsigned long flags = 0;
-	spinlock_t *lock = &led->lock;
 	pr_debug("%s(%#x) -->\n", __func__, led->led_brightness);
 	mdelay(10);
-	spin_lock_irqsave(lock, flags);
+	mutex_lock(&led->lock);
 	if (led->led_brightness)
 		agold620_led_on(dev);
 	else
 		agold620_led_off(dev);
-	spin_unlock_irqrestore(lock, flags);
+	mutex_unlock(&led->lock);
 	return 0;
 }
 
