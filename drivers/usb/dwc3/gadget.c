@@ -246,7 +246,7 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 
 	if (dwc->ep0_bounced && dep->number == 0)
 		dwc->ep0_bounced = false;
-	else
+	else if (req->request.buf)
 		usb_gadget_unmap_request(&dwc->gadget, &req->request,
 				req->direction);
 
@@ -1027,8 +1027,9 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param,
 			 * here and stop, unmap, free and del each of the linked
 			 * requests instead of what we do now.
 			 */
-			usb_gadget_unmap_request(&dwc->gadget, &req->request,
-				req->direction);
+			if (req->request.buf)
+				usb_gadget_unmap_request(&dwc->gadget,
+					&req->request, req->direction);
 			list_del(&req->list);
 			return ret;
 		}
@@ -1098,11 +1099,12 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 	 * This will also avoid Host cancelling URBs due to too
 	 * many NAKs.
 	 */
-	ret = usb_gadget_map_request(&dwc->gadget, &req->request,
-			dep->direction);
-	if (ret)
-		return ret;
-
+	if (req->request.buf) {
+		ret = usb_gadget_map_request(&dwc->gadget, &req->request,
+				dep->direction);
+		if (ret)
+			return ret;
+	}
 	list_add_tail(&req->list, &dep->request_list);
 
 	/*
