@@ -498,20 +498,26 @@ static void afe_trigger_work_handler(struct work_struct *work)
 	struct snd_soc_codec *codec = afe->codec;
 
 	afe_debug(" %s cmd %d:\n", __func__, afe->cmd);
-	reg = snd_soc_read(codec, AGOLD_AFE_BCON);
 	switch (afe->cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		mutex_lock(&codec->mutex);
+		reg = snd_soc_read(codec, AGOLD_AFE_BCON);
 		/* For capture stream, ensure that AUDINSTART
 		is not set in DAC mode */
 		if (afe->stream == SNDRV_PCM_STREAM_CAPTURE &&
 			!(reg & AFE_BCON_FMR_DIRECT)) {
 			afe_debug("%s : Enabling In start bit\n", __func__);
-			reg = snd_soc_read(codec, AGOLD_AFE_BCON);
 			/* Enable AUDINSTRT */
 			reg |= AFE_BCON_AUDINSTRT;
+			snd_soc_write(codec, AGOLD_AFE_BCON, reg);
+			/* Program the INRATE bits */
+			reg &= 0xFFFFFF3F;
+			reg |= (afe->afe_in_samplerate <<
+					AFE_BCON_AUD_INRATE_POS);
+			afe_debug("%s: AFE IN RATE is set to  %d\n", __func__,
+			afe->afe_in_samplerate);
 			snd_soc_write(codec, AGOLD_AFE_BCON, reg);
 		}
 		mutex_unlock(&codec->mutex);
@@ -1899,7 +1905,7 @@ static int agold_afe_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_codec *codec = rtd->codec;
 	int *audio_native = snd_soc_card_get_drvdata(codec->card);
-	struct agold_afe_data *agold_afe = snd_soc_codec_get_drvdata(codec);
+
 	u32 reg = 0;
 
 	unsigned int rate, format;
@@ -1913,18 +1919,10 @@ static int agold_afe_hw_params(struct snd_pcm_substream *substream,
 	reg = snd_soc_read(codec, AGOLD_AFE_BCON);
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		/* Program the INRATE bits */
-		reg &= 0xFFFFFF3F;
-
-		reg |= (agold_afe->afe_in_samplerate <<
-					AFE_BCON_AUD_INRATE_POS);
-		afe_debug("%s: AFE IN RATE is set to  %d\n", __func__,
-			agold_afe->afe_in_samplerate);
 
 		if (*audio_native)
 			reg |= BIT(5); /* INSTART */
 
-		snd_soc_write(codec, AGOLD_AFE_BCON, reg);
 	}
 
 	/* DSP always output 48kHz */
