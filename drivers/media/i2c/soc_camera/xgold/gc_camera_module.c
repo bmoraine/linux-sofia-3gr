@@ -570,12 +570,38 @@ int gc_camera_module_s_stream(struct v4l2_subdev *sd, int enable)
 		mdelay(cam_mod->custom.power_up_delays_ms[2]);
 		cam_mod->state = GC_CAMERA_MODULE_STREAMING;
 	} else {
+		int pclk;
+		int wait_ms;
+		struct gc_camera_module_timings timings;
 		if (cam_mod->state != GC_CAMERA_MODULE_STREAMING)
 			return 0;
 		ret = cam_mod->custom.stop_streaming(cam_mod);
 		if (IS_ERR_VALUE(ret))
 			goto err;
+
+		ret = gc_camera_module_ioctl(sd,
+					INTEL_VIDIOC_SENSOR_MODE_DATA,
+					&timings);
+
 		cam_mod->state = GC_CAMERA_MODULE_SW_STANDBY;
+
+		if (IS_ERR_VALUE(ret))
+			goto err;
+
+		pclk = timings.vt_pix_clk_freq_hz / 1000;
+
+		if (!pclk)
+			goto err;
+
+		wait_ms =
+			(timings.line_length_pck *
+			timings.frame_length_lines) /
+			pclk;
+
+		/* wait for a frame period to make sure that there is
+			no pending frame left. */
+
+		mdelay(wait_ms + 1);
 	}
 
 	cam_mod->state_before_suspend = cam_mod->state;
