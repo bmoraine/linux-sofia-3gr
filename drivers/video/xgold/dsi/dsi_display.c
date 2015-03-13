@@ -756,12 +756,13 @@ static void dsi_dphy_calculation(struct dsi_display *display)
 		1000000) - 1;
 	display->dif.dsi.to_lp_hs_req = display->dif.dsi.lp_clk_div;
 	display->dif.dsi.to_hs_flip = DIV_ROUND_UP(display->dif.dsi.bitrate /
-		1000 * ths_trail_ns, 1000000 * 8) - 1;
+		1000 * ths_trail_ns, 1000000 * 8);
 	display->dif.dsi.to_hs_zero = DIV_ROUND_UP(display->dif.dsi.bitrate /
 		1000 * ths_prepare_zero_ns, 1000000 * 8) - 5;
 	display->dif.dsi.to_lp_hs_eot =
-		DIV_ROUND_UP(display->dif.dsi.dc_clk_rate / 1000 * ths_trail_ns,
-		1000000) - 2;
+		DIV_ROUND_UP(display->dif.dsi.dc_clk_rate / 1000 *
+		(ths_trail_ns + 18), 1000000) + DIV_ROUND_UP(3000000,
+		display->dif.dsi.bitrate / 1000);
 	display->dif.dsi.to_lp_hs_dis =
 		DIV_ROUND_UP(display->dif.dsi.dc_clk_rate / 1000 *
 		ths_prepare_ns, 1000000) - 1;
