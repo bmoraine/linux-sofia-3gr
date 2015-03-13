@@ -18,7 +18,9 @@
 	pinctrl-single,gpio-range =
 	<&range 0 14 0x100>,
 	<&range 14 1 0x1700>,/*gpio14, touch reset, output, high, PP*/
-	<&range 15 29 0x100>,
+	<&range 15 17 0x100>,
+	<&range 32 1 0x1500>,/*sd_ldo*/
+	<&range 33 11 0x100>,
 	<&range 44 1 0x1500>,/*gpio44, spk_amp_en, output low, PP*/
 	<&range 45 1 0x1500>,
 	<&range 46 1 0x1500>,

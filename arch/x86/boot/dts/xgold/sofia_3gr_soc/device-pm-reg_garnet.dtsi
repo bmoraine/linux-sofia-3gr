@@ -36,3 +36,13 @@ pm_lcd:pm@2 {
 	intel,voltages = <0 2900000>;
 };
 
+sd_ldo:fixedregulator@0 {
+	compatible = "regulator-fixed";
+	regulator-name = "sd_ldo";
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+
+	startup-delay-us = <100>;
+	enable-active-high;
+	gpio = <&xgold_pmx_gpio 32 0>;
+};

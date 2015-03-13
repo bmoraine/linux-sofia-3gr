@@ -12,7 +12,7 @@
 	#include "xgold/mobilevisor/mobilevisor.dtsi"
 	#include "xgold/sofia_3gr_soc/clock-es1.dtsi"
 	#include "xgold/sofia_3gr_soc/regulator.dtsi"
-	#include "xgold/sofia_3gr_soc/device-pm-reg.dtsi"
+	#include "xgold/sofia_3gr_soc/device-pm-reg_garnet.dtsi"
 	#include "xgold/pmic/granite.dtsi"
 	#include "xgold/sofia_3gr_soc/cpufreq.dtsi"
 	chosen {
