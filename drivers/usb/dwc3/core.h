@@ -383,8 +383,7 @@ struct dwc3_event_buffer {
 #define DWC3_EP_DIRECTION_TX	true
 #define DWC3_EP_DIRECTION_RX	false
 
-#define DWC3_TRB_NUM		32
-#define DWC3_TRB_MASK		(DWC3_TRB_NUM - 1)
+#define DWC3_TRB_POOL_SIZE	32
 
 /**
  * struct dwc3_ep - device side endpoint representation
@@ -393,12 +392,13 @@ struct dwc3_event_buffer {
  * @req_queued: list of requests on this ep which have TRBs setup
  * @trb_pool: array of transaction buffers
  * @trb_pool_dma: dma address of @trb_pool
+ * @trb_pool_size: TRB pool size (number of TRBs)
+ * @trb_pool_linked: TRB pool is linked
  * @free_slot: next slot which is going to be used
  * @busy_slot: first slot which is owned by HW
  * @desc: usb_endpoint_descriptor pointer
  * @dwc: pointer to DWC controller
  * @flags: endpoint flags (wedged, stalled, ...)
- * @current_trb: index of current used trb
  * @number: endpoint number (1 - 15)
  * @type: set to bmAttributes & USB_ENDPOINT_XFERTYPE_MASK
  * @resource_index: Resource transfer index
@@ -415,6 +415,8 @@ struct dwc3_ep {
 
 	struct dwc3_trb		*trb_pool;
 	dma_addr_t		trb_pool_dma;
+	unsigned		trb_pool_size;		/* must be power of 2 */
+	bool			trb_pool_linked;
 	u32			free_slot;
 	u32			busy_slot;
 	const struct usb_ss_ep_comp_descriptor *comp_desc;
@@ -430,8 +432,6 @@ struct dwc3_ep {
 
 	/* This last one is specific to EP0 */
 #define DWC3_EP0_DIR_IN		(1 << 31)
-
-	unsigned		current_trb;
 
 	u8			number;
 	u8			type;

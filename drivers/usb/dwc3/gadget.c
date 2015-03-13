@@ -215,27 +215,41 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 	return 0;
 }
 
+/**
+ * add to TRB slot and validate
+ * return new validated TRB slot
+ */
+static unsigned dwc3_add_to_trb_slot(
+	struct dwc3_ep *dep, unsigned slot, unsigned add)
+{
+	slot = (slot + add) & (dep->trb_pool_size - 1);
+	/*
+	 * Skip LINK TRB. We can't use req->trb and check for
+	 * DWC3_TRBCTL_LINK_TRB because it points the TRB we
+	 * just completed (not the LINK TRB).
+	 */
+	if ((slot == dep->trb_pool_size - 1) && dep->trb_pool_linked)
+		slot++;
+	return slot & (dep->trb_pool_size - 1);
+}
+
+/**
+ * increment TRB slot and validate
+ * return new validated TRB slot
+ */
+static unsigned dwc3_inc_trb_slot(struct dwc3_ep *dep, unsigned slot)
+{
+	return dwc3_add_to_trb_slot(dep, slot, 1);
+}
+
 void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 		int status)
 {
 	struct dwc3			*dwc = dep->dwc;
-	int				i;
 
 	if (req->queued) {
-		i = 0;
-		do {
-			dep->busy_slot++;
-			/*
-			 * Skip LINK TRB. We can't use req->trb and check for
-			 * DWC3_TRBCTL_LINK_TRB because it points the TRB we
-			 * just completed (not the LINK TRB).
-			 */
-			if (((dep->busy_slot & DWC3_TRB_MASK) ==
-				DWC3_TRB_NUM- 1) &&
-				dep->endpoint.desc &&
-				usb_endpoint_xfer_isoc(dep->endpoint.desc))
-				dep->busy_slot++;
-		} while(++i < req->request.num_mapped_sgs);
+		dep->busy_slot = dwc3_add_to_trb_slot(dep, dep->busy_slot,
+						req->request.num_mapped_sgs);
 		req->queued = false;
 	}
 	list_del(&req->list);
@@ -362,10 +376,15 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 	} while (1);
 }
 
+static struct dwc3_trb *dwc3_get_trb(struct dwc3_ep *dep, unsigned slot)
+{
+	return (slot < dep->trb_pool_size) ? &dep->trb_pool[slot] : NULL;
+}
+
 static dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
 		struct dwc3_trb *trb)
 {
-	u32		offset = (char *) trb - (char *) dep->trb_pool;
+	u32 offset = (char *)trb - (char *)dwc3_get_trb(dep, 0);
 
 	return dep->trb_pool_dma + offset;
 }
@@ -381,7 +400,7 @@ static int dwc3_alloc_trb_pool(struct dwc3_ep *dep)
 		return 0;
 
 	dep->trb_pool = dma_alloc_coherent(dwc->dev,
-			sizeof(struct dwc3_trb) * DWC3_TRB_NUM,
+			sizeof(struct dwc3_trb) * DWC3_TRB_POOL_SIZE,
 			&dep->trb_pool_dma, GFP_KERNEL);
 	if (!dep->trb_pool) {
 		dev_err(dep->dwc->dev, "failed to allocate trb pool for %s\n",
@@ -396,7 +415,8 @@ static void dwc3_free_trb_pool(struct dwc3_ep *dep)
 {
 	struct dwc3		*dwc = dep->dwc;
 
-	dma_free_coherent(dwc->dev, sizeof(struct dwc3_trb) * DWC3_TRB_NUM,
+	dma_free_coherent(dwc->dev,
+			sizeof(struct dwc3_trb) * DWC3_TRB_POOL_SIZE,
 			dep->trb_pool, dep->trb_pool_dma);
 
 	dep->trb_pool = NULL;
@@ -541,17 +561,19 @@ static int __dwc3_gadget_ep_enable(struct dwc3_ep *dep,
 		reg |= DWC3_DALEPENA_EP(dep->number);
 		dwc3_writel(dwc->regs, DWC3_DALEPENA, reg);
 
-		if (!usb_endpoint_xfer_isoc(desc))
+		if (!dep->trb_pool_linked)
 			return 0;
 
-		/* Link TRB for ISOC. The HWO bit is never reset */
-		trb_st_hw = &dep->trb_pool[0];
+		/* Link TRB, HWO bit is never reset */
+		trb_st_hw = dwc3_get_trb(dep, 0);
 
-		trb_link = &dep->trb_pool[DWC3_TRB_NUM - 1];
+		trb_link = dwc3_get_trb(dep, dep->trb_pool_size - 1);
 		memset(trb_link, 0, sizeof(*trb_link));
 
-		trb_link->bpl = lower_32_bits(dwc3_trb_dma_offset(dep, trb_st_hw));
-		trb_link->bph = upper_32_bits(dwc3_trb_dma_offset(dep, trb_st_hw));
+		trb_link->bpl = lower_32_bits(
+					dwc3_trb_dma_offset(dep, trb_st_hw));
+		trb_link->bph = upper_32_bits(
+					dwc3_trb_dma_offset(dep, trb_st_hw));
 		trb_link->ctrl |= DWC3_TRBCTL_LINK_TRB;
 		trb_link->ctrl |= DWC3_TRB_CTRL_HWO;
 	}
@@ -674,6 +696,11 @@ static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 	}
 
 	spin_lock_irqsave(&dwc->lock, flags);
+
+	BUILD_BUG_ON_NOT_POWER_OF_2(DWC3_TRB_POOL_SIZE);
+	dep->trb_pool_size = DWC3_TRB_POOL_SIZE;
+	dep->trb_pool_linked = usb_endpoint_xfer_isoc(dep->endpoint.desc);
+
 	ret = __dwc3_gadget_ep_enable(dep, desc, ep->comp_desc, false);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
@@ -707,8 +734,12 @@ static int dwc3_gadget_ep_disable(struct usb_ep *ep)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	ret = __dwc3_gadget_ep_disable(dep);
-	spin_unlock_irqrestore(&dwc->lock, flags);
 
+	/* restore default */
+	dep->trb_pool_linked = false;
+	dep->trb_pool_size = DWC3_TRB_POOL_SIZE;
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
 	return ret;
 }
 
@@ -756,21 +787,17 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 			length, last ? " last" : "",
 			chain ? " chain" : "");
 
-	/* Skip the LINK-TRB on ISOC */
-	if (((dep->free_slot & DWC3_TRB_MASK) == DWC3_TRB_NUM - 1) &&
-			usb_endpoint_xfer_isoc(dep->endpoint.desc))
-		dep->free_slot++;
 
-	trb = &dep->trb_pool[dep->free_slot & DWC3_TRB_MASK];
+	trb = dwc3_get_trb(dep, dep->free_slot);
 
 	if (!req->trb) {
 		dwc3_gadget_move_request_queued(req);
 		req->trb = trb;
 		req->trb_dma = dwc3_trb_dma_offset(dep, trb);
-		req->start_slot = dep->free_slot & DWC3_TRB_MASK;
+		req->start_slot = dep->free_slot;
 	}
 
-	dep->free_slot++;
+	dep->free_slot = dwc3_inc_trb_slot(dep, dep->free_slot);
 
 	trb->size = DWC3_TRB_SIZE_LENGTH(length);
 	trb->bpl = lower_32_bits(dma);
@@ -835,14 +862,14 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 	u32			max;
 	unsigned int		last_one = 0;
 
-	BUILD_BUG_ON_NOT_POWER_OF_2(DWC3_TRB_NUM);
 
-	/* the first request must not be queued */
-	trbs_left = (dep->busy_slot - dep->free_slot) & DWC3_TRB_MASK;
+	/* The first request must not be queued */
+	trbs_left = (dep->busy_slot - dep->free_slot);
+	trbs_left &= (dep->trb_pool_size - 1);
 
-	/* Can't wrap around on a non-isoc EP since there's no link TRB */
-	if (!usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
-		max = DWC3_TRB_NUM - (dep->free_slot & DWC3_TRB_MASK);
+	/* Can't wrap around if there's no link TRB */
+	if (!dep->trb_pool_linked) {
+		max = dep->trb_pool_size - dep->free_slot;
 		if (trbs_left > max)
 			trbs_left = max;
 	}
@@ -855,7 +882,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 	if (!trbs_left) {
 		if (!starting)
 			return;
-		trbs_left = DWC3_TRB_NUM;
+		trbs_left = dep->trb_pool_size;
 		/*
 		 * In case we start from scratch, we queue the ISOC requests
 		 * starting from slot 1. This is done because we use ring
@@ -877,7 +904,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 	}
 
 	/* The last TRB is a link TRB, not used for xfer */
-	if ((trbs_left <= 1) && usb_endpoint_xfer_isoc(dep->endpoint.desc))
+	if ((trbs_left <= 1) && dep->trb_pool_linked)
 		return;
 
 	list_for_each_entry_safe(req, n, &dep->request_list, list) {
@@ -1012,13 +1039,15 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param,
 				req1->trb = NULL;
 				dwc3_gadget_move_request_list_front(req1);
 				if (req->request.num_mapped_sgs)
-					dep->busy_slot +=
-						 req->request.num_mapped_sgs;
+					dep->busy_slot = dwc3_add_to_trb_slot(
+						dep, dep->busy_slot,
+						req->request.num_mapped_sgs);
 				else
-					dep->busy_slot++;
-				if ((dep->busy_slot & DWC3_TRB_MASK) ==
-							DWC3_TRB_NUM - 1)
-					dep->busy_slot++;
+					dep->busy_slot = dwc3_inc_trb_slot(
+						dep, dep->busy_slot);
+				if (dep->busy_slot == (dep->trb_pool_size - 1))
+					dep->busy_slot = dwc3_inc_trb_slot(
+						dep, dep->busy_slot);
 			}
 			return ret;
 		} else {
@@ -1948,20 +1977,16 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 			return 1;
 		}
 		i = 0;
+		slot = req->start_slot;
 		do {
-			slot = req->start_slot + i;
-			if ((slot == DWC3_TRB_NUM - 1) &&
-				dep->endpoint.desc &&
-				usb_endpoint_xfer_isoc(dep->endpoint.desc))
-				slot++;
-			slot %= DWC3_TRB_NUM;
-			trb = &dep->trb_pool[slot];
+			trb = dwc3_get_trb(dep, slot);
+			slot = dwc3_inc_trb_slot(dep, slot);
 
 			ret = __dwc3_cleanup_done_trbs(dwc, dep, req, trb,
 					event, status);
 			if (ret)
 				break;
-		}while (++i < req->request.num_mapped_sgs);
+		} while (++i < req->request.num_mapped_sgs);
 
 		dwc3_gadget_giveback(dep, req, status);
 
