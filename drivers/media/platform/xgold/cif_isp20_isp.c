@@ -256,6 +256,9 @@
 /* Set this flag to exclude everything except
 measurements
 #define CIFISP_DEBUG_DISABLE_BLOCKS*/
+/* Set this flag to do stast read in a worker-thread. If not set, the read-out
+happens in an interrupt context. */
+#define STATS_WITH_WQ
 
 #ifdef LOG_CAPTURE_PARAMS
 static struct cifisp_last_capture_config g_last_capture_config;
@@ -271,7 +274,9 @@ struct meas_readout_work {
 	unsigned int frame_id;
 };
 
+#ifdef STATS_WITH_WQ
 static struct workqueue_struct *measurement_wq;
+#endif
 
 /* Functions for Debugging */
 static void cifisp_param_dump(const void *config, unsigned int module);
@@ -3243,8 +3248,9 @@ static int cifisp_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	struct xgold_isp_dev *isp_dev = video_get_drvdata(video_devdata(file));
 	int ret;
 
+#ifdef STATS_WITH_WQ
 	drain_workqueue(measurement_wq);
-
+#endif
 	ret = videobuf_streamoff(&isp_dev->vbq_stat);
 
 	if (ret == 0)
@@ -3582,8 +3588,9 @@ static void cifisp_release(struct video_device *vdev)
 	CIFISP_DPRINT(CIFISP_DEBUG, "cifisp_release\n");
 
 	video_device_release(vdev);
-
+#ifdef STATS_WITH_WQ
 	destroy_workqueue(measurement_wq);
+#endif
 }
 
 /************************************************************/
@@ -3636,12 +3643,14 @@ int register_cifisp_device(struct xgold_isp_dev *isp_dev,
 			__func__, vdev_cifisp->minor);
 	}
 
+#ifdef STATS_WITH_WQ
 	measurement_wq =
 		alloc_workqueue("measurement_queue",
-			WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
+			WQ_HIGHPRI | WQ_MEM_RECLAIM, 1);
 
 	if (!measurement_wq)
 		return -ENOMEM;
+#endif
 
 	isp_dev->v_blanking_us = CIFISP_MODULE_DEFAULT_VBLANKING_TIME;
 
@@ -3985,8 +3994,6 @@ static void cif_isp_send_measurement(struct work_struct *work)
 		struct videobuf_buffer *vb, *n;
 		unsigned int active_meas;
 
-		spin_lock_irqsave(&isp_dev->irq_lock, lock_flags);
-
 		active_meas = isp_dev->active_meas;
 
 		if (active_meas & CIF_ISP_AWB_DONE)
@@ -3995,6 +4002,8 @@ static void cif_isp_send_measurement(struct work_struct *work)
 			bufs_needed++;
 		if (active_meas & CIF_ISP_EXP_END)
 			bufs_needed++;
+
+		spin_lock_irqsave(&isp_dev->irq_lock, lock_flags);
 
 		list_for_each_entry_safe(vb, n, &isp_dev->stat, queue) {
 			list_del(&vb->queue);
@@ -4011,8 +4020,6 @@ static void cif_isp_send_measurement(struct work_struct *work)
 		spin_unlock_irqrestore(&isp_dev->irq_lock, lock_flags);
 
 		if (bufs_needed == 0) {
-			unsigned int frame_id;
-
 			if (active_meas & CIF_ISP_AWB_DONE) {
 				vb = vb_array[index];
 				cifisp_get_awb_meas(isp_dev,
@@ -4036,11 +4043,16 @@ static void cif_isp_send_measurement(struct work_struct *work)
 					videobuf_to_vmalloc(vb));
 			}
 
-			spin_lock_irqsave(&isp_dev->irq_lock, lock_flags);
-			frame_id = isp_dev->frame_id;
-			spin_unlock_irqrestore(&isp_dev->irq_lock, lock_flags);
-
-			if (frame_id == meas_work->frame_id) {
+#ifdef STATS_WITH_WQ
+			if (isp_dev->frame_id == meas_work->frame_id) {
+#else
+			/*
+			V_START was cleared in the corresponding ISR.
+			If it is now up, it means a new frame has started
+			while in this ISR. Do not deliver stats.
+			*/
+			if (!(cifisp_ioread32(CIF_ISP_RIS) & CIF_ISP_V_START)) {
+#endif
 				int i;
 				for (i = 0; i < 3; i++) {
 					if (vb_array[i] != NULL) {
@@ -4079,7 +4091,9 @@ static void cif_isp_send_measurement(struct work_struct *work)
 		}
 	}
 
+#ifdef STATS_WITH_WQ
 	kfree((void *)work);
+#endif
 }
 
 int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
@@ -4094,12 +4108,15 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 	if (isp_mis & CIF_ISP_FRAME) {
 		u32 isp_ris = cifisp_ioread32(CIF_ISP_RIS);
 		int time_left = (int)isp_dev->v_blanking_us;
+		unsigned long lock_flags = 0;
 
 		cifisp_iowrite32(
 			CIF_ISP_AWB_DONE|CIF_ISP_AFM_FIN|CIF_ISP_EXP_END,
 			CIF_ISP_ICR);
 
 		CIFISP_DPRINT(CIFISP_DEBUG, "isp_ris 0x%x\n", isp_ris);
+
+		spin_lock_irqsave(&isp_dev->config_lock, lock_flags);
 
 		if (!isp_dev->isp_param_awb_meas_update_needed &&
 			!isp_dev->isp_param_afc_update_needed &&
@@ -4108,16 +4125,14 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 			((isp_dev->active_meas & isp_ris) ==
 			isp_dev->active_meas)) {
 			/* First handle measurements */
-
+#ifdef STATS_WITH_WQ
 			struct meas_readout_work *work;
-
 			work = (struct meas_readout_work *)
 			kmalloc(sizeof(struct meas_readout_work), GFP_ATOMIC);
 
 			if (work) {
 				INIT_WORK((struct work_struct *)work,
 					cif_isp_send_measurement);
-
 				work->isp_dev = isp_dev;
 				work->frame_id = isp_dev->frame_id;
 
@@ -4129,8 +4144,15 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 				}
 			} else {
 				CIFISP_DPRINT(CIFISP_ERROR,
-				"Could not allocate work\n");
+					"Could not allocate work\n");
 			}
+#else
+			struct meas_readout_work work;
+			work.isp_dev = isp_dev;
+			work.frame_id = isp_dev->frame_id;
+
+			cif_isp_send_measurement((struct work_struct *)&work);
+#endif
 		}
 
 		CIFISP_DPRINT(CIFISP_DEBUG,
@@ -4491,6 +4513,8 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 #ifndef CIFISP_DEBUG_DISABLE_BLOCKS
 		}
 #endif
+
+		spin_unlock_irqrestore(&isp_dev->config_lock, lock_flags);
 
 		cifisp_dump_reg(isp_dev, CIFISP_DEBUG);
 	}
