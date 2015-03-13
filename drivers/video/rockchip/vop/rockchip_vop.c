@@ -115,6 +115,13 @@ static irqreturn_t rockchip_vop_isr(int irq, void *dev_id)
 		vop_dev->driver.vsync_info.timestamp = timestamp;
 		wake_up_interruptible_all(&vop_dev->driver.vsync_info.wait);
 	}
+
+	if (int_reg & M_HS_INT_STA) {
+		spin_lock(&vop_dev->driver.cpl_lock);
+		complete(&vop_dev->driver.frame_done);
+		spin_unlock(&vop_dev->driver.cpl_lock);
+	}
+
 #ifdef VOP_IRQ_EMPTY_DEBUG
 	if (int_reg & M_WIN0_EMPTY_INT_STA) {
 		vop_msk_reg(vop_dev, VOP_INT_STATUS, M_WIN0_EMPTY_INT_CLEAR,
@@ -140,9 +147,11 @@ static int rockchip_vop_enable_irq(struct rockchip_vop_driver *dev_drv)
 	if (likely(vop_dev->clk_on)) {
 		mask = M_FS_INT_CLEAR | M_FS_INT_EN |
 		    M_LF_INT_CLEAR | M_LF_INT_EN |
+		    M_HS_INT_CLEAR | M_HS_INT_EN |
 		    M_BUS_ERR_INT_CLEAR | M_BUS_ERR_INT_EN;
 		val = V_FS_INT_CLEAR(1) | V_FS_INT_EN(1) |
 		    V_LF_INT_CLEAR(1) | V_LF_INT_EN(1) |
+		    V_HS_INT_CLEAR(1) | V_HS_INT_EN(1) |
 		    V_BUS_ERR_INT_CLEAR(1) | V_BUS_ERR_INT_EN(0);
 
 #ifdef VOP_IRQ_EMPTY_DEBUG
@@ -167,9 +176,11 @@ static int rockchip_vop_disable_irq(struct vop_device *vop_dev)
 	if (likely(vop_dev->clk_on)) {
 		mask = M_FS_INT_CLEAR | M_FS_INT_EN |
 		    M_LF_INT_CLEAR | M_LF_INT_EN |
+		    M_HS_INT_CLEAR | M_HS_INT_EN |
 		    M_BUS_ERR_INT_CLEAR | M_BUS_ERR_INT_EN;
 		val = V_FS_INT_CLEAR(0) | V_FS_INT_EN(0) |
 		    V_LF_INT_CLEAR(0) | V_LF_INT_EN(0) |
+		    V_HS_INT_CLEAR(0) | V_HS_INT_EN(0) |
 		    V_BUS_ERR_INT_CLEAR(0) | V_BUS_ERR_INT_EN(0);
 #ifdef VOP_IRQ_EMPTY_DEBUG
 		mask |= M_WIN0_EMPTY_INT_EN | M_WIN1_EMPTY_INT_EN;
@@ -703,6 +714,34 @@ static int rockchip_vop_set_dclk(struct rockchip_vop_driver *dev_drv)
 	return 0;
 }
 
+static int rockchip_vop_standby(struct rockchip_vop_driver *dev_drv)
+{
+	struct vop_device *vop_dev =
+		container_of(dev_drv, struct vop_device, driver);
+	int timeout;
+	unsigned long flags;
+
+	if (vop_dev->clk_on) {
+		vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_LCDC_STANDBY,
+			    V_LCDC_STANDBY(1));
+
+		/* wait for standby hold valid */
+		spin_lock_irqsave(&dev_drv->cpl_lock, flags);
+		init_completion(&dev_drv->frame_done);
+		spin_unlock_irqrestore(&dev_drv->cpl_lock, flags);
+		timeout = wait_for_completion_timeout(&dev_drv->frame_done,
+						      msecs_to_jiffies(25));
+
+		if (!timeout && (!dev_drv->frame_done.done)) {
+			dev_info(dev_drv->dev,
+				 "wait for standy hold valid start time out!\n");
+			return -ETIMEDOUT;
+		}
+	}
+
+	return 0;
+}
+
 static int rockchip_vop_pre_init(struct rockchip_vop_driver *dev_drv)
 {
 	struct vop_device *vop_dev = container_of(dev_drv,
@@ -1069,6 +1108,7 @@ static int rockchip_vop_open(struct rockchip_vop_driver *dev_drv, int win_id,
 
 	/* when all layer closed,disable clk */
 	if ((!open) && (!vop_dev->atv_layer_cnt)) {
+		rockchip_vop_standby(dev_drv);
 		rockchip_vop_disable_irq(vop_dev);
 		rockchip_vop_mmu_en(dev_drv, open);
 		rockchip_vop_clk_disable(vop_dev);
@@ -1372,8 +1412,6 @@ static int rockchip_vop_early_suspend(struct rockchip_vop_driver *dev_drv)
 			    V_FS_INT_CLEAR(1) | V_LF_INT_CLEAR(1));
 		vop_msk_reg(vop_dev, VOP_DSP_CTRL1, M_DSP_OUT_ZERO,
 			    V_DSP_OUT_ZERO(1));
-		vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_LCDC_STANDBY,
-			    V_LCDC_STANDBY(1));
 		vop_cfg_done(vop_dev);
 
 		spin_unlock(&vop_dev->reg_lock);
@@ -1381,6 +1419,8 @@ static int rockchip_vop_early_suspend(struct rockchip_vop_driver *dev_drv)
 		spin_unlock(&vop_dev->reg_lock);
 		return 0;
 	}
+
+	rockchip_vop_standby(dev_drv);
 	rockchip_vop_mmu_en(dev_drv, false);
 	rockchip_vop_clk_disable(vop_dev);
 	rockchip_disp_pwr_disable(screen);
@@ -2155,6 +2195,7 @@ static void rockchip_vop_shutdown(struct platform_device *pdev)
 	if (dev_drv->trsm_ops && dev_drv->trsm_ops->disable)
 		dev_drv->trsm_ops->disable();
 
+	rockchip_vop_standby(dev_drv);
 	rockchip_vop_deinit(vop_dev);
 	rockchip_vop_mmu_en(dev_drv, false);
 	rockchip_vop_clk_disable(vop_dev);
