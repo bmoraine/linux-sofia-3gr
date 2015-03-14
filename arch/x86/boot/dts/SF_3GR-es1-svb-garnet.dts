@@ -467,7 +467,7 @@
 #endif
 
 &sd {
-	intel,tap_values = <0x0C51020 0x0C41020 0x0C41020 0x1114120 0x0C51020 0x0F50F20 0x0F50F20>;
+	intel,tap_values = <0x0C41020 0x0C41020 0x0C41020 0x04f4120 0x0C41020 0x0F40F20 0x0F40F20>;
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&sdmmc_default_pins>;
 	pinctrl-1 = <&sdmmc_sleep_pins>;
@@ -475,7 +475,7 @@
 };
 
 &emmc {
-	intel,tap_values = < 0x00c51021  0x006f1021   0x00c51021  0x004f1021  0x00c51021  0x00a50f11  0x00c51021 >;
+	intel,tap_values = < 0x00c41020  0x006f1020   0x00c41020  0x004e1020  0x00c41020  0x00a40f10  0x00c41020 >;
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&emmc_default_pins>;
 	pinctrl-1 = <&emmc_sleep_pins>;
