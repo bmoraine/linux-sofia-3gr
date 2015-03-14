@@ -236,7 +236,7 @@
 	intel,virq,5 = <1>; /* EINT_EXI5 */
 	intel,virq,6 = <0>; /* EINT_EXI6: ??? */
 	intel,virq,7 = <1>; /* EINT_EXI7 */
-	intel,virq,8 = <1>; /* EINT_EXI8 */
+	intel,virq,8 = <0>; /* EINT_EXI8 */
 	intel,virq,9 = <1>; /* EINT_EXI9 */
 	intel,virq,10 = <1>; /* EINT_EXI10 */
 	intel,virq,11 = <1>; /* EINT_EXI11 */
@@ -259,6 +259,7 @@
 	intel,virq,28 = <1>; /* EINT_WDT1 */
 	intel,virq,29 = <0>; /* EINT_USB_ID */
 
+	intel,preack,8 = <1>; /* EINT_EXI8 */
 	intel,preack,20 = <1>; /* EINT_USIF1_WK */
 };
 

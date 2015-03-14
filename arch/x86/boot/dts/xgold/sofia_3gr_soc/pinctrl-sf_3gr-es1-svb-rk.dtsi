@@ -15,7 +15,7 @@
 	/* sparse GPIO range could be supported */
 		/*first pin / nb pins / value */
 	pinctrl-single,gpio-range =
-		<&range 0 19 0x100>, 
+		<&range 0 19 0x100>,
 		<&range 19 1 0x1700>,/*gpio19, touch reset, output, hight, PP*/
 		<&range 20 16 0x100>,
 		<&range 36 1 0x1700>,/*gpio36, LCD reset, output, hight, PP*/
@@ -823,7 +823,7 @@ sdmmc_sleep_pins:sdmmc_sleep_pins {
 		0x2a0 0x3011	/* sdmmc_dat2 */
 		0x2a4 0x3011	/* sdmmc_dat3 */
 		0x2a8 0x1011	/* sdmmc_clk */
-		0x2ac 0x2001	/* sdmmc_card_detect */
+		0x2ac 0x2003	/* sdmmc_card_detect: use eint8 */
 	>;
 };
 sdmmc_open_drain_function_B_active_pins:sdmmc_open_drain_function_B_active_pins {

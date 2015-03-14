@@ -371,18 +371,19 @@
 						bus-width = < 8 >;
 						non-removable;
 						intel,io-access-guest;
+						intel,rpm_enabled = <1>;
 						pm_ctrl{
 							pm,class-name = "sdhci_class";
 							pm,user-name = "emmc_card";
 							pm,state-D0 = "high_perf";
-							pm,state-D0i2 = "mid_perf";
+							pm,state-D0i2 = "low_perf";
 							pm,state-D3 = "disable";
 						};
 						clock_ctrl{
 							pm,class-name = "sdhci_class";
 							pm,user-name = "emmc";
 							pm,state-D0 = "mid_perf";
-							pm,state-D0i2 = "mid_perf";
+							pm,state-D0i2 = "low_perf";
 							pm,state-D3 = "mid_perf";
 						};
 
@@ -393,13 +394,14 @@
 						reg = < 0xE1400000 0x100000 >;
 					        clocks = <&clk_sdmmc>, <&clk_ahb_per1_sdmmc>;
 						clock-names = "clk_core", "clk_ahb";
-						interrupts = < 0 1>;
+						interrupts = < 0 1 2>;
 						interrupt-parent = <&sd>;
 						#interrupt-cells = < 1 >;
 						interrupt-map = <
 							0 &pic SDMMC_INT IRQ_TYPE_DEFAULT
-							1 &eint EINT_SDMMC_DETECT XGOLD_IRQ_TYPE_EDGE_BOTH >;
-						interrupt-names = "host", "wake";
+							1 &eint EINT_SDMMC_DETECT XGOLD_IRQ_TYPE_EDGE_BOTH
+							2 &eint EINT_EXI8 XGOLD_IRQ_TYPE_EDGE_BOTH >;
+						interrupt-names = "host", "wake", "eint";
 						vqmmc-supply = <&lmmc1>;
 						intel,max_clock = <96000000>;
 						intel,min_clock = <203125>;
@@ -407,9 +409,11 @@
 						intel,tap_reg = < 0x200 >;
 						intel,corecfg_reg = < 0x204 0x208 0x20c 0x210 0x214 0x218 0x21c >;
 						intel,corecfg_val = < 0xFE1ADA20 0x00074052 0x00000000 0x00010001 0x00010000 0x00000000 0x00010000 >;
+						intel,fixup = <0x1>;
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_DISABLE_UHS: bit17 */
 						intel,quirks = < 0 0x4008 >;
+						intel,rpm_enabled = <1>;
 						intel,io-access-guest;
 						pm_ctrl{
 							pm,class-name = "sdhci_class";
@@ -422,7 +426,7 @@
 							pm,class-name = "sdhci_class";
 							pm,user-name = "usd";
 							pm,state-D0 = "high_perf";
-							pm,state-D0i2 = "high_perf";
+							pm,state-D0i2 = "low_perf";
 							pm,state-D3 = "high_perf";
 						};
 					};
