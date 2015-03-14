@@ -3237,7 +3237,7 @@ static ssize_t himax_register_store(struct device *dev,struct device_attribute *
 	return count;
 }
 
-static DEVICE_ATTR(register, (S_IWUSR|S_IRUGO|S_IWUGO),himax_register_show, himax_register_store);
+static DEVICE_ATTR(register, (S_IWUSR|S_IRUGO),himax_register_show, himax_register_store);
 #endif
 
 #ifdef HX_TP_SYS_DIAG
@@ -3447,7 +3447,7 @@ static ssize_t himax_diag_dump(struct device *dev,struct device_attribute *attr,
 	}
 	return count;
 }
-static DEVICE_ATTR(diag, (S_IWUSR|S_IRUGO|S_IWUGO),himax_diag_show, himax_diag_dump);
+static DEVICE_ATTR(diag, (S_IWUSR|S_IRUGO),himax_diag_show, himax_diag_dump);
 #endif
 
 #ifdef HX_TP_SYS_RESET
@@ -3673,7 +3673,7 @@ static ssize_t himax_debug_dump(struct device *dev,struct device_attribute *attr
 	return count;
 }
 
-static DEVICE_ATTR(debug, (S_IWUSR|S_IRUGO|S_IWUGO),himax_debug_show, himax_debug_dump);
+static DEVICE_ATTR(debug, (S_IWUSR|S_IRUGO),himax_debug_show, himax_debug_dump);
 
 #endif
 
@@ -3984,7 +3984,7 @@ static ssize_t himax_flash_store(struct device *dev,struct device_attribute *att
 	}
 	return count;
 }
-static DEVICE_ATTR(flash_dump, (S_IWUSR|S_IRUGO|S_IWUGO),himax_flash_show, himax_flash_store);
+static DEVICE_ATTR(flash_dump, (S_IWUSR|S_IRUGO),himax_flash_show, himax_flash_store);
 
 static void himax_ts_flash_work_func(struct work_struct *work)
 {
@@ -4482,7 +4482,7 @@ static int himax_chip_self_test(void)
 	return pf_value;
 }
 
-static DEVICE_ATTR(tp_self_test, (S_IWUSR|S_IRUGO|S_IWUGO), himax_chip_self_test_function, NULL);
+static DEVICE_ATTR(tp_self_test, (S_IWUSR|S_IRUGO), himax_chip_self_test_function, NULL);
 #endif
 
 #ifdef HX_TP_SYS_HITOUCH
@@ -4523,7 +4523,7 @@ static ssize_t himax_hitouch_store(struct device *dev,struct device_attribute *a
 	return count;
 }
 
-static DEVICE_ATTR(hitouch, (S_IWUSR|S_IRUGO|S_IWUGO),himax_hitouch_show, himax_hitouch_store);
+static DEVICE_ATTR(hitouch, (S_IWUSR|S_IRUGO),himax_hitouch_show, himax_hitouch_store);
 #endif
 
 #ifdef HX_DOT_VIEW
@@ -4556,7 +4556,7 @@ static ssize_t himax_cover_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(cover, (S_IWUSR|S_IRUGO|S_IWUGO),
+static DEVICE_ATTR(cover, (S_IWUSR|S_IRUGO),
 	himax_cover_show, himax_cover_store);
 #endif
 
@@ -4589,7 +4589,7 @@ static ssize_t himax_SMWP_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(SMWP, (S_IWUSR|S_IRUGO|S_IWUGO),
+static DEVICE_ATTR(SMWP, (S_IWUSR|S_IRUGO),
 	himax_SMWP_show, himax_SMWP_store);
 
 #endif
