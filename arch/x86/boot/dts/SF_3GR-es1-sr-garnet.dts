@@ -418,8 +418,8 @@
 		pinctrl-2 = <&touch_inactive_pins>;
 		himax,rst-gpio = <&xgold_pmx_gpio 14 0>;
 		himax,irq-gpio = <&xgold_pmx_gpio 54 0>;
-		pm,class-name = "himax_8528d_class";
-		pm,user-name = "himax_tp";
+		pm,class-name = "generic_class";
+		pm,user-name = "tp";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
 		himax,panel-coords = <0 600 0 1024>;
