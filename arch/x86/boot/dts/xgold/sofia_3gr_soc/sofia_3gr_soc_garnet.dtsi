@@ -393,6 +393,7 @@
 						intel,tap_reg = < 0x100 >;
 						intel,corecfg_reg = < 0x104 0x108 0x10c 0x110 0x114 0x118 0x11c >;
 						intel,corecfg_val = < 0xFF1ADA60 0x00074056 0x00000000 0x00010001 0x00010000 0x00000000 0x00010000 >;
+						intel,fixup = <0x1>;
 						/* QUIRK_CAP_CLOCK_BASE_BROKEN: bit 25 + QUIRKS2_HOST_PRESET_VALUE_BROKEN: bit 3 + LED_BROKEN: bit 14*/
 						intel,quirks = < 0x2000000 0x4008 >;
 						bus-width = < 8 >;
@@ -432,8 +433,9 @@
 						intel,min_clock = <203125>;
 						intel,tap-hwbase = < &stsbc12 >;
 						intel,tap_reg = < 0x200 >;
-						intel,corecfg_reg = < 0x204 0x208 0x20c 0x210 0x214 0x218 0x21c >;
-						intel,corecfg_val = < 0xFE1ADA20 0x00074052 0x00000000 0x00010001 0x00010000 0x00000000 0x00010000 >;
+						intel,corecfg_reg = < 0x204 0x208 0x20c 0x210 0x214 0x218 0x21c 0x220>;
+						intel,corecfg_val = < 0xFE1ADA20 0x00074052 0x00000000 0x00010001 0x00010000 0x00000000 0x00010000 0x7777 >;
+						intel,fixup = <0x1>;
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_DISABLE_UHS: bit17 */
 						intel,quirks = < 0 0x4008 >;
