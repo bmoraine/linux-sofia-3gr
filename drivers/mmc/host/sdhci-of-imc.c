@@ -274,9 +274,11 @@ static void xgold_sdhci_of_resume(struct sdhci_host *host)
 #if defined CONFIG_PLATFORM_DEVICE_PM && defined CONFIG_PLATFORM_DEVICE_PM_VIRT
 	if (host->vqmmc)
 		regulator_enable(host->vqmmc);
-	if (device_state_pm_set_state_by_name(&mmc_pdata->dev,
-			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name))
-		dev_err(&pdev->dev, "set pm state D0 during runtime resume  failed !\n");
+	if (host->mmc->card) {
+		if (device_state_pm_set_state_by_name(&mmc_pdata->dev,
+				mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name))
+			dev_err(&pdev->dev, "set pm state D0 during runtime resume  failed !\n");
+	}
 #endif
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_disable(&pdev->dev);
