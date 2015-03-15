@@ -19,6 +19,7 @@
 #include <linux/notifier.h>
 #include <linux/clockchips.h>
 #include <linux/of.h>
+#include <asm/xgold.h>
 #ifdef CONFIG_X86_INTEL_XGOLD
 #include <asm/irqflags.h>
 #else
@@ -105,6 +106,8 @@ static void __setup_broadcast_timer(void *arg)
 	unsigned long reason = (unsigned long)arg;
 	int cpu = smp_processor_id();
 
+	WARN_ON(!xgold_platform_needs_broadcast_timer());
+
 	reason = reason ?
 		CLOCK_EVT_NOTIFY_BROADCAST_ON : CLOCK_EVT_NOTIFY_BROADCAST_OFF;
 
@@ -157,8 +160,20 @@ static int __init xgold_cpuidle_parse_dt(void)
 	for_each_child_of_node(states, state) {
 		struct cpuidle_state *idle_state;
 		struct xgold_cpuidle_state *xg_cpuidle_state;
+		unsigned vmm_id;
 		if (!(of_device_is_compatible(state, INTEL_IDLE_STATE_COMPAT)))
 			continue;
+
+		ret = of_property_read_u32(state, INTEL_IDLE_STATE_VMMID,
+						&vmm_id);
+		BUG_ON(ret);
+
+		if (!xgold_platform_needs_broadcast_timer()
+				&& (vmm_id == 0)) {
+			pr_info("Skipping non sense state %s if no broadcast timer is needed\n",
+					state->name);
+			continue;
+		}
 
 		idle_state = &idle_drv->states[nr_state];
 		xg_cpuidle_state = &xgold_cpuidle_states[nr_state];
@@ -205,7 +220,9 @@ static int __init xgold_cpuidle_init(void)
 {
 	pr_info("%s: Initializing xgold cpuidle driver\n", __func__);
 
-	on_each_cpu(__setup_broadcast_timer, (void *)true, 1);
+	if (xgold_platform_needs_broadcast_timer())
+		on_each_cpu(__setup_broadcast_timer, (void *)true, 1);
+
 	xgold_cpuidle_parse_dt();
 	xgold_cpuidle_print_states(&xgold_cpuidle_driver);
 	/* We want to boot a UP configuration,
@@ -220,7 +237,8 @@ static void __exit xgold_cpuidle_exit(void)
 {
 	cpuidle_unregister(&xgold_cpuidle_driver);
 
-	on_each_cpu(__setup_broadcast_timer, (void *)false, 1);
+	if (xgold_platform_needs_broadcast_timer())
+		on_each_cpu(__setup_broadcast_timer, (void *)false, 1);
 
 	return;
 }
