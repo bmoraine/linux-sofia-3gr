@@ -44,6 +44,41 @@
 #define XGOLD_ENTER pr_info("--> %s\n", __func__)
 #define XGOLD_EXIT  pr_info("<-- %s\n", __func__)
 
+enum intel_xgold_timer_options {
+	INTEL_XGOLD_TIMER_DEFAULT,
+	INTEL_XGOLD_TIMER_SOCTIMER_ONLY,
+	INTEL_XGOLD_TIMER_LAPIC_SOCTIMER,
+};
+
+static enum intel_xgold_timer_options intel_xgold_timer_options;
+
+static inline int __init setup_x86_intel_xgold_timer(char *arg)
+{
+	if (!arg)
+		return -EINVAL;
+	if (strcmp("soctimer_only", arg) == 0)
+		intel_xgold_timer_options = INTEL_XGOLD_TIMER_SOCTIMER_ONLY;
+	else if (strcmp("lapic_and_soctimer", arg) == 0)
+		intel_xgold_timer_options = INTEL_XGOLD_TIMER_LAPIC_SOCTIMER;
+	else {
+		pr_warn("X86 XGOLD timer option %s is invalid\n", arg);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+__setup("x86_intel_xgold_timer=", setup_x86_intel_xgold_timer);
+
+#ifdef NYET
+static void __init xgold_soc_parse_timer(struct device_node *np)
+{
+	const char *timer_str =  NULL;
+
+	if (!of_property_read_string(np, "intel,timer", &timer_str))
+		setup_x86_intel_xgold_timer((char *)timer_str);
+}
+#endif
+
 static void __init xgold_soc_init(void)
 {
 	struct device_node *np = of_find_node_by_path("/xgold");
@@ -223,10 +258,43 @@ static int __init xgold_init_machine(void)
 }
 
 arch_initcall(xgold_init_machine);
+static bool x86_intel_xgold_needs_broadcast;
+
+bool xgold_platform_needs_broadcast_timer(void)
+{
+	return x86_intel_xgold_needs_broadcast;
+}
+
+static void __init x86_intel_xgold_time_init(void)
+{
+	x86_intel_xgold_needs_broadcast = false;
+	switch (intel_xgold_timer_options) {
+	case INTEL_XGOLD_TIMER_SOCTIMER_ONLY:
+		pr_info("Intel x86 xgold using soctimer only\n");
+		x86_init.timers.setup_percpu_clockev = x86_init_noop;
+		x86_cpuinit.setup_percpu_clockev = x86_init_noop;
+		break;
+	case INTEL_XGOLD_TIMER_LAPIC_SOCTIMER:
+		pr_info("Intel x86 xgold using soctimer and lapic\n");
+		x86_init.timers.setup_percpu_clockev = setup_boot_APIC_clock;
+		x86_cpuinit.setup_percpu_clockev = setup_secondary_APIC_clock;
+		x86_intel_xgold_needs_broadcast = true;
+		break;
+	default:
+		pr_info("Intel x86 xgold using lapic only\n");
+		x86_init.timers.setup_percpu_clockev = setup_boot_APIC_clock;
+		x86_cpuinit.setup_percpu_clockev = setup_secondary_APIC_clock;
+		if (!boot_cpu_has(X86_FEATURE_ARAT))
+			x86_intel_xgold_needs_broadcast = true;
+	}
+	return;
+}
+
 
 static void __init x86_xgold_time_init(void)
 {
 	XGOLD_ENTER;
+	x86_intel_xgold_time_init();
 	xgold_init_clocks();
 /*
  * IO-APIC/LAPIC need to be initialized in native case
@@ -239,7 +307,9 @@ static void __init x86_xgold_time_init(void)
 	physid_set_mask_of_physid(boot_cpu_physical_apicid,
 					 &phys_cpu_present_map);
 #endif
-	setup_local_APIC();
+	if (intel_xgold_timer_options
+			!= INTEL_XGOLD_TIMER_SOCTIMER_ONLY)
+		setup_local_APIC();
 #endif
 
 	clocksource_of_init();
@@ -443,6 +513,8 @@ void __init x86_xgold_early_setup(void)
 
 	/* Not needed for PC */
 	x86_init.timers.timer_init = x86_xgold_time_init,
+	x86_init.timers.setup_percpu_clockev = x86_init_noop;
+	x86_cpuinit.setup_percpu_clockev = x86_init_noop;
 	x86_platform.calibrate_tsc = xgold_calibrate_tsc;
 	x86_platform.save_sched_clock_state = xgold_save_clock_state;
 	x86_platform.restore_sched_clock_state = xgold_restore_clock_state;

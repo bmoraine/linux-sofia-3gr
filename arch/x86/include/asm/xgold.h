@@ -13,4 +13,5 @@
 extern struct console early_xgold_console;
 extern void xgold_early_console_init(unsigned long base);
 
+extern bool xgold_platform_needs_broadcast_timer(void);
 #endif
