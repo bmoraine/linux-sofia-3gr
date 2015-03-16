@@ -25,6 +25,7 @@
 #include <linux/memblock.h>
 #include <linux/of_gpio.h>
 #include <linux/of_fdt.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/sizes.h>
 #include <linux/rockchip_ion.h>
 #include <sofia/vvpu_vbpipe.h>
@@ -76,25 +77,6 @@ struct device rk_ion_cma_dev = {
 	.dma_mask = &ion_dmamask,
 	.init_name = "rk_ion_cma",
 };
-
-static int rk_ion_populate_heap(struct ion_platform_heap *heap)
-{
-	unsigned int i;
-	int ret = -EINVAL;
-	unsigned int len = ARRAY_SIZE(ion_heap_meta);
-
-	for (i = 0; i < len; ++i) {
-		if (ion_heap_meta[i].id == heap->id) {
-			heap->name = ion_heap_meta[i].name;
-			heap->type = ion_heap_meta[i].type;
-			if (heap->id == ION_HEAP_TYPE_DMA)
-				heap->priv = &rk_ion_cma_dev;
-			ret = 0;
-			break;
-		}
-	}
-	return ret;
-}
 
 static int rk_ion_get_phys(struct ion_client *client,
 			      unsigned long arg)
@@ -280,66 +262,99 @@ static long rk_custom_ioctl(struct ion_client *client,
 	return ret;
 }
 
-static int __init rk_ion_find_heap(unsigned long node,
-				      const char *uname,
-				      int depth,
-				      void *data)
+static int rk_ion_of_heap(struct ion_platform_heap *myheap,
+		struct device_node *node)
 {
-	const __be32 *prop;
-	unsigned long len;
-	struct ion_platform_heap *heap;
-	struct ion_platform_data *pdata =
-			(struct ion_platform_data *)data;
+	int ret = 0;
+	int itype = 0;
 
-	if (!pdata) {
-		pr_err("ion heap has no platform data\n");
-		return -EINVAL;
-	}
+	for (itype = 0;	itype < ARRAY_SIZE(ion_heap_meta);	itype++) {
+		if (!strcmp(ion_heap_meta[itype].name, node->name)) {
+			struct cma *cma_area;
+			phys_addr_t base = 0;
+			phys_addr_t size = 0;
 
-	if (pdata->nr >= MAX_ION_HEAP) {
-		pr_err("ion heap is too much\n");
-		return -EINVAL;
-	}
+			myheap->name = node->name;
 
-	prop = of_get_flat_dt_prop(node, "rockchip,ion_heap", &len);
-	if (!prop || (len != sizeof(unsigned long)))
-		return 0;
+			myheap->align = SZ_1M;
+			myheap->id = ion_heap_meta[itype].id;
 
-	heap = &pdata->heaps[pdata->nr++];
-	heap->base = 0;
-	heap->size = 0;
-	heap->align = 0;
-	heap->id = be32_to_cpu(prop[0]);
-	rk_ion_populate_heap(heap);
+			if (!strcmp("system-heap", node->name)) {
+				myheap->type = ION_HEAP_TYPE_SYSTEM;
+				return 1;
+			}
 
-	prop = of_get_flat_dt_prop(node, "reg", &len);
-	if (prop && (len >= 2 * sizeof(unsigned long))) {
-		heap->base = be32_to_cpu(prop[0]);
-		heap->size = be32_to_cpu(prop[1]);
-		heap->align = SZ_1M;
+			ret = of_get_reserved_memory_region(node,
+					&size, &base, &cma_area);
+			if (ret) {
+				pr_err("rk_ion Can't find memory def! Skip %s\n",
+						node->name);
+				continue;
+			}
+
+			myheap->base = base;
+			myheap->size = size;
+
+			if (cma_area) {
+				myheap->priv2 = cma_area;
+				myheap->type = ION_HEAP_TYPE_DMA;
+			} else if (myheap->base && !cma_area)
+				myheap->type = ION_HEAP_TYPE_CARVEOUT;
+			else if (size)
+				myheap->type = ION_HEAP_TYPE_SYSTEM;
+			else {
+				pr_err("xg_ion unknow memory type! Skip %s\n",
+						node->name);
+				continue;
+			}
+
+			pr_info("rk_ion heap %s base:%pa length:0x%08x type %d\n",
+					node->name, &myheap->base,
+					myheap->size, myheap->type);
+			return 1;
+		}
 	}
 	return 0;
 }
 
-static int rk_ion_probe(struct platform_device *pdev)
+static struct ion_platform_data *rk_ion_of(struct device_node *node)
 {
 	struct ion_platform_data *pdata;
-	int err;
-	int i;
+	int iheap = 0;
+	struct device_node *child;
+	struct ion_platform_heap *myheap;
 
-	err = device_register(&rk_ion_cma_dev);
-	if (err) {
-		pr_err("Could not register %s\n",
-		       dev_name(&rk_ion_cma_dev));
-		return err;
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return NULL;
+
+	pdata->nr = of_get_child_count(node);
+again:
+	pdata->heaps = kcalloc(pdata->nr, sizeof(*myheap), GFP_KERNEL);
+	for_each_child_of_node(node, child) {
+		iheap += rk_ion_of_heap(&pdata->heaps[iheap], child);
 	}
 
-	if (pdev->dev.of_node) {
-		pdata = &ion_pdata;
-		if (IS_ERR(pdata))
-			return PTR_ERR(pdata);
-	} else {
-		pdata = pdev->dev.platform_data;
+	if (pdata->nr != iheap) {
+		pdata->nr = iheap;
+		iheap = 0;
+		kfree(pdata->heaps);
+		pr_err("%s: mismatch, repeating\n", __func__);
+		goto again;
+	}
+
+	return pdata;
+}
+
+static int rk_ion_probe(struct platform_device *pdev)
+{
+	int err;
+	int i;
+	struct ion_platform_data *pdata = pdev->dev.platform_data;
+
+	if (pdata == NULL) {
+		pdata = rk_ion_of(pdev->dev.of_node);
+		pdev->dev.platform_data = pdata;
 	}
 
 	heaps = kcalloc(pdata->nr, sizeof(*heaps), GFP_KERNEL);
@@ -353,7 +368,7 @@ static int rk_ion_probe(struct platform_device *pdev)
 	/* create the heaps as specified in the board file */
 	for (i = 0; i < pdata->nr; i++) {
 		struct ion_platform_heap *heap_data = &pdata->heaps[i];
-
+		heap_data->priv = &pdev->dev;
 		heaps[i] = ion_heap_create(heap_data);
 		if (IS_ERR_OR_NULL(heaps[i])) {
 			err = PTR_ERR(heaps[i]);
@@ -417,9 +432,6 @@ static struct platform_driver ion_driver = {
 
 static int __init rk_ion_init(void)
 {
-	if (of_scan_flat_dt(rk_ion_find_heap, (void *)&ion_pdata))
-		pr_err("%s: Couldn't find ion heap\n", __func__);
-
 	return platform_driver_register(&ion_driver);
 }
 
