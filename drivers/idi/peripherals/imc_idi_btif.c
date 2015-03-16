@@ -1079,6 +1079,7 @@ static int btif_prepare_rx(struct imc_idi_btif_port *p_btif)
 	if (!rx_conf->base) {
 		dev_err(dev, "Unable to DMA-map RX buffer\n");
 		kfree(rx_conf->cpu_base);
+		rx_conf->cpu_base = NULL;
 		return -ENOMEM;
 	}
 #endif
@@ -1094,6 +1095,7 @@ static int btif_prepare_rx(struct imc_idi_btif_port *p_btif)
 		dma_unmap_single(NULL, rx_conf->base, rx_conf->size,
 				DMA_FROM_DEVICE);
 		kfree(rx_conf->cpu_base);
+		rx_conf->cpu_base = NULL;
 	}
 #endif
 
@@ -1884,7 +1886,7 @@ static int btif_startup(struct uart_port *port)
 fail_request_irqs:
 	dma_unmap_single(NULL, rx_conf->base, rx_conf->size, DMA_FROM_DEVICE);
 	kfree(rx_conf->cpu_base);
-
+	rx_conf->cpu_base = NULL;
 	return ret;
 #endif
 }				/* btif_startup */
@@ -1938,6 +1940,7 @@ static void btif_shutdown(struct uart_port *port)
 		dma_unmap_single(NULL, rx_conf->base,
 				rx_conf->size, DMA_FROM_DEVICE);
 		kfree(rx_conf->cpu_base);
+		rx_conf->cpu_base = NULL;
 	}
 
 	stack_pid = 0;
