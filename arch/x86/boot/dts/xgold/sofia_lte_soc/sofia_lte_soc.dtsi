@@ -479,6 +479,7 @@
 						intel,quirks = < 0x2000000 0xc00008 >;
 						intel,io-access-guest;
 						keep-power-in-suspend;
+						cap-power-off-card;
 						pm_ctrl{
 							pm,class-name = "mmcsd_volt_class";
 							pm,user-name = "sdio_volt";
