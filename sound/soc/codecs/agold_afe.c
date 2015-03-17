@@ -234,7 +234,7 @@ static const char * const agold_afe_power_states[] = {
 /* Power state strings for Direct DAC AFE operation */
 static const char * const agold_afe_power_states_direct_dac[] = {
 	"disable",
-	"slpret_no_headset",
+	"no_headset",
 	"slpret_headset",
 	"slpret_headset_12m",
 	"slpret_headset_10m",
