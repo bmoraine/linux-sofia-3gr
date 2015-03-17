@@ -285,6 +285,8 @@
                                                 intel,i2c,b100 = < 1 256 0 0 >;
                                                 resets = <&dbb_rst1 10>;
                                                 reset-names = "i2c";
+                                                intel,i2c,rxbs = < 1 >;
+                                                intel,i2c,txbs = < 4 >;
 
                                                 pm,class-name = "i2c_class";
                                                 pm,user-name = "i2c4";
