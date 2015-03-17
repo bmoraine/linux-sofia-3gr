@@ -513,7 +513,7 @@ static long __hm2051_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	if (vts < coarse_itg)
 		vts = (u16) coarse_itg + HM2051_INTEGRATION_TIME_MARGIN;
 
-  #ifdef FIXED_FRAME_RATE
+
 	ret = hm2051_write_reg(client, HM2051_8BIT, HM2051_TIMING_VTS_H,
 		((vts - hm2051_res[dev->fmt_idx].height) & 0xFF00) >> 8);
 	if (ret) {
@@ -529,7 +529,7 @@ static long __hm2051_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 			__func__, HM2051_TIMING_VTS_L);
 		return ret;
 	}
-  #endif
+
 	/* set exposure */
 	ret = hm2051_write_reg(client, HM2051_8BIT,
 			       HM2051_EXPOSURE_H, (coarse_itg >> 8) & 0xFF);
@@ -975,7 +975,7 @@ fail_power:
 	}
 
 	/* delay time for first i2c command */
-	msleep(10);
+	msleep(20);
 
 	pltfrm_camera_module_pr_info(sd, "sensor power-up done.\n");
 	return ret;
@@ -1029,7 +1029,7 @@ static int power_down(struct v4l2_subdev *sd)
 	ret = pltfrm_camera_module_set_pin_state(sd,
 		PLTFRM_CAMERA_MODULE_PIN_PD,
 		PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
-	msleep(1);
+	msleep(20);
 
 	ret = pltfrm_camera_module_set_pin_state(sd,
 		PLTFRM_CAMERA_MODULE_PIN_DVDD,
@@ -1288,6 +1288,9 @@ static int hm2051_s_stream(struct v4l2_subdev *sd, int enable)
   #if ULPM_PROCEDURE
 	ret = hm2051_write_reg_array(client, enable ?
 			hm2051_stream_on : hm2051_stream_off);
+	if (enable == 0)
+		msleep(133);
+
   #else
 	ret = hm2051_write_reg(client, HM2051_8BIT, HM2051_SW_STREAM,
 				enable ? HM2051_START_STREAMING :

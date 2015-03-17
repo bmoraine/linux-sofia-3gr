@@ -67,9 +67,9 @@
 
 #define HM2051_BIN_FACTOR_MAX 4
 #define HM2051_FINE_INTG_TIME_MIN 0
-#define HM2051_FINE_INTG_TIME_MAX_MARGIN 65535
+#define HM2051_FINE_INTG_TIME_MAX_MARGIN 5
 #define HM2051_COARSE_INTG_TIME_MIN 0
-#define HM2051_COARSE_INTG_TIME_MAX_MARGIN 65535/*(0xffff - 6) */
+#define HM2051_COARSE_INTG_TIME_MAX_MARGIN 5/*(0xffff - 6) */
 /*
  * HM2051 System control registers
  */
@@ -210,17 +210,17 @@ struct hm2051_write_ctrl {
 
 #if ULPM_PROCEDURE
 static struct hm2051_reg const hm2051_stream_on[] = {
-	{HM2051_8BIT, 0x4b20, 0x9E}, /*continue clock */
-	{HM2051_8BIT, 0x4b23, 0x04},
-	{HM2051_8BIT, 0x0005, 0x03},
+	{HM2051_8BIT, 0x0000, 0x01},
+	{HM2051_8BIT, 0x0100, 0x01},
+	{HM2051_8BIT, 0x0101, 0x01},
+	{HM2051_8BIT, 0x4B20, 0x9E},
+	{HM2051_8BIT, 0x0005, 0x03},	/*Turn on rolling shutter */
 	{HM2051_TOK_TERM, 0, 0}
 };
 
 static struct hm2051_reg const hm2051_stream_off[] = {
-	{HM2051_8BIT, 0x0005, 0x02},
-	{HM2051_TOK_DELAY, 0, 40},
-	{HM2051_8BIT, 0x4b20, 0xDE}, /*gateing clock */
-	{HM2051_8BIT, 0x4b23, 0x01},
+	{HM2051_8BIT, 0x0005, 0x02},	/*Turn off rolling shutter*/
+	{HM2051_8BIT, 0x4B20, 0xDE},
 	{HM2051_TOK_TERM, 0, 0}
 };
 
@@ -232,123 +232,114 @@ static const struct i2c_device_id hm2051_id[] = {
 };
 
 static struct hm2051_reg const hm2051_global_setting[] = {
-	/*--------------------------------------------------- */
-	/* Initial */
-	/*--------------------------------------------------- */
-	{HM2051_8BIT, 0x0022, 0x00},/* RESET */
-	/* --------------------------------------------------- */
-	/* CMU update */
-	/* --------------------------------------------------- */
-	{HM2051_TOK_DELAY, 0, 40},
-	{HM2051_8BIT, 0x0000, 0x00},/* */
-	{HM2051_8BIT, 0x0100, 0x00},/* */
-	{HM2051_8BIT, 0x0101, 0x00},/* */
-	{HM2051_TOK_DELAY, 0, 50},
-	{HM2051_8BIT, 0x0005, 0x02},/* power up */
-	{HM2051_TOK_DELAY, 0, 100},
+    /*---------------------------------------------------*/
+    /* Initial*/
+    /*---------------------------------------------------*/
+		{HM2051_8BIT, 0x0022, 0x00},/* RESET*/
+    /*---------------------------------------------------*/
+    /* CMU update*/
+    /*---------------------------------------------------*/
+		{HM2051_8BIT, 0x0000, 0x00},
+		{HM2051_8BIT, 0x0100, 0x00},
+		{HM2051_8BIT, 0x0101, 0x00},
+		{HM2051_8BIT, 0x0005, 0x02},/* power up*/
+		{HM2051_TOK_DELAY, 0, 50},
 
-	{HM2051_8BIT, 0x0026, 0x0C},/* PLL1, mipi pll_pre_div */
-	{HM2051_8BIT, 0x002A, 0x57},/* PLL1, mipi pll_div (pclk=pktclk= 002A + 1) */
+		{HM2051_8BIT, 0x0026, 0x0C},/* PLL1, mipi pll_pre_div*/
+		{HM2051_8BIT, 0x002A, 0x57},
+		/* PLL1, mipi pll_div (pclk=pktclk= 002A + 1)*/
 
-	/*--------------------------------------------------- */
-	/* Digital function */
-	/*--------------------------------------------------- */
-	{HM2051_8BIT, 0x0006, 0x00},/* [1] hmirror, [0] vflip */
-	{HM2051_8BIT, 0x000F, 0x00},/* [1] fixed frame rate mode, [0] non fixed frame rate mode */
-	{HM2051_8BIT, 0x0024, 0x40},/* mipi enable */
-	{HM2051_8BIT, 0x0027, 0x23},/* OUTFMT, after BPC, [7] pre_vsync_en */
-	{HM2051_8BIT, 0x0065, 0x01},/* Hscan_delay (default=1) */
-	{HM2051_8BIT, 0x0074, 0x13},/* disable output black rows */
-	/*--------------------------------------------------- */
-	/* Analog */
-	/*--------------------------------------------------- */
-	{HM2051_8BIT, 0x002B, 0x00},/*  clk divider */
-	{HM2051_8BIT, 0x002C, 0x06},/* PLL cfg: CP, LPF, use PLL clk */
+    /*---------------------------------------------------*/
+    /* Digital function*/
+    /*---------------------------------------------------*/
+		{HM2051_8BIT, 0x0006, 0x00},/* [1] hmirror, [0] vflip*/
+		{HM2051_8BIT, 0x000F, 0x00},/* [1] fixed frame rate mode,*/
+    /*[0] non fixed frame rate mode */
+		{HM2051_8BIT, 0x0024, 0x40},/* mipi enable*/
+		{HM2051_8BIT, 0x0027, 0x23},
+		/* OUTFMT, after BPC, [7] pre_vsync_en*/
+		{HM2051_8BIT, 0x0065, 0x01},/* Hscan_delay (default=1)*/
+		{HM2051_8BIT, 0x0074, 0x13},/* disable output black rows*/
+		/*---------------------------------------------------*/
+		/* Analog*/
+		/*---------------------------------------------------*/
+		{HM2051_8BIT, 0x002B, 0x00},/*  clk divider*/
+		{HM2051_8BIT, 0x002C, 0x06},/* PLL cfg: CP, LPF, use PLL clk*/
 
-	{HM2051_8BIT, 0x0040, 0x00}, /* BLC  //0A->00 */
-	{HM2051_8BIT, 0x0044, 0x03},/* enable BLC, enable BLC IIR */
-	{HM2051_8BIT, 0x0045, 0x63},/* CFPN cfg, 0x65=repeat 32 times, 0x55=repeat 16 times */
-	{HM2051_8BIT, 0x0046, 0x5F},/* CFPN cfg, enable IIR, weight=1/4 new, CFPN applied to BLC */
-	{HM2051_8BIT, 0x0049, 0xC0},/*improve BLC_hunting */
-	{HM2051_8BIT, 0x004B, 0x03},/*improve BLC_hunting */
+		{HM2051_8BIT, 0x0040, 0x00}, /* BLC  //0A->00*/
+		{HM2051_8BIT, 0x0044, 0x03},/* enable BLC, enable BLC IIR*/
+		{HM2051_8BIT, 0x0045, 0x63},
+		/* CFPN cfg, 0x65=repeat 32 times, 0x55=repeat 16 times*/
+		{HM2051_8BIT, 0x0046, 0x5F},
+		/* CFPN cfg, enable IIR, weight=1/4 new, CFPN applied to BLC*/
+		{HM2051_8BIT, 0x0049, 0xC0},/*improve BLC_hunting*/
+		{HM2051_8BIT, 0x004B, 0x03},/*improve BLC_hunting*/
 
-	{HM2051_8BIT, 0x0070, 0x2F},/* ADD  0923 */
-	{HM2051_8BIT, 0x0072, 0xFB},/*8F -> FB  0923 */
-	{HM2051_8BIT, 0x0073, 0x77},/* ADD  0923 for 30 fps */
-	{HM2051_8BIT, 0x0075, 0x40},/* Negative CP is controlled by INT */
-	{HM2051_8BIT, 0x0078, 0x65},/* ADD  0923 for 30 fps */
+		{HM2051_8BIT, 0x0070, 0x2F},/* ADD  0923*/
+		{HM2051_8BIT, 0x0072, 0xFB},/*8F -> FB  0923*/
+		{HM2051_8BIT, 0x0073, 0x77},/* ADD  0923 for 30 fps*/
+		{HM2051_8BIT, 0x0075, 0x40},
+		/* Negative CP is controlled by INT*/
+		{HM2051_8BIT, 0x0078, 0x65},/* ADD  0923 for 30 fps*/
 
-	{HM2051_8BIT, 0x0080, 0x98},/* fd_clamp_en_d=1, tg_boost_en_d=1  //90 -> 98  0923 */
-	{HM2051_8BIT, 0x0082, 0x09},/* fd_clamp_en_d=1, tg_boost_en_d=1 */
-	{HM2051_8BIT, 0x0083, 0x3C},/* VRPP=avdd+1.36V, VRNP=-1V, w/ lowest pump clk freq. */
-	{HM2051_8BIT, 0x0087, 0x41},/* disable dsun clamp first  31 -> 41 0923 */
-	{HM2051_8BIT, 0x008D, 0x20},/* pix_disc_diff_en_d=1 */
-	{HM2051_8BIT, 0x008E, 0x30},/* */
+		{HM2051_8BIT, 0x0080, 0x98},
+		/* fd_clamp_en_d=1, tg_boost_en_d=1  //90 -> 98  0923*/
+		{HM2051_8BIT, 0x0082, 0x09},
+		/* fd_clamp_en_d=1, tg_boost_en_d=1*/
+		{HM2051_8BIT, 0x0083, 0x3C},
+		/* VRPP=avdd+1.36V, VRNP=-1V, w/ lowest pump clk freq.*/
+		{HM2051_8BIT, 0x0087, 0x41},
+		/* disable dsun clamp first  31 -> 41 0923*/
+		{HM2051_8BIT, 0x008D, 0x20},/* pix_disc_diff_en_d=1*/
+		{HM2051_8BIT, 0x008E, 0x30},
 
-	{HM2051_8BIT, 0x009D, 0x11},/* Nramp_rst1,2 */
-	{HM2051_8BIT, 0x009E, 0x12},/* Nramp_rst3,4 */
+		{HM2051_8BIT, 0x009D, 0x11},/* Nramp_rst1,2*/
+		{HM2051_8BIT, 0x009E, 0x12},/* Nramp_rst3,4*/
 
-	{HM2051_8BIT, 0x0090, 0x00},/* gain table */
-	{HM2051_8BIT, 0x0091, 0x01},/* gain table */
-	{HM2051_8BIT, 0x0092, 0x02},/* gain table */
-	{HM2051_8BIT, 0x0093, 0x03},/* gain table */
+		{HM2051_8BIT, 0x0090, 0x00},/* gain table*/
+		{HM2051_8BIT, 0x0091, 0x01},/* gain table*/
+		{HM2051_8BIT, 0x0092, 0x02},/* gain table*/
+		{HM2051_8BIT, 0x0093, 0x03},/* gain table*/
 
 
-	{HM2051_8BIT, 0x00C0, 0x64},/* col_ldo setting */
-	{HM2051_8BIT, 0x00C1, 0x15},/* pvdd_refsel=5h(for power noise), pvdd_lorefsel */
-	{HM2051_8BIT, 0x00C2, 0x00},/* ramp power consumption */
+		{HM2051_8BIT, 0x00C0, 0x64},/* col_ldo setting*/
+		{HM2051_8BIT, 0x00C1, 0x15},
+		/* pvdd_refsel=5h(for power noise), pvdd_lorefsel*/
+		{HM2051_8BIT, 0x00C2, 0x00},/* ramp power consumption*/
 
-	{HM2051_8BIT, 0x00C3, 0x02},/* comp1,2,3_bias_sel */
-	{HM2051_8BIT, 0x00C4, 0x0B},/* column ADC cfg */
-	{HM2051_8BIT, 0x00C6, 0x83},/* sf_srcdr_shrt_en_right_d=1, sf_always_on_d=0(improve noise)  93 -> 83 0923 */
-	{HM2051_8BIT, 0x00C7, 0x02},/* sr_sel_sh_d (reduce CFPN @ high AVDD) ADD 0923 */
-	{HM2051_8BIT, 0x00CC, 0x00},/* mipi skew[5:0] */
+		{HM2051_8BIT, 0x00C3, 0x02},/* comp1,2,3_bias_sel*/
+		{HM2051_8BIT, 0x00C4, 0x0B},/* column ADC cfg*/
+		{HM2051_8BIT, 0x00C6, 0x83},
+		/*sf_srcdr_shrt_en_right_d=1,sf_always_on_d=0(improve noise)*/
+		{HM2051_8BIT, 0x00C7, 0x02},
+		/* sr_sel_sh_d (reduce CFPN @ high AVDD) ADD 0923*/
+		{HM2051_8BIT, 0x00CC, 0x00},/* mipi skew[5:0]*/
 
-	{HM2051_8BIT, 0x4B3B, 0x12},/* MIPI analog setting */
-	{HM2051_8BIT, 0x4B41, 0x10},/* HS0_D=1, prevent enter test mode(clk lane=0) */
+		{HM2051_8BIT, 0x4B3B, 0x12},/* MIPI analog setting*/
+		{HM2051_8BIT, 0x4B41, 0x10},
+		/* HS0_D=1,prevent enter test mode(clk lane=0)*/
 
-	/*Star of BPC setting */
-	{HM2051_8BIT, 0x0165, 0x03},/*[1:0]0:24 1:32, 2:48, 3:80 */
-	{HM2051_8BIT, 0x018C, 0x00},/*[7:6]Dark_raw_enable */
+    /*Star of BPC setting*/
+		{HM2051_8BIT, 0x0165, 0x03},/*[1:0]0:24 1:32, 2:48, 3:80*/
+		{HM2051_8BIT, 0x018C, 0x00},/*[7:6]Dark_raw_enable*/
 
-	{HM2051_8BIT, 0x0195, 0x06},/*X_offset[2:0] */
-	{HM2051_8BIT, 0x0196, 0x4F},/*X_offset[7:0] */
-	{HM2051_8BIT, 0x0197, 0x04},/*Y_offset[2:0] */
-	{HM2051_8BIT, 0x0198, 0xBF},/*Y_offset[7:0] */
+		{HM2051_8BIT, 0x0195, 0x06},/*X_offset[2:0]*/
+		{HM2051_8BIT, 0x0196, 0x4F},/*X_offset[7:0]*/
+		{HM2051_8BIT, 0x0197, 0x04},/*Y_offset[2:0]*/
+		{HM2051_8BIT, 0x0198, 0xBF},/*Y_offset[7:0]*/
 
-	{HM2051_8BIT, 0x0144, 0x12},/*BPC_HOT_TH[8],[1]Median Filter with current pixel */
-	{HM2051_8BIT, 0x0140, 0x20},/*BPC_HOT_TH[7:0] */
-	{HM2051_8BIT, 0x015A, 0x80},/*BPC_HOT_2 */
-	{HM2051_8BIT, 0x015D, 0x20},/*BPC_HOT_3 */
-	{HM2051_8BIT, 0x0160, 0x65},/*[0]hot_replace[1]cold_replace[3:2]Max1_Max2[4]correct_all[5]Dynamic[6]Static[7]no write back */
+		{HM2051_8BIT, 0x0144, 0x12},
+		/*BPC_HOT_TH[8],[1]Median Filter with current pixel*/
+		{HM2051_8BIT, 0x0140, 0x20},/*BPC_HOT_TH[7:0]*/
+		{HM2051_8BIT, 0x015A, 0x80},/*BPC_HOT_2*/
+		{HM2051_8BIT, 0x015D, 0x20},/*BPC_HOT_3*/
+		{HM2051_8BIT, 0x0160, 0x65},
+		/*[0]hot_replace[1]cold_replace[3:2]Max1_Max2*/
+		/*[4]correct_all[5]Dynamic[6]Static[7]no write back */
 
-	/* ---------------------------------------------------/ */
-	/* mipi-tx settings */
-	/* --------------------------------------------------- */
-	/* window on (1600x1200) */
-	{HM2051_8BIT, 0x0123, 0xD5},/* [4] digital window on */
-	{HM2051_8BIT, 0x4B50, 0x08},/* pre_h Hb 09->08 */
-	{HM2051_8BIT, 0x4B51, 0xEA},/* pre_h Lb 22->B2  //B2 -> E2 0923 */
-	{HM2051_8BIT, 0x4B0A, 0x06},/* pre_h Hb 09->08 */
-	{HM2051_8BIT, 0x4B0B, 0x40},/* pre_h Lb 22->B2  //B2 -> E2 0923 */
+		{HM2051_8BIT, 0x0025, 0x00},
 
-	/* window on (default 1600x1200) */
-	{HM2051_8BIT, 0x4B20, 0x9E},/* */
-	{HM2051_8BIT, 0x4B07, 0xBD},/* MARK1 width */
-
-	/* --------------------------------------------------- */
-	/* CMU update */
-	/* --------------------------------------------------- */
-	{HM2051_8BIT, 0x0000, 0x00},/* */
-	{HM2051_8BIT, 0x0100, 0x00},/* */
-	{HM2051_8BIT, 0x0101, 0x00},/* */
-
-	/*--------------------------------------------------- */
-	/* Turn on rolling shutter */
-	/*--------------------------------------------------- */
-	/*{HM2051_8BIT,0x0005,0x03},// */
-	{HM2051_8BIT, 0x0025, 0x00},/* */
-	{HM2051_TOK_TERM, 0, 0}
+		{HM2051_TOK_TERM, 0, 0}
 };
 
 static struct hm2051_reg const hm2051_SUB2_800x600_56fps[] = {
@@ -467,38 +458,57 @@ static struct hm2051_reg const hm2051_1600x900_30fps[] = {
 
 static struct hm2051_reg const hm2051_1600x1200_30fps[] = {
 
-	{HM2051_8BIT, 0x0005, 0x02},/* power up */
-	{HM2051_TOK_DELAY, 0, 100}, /* 10FPS  delay one frame */
+	  /*{HM2051_8BIT,0x0005,0x02},// power up*/
+	  /*{HM2051_TOK_DELAY,0,100}, // 10FPS  delay one frame */
 
-	{HM2051_8BIT, 0x0006, 0x00},
-	{HM2051_8BIT, 0x000D, 0x00},
-	{HM2051_8BIT, 0x000E, 0x00},
+		{HM2051_8BIT, 0x0006, 0x00},
+		{HM2051_8BIT, 0x000D, 0x00},
+		{HM2051_8BIT, 0x000E, 0x00},
+		{HM2051_8BIT, 0x000F, 0x00},
+		/* [1] fixed frame rate mode, [0] non fixed frame rate mode  */
+		{HM2051_8BIT, 0x0024, 0x40},/* mipi enable*/
+		{HM2051_8BIT, 0x0027, 0x23},
+		/* OUTFMT, after BPC, [7] pre_vsync_en*/
+		{HM2051_8BIT, 0x0065, 0x01},/* Hscan_delay (default=1)*/
+		{HM2051_8BIT, 0x0074, 0x13},/* disable output black rows*/
 
-	{HM2051_8BIT, 0x0660, 0x00},
-	{HM2051_8BIT, 0x0661, 0x08},
-	{HM2051_8BIT, 0x0662, 0x06},
-	{HM2051_8BIT, 0x0663, 0x47},
-	{HM2051_8BIT, 0x0664, 0x00},
-	{HM2051_8BIT, 0x0665, 0x08},
-	{HM2051_8BIT, 0x0666, 0x04},
-	{HM2051_8BIT, 0x0667, 0xB7},
+    /*static dymaic BPC*/
+		{HM2051_8BIT, 0x0160, 0x65},  /*static BPC switch*/
+		{HM2051_8BIT, 0x0183, 0x00},  /*static BPC windows offset*/
+		{HM2051_8BIT, 0x0123, 0xD5},
 
-	{HM2051_8BIT, 0x4B50, 0x08},
-	{HM2051_8BIT, 0x4B51, 0xEA}, /* */
-	{HM2051_8BIT, 0x4B0A, 0x06},
-	{HM2051_8BIT, 0x4B0B, 0x40},
-	{HM2051_8BIT, 0x4B30, 0x0E},
-	{HM2051_8BIT, 0x4B30, 0x0F},
+		{HM2051_8BIT, 0x0011, 0x33},
 
-	/* --------------------------------------------------- */
-	/* CMU update */
-	/* --------------------------------------------------- */
-	{HM2051_8BIT, 0x0000, 0x00},/* */
-	{HM2051_8BIT, 0x0100, 0x00},/* */
-	{HM2051_8BIT, 0x0101, 0x00},/* */
+		{HM2051_8BIT, 0x0660, 0x00},
+		{HM2051_8BIT, 0x0661, 0x08},
+		{HM2051_8BIT, 0x0662, 0x06},
+		{HM2051_8BIT, 0x0663, 0x47},
+		{HM2051_8BIT, 0x0664, 0x00},
+		{HM2051_8BIT, 0x0665, 0x08},
+		{HM2051_8BIT, 0x0666, 0x04},
+		{HM2051_8BIT, 0x0667, 0xB7},
 
-	/*{HM2051_8BIT,0x0005,0x03},// */
-	{HM2051_TOK_TERM, 0, 0}
+		{HM2051_8BIT, 0x4B50, 0x08},
+		{HM2051_8BIT, 0x4B51, 0xEA},
+		{HM2051_8BIT, 0x4B0A, 0x06},
+		{HM2051_8BIT, 0x4B0B, 0x40},
+		{HM2051_8BIT, 0x4B20, 0x9E},
+		{HM2051_8BIT, 0x4B07, 0xBD},
+		{HM2051_8BIT, 0x4B30, 0x0E},
+		{HM2051_8BIT, 0x4B30, 0x0F},
+
+    /* ---------------------------------------------------*/
+    /* CMU update*/
+    /* ---------------------------------------------------*/
+		{HM2051_8BIT, 0x0000, 0x00},
+		{HM2051_8BIT, 0x0100, 0x00},
+		{HM2051_8BIT, 0x0101, 0x00},
+    /*---------------------------------------------------*/
+    /* Turn on rolling shutter*/
+    /*---------------------------------------------------*/
+    /*{HM2051_8BIT,0x0005,0x02},*/
+
+		{HM2051_TOK_TERM, 0, 0}
 };
 
 /*
@@ -508,6 +518,7 @@ video:   16:9 3:2
 */
 /* */
 struct hm2051_resolution hm2051_res_preview[] = {
+#if 0
 	{
 		.desc = "THIS IS PREVIEW SUB2 :hm2051_800x600_56fps",
 		.width = 800,
@@ -566,6 +577,7 @@ struct hm2051_resolution hm2051_res_preview[] = {
 		.vertical_start = 0,
 		.vertical_end = 899,
 	},
+#endif
 	{
 		.desc = "THIS IS PREVIEW:hm2051_1600x1200_30fps",
 		.width = 1600,
@@ -579,11 +591,11 @@ struct hm2051_resolution hm2051_res_preview[] = {
 		.bin_factor_y = 1,
 		.bin_mode = 0,
 		.regs = hm2051_1600x1200_30fps,
-		.skip_frames = 1,
-		.horizontal_start = 8,
-		.horizontal_end = 1607, /*0x647 */
-		.vertical_start = 8,
-		.vertical_end = 1207, /*0x4b7 */
+	  .skip_frames = 1,
+	  .horizontal_start = 8,
+	  .horizontal_end = 1607,
+	  .vertical_start = 8,
+	  .vertical_end = 1207,
 	},
 };
 #define N_RES_PREVIEW (ARRAY_SIZE(hm2051_res_preview))
@@ -602,11 +614,11 @@ struct hm2051_resolution hm2051_res_still[] = {
 		.bin_factor_y = 1,
 		.bin_mode = 0,
 		.regs = hm2051_1600x1200_30fps,
-		.skip_frames = 1,
-		.horizontal_start = 0,
-		.horizontal_end = 1599,
-		.vertical_start = 0,
-		.vertical_end = 1199,
+	  .skip_frames = 1,
+	  .horizontal_start = 8,
+	  .horizontal_end = 1607,
+	  .vertical_start = 8,
+	  .vertical_end = 1207,
 	},
 };
 #define N_RES_STILL (ARRAY_SIZE(hm2051_res_still))
