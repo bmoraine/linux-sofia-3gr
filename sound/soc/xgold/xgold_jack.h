@@ -34,6 +34,7 @@ struct xgold_jack {
 	/* PMIC only */
 	char pmic_addr;
 	char pmic_irq_addr; /* FIXME: controlled by vmm */
+	char jack_check_in_progress;
 };
 
 #define XGOLD_JACK_PMIC		BIT(0)

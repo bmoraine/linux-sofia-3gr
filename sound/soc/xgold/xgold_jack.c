@@ -54,7 +54,9 @@
 
 #define HEADPHONE_MIN_MV 0
 #define HEADPHONE_MAX_MV 50
-
+/* this variable to overcome the mute after slow removal of jack */
+#define JACK_CHECK_PROSS_START 1
+#define JACK_CHECK_PROSS_END   0
 /**
  * Different VBIAS settings
 **/
@@ -87,13 +89,13 @@ struct hs_key_cfg {
 
 /* AFE register values */
 #define XGOLD_DETECT_INSERTION \
-	0x80FB /* ACD1: insertion; ACD2: disabled */
+	0x800B /* ACD1: insertion; ACD2: disabled; DEBT: 1msc */
 #define XGOLD_DETECT_REMOVAL_HEADSET \
-	0xC0F3 /* ACD1: removal; ACD2: headset insertion */
+	0xC003 /* ACD1: removal; ACD2: headset insertion; DEBT: 1msc  */
 #define XGOLD_DETECT_REMOVAL_HOOK \
-	0xCAF3 /* ACD1: headset removal; ACD2: hook key press */
+	0xCA03 /* ACD1: headset removal; ACD2: hook key press; DEBT: 1msc  */
 #define XGOLD_DETECT_HOOK_RELEASE \
-	0xC2F3 /* ACD1: removal; ACD2: hook key release */
+	0xC203 /* ACD1: removal; ACD2: hook key release; DEBT: 1msc  */
 
 /* PMIC register offset */
 /* IRQ registers offsets */
@@ -250,12 +252,14 @@ static void xgold_jack_check(struct xgold_jack *jack)
 	int status = 0;
 	enum xgold_vbias vbias;
 
+	/*  set the flag for button thread to wait until release it.*/
 	configure_vbias(jack, XGOLD_VBIAS_ENABLE);
 
 	/* First, make sure we have a stable state.
 	   Headset insertion takes a bit of time(~> 500ms),
 	   so make sure that two consecutive reads agree.
 	*/
+
 	do {
 		msleep(250);
 		old_state = read_state(jack);
@@ -310,11 +314,20 @@ static irqreturn_t xgold_jack_detection(int irq, void *data)
 
 	xgold_debug("%s\n", __func__);
 
-	xgold_jack_check((struct xgold_jack *)data);
-
 	if (jack->flags & XGOLD_JACK_PMIC)
 		xgold_jack_pmic_reg_write(jack->pmic_irq_addr,
 				IRQMULT_REG, IRQMULT_ACCDET1_M);
+
+	/* set the flag for button thread to wait until release it.*/
+	if (jack->jack_check_in_progress)
+		return IRQ_HANDLED;
+
+	jack->jack_check_in_progress = JACK_CHECK_PROSS_START;
+
+	xgold_jack_check((struct xgold_jack *)data);
+
+	/* release the flag for button thread to continue.*/
+	jack->jack_check_in_progress = JACK_CHECK_PROSS_END;
 
 	return IRQ_HANDLED;
 }
@@ -326,6 +339,13 @@ static void xgold_button_check(struct xgold_jack *jack)
 	u32 detect;
 	int status;
 	enum snd_jack_types type;
+
+	/* wait to check the interrupt due to slow removal of jack */
+	msleep_interruptible(30);
+	/* If the interrupt due to slow removal of jack,*/
+	/*return without action */
+	if (jack->jack_check_in_progress)
+		return;
 
 	ret = iio_read_channel_processed(jack->iio_client, &volt);
 	if (ret < 0) {
@@ -363,7 +383,6 @@ static void xgold_button_check(struct xgold_jack *jack)
 		}
 		detect = XGOLD_DETECT_REMOVAL_HOOK;
 	}
-
 	if (key_index > -1) {
 		snd_soc_jack_report(jack->hs_jack, status, type);
 		xgold_jack_acc_det_write(jack, detect);
@@ -388,7 +407,6 @@ static irqreturn_t xgold_button_detection(int irq, void *data)
 
 	if (jack->buttons_enabled)
 		xgold_button_check(jack);
-
 	return IRQ_HANDLED;
 }
 
@@ -439,6 +457,7 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 	jack->buttons_enabled = false;
 	jack->jack_irq = jack->button_irq = -1;
 	jack->hs_jack = hs_jack;
+	jack->jack_check_in_progress = JACK_CHECK_PROSS_END;
 
 	if (of_device_is_compatible(np, "intel,headset,pmic"))
 		jack->flags |= XGOLD_JACK_PMIC;
