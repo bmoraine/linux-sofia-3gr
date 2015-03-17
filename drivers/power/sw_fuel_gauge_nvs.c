@@ -34,7 +34,6 @@
 /* Checksum values */
 #define SWFG_NVM_CHECKSUM_UNINITIALIZED	0xFFFF
 #define SWFG_NVM_CHECKSUM_CAL_POINT_INVALID 0xFFFE
-#endif
 
 struct sw_fuel_gauge_nvs_data {
 	bool sw_fuel_gauge_nvs_up;
@@ -59,7 +58,6 @@ static struct sw_fuel_gauge_debug_data sw_fuel_gauge_nvs_debug_data = {
 #define SW_FUEL_GAUGE_NVS_DEBUG_NO_PARAM(_event) \
 	SWFG_DEBUG(sw_fuel_gauge_nvs_debug_data, _event, 0)
 
-#ifdef CONFIG_NVM
 
 /**
  * sw_fuel_gauge_nvm_is_initialized -	Checks if the fuel gauge group
@@ -498,8 +496,8 @@ bool sw_fuel_gauge_nvs_retrieve_last_calibration_point(
 				struct soc_cal_point *p_last_immediate_cal)
 {
 
-	if (p_last_soc_cal == NULL ||
-		p_last_immediate_cal == NULL) {
+	if (NULL == p_last_soc_cal ||
+		NULL == p_last_immediate_cal) {
 		pr_err("NVS error: NULL pointer\n");
 		return false;
 	}
@@ -510,7 +508,7 @@ bool sw_fuel_gauge_nvs_retrieve_last_calibration_point(
 #else
 	pr_err("%s: NVM error: NVM expected to be enabled\n", __func__);
 	return false;
-#endif
+#endif /* CONFIG_NVM */
 }
 
 /**
@@ -529,8 +527,8 @@ bool sw_fuel_gauge_nvs_store_last_calibration_point(
 				struct soc_cal_point *p_last_soc_cal,
 				struct soc_cal_point *p_last_immediate_cal)
 {
-	if (p_last_soc_cal == NULL ||
-		p_last_immediate_cal == NULL) {
+	if (NULL == p_last_soc_cal ||
+		NULL == p_last_immediate_cal) {
 		pr_err("NVS error: NULL pointer\n");
 		return false;
 	}
@@ -542,7 +540,7 @@ bool sw_fuel_gauge_nvs_store_last_calibration_point(
 #else
 	pr_err("%s: NVM error: NVM expected to be enabled\n", __func__);
 	return false;
-#endif
+#endif /* CONFIG_NVM */
 }
 
 /**
@@ -556,10 +554,17 @@ bool sw_fuel_gauge_nvs_store_last_calibration_point(
 
 bool sw_fuel_gauge_register_nvs_ready_cb(void (*p_func)(void))
 {
+#ifdef CONFIG_NVM
 	T_NVM_RETURNCODE ret;
-	sw_fuel_gauge_nvs.sw_fg_nvs_ready_cb = p_func;
+#endif /* CONFIG_NVM */
+
+	if (NULL == p_func) {
+		pr_err("NVS error: NULL pointer\n");
+		return false;
+	}
 
 #ifdef CONFIG_NVM
+	sw_fuel_gauge_nvs.sw_fg_nvs_ready_cb = p_func;
 
 	SW_FUEL_GAUGE_NVS_DEBUG_NO_PARAM(
 			SW_FUEL_GAUGE_DEBUG_REGISTER_NVM_CB);
@@ -574,11 +579,12 @@ bool sw_fuel_gauge_register_nvs_ready_cb(void (*p_func)(void))
 #else
 	pr_err("%s: NVM error: NVM expected to be enabled\n", __func__);
 	return false;
-#endif
+#endif /* CONFIG_NVM */
 }
 
 bool sw_fuel_guage_nvs_cal_point_invalidate(void)
 {
+#ifdef CONFIG_NVM
 	T_NVM_RETURNCODE nvm_result = NVM_OK;
 	u32 no_of_bytes = sizeof(T_SOC_CAL_PNT_NVM);
 
@@ -622,5 +628,9 @@ bool sw_fuel_guage_nvs_cal_point_invalidate(void)
 			SW_FUEL_GAUGE_DEBUG_NVM_CAL_POINT_INVALIDATED,
 			no_of_bytes);
 	return true;
+#else
+	pr_err("%s: NVM error: NVM expected to be enabled\n", __func__);
+	return false;
+#endif /* CONFIG_NVM */
 }
 
