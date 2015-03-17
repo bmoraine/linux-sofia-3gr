@@ -177,12 +177,15 @@ static struct device_state_pm_state *xgold_i2c_get_initial_state(
 #define OF_CFG_B400		"intel,i2c,b400"
 #define OF_CFG_B100		"intel,i2c,b100"
 #define OF_I2C_DMA_REQ		"intel,i2c,dma"
+#define OF_I2C_RXBS		"intel,i2c,rxbs"
+#define OF_I2C_TXBS		"intel,i2c,txbs"
 
 static struct xgold_i2c_platdata *xgold_i2c_of_get_platdata(struct device *dev)
 {
 	struct xgold_i2c_platdata *platdata;
 	struct device_node *np;
 	int ret = 0, i, n;
+	u32 data;
 	char id;
 
 	platdata = devm_kzalloc(dev, sizeof(*platdata), GFP_KERNEL);
@@ -285,6 +288,28 @@ skip_pinctrl:
 	platdata->rst = reset_control_get(dev, "i2c");
 	if (IS_ERR(platdata->rst))
 		platdata->rst = NULL;
+
+	/* RXBS */
+	if (of_property_read_u32(np, OF_I2C_RXBS, &data))
+		data = 4;
+
+	if (data != 1 && data != 2 && data != 4) {
+		dev_err(dev, "Use default RXBS value 4\n");
+		data = 4;
+	}
+
+	platdata->rxbs = data;
+
+	/* TXBS */
+	if (of_property_read_u32(np, OF_I2C_TXBS, &data))
+		data = 4;
+
+	if (data != 1 && data != 2 && data != 4) {
+		dev_err(dev, "Use default TXBS value 4\n");
+		data = 4;
+	}
+
+	platdata->txbs = data;
 
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	/* Regulator */
@@ -733,9 +758,9 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 {
 	struct i2c_adapter *adap = (struct i2c_adapter *)dev;
 	struct xgold_i2c_algo_data *data = i2c_get_adapdata(adap);
-	unsigned long irqss = ioread32(data->regs + I2C_P_IRQSS_OFFSET);
+	u32 irqss = ioread32(data->regs + I2C_P_IRQSS_OFFSET);
 
-	i2c_debug("%s irqss=0x%08x\n", __func__, (unsigned int)irqss);
+	i2c_debug("%s irqss = 0x%X\n", __func__, irqss);
 
 	if (!(irqss & XGOLD_I2C_P_MASK_ALL))
 		return IRQ_NONE;
@@ -817,11 +842,11 @@ static irqreturn_t xgold_i2c_irq_handler(int irq, void *dev)
 {
 	struct i2c_adapter *adap = (struct i2c_adapter *)dev;
 	struct xgold_i2c_algo_data *data = i2c_get_adapdata(adap);
-	unsigned long mis = ioread32(data->regs + I2C_MIS_OFFSET);
+	u32 mis = ioread32(data->regs + I2C_MIS_OFFSET);
 	irqreturn_t ret = IRQ_NONE;
 
 	do {
-		i2c_debug("%s: mis = %lu\n", __func__, mis);
+		i2c_debug("%s: mis = 0x%X\n", __func__, mis);
 
 		if (mis & I2C_MIS_I2C_ERR_INT_INT_PEND) {
 			/* Error interrupt Received */
@@ -1149,8 +1174,9 @@ static void xgold_i2c_hw_init(struct xgold_i2c_algo_data *data)
 	reg_write(reg, data->regs + I2C_ADDR_CFG_OFFSET);
 
 	/* FIFO config */
-	reg = I2C_FIFO_CFG_RXBS_RXBS4 | I2C_FIFO_CFG_TXBS_TXBS4 |
-		I2C_FIFO_CFG_RXFA_RXFA1 | I2C_FIFO_CFG_TXFA_TXFA1 |
+	reg = (pdata->rxbs >> 1) << I2C_FIFO_CFG_RXBS_OFFSET;
+	reg |= (pdata->txbs >> 1) << I2C_FIFO_CFG_TXBS_OFFSET;
+	reg |= I2C_FIFO_CFG_RXFA_RXFA1 | I2C_FIFO_CFG_TXFA_TXFA1 |
 		I2C_FIFO_CFG_RXFC_RXFC | I2C_FIFO_CFG_TXFC_TXFC;
 	reg_write(reg, data->regs + I2C_FIFO_CFG_OFFSET);
 
