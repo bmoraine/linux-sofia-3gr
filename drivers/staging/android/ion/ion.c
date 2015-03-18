@@ -317,8 +317,9 @@ void ion_buffer_destroy(struct ion_buffer *buffer)
 				(PAGE_ALIGN(buffer->size) / PAGE_SIZE)))
 			BUG();
 #endif
-
+	down_write(&buffer->dev->lock);
 	buffer->heap->ops->free(buffer);
+	up_write(&buffer->dev->lock);
 	if (buffer->pages)
 		vfree(buffer->pages);
 	kfree(buffer);
@@ -536,7 +537,7 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	if (!len)
 		return ERR_PTR(-EINVAL);
 
-	down_read(&dev->lock);
+	down_write(&dev->lock);
 	plist_for_each_entry(heap, &dev->heaps, node) {
 		/* if the caller didn't specify this heap id */
 		if (!((1 << heap->id) & heap_id_mask))
@@ -545,7 +546,7 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 		if (!IS_ERR(buffer))
 			break;
 	}
-	up_read(&dev->lock);
+	up_write(&dev->lock);
 
 	if (buffer == NULL)
 		return ERR_PTR(-ENODEV);
@@ -1298,7 +1299,9 @@ static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 
 	mutex_lock(&buffer->lock);
 	/* now map it to userspace */
+	down_write(&buffer->dev->lock);
 	ret = buffer->heap->ops->map_user(buffer->heap, buffer, vma);
+	up_write(&buffer->dev->lock);
 	mutex_unlock(&buffer->lock);
 
 	if (ret)
