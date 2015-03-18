@@ -443,8 +443,8 @@
 	magnetometer {
 		compatible = "st,lsm303c_mag";
 		reg = < 0x1e >;
-		intel,axis-map = < 0 1 2 >;
-		intel,negate = < 0 0 0 >;
+		intel,axis-map = < 1 0 2 >;
+		intel,negate = < 1 0 1 >;
 		intel,offset = < 0 0 0 >;
 		intel,poll-interval = < 100 >;
 		pm,class-name = "lsm303dlhc_mag_class";
