@@ -34,6 +34,7 @@
 #define PROP_DISPLAY            "intel,display"
 #define PROP_SCREEN             "intel,screen"
 
+#define PROP_DISPLAY_DCCLK      "intel,display-dc-clkrate"
 #define PROP_DISPLAY_RAMLESS    "intel,display-ramless"
 #define PROP_DISPLAY_FPS        "intel,display-fps"
 #define PROP_DISPLAY_LANES      "intel,display-if-nblanes"
@@ -287,7 +288,6 @@ dsi_of_parse_display_timing(struct xgold_mipi_dsi_device *mipi_dsi)
 	struct dsi_display *display = &mipi_dsi->display;
 
 	rockchip_get_prmry_screen(screen);
-	display->dif.dsi.dc_clk_rate = screen->mode.pixclock * 2;
 	display->xres = screen->mode.xres;
 	display->yres = screen->mode.yres;
 	if (screen->face == OUT_P565) {
@@ -334,6 +334,12 @@ int dsi_of_parse_display(struct platform_device *pdev,
 	display_dev_n = of_find_matching_node(NULL, display_of_match);
 	if (!display_dev_n) {
 		pr_err("%s: Can't find display matching node\n", __func__);
+		return -EINVAL;
+	}
+
+	if (of_property_read_u32(display_dev_n, PROP_DISPLAY_DCCLK,
+		&display->dif.dsi.dc_clk_rate)) {
+		pr_err("%s: Can't get DC clock rate\n", __func__);
 		return -EINVAL;
 	}
 
