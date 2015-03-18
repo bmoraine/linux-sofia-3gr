@@ -410,7 +410,7 @@ enum {
 	CIF_ISP20_ASYNC_DMA = 0x8
 };
 #define CIF_ISP20_ALWAYS_ASYNC 0x00
-#define CIF_ISP20_ALWAYS_STALL_ON_NO_BUFS true
+#define CIF_ISP20_ALWAYS_STALL_ON_NO_BUFS (false)
 
 #ifndef DIV_ROUND_UP
 #define DIV_ROUND_UP(x, y) (((x) + (y) - 1) / (y))
