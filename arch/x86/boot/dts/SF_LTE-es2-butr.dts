@@ -425,7 +425,7 @@
 	};
 
 	accelerometer {
-		compatible = "st,lsm303dlhc_acc";
+		compatible = "st,lsm303c_acc";
 		reg = < 0x1d >;
 		intel,axis-map = < 1 0 2 >;
 		intel,negate = < 1 0 1 >;
