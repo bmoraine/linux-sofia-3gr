@@ -102,8 +102,10 @@ static const struct gc_camera_module_reg gc0310_init_tab_vga_30fps[] = {
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x13, 0x02},
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x15, 0x12},
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x17, 0x01},
-	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x42, 0x90},
-	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x43, 0x02},
+	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x40, 0x08},
+	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x41, 0x00},
+	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x42, 0x00},
+	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x43, 0x00},
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x21, 0x02},
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x22, 0x00},
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x23, 0x10},
@@ -169,10 +171,10 @@ static const struct gc_camera_module_reg gc0310_init_tab_vga_30fps[] = {
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0xa9, 0x80},
 
 	/*ISP reg*/
-	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x40, 0x00},
+	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x40, 0x06}, /* dn & dd */
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x41, 0x00},
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x42, 0x00},
-	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x44, 0x19},
+	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x44, 0x18}, /* dndd out */
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x46, 0x02},
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x49, 0x03},
 	{GC_CAMERA_MODULE_REG_TYPE_DATA, 0x4c, 0x20}, /*test pattern 24*/
@@ -635,8 +637,11 @@ static int gc0310_start_streaming(struct gc_camera_module *cam_mod)
 		goto err;
 	if (IS_ERR_VALUE(gc_camera_module_write_reg(cam_mod, 0xfe, 0x03)))
 		goto err;
+	/*TODO: This is just a WA for corrupted frame issue,
+	need to implementt skip frame function*/
+	msleep(100);
 	/*10bit 0x92, 8 bit 0x94*/
-	if (IS_ERR_VALUE(gc_camera_module_write_reg(cam_mod, 0x10, 0x92)))
+	if (IS_ERR_VALUE(gc_camera_module_write_reg(cam_mod, 0x10, 0x94)))
 		goto err;
 	if (IS_ERR_VALUE(gc_camera_module_write_reg(cam_mod, 0x01, 0x03)))
 		goto err;
@@ -663,7 +668,7 @@ static int gc0310_stop_streaming(struct gc_camera_module *cam_mod)
 	if (IS_ERR_VALUE(ret))
 		goto err;
 		msleep(100);
-	ret = gc_camera_module_write_reg(cam_mod, 0x10, 0x82);
+	ret = gc_camera_module_write_reg(cam_mod, 0x10, 0x84);
 	if (IS_ERR_VALUE(ret))
 		goto err;
 	ret = gc_camera_module_write_reg(cam_mod, 0x01, 0x00);

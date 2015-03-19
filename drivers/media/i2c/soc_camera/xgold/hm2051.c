@@ -1052,12 +1052,18 @@ static int power_down(struct v4l2_subdev *sd)
 static int hm2051_s_power(struct v4l2_subdev *sd, int on)
 {
 	int ret;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
 	if (on == 0)
 		return power_down(sd);
 	else {
 		ret = power_up(sd);
 
+	ret = hm2051_write_reg_array(client, hm2051_global_setting);
+	if (ret) {
+		dev_err(&client->dev, "hm2051 write register err(global).\n");
+		return ret;
+	}
 
 		if (!ret)
 			return hm2051_init(sd);
@@ -1167,13 +1173,13 @@ static int startup(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "hm2051 reset err.\n");
 		return ret;
 	}
-
+#if 0
 	ret = hm2051_write_reg_array(client, hm2051_global_setting);
 	if (ret) {
 		dev_err(&client->dev, "hm2051 write register err(global).\n");
 		return ret;
 	}
-
+#endif
 	ret = hm2051_write_reg_array(client, hm2051_res[dev->fmt_idx].regs);
 	if (ret) {
 		dev_err(&client->dev, "hm2051 write register err(fmt_idx).\n");
@@ -1645,7 +1651,6 @@ static int hm2051_probe(struct i2c_client *client,
 	if (ret) {
 		pr_info("[Progress][%s] Probe fails\n", HM2051_NAME);
 		hm2051_remove(client);
-		return ret;
 	}
 
 	return ret;
