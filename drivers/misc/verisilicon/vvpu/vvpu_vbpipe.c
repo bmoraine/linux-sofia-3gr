@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2013, 2014 Intel Mobile Communications GmbH
+ * Copyright (C) 2013, 2014, 2015 Intel Mobile Communications GmbH
  *
  * Notes:
  * Aug 22 2014: IMC: vbpipe interface to secure VM
  * Oct 30 2014: IMC: += vvpu_ping()
+ * Mar 17 2015: IMC: complete codecs and allign with user space
  */
 
 /*
@@ -37,7 +38,6 @@
 /** #define __VERBOSE_RPC__ **/
 
 /* vbpipe designated for vvpu usage */
-//#define VVPU_VBPIPE		"/dev/vbpipe5"
 #define VVPU_VBPIPE "/dev/mvpipe-vpu"
 
 /*
@@ -57,54 +57,67 @@ static struct file *vvpu_vbpipe_filep;
 #ifdef __VERBOSE_RPC__
 
 static const char * const vtnames[] = {
-		"h264dec",
-		"mpeg4dec",
-		"vp8dec",
-		"pp",
-		"h264enc",
-		"mpeg4enc",
+	/* decoders/pp */
+	"h264dec",		     /*	 0 */
+	"mpeg4dec",		     /*	 1 */
+	"vp8dec",		     /*	 2 */
+	"vp9dec",		     /*	 3 */
+	"vc1dec",		     /*	 4 */
+	"h265dec",		     /*	 5 */
+	"jpegdec",		     /*	 6 */
+	"pp",			     /*	 7 */
+	/* encoders */
+	"h264enc",		     /*	 8 */
+	"mpeg4enc",		     /*	 9 */
+	"vp8enc",		     /*	10 */
+	"vp9enc",		     /*	11 */
+	"h265enc",		     /*	12 */
+	"jpegenc",		     /*	13 */
 };
 
 static const char * const vonames[] = {
-		"ping",			     /*	 0: generic, testing purposes */
-		"get_api_version",	     /*	 1: */
-		"get_build",		     /*	 2: */
-		"init",			     /*	 3: */
-		"deinit",		     /*	 4: */
-		"decode",		     /*	 5: */
-		"next_frame",		     /*	 5: */
-		"get_info",		     /*	 7: */
-		"peek",			     /*	 8: */
-		"set_mvc",		     /*	 9: h264 only */
-		"set_info",		     /* 10: mpeg4 only */
-		"combined_mode_enable",	     /* 11: pp only */
-		"combined_mode_disable",     /* 12: pp only */
-		"get_config",		     /* 13: pp only */
-		"set_config",		     /* 14: pp only */
-		"set_multiple_output",	     /* 15: pp only */
-		"get_next_output",	     /* 16: pp only */
-		"get_result",		     /* 17: pp only */
-		"get_user_data",	     /* 18: mpeg4 only */
-		"set_picture_buffers",	     /* 19: vp8 only */
-		"set_coding_ctrl",	     /* 20: enc only */
-		"get_coding_ctrl",	     /* 21: enc only */
-		"set_rate_ctrl",	     /* 22: enc only */
-		"get_rate_ctrl",	     /* 23: enc only */
-		"set_preprocessing",	     /* 24: enc only */
-		"get_preprocessing",	     /* 25: enc only */
-		"set_sei_userdata",	     /* 26: enc only */
-		"enc_strm_start",	     /* 27: enc only */
-		"enc_strm_encode",	     /* 28: enc only */
-		"enc_strm_end",		     /* 29: enc only */
-		"enc_op_set_stream_info",    /* 30: enc only */
-		"enc_op_get_stream_info",    /* 31: enc only */
-		"enc_op_set_hw_burst_size",  /* 32: enc only */
-		"enc_op_set_hw_burst_type",  /* 33: enc only */
-		"enc_op_set_chr_qp_offset",  /* 34: enc only */
-		"enc_op_set_filter",	     /* 35: enc only */
-		"enc_op_get_filter",	     /* 36: enc only */
-		"mem_op_alloc",		     /* 37: mem only */
-		"mem_op_free",		     /* 38: mem only */
+	"ping",			     /*	 0: generic, testing purposes */
+	"get_api_version",	     /*	 1: */
+	"get_build",		     /*	 2: */
+	"init",			     /*	 3: */
+	"deinit",		     /*	 4: */
+	"decode",		     /*	 5: */
+	"next_frame",		     /*	 5: */
+	"get_info",		     /*	 7: */
+	"peek",			     /*	 8: */
+	"set_mvc",		     /*	 9: h264 only */
+	"set_info",		     /* 10: mpeg4 only */
+	"combined_mode_enable",	     /* 11: pp only */
+	"combined_mode_disable",     /* 12: pp only */
+	"get_config",		     /* 13: pp only */
+	"set_config",		     /* 14: pp only */
+	"set_multiple_output",	     /* 15: pp only */
+	"get_next_output",	     /* 16: pp only */
+	"get_result",		     /* 17: pp only */
+	"get_user_data",	     /* 18: mpeg4 only */
+	"set_picture_buffers",	     /* 19: vp8 only */
+	"set_coding_ctrl",	     /* 20: enc only */
+	"get_coding_ctrl",	     /* 21: enc only */
+	"set_rate_ctrl",	     /* 22: enc only */
+	"get_rate_ctrl",	     /* 23: enc only */
+	"set_preprocessing",	     /* 24: enc only */
+	"get_preprocessing",	     /* 25: enc only */
+	"set_sei_userdata",	     /* 26: enc only */
+	"enc_strm_start",	     /* 27: enc only */
+	"enc_strm_encode",	     /* 28: enc only */
+	"enc_strm_end",		     /* 29: enc only */
+	"enc_op_set_stream_info",    /* 30: enc only */
+	"enc_op_get_stream_info",    /* 31: enc only */
+	"enc_op_set_hw_burst_size",  /* 32: enc only */
+	"enc_op_set_hw_burst_type",  /* 33: enc only */
+	"enc_op_set_chr_qp_offset",  /* 34: enc only */
+	"enc_op_set_filter",	     /* 35: enc only */
+	"enc_op_get_filter",	     /* 36: enc only */
+	"mem_op_alloc",		     /* 37: mem only */
+	"mem_op_free",		     /* 38: mem only */
+	"pphwc_op_process",	     /* 39: pp only  */
+	"mem_lock_heap",	     /* 40: mem only */
+	"mem_unlock_heap",	     /* 41: mem only */
 
 };
 
@@ -337,7 +350,7 @@ int vvpu_call(struct device *dev, struct vvpu_secvm_cmd *cmd_p)
 			arg[2], arg[3], arg[4], arg[5], arg[6]);
 	} else {
 		dev_info(dev,
-			"vvpu cmd type=%d op=%d h=0x%08x %08x %08x %08x %08x\n",
+			"vvpu cmd type=%d op=%x h=0x%08x %08x %08x %08x %08x\n",
 			arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6]);
 	}
 
