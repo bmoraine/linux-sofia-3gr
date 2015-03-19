@@ -112,7 +112,6 @@
 #define USIF3_INT 85
 #define DIF_RX_BREQ_INT 86
 #define USIF7_INT 87
-#define FBADSP_INT3 88
 #define SBADSP_INT3 89
 #define SBADSP_INT2 90
 #define SBADSP_INT1 91
@@ -154,6 +153,7 @@
 #define SPCU_INT2 157
 #define SPCU_INT3 158
 #define WDT0 159
+#define FBADSP_INT3 162
 #define FBADSP_INT0 163
 #define LC_SP_CHANGE_RESP_INT 164
 #define LC_RESERVED_INT2 165
