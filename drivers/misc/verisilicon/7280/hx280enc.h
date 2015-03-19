@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Intel Mobile Communications GmbH
+ * Copyright (C) 2013 - 2015 Intel Mobile Communications GmbH
  *
  * Notes:
  * May	6 2013: IMC: make platform device/driver
@@ -11,6 +11,7 @@
  *		     power management to "vpu_enc"
  * Mar 13 2014: IMC: Review Comments & Clean up
  * May 19 2014: IMC: reset vpu when switching between decoder and encoder
+ * Mar 16 2015: IMC: VVPU only: remove code accessing HW
  */
 
 /*
@@ -86,11 +87,16 @@
 
 #define H1_DRIVER_NAME		"vpu-enc"
 #define H1_RESET_NAME		"vpu_enc"
+#define OF_KERNEL_CLK		"clk_kernel"
+#define OF_SLAVE_CLK		"clk_slave"
+#define OF_MASTER_CLK		"clk_master"
+#define OF_CORE_REG		"video"
+
 #define ENC_HW_ID1		0x62800000
 #define ENC_HW_ID2		0x72800000
 #define ENC_HW_ID3		0x82700000
 
-
+#if 0
 struct vpu_enc_resource {
 	unsigned pbase;
 	unsigned size;
@@ -117,23 +123,28 @@ struct vpu_enc_irq {
 	int enc;
 };
 
+#endif
+
 struct vpu_enc_device_t {
 	struct platform_device *pdev;
 	struct device *dev;
 
 	struct device_pm_platdata *pm_platdata;
+#if 0
 	struct vpu_enc_resource reg;  /* register memory desc		    */
 	struct vpu_enc_resource mem;  /* dedicated memory desc		    */
 	struct vpu_enc_irq irq;
 	struct reset_control *rstc;   /* reference to reset controller	    */
+#endif
 };
 
+#if 0
 extern struct vpu_common_sem {
 	struct semaphore vpu_sem;
 	int vpu_sem_owner;
 	int cur_user; /*0--> no owner, 1 --> decoder,PP, 2 --> encoder*/
 } vpu_com_sema;
-
+#endif
 
 #if 0 /* currently unused */
 static inline struct vpu_enc_device_t *vpu_enc_get_drvdata(
@@ -172,8 +183,6 @@ extern int xgold_vpu_enc_resume(struct platform_device *pdev);
 extern void hx280enc_pm_set_avail(int avail);
 extern	int hx280enc_pm_get_avail(void);
 
-extern int hx280enc_power_state(int change);
-
 #ifdef CONFIG_VERISILICON_7280_DEBUG_FS
 /*
  * debug file system
@@ -187,10 +196,6 @@ extern void hx280_release_debug(void);
 extern	int hx280enc_power_state(int change);
 extern void hx280enc_reset_power_state(void);
 
-extern unsigned int hx280enc_n_irq;
-extern unsigned int hx280enc_n_spurious_irq;
-
 #endif /* CONFIG_VERISILICON_7280_DEBUG_FS */
-
 
 #endif /* !_HX280ENC_H_ */

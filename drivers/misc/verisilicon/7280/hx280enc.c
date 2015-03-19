@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Intel Mobile Communications GmbH
+ * Copyright (C) 2013 - 2015 Intel Mobile Communications GmbH
  *
  * Notes:
  * Jan 15 2013: IMC: make it build
@@ -20,6 +20,7 @@
  * Aug	7 2014: IMC: use pm handles to switch power
  * Aug 22 2014: IMC: introduce vvpu module
  * Sep	3 2014: IMC: rm CONFIG_PM_RUNTIME for ioctl power ops
+ * Mar 16 2015: IMC: VVPU only: remove code accessing HW
  */
 
 /*
@@ -137,38 +138,8 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Hantro Products Oy");
 MODULE_DESCRIPTION("Hantro 6280/7280/8270 Encoder driver");
 
-#define OF_VPU_ENC_REG_SIZE	"reg"
-#define OF_KERNEL_CLK		"clk_kernel"
-#define OF_SLAVE_CLK		"clk_slave"
-#define OF_MASTER_CLK		"clk_master"
-#define OF_CORE_REG		"video"
-#define PM_CLASS_VPU_ENC	"vpu_enc"
-
 
 struct vpu_enc_device_t *vpu_enc_data;
-
-/* and this is our MAJOR; use 0 for dynamic allocation (recommended)*/
-/** TODO static int hx280enc_major = 0; **/
-
-/* here's all the must remember stuff */
-/** TODO: move into vpu_enc_device_t ... */
-struct hx280enc {
-	char *buffer;
-	unsigned int buffsize;
-	unsigned long iobaseaddr;
-	unsigned int iosize;
-	void __iomem *hwregs;
-	unsigned int irq;
-	int use_vvpu;
-	struct fasync_struct *async_queue;
-};
-
-/* dynamic allocation? */
-static struct hx280enc hx280enc_data;
-
-/* function to write to registers */
-#define hx280enc_writel writel
-
 
 /*
  * PM related data:
@@ -201,14 +172,6 @@ static bool hx280enc_runtime_suspended;
 static int check_vvpu_hw_id(long int hardware);
 #endif
 
-static int reserve_io(struct vpu_enc_device_t *vpu_enc_data);
-static void release_io(void);
-
-static void reset_asic(struct hx280enc *dev);
-
-#ifdef HX280ENC_DUMP_REGS
-static void dump_regs(unsigned long data);
-#endif
 
 /*
  * mis device registration stuff
@@ -219,21 +182,6 @@ static int hx280enc_miscdevice_register(struct platform_device *pdev);
 static void hx280enc_miscdevice_unregister(void);
 
 
-/* IRQ handler */
-static irqreturn_t hx280enc_isr(int irq, void *dev_id);
-
-
-/*
- * semaphores for encoder units
- * (currently 2 are used -> hardcoded array)
- */
-#define HX280_N_UNITS 2
-
-static struct file *hx280enc_owner[HX280_N_UNITS];
-
-DEFINE_SPINLOCK(hx280enc_owner_lock);
-DEFINE_SPINLOCK(hx280enc_user_lock);
-
 #ifdef CONFIG_PM_RUNTIME
 /*
  * return number of current users of encoder units
@@ -241,177 +189,26 @@ DEFINE_SPINLOCK(hx280enc_user_lock);
 static int hx280enc_users(void)
 {
 	int owners = 0;
-	unsigned long flags;
-
-	spin_lock_irqsave(&hx280enc_owner_lock, flags);
-	owners += (hx280enc_owner[0] != NULL) ? 1 : 0;
-	owners += (hx280enc_owner[1] != NULL) ? 1 : 0;
-	spin_unlock_irqrestore(&hx280enc_owner_lock, flags);
 
 	return owners;
 }
 #endif
 
-static int hx280enc_reset_vpu(void)
-{
-	int success = 0;
-
-	if (vpu_enc_data->rstc != NULL) {
-		success = reset_control_assert(vpu_enc_data->rstc);
-		if (success < 0)
-			goto end;
-		usleep_range(50, 200);
-		success = reset_control_deassert(vpu_enc_data->rstc);
-	} else {
-		success = -1;
-		pr_warn("hx280enc reset vpu: controller not present");
-	}
-end:
-	return success;
-}
-
-/*
- * reserve unit entity and assign filp as ownwer
- */
-long hx280enc_reserveUnit(struct hx280enc *dev, unsigned int unit,
-	struct file *filp)
-{
-	unsigned long flags;
-	int success = -1;
-	int sl_locked = 0;
-
-	HX280_ENTER();
-
-	if (unit >= HX280_N_UNITS) {
-		pr_err("hx280enc_reserveUnit()unit %d not available",
-			unit);
-	} else {
-		/*
-		 * if suspend was announced, wait on the PM semaphore
-		 * ... and immediately release it again, to trigger others
-		 */
-		if (hx280enc_pm_get_avail() == 0) {
-			if (down_interruptible(&hx280enc_pm_sem)) {
-				success = -ERESTARTSYS;
-				goto end;
-			}
-
-			up(&hx280enc_pm_sem);
-		}
-
-		spin_lock_irqsave(&hx280enc_owner_lock, flags);
-		sl_locked = 1;
-
-		if ((vpu_com_sema.vpu_sem_owner == 0) ||
-			(vpu_com_sema.vpu_sem_owner != current->pid)) {
-			spin_unlock_irqrestore(&hx280enc_owner_lock, flags);
-			sl_locked = 0;
-
-			HX280_DEBUG("vpu_sem_owner %d,current->pid %d",
-				vpu_com_sema.vpu_sem_owner, current->pid);
-			HX280_DEBUG("vpu_sem down");
-
-			if (down_interruptible(&vpu_com_sema.vpu_sem)) {
-				success = -ERESTARTSYS;
-				goto end;
-			}
-		}
 
 
-		if (sl_locked == 0) {
-			spin_lock_irqsave(&hx280enc_owner_lock, flags);
-			sl_locked = 1;
-		}
+/*--------------------------------------------------------------------------
+  Function name	  : hx280enc_ioctl
+  Description	  : communication method to/from the user space
 
-		vpu_com_sema.vpu_sem_owner = current->pid;
-		hx280enc_owner[unit] = filp;
-
-		spin_unlock_irqrestore(&hx280enc_owner_lock, flags);
-
-		HX280_DEBUG("reserved unit %d", unit);
-
-		if (unit == 1) {
-			spin_lock_irqsave(&hx280enc_user_lock, flags);
-
-			if ((vpu_com_sema.cur_user == 0) ||
-				(vpu_com_sema.cur_user	== 1)) {
-
-				spin_unlock_irqrestore(&hx280enc_user_lock,
-					flags);
-
-				success = hx280enc_reset_vpu();
-				if (success < 0) {
-					HX280_DEBUG("reset_vpu failed");
-					goto end;
-				}
-				spin_lock_irqsave(&hx280enc_user_lock, flags);
-				vpu_com_sema.cur_user = 2;
-			}
-			spin_unlock_irqrestore(&hx280enc_user_lock,
-				flags);
-		}
-
-		success = 0;
-	}
-end:
-	HX280_LEAVE(success);
-
-	return success;
-}
-
-/*
- * make sure filp is unit owner and release unit
- * warning: set to 0 to suppress a warning; as the function is also
- *	    called by the driver close function.
- */
-void hx280enc_release_unit(struct hx280enc *dev, unsigned int unit,
-	struct file *filp, int warning)
-{
-	unsigned long flags;
-	int is_vpu_sem_up = 1;
-
-	HX280_ENTER();
-
-	if (unit >= HX280_N_UNITS) {
-		pr_err("hx280enc_release_unit()unit %d not available",
-			unit);
-	} else {
-		/* is filp the owner?? */
-		spin_lock_irqsave(&hx280enc_owner_lock, flags);
-
-		if ((current->pid == vpu_com_sema.vpu_sem_owner) &&
-			(vpu_com_sema.vpu_sem_owner != 0) &&
-			(unit == 1)) {
-			vpu_com_sema.vpu_sem_owner = 0;
-			is_vpu_sem_up = 0;
-		}
-
-		if (hx280enc_owner[unit] == filp)
-			hx280enc_owner[unit] = NULL;
-
-		spin_unlock_irqrestore(&hx280enc_owner_lock, flags);
-
-
-		if (is_vpu_sem_up == 0) {
-			up(&vpu_com_sema.vpu_sem);
-			HX280_DEBUG("vpu_sem up");
-			HX280_DEBUG("released unit %d", unit);
-		}
-	}
-
-	HX280_LEAVE(0);
-}
-
-
-
-
+  Return type	  : int
+  --------------------------------------------------------------------------*/
 static long hx280enc_ioctl(struct file *filp, unsigned int cmd,
 	unsigned long arg)
 {
 	int err = 0;
 	int ret = 0;
 
-	struct vpu_enc_device_t *pdata = vpu_enc_data; /* TODO: add to filp */
+	struct vpu_enc_device_t *pdata = vpu_enc_data;
 	struct device *dev = pdata->dev;
 	struct device_pm_platdata *pm_platdata = pdata->pm_platdata;
 	(void) pm_platdata; /* used for debug trace only */
@@ -455,14 +252,6 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd,
 		dev_err(dev, "ioctl %d cmd is not supported! - ignored", cmd);
 
 		ret = -EFAULT;
-		break;
-
-	case HX280ENC_IOCGHWOFFSET:
-		__put_user(hx280enc_data.iobaseaddr, (unsigned long *) arg);
-		break;
-
-	case HX280ENC_IOCGHWIOSIZE:
-		__put_user(hx280enc_data.iosize, (unsigned int *) arg);
 		break;
 
 	case HX280ENC_IOC_PM_DISABLE:
@@ -546,47 +335,26 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd,
 	break;
 
 
-	/*
-	 * OPTION: have two more IOCTLs to allocated and release semaphores;
-	 *	   as we always use two semahores, it's OK, to hard code
-	 *	   them and skip allocation and release.
-	 */
-
-	case HX280ENC_IOC_RESERVE:
-	{
-		unsigned int unit = (unsigned int)arg;
-
-		ret = hx280enc_reserveUnit(NULL, unit, filp);
-	}
-	break;
-
-	case HX280ENC_IOC_RELEASE:
-	{
-		unsigned int unit = (unsigned int)arg;
-
-		/* 1 == get warning if not owner */
-		hx280enc_release_unit(NULL, unit, filp, 1);
-	}
-	break;
-
-
-#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 	case HX280_IOCT_SECVM_CMD: {
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 		/* IMC: send a VVPU command to secure VM */
 		struct vvpu_secvm_cmd vvpu_cmd;
 
 		if (copy_from_user(&vvpu_cmd, (void __user *)arg,
 				sizeof(vvpu_cmd)))
-			return -EFAULT;
+			ret = -EFAULT;
+		else {
+			vvpu_call(dev, &vvpu_cmd);
 
-		vvpu_call(dev, &vvpu_cmd);
-
-		if (copy_to_user((void __user *)arg, &vvpu_cmd,
-				sizeof(vvpu_cmd)))
-			return -EFAULT;
+			if (copy_to_user((void __user *)arg, &vvpu_cmd,
+					sizeof(vvpu_cmd)))
+				ret = -EFAULT;
+		}
+#else
+		ret = -EFAULT;
+#endif
 		break;
 	}
-#endif
 	} /* switch(cmd) */
 
 end:
@@ -608,9 +376,8 @@ static int hx280enc_open(struct inode *inode, struct file *filp)
 		pr_info("hx280enc_open() = EAGAIN; suspend was announced");
 
 		ret = -EAGAIN;
-	} else {
-		filp->private_data = (void *)&hx280enc_data;
 	}
+
 
 	HX280_DEBUG("open(%p) = %d", (void *)filp, ret);
 
@@ -619,43 +386,11 @@ static int hx280enc_open(struct inode *inode, struct file *filp)
 	return ret;
 }
 
-static int hx280enc_fasync(int fd, struct file *filp, int mode)
-{
-	struct hx280enc *dev = (struct hx280enc *) filp->private_data;
-	int ret = 0;
-
-	HX280_ENTER();
-
-	HX280_DEBUG("encoder fasync(%d %x %d %x)",
-		fd, (u32) filp, mode, (u32) &dev->async_queue);
-
-	ret = fasync_helper(fd, filp, mode, &dev->async_queue);
-
-	HX280_LEAVE(ret);
-
-	return ret;
-}
 
 static int hx280enc_release(struct inode *inode, struct file *filp)
 {
-	int i;
-
-	struct hx280enc *dev = (struct hx280enc *) filp->private_data;
-
 	HX280_ENTER();
 
-#ifdef HX280ENC_DUMP_REGS
-	dump_regs((unsigned long) dev); /* dump the regs */
-#endif
-
-	/*
-	 * make sure to release hanging units
-	 */
-	for (i = 0; i < HX280_N_UNITS; i++)
-		hx280enc_release_unit(dev, i, filp, 0 /* suppress warning */);
-
-	/* remove this filp from the asynchronusly notified filp's */
-	hx280enc_fasync(-1, filp, 0);
 
 	HX280_DEBUG("close(%p) = 0", (void *)filp);
 
@@ -670,10 +405,10 @@ static const struct file_operations hx280enc_fops = {
 	.release	= hx280enc_release,
 	.unlocked_ioctl = hx280enc_ioctl,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl   = hx280enc_ioctl,
+	.compat_ioctl	= hx280enc_ioctl,
 #endif
-	.fasync		= hx280enc_fasync,
 };
+
 
 struct vpu_enc_pm_resources {
 	struct regulator *reg_core;
@@ -754,6 +489,7 @@ static struct device_state_pm_state *xgold_vpu_enc_get_initial_state(
 {
 	return &vpu_enc_pm_states[VPU_ENC_PM_STATE_D3];
 }
+
 /* USIF PM states & class & pm ops */
 static struct device_state_pm_ops vpu_enc_pm_ops = {
 	.set_state = xgold_vpu_enc_set_pm_state,
@@ -833,11 +569,12 @@ static int xgold_vpu_enc_parse_platform_data(struct platform_device *pdev)
 static int xgold_vpu_enc_probe(struct platform_device *pdev)
 {
 	int result = 0;
-	struct resource *resource;
+	int ret = 0;
+
 	struct device *dev = &pdev->dev;
 	struct device_pm_platdata *pm_platdata;
 
-	dev_info(dev, "probing device");
+	dev_info(dev, "probing vvpu");
 
 	/* Allocate driver data record */
 	vpu_enc_data = kzalloc(sizeof(struct vpu_enc_device_t), GFP_KERNEL);
@@ -845,16 +582,15 @@ static int xgold_vpu_enc_probe(struct platform_device *pdev)
 	if (vpu_enc_data == NULL)
 		return -ENOMEM;
 
+	/* link dev and pdev to vpu_dec_data */
 	platform_set_drvdata(pdev, vpu_enc_data);
 	vpu_enc_data->pdev = pdev;
 	vpu_enc_data->dev  = dev;
 
-	/* assume traditional vpu encoder; vvpu: change later */
-	hx280enc_data.use_vvpu = 0;
-
 	result = xgold_vpu_enc_parse_platform_data(pdev);
 	if (result) {
 		kfree(vpu_enc_data);
+
 		return -EINVAL;
 	}
 
@@ -894,14 +630,6 @@ static int xgold_vpu_enc_probe(struct platform_device *pdev)
 	 */
 	/* pm_runtime_enable(dev); */
 
-#if 0
-	/*
-	 * set the power.irq_safe flag for the device, causing the runtime-PM
-	 * callbacks to be invoked with interrupts off
-	 */
-	pm_runtime_irq_safe(dev);
-#endif
-
 	/*
 	 * Increment the device's usage counter,
 	 * triggers pm_runtime_resume(dev) and return its result
@@ -914,145 +642,69 @@ static int xgold_vpu_enc_probe(struct platform_device *pdev)
 	 */
 #else
 	/*
-	 * switch on vpu ...
+	 * switch on vpu encoder ...
 	 */
 	hx280enc_dev_pm(dev, 1);
+	if (result) {
+		dev_err(dev, "Error powering up the interface");
+		BUG();
+	}
 #endif /* CONFIG_PM_RUNTIME */
 
-	/*
-	 * determine IRQ and IO address from platform device
-	 */
-	vpu_enc_data->irq.enc = platform_get_irq(pdev, 0);
-	resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-
-
-	if (resource != NULL && resource->start) {
-		vpu_enc_data->reg.vbase = resource->start;
-		vpu_enc_data->reg.size	= (unsigned)
-			(resource->end - resource->start) + 1;
-
-		hx280enc_data.iobaseaddr =
-			(unsigned long)vpu_enc_data->reg.vbase;
-		hx280enc_data.iosize	 =
-			(unsigned int)vpu_enc_data->reg.size;
-
-		hx280enc_data.irq	 = vpu_enc_data->irq.enc;
-
-		dev_info(dev, "base_port=0x%08lx, len=%i, irq=%i",
-			hx280enc_data.iobaseaddr, hx280enc_data.iosize,
-			hx280enc_data.irq);
-
-		hx280enc_data.async_queue = NULL;
-		hx280enc_data.hwregs	  = NULL;
-
-		result = reserve_io(vpu_enc_data);
-		if (result < 0) {
-			result = -1;
-
-			goto end;
-		}
-
-		reset_asic(&hx280enc_data);  /* reset hardware */
-
-		/* get the IRQ line */
-		if (hx280enc_data.irq != -1) {
-			result = request_irq(hx280enc_data.irq, hx280enc_isr,
-				IRQF_DISABLED | IRQF_SHARED,
-				"hx280enc", (void *)&hx280enc_data);
-
-			if (result != 0) {
-				if (result == -EINVAL) {
-					dev_err(dev,
-						"Bad irq number or handler");
-				} else if (result == -EBUSY) {
-					dev_err(dev,
-						"IRQ <%d> busy, change	config",
-						hx280enc_data.irq);
-				}
-
-				release_io();
-				goto end;
-			}
-			dev_info(dev, "ISR registered successfully");
-		} else
-			dev_warn(dev, "IRQ not in use!");
-
-	} else {
 #if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
-		/*
-		 * initlialize secure VM decoder: init vbpipe
-		 */
-		dev_info(dev, "init SecureVM encoder");
+	/*
+	 * initlialize secure VM decoder: init pipe to secure vm
+	 */
+	dev_info(dev, "init SecureVM encoder");
 
-		/* indicator for isr, ioctl, etc. */
-		hx280enc_data.use_vvpu = 1;
+	result = vvpu_vbpipe_init(dev);
 
-		result = vvpu_vbpipe_init(dev);
+	/*
+	 * during system boot the mvpipe may not yet be accessible
+	 * therefore ignore an error and init the pipe
+	 * the first time it is used
+	 */
+	if (result != 0) {
+		dev_warn(dev, "mvpipe open is postponed");
 
-		/*
-		 * during system boot the vbpipe may not yet be accessible
-		 * therefore ignore an error and init the pipe
-		 * the first time it is used
-		 */
-		if (result != 0) {
-			dev_warn(dev, "vbpipe open is postponed");
+		result = 0;
+	} else {
+		struct vvpu_secvm_cmd cmd;
+		int vvpu_ret;
 
-			/* TODO: ignore and skip probing; open pipe later */
-			result = 0;
-		} else {
-			struct vvpu_secvm_cmd cmd;
-			int vvpu_ret;
+		dev_info(dev, "probing secureVM encoder");
 
-			dev_info(dev, "probing secureVM encoder");
+		/* set up init probe command */
+		memset(&cmd, 0, sizeof(cmd));
 
-			/* set up init probe command */
-			memset(&cmd, 0, sizeof(cmd));
+		cmd.payload[0] = VVPU_VTYPE_ENC;
+		cmd.payload[1] = VVPU_VOP_INIT_PROBE;
 
-			cmd.payload[0] = VVPU_VTYPE_ENC;
-			cmd.payload[1] = VVPU_VOP_INIT_PROBE;
+		/* do command */
+		vvpu_ret = vvpu_call(dev, &cmd);
 
-			/* do command */
-			vvpu_ret = vvpu_call(dev, &cmd);
+		if (vvpu_ret == 0)
+			dev_err(dev, "error probing secureVM encoder");
+		else
+			dev_info(dev, "found hw id 0x%08x",
+				cmd.payload[4]);
 
-			if (vvpu_ret == 0)
-				dev_err(dev, "error probing secureVM encoder");
-			else
-				dev_info(dev, "found hw id 0x%08x",
-					cmd.payload[4]);
-
-			check_vvpu_hw_id(cmd.payload[4]);
-
-			/* TODO: handle error ... */
-		}
-
-#else
-		dev_err(dev,
-			"cannot get register IO addr from platform_device");
-
-		/*** result = 0; ***/ /* can happen depending on the build*/
-		goto end;
-#endif
+		check_vvpu_hw_id(cmd.payload[4]);
 	}
 
+#else
+	dev_err(dev, "MOBILEVISOR_VDRIVER_PIPE is not available");
+	ret = -ENODEV
+
+	goto end;
+#endif
 
 	result = hx280enc_miscdevice_register(pdev);
-	if (result != 0)
+	if (result != 0) {
+		ret = result;
+
 		goto end;
-
-
-	/*
-	 * get access to reset controller
-	 */
-	vpu_enc_data->rstc = reset_control_get(vpu_enc_data->dev,
-		H1_RESET_NAME);
-
-	if (IS_ERR(vpu_enc_data->rstc)) {
-		dev_err(dev, "Can't retrieve vpu reset controller");
-		result = PTR_ERR(vpu_enc_data->rstc);
-	} else
-		dev_info(dev, "got reset controller successfully");
-
-
+	}
 
 end:
 
@@ -1061,26 +713,32 @@ end:
 	 * triggers pm_request_idle(dev) and return its result
 	 */
 	pm_runtime_put(dev);
-#else
+#else	/* CONFIG_PM_RUNTIME */
 
 #ifdef __POWER_ON_AFTER_PROBE__
 
 	/* this is for testing; leave the power on */
 	dev_info(dev, "leave it on for the moment - testing only");
 
-#else
+#else	/* __POWER_ON_AFTER_PROBE__ */
 	hx280enc_dev_pm(dev, 0);
 
 	dev_info(dev, "switch it off for the moment");
 
 #endif	/* __POWER_ON_AFTER_PROBE__ */
 
-#endif
+#endif	/* CONFIG_PM_RUNTIME */
 
-	if (result != 0) {
-		dev_err(dev, "device probe error");
+	if (ret != 0) {
+		dev_err(dev, "vvpu probe error");
+
+		/* release resources */
+		if (vpu_enc_data != NULL)
+			kfree(vpu_enc_data);
 
 		hx280enc_miscdevice_unregister();
+
+		ret = -ENODEV;
 	} else {
 		/* show that the device may be used */
 		hx280enc_pm_set_avail(1);
@@ -1089,10 +747,10 @@ end:
 		hx280_probe_debug(dev, pdev, &hx280enc_pm);
 #endif
 
-		dev_info(dev, "device probe OK (%d)", result);
+		dev_info(dev, "vvpu probe OK (%d)", ret);
 	}
 
-	return result;
+	return ret;
 }
 
 static int xgold_vpu_enc_remove(struct platform_device *pdev)
@@ -1105,11 +763,11 @@ static int xgold_vpu_enc_remove(struct platform_device *pdev)
 	 * triggers pm_request_idle(dev) and return its result
 	 */
 	pm_runtime_put(dev);
-#else
+#else	/* CONFIG_PM_RUNTIME */
 	hx280enc_dev_pm(dev, 0);
 
 	dev_info(dev, "switch it off");
-#endif
+#endif	/* CONFIG_PM_RUNTIME */
 
 	/* deactivate runtime PM for the device */
 	pm_runtime_disable(dev);
@@ -1291,7 +949,7 @@ void hx280enc_complete(struct device *dev)
 
 	HX280_LEAVE(0);
 }
-/* TODO: Factorize suspend/resume callbacks... */
+
 int hx280enc_suspend(struct device *dev)
 {
 #ifndef CONFIG_PM_RUNTIME
@@ -1407,30 +1065,6 @@ int hx280enc_resume(struct device *dev)
 	return ret;
 }
 
-/** #define __HAVE_FREEZE__ **/
-#ifdef __HAVE_FREEZE__
-int hx280enc_freeze(struct device *dev)
-{
-	int ret = 0;
-
-	HX280_ENTER();
-
-	HX280_LEAVE(ret);
-
-	return ret;
-}
-
-int hx280enc_thaw(struct device *dev)
-{
-	int ret = 0;
-
-	HX280_ENTER();
-
-	HX280_LEAVE(ret);
-
-	return ret;
-}
-#endif
 
 int hx280enc_suspend_noirq(struct device *dev)
 {
@@ -1527,13 +1161,8 @@ static const struct dev_pm_ops hx280enc_pm = {
 	.complete	 = hx280enc_complete,
 	.suspend	 = hx280enc_suspend,
 	.resume		 = hx280enc_resume,
-#ifdef __HAVE_FREEZE__
-	.freeze		 = hx280enc_freeze,
-	.thaw		 = hx280enc_thaw,
-#else
 	.freeze		 = 0,
 	.thaw		 = 0,
-#endif
 	.poweroff	 = 0,
 	.restore	 = 0,
 	.suspend_noirq	 = hx280enc_suspend_noirq,
@@ -1589,23 +1218,12 @@ static struct platform_driver xgold_vpu_enc = {
 int __init hx280enc_init(void)
 {
 	int ret = 0;
-	int i;
 
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	ret = device_state_pm_add_class(&vpu_enc_pm_class);
 	if (ret)
 		return ret;
 #endif
-
-	/*
-	 * initialize
-	 * - pm semaphore
-	 * - reservation semaphore and owner arrays
-	 */
-	sema_init(&hx280enc_pm_sem, 1);
-
-	for (i = 0; i < HX280_N_UNITS; i++)
-		hx280enc_owner[i] = NULL;
 
 	/*
 	 * register platform driver ..
@@ -1629,18 +1247,10 @@ int __init hx280enc_init(void)
 
 void __exit hx280enc_cleanup(void)
 {
-	hx280enc_writel(0, hx280enc_data.hwregs + 0x38); /* disable HW */
-	hx280enc_writel(0, hx280enc_data.hwregs + 0x04); /* clear enc IRQ */
 
 #ifdef CONFIG_VERISILICON_7280_DEBUG_FS
 	hx280_release_debug();
 #endif
-
-	/* free the encoder IRQ */
-	if (hx280enc_data.irq != -1)
-		free_irq(hx280enc_data.irq, (void *) &hx280enc_data);
-
-	release_io();
 
 	hx280enc_miscdevice_unregister();
 
@@ -1674,174 +1284,6 @@ static int check_vvpu_hw_id(long int hwid)
 }
 #endif
 
-static int reserve_io(struct vpu_enc_device_t *vpu_enc_data)
-{
-	long int hwid;
-
-	unsigned int vpu_enc_configration_register = 0;
-	unsigned int vpu_enc_integration_test_register = 0;
-
-
-#if 0 /** TODO: skip this for the moment ...
-	  seems to be done by platform devide register **/
-	if (!request_mem_region(vpu_enc_data_->reg.vbase,
-			vpu_enc_data->reg.size,
-			vpu_enc_data->pdev->name)) {
-		pr_err("hx280enc: failed to reserve HW regs");
-		return -EBUSY;
-	}
-#endif
-
-	hx280enc_data.hwregs = (void __iomem *)
-		ioremap_nocache((unsigned long)vpu_enc_data->reg.vbase,
-			vpu_enc_data->reg.size);
-
-	if (hx280enc_data.hwregs == NULL) {
-		pr_err("hx280enc: failed to ioremap HW regs");
-
-		release_io();
-		return -EBUSY;
-	}
-
-	hwid = readl(hx280enc_data.hwregs);
-
-	/* check for encoder HW ID */
-	if ((((hwid >> 16)&0xFFFF) != ((ENC_HW_ID1 >> 16)&0xFFFF)) &&
-		(((hwid >> 16)&0xFFFF) != ((ENC_HW_ID2 >> 16)&0xFFFF)) &&
-		(((hwid >> 16)&0xFFFF) != ((ENC_HW_ID3 >> 16)&0xFFFF))) {
-
-		pr_info("hx280enc: HW not found at 0x%08lx",
-			hx280enc_data.iobaseaddr);
-#ifdef HX280ENC_DUMP_REGS
-		dump_regs((unsigned long) &hx280enc_data);
-#endif
-		release_io();
-		return -EBUSY;
-	}
-
-	HX280_DEBUG("HW at base <0x%08lx>/<0x%08lx>	with ID <0x%08lx>",
-		hx280enc_data.iobaseaddr,
-		(unsigned long)hx280enc_data.hwregs, hwid);
-
-	vpu_enc_configration_register	  =
-		readl((hx280enc_data.hwregs) + 0xfc);
-	HX280_DEBUG("encoder configration register 0x%08x",
-		vpu_enc_configration_register);
-
-
-	vpu_enc_configration_register	  =
-		readl((hx280enc_data.hwregs) + 0x08);
-	HX280_DEBUG("encoder device configration register 0x%08x",
-		vpu_enc_configration_register);
-
-	hx280enc_writel(0xfede3f03, (hx280enc_data.hwregs) + 0x08);
-
-	vpu_enc_configration_register	  =
-		readl((hx280enc_data.hwregs) + 0x08);
-	HX280_DEBUG("vpu_enc_configration_register 0x%08x",
-		vpu_enc_configration_register);
-
-	HX280_DEBUG(
-	"AXI ID [ write %d, read %d ], max burst %d, endian [out %s, in %s]",
-		((vpu_enc_configration_register & 0xff000000) >> 24),
-		((vpu_enc_configration_register & 0x00ff0000) >> 16),
-		((vpu_enc_configration_register & 0x00003f00) >> 8),
-		((vpu_enc_configration_register & 0x00000002) ?
-			"little" : "big"),
-		((vpu_enc_configration_register & 0x00000001) ?
-			"little" : "big"));
-
-
-	vpu_enc_integration_test_register =
-		readl((hx280enc_data.hwregs) + 0x0C);
-
-	HX280_DEBUG("vpu_enc_integration_test_register 0x%08x",
-		vpu_enc_integration_test_register);
-
-
-	return 0;
-}
-
-static void release_io(void)
-{
-	if (hx280enc_data.hwregs)
-		iounmap((void *) hx280enc_data.hwregs);
-
-	release_mem_region(hx280enc_data.iobaseaddr, hx280enc_data.iosize);
-}
-
-irqreturn_t hx280enc_isr(int irq, void *dev_id)
-{
-	struct hx280enc *dev = (struct hx280enc *) dev_id;
-	u32 irq_status;
-
-	irq_status = readl(dev->hwregs + 0x04);
-
-	/*
-	 * if, during boot, a vvpu channel was initialized,
-	 * there should not be any IRQ for the vpu decoder in linux
-	 * -> raise an error
-	 */
-	if (dev->use_vvpu) {
-		pr_err("hx280enc: receive IRQ; should be in secure VM\n");
-
-		return IRQ_HANDLED;
-	}
-
-	HX280_DEBUG("IRQ %d received", irq);
-
-	if (irq_status & 0x01) {
-		/* clear IRQ bit */
-		hx280enc_writel(irq_status & (~0x01), dev->hwregs + 0x04);
-
-		if (dev->async_queue)
-			kill_fasync(&dev->async_queue, SIGUSR1, POLL_IN);
-		else {
-			pr_warn(
-			"hx280enc:IRQ received w/o anybody waiting for it!");
-		}
-
-		HX280_DEBUG("IRQ handled: 0x%08x", irq_status);
-
-#ifdef CONFIG_VERISILICON_7280_DEBUG_FS
-		++hx280enc_n_irq;
-#endif
-
-		return IRQ_HANDLED;
-	} else {
-#ifdef CONFIG_VERISILICON_7280_DEBUG_FS
-		++hx280enc_n_spurious_irq;
-#endif
-		pr_warn("hx280enc: IRQ received, but NOT hx280enc's!");
-		return IRQ_NONE;
-	}
-}
-
-void reset_asic(struct hx280enc *dev)
-{
-	int i;
-
-	hx280enc_writel(0, dev->hwregs + 0x38);
-
-	for (i = 4; i < dev->iosize; i += 4)
-		writel(0, dev->hwregs + i);
-}
-
-#ifdef HX280ENC_DUMP_REGS
-void dump_regs(unsigned long data)
-{
-	struct hx280enc *dev = (struct hx280enc *) data;
-	int i;
-
-	HX280_ENTER();
-	for (i = 0; i < dev->iosize; i += 4)
-		pr_info("\toffset %02X = %08X",
-			i, readl(dev->hwregs + i));
-
-	HX280_LEAVE(0);
-}
-#endif
-
 
 static int hx280enc_miscdevice_register(struct platform_device *pdev)
 {
@@ -1858,6 +1300,7 @@ static int hx280enc_miscdevice_register(struct platform_device *pdev)
 
 	return err;
 }
+
 
 static void hx280enc_miscdevice_unregister(void)
 {
