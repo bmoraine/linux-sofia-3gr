@@ -83,8 +83,20 @@ static int xgold_cpu_freq_notifier(struct notifier_block *nb,
 					unsigned long val, void *data)
 {
 	struct cpufreq_policy *policy = data;
-	if (val == CPUFREQ_NOTIFY)
-		sofia_set_cpu_policy(policy->min / 1000, policy->max / 1000);
+	struct sofia_cpu_freq_t shmem_freq;
+	int min, max;
+
+	if (val == CPUFREQ_NOTIFY) {
+		/* if min or max already in shared mem, do not notify, this
+		 * means request comes from  other VMs */
+		sofia_get_cpu_frequency(&shmem_freq);
+		min = (policy->min == shmem_freq.minfreq * 1000) ? -1 :
+			(policy->min / 1000);
+		max = (policy->max == shmem_freq.maxfreq * 1000) ? -1 :
+			(policy->max / 1000);
+		/* value 1000/1000=1 means no change in prh */
+		sofia_set_cpu_policy(min, max);
+	}
 	return 0;
 }
 #endif
@@ -346,7 +358,8 @@ static ssize_t thermal_scaling_max_freq_store(struct cpufreq_policy *policy,
 	return count;
 }
 
-static ssize_t thermal_scaling_max_freq_show(struct cpufreq_policy *policy, char *buf)
+static ssize_t thermal_scaling_max_freq_show(struct cpufreq_policy *policy,
+				char *buf)
 {
 	return sprintf(buf, "%u\n", policy->user_policy.max);
 }
