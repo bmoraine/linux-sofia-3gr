@@ -39,6 +39,11 @@ struct xgold_pcm {
 	struct pinctrl_state *pins_inactive;
 	struct device_pm_platdata *pm_platdata;
 	unsigned int path_select;
+	/* DMA DUMP */
+	int dma_dump;
+	struct work_struct dma_dump_work;
+	unsigned char *dump_dma_buffer;
+	int dump_dma_buffer_pos;
 };
 
 struct xgold_runtime_data {

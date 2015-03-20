@@ -43,6 +43,14 @@
 #include "xgold_machine.h"
 #include "agold_bt_sco_streaming.h"
 
+/* DMA DUMP */
+#include <linux/vmalloc.h>
+#include <linux/fs.h>
+
+#define DUMP_DMA_PERIOD (10)
+#define DUMP_DMA_SIZE (4 * 48000 * DUMP_DMA_PERIOD)
+
+
 /* Fix me move this to DTS */
 #define XGOLD_OUT_RATES SNDRV_PCM_RATE_8000_48000
 #define XGOLD_OUT_FORMAT SNDRV_PCM_FMTBIT_S16_LE
@@ -505,6 +513,39 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 		xgold_debug("%s: dma channel is NULL\n", __func__);
 		spin_unlock(&xrtd->lock);
 		return;
+	}
+
+	if (xgold_pcm->dma_dump == 1) {
+		if (xgold_pcm->dump_dma_buffer) {
+			int nToWrite =
+				xrtd->period_size_bytes * XGOLD_MAX_SG_LIST;
+			dma_addr = xrtd->stream->runtime->dma_addr +
+				xrtd->period_size_bytes * xrtd->hwptr_done;
+			dma_addr = (dma_addr_t)phys_to_virt(dma_addr);
+			if (DUMP_DMA_SIZE - xgold_pcm->dump_dma_buffer_pos >
+				nToWrite) {
+				memcpy(xgold_pcm->dump_dma_buffer +
+					xgold_pcm->dump_dma_buffer_pos,
+					(void *)dma_addr,
+					nToWrite);
+				xgold_pcm->dump_dma_buffer_pos += nToWrite;
+			} else {
+				int nRemain =
+					nToWrite -
+					(DUMP_DMA_SIZE -
+					xgold_pcm->dump_dma_buffer_pos);
+				memcpy(xgold_pcm->dump_dma_buffer +
+					xgold_pcm->dump_dma_buffer_pos,
+					(void *)dma_addr,
+					nToWrite - nRemain);
+				memcpy(xgold_pcm->dump_dma_buffer,
+					(void *)(dma_addr + nToWrite - nRemain),
+					nRemain);
+				xgold_pcm->dump_dma_buffer_pos = nRemain;
+				xgold_pcm->dma_dump = 2;
+				schedule_work(&xgold_pcm->dma_dump_work);
+			}
+		}
 	}
 
 	xrtd->hwptr_done += XGOLD_MAX_SG_LIST;
@@ -1175,6 +1216,109 @@ static int xgold_pcm_rec_path_sel_ctl_set(
 	return 0;
 }
 
+/* DMA DUMP */
+static void dma_dump_handler(struct work_struct *work)
+{
+	struct file *filp = NULL;
+	mm_segment_t old_fs;
+	struct xgold_pcm *xgold_pcm =
+		container_of(work, struct xgold_pcm, dma_dump_work);
+
+	xgold_debug("%s\n", __func__);
+
+	if (xgold_pcm->dma_dump == 2) {
+		filp = filp_open("/data/dma_dump.pcm",
+			O_CREAT|O_RDWR|O_TRUNC, 0600);
+		if (filp) {
+			old_fs = get_fs();
+			set_fs(get_ds());
+
+			filp->f_op->write(
+				filp,
+				xgold_pcm->dump_dma_buffer +
+				xgold_pcm->dump_dma_buffer_pos,
+				DUMP_DMA_SIZE - xgold_pcm->dump_dma_buffer_pos,
+				&filp->f_pos);
+			if (xgold_pcm->dump_dma_buffer_pos != 0)
+				filp->f_op->write(
+				filp,
+				xgold_pcm->dump_dma_buffer,
+				xgold_pcm->dump_dma_buffer_pos,
+				&filp->f_pos);
+
+			set_fs(old_fs);
+
+			filp_close(filp, NULL);
+	  } else {
+			xgold_err("%s, Create file failtrue!!\n", __func__);
+		}
+	} else {
+		xgold_err("%s, Should not be here\n", __func__);
+	}
+
+	xgold_pcm->dma_dump = 0;
+}
+
+static int xgold_pcm_dma_dump_sel_ctl_info(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
+{
+	xgold_debug("%s\n", __func__);
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 1;
+	return 0;
+}
+
+static int xgold_pcm_dma_dump_sel_ctl_get(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
+
+	xgold_debug("%s - get value %d\n",
+		__func__, (int)xgold_pcm->dma_dump);
+	ucontrol->value.integer.value[0] = (int)xgold_pcm->dma_dump;
+	return 0;
+}
+
+/* Set function for the pcm rec path select control */
+static int xgold_pcm_dma_dump_sel_ctl_set(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
+
+	xgold_debug("%s - set value %d\n",
+		__func__, (int)ucontrol->value.integer.value[0]);
+
+	if (xgold_pcm->dma_mode &&
+		(int)xgold_pcm->dma_dump == 0 &&
+		(unsigned int)ucontrol->value.integer.value[0] != 0) {
+		/* Allocate memory to stroe DMA data */
+		if (xgold_pcm->dump_dma_buffer == NULL) {
+			xgold_pcm->dump_dma_buffer = vmalloc(DUMP_DMA_SIZE);
+			if (xgold_pcm->dump_dma_buffer == NULL) {
+				xgold_err("DUMP memory cannot be allocated\n");
+			} else {
+				memset(xgold_pcm->dump_dma_buffer,
+				0, DUMP_DMA_SIZE);
+				/* Add work for dumping dma data*/
+				INIT_WORK(&xgold_pcm->dma_dump_work,
+				dma_dump_handler);
+			}
+		}
+
+		if (xgold_pcm->dump_dma_buffer != NULL)
+			xgold_pcm->dma_dump = 1;
+	}
+
+	return 0;
+}
+
 /* Soc xgold pcm controls */
 static const struct snd_kcontrol_new xgold_pcm_controls[] = {
 	{
@@ -1183,6 +1327,13 @@ static const struct snd_kcontrol_new xgold_pcm_controls[] = {
 		.info = xgold_pcm_rec_path_sel_ctl_info,
 		.get = xgold_pcm_rec_path_sel_ctl_get,
 		.put = xgold_pcm_rec_path_sel_ctl_set,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "Start DMA dump",
+		.info = xgold_pcm_dma_dump_sel_ctl_info,
+		.get = xgold_pcm_dma_dump_sel_ctl_get,
+		.put = xgold_pcm_dma_dump_sel_ctl_set,
 	},
 };
 
@@ -1346,12 +1497,23 @@ skip_pinctrl:
 	i2s2_set_device_data(&pdev->dev, XGOLD_I2S2);
 
 	xgold_pcm_register_sysfs_attr(&pdev->dev);
+
 	return ret;
 }
 
 static int xgold_pcm_remove(struct platform_device *pdev)
 {
+	struct xgold_pcm *pcm = platform_get_drvdata(pdev);
+	if (pcm && pcm->dump_dma_buffer) {
+		vfree(pcm->dump_dma_buffer);
+		pcm->dump_dma_buffer = NULL;
+		pcm->dump_dma_buffer_pos = 0;
+		pcm->dma_dump = 0;
+		destroy_work_on_stack(&pcm->dma_dump_work);
+	}
+
 	xgold_debug("%s\n", __func__);
+
 	snd_soc_unregister_component(&pdev->dev);
 	snd_soc_unregister_platform(&pdev->dev);
 	return 0;
