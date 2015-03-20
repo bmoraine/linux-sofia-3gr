@@ -194,7 +194,7 @@ int rk818_irq_init(struct rk818 *rk818, int irq, struct rk818_board *pdata)
 #endif
 	}
 	ret = request_threaded_irq(rk818->chip_irq, NULL, rk818_irq,
-				   flags | IRQF_ONESHOT, "rk818", rk818);
+				   flags | IRQF_ONESHOT | IRQF_NO_SUSPEND, "rk818", rk818);
 
 	/*enable_irq_wake(rk818->chip_irq);*/
 	if (ret != 0)
