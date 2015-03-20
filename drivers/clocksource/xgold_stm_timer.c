@@ -25,7 +25,7 @@
 
 static void __iomem *stm_hw_base;
 static unsigned period0;
-static unsigned long clk_rate = 26 * 1e6;
+static unsigned long clk_rate;
 static struct clk *stm_clk;
 #ifdef CONFIG_XGOLD_STM_TIMER_SCHED_CLOCK
 static int stm_disabled __read_mostly = 1;
@@ -405,7 +405,7 @@ static int xgold_stm_cpu_notify(struct notifier_block *n,
 static void __init xgold_of_timer_map(struct device_node *np)
 {
 	int ret, i, mask;
-	unsigned int faf, evt_rating;
+	unsigned int faf, evt_rating, src_rating, evt_min, evt_max, clk_val;
 
 	stm_clk = of_clk_get_by_name(np, "kernel");
 
@@ -435,10 +435,46 @@ static void __init xgold_of_timer_map(struct device_node *np)
 		xgold_stm_clockevent.rating = evt_rating;
 	}
 
-	ret = of_property_read_u32(np, "intel,stm-cpumask", &mask);
+	ret = of_property_read_u32(np, "intel,stm,src,rating", &src_rating);
+	if (!ret) {
+		pr_info("%s:Clock source device rating set to %#x\n",
+							__func__, src_rating);
+		xgold_stm_clocksource.rating = src_rating;
+	}
+
+	if (stm_clk == ERR_PTR(-ENOENT)) {
+		ret = of_property_read_u32(np, "intel,stm,rate", &clk_val);
+		if (!ret)
+			clk_rate = clk_val;
+		else
+			clk_rate = 26 * 1e6;
+
+		pr_info("%s:Clock frequency %dMHz\n",
+				"XGOLD STM", clk_val/1000/1000);
+	}
+
+	ret = of_property_read_u32(np, "intel,evt,min-ns", &evt_min);
+	if (!ret)
+		xgold_stm_clockevent.min_delta_ns = evt_min;
+	else
+		xgold_stm_clockevent.min_delta_ns = 38000;
+
+	pr_info("XGOLD STM:Clock event min precision %llins\n",
+			       xgold_stm_clockevent.min_delta_ns);
+
+	ret = of_property_read_u32(np, "intel,evt,max-ns", &evt_max);
+	if (!ret)
+		xgold_stm_clockevent.max_delta_ns = evt_max;
+	else
+		xgold_stm_clockevent.max_delta_ns = 1000000000;
+
+	pr_info("XGOLD STM:Clock event max precision %llins\n",
+				xgold_stm_clockevent.max_delta_ns);
+
+	ret = of_property_read_u32(np, "intel,stm,cpumask", &mask);
 	if (ret) {
 		/* property not defined, set stm_cpumask to default : CPU0/1 */
-		mask = 0x3;
+		mask = cpumask_bits(cpu_possible_mask)[0];
 	}
 	while (mask) {
 		unsigned cpu = ffs(mask) - 1;
@@ -489,10 +525,9 @@ void __init xgold_timer_init(struct device_node *np)
 
 	clockevents_calc_mult_shift(ce, clk_rate, 180);
 
-/*FIXME: Not sure about max/min_delta_ns */
-	ce->max_delta_ns = clockevent_delta2ns(0xffffffff, ce);
-	ce->min_delta_ns = clockevent_delta2ns(1024, ce);
-
+	pr_info("XGOLD STM timer clkevent [%llins-%llins] mult %lins\n",
+			ce->min_delta_ns, ce->max_delta_ns,
+			sched_clock_mult);
 	/* Register immediately the clock event on BOOT cpu */
 	xgold_stm_clkevent_setup();
 
