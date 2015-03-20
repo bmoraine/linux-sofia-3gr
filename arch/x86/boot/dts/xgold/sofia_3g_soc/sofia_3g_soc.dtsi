@@ -441,7 +441,8 @@
 						intel,rpm_enabled = < 1 >;
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_DISABLE_UHS: bit17 */
-						intel,quirks = < 0 0x4008 >;
+						/* QUIRK2_HOST_EXEC_TUNING_WA: bit23 */
+						intel,quirks = < 0 0x804008 >;
 						pm_ctrl{
 							pm,class-name = "sdhci_class";
 							pm,user-name = "usd_card";

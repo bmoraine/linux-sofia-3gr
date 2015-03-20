@@ -419,15 +419,17 @@
 						intel,tap-hwbase = < &stsbc1 >;
 						intel,tap_reg = < 0x80000 >;
 						intel,corecfg_reg = < 0x80008 >;
-						intel,corecfg_val = < 0x0074072>;
+						intel,corecfg_val = < 0x0074C72>;
 						/* BROKEN_CARD_DETECTION: bit15/
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_POWER_CONTROL_BUG: bit15 */
+						/* QUIRK2_HOST_EXEC_TUNING_WA: bit23 */
 #ifdef SOFIALTE_ES2
-						intel,quirks = < 0x0 0x4008 >;
+						intel,quirks = < 0x0 0x804008 >;
 #else
 						intel,quirks = < 0x8000 0xc008 >;
 #endif
+						intel,fixup = <0x1>;
 						intel,io-access-guest;
 						pm_ctrl{
 							pm,class-name = "mmcsd_volt_class";
