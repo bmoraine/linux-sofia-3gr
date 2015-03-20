@@ -961,6 +961,13 @@
 						clocks = <&clk_26m_stm>;
 						clock-names = "kernel";
 						interrupts = < STM_INT0 IRQ_TYPE_DEFAULT >, < STM_INT1 IRQ_TYPE_DEFAULT>;
+						intel,stm,src,rating = <50>;
+						intel,stm,cpumask = <0x3>;
+						intel,stm,evt,rating = <50>;
+						intel,stm,rate = <26000000>;
+						intel,evt,min-ns = <38000>;
+						intel,evt,max-ns = <1000000000>;
+
 					};
 
 					xgold_pmx_core:pinmux {
