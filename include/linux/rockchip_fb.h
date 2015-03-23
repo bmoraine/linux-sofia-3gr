@@ -526,7 +526,7 @@ int rockchip_fb_calc_fps(struct rockchip_screen *screen, u32 pixclock);
 
 char *get_format_string(enum data_format, char *fmt);
 struct rockchip_vop_driver *get_vop_drv(char *name);
-int support_uboot_display(void);
+int support_loader_display(void);
 
 extern struct ion_client *xgold_ion_client_create(const char *name);
 extern struct ion_client *rockchip_ion_client_create(const char *name);

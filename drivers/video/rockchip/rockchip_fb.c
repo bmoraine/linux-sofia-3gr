@@ -59,11 +59,11 @@ static struct platform_device *fb_pdev;
 static struct rockchip_fb_trsm_ops *trsm_lvds_ops;
 static struct rockchip_fb_trsm_ops *trsm_edp_ops;
 static struct rockchip_fb_trsm_ops *trsm_mipi_ops;
-static int uboot_logo_on;
+static int loader_logo_on;
 
-int support_uboot_display(void)
+int support_loader_display(void)
 {
-	return uboot_logo_on;
+	return loader_logo_on;
 }
 
 char *get_format_string(enum data_format format, char *fmt)
@@ -926,7 +926,8 @@ static void rockchip_fb_update_reg(struct rockchip_vop_driver *dev_drv,
 	if (dev_drv->last_regs) {
 #if defined(CONFIG_ROCKCHIP_IOMMU)
 		if (dev_drv->iommu_enabled) {
-			if (support_uboot_display() && !dev_drv->suspend_flag) {
+			if (support_loader_display() &&
+			    !dev_drv->suspend_flag) {
 				if (dev_drv->ops->mmu_en)
 					dev_drv->ops->mmu_en(dev_drv, true);
 			}
@@ -2259,7 +2260,7 @@ static void fb_show_bmp_logo(struct fb_info *info, int rotate)
 }
 #endif
 
-static int rockchip_fb_show_copy_from_slb(struct fb_info *info)
+static int rockchip_fb_show_copy_from_loader(struct fb_info *info)
 {
 	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)info->par;
 	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
@@ -2426,9 +2427,9 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 					rockchip_fb_sysmmu_fault_handler);
 		}
 #endif
-		if (support_uboot_display()) {
+		if (support_loader_display()) {
 			if (dev_drv->iommu_enabled)
-				rockchip_fb_show_copy_from_slb(main_fbi);
+				rockchip_fb_show_copy_from_loader(main_fbi);
 			return 0;
 		}
 
@@ -2516,8 +2517,9 @@ static int rockchip_fb_probe(struct platform_device *pdev)
 		sfb_info->disp_mode = NO_DUAL;
 	}
 
-	if (!of_property_read_u32(np, "rockchip,uboot-logo-on", &uboot_logo_on))
-		pr_info("uboot-logo-on:%d\n", uboot_logo_on);
+	if (!of_property_read_u32(np, "rockchip,loader-logo-on",
+				  &loader_logo_on))
+		pr_info("loader-logo-on:%d\n", loader_logo_on);
 
 	dev_set_name(&pdev->dev, "rockchip-fb");
 

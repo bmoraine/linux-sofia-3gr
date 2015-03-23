@@ -771,7 +771,7 @@ static int rockchip_vop_pre_init(struct rockchip_vop_driver *dev_drv)
 			vop_dev->id);
 	}
 
-	if (!support_uboot_display())
+	if (!support_loader_display())
 		rockchip_disp_pwr_enable(screen);
 	rockchip_vop_clk_enable(vop_dev);
 
@@ -800,7 +800,7 @@ static int rockchip_vop_pre_init(struct rockchip_vop_driver *dev_drv)
 	/*      TODO Daisen wait to Modify at 2014.11.12
 	   if ((dev_drv->ops->open_bcsh) &&
 	   (dev_drv->output_color == COLOR_YCBCR)) {
-	   if (support_uboot_display())
+	   if (support_loader_display())
 	   dev_drv->bcsh_init_status = 1;
 	   else
 	   dev_drv->ops->open_bcsh(dev_drv, 1);
@@ -1087,7 +1087,7 @@ static int rockchip_vop_open(struct rockchip_vop_driver *dev_drv, int win_id,
 		rockchip_vop_clk_enable(vop_dev);
 		rockchip_vop_reg_restore(vop_dev);
 
-		if (support_uboot_display()) {
+		if (support_loader_display()) {
 			rockchip_vop_set_dclk(dev_drv);
 			rockchip_vop_enable_irq(dev_drv);
 		} else {
