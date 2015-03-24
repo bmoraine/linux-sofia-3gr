@@ -525,9 +525,8 @@ void __init xgold_timer_init(struct device_node *np)
 
 	clockevents_calc_mult_shift(ce, clk_rate, 180);
 
-	pr_info("XGOLD STM timer clkevent [%llins-%llins] mult %lins\n",
-			ce->min_delta_ns, ce->max_delta_ns,
-			sched_clock_mult);
+	pr_info("XGOLD STM timer clkevent [%llins-%llins]\n",
+			ce->min_delta_ns, ce->max_delta_ns);
 	/* Register immediately the clock event on BOOT cpu */
 	xgold_stm_clkevent_setup();
 
