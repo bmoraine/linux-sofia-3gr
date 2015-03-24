@@ -419,13 +419,8 @@ agold {
 			compatible = "intel,fan54x_idi", "intel,idi,peripheral";
 #endif
 			#address-cells = < 0 >;
-#ifdef SOFIA_3GR_GARNET_EVB
-			reg = < 0xE6500250 0x4 0xE6500A00 0x10 >;
-			reg-names = "pmu_config_base","pmu_chgr_ctrl";
-#else
 			reg = < 0xE6500A00 0x10 >;
 			reg-names = "registers";
-#endif
 #ifdef SF_3G_TAB
 			idi-peripheral-type = "intel,idi,bq2429x";
 #elif defined(SOFIA_3GR_GARNET_EVB)
