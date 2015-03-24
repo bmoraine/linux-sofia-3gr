@@ -324,7 +324,6 @@ struct	unfreezable_bh_struct {
  *				enable/disable operation.
  * @charging_work		work providing charging heartbeat for PSC
  * @boost_work			work feeding watchdog during boost mode
- * @ctrl_io			PMU Charger regs physical address
  * @otg_handle			Pointer to USB OTG internal structure
  *				used for sending VBUS notifications.
  * @usb_psy			power supply instance struct for USB path
@@ -348,8 +347,7 @@ struct smb345_charger {
 
 	struct delayed_work charging_work;
 	struct delayed_work boost_work;
-	void __iomem *ctrl_io;
-	void __iomem *pcfg_io;
+	struct resource *ctrl_io_res;
 	struct usb_phy *otg_handle;
 
 	struct power_supply usb_psy;
@@ -802,7 +800,8 @@ static void smb345_chgint_cb_work_func(struct work_struct *work)
 	}
 
 	/* XXX: CHGDET configuration */
-	regval = ioread32(CHARGER_CONTROL(chrgr->ctrl_io));
+	ret = idi_client_ioread(chrgr->ididev,
+			CHARGER_CONTROL(chrgr->ctrl_io_res->start), &regval);
 
 	/* charger detection CHARGER_CONTROL_CHDETLVL*/
 	regval &= ~(CHARGER_CONTROL_CHDETLVL_M << CHARGER_CONTROL_CHDETLVL_O);
@@ -813,13 +812,20 @@ static void smb345_chgint_cb_work_func(struct work_struct *work)
 		regval |= (CHARGER_CONTROL_CHDETLVL_LOW << CHARGER_CONTROL_CHDETLVL_O);
 	}
 
-	iowrite32(regval, CHARGER_CONTROL(chrgr->ctrl_io));
+	ret = idi_client_iowrite(chrgr->ididev,
+			CHARGER_CONTROL(chrgr->ctrl_io_res->start), regval);
 
 	/* charger control WR strobe */
-	iowrite32((1 << CHARGER_CONTROL_WR_WS_O),
-			CHARGER_CONTROL_WR(chrgr->ctrl_io));
-	iowrite32((1 << CHARGER_CONTROL_WR_WS_O),
-			CHARGER_CONTROL_WR(chrgr->ctrl_io));
+	ret = idi_client_iowrite(chrgr->ididev,
+			CHARGER_CONTROL_WR(chrgr->ctrl_io_res->start),
+			BIT(CHARGER_CONTROL_WR_WS_O));
+
+	/* This second triggering of the write strobe is intentional
+	 * to make sure CHARGER_CTRL value is propagated to HW properly
+	 */
+	ret = idi_client_iowrite(chrgr->ididev,
+			CHARGER_CONTROL_WR(chrgr->ctrl_io_res->start),
+			BIT(CHARGER_CONTROL_WR_WS_O));
 
 chgint_fail:
 	up(&chrgr->prop_lock);
@@ -944,7 +950,7 @@ static int smb345_configure_pmu_regs(struct smb345_charger *chrgr)
 	struct device_state_pm_state *pm_state_en, *pm_state_dis;
 	int ret;
 
-	if (!chrgr->ctrl_io || !chrgr->ididev || !chrgr->pcfg_io)
+	if (!chrgr->ctrl_io_res || !chrgr->ididev)
 		return -EINVAL;
 
 	pm_state_en =
@@ -972,7 +978,9 @@ static int smb345_configure_pmu_regs(struct smb345_charger *chrgr)
 		return -EIO;
 	}
 
-	regval = ioread32(CHARGER_CONTROL(chrgr->ctrl_io));
+	ret = idi_client_ioread(chrgr->ididev,
+			CHARGER_CONTROL(chrgr->ctrl_io_res->start), &regval);
+
 
 	/* ChargerResetLevel - CHARGER_CONTROL_CHGLVL_LOW */
 	regval &= ~(CHARGER_CONTROL_CHGLVL_M << CHARGER_CONTROL_CHGLVL_O);
@@ -990,13 +998,20 @@ static int smb345_configure_pmu_regs(struct smb345_charger *chrgr)
 	regval &= ~(CHARGER_CONTROL_CHDWEN_M << CHARGER_CONTROL_CHDWEN_O);
 	regval |= (CHARGER_CONTROL_CHDWEN_EN << CHARGER_CONTROL_CHDWEN_O);
 
-	iowrite32(regval, CHARGER_CONTROL(chrgr->ctrl_io));
+	ret = idi_client_iowrite(chrgr->ididev,
+			CHARGER_CONTROL(chrgr->ctrl_io_res->start), regval);
 
 	/* charger control WR strobe */
-	iowrite32((1 << CHARGER_CONTROL_WR_WS_O),
-			CHARGER_CONTROL_WR(chrgr->ctrl_io));
-	iowrite32((1 << CHARGER_CONTROL_WR_WS_O),
-			CHARGER_CONTROL_WR(chrgr->ctrl_io));
+	ret = idi_client_iowrite(chrgr->ididev,
+			CHARGER_CONTROL_WR(chrgr->ctrl_io_res->start),
+			BIT(CHARGER_CONTROL_WR_WS_O));
+
+	/* This second triggering of the write strobe is intentional
+	 * to make sure CHARGER_CTRL value is propagated to HW properly
+	 */
+	ret = idi_client_iowrite(chrgr->ididev,
+			CHARGER_CONTROL_WR(chrgr->ctrl_io_res->start),
+			BIT(CHARGER_CONTROL_WR_WS_O));
 
 	ret = idi_set_power_state(chrgr->ididev, pm_state_dis, false);
 
@@ -1307,9 +1322,6 @@ static int smb345_i2c_probe(struct i2c_client *client,
 	}
 	chrgr->otg_handle = otg_handle;
 
-	/* Wait for smb345 idi device to map io */
-	if (chrgr->ctrl_io == NULL || chrgr->pcfg_io == NULL)
-		BUG();
 	/*
 	 * Get interrupt from device tree
 	 */
@@ -1502,8 +1514,6 @@ static int smb345_idi_probe(struct idi_peripheral_device *ididev,
 					const struct idi_device_id *id)
 {
 	struct resource *res;
-	void __iomem *ctrl_io;
-	void __iomem *pcfg_io;
 	struct smb345_charger *chrgr = &chrgr_data;
 	int ret = 0;
 
@@ -1513,36 +1523,14 @@ static int smb345_idi_probe(struct idi_peripheral_device *ididev,
 	pr_info("%s\n", __func__);
 
 	res = idi_get_resource_byname(&ididev->resources,
-			IORESOURCE_MEM, "pmu_chgr_ctrl");
+			IORESOURCE_MEM, "registers");
 
 	if (res == NULL) {
 		pr_err("getting pmu_chgr_ctrl resources failed!\n");
 		return -EINVAL;
 	}
 
-	ctrl_io = ioremap(res->start, resource_size(res));
-
-	if (!ctrl_io) {
-		pr_err("mapping PMU's Charger registers failed!\n");
-		return -EINVAL;
-	}
-
-	res = idi_get_resource_byname(&ididev->resources,
-			IORESOURCE_MEM, "pmu_config_base");
-
-	if (res == NULL) {
-		pr_err("getting pmu_config_base resource failed!\n");
-		return -EINVAL;
-	}
-
-	pcfg_io = ioremap(res->start, resource_size(res));
-
-	if (!pcfg_io) {
-		pr_err("mapping PMU's Charger registers failed!\n");
-		return -EINVAL;
-	}
-	chrgr->ctrl_io = ctrl_io;
-	chrgr->pcfg_io = pcfg_io;
+	chrgr->ctrl_io_res = res;
 
 	chrgr->ididev = ididev;
 
@@ -1561,7 +1549,6 @@ static int __exit smb345_idi_remove(struct idi_peripheral_device *ididev)
 	CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_IDI_REMOVE, 0, 0);
 	pr_info("%s\n", __func__);
 
-	iounmap(chrgr_data.ctrl_io);
 	return 0;
 }
 
