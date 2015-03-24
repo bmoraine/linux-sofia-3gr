@@ -113,8 +113,12 @@ static void evdev_queue_syn_dropped(struct evdev_client *client)
 	ktime_t time;
 
 	time = ktime_get();
-	if (client->clkid != CLOCK_MONOTONIC)
-		time = ktime_sub(time, ktime_get_monotonic_offset());
+	if (client->clkid == CLOCK_BOOTTIME)
+		time = ktime_get_boottime();
+	else {
+		if (client->clkid != CLOCK_MONOTONIC)
+			time = ktime_sub(time, ktime_get_monotonic_offset());
+	}
 
 	ev.time = ktime_to_timeval(time);
 	ev.type = EV_SYN;
@@ -178,7 +182,11 @@ static void evdev_pass_values(struct evdev_client *client,
 	if (client->revoked)
 		return;
 
-	event.time = ktime_to_timeval(client->clkid == CLOCK_MONOTONIC ?
+	/* add boottime timestamp support */
+	if (client->clkid == CLOCK_BOOTTIME)
+		event.time = ktime_to_timeval(ktime_get_boottime());
+	else
+		event.time = ktime_to_timeval(client->clkid == CLOCK_MONOTONIC ?
 				      mono : real);
 
 	/* Interrupts are disabled, just acquire the lock. */
@@ -947,7 +955,8 @@ static long evdev_do_ioctl(struct file *file, unsigned int cmd,
 	case EVIOCSCLOCKID:
 		if (copy_from_user(&i, p, sizeof(unsigned int)))
 			return -EFAULT;
-		if (i != CLOCK_MONOTONIC && i != CLOCK_REALTIME)
+		if (i != CLOCK_MONOTONIC && i != CLOCK_REALTIME
+				&& i != CLOCK_BOOTTIME)
 			return -EINVAL;
 		client->clkid = i;
 		return 0;
