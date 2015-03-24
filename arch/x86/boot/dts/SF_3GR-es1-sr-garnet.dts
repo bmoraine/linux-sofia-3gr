@@ -199,6 +199,7 @@
 	intel,virq,29 = <0>; /* EINT_USB_ID */
 
 	intel,preack,8 = <1>; /* EINT_EXI8 */
+	intel,preack,16 = <1>; /* EINT_USB_HS_RESUME*/
 	intel,preack,20 = <1>; /* EINT_USIF1_WK */
 };
 
