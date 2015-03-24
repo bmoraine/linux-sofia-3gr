@@ -18,6 +18,26 @@
 #include <linux/string.h>
 #include "sec_rpc.h"
 
+#include <linux/io.h>
+#include <linux/uaccess.h>
+#include <linux/fs.h>
+
+#define UI16(A) ((u16)(A))
+#define UI32(A) ((u32)(A))
+
+#define LIT_UINT16_TO_UCHARS(A, B)\
+	{(A)[1] = (B)>>8&0xFF; (A)[0] = (B)&0xFF; }
+
+#define LIT_UCHARS_TO_UINT16(A)\
+	(UI16((A)[1])<<8|UI16((A)[0]))
+
+#define LIT_UINT32_TO_UCHARS(A, B)\
+	{(A)[3] = (B)>>24&0xFF; (A)[2] = (B)>>16&0xFF; \
+	(A)[1] = (B)>>8&0xFF; (A)[0] = (B)&0xFF; }
+
+#define LIT_UCHARS_TO_UINT32(A)\
+	(UI32((A)[3])<<24|UI32((A)[2])<<16|UI32((A)[1])<<8|UI32((A)[0]))
+
 enum rpc_action {
 	RPC_ALLOC,
 	RPC_WRITE,
@@ -88,14 +108,23 @@ struct t_rpc_dispatch {
 	struct t_rpc_cmd cmd;
 };
 
-
+static const char devname[] =
+	"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID010";
+static struct file *fd;
 static struct t_rpc_ctx_list g_ctx_list;
 static struct t_rpc_data_list g_data_list;
+
+
+#if defined IBFS_TRC
+static struct T_IBFS_TRC_BUF trc_buf_a = {0/*init*/};
+#endif
 
 DEFINE_SEMAPHORE(ctx_list_sem);
 DEFINE_SEMAPHORE(data_list_sem);
 DEFINE_SEMAPHORE(shared_mem_mutex);
 DEFINE_SEMAPHORE(sem_sec_mutex);
+
+
 static u32 rpc_alloc_data(struct t_rpc_data_list *g_data_list, u32 length)
 {
 	struct t_rpc_data *rpc_data_elm;
@@ -396,6 +425,309 @@ cleanup:
 	return rpc_result;
 }
 
+
+#if defined IBFS_TRC
+static void rpc_trace(enum T_IBFS_TRC_TYPE trc_type, u32 val0, u32 val1)
+{
+	if (!trc_buf_a.init) {
+		memset(&trc_buf_a, 0, sizeof(struct T_IBFS_TRC_BUF));
+		trc_buf_a.init = true;
+	}
+
+	trc_buf_a.buf[trc_buf_a.next_item].trc_type  = trc_type;
+	trc_buf_a.buf[trc_buf_a.next_item].val0      = val0;
+	trc_buf_a.buf[trc_buf_a.next_item].val1      = val1;
+
+	if (trc_buf_a.next_item >= IBFS_TRC_BUF_LGT-1)
+		trc_buf_a.next_item = 0;
+	else
+		trc_buf_a.next_item++;
+}
+
+static void rpc_trace_get(struct T_IBFS_TRC_BUF *p_trc_buf,
+	u32 *p_nof_bytes_buf)
+{
+	*p_nof_bytes_buf = sizeof(struct T_IBFS_TRC_BUF);
+	memcpy(p_trc_buf, &trc_buf_a, sizeof(struct T_IBFS_TRC_BUF));
+}
+#else
+#define rpc_trace(trc_type, val0, val1)
+#define rpc_trace_get(p_trc_buf, p_nof_bytes_buf)
+#endif
+
+
+static int rpc_write_ibfs(u8 *p_buf, u32 offset, u32 nof_bytes)
+{
+	int rpc_result = -1;
+	loff_t pos;
+	ssize_t cnt;
+	mm_segment_t old_fs;
+
+	old_fs = get_fs();
+
+	pos = vfs_llseek(fd, offset, SEEK_SET);
+	if (pos < 0) {
+		pr_err("rpc_op_ibfs_write: Seek %d failed\n", offset);
+		goto cleanup;
+	}
+
+	if (pos != offset) {
+		pr_err("rpc_op_ibfs_write: Seek %d Got %d\n",
+			offset, (u32)pos);
+		goto cleanup;
+	}
+
+	set_fs(KERNEL_DS);
+	cnt = vfs_write(fd, p_buf, nof_bytes, &pos);
+	set_fs(old_fs);
+
+	if (nof_bytes != cnt) {
+		pr_err("rpc_op_ibfs_write: Wrt %d Got %d\n",
+			nof_bytes, (u32)cnt);
+		goto cleanup;
+	}
+
+	rpc_result = 0;
+
+cleanup:
+	return rpc_result;
+}
+
+
+static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
+{
+	int rpc_result = -1;
+	loff_t pos;
+	u32 offset;
+	u32 nof_bytes;
+	ssize_t cnt;
+	mm_segment_t old_fs;
+	u8 *p_buf = NULL;
+	phys_addr_t p_buf_phys = 0;
+
+	if (io_data == NULL || io_data_len == NULL) {
+		pr_err("Invalid input : data(0x%08X),", (u32)io_data);
+		pr_err("io_data_len(0x%08X)\n", (u32)io_data_len);
+		goto cleanup;
+	}
+
+	/* Switch on which ibfs interface group/component to interact with*/
+	switch (opcode) {
+	/*********************** rpc_op_ibfs_open ***********************/
+	case rpc_op_ibfs_open:
+		old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		fd = filp_open(devname, (O_RDWR | O_SYNC), 0);
+		set_fs(old_fs);
+
+		if (unlikely(IS_ERR(fd))) {
+			pr_err("rpc_op_ibfs_open: Failed %s\n", devname);
+			goto cleanup;
+		}
+
+		pos = vfs_llseek(fd, 0, SEEK_END);
+		if (pos < 0) {
+			pr_err("rpc_op_ibfs_open: Seek end failed\n");
+			goto cleanup;
+		}
+
+		if (pos == 0) {
+			pr_err("rpc_op_ibfs_open: Empty %s\n", devname);
+			goto cleanup;
+		}
+
+		/* Update output length */
+		*io_data_len = 2*sizeof(u32);
+
+		/* Return length of partition */
+		LIT_UINT32_TO_UCHARS(&io_data[4], pos);
+
+		/* Return result */
+		LIT_UINT32_TO_UCHARS(&io_data[0], IBFS_OK);
+
+		rpc_trace(IBFS_TRC_INIT, 0, pos);
+		break;
+
+	/*********************** rpc_op_ibfs_close ***********************/
+	case rpc_op_ibfs_close:
+		old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		filp_close(fd, NULL);
+		set_fs(old_fs);
+
+		/* Update output length */
+		*io_data_len = sizeof(u32);
+
+		/* Return result */
+		LIT_UINT32_TO_UCHARS(&io_data[0], IBFS_OK);
+
+		rpc_trace(IBFS_TRC_CLOSE, 0, 0);
+		break;
+
+	/*********************** rpc_op_ibfs_read ***********************/
+	case rpc_op_ibfs_read:
+		offset    = LIT_UCHARS_TO_UINT32(&(io_data[0]));
+		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[4]));
+		p_buf     = phys_to_virt((phys_addr_t)
+		   LIT_UCHARS_TO_UINT32(&(io_data[8])));
+
+		old_fs = get_fs();
+
+		pos = vfs_llseek(fd, offset, SEEK_SET);
+		if (pos < 0) {
+			pr_err("rpc_op_ibfs_read: Failed %d\n", offset);
+			goto cleanup;
+		}
+
+		if (pos != offset) {
+			pr_err("rpc_op_ibfs_read: Seek %d Got %d\n",
+				offset, (u32)pos);
+			goto cleanup;
+		}
+
+		set_fs(KERNEL_DS);
+		cnt = vfs_read(fd, p_buf, nof_bytes, &pos);
+		set_fs(old_fs);
+
+		if (nof_bytes != cnt) {
+			pr_err("rpc_op_ibfs_read: Read %d. Got %d\n",
+				nof_bytes, (u32)cnt);
+			goto cleanup;
+		}
+
+		/* Update output length */
+		*io_data_len = sizeof(u32);
+
+		/* Return result */
+		LIT_UINT32_TO_UCHARS(&io_data[0], IBFS_OK);
+
+		rpc_trace(IBFS_TRC_READ, offset, nof_bytes);
+		break;
+
+	/*********************** rpc_op_ibfs_write ***********************/
+	case rpc_op_ibfs_write:
+		offset    = LIT_UCHARS_TO_UINT32(&(io_data[0]));
+		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[4]));
+		p_buf     = phys_to_virt((phys_addr_t)
+		  LIT_UCHARS_TO_UINT32(&(io_data[8])));
+
+		rpc_result = rpc_write_ibfs(p_buf, offset, nof_bytes);
+		if (0 != rpc_result) {
+			pr_err("rpc_op_ibfs_write: Write failed\n");
+			goto cleanup;
+		}
+
+		/* Update output length */
+		*io_data_len = sizeof(u32);
+
+		/* Return result */
+		LIT_UINT32_TO_UCHARS(&io_data[0], IBFS_OK);
+
+		rpc_trace(IBFS_TRC_WRITE, offset, nof_bytes);
+		break;
+
+	/*********************** rpc_op_ibfs_erase ***********************/
+	case rpc_op_ibfs_erase:
+		offset    = LIT_UCHARS_TO_UINT32(&(io_data[0]));
+		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[4]));
+
+		p_buf = kzalloc(nof_bytes, GFP_KERNEL);
+		if (NULL == p_buf) {
+			pr_err("rpc_op_ibfs_erase: kzalloc failed\n");
+			goto cleanup;
+		}
+
+		memset(p_buf, 0xFF, nof_bytes);
+
+		rpc_result = rpc_write_ibfs(p_buf, offset, nof_bytes);
+		if (0 != rpc_result) {
+			kfree(p_buf);
+			pr_err("rpc_op_ibfs_erase: Write failed\n");
+			goto cleanup;
+		} else {
+			kfree(p_buf);
+		}
+
+		/* Update output length */
+		*io_data_len = sizeof(u32);
+
+		/* Return result */
+		LIT_UINT32_TO_UCHARS(&io_data[0], IBFS_OK);
+
+		rpc_trace(IBFS_TRC_ERASE, offset, nof_bytes);
+		break;
+
+	/*********************** rpc_op_ibfs_alloc ***********************/
+	case rpc_op_ibfs_alloc:
+		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[0]));
+
+		p_buf = kzalloc(nof_bytes, GFP_KERNEL);
+		if (NULL == p_buf) {
+			pr_err("rpc_op_ibfs_alloc: kzalloc failed\n");
+			goto cleanup;
+		}
+
+		p_buf_phys = virt_to_phys(p_buf);
+
+		/* Update output length */
+		*io_data_len = 2*sizeof(u32);
+
+		/* Return pointer */
+		LIT_UINT32_TO_UCHARS(&io_data[4], p_buf_phys);
+
+		/* Return result */
+		LIT_UINT32_TO_UCHARS(&io_data[0], IBFS_OK);
+
+		rpc_trace(IBFS_TRC_ALLOC, p_buf_phys, nof_bytes);
+		break;
+
+	/*********************** rpc_op_ibfs_free ***********************/
+	case rpc_op_ibfs_free:
+		p_buf_phys = (phys_addr_t)LIT_UCHARS_TO_UINT32(&(io_data[0]));
+
+		p_buf = phys_to_virt(p_buf_phys);
+
+		if (NULL == p_buf) {
+			pr_err("rpc_op_ibfs_free: buf already freed\n");
+			goto cleanup;
+		}
+
+		kfree(p_buf);
+
+		/* Update output length */
+		*io_data_len = sizeof(u32);
+
+		/* Return result */
+		LIT_UINT32_TO_UCHARS(&io_data[0], IBFS_OK);
+
+		rpc_trace(IBFS_TRC_FREE, p_buf_phys, 0);
+		break;
+
+#if defined IBFS_TRC
+	/*********************** rpc_op_ibfs_trace ***********************/
+	case rpc_op_ibfs_trace:
+		/* Update output length */
+		nof_bytes = 0;
+
+		rpc_trace_get((struct T_IBFS_TRC_BUF *)&io_data[4], &nof_bytes);
+
+		*io_data_len = sizeof(u32) + nof_bytes;
+
+		/* Return result */
+		LIT_UINT32_TO_UCHARS(&io_data[0], IBFS_OK);
+		break;
+#endif
+
+	default:
+		break;
+	}
+
+	rpc_result = 0;
+
+cleanup:
+	return rpc_result;
+}
+
 static int rpc_dispatch(enum t_rpc_if_grp if_grp, u32 opcode,
 			u8 *io_data, u32 *io_data_len)
 {
@@ -405,6 +737,9 @@ static int rpc_dispatch(enum t_rpc_if_grp if_grp, u32 opcode,
 	switch (if_grp) {
 	case RPC_IF_SEC:
 		rpc_result = rpc_dispatch_sec(opcode, io_data, io_data_len);
+		break;
+	case RPC_IF_IBFS:
+		rpc_result = rpc_dispatch_ibfs(opcode, io_data, io_data_len);
 		break;
 	default:
 		break;

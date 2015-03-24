@@ -24,21 +24,61 @@ struct t_rpc_send_info {
 	char vlink_name[8];      /* Which com path (vlink) should be used? */
 };
 
+#define IBFS_OK 0
+#define IBFS_TRC_BUF_LGT  40
+
 enum t_rpc_if_grp {
 	RPC_IF_SEC      = 0x00000000,
 	RPC_IF_FUS,
 	RPC_IF_CEU,
 	RPC_IF_NVM,
 	RPC_IF_SCU,
+	RPC_IF_KEYMASTER,
+	RPC_IF_IBFS,
 	RPC_ATA_SEC     = 0x00001000,
+	RPC_ATA_CEU,
 	RPC_TST_SEC     = 0x00002000,
 	RPC_IF_GRP_END  = 0x7FFFFFFF
+};
+
+enum t_rpc_opcode_ibfs_if {
+	rpc_op_ibfs_open,
+	rpc_op_ibfs_read,
+	rpc_op_ibfs_write,
+	rpc_op_ibfs_erase,
+	rpc_op_ibfs_alloc,
+	rpc_op_ibfs_free,
+	rpc_op_ibfs_trace,
+	rpc_op_ibfs_close,
+	rpc_op_ibfs_if_end = 0x7FFFFFFF
+};
+
+enum T_IBFS_TRC_TYPE {
+	IBFS_TRC_INIT  = 1,
+	IBFS_TRC_CLOSE = 2,
+	IBFS_TRC_WRITE = 3,
+	IBFS_TRC_READ  = 4,
+	IBFS_TRC_ERASE = 5,
+	IBFS_TRC_ALLOC = 6,
+	IBFS_TRC_FREE  = 7
+};
+
+struct T_IBFS_TRC_BUF_ELEM {
+	enum T_IBFS_TRC_TYPE  trc_type;
+	u32                   val0;
+	u32                   val1;
+};
+
+struct T_IBFS_TRC_BUF {
+	bool                        init;
+	u32                         next_item;
+	struct T_IBFS_TRC_BUF_ELEM buf[IBFS_TRC_BUF_LGT];
 };
 
 void rpc_handle_cmd(void *shared_mem);
 
 int rpc_call(struct t_rpc_send_info *send_info, enum t_rpc_if_grp if_grp,
-	     u32 opcode, u8 *io_data, u32 *io_data_len, u32 max_len);
+		u32 opcode, u8 *io_data, u32 *io_data_len, u32 max_len);
 
 #ifdef MEM_TEST_STUB
 int stub_call_sec_vm(int num_vec, struct pvec *phys_iov, int *remote_ret);
