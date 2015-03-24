@@ -28,6 +28,7 @@
 #include <asm/irq.h>
 #include <asm/apic.h>
 #include <asm/i8259.h>
+#include <asm/xgold.h>
 #ifdef CONFIG_X86_IO_APIC_WATCHDOG
 #include <asm/io_apic_watchdog.h>
 #endif
@@ -495,6 +496,11 @@ void sofia_init_irq(void)
 #endif
 #endif
 
+static void __init xgold_reserve_resources(void)
+{
+	pstore_ram_reserve_memory();
+}
+
 /*
  * XGOLD specific x86_init function overrides and early setup
  * calls.
@@ -502,7 +508,7 @@ void sofia_init_irq(void)
 void __init x86_xgold_early_setup(void)
 {
 	x86_init.resources.probe_roms = x86_init_noop,
-	x86_init.resources.reserve_resources = x86_init_noop,
+	x86_init.resources.reserve_resources = xgold_reserve_resources,
 	x86_init.irqs.pre_vector_init = x86_init_noop,
 	x86_init.oem.banner = x86_xgold_default_banner,
 	x86_init.pci.init = xgold_pci_init,
