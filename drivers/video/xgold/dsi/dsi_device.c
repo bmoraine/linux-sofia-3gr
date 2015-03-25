@@ -139,6 +139,9 @@ static int xgold_mipi_dsi_probe(struct platform_device *pdev)
 
 	xgold_mipi_dsi = mipi_dsi;
 	rockchip_fb_trsm_ops_register(&trsm_mipi_dsi_ops, SCREEN_MIPI);
+	if (support_loader_display())
+		mipi_dsi->sys_state = true;
+
 	dev_info(&pdev->dev, "XGold MIPI DSI driver probe success\n");
 	dsi_of_parse_display(pdev, mipi_dsi);
 	dsi_probe(&mipi_dsi->display);
