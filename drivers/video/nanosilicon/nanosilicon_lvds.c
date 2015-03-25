@@ -280,6 +280,9 @@ static int nanosilicon_lvds_probe(struct platform_device *pdev)
 
 	nanosilicon_lvds = lvds;
 	rockchip_fb_trsm_ops_register(&trsm_lvds_ops, SCREEN_LVDS);
+	if (support_loader_display())
+		lvds->sys_state = true;
+
 	dev_info(&pdev->dev, "nanosilicon lvds driver probe success\n");
 
 	return 0;
