@@ -1062,7 +1062,8 @@ static int rockchip_vop_load_screen(struct rockchip_vop_driver *dev_drv,
 
 	rockchip_vop_set_dclk(dev_drv);
 
-	if (dev_drv->trsm_ops && dev_drv->trsm_ops->enable)
+	if (screen->index >= 0 &&
+	    dev_drv->trsm_ops && dev_drv->trsm_ops->enable)
 		dev_drv->trsm_ops->enable();
 
 	if (screen->init)
@@ -1402,7 +1403,8 @@ static int rockchip_vop_early_suspend(struct rockchip_vop_driver *dev_drv)
 	dev_drv->suspend_flag = true;
 	flush_kthread_worker(&dev_drv->update_regs_worker);
 
-	if (dev_drv->trsm_ops && dev_drv->trsm_ops->disable)
+	if (screen->index >= 0 &&
+	    dev_drv->trsm_ops && dev_drv->trsm_ops->disable)
 		dev_drv->trsm_ops->disable();
 	spin_lock(&vop_dev->reg_lock);
 	if (likely(vop_dev->clk_on)) {
@@ -1473,7 +1475,8 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 
 	dev_drv->suspend_flag = false;
 
-	if (dev_drv->trsm_ops && dev_drv->trsm_ops->enable)
+	if (screen->index >= 0 &&
+	    dev_drv->trsm_ops && dev_drv->trsm_ops->enable)
 		dev_drv->trsm_ops->enable();
 
 	/* VOP leave standby mode after DSI enable */
@@ -2187,12 +2190,14 @@ static void rockchip_vop_shutdown(struct platform_device *pdev)
 {
 	struct vop_device *vop_dev = platform_get_drvdata(pdev);
 	struct rockchip_vop_driver *dev_drv = &vop_dev->driver;
+	struct rockchip_screen *screen = dev_drv->cur_screen;
 
 	dev_drv->suspend_flag = true;
 	flush_kthread_worker(&dev_drv->update_regs_worker);
 	kthread_stop(dev_drv->update_regs_thread);
 
-	if (dev_drv->trsm_ops && dev_drv->trsm_ops->disable)
+	if (screen->index >= 0 &&
+	    dev_drv->trsm_ops && dev_drv->trsm_ops->disable)
 		dev_drv->trsm_ops->disable();
 
 	rockchip_vop_standby(dev_drv);

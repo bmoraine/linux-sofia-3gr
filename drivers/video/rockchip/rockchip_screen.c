@@ -23,6 +23,8 @@
 #include <video/display_timing.h>
 #include <video/of_display_timing.h>
 
+#define PROP_DISPLAY            "intel,display"
+
 #define NODE_DISPLAY_PANEL	"display-panel0"
 
 #define PROP_DISPLAY_GPIORST    "intel,display-gpio-reset"
@@ -35,7 +37,13 @@
 #define PROP_DISPLAY_GPIOTYPE   "intel,gpio-type"
 #define PROP_DISPLAY_GPIOVALUE  "intel,gpio-value-delay"
 
+static struct of_device_id display_of_match[] = {
+	{ .compatible = PROP_DISPLAY, },
+	{ },
+};
+
 static struct rockchip_screen *sfa_screen;
+static int panel_source;
 
 size_t get_fb_size(void)
 {
@@ -385,12 +393,22 @@ static int rockchip_prase_timing_dt(struct device_node *np,
 {
 	struct display_timings *disp_timing;
 	struct display_timing *dt;
+	struct device_node *display_dev_n;
+	int index = 0;
 
-	disp_timing = of_get_display_timings(np);
+	screen->index = panel_source;
+
+	for_each_matching_node(display_dev_n, display_of_match) {
+		if (screen->index < 0 || screen->index == index++)
+			break;
+	}
+
+	disp_timing = of_get_display_timings(display_dev_n);
 	if (!disp_timing) {
 		pr_err("parse display timing err\n");
 		return -EINVAL;
 	}
+
 	dt = display_timings_get(disp_timing, disp_timing->native_mode);
 	rockchip_fb_videomode_from_timing(dt, screen);
 	return 0;
@@ -435,6 +453,23 @@ static int rockchip_screen_probe(struct platform_device *pdev)
 		 ret ? "failed" : "success");
 	return ret;
 }
+
+static __init int parse_panel_source(char *arg)
+{
+	int ret;
+
+	if (!arg)
+		return -EINVAL;
+
+	ret = sscanf(arg, "%d", &panel_source);
+	if (ret != 1) {
+		panel_source = 0;
+		return -EINVAL;
+	}
+
+	return 0;
+}
+early_param("panelsource", parse_panel_source);
 
 static const struct of_device_id rockchip_screen_dt_ids[] = {
 	{.compatible = "rockchip,screen",},

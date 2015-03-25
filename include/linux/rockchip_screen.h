@@ -53,6 +53,7 @@ struct rockchip_screen {
 	u16 lvds_format;
 	u16 face;
 	u16 color_mode;
+	int index;
 	u8 vop_id;
 	u8 screen_id;
 	struct device *dev;
