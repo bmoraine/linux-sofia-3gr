@@ -65,6 +65,13 @@ enum voemcrypto_cmd_t {
 	VOEMCRYPTO_CMD_GENERIC_DECRYPT = 24,
 	VOEMCRYPTO_CMD_GENERIC_SIGN = 25,
 	VOEMCRYPTO_CMD_GENERIC_VERIFY = 26,
+	VOEMCRYPTO_CMD_IOCTL_GETADDR = 27,
+	VOEMCRYPTO_CMD_UPDATEUSAGETABLE = 28,
+	VOEMCRYPTO_CMD_DEACTIVEUSAGEENTRY = 29,
+	VOEMCRYPTO_CMD_REPORTUSAGE = 30,
+	VOEMCRYPTO_CMD_DELETEUSAGEENTRY = 31,
+	VOEMCRYPTO_CMD_DELETEUSAGETABLE = 32,
+/* VOEMCRYPTO_CMD_FETCHLOG = 33, */
 	VOEMCRYPTO_CMD_MAX = 0xFFFFFFFF
 };
 
@@ -96,7 +103,11 @@ enum voemcrypto_cmd_t {
 #define VOEMC_IOCTL_GENERICSIGN _IOR(MAGIC_NUM, 24, uint32_t)
 #define VOEMC_IOCTL_GENVERIFY _IOR(MAGIC_NUM, 25, uint32_t)
 #define VOEMC_IOCTL_GETADDR _IOR(MAGIC_NUM, 26, uint32_t)
-
+#define VOEMC_IOCTL_UPDATEUSAGETABLE _IOR(MAGIC_NUM, 27, uint32_t)
+#define VOEMC_IOCTL_DEACTIVEUSAGEENTRY  _IOR(MAGIC_NUM, 28, uint32_t)
+#define VOEMC_IOCTL_REPORTUSAGE  _IOR(MAGIC_NUM, 29, uint32_t)
+#define VOEMC_IOCTL_DELETEUSAGEENTRY  _IOR(MAGIC_NUM, 30, uint32_t)
+#define VOEMC_IOCTL_DELETEUSAGETABLE  _IOR(MAGIC_NUM, 31, uint32_t)
 
 struct voemc_generic_t {
 	uint32_t cmd;
@@ -152,7 +163,6 @@ struct voemc_gensign_t {
 	size_t *signature_length;
 };
 
-
 struct voemc_key_object {
 	uint8_t *key_id;
 	size_t key_id_length;
@@ -163,14 +173,12 @@ struct voemc_key_object {
 	uint8_t *key_control;
 };
 
-
 struct voemc_key_refresh_object {
 	uint8_t *key_id;
 	size_t key_id_length;
 	uint8_t *key_control_iv;
 	uint8_t *key_control;
 };
-
 
 struct voemc_loadkeys_t {
 	uint32_t cmd;
@@ -184,8 +192,9 @@ struct voemc_loadkeys_t {
 	uint8_t	*enc_mac_keys;
 	size_t num_keys;
 	struct voemc_key_object *key_array;
+	uint8_t *pst;
+	size_t pst_length;
 };
-
 
 struct voemc_refreshkeys_t {
 	uint32_t cmd;
@@ -199,7 +208,6 @@ struct voemc_refreshkeys_t {
 	struct voemc_key_refresh_object *key_array;
 };
 
-
 struct voemc_selectkey_t {
 	uint32_t cmd;
 	uint32_t result;
@@ -207,7 +215,6 @@ struct voemc_selectkey_t {
 	uint8_t *key_id; /* phy addr to i/p data (shmem or kernel) */
 	size_t key_id_length;
 };
-
 
 enum voemc_buffer_type {
 	voemc_buffer_type_clear,
@@ -232,7 +239,6 @@ struct voemc_dest_buffer_desc {
 		} direct;
 	} buffer;
 };
-
 
 struct voemc_decryptctr_t {
 	uint32_t cmd;
@@ -320,6 +326,7 @@ struct voemc_genrsasign_t {
 	uint32_t result;
 	uint32_t session;
 	uint8_t *message;
+	uint32_t algorithm;
 	size_t message_length;
 	uint8_t *signature;
 	size_t signature_length;
@@ -396,6 +403,45 @@ struct voem_input_buffer {
 	uint32_t baddr;
 	uint32_t phys;
 	uint32_t phys_size;
+};
+
+struct voemc_UpdateUsageTable_t {
+	uint32_t cmd;
+	uint32_t result;
+};
+
+struct voemc_deactiveusageentry_t {
+	uint32_t cmd;
+	uint32_t result;
+	char *pst;
+	int pst_length;
+};
+
+struct voemc_ReportUsage_t {
+	uint32_t cmd;
+	uint32_t result;
+	uint32_t session;
+	char *pst;
+	int pst_length;
+	char *rptbuffer;
+	size_t *rptbuffer_length;
+};
+
+struct voemc_DeleteUsageEntry_t {
+	uint32_t cmd;
+	uint32_t result;
+	uint32_t session;
+	uint8_t *pst;
+	size_t pst_length;
+	const uint8_t *message;
+	size_t message_length;
+	const uint8_t *signature;
+	size_t signature_length;
+};
+
+struct  voemc_DeleteUsageTable_t {
+	uint32_t cmd;
+	uint32_t result;
 };
 
 /*****************************************************************************/
