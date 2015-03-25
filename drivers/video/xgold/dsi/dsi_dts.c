@@ -322,6 +322,7 @@ int dsi_of_parse_display(struct platform_device *pdev,
 	const char *string;
 	struct device_node *display_dev_n, *child;
 	struct dsi_display *display = &mipi_dsi->display;
+	int index = 0;
 
 	dsi_of_parse_gpio(pdev, display);
 	dsi_of_parse_display_timing(mipi_dsi);
@@ -331,7 +332,12 @@ int dsi_of_parse_display(struct platform_device *pdev,
 		display->dsi_reset = NULL;
 	}
 
-	display_dev_n = of_find_matching_node(NULL, display_of_match);
+	for_each_matching_node(display_dev_n, display_of_match) {
+		if (mipi_dsi->screen.index < 0 ||
+		    mipi_dsi->screen.index == index++)
+			break;
+	}
+
 	if (!display_dev_n) {
 		pr_err("%s: Can't find display matching node\n", __func__);
 		return -EINVAL;
