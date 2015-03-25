@@ -214,8 +214,6 @@ static const struct ov_camera_module_reg OV5670_720P_30fps[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380b, 0xd0},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380c, 0x06},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380d, 0x8c},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380e, 0x03},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380f, 0xe0},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3811, 0x04},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3813, 0x02},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3814, 0x03},
@@ -365,14 +363,12 @@ static const struct ov_camera_module_reg OV5670_720P_30fps[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5793, 0x52},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5794, 0xa3},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3503, 0x00},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380e, 0x03},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380f, 0xfe},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380e, 0x03}, /* VBI = 4.866ms*/
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380f, 0xfe}, /* VBI = 4.866ms*/
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3002, 0x61},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3010, 0x40},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x300D, 0x00},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x0100, 0x01}
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x300D, 0x00}
 };
-
 
 static const struct ov_camera_module_reg OV5670_1080P_30fps[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x0103, 0x01},
@@ -501,8 +497,6 @@ static const struct ov_camera_module_reg OV5670_1080P_30fps[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380b, 0x38},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380c, 0x06},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380d, 0x8c},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380e, 0x07},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380f, 0xb8},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3811, 0x04},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3813, 0x02},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3814, 0x01},
@@ -652,15 +646,12 @@ static const struct ov_camera_module_reg OV5670_1080P_30fps[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5793, 0x52},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5794, 0xa3},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3503, 0x00},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380e, 0x07},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380f, 0xfd},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380e, 0x07}, /* VBI = 15.551ms*/
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380f, 0xfd}, /* VBI = 15.551ms*/
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3002, 0x61},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3010, 0x40},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x300D, 0x00},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x0100, 0x01}
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x300D, 0x00}
 };
-
-
 
 static const struct ov_camera_module_reg OV5670_5M_30fps_2lanes[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x0103, 0x01},
@@ -789,8 +780,6 @@ static const struct ov_camera_module_reg OV5670_5M_30fps_2lanes[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380b, 0x98},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380c, 0x06},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380d, 0x8c},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380e, 0x08}, /*0x07 3.255ms*/
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380f, 0x1D}, /*0xb8*/
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3811, 0x04},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3813, 0x02},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3814, 0x01},
@@ -939,13 +928,12 @@ static const struct ov_camera_module_reg OV5670_5M_30fps_2lanes[] = {
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5792, 0x00},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5793, 0x52},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x5794, 0xa3},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380e, 0x07},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380f, 0xfd},
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380e, 0x08}, /* VBI = 3.255ms*/
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x380f, 0x1d}, /* VBI = 3.255ms*/
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3503, 0x00},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3002, 0x61},
 	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x3010, 0x40},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x300D, 0x00},
-	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x0100, 0x01}
+	{OV_CAMERA_MODULE_REG_TYPE_DATA, 0x300D, 0x00}
 };
 
 
@@ -1400,7 +1388,7 @@ static int ov5670_start_streaming(struct ov_camera_module *cam_mod)
 {
 	int ret = 0;
 
-	ov_camera_module_pr_debug(cam_mod, "\n");
+	ov_camera_module_pr_info(cam_mod, "\n");
 
 	ret = OV5670_g_VTS(cam_mod, &cam_mod->vts_min);
 	if (IS_ERR_VALUE(ret))
@@ -1425,7 +1413,7 @@ static int ov5670_stop_streaming(struct ov_camera_module *cam_mod)
 {
 	int ret = 0;
 
-	ov_camera_module_pr_debug(cam_mod, "\n");
+	ov_camera_module_pr_info(cam_mod, "\n");
 
 	ret = ov_camera_module_write_reg(cam_mod, 0x0100, 0);
 	if (IS_ERR_VALUE(ret))
@@ -1444,7 +1432,7 @@ static int ov5670_check_camera_id(struct ov_camera_module *cam_mod)
 	u32 pidh, pidl, vid = 0;
 	int ret = 0;
 
-	ov_camera_module_pr_debug(cam_mod, "\n");
+	ov_camera_module_pr_info(cam_mod, "\n");
 
 	ret |= ov_camera_module_read_reg(cam_mod, 1, OV5670_PIDH_ADDR, &pidh);
 	ret |= ov_camera_module_read_reg(cam_mod, 1, OV5670_PIDL_ADDR, &pidl);
