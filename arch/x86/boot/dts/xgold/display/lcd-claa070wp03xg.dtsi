@@ -3,9 +3,11 @@
  * definition at "include/dt-bindings/sofiafb/sofia_fb.h"
  */
 
+claa070wp03xg {
+	compatible = "intel,display";
 	display-timings {
-		native-mode = <&timing0>;
-		timing0: timing0 {
+		native-mode = <&claa070wp03xg_timing>;
+		claa070wp03xg_timing: claa070wp03xg_timing {
 			screen-type = <SCREEN_LVDS>;
 			lvds-format = <LVDS_8BIT_2>;
 			out-face    = <OUT_D888_P666>;
@@ -28,3 +30,4 @@
 			swap-gb = <0>;
 		};
 	};
+};

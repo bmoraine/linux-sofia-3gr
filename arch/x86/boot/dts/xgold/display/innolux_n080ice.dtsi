@@ -2,30 +2,6 @@
  * definition at "include/dt-bindings/sofiafb/sofia_fb.h"
  */
 
-display-timings {
-	native-mode = <&timing0>;
-	timing0: timing0 {
-		screen-type = <SCREEN_MIPI>;
-		out-face    = <OUT_P888>;
-		color-mode = <COLOR_RGB>;
-		clock-frequency = <70224960>;
-		hactive = <800>;
-		vactive = <1280>;
-		hback-porch = <40>;
-		hfront-porch = <40>;
-		vback-porch = <20>;
-		vfront-porch = <20>;
-		hsync-len = <4>;
-		vsync-len = <4>;
-		hsync-active = <0>;
-		vsync-active = <0>;
-		de-active = <0>;
-		pixelclk-active = <0>;
-		swap-rb = <0>;
-		swap-rg = <0>;
-		swap-gb = <0>;
-	};
-};
 
 innolux_n080ice {
 	compatible = "intel,display";
@@ -38,6 +14,31 @@ innolux_n080ice {
 	intel,display-if-nblanes = <4>;
 	intel,display-eot = <1>;
 	intel,display-gate = <1>;
+
+	display-timings {
+		native-mode = <&innolux_n080ice_timing>;
+		innolux_n080ice_timing: innolux_n080ice_timing {
+			screen-type = <SCREEN_MIPI>;
+			out-face    = <OUT_P888>;
+			color-mode = <COLOR_RGB>;
+			clock-frequency = <70224960>;
+			hactive = <800>;
+			vactive = <1280>;
+			hback-porch = <40>;
+			hfront-porch = <40>;
+			vback-porch = <20>;
+			vfront-porch = <20>;
+			hsync-len = <4>;
+			vsync-len = <4>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <0>;
+			pixelclk-active = <0>;
+			swap-rb = <0>;
+			swap-rg = <0>;
+			swap-gb = <0>;
+		};
+	};
 
 	cmd-init {
 		nt35521v06b_cm1 {

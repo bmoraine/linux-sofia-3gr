@@ -2,30 +2,6 @@
  * definition at "include/dt-bindings/sofiafb/sofia_fb.h"
  */
 
-display-timings {
-	native-mode = <&timing0>;
-	timing0: timing0 {
-		screen-type = <SCREEN_MIPI>;
-		out-face    = <OUT_P888>;
-		color-mode = <COLOR_RGB>;
-		clock-frequency = <49768320>;
-		hactive = <600>;
-		vactive = <1024>;
-		hback-porch = <60>;
-		hfront-porch = <100>;
-		vback-porch = <10>;
-		vfront-porch = <22>;
-		hsync-len = <24>;
-		vsync-len = <2>;
-		hsync-active = <0>;
-		vsync-active = <0>;
-		de-active = <0>;
-		pixelclk-active = <0>;
-		swap-rb = <0>;
-		swap-rg = <0>;
-		swap-gb = <0>;
-	};
-};
 
 auo_b070atn02 {
 	compatible = "intel,display";
@@ -38,6 +14,31 @@ auo_b070atn02 {
 	intel,display-if-nblanes = <4>;
 	intel,display-eot = <1>;
 	intel,display-gate = <1>;
+
+	display-timings {
+		native-mode = <&auo_b070atn02_timing>;
+		auo_b070atn02_timing: auo_b070atn02_timing {
+			screen-type = <SCREEN_MIPI>;
+			out-face    = <OUT_P888>;
+			color-mode = <COLOR_RGB>;
+			clock-frequency = <49768320>;
+			hactive = <600>;
+			vactive = <1024>;
+			hback-porch = <60>;
+			hfront-porch = <100>;
+			vback-porch = <10>;
+			vfront-porch = <22>;
+			hsync-len = <24>;
+			vsync-len = <2>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <0>;
+			pixelclk-active = <0>;
+			swap-rb = <0>;
+			swap-rg = <0>;
+			swap-gb = <0>;
+		};
+	};
 
 	gpio-power-on {
 		power_en {
