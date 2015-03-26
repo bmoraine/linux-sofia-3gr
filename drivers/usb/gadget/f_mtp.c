@@ -1036,8 +1036,11 @@ static long mtp_ioctl(struct file *fp, unsigned code, unsigned long value)
 
 fail:
 	spin_lock_irq(&dev->lock);
+
 	if (dev->state == STATE_CANCELED)
 		ret = -ECANCELED;
+	else if (dev->state == STATE_ERROR)
+		ret = -EIO;
 	else if (dev->state != STATE_OFFLINE)
 		dev->state = STATE_READY;
 	spin_unlock_irq(&dev->lock);
