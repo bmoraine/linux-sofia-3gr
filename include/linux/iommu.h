@@ -104,6 +104,11 @@ enum iommu_attr {
 struct iommu_ops {
 	int (*domain_init)(struct iommu_domain *domain);
 	void (*domain_destroy)(struct iommu_domain *domain);
+
+	/* Domain allocation and freeing by the iommu driver */
+	struct iommu_domain *(*domain_alloc)(void);
+	void (*domain_free)(struct iommu_domain *);
+
 	int (*attach_dev)(struct iommu_domain *domain, struct device *dev);
 	void (*detach_dev)(struct iommu_domain *domain, struct device *dev);
 	int (*map)(struct iommu_domain *domain, unsigned long iova,
