@@ -4364,6 +4364,7 @@ static int cif_isp20_start(
 			sensor output. */
 		mdelay(1);
 		/* start sensor output! */
+		dev->isp_dev.frame_id = 0;
 		cif_isp20_pltfrm_rtrace_printf(dev->dev,
 			"starting image source...\n");
 		ret = cif_isp20_img_src_set_state(dev,
@@ -4557,7 +4558,7 @@ static int cif_isp20_mi_isr(void *cntxt)
 			if (((mp_y_off_cnt_shd != 0) &&
 				!dev->config.jpeg_config.enable) ||
 				(sp_y_off_cnt_shd != 0)) {
-				cif_isp20_pltfrm_pr_warn(dev->dev,
+				cif_isp20_pltfrm_pr_dbg(dev->dev,
 					"soft update too late (SP offset %d, MP offset %d)\n",
 					sp_y_off_cnt_shd, mp_y_off_cnt_shd);
 			}
@@ -4856,10 +4857,11 @@ int cif_isp20_streamoff(
 	}
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"SP state = %s, MP state = %s, DMA state = %s\n",
+		"SP state = %s, MP state = %s, DMA state = %s, # frames received = %d\n",
 		cif_isp20_state_string(dev->sp_stream.state),
 		cif_isp20_state_string(dev->mp_stream.state),
-		cif_isp20_state_string(dev->dma_stream.state));
+		cif_isp20_state_string(dev->dma_stream.state),
+		dev->isp_dev.frame_id >> 1);
 
 	return 0;
 err:
@@ -5580,7 +5582,9 @@ int marvin_mipi_isr(void *cntxt)
 			    mask & (mipi_mis & CIF_MIPI_ERR_DPHY)) {
 				marvin_hw_errors[i].count++;
 				cif_isp20_pltfrm_pr_err(dev->dev,
-					"CIF_MIPI_ERR_DPHY");
+					"CIF_MIPI_ERR_DPHY 0x%x\n",
+					cif_ioread32(dev->config.base_addr +
+						CIF_MIPI_RIS));
 				break;
 			}
 		}
@@ -5601,8 +5605,9 @@ int marvin_mipi_isr(void *cntxt)
 			    mask & (mipi_mis & CIF_MIPI_ERR_CSI)) {
 				marvin_hw_errors[i].count++;
 				cif_isp20_pltfrm_pr_err(dev->dev,
-					"CIF_MIPI_ERR_CSI %x",
-					mipi_mis);
+					"CIF_MIPI_ERR_CSI 0x%x\n",
+					cif_ioread32(dev->config.base_addr +
+						CIF_MIPI_RIS));
 				break;
 			}
 		}
@@ -5635,7 +5640,10 @@ int marvin_mipi_isr(void *cntxt)
 						mi_status);
 				else
 					cif_isp20_pltfrm_pr_err(dev->dev,
-						"CIF_MIPI_SYNC_FIFO_OVFLW\n");
+						"CIF_MIPI_SYNC_FIFO_OVFLW 0x%x\n",
+						cif_ioread32(
+							dev->config.base_addr +
+							CIF_MIPI_RIS));
 				break;
 			}
 		}
