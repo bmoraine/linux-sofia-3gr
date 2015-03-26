@@ -3215,13 +3215,23 @@ static int cif_isp20_config_cif(
 			goto err;
 	}
 
+	/* Turn off XNR vertical subsampling when ism cropping is enabled */
+	if (dev->config.isp_config.ism_config.ism_en) {
+		if (dev->isp_dev.cif_ism_cropping == false) {
+			dev->isp_dev.cif_ism_cropping = true;
+			dev->isp_dev.ycflt_update = true;
+		}
+	} else {
+		if (dev->isp_dev.cif_ism_cropping == true) {
+			dev->isp_dev.cif_ism_cropping = false;
+			dev->isp_dev.ycflt_update = true;
+		}
+	}
+
 	if ((dev->sp_stream.state != CIF_ISP20_STATE_STREAMING) &&
 		(dev->mp_stream.state != CIF_ISP20_STATE_STREAMING) &&
 		dev->isp_dev.ycflt_update) {
-		/* TODO: YC flt configuration should not be done
-			here, but when done in ISP frame interrupt, it
-			leads to corrupted frames. To be further
-			investigated. */
+
 		if (dev->isp_dev.ycflt_en) {
 			cifisp_ycflt_config(&dev->isp_dev);
 			cifisp_ycflt_en(&dev->isp_dev);
@@ -4405,6 +4415,22 @@ static int cif_isp20_update_ism_ycflt_rsz(
 	struct cif_isp20_device *dev)
 {
 	int ret = 0;
+
+	if (dev->isp_dev.ycflt_update ||
+		dev->config.isp_config.ism_config.ism_update_needed) {
+
+		if (dev->config.isp_config.ism_config.ism_en) {
+			if (dev->isp_dev.cif_ism_cropping == false) {
+				dev->isp_dev.cif_ism_cropping = true;
+				dev->isp_dev.ycflt_update = true;
+			}
+		} else {
+			if (dev->isp_dev.cif_ism_cropping == true) {
+				dev->isp_dev.cif_ism_cropping = false;
+				dev->isp_dev.ycflt_update = true;
+			}
+		}
+	}
 
 	/* Update YCFLT */
 	if (dev->isp_dev.ycflt_update) {

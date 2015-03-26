@@ -647,7 +647,7 @@ int cifisp_ycflt_enable(struct xgold_isp_dev *isp_dev,
 		isp_dev->ycflt_en = *value;
 		if (!in_interrupt())
 			spin_lock_irqsave(&isp_dev->config_lock, lock_flags);
-		isp_dev->isp_param_ycflt_update_needed = true;
+		isp_dev->ycflt_update = true;
 		if (!in_interrupt())
 			spin_unlock_irqrestore(&isp_dev->config_lock,
 				lock_flags);
@@ -1497,8 +1497,18 @@ static int cifisp_ycflt_param(struct xgold_isp_dev *isp_dev,
 	}
 
 	spin_lock_irqsave(&isp_dev->config_lock, lock_flags);
+
+	/* This copy will not be changed untill next
+	parameter update from HAL */
 	memcpy(&isp_dev->ycflt_config, arg, sizeof(struct cifisp_ycflt_config));
-	isp_dev->isp_param_ycflt_update_needed = true;
+
+	/* This copy might be changed internally according to ISM settings */
+	memcpy(&isp_dev->ycflt_config_ism_on, arg,
+		sizeof(struct cifisp_ycflt_config));
+	/* Need to turn off XNR subsampling if ISM cropping is on */
+	isp_dev->ycflt_config_ism_on.chr_ss_ctrl &= ~0x3;
+
+	isp_dev->ycflt_update = true;
 	spin_unlock_irqrestore(&isp_dev->config_lock, lock_flags);
 
 	return 0;
@@ -2838,10 +2848,18 @@ static void cifisp_ycflt_config_read(const struct xgold_isp_dev *isp_dev,
 /*****************************************************************************/
 void cifisp_ycflt_en(const struct xgold_isp_dev *isp_dev)
 {
-	const struct cifisp_ycflt_config *pconfig = &(isp_dev->ycflt_config);
+	const struct cifisp_ycflt_config *pconfig;
+
+	if (isp_dev->cif_ism_cropping == true)
+		pconfig = &(isp_dev->ycflt_config_ism_on);
+	else
+		pconfig = &(isp_dev->ycflt_config);
 
 	cifisp_iowrite32(pconfig->ctrl, CIF_YC_FLT_CTRL);
 	cifisp_iowrite32(pconfig->chr_ss_ctrl, CIF_YC_FLT_CHR_SS_CTRL);
+
+	if (pconfig->chr_ss_ctrl & 0x1)
+		cif_isp20_pltfrm_pr_dbg(NULL, "XNR Vertical SS is ON\n");
 }
 
 /*****************************************************************************/
@@ -3527,7 +3545,6 @@ static int cifisp_open(struct file *file)
 	isp_dev->isp_param_cproc_update_needed = false;
 	isp_dev->isp_param_macc_update_needed = false;
 	isp_dev->isp_param_tmap_update_needed = false;
-	isp_dev->isp_param_ycflt_update_needed = false;
 	isp_dev->isp_param_afc_update_needed = false;
 	isp_dev->isp_param_ie_update_needed = false;
 
@@ -3538,6 +3555,7 @@ static int cifisp_open(struct file *file)
 	isp_dev->active_meas = 0;
 
 	isp_dev->ycflt_update = false;
+	isp_dev->cif_ism_cropping = false;
 	return 0;
 }
 
@@ -3767,7 +3785,6 @@ void cifisp_configure_isp(
 		}
 
 		isp_dev->ycflt_update = true;
-		isp_dev->isp_param_ycflt_update_needed = false;
 
 		if (isp_dev->macc_en) {
 			cifisp_macc_config(isp_dev);
@@ -3858,14 +3875,8 @@ void cifisp_configure_isp(
 			isp_dev->isp_param_cproc_update_needed = false;
 		}
 
-		/* ycflt can be used for yuv */
-		if (isp_dev->ycflt_en) {
-			cifisp_ycflt_config(isp_dev);
-			cifisp_ycflt_en(isp_dev);
-			isp_dev->isp_param_ycflt_update_needed = false;
-		} else {
-			cifisp_ycflt_end(isp_dev);
-		}
+		cifisp_ycflt_end(isp_dev);
+		isp_dev->ycflt_en = false;
 		isp_dev->ycflt_update = false;
 
 		cifisp_macc_end(isp_dev);
@@ -4145,7 +4156,6 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 			isp_dev->isp_param_awb_gain_update_needed ||
 			isp_dev->isp_param_bdm_update_needed ||
 			isp_dev->isp_param_flt_update_needed ||
-			isp_dev->isp_param_ycflt_update_needed ||
 			isp_dev->isp_param_ctk_update_needed ||
 			isp_dev->isp_param_goc_update_needed ||
 			isp_dev->isp_param_cproc_update_needed ||
@@ -4293,20 +4303,6 @@ int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis)
 				isp_dev->isp_param_flt_update_needed = false;
 
 				time_left -= CIFISP_MODULE_FLT_PROC_TIME;
-			}
-
-			CIFISP_DPRINT(CIFISP_DEBUG,
-				"time-left 8:%d %d\n",
-				time_left,
-				isp_dev->isp_param_ycflt_update_needed);
-
-			/* This filter is outside of the Bayer ISP block. */
-			/* Configured later in the MI ISR.*/
-			if (isp_dev->isp_param_ycflt_update_needed &&
-				time_left >= CIFISP_MODULE_YCFLT_PROC_TIME) {
-				isp_dev->isp_param_ycflt_update_needed = false;
-				isp_dev->ycflt_update = true;
-				time_left -= CIFISP_MODULE_YCFLT_PROC_TIME;
 			}
 
 			CIFISP_DPRINT(CIFISP_DEBUG,

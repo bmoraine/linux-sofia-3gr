@@ -1549,15 +1549,10 @@ int cif_isp20_v4l2_s_crop(
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
 	unsigned long flags = 0;
+	struct cif_isp20_ism_params *ism_params =
+		&(dev->config.isp_config.ism_config.ism_params);
 
 	local_irq_save(flags);
-
-	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"v4l2_s_crop 1: crop(%d,%d,%d,%d)\n",
-		a->c.width,
-		a->c.height,
-		a->c.left,
-		a->c.top);
 
 	/* check legal range*/
 	if ((a->c.left < 0) ||
@@ -1575,33 +1570,34 @@ int cif_isp20_v4l2_s_crop(
 	}
 
 	dev->config.isp_config.ism_config.ism_update_needed = false;
-	dev->config.isp_config.ism_config.ism_params.recenter = 0;
-	dev->config.isp_config.ism_config.ism_params.displace = 0;
-	dev->config.isp_config.ism_config.ism_params.max_dx = 0;
-	dev->config.isp_config.ism_config.ism_params.max_dy = 0;
+	ism_params->recenter = 0;
+	ism_params->displace = 0;
+	ism_params->max_dx = 0;
+	ism_params->max_dy = 0;
 
 	if ((a->c.width == dev->isp_dev.input_width) &&
 		(a->c.height == dev->isp_dev.input_height)) {
 		dev->config.isp_config.ism_config.ism_en = 0;
-		dev->config.isp_config.ism_config.ism_params.h_size =
-			a->c.width;
-		dev->config.isp_config.ism_config.ism_params.v_size =
-			a->c.height;
-		dev->config.isp_config.ism_config.ism_params.h_offs = 0;
-		dev->config.isp_config.ism_config.ism_params.v_offs = 0;
+		ism_params->h_size = a->c.width;
+		ism_params->v_size = a->c.height;
+		ism_params->h_offs = 0;
+		ism_params->v_offs = 0;
 	} else {
 		dev->config.isp_config.ism_config.ism_en = 1;
-		dev->config.isp_config.ism_config.ism_params.h_size =
-			a->c.width;
-		dev->config.isp_config.ism_config.ism_params.v_size =
-			a->c.height;
-		dev->config.isp_config.ism_config.ism_params.h_offs =
-			a->c.left;
-		dev->config.isp_config.ism_config.ism_params.v_offs =
-			a->c.top;
+		ism_params->h_size = a->c.width;
+		ism_params->v_size = a->c.height;
+		ism_params->h_offs = a->c.left;
+		ism_params->v_offs = a->c.top;
 	}
 
 	dev->config.isp_config.ism_config.ism_update_needed = true;
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"crop window= %dx%d@(%d,%d)\n",
+		ism_params->h_size,
+		ism_params->v_size,
+		ism_params->h_offs,
+		ism_params->v_offs);
 
 	local_irq_restore(flags);
 	return 0;

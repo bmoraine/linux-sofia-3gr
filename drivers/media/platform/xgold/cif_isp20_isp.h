@@ -75,6 +75,7 @@ struct xgold_isp_dev {
 	struct cifisp_macc_config macc_config;
 	struct cifisp_tmap_config tmap_config;
 	struct cifisp_ycflt_config ycflt_config;
+	struct cifisp_ycflt_config ycflt_config_ism_on;
 	struct cifisp_afc_config afc_config;
 	struct cifisp_ie_config ie_config;
 
@@ -93,11 +94,11 @@ struct xgold_isp_dev {
 	bool isp_param_cproc_update_needed;
 	bool isp_param_macc_update_needed;
 	bool isp_param_tmap_update_needed;
-	bool isp_param_ycflt_update_needed;
 	bool isp_param_afc_update_needed;
 	bool isp_param_ie_update_needed;
 
 	bool ycflt_update;
+	bool cif_ism_cropping;
 
 	/* input resolution needed for LSC param check */
 	unsigned int input_width;
