@@ -25,9 +25,9 @@
 #ifndef VOEMCRYPTO_COMMON_H
 #define VOEMCRYPTO_COMMON_H
 
-/*==========================================================================
-	TYPES & DEFINITIONS
-==========================================================================*/
+/*======================================================================== */
+/* TYPES & DEFINITIONS */
+/* ======================================================================== */
 
 /* lookup string to search for vlink */
 #define VOEMCRYPTO_VRPC_NAME "voemcrypto"
@@ -72,43 +72,97 @@ enum voemcrypto_cmd_t {
 	VOEMCRYPTO_CMD_DELETEUSAGEENTRY = 31,
 	VOEMCRYPTO_CMD_DELETEUSAGETABLE = 32,
 /* VOEMCRYPTO_CMD_FETCHLOG = 33, */
+	VOEMCRYPTO_CMD_WVC_DECRYPT_VIDEO = 50, /* Widevine classic */
+	VOEMCRYPTO_CMD_WVC_DECRYPT_AUDIO = 51, /* Widevine classic */
+	VOEMCRYPTO_CMD_WVC_SET_ENTITLEMENT_KEY = 52, /* Widevine classic */
+	VOEMCRYPTO_CMD_WVC_DERIVE_CONTROL_WORD = 53, /* Widevine classic */
+/* VOEMCRYPTO_CMD_GET_ADDRESS = 60, */
 	VOEMCRYPTO_CMD_MAX = 0xFFFFFFFF
 };
 
 /* IOCTL settings */
 #define MAGIC_NUM 10
-#define VOEMC_IOCTL_INIT _IOR(MAGIC_NUM, 1, uint32_t)
-#define VOEMC_IOCTL_TERM _IOR(MAGIC_NUM, 2, uint32_t)
-#define VOEMC_IOCTL_OPEN _IOR(MAGIC_NUM, 3, uint32_t)
-#define VOEMC_IOCTL_CLOSE _IOR(MAGIC_NUM, 4, uint32_t)
-#define VOEMC_IOCTL_GENNONCE _IOR(MAGIC_NUM, 5, uint32_t)
-#define VOEMC_IOCTL_GENDERIVEDKEYS _IOR(MAGIC_NUM, 6, uint32_t)
-#define VOEMC_IOCTL_GENSIGN _IOR(MAGIC_NUM, 7, uint32_t)
-#define VOEMC_IOCTL_LOADKEYS _IOR(MAGIC_NUM, 8, uint32_t)
-#define VOEMC_IOCTL_REFRESHKEYS _IOR(MAGIC_NUM, 9, uint32_t)
-#define VOEMC_IOCTL_SELECTKEY _IOR(MAGIC_NUM, 10, uint32_t)
-#define VOEMC_IOCTL_DECRYPTCTR _IOR(MAGIC_NUM, 11, uint32_t)
-#define VOEMC_IOCTL_INSTALLKEYBOX _IOR(MAGIC_NUM, 12, uint32_t)
-#define VOEMC_IOCTL_ISKEYBOXVALID _IOR(MAGIC_NUM, 13, uint32_t)
-#define VOEMC_IOCTL_GETDEVICEID _IOR(MAGIC_NUM, 14, uint32_t)
-#define VOEMC_IOCTL_GETKEYDATA _IOR(MAGIC_NUM, 15, uint32_t)
-#define VOEMC_IOCTL_GETRANDOM _IOR(MAGIC_NUM, 16, uint32_t)
-#define VOEMC_IOCTL_WRAPKEYBOX _IOR(MAGIC_NUM, 17, uint32_t)
-#define VOEMC_IOCTL_REWRAPDEVRSAKEY _IOR(MAGIC_NUM, 18, uint32_t)
-#define VOEMC_IOCTL_LOADDEVRSAKEY _IOR(MAGIC_NUM, 19, uint32_t)
-#define VOEMC_IOCTL_GENRSASIGN _IOR(MAGIC_NUM, 20, uint32_t)
-#define VOEMC_IOCTL_DERKEYSFROMSESSIONKEY _IOR(MAGIC_NUM, 21, uint32_t)
-#define VOEMC_IOCTL_GENENCRYPT _IOR(MAGIC_NUM, 22, uint32_t)
-#define VOEMC_IOCTL_GENDECRYPT _IOR(MAGIC_NUM, 23, uint32_t)
-#define VOEMC_IOCTL_GENERICSIGN _IOR(MAGIC_NUM, 24, uint32_t)
-#define VOEMC_IOCTL_GENVERIFY _IOR(MAGIC_NUM, 25, uint32_t)
-#define VOEMC_IOCTL_GETADDR _IOR(MAGIC_NUM, 26, uint32_t)
-#define VOEMC_IOCTL_UPDATEUSAGETABLE _IOR(MAGIC_NUM, 27, uint32_t)
-#define VOEMC_IOCTL_DEACTIVEUSAGEENTRY  _IOR(MAGIC_NUM, 28, uint32_t)
-#define VOEMC_IOCTL_REPORTUSAGE  _IOR(MAGIC_NUM, 29, uint32_t)
-#define VOEMC_IOCTL_DELETEUSAGEENTRY  _IOR(MAGIC_NUM, 30, uint32_t)
-#define VOEMC_IOCTL_DELETEUSAGETABLE  _IOR(MAGIC_NUM, 31, uint32_t)
+#define VOEMC_IOCTL_INIT \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_INITIALIZE, uint32_t)
+#define VOEMC_IOCTL_TERM \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_TERMINATE, uint32_t)
+#define VOEMC_IOCTL_OPEN \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_OPEN_SESSION, uint32_t)
+#define VOEMC_IOCTL_CLOSE \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_CLOSE_SESSION, uint32_t)
+#define VOEMC_IOCTL_GENDERIVEDKEYS \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GEN_DERIVED_KEYS, uint32_t)
+#define VOEMC_IOCTL_GENNONCE \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GEN_NONCE, uint32_t)
+#define VOEMC_IOCTL_GENSIGN \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GEN_SIGN, uint32_t)
+#define VOEMC_IOCTL_LOADKEYS \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_LOAD_KEYS, uint32_t)
+#define VOEMC_IOCTL_REFRESHKEYS \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_REFRESH_KEYS, uint32_t)
+#define VOEMC_IOCTL_SELECTKEY \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_SELECT_KEY, uint32_t)
+#define VOEMC_IOCTL_DECRYPTCTR \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_DECRYPT_CTR, uint32_t)
+#define VOEMC_IOCTL_INSTALLKEYBOX \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_INSTALL_KEYBOX, uint32_t)
+#define VOEMC_IOCTL_ISKEYBOXVALID \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_IS_KEYBOX_VALID, uint32_t)
+#define VOEMC_IOCTL_GETDEVICEID \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GET_DEV_ID, uint32_t)
+#define VOEMC_IOCTL_GETKEYDATA \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GET_KEYDATA, uint32_t)
+#define VOEMC_IOCTL_GETRANDOM \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GET_RANDOM, uint32_t)
+#define VOEMC_IOCTL_APIVER \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_API_VER, uint32_t)
+#define VOEMC_IOCTL_SEC_LVL \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_SEC_LVL, uint32_t)
+#define VOEMC_IOCTL_WRAPKEYBOX \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_WRAP_KEYBOX, uint32_t)
+#define VOEMC_IOCTL_REWRAPDEVRSAKEY \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_REWRAP_DEV_RSA_KEY, uint32_t)
+#define VOEMC_IOCTL_LOADDEVRSAKEY \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_LOAD_DEV_RSA_KEY, uint32_t)
+#define VOEMC_IOCTL_GENRSASIGN \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GEN_RSA_SIGN, uint32_t)
+#define VOEMC_IOCTL_DERKEYSFROMSESSIONKEY \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_DERIVE_KEYS_FROM_SESSION_KEY, uint32_t)
+#define VOEMC_IOCTL_GENENCRYPT \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GENERIC_ENCRYPT, uint32_t)
+#define VOEMC_IOCTL_GENDECRYPT \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GENERIC_DECRYPT, uint32_t)
+#define VOEMC_IOCTL_GENERICSIGN \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GENERIC_SIGN, uint32_t)
+#define VOEMC_IOCTL_GENVERIFY \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GENERIC_VERIFY, uint32_t)
+#define VOEMC_IOCTL_GETADDR \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_IOCTL_GETADDR, uint32_t)
+#define VOEMC_IOCTL_UPDATEUSAGETABLE \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_UPDATEUSAGETABLE, uint32_t)
+#define VOEMC_IOCTL_DEACTIVEUSAGEENTRY \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_DEACTIVEUSAGEENTRY, uint32_t)
+#define VOEMC_IOCTL_REPORTUSAGE \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_REPORTUSAGE, uint32_t)
+#define VOEMC_IOCTL_DELETEUSAGEENTRY \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_DELETEUSAGEENTRY, uint32_t)
+#define VOEMC_IOCTL_DELETEUSAGETABLE \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_DELETEUSAGETABLE, uint32_t)
+#define VOEMC_IOCTL_WVC_DECRYPT_VIDEO \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_WVC_DECRYPT_VIDEO, uint32_t)
+#define VOEMC_IOCTL_WVC_DECRYPT_AUDIO \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_WVC_DECRYPT_AUDIO, uint32_t)
+#define VOEMC_IOCTL_WVC_SET_ENTITLEMENT_KEY \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_WVC_SET_ENTITLEMENT_KEY, uint32_t)
+#define VOEMC_IOCTL_WVC_DERIVE_CONTROL_WORD \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_WVC_DERIVE_CONTROL_WORD, uint32_t)
 
+struct voemc_input_buffer_t {
+	uint32_t size;
+	uint32_t baddr;
+	uint32_t phys;
+	uint32_t phys_size;
+};
 struct voemc_generic_t {
 	uint32_t cmd;
 	uint32_t result;
@@ -147,9 +201,9 @@ struct voemc_genderivedkeys_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *mac_key_context; /* phy addr to i/p data (shmem or kernel) */
+	const uint8_t *mac_key_context; /* phy addr to i/p data (sh. or ke.) */
 	uint32_t mac_key_context_length;
-	uint8_t *enc_key_context; /* phy addr to i/p data (shmem or kernel) */
+	const uint8_t *enc_key_context; /* phy addr to i/p data (sh. or ke.) */
 	uint32_t enc_key_context_length;
 };
 
@@ -157,42 +211,42 @@ struct voemc_gensign_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *message; /* phy addr to i/p data (shmem or kernel) */
+	const uint8_t *message; /* phy addr to i/p data (shmem or kernel) */
 	size_t message_length;
 	uint8_t *signature; /* phy addr to o/p data (shmem or kernel) */
 	size_t *signature_length;
 };
 
-struct voemc_key_object {
+struct voemc_key_object_t {
 	uint8_t *key_id;
-	size_t key_id_length;
+	size_t   key_id_length;
 	uint8_t *key_data_iv;
 	uint8_t *key_data;
-	size_t key_data_length;
+	size_t   key_data_length;
 	uint8_t *key_control_iv;
 	uint8_t *key_control;
 };
 
-struct voemc_key_refresh_object {
-	uint8_t *key_id;
-	size_t key_id_length;
-	uint8_t *key_control_iv;
-	uint8_t *key_control;
+struct voemc_key_refresh_object_t {
+	const uint8_t *key_id;
+	size_t         key_id_length;
+	const uint8_t *key_control_iv;
+	const uint8_t *key_control;
 };
 
 struct voemc_loadkeys_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *message; /* phy addr to i/p data (shmem or kernel) */
+	const uint8_t *message; /* phy addr to i/p data (shmem or kernel) */
 	size_t message_length;
-	uint8_t *signature; /* phy addr to i/p data (shmem or kernel) */
+	const uint8_t *signature; /* phy addr to i/p data (shmem or kernel) */
 	size_t signature_length;
-	uint8_t	*enc_mac_key_iv;
-	uint8_t	*enc_mac_keys;
+	const uint8_t *enc_mac_key_iv;
+	const uint8_t *enc_mac_keys;
 	size_t num_keys;
-	struct voemc_key_object *key_array;
-	uint8_t *pst;
+	const struct voemc_key_object_t *key_array;
+	const uint8_t *pst;
 	size_t pst_length;
 };
 
@@ -200,20 +254,56 @@ struct voemc_refreshkeys_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *message; /* phy addr to i/p data (shmem or kernel) */
-	size_t	message_length;
-	uint8_t *signature; /* phy addr to i/p data (shmem or kernel) */
-	size_t	signature_length;
-	size_t	num_keys;
-	struct voemc_key_refresh_object *key_array;
+	const uint8_t *message; /* phy addr to i/p data (shmem or kernel) */
+	size_t  message_length;
+	const uint8_t *signature; /* phy addr to i/p data (shmem or kernel) */
+	size_t  signature_length;
+	size_t  num_keys;
+	const struct voemc_key_refresh_object_t *key_array;
 };
 
 struct voemc_selectkey_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *key_id; /* phy addr to i/p data (shmem or kernel) */
+	const uint8_t *key_id; /* phy addr to i/p data (shmem or kernel) */
 	size_t key_id_length;
+};
+
+/* Use this for vbpipe */
+struct voemc_selectkey_pipe_t {
+	uint32_t cmd;
+	uint32_t result;
+	uint32_t session;
+	size_t key_id_length;
+	uint8_t key_id[64 - sizeof(size_t) - sizeof(uint32_t)*3];
+};
+
+/* Struct for widevine classic OEMCrypto_DecryptVideo */
+struct voem_wvc_decrypto_video_t {
+	uint32_t cmd;
+	uint32_t result;
+	uint8_t iv[16];
+	uint8_t *input;
+	uint32_t inputLength;
+	uint32_t output_handle;
+	uint32_t output_offset;
+	uint32_t *outputLength;
+	uint8_t align64[64 - sizeof(uint32_t)*6 -
+		sizeof(uint8_t)*2 - sizeof(uint8_t)*16];
+};
+
+/* Struct for widevine classic OEMCrypto_DecryptAudio */
+struct voem_wvc_decrypto_audio_t {
+	uint32_t cmd;
+	uint32_t result;
+	uint8_t iv[16];
+	uint8_t *input;
+	uint32_t inputLength;
+	uint32_t output_handle;
+	uint32_t *outputLength;
+	uint8_t align64[64 - sizeof(uint32_t)*5 -
+		sizeof(uint8_t)*2 - sizeof(uint8_t)*16];
 };
 
 enum voemc_buffer_type {
@@ -222,7 +312,7 @@ enum voemc_buffer_type {
 	voemc_buffer_type_direct
 };
 
-struct voemc_dest_buffer_desc {
+struct voemc_dest_buffer_desc_t {
 	enum voemc_buffer_type type;
 	union {
 		struct { /* type == OEMCrypto_BufferType_Clear */
@@ -244,20 +334,37 @@ struct voemc_decryptctr_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *data_addr;
+	const uint8_t *data_addr;
 	size_t data_length;
 	bool is_encrypted;
 	uint8_t iv[16];
 	size_t block_offset;
-	struct voemc_dest_buffer_desc *out_buffer;
+	const struct voemc_dest_buffer_desc *out_buffer;
 	uint8_t subsample_flags;
+};
+
+struct voemc_decryptctr_mini_t {
+	uint32_t cmd;
+	uint32_t result;
+	uint32_t session;
+	const uint8_t *data_addr;
+	size_t data_length;
+	bool is_encrypted;
+	uint8_t iv[16];
+	size_t block_offset;
+	uint8_t subsample_flags;
+};
+
+struct voemc_decryptctr_transfer_t {
+	struct voemc_decryptctr_mini_t req;
+	struct voemc_dest_buffer_desc_t dest_buffer_desc;
 };
 
 struct voemc_installkeybox_t {
 	uint32_t cmd;
 	uint32_t result;
-	uint8_t *keybox; /* to backend */
-	size_t key_box_length;
+	const uint8_t *keybox; /* to backend */
+	size_t keybox_length;
 };
 
 struct voemc_iskeyboxvalid_t {
@@ -289,11 +396,11 @@ struct voemc_getrandom_t {
 struct voemc_wrapkeybox_t {
 	uint32_t cmd;
 	uint32_t result;
-	uint8_t *keybox; /* to backend */
+	const uint8_t *keybox; /* to backend */
 	size_t keybox_length;
 	uint8_t *wrapped_keybox;
 	size_t wrapped_keybox_length;
-	uint8_t *transport_key;
+	const uint8_t *transport_key;
 	size_t transport_key_length;
 };
 
@@ -301,14 +408,14 @@ struct voemc_rewrapdevrsakey_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *message;
+	const uint8_t *message;
 	size_t message_length;
-	uint8_t *signature;
+	const uint8_t *signature;
 	size_t signature_length;
-	uint32_t *nonce;
-	uint8_t *enc_rsa_key;
+	const uint32_t *nonce;
+	const uint8_t *enc_rsa_key;
 	size_t enc_rsa_key_length;
-	uint8_t *enc_rsa_key_iv;
+	const uint8_t *enc_rsa_key_iv;
 	uint8_t *wrapped_rsa_key;
 	size_t  *wrapped_rsa_key_length;
 };
@@ -317,7 +424,7 @@ struct voemc_loaddevrsakey_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *wrapped_rsa_key;
+	const uint8_t *wrapped_rsa_key;
 	size_t wrapped_rsa_key_length;
 };
 
@@ -325,7 +432,7 @@ struct voemc_genrsasign_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *message;
+	const uint8_t *message;
 	uint32_t algorithm;
 	size_t message_length;
 	uint8_t *signature;
@@ -336,11 +443,11 @@ struct voemc_derkeysfrsessionkey_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *enc_session_key;
+	const uint8_t *enc_session_key;
 	size_t enc_session_key_length;
-	uint8_t *mac_key_context;
+	const uint8_t *mac_key_context;
 	size_t mac_key_context_length;
-	uint8_t *enc_key_context;
+	const uint8_t *enc_key_context;
 	size_t enc_key_context_length;
 };
 
@@ -348,7 +455,7 @@ struct voemc_genencrypt_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *in_buffer;
+	const uint8_t *in_buffer;
 	size_t buffer_length;
 	uint8_t iv[16];
 	uint32_t algorithm;
@@ -359,7 +466,7 @@ struct voemc_gendecrypt_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *in_buffer;
+	const uint8_t *in_buffer;
 	size_t buffer_length;
 	uint8_t iv[16];
 	uint32_t algorithm;
@@ -370,7 +477,7 @@ struct voemc_genericsign_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *in_buffer;
+	const uint8_t *in_buffer;
 	size_t buffer_length;
 	uint32_t algorithm;
 	uint8_t *signature;
@@ -381,10 +488,10 @@ struct voemc_genverify_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *in_buffer;
+	const uint8_t *in_buffer;
 	size_t buffer_length;
 	uint32_t algorithm;
-	uint8_t *signature;
+	const uint8_t *signature;
 	size_t signature_length;
 };
 
@@ -395,7 +502,7 @@ struct voemc_apiversion_t {
 
 struct voemc_securitylevel_t {
 	uint32_t cmd;
-	char *level;
+	const char *level;
 };
 
 struct voem_input_buffer {
@@ -405,33 +512,33 @@ struct voem_input_buffer {
 	uint32_t phys_size;
 };
 
-struct voemc_UpdateUsageTable_t {
+struct voemc_update_usage_table_t {
 	uint32_t cmd;
 	uint32_t result;
 };
 
-struct voemc_deactiveusageentry_t {
+struct voemc_deactive_usage_entry_t {
 	uint32_t cmd;
 	uint32_t result;
 	char *pst;
 	int pst_length;
 };
 
-struct voemc_ReportUsage_t {
+struct voemc_report_usage_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	char *pst;
+	const char *pst;
 	int pst_length;
-	char *rptbuffer;
-	size_t *rptbuffer_length;
+	char *rpt_buffer;
+	size_t rpt_buffer_length;
 };
 
-struct voemc_DeleteUsageEntry_t {
+struct voemc_delete_usage_entry_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint32_t session;
-	uint8_t *pst;
+	const uint8_t *pst;
 	size_t pst_length;
 	const uint8_t *message;
 	size_t message_length;
@@ -439,9 +546,57 @@ struct voemc_DeleteUsageEntry_t {
 	size_t signature_length;
 };
 
-struct  voemc_DeleteUsageTable_t {
+struct  voemc_delete_usage_table_t {
 	uint32_t cmd;
 	uint32_t result;
+};
+
+/* Struct for widevine classic OEMCrypto_DecryptVideo */
+struct voem_wvc_decrypt_video_t {
+	uint32_t cmd;
+	uint32_t result;
+	uint8_t iv[16];
+	uint8_t *input;
+	uint32_t input_length;
+	uint32_t output_handle;
+	uint32_t output_offset;
+	uint32_t pad_4bytes;
+	uint32_t *output_length;
+	uint8_t align64[64 - sizeof(uint32_t)*6 -
+		sizeof(uint8_t)*16 - sizeof(void *)*2];
+};
+
+/* Struct for widevine classic OEMCrypto_DecryptAudio */
+struct voem_wvc_decrypt_audio_t {
+	uint32_t cmd;
+	uint32_t result;
+	uint8_t iv[16];
+	uint8_t *input;
+	uint32_t input_length;
+	uint32_t pad_4bytes;
+	uint8_t *output;
+	uint32_t *output_length;
+	uint8_t align64[64 - sizeof(uint32_t)*4 -
+		sizeof(uint8_t)*16 - sizeof(void *)*3];
+};
+
+/* Struct for widevine classic OEMCrypto_SetEntitlementKey */
+struct voem_wvc_set_entitlement_key_t {
+	uint32_t cmd;
+	uint32_t result;
+	uint8_t *emm_key;
+	uint32_t emm_key_length;
+	uint8_t align64[64 - sizeof(uint32_t)*3 - sizeof(uint8_t)];
+};
+
+/* Struct for widevine classic OEMCrypto_SetEntitlementKey */
+struct voem_wvc_derive_control_word_t {
+	uint32_t cmd;
+	uint32_t result;
+	uint8_t *ecm;
+	uint32_t length;
+	uint32_t *flags;
+	uint8_t align64[64 - sizeof(uint32_t)*4 - sizeof(uint8_t)];
 };
 
 /*****************************************************************************/
@@ -457,5 +612,4 @@ MODULE_LICENSE("GPL");
 /*****************************************************************************/
 
 /*----- End of file -----*/
-
 
