@@ -3172,6 +3172,12 @@ static int s3c_hsotg_pullup(struct usb_gadget *gadget, int is_on)
 
 	dev_dbg(hsotg->dev, "%s: is_on: %d\n", __func__, is_on);
 
+	/* Don't modify pullup state while in host mode */
+	if (hsotg->op_state != OTG_STATE_B_PERIPHERAL) {
+		hsotg->enabled = is_on;
+		return 0;
+	}
+
 	mutex_lock(&hsotg->init_mutex);
 	spin_lock_irqsave(&hsotg->lock, flags);
 	if (is_on) {
@@ -3202,6 +3208,7 @@ static int s3c_hsotg_vbus_session(struct usb_gadget *gadget, int is_active)
 	spin_lock_irqsave(&hsotg->lock, flags);
 
 	if (is_active) {
+		hsotg->op_state = OTG_STATE_B_PERIPHERAL;
 		/*
 		 * If controller is hibernated, it must exit from hibernation
 		 * before being initialized
