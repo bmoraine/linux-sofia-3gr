@@ -162,6 +162,8 @@ struct intel_usbphy {
 	atomic_t in_lpm;
 	atomic_t pm_suspended;
 	atomic_t bus_suspended;
+	int host_bus_suspend;
+	int device_bus_suspend;
 	int async_int;
 	struct wake_lock wlock;
 	struct delayed_work chg_work;

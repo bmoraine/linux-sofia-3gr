@@ -346,7 +346,12 @@ static int intel_otg_suspend(struct intel_usbphy *iphy)
 
 		atomic_set(&iphy->in_lpm, 1);
 		atomic_set(&iphy->bus_suspended, 1);
+		iphy->host_bus_suspend = host_bus_suspend;
+		iphy->device_bus_suspend = device_bus_suspend;
 		dev_dbg(phy->dev, "USB bus in low power mode\n");
+		if (iphy->host_bus_suspend)
+			wake_unlock(&iphy->wlock);
+
 		return 0;
 	}
 
@@ -397,6 +402,8 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 
 
 	if (atomic_read(&iphy->bus_suspended)) {
+		if (iphy->host_bus_suspend)
+			wake_lock(&iphy->wlock);
 		ret = device_state_pm_set_state(iphy->dev,
 				iphy->pm_states[USB_PMS_ENABLE_ISO]);
 		if (ret)
@@ -407,7 +414,11 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 		usb_enable_pll_en(iphy, true);
 		if (device_may_wakeup(iphy->dev))
 			disable_irq_wake(iphy->resume_irq);
-		disable_irq(iphy->resume_irq);
+		disable_irq_nosync(iphy->resume_irq);
+
+		if (iphy->host_bus_suspend)
+			usb_hcd_resume_root_hub(bus_to_hcd(phy->otg->host));
+
 		return 0;
 	}
 
@@ -541,16 +552,37 @@ static int intel_usb2phy_set_suspend(struct usb_phy *phy, int suspend)
 			break;
 		case OTG_STATE_A_WAIT_BCON:
 			set_bit(A_BUS_REQ, &iphy->inputs);
-			 if (atomic_read(&iphy->in_lpm))
+			/* If only controller is suspended, resume it */
+			 if (atomic_read(&iphy->in_lpm) &&
+					 !atomic_read(&iphy->pm_suspended))
 				pm_runtime_resume(phy->dev);
+
+			 /* If target is in deep sleep, postpone processing */
+			 if (atomic_read(&iphy->pm_suspended))
+				iphy->async_int = 1;
+
+			 /* If there is runtime suspend in progress,cancel it */
+			 if (!atomic_read(&phy->dev->power.usage_count))
+				pr_err("race condition between suspend/resume?\n");
 			 break;
 		case OTG_STATE_A_SUSPEND:
 			dev_dbg(phy->dev, "host bus resume\n");
 			set_bit(A_BUS_REQ, &iphy->inputs);
 			phy->state = OTG_STATE_A_HOST;
-			if (atomic_read(&iphy->in_lpm))
+			if (atomic_read(&iphy->in_lpm) &&
+					!atomic_read(&iphy->pm_suspended))
 				pm_runtime_resume(phy->dev);
+			 if (atomic_read(&iphy->pm_suspended))
+				iphy->async_int = 1;
 			break;
+		case OTG_STATE_A_HOST:
+			set_bit(A_BUS_REQ, &iphy->inputs);
+			 /* If there is runtime suspend in progress,cancel it */
+			 if (!atomic_read(&phy->dev->power.usage_count)) {
+				pr_err("race condition between suspend/resume?\n");
+				pm_runtime_get(phy->dev);
+			 }
+			 break;
 		default:
 			break;
 		}
@@ -1133,10 +1165,6 @@ static void intel_otg_sm_work(struct work_struct *w)
 					A_WAIT_VFALL);
 		} else if (test_bit(A_VBUS_VLD, &iphy->inputs)) {
 			dev_dbg(iphy->dev, "a_vbus_vld\n");
-			usb_enable_avalid(iphy, 1);
-			usb_enable_bvalid(iphy, 1);
-			usb_enable_vbusvalid(iphy, 1);
-			usb_enable_sessend(iphy, 0);
 			otg->phy->state = OTG_STATE_A_WAIT_BCON;
 			if (TA_WAIT_BCON > 0)
 				intel_otg_start_timer(iphy, TA_WAIT_BCON,
@@ -1168,6 +1196,10 @@ static void intel_otg_sm_work(struct work_struct *w)
 			intel_otg_del_timer(iphy);
 			intel_otg_start_host(otg, 0);
 			otg->phy->state = OTG_STATE_A_VBUS_ERR;
+		} else if (!test_bit(A_BUS_REQ, &iphy->inputs)) {
+			dev_dbg(iphy->dev, "!a_bus_req\n");
+			if (TA_WAIT_BCON < 0)
+				pm_runtime_put_sync(otg->phy->dev);
 		}
 		break;
 	case OTG_STATE_A_HOST:
@@ -1215,10 +1247,6 @@ static void intel_otg_sm_work(struct work_struct *w)
 					TA_WAIT_VFALL, A_WAIT_VFALL);
 		} else if (!test_bit(A_VBUS_VLD, &iphy->inputs)) {
 			dev_dbg(iphy->dev, "!a_vbus_vld\n");
-			usb_enable_avalid(iphy, 0);
-			usb_enable_bvalid(iphy, 0);
-			usb_enable_vbusvalid(iphy, 0);
-			usb_enable_sessend(iphy, 1);
 			intel_otg_del_timer(iphy);
 			clear_bit(B_CONN, &iphy->inputs);
 			otg->phy->state = OTG_STATE_A_VBUS_ERR;
@@ -1795,6 +1823,8 @@ static int intel_otg_pm_resume(struct device *dev)
 
 	atomic_set(&iphy->pm_suspended, 0);
 	if (iphy->async_int || iphy->sm_work_pending) {
+		if (iphy->async_int)
+			iphy->async_int = 0;
 		pm_runtime_get_noresume(dev);
 		ret = intel_otg_resume(iphy);
 
