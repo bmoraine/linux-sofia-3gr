@@ -237,7 +237,7 @@ static mali_bool kbase_platform_xgold_init(struct kbase_device *kbdev)
 	plf_context->curr_pm_state = MALI_PLF_PM_STATE_D3;
 
 	/* Initial power level (D1=312MHz / D0=456MHz) */
-	plf_context->resume_pm_state = MALI_PLF_PM_STATE_D1;
+	plf_context->resume_pm_state = MALI_PLF_PM_STATE_D0;
 
 	kbdev->platform_context = (void *) plf_context;
 	mali_info("Initialized\n");
