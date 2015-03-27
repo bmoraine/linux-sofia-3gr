@@ -426,6 +426,7 @@ static int xgold_keypad_resume(struct platform_device *pdev)
 	struct input_dev *input_dev = keypad->input_dev;
 	struct device *_dev = &pdev->dev;
 	struct xgold_keypad_platform_data *pdata = dev_get_platdata(_dev);
+	u32 reg_val, val;
 	int ret;
 
 	dev_info(_dev, "Keypad Resume\n");
@@ -443,12 +444,17 @@ static int xgold_keypad_resume(struct platform_device *pdev)
 				keypad->pm_platdata->pm_state_D0_name);
 #endif
 #if CONFIG_PINCTRL_SINGLE
-		ret = xgold_keypad_set_pinctrl_state(_dev, pdata->pins_default);
-		if (ret)
-			dev_err(_dev, "keypad pads default failed\n");
+			ret = xgold_keypad_set_pinctrl_state(_dev,
+					pdata->pins_default);
+			if (ret)
+				dev_err(_dev, "keypad pads default failed\n");
 #endif
-		xgold_keypad_config(keypad);
-		keypad->enabled = true;
+			kpd_write32(keypad, KPD_MISC, KPD_INTR_DISABLE);
+			reg_val = kpd_read32(keypad, KPD_CONFIG);
+			val = reg_val & DEB_LENGTH_MASK;
+			kpd_write32(keypad, KPD_CONFIG, val | DEB_LENGTH);
+			kpd_write32(keypad, KPD_MISC, KPD_INTR_ENABLE);
+			keypad->enabled = true;
 		}
 	}
 
