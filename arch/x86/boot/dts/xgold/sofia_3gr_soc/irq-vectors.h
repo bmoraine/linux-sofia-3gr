@@ -11,6 +11,7 @@
 /* AUTO GENERATED - DO NOT MODIFY */
 /* This MUST be sync across full system or system could break! */
 
+#define IRQ_MOVE_CLEANUP_VECTOR 32
 #define HIRQ 33
 #define VMM_IPI_SCHEDULE 34
 #define VMM_PERF_CTR_IRQ 119
@@ -52,19 +53,19 @@
 #define DIF_RX_XREQ_INT 0
 #define SDIO_DAT3 0
 #define SDIO_DAT1 0
+#define SEC_CEU1_GLOBAL_IRQ 0
+#define SEC_CEU1_EOP_IRQ 0
+#define SEC_CEU1_TX_IRQ 0
 #define USIF1_INT 35
 #define USIF2_INT 36
 #define DIF_ERR_INT 37
 #define HEVC_DEC_INT 38
-#define DCC_FRAME_INT 39
 #define VOP_INT 39
 #define I2C3_INT 40
 #define I2C4_INT 41
 #define PWM_INT 42
 #define RGA_INT 43
-#define I2C2_INT 44
 #define I2C1_INT 45
-#define WUP_DBB 46
 #define NOC_ERR_APS_L1 47
 #define NOC_ERR_APS_L2 48
 #define CIF_ISP_INT 49
@@ -126,6 +127,8 @@
 #define AUDIODSP_INT0 115
 #define STM_INT1 116
 #define STM_INT0 117
+#define CC1_T0INT 124
+#define CC1_T1INT 125
 #define VID_HINT_ENC 126
 #define VID_HINT_DEC 127
 #define NSEC_CEU1_RX_IRQ 128
@@ -133,21 +136,18 @@
 #define NSEC_CEU1_GLOBAL_IRQ 130
 #define NSEC_CEU1_EOP_IRQ 131
 #define SEC_CEU1_RX_IRQ 132
-#define SEC_CEU1_TX_IRQ 133
-#define SEC_CEU1_GLOBAL_IRQ 134
-#define SEC_CEU1_EOP_IRQ 135
-#define SEC_T_INT 136
-#define CC1_T0INT 124
-#define CC1_T1INT 125
-#define CC1_CCINT0_7 139
-#define PMU_INT0 140
-#define PROF_ENV_INT 141
-#define WDT0 142
-#define RTC_INT 143
-#define SPCU_INT 144
+#define I2C2_INT 133
+#define SEC_T_INT 134
+#define CC1_CCINT0_7 137
+#define SCU_INT0 138
+#define PMU_INT0 139
+#define PROF_ENV_INT 140
+#define WDT0 141
+#define RTC_INT 142
+#define SPCU_INT 143
+#define WUP_DBB 144
 #define USIM1_IN_INT 145
 #define USIM2_IN_INT 146
-#define SCU_INT0 147
 #define DMA4_CH0_3_INT 148
 #define DMA4_ERR_INT 149
 #define CC0_CCINT0_7 150
