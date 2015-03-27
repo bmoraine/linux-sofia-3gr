@@ -32,6 +32,8 @@
 #include <sofia/mv_ipc.h>
 #include <sofia/mv_hypercalls.h>
 
+#include <linux/moduleparam.h>
+
 #define DEBUG_LEVEL 1
 #define DEBUG_LEVEL_ERROR 1
 #define DEBUG_LEVEL_INFO  2
@@ -133,6 +135,11 @@ struct mvpipe_event {
 	uint32_t reserved;
 };
 
+
+/*SMS06762396: echo AT cmd for debug/Fusing at customer*/
+static int at_dbg_port = -1;
+module_param(at_dbg_port, int, S_IRUGO);
+
 struct mvpipe_instance {
 	char name[MAX_MBOX_INSTANCE_NAME_SIZE];
 	uint32_t token;
@@ -161,6 +168,7 @@ struct mvpipe_instance {
 	struct mvpipe_event *p_event;
 	struct mvpipe_ring *ring[2];
 
+	uint32_t is_dbg;/*SMS06762396: echo AT cmd for debug/Fusing at customer*/
 };
 
 #define is_ring0_writer(dev) (dev->writer_id == 0)
@@ -200,10 +208,14 @@ int mvpipe_dev_open(struct inode *inode, struct file *filp)
 	}
 
 	if (dev->open_count) {
-		mvpipe_error("Multiple open, open_count = %d!\n",
-			     dev->open_count);
 		up(&dev->open_sem);
-		return -ERESTARTSYS;
+		if (dev->is_dbg) {
+			dev->open_count++;
+			return 0;
+		} else {
+			mvpipe_error("Multiple open, open_count = %d!\n", dev->open_count);
+			return -ERESTARTSYS;
+		}
 	}
 
 	dev->open_count++;
@@ -238,6 +250,14 @@ int mvpipe_dev_release(struct inode *inode, struct file *filp)
 
 	if (down_interruptible(&dev->open_sem))
 		return -ERESTARTSYS;
+
+	if (dev->is_dbg) {
+		if (dev->open_count > 1) {
+			dev->open_count--;
+			up(&dev->open_sem);
+			return 0;
+		}
+	}
 
 	if (get_pipe_status(dev) == MVPIPE_CLOSE) {
 		up(&dev->open_sem);
@@ -705,6 +725,13 @@ void on_mvpipe_instance(char *instance_name, uint32_t instance_index,
 		mvpipe->p_event->handshake = mv_gal_os_id();
 
 		mv_mbox_set_online(mvpipe->token);
+
+
+		if (strstr(cmdline, "dbg") && (at_dbg_port == 1))
+			mvpipe->is_dbg = 1;
+		else
+			mvpipe->is_dbg = 0;
+
 	} else
 		panic("failed to init instance\n");
 }
