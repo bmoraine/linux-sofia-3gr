@@ -85,6 +85,8 @@ static unsigned int bt_init_en;
 #define	xgold_debug(fmt, arg...) \
 		pr_debug("snd: pcm: "fmt, ##arg)
 
+DEFINE_SPINLOCK(dma_lock);
+
 enum xgold_pcm_attribute {
 	XGOLD_PCM_ATTR_SEND_DSP_CMD = 1,
 	XGOLD_PCM_ATTR_END,
@@ -493,10 +495,16 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 	struct xgold_pcm *xgold_pcm;
 	dma_addr_t dma_addr;
 
+	/* Use the dma_lock to avoid race condition issue when dma handler is
+	 * called while pcm stream is being closed and runtime data pointer is
+	 * being free up */
+	spin_lock(&dma_lock);
 	if (!xrtd) {
 		xgold_err("%s: xgold runtime data is NULL!!\n", __func__);
+		spin_unlock(&dma_lock);
 		return;
 	}
+	spin_unlock(&dma_lock);
 
 	spin_lock(&xrtd->lock);
 	xgold_debug("%s\n", __func__);
@@ -769,6 +777,7 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 	struct xgold_pcm *xgold_pcm;
 	int ret = 0;
 	bool power_state = OFF;
+	unsigned long flags, dma_flags;
 
 	xgold_debug("XGOLD Closing pcm device\n");
 
@@ -777,6 +786,7 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 		return 0;
 	}
 
+	spin_lock_irqsave(&xrtd->lock, flags);
 	xgold_pcm = xrtd->pcm;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -812,7 +822,12 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 		ret = -EINVAL;
 	}
 
+	spin_lock_irqsave(&dma_lock, dma_flags);
+	substream->runtime->private_data = NULL;
+	spin_unlock_irqrestore(&xrtd->lock, flags);
 	kfree(xrtd);
+	xrtd = NULL;
+	spin_unlock_irqrestore(&dma_lock, dma_flags);
 
 	xgold_debug("%s: Requesting to suspend dsp\n", __func__);
 	ret = xgold_pcm->dsp->p_dsp_common_data->
@@ -875,10 +890,12 @@ static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 
 		/* Release the DMA channel */
 		dma_release_channel(xrtd->dmach);
+		spin_lock_irqsave(&xrtd->lock, flags);
 		xrtd->dmach = NULL;
 
 		/* Free scatter list memory*/
 		kfree(xrtd->dma_sgl);
+		spin_unlock_irqrestore(&xrtd->lock, flags);
 	}
 
 	/* Free DMA buffer */
