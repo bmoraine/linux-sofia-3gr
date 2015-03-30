@@ -5267,13 +5267,57 @@ static int himax_parse_dt(struct himax_ts_data *ts,
 }
 #endif
 
+enum {
+	KD = 0,
+	BOE = 1,
+};
 
+static int get_gpio(unsigned int pin)
+{
+	int ret;
+
+	if (gpio_request(pin, "PCB_ID")) {
+		pr_info("Fail to get pcb id pin %d\n", pin);
+		return 0;
+	}
+	gpio_direction_input(pin);
+	ret = gpio_get_value_cansleep(pin);
+	pr_info("SOC GPIO %d := %x\n", pin, ret);
+	gpio_free(pin);
+
+	return ret;
+}
+
+#define  GPIO_LCM_1 59
+
+static int check_lcm_id(void)
+{
+	int ret = 0;
+	int error = -1;
+	int tmp = 0;
+	int lcm_id;
+
+	tmp = get_gpio(GPIO_LCM_1);
+	lcm_id = tmp;
+	pr_info("Get the lcm ID =%d\n", lcm_id);
+	if (lcm_id != KD) {
+		pr_err("LCM ID is not KD\n");
+		return error;
+	}
+	return ret;
+}
 
 static int himax852xes_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int ret = 0, err = 0;
 	struct himax_ts_data *ts;
 	struct himax_i2c_platform_data *pdata;
+
+	err = check_lcm_id();
+	if (err < 0) {
+		pr_err("[HIMAX][Touch] Hardware ID or LCM ID return probe\n");
+		return err;
+	}
 
 	//Check I2C functionality
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
