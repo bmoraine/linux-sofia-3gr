@@ -32,6 +32,7 @@
 #include <linux/reset.h>
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device_pm.h>
+#include <linux/reboot.h>
 
 #include "xgold_machine.h"
 #include "dsp_audio_platform.h"
@@ -649,6 +650,11 @@ static int dsp_audio_dev_set_controls(struct dsp_audio_device *dsp_dev,
 					data_trace_ptr[i + 1]);
 
 		xgold_dsp_log("\n");
+
+		if(system_state != SYSTEM_RUNNING) {
+			WARN(1, "DSP_AUDIO_CONTROL_SEND_CMD while system is %d\n", system_state);
+			break;
+		}
 
 		ret_val = (int)dsp_audio_cmd(
 				p_cmd_data->command_id,
@@ -2356,6 +2362,29 @@ void dsp_cmd_afe_streaming_off(struct dsp_audio_device *dsp)
 	}
 }
 
+static int dsp_audio_reboot(struct notifier_block *notifier,
+		unsigned long event, void *data)
+{
+	struct dsp_audio_device *dsp = g_dsp_audio_dev;
+	struct T_AUD_DSP_CMD_VB_HW_AFE_PAR afe_hw_cmd = { 0 };
+
+	if (dsp->dsp_sched_start) {
+		xgold_err("%s: Scheduler is on. Turning it off\n", __func__);
+		dsp->dsp_sched_start = 0;
+		dsp_audio_cmd(DSP_AUDIO_CMD_VB_HW_AFE,
+				sizeof(struct T_AUD_DSP_CMD_VB_HW_AFE_PAR),
+				(u16 *)&afe_hw_cmd);
+
+		if (dsp->pm_platdata)
+			device_state_pm_set_state_by_name(dsp->dev,
+					dsp->pm_platdata->pm_state_D3_name);
+	}
+	return NOTIFY_OK;
+}
+static struct notifier_block dsp_audio_reboot_notifier = {
+	.notifier_call = dsp_audio_reboot
+};
+
 /* device probe function */
 static int dsp_audio_drv_probe(struct platform_device *pdev)
 {
@@ -2590,6 +2619,7 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 	}
 
 	pr_info("DSP initialization done %d\n", ret);
+	register_reboot_notifier(&dsp_audio_reboot_notifier);
 
 out:
 
