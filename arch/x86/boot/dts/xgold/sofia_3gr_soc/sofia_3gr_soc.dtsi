@@ -809,9 +809,11 @@
 							     <HIRQ_SPCU_THERM2_HIGH IRQ_TYPE_DEFAULT>;
 						interrupt-names = "TLOW", "THIGH";
 						intel,thermal-id = <2>;
+                                                intel,dev-type = <1>;
 						intel,config-reg = <0xba0>;
 						intel,ctrl-reg = <0xba4>;
 						intel,stat-reg = <0xbc8>;
+                                                intel,ohconf-reg = <0xc64>;
 					};
 					spcu_thermal3{
 						/* 4th DTS close to cores */
