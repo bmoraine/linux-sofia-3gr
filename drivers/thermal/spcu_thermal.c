@@ -1058,7 +1058,7 @@ static int spcu_thermal_overheat_init(struct platform_device *pdev,
 			return err;
 	}
 
-	set_hw_overheat_thres(dev, 110000);
+	set_hw_overheat_thres(dev, 115000);
 	enable_hw_overheat_reset(dev, 1);
 
 	return 0;
