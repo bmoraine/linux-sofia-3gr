@@ -89,11 +89,21 @@ typedef struct {
 	U16 checksum;
 } T_SOC_CAL_PNT_NVM;
 
+/** @brief
+* Structure for holding current SoC data
+*/
+struct soc_nvm {
+	U32 base_soc;
+	U32 last_reported_soc;
+	U16 checksum;
+};
+
 /* This type shall be included in nvm_cfg.h by the storage team for
  * software fuel gauge module
  */
 typedef struct {
 	T_SOC_CAL_PNT_NVM soc_cal_pnt_nvm_dyn;
+	struct soc_nvm soc_data;
 } T_SW_FUEL_GAUGE_NVM_DYN;
 
 #ifdef __cplusplus
