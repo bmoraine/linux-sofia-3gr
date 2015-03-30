@@ -2089,7 +2089,8 @@ static int agold_afe_set_bias(struct snd_soc_codec *codec,
 		/* Enable power only if coming from standby */
 		if (codec->dapm.bias_level == SND_SOC_BIAS_STANDBY) {
 			afe_debug("%s: Power on AFE\n", __func__);
-
+			agold_afe_handle_codec_power(codec,
+				SND_SOC_BIAS_PREPARE);
 			/* Power on AFE */
 			reg |= AFE_BCON_AFE_PWR;
 			snd_soc_write(codec, AGOLD_AFE_BCON, reg);
