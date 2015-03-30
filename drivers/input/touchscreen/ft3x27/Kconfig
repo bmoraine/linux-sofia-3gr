@@ -1,0 +1,9 @@
+config TOUCHSCREEN_FT3X27
+		tristate "FocalTech ft3x27 touchscreen"
+		depends on I2C
+		default n
+		help
+		  Say Y here if you have the FocalTech ft3x27 touchscreen.
+		  This driver uses standard I2C protocol. Initilization is
+		  done with device tree.
+		  If unsure, say N.

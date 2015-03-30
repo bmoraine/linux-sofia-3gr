@@ -980,6 +980,8 @@ config TOUCHSCREEN_HIMAX_DEBUG
 		help
 		This enables support for HIMAX HM852xES debug function.
 
+source "drivers/input/touchscreen/ft3x27/Kconfig"
+
 source "drivers/input/touchscreen/gt910/Kconfig"
 source "drivers/input/touchscreen/vtl_ts/Kconfig"
 endif
