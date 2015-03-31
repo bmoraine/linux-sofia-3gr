@@ -445,11 +445,15 @@ static struct input_polled_dev *mmc3524x_input_init(struct i2c_client *client)
 }
 #endif
 
+static int mmc3524x_init(void);
 static int mmc3524x_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
 	unsigned char data[16] = {0};
 	int res = 0;
+	res = mmc3524x_init();
+	if (res)
+		goto out;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		pr_err("%s: functionality check failed\n", __func__);
@@ -574,7 +578,7 @@ static struct i2c_driver mmc3524x_driver = {
 	},
 };
 
-static int __init mmc3524x_init(void)
+static int mmc3524x_init(void)
 {
 	struct device *dev_t;
 
@@ -593,17 +597,11 @@ static int __init mmc3524x_init(void)
 		return PTR_ERR(dev_t);
 
 	ipdev = NULL;
-	return i2c_add_driver(&mmc3524x_driver);
+
+	return 0;
 }
 
-static void __exit mmc3524x_exit(void)
-{
-	i2c_del_driver(&mmc3524x_driver);
-}
-
-module_init(mmc3524x_init);
-module_exit(mmc3524x_exit);
+module_i2c_driver(mmc3524x_driver);
 
 MODULE_DESCRIPTION("MEMSIC MMC3524X Magnetic Sensor Driver");
 MODULE_LICENSE("GPL");
-
