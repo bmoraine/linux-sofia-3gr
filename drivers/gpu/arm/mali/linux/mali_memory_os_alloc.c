@@ -124,6 +124,10 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 	size_t page_count = PAGE_ALIGN(size) / _MALI_OSK_MALI_PAGE_SIZE;
 	size_t remaining = page_count;
 	u32 i;
+#ifdef CONFIG_X86
+	struct page **array_pages;
+#endif
+
 
 	MALI_DEBUG_ASSERT_POINTER(descriptor);
 	MALI_DEBUG_ASSERT(MALI_MEM_OS == descriptor->type);
@@ -152,6 +156,15 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 
 		list_move_tail(&new_page->lru, &descriptor->os_mem.pages);
 	}
+#ifdef CONFIG_X86
+	if (remaining) {
+		array_pages = kmalloc(sizeof(struct pages *) * remaining,
+				GFP_KERNEL);
+		if (array_pages == NULL)
+			return -ENOMEM;
+	}
+#endif
+
 
 	/* Allocate new pages, if needed. */
 	for (i = 0; i < remaining; i++) {
@@ -188,23 +201,32 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 		if (unlikely(err)) {
 			MALI_DEBUG_PRINT_ERROR(("OS Mem: Failed to DMA map page %p: %u",
 						new_page, err));
+#ifdef CONFIG_X86
+			if (i)
+				set_pages_array_wb(array_pages, i);
+#endif
 			__free_page(new_page);
 			descriptor->os_mem.count = (page_count - remaining) + i;
 			atomic_add(descriptor->os_mem.count, &mali_mem_os_allocator.allocated_pages);
 			mali_mem_os_free(descriptor);
 			return -EFAULT;
 		}
-
 #ifdef CONFIG_X86
-		set_pages_wc(new_page, 1);
+		array_pages[i] = new_page;
 #endif
-
 		/* Store page phys addr */
 		SetPagePrivate(new_page);
 		set_page_private(new_page, dma_addr);
 
 		list_add_tail(&new_page->lru, &descriptor->os_mem.pages);
 	}
+
+#ifdef CONFIG_X86
+	if (remaining) {
+		set_pages_array_wc(array_pages, remaining);
+		kfree(array_pages);
+	}
+#endif
 
 	atomic_add(page_count, &mali_mem_os_allocator.allocated_pages);
 
@@ -428,13 +450,42 @@ static void mali_mem_os_free_page(struct page *page)
 	dma_unmap_page(&mali_platform_device->dev, page_private(page),
 		       _MALI_OSK_MALI_PAGE_SIZE, DMA_TO_DEVICE);
 
-#ifdef CONFIG_X86
-	set_pages_wb(page, 1);
-#endif
-
 	ClearPagePrivate(page);
 
 	__free_page(page);
+}
+
+static int mali_mem_os_free_pages_list(struct list_head *pages_list)
+{
+	unsigned i = 0;
+	struct page *page, *tmp;
+#ifdef CONFIG_X86
+	struct page **array_pages;
+	unsigned nr_items;
+
+
+	nr_items = i = 0;
+	list_for_each_entry_safe(page, tmp, pages_list, lru) {
+		nr_items++;
+	}
+
+	array_pages = kmalloc(sizeof(struct page *) * nr_items, GFP_KERNEL);
+	if (array_pages == NULL)
+		return -ENOMEM;
+
+	list_for_each_entry_safe(page, tmp, pages_list, lru)
+		array_pages[i++] = page;
+	set_pages_array_wb(array_pages, nr_items);
+	kfree(array_pages);
+	i = 0;
+#endif
+
+	list_for_each_entry_safe(page, tmp, pages_list, lru) {
+		mali_mem_os_free_page(page);
+		i++;
+	}
+
+	return i;
 }
 
 /* The maximum number of page table pool pages to free in one go. */
@@ -517,7 +568,6 @@ static unsigned long mali_mem_os_shrink(struct shrinker *shrinker, struct shrink
 #endif /* Linux < 3.12.0 */
 #endif /* Linux < 3.0.0 */
 {
-	struct page *page, *tmp;
 	unsigned long flags;
 	struct list_head *le, pages;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
@@ -525,6 +575,7 @@ static unsigned long mali_mem_os_shrink(struct shrinker *shrinker, struct shrink
 #else
 	int nr = sc->nr_to_scan;
 #endif
+
 
 	if (0 == nr) {
 		return mali_mem_os_shrink_count(shrinker, sc);
@@ -550,10 +601,7 @@ static unsigned long mali_mem_os_shrink(struct shrinker *shrinker, struct shrink
 	}
 	list_cut_position(&pages, &mali_mem_os_allocator.pool_pages, le);
 	spin_unlock_irqrestore(&mali_mem_os_allocator.pool_lock, flags);
-
-	list_for_each_entry_safe(page, tmp, &pages, lru) {
-		mali_mem_os_free_page(page);
-	}
+	mali_mem_os_free_pages_list(&pages);
 
 	if (MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_PAGES > mali_mem_os_allocator.pool_count) {
 		/* Pools are empty, stop timer */
@@ -570,7 +618,6 @@ static unsigned long mali_mem_os_shrink(struct shrinker *shrinker, struct shrink
 
 static void mali_mem_os_trim_pool(struct work_struct *data)
 {
-	struct page *page, *tmp;
 	struct list_head *le;
 	LIST_HEAD(pages);
 	size_t nr_to_free;
@@ -597,9 +644,7 @@ static void mali_mem_os_trim_pool(struct work_struct *data)
 	}
 	spin_unlock(&mali_mem_os_allocator.pool_lock);
 
-	list_for_each_entry_safe(page, tmp, &pages, lru) {
-		mali_mem_os_free_page(page);
-	}
+	mali_mem_os_free_pages_list(&pages);
 
 	/* Release some pages from page table page pool */
 	mali_mem_os_trim_page_table_page_pool();
@@ -628,8 +673,6 @@ _mali_osk_errcode_t mali_mem_os_init(void)
 
 void mali_mem_os_term(void)
 {
-	struct page *page, *tmp;
-
 	unregister_shrinker(&mali_mem_os_allocator.shrinker);
 	cancel_delayed_work_sync(&mali_mem_os_allocator.timed_shrinker);
 
@@ -639,11 +682,10 @@ void mali_mem_os_term(void)
 	}
 
 	spin_lock(&mali_mem_os_allocator.pool_lock);
-	list_for_each_entry_safe(page, tmp, &mali_mem_os_allocator.pool_pages, lru) {
-		mali_mem_os_free_page(page);
 
-		--mali_mem_os_allocator.pool_count;
-	}
+	mali_mem_os_allocator.pool_count -=
+		mali_mem_os_free_pages_list(&mali_mem_os_allocator.pool_pages);
+
 	BUG_ON(mali_mem_os_allocator.pool_count);
 	spin_unlock(&mali_mem_os_allocator.pool_lock);
 
