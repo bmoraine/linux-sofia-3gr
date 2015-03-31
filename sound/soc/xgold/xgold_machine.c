@@ -59,29 +59,32 @@ struct xgold_mc_private {
 };
 
 struct snd_soc_jack hs_jack;
+struct xgold_mc_private *mc_dev_ctx;
 
 /* Enable/Disable IHF ext amplifier */
 int spk_amp_event(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *k, int event)
 {
-	struct snd_soc_dapm_context *dapm = w->dapm;
-	struct snd_soc_card *card = dapm->card;
-	struct xgold_mc_private *ctx = snd_soc_card_get_drvdata(card);
-
-	if (ctx->spk_pin <= 0)
+	if (mc_dev_ctx->spk_pin <= 0)
 		return 0;
 
-	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		xgold_debug("spk_amp_event ON: %d\n", event);
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		xgold_debug("%s: SND_SOC_DAPM_PRE_PMU\n", __func__);
+		if (mc_dev_ctx->spk_pin > 0)
+			gpiod_set_value(gpio_to_desc(mc_dev_ctx->spk_pin), 1);
+		break;
 
-		if (ctx->spk_pin > 0)
-			gpiod_set_value(gpio_to_desc(ctx->spk_pin), 1);
-	} else {
-		if (ctx->spk_pin > 0)
-			gpiod_set_value(gpio_to_desc(ctx->spk_pin), 0);
+	case SND_SOC_DAPM_PRE_PMD:
+		xgold_debug("%s: SND_SOC_DAPM_PRE_PMD\n", __func__);
+		if (mc_dev_ctx->spk_pin > 0)
+			gpiod_set_value(gpio_to_desc(mc_dev_ctx->spk_pin), 0);
+		break;
 
-		xgold_debug("spk_amp_event OFF: %d\n", event);
+	default:
+		break;
 	}
+
 	return 0;
 }
 
@@ -396,7 +399,7 @@ static int xgold_mc_probe(struct platform_device *pdev)
 		if (!ret) {
 			xgold_debug("req gpio_request success!:%d\n", ret);
 			gpiod_direction_output(
-				gpio_to_desc(mc_drv_ctx->spk_pin), 1);
+				gpio_to_desc(mc_drv_ctx->spk_pin), 0);
 		} else {
 			xgold_err("req gpio_request failed:%d\n", ret);
 		}
@@ -412,6 +415,8 @@ static int xgold_mc_probe(struct platform_device *pdev)
 		mc_drv_ctx->jack = NULL;
 		/* Allow machine probe to succeed anyway */
 	}
+
+	mc_dev_ctx = mc_drv_ctx;
 
 	return 0;
 }
