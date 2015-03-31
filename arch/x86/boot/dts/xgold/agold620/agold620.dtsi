@@ -604,8 +604,8 @@ agold {
 
 		meas_thermal {
 			compatible = "intel,meas_thermal";
-			intel,thermal-names = "pmictemp";
-			intel,sensor-names = "PMICTEMP_SENSOR";
+			intel,thermal-names = "pmictemp", "battemp", "systemp";
+			intel,sensor-names = "PMICTEMP_SENSOR", "BATTEMP0_SENSOR", "SYSTEMP0_SENSOR";
 		};
 
 		fuel_gauge:fuel_gauge {
