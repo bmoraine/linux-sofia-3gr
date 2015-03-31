@@ -161,7 +161,7 @@
 
 	prof-standrd = < POWER_SUPPLY_TECHNOLOGY_LION /*battery_type*/
 				  1630 /*capacity*/
-				  4250 /*voltage_max*/
+				  4350 /*voltage_max*/
 				  82 /*chrg_term_ma*/
 				  3200 /*low_batt_mv*/
 				  60 /*disch_tmp_ul*/
@@ -187,8 +187,8 @@
 	prof-standrd-ntemp_ranges = <1>;
 
 	prof-standrd-temp_range0 = < 45 /*max_temp*/
-					     4160 /*full_chrg_vol*/
-					     850 /*full_chrg_cur*/
+					     4350 /*full_chrg_vol*/
+					     1050 /*full_chrg_cur*/
 					     98 /*charging_res_cap*/
 					     4160 /*maint_chrg_vol_ul*/
 					     850 /*maint_chrg_cur*/ >;
