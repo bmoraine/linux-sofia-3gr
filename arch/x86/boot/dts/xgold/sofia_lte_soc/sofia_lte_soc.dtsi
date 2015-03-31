@@ -74,6 +74,26 @@
 		#include "xgold/sofia_lte_soc/pm-es1.dtsi"
 #endif
 
+		/*
+		 * WARNING:
+		 * rtc node name must be "rtc" as it used to
+		 * register wallclock callbacks during early boot
+		 * To discard "rtc" from being used in wallclock
+		 * callbacks, rename this node like rtc-nowc
+		 */
+		rtc:rtc-async {
+			compatible = "intel,rtc";
+			#address-cells = <0>;
+			#interrupt-cells = < 1 >;
+			interrupts = <0 1>;
+			interrupt-names = "alarm", "completion";
+			interrupt-parent = <&rtc>;
+			interrupt-map = < 0 &hirq HIRQ_PMIC_SYS_ALARM IRQ_TYPE_DEFAULT
+					  1 &hirq HIRQ_PMIC_RTC_STATUS IRQ_TYPE_DEFAULT >;
+			intel,async = < 1 >;
+			intel,base_year = < 2000 >;
+		};
+
 		tadi:tadi {
 			compatible = "intel,tadi";
 			#address-cells = < 0 >;
@@ -311,6 +331,7 @@
 						pm,runtime = "disable";
 						pm,debug_rpm = "disable";
 					};
+
 
 					gnss:usif4-gnss {
 						compatible = "intel,usif-serial";
