@@ -213,14 +213,13 @@ static struct hm2051_reg const hm2051_stream_on[] = {
 	{HM2051_8BIT, 0x0000, 0x01},
 	{HM2051_8BIT, 0x0100, 0x01},
 	{HM2051_8BIT, 0x0101, 0x01},
-	{HM2051_8BIT, 0x4B20, 0x9E},
 	{HM2051_8BIT, 0x0005, 0x03},	/*Turn on rolling shutter */
 	{HM2051_TOK_TERM, 0, 0}
 };
 
 static struct hm2051_reg const hm2051_stream_off[] = {
 	{HM2051_8BIT, 0x0005, 0x02},	/*Turn off rolling shutter*/
-	{HM2051_8BIT, 0x4B20, 0xDE},
+	{HM2051_TOK_DELAY, 0 , 150},
 	{HM2051_TOK_TERM, 0, 0}
 };
 
@@ -245,8 +244,8 @@ static struct hm2051_reg const hm2051_global_setting[] = {
 	{HM2051_8BIT, 0x0005, 0x02},/* power up*/
 	{HM2051_TOK_DELAY, 0, 50},
 
-	{HM2051_8BIT, 0x0026, 0x0C},/* PLL1, mipi pll_pre_div*/
-	{HM2051_8BIT, 0x002A, 0x57},
+	{HM2051_8BIT, 0x0026, 0x0B},/* PLL1, mipi pll_pre_div*/
+	{HM2051_8BIT, 0x002A, 0x4F},
 	/* PLL1, mipi pll_div (pclk=pktclk= 002A + 1)*/
 
 	/*---------------------------------------------------*/
@@ -317,6 +316,7 @@ static struct hm2051_reg const hm2051_global_setting[] = {
 	/* sr_sel_sh_d (reduce CFPN @ high AVDD) ADD 0923*/
 	{HM2051_8BIT, 0x00CC, 0x00},/* mipi skew[5:0]*/
 
+	{HM2051_8BIT, 0x4B20, 0xDE},/*dis continue mode*/
 	{HM2051_8BIT, 0x4B3B, 0x12},/* MIPI analog setting*/
 	{HM2051_8BIT, 0x4B41, 0x10},
 	/* HS0_D=1,prevent enter test mode(clk lane=0)*/
@@ -376,7 +376,7 @@ static struct hm2051_reg const hm2051_SUB2_800x600_56fps[] = {
 	{HM2051_TOK_TERM, 0, 0}
 };
 
-static struct hm2051_reg const hm2051_1280x720_48fps[] = {
+static struct hm2051_reg const hm2051_1280x720_45fps[] = {
 	{HM2051_8BIT, 0x0005, 0x02},/* power up */
 	{HM2051_TOK_DELAY, 0, 100}, /* 10FPS  delay one frame */
 
@@ -418,8 +418,8 @@ static struct hm2051_reg const hm2051_1600x900_30fps[] = {
 /* Initial */
 /*--------------------------------------------------- */
 
-	{HM2051_8BIT, 0x0005, 0x02},/* power up */
-	{HM2051_TOK_DELAY, 0, 100},
+	/*{HM2051_8BIT, 0x0005, 0x02},// power up*/
+	/*{HM2051_TOK_DELAY,0,100}, // 10FPS  delay one frame */
 	/*--------------------------------------------------- */
 	/* Digital function */
 	/*--------------------------------------------------- */
@@ -429,7 +429,7 @@ static struct hm2051_reg const hm2051_1600x900_30fps[] = {
 	/* ---------------------------------------------------/ */
 	/* mipi-tx settings */
 	/* --------------------------------------------------- */
-	/* {HM2051_8BIT, 0x0123, 0xD5}, */
+	{HM2051_8BIT, 0x0123, 0xD5},
 	{HM2051_8BIT, 0x0660, 0x00},  /*win x_st Hb */
 	{HM2051_8BIT, 0x0661, 0x00},  /*win x_st Lb */
 	{HM2051_8BIT, 0x0662, 0x06},  /*win x_ed Hb */
@@ -442,6 +442,7 @@ static struct hm2051_reg const hm2051_1600x900_30fps[] = {
 	{HM2051_8BIT, 0x4B51, 0xE2},/* pre_h Lb 22->B2  //B2 -> E2 0923 */
 	{HM2051_8BIT, 0x4B0A, 0x06},
 	{HM2051_8BIT, 0x4B0B, 0x40},
+	{HM2051_8BIT, 0x4B20, 0xDE},/*discontinuous mode*/
 	{HM2051_8BIT, 0x4B30, 0x0E},
 	{HM2051_8BIT, 0x4B30, 0x0F},
 	/* --------------------------------------------------- */
@@ -453,11 +454,11 @@ static struct hm2051_reg const hm2051_1600x900_30fps[] = {
 	/*--------------------------------------------------- */
 	/* Turn on rolling shutter */
 	/*--------------------------------------------------- */
-	{HM2051_8BIT, 0x0005, 0x03},/* */
+	/* {HM2051_8BIT, 0x0005, 0x03}, */
 	{HM2051_TOK_TERM, 0, 0}
 };
 
-static struct hm2051_reg const hm2051_1600x1200_30fps[] = {
+static struct hm2051_reg const hm2051_1600x1200_28fps[] = {
 
 	/*{HM2051_8BIT, 0x0005, 0x02},// power up*/
 	/*{HM2051_TOK_DELAY,0,100}, // 10FPS  delay one frame */
@@ -491,7 +492,7 @@ static struct hm2051_reg const hm2051_1600x1200_30fps[] = {
 	{HM2051_8BIT, 0x4B51, 0xEA},
 	{HM2051_8BIT, 0x4B0A, 0x06},
 	{HM2051_8BIT, 0x4B0B, 0x40},
-	{HM2051_8BIT, 0x4B20, 0x9E},
+	{HM2051_8BIT, 0x4B20, 0xDE},/*discontinuous mode*/
 	{HM2051_8BIT, 0x4B07, 0xBD},
 	{HM2051_8BIT, 0x4B30, 0x0E},
 	{HM2051_8BIT, 0x4B30, 0x0F},
@@ -522,7 +523,7 @@ struct hm2051_resolution hm2051_res_preview[] = {
 		.desc = "THIS IS PREVIEW SUB2 :hm2051_800x600_56fps",
 		.width = 800,
 		.height = 600,
-		.pix_clk_freq = 88000000,
+		.pix_clk_freq = 86666667,
 		.fps = 56,
 		.used = 0,
 		.pixels_per_line = 2310,
@@ -541,7 +542,7 @@ struct hm2051_resolution hm2051_res_preview[] = {
 		.desc = "THIS IS PREVIEW:hm2051_1296x736_47fps",
 		.width = 1280,
 		.height = 720,
-		.pix_clk_freq = 88000000,
+		.pix_clk_freq = 86666667,
 		.fps = 48,
 		.used = 0,
 		.pixels_per_line = 2310,
@@ -549,7 +550,7 @@ struct hm2051_resolution hm2051_res_preview[] = {
 		.bin_factor_x = 1,
 		.bin_factor_y = 1,
 		.bin_mode = 0,
-		.regs = hm2051_1280x720_48fps,
+		.regs = hm2051_1280x720_45fps,
 		.skip_frames = 1,
 		.horizontal_start = 0,
 		.horizontal_end = 1279,
@@ -561,7 +562,7 @@ struct hm2051_resolution hm2051_res_preview[] = {
 		.desc = "THIS IS PREVIEW:hm2051_1600x900_30fps",
 		.width = 1600,
 		.height = 900,
-		.pix_clk_freq = 88000000,
+		.pix_clk_freq = 86666667,
 		.fps = 29,
 		.used = 0,
 		.pixels_per_line = 2310,
@@ -578,18 +579,18 @@ struct hm2051_resolution hm2051_res_preview[] = {
 	},
 #endif
 	{
-		.desc = "THIS IS PREVIEW:hm2051_1600x1200_30fps",
+		.desc = "THIS IS PREVIEW:hm2051_1600x1200_28fps",
 		.width = 1600,
 		.height = 1200,
-		.pix_clk_freq = 88000000,
-		.fps = 30,
+		.pix_clk_freq = 86666667,
+		.fps = 28,
 		.used = 0,
 		.pixels_per_line = 2310,
 		.lines_per_frame = 1266,
 		.bin_factor_x = 1,
 		.bin_factor_y = 1,
 		.bin_mode = 0,
-		.regs = hm2051_1600x1200_30fps,
+		.regs = hm2051_1600x1200_28fps,
 		.skip_frames = 1,
 		.horizontal_start = 8,
 		.horizontal_end = 1607,
@@ -601,18 +602,18 @@ struct hm2051_resolution hm2051_res_preview[] = {
 
 struct hm2051_resolution hm2051_res_still[] = {
 	{
-		.desc = "THIS IS PREVIEW:hm2051_1616x1216_29fps",
+		.desc = "THIS IS PREVIEW:hm2051_1600x1200_28fps",
 		.width = 1600,
 		.height = 1200,
-		.pix_clk_freq = 88000000,
-		.fps = 30,
+		.pix_clk_freq = 86666667,
+		.fps = 28,
 		.used = 0,
 		.pixels_per_line = 2310,
 		.lines_per_frame = 1266,
 		.bin_factor_x = 1,
 		.bin_factor_y = 1,
 		.bin_mode = 0,
-		.regs = hm2051_1600x1200_30fps,
+		.regs = hm2051_1600x1200_28fps,
 	  .skip_frames = 1,
 	  .horizontal_start = 8,
 	  .horizontal_end = 1607,
@@ -624,18 +625,18 @@ struct hm2051_resolution hm2051_res_still[] = {
 
 struct hm2051_resolution hm2051_res_video[] = {
 	{
-		.desc = "THIS IS VIDEO:hm2051_1296x736_47fps",
+		.desc = "THIS IS VIDEO:hm2051_1296x736_45fps",
 		.width = 1280,
 		.height = 720,
-		.pix_clk_freq = 88000000,
-		.fps = 48,
+		.pix_clk_freq = 86666667,
+		.fps = 45,
 		.used = 0,
 		.pixels_per_line = 2310,
 		.lines_per_frame = 786,
 		.bin_factor_x = 1,
 		.bin_factor_y = 1,
 		.bin_mode = 0,
-		.regs = hm2051_1280x720_48fps,
+		.regs = hm2051_1280x720_45fps,
 		.skip_frames = 1,
 		.horizontal_start = 0,
 		.horizontal_end = 1279,

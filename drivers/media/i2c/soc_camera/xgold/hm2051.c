@@ -851,7 +851,11 @@ static int hm2051_s_ext_ctrls(struct v4l2_subdev *sd,
 	int ret = 0;
 
 	/* Handles only exposure and gain together special case. */
-	if (ctrls->count == 2 &&
+	if (ctrls->count == 1 &&
+		(ctrls->controls[0].id == V4L2_CID_HFLIP ||
+		ctrls->controls[0].id == V4L2_CID_VFLIP))
+		ret = 0;
+	else if (ctrls->count == 2 &&
 		(ctrls->controls[0].id == V4L2_CID_GAIN &&
 		ctrls->controls[1].id == V4L2_CID_EXPOSURE))
 		ret = hm2051_set_exposure(sd, ctrls->controls[1].value,
