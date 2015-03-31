@@ -251,6 +251,13 @@ uint32_t mv_svc_rtc_get_datetime(pal_rtc_datetime *rtc_datetime)
 	return 0;
 }
 
+uint32_t mv_svc_rtc_get_datetime_async(void)
+{
+	mv_platform_service(RTC_SERVICE, RTC_GET_DATETIME,
+			0, 0, 0, 0, 0, 0, 0);
+	return 0;
+}
+
 uint32_t mv_svc_rtc_get_time_us(uint64_t *rtc_us_time)
 {
 	uint32_t rtc_time[2] = {0, 0};
@@ -286,6 +293,12 @@ uint32_t mv_svc_rtc_get_alarm(pal_rtc_datetime *rtc_alarm)
 	memcpy(rtc_alarm,
 		(pal_rtc_datetime *)&pal_shared_data_ptr->rtc_shared_data,
 		sizeof(pal_shared_data_ptr->rtc_shared_data));
+	return 0;
+}
+
+uint32_t mv_svc_rtc_get_alarm_async(void)
+{
+	mv_platform_service(RTC_SERVICE, RTC_GET_ALARM, 0, 0, 0, 0, 0, 0, 0);
 	return 0;
 }
 

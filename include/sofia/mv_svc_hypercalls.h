@@ -285,6 +285,8 @@ uint32_t mv_svc_rtc_get_time_us(uint64_t *rtc_us_time);
 uint32_t mv_svc_rtc_clear_alarm(void);
 uint32_t mv_svc_rtc_set_alarm(pal_rtc_datetime *rtc_datetime);
 uint32_t mv_svc_rtc_get_alarm(pal_rtc_datetime *rtc_datetime);
+uint32_t mv_svc_rtc_get_alarm_async(void);
+uint32_t mv_svc_rtc_get_datetime_async(void);
 
 /**
   @typedef sysprof_op_code
