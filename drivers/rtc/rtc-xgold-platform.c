@@ -48,9 +48,32 @@ static int xgold_platform_rtc_resume(struct platform_device *pdev)
 static int __init xgold_platform_rtc_probe(struct platform_device *pdev)
 {
 	struct rtc_driver_data *rtcd;
+	struct device_node *np = pdev->dev.of_node;
+	int len;
+
 	rtcd = xgold_rtc_init_driver(&pdev->dev);
 	if (IS_ERR(rtcd))
 		return PTR_ERR(rtcd);
+
+	/* Are rtc accessors synchronous or not */
+	rtcd->async_mode = 0;
+	if (of_find_property(np, "intel,async", &len))
+		rtcd->async_mode = 1;
+	dev_info(&pdev->dev, "rtc access are %shronous\n",
+			(rtcd->async_mode) ? "async" : "sync");
+
+	rtcd->base_year = 0;
+	if (of_find_property(np, "intel,base_year", &len)) {
+		len /= sizeof(u32);
+		if (of_property_read_u32_array(np, "intel,base_year",
+					(u32 *) &rtcd->base_year, len)) {
+			dev_err(&pdev->dev,
+				"can't get intel,base_year property from device tree\n"
+				);
+			return -EINVAL;
+		}
+	}
+	dev_dbg(&pdev->dev, "rtc year base = %d\n", rtcd->base_year);
 
 	if (rtcd->core_ops->probe)
 		return rtcd->core_ops->probe(&pdev->dev);
