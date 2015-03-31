@@ -101,6 +101,7 @@ static void vdump_thread_create(void);
 static int vdump_thread(void *param);
 static int vdump_init_sharemem(void);
 
+extern void schedule_vmodem_workqueue(void);
 static int vdump_control_open(struct inode *p_inode, struct file *p_file)
 {
 	VD_LOG("vdump_control_open\n");
@@ -262,7 +263,6 @@ static int vdump_thread(void *param)
 						length);
 			}
 			VD_stp_start(&vdump_data.cd_info);
-			vdump_data.cd_info.status = 0;
 			/* unmap the coredump memory regions */
 			for (i = 0;
 				i < vdump_data.cd_info.number_of_ranges;
@@ -272,10 +272,9 @@ static int vdump_thread(void *param)
 				vdump_data.cd_info.memory_range[i]
 					.logical_start = 0;
 			}
-			/* Reboot the system, later this
-				should be change to support silent reset */
+			vdump_data.cd_info.status = 0;
 			msleep(10000);
-			mv_initiate_reboot(ENUM_BOOT_MODE_NORMAL);
+			schedule_vmodem_workqueue();
 		}
 		msleep(20);
 		set_current_state(TASK_INTERRUPTIBLE);

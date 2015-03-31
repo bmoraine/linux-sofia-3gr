@@ -53,34 +53,8 @@ struct shared_secure_data *p_shared_mem_addr;
 static unsigned int mex_loadaddr;
 static unsigned int mex_loadsize;
 vmm_paddr_t p_shared_mem_phy_addr;
+static struct vmodem_drvdata *g_vm_data;
 
-/*
-static void linux2secvm_vlink_init(void)
-{
-	vmm_paddr_t paddr;
-	vmm_id_t vm_id;
-	struct vmm_vlink *vlink;
-	char *vlink_name = "vlinux2secvm";
-	vm_id = mv_gal_os_id();
-	paddr = 0;
-	do {
-		paddr = mv_gal_vlink_lookup(vlink_name, paddr);
-		mv_gal_printk("vlink lookup returns: 0x%X\n", paddr);
-		vlink = (struct vmm_vlink *)mv_gal_ptov(paddr);
-		if (vlink->s_id == vm_id)
-			break;
-	} while (paddr);
-
-	if (!paddr) {
-		mv_gal_printk("Cannot find %s\n", vlink_name);
-		return;
-	}
-	p_shared_mem_phy_addr = mv_shared_mem_alloc(paddr, 0,
-			sizeof(struct shared_secure_data));
-	p_shared_mem_addr =
-		(struct shared_secure_data *)mv_gal_ptov(p_shared_mem_phy_addr);
-}
-*/
 static void modem_state_work(struct work_struct *ws)
 {
 	struct vmodem_drvdata *pdata =
@@ -88,6 +62,7 @@ static void modem_state_work(struct work_struct *ws)
 	int new_state = pdata->modem_state;
 	char *on[2] = { "MODEM_STATE=ON", NULL };
 	char *off[2] = { "MODEM_STATE=OFF", NULL };
+	char *trap[2] = { "MODEM_STATE=TRAP", NULL };
 	char **uevent_envp = NULL;
 
 	pdata->running_guest = mv_get_running_guests();
@@ -95,8 +70,14 @@ static void modem_state_work(struct work_struct *ws)
 		new_state = 1;
 		uevent_envp = on;
 	} else if ((pdata->running_guest & 0x2) == 0) {
-		new_state = 0;
-		uevent_envp = off;
+		if(vdump_modem()) {
+			new_state = 3;
+			uevent_envp = trap;
+		}
+		else {
+			new_state = 0;
+			uevent_envp = off;
+		}
 	}
 
 	if (new_state != pdata->modem_state) {
@@ -109,21 +90,35 @@ static void modem_state_work(struct work_struct *ws)
 static irqreturn_t modem_state_sysconf_hdl(int xirq, void *arg)
 {
 	struct vmodem_drvdata *p = (struct vmodem_drvdata *)arg;
-	/* Temporary workaround solution, do not trigger modem silent reset
-	if doing modem coredump via Linux */
-	if (!vdump_modem())
-		queue_work(p->wq, &p->work);
-
+	queue_work(p->wq, &p->work);
 	return IRQ_HANDLED;
 }
+
+void schedule_vmodem_workqueue(void)
+{
+	queue_work(g_vm_data->wq, &g_vm_data->work);
+}
+EXPORT_SYMBOL(schedule_vmodem_workqueue);
 
 static ssize_t modem_sys_state_show(struct device *dev,
 				     struct device_attribute *attr,
 				     char *buf)
 {
+	int ret = 0;
 	struct vmodem_drvdata *p = dev_get_drvdata(dev);
-	return sprintf(buf, "%s\n",
-			p->modem_state ? "On" : "Off");
+	switch(p->modem_state)
+	{
+		case 0:
+			ret = sprintf(buf, "%s\n", "Off");
+			break;
+		case 1:
+			ret = sprintf(buf, "%s\n", "On");
+			break;
+		case 2:
+			ret = sprintf(buf, "%s\n", "Trap");
+			break;
+	}
+	return ret;
 }
 /*
  * This function will be revmoved once the vvfs driver is ready
@@ -151,28 +146,6 @@ static int reload_nvm(struct vmodem_drvdata *p)
 	return 1;
 }
 
-static int load_secpack(unsigned char *buf)
-{
-	mm_segment_t fs = get_fs();
-	struct file *fd;
-	set_fs(get_fs());
-	fd = filp_open(
-		"/data/modem.fls_ID0_CUST_SecureBlock.bin",
-		(O_RDONLY | O_SYNC), 0);
-	set_fs(fs);
-	if (unlikely(IS_ERR(fd))) {
-		/* Better use system events to get notified
-		 * on device removal/creation */
-		return -EINVAL;
-	}
-	fs = get_fs();
-	set_fs(get_ds());
-	fd->f_op->read(fd, buf,
-			SEC_PACK_SIZE, &(fd->f_pos));
-	set_fs(fs);
-	filp_close(fd, NULL);
-	return 1;
-}
 
 static ssize_t modem_sys_state_store(struct device *dev,
 			       struct device_attribute *attr,
@@ -188,7 +161,6 @@ static ssize_t modem_sys_state_store(struct device *dev,
 	dev_dbg(dev, "%s sets modem %s\n", __func__, en ? "On" : "Off");
 	if (en != 0) {
 		reload_nvm(p);
-		load_secpack(p_shared_mem_addr->secpack);
 		mv_vm_start(1);
 	} else {
 		mv_vm_stop(1);
@@ -241,6 +213,7 @@ int vmodem_probe(struct platform_device *pdev)
 		dev_err(dev, "Couldn't allocate driver data record\n");
 		return -ENOMEM;
 	}
+	g_vm_data = pdata;
 	pdata->modem_state = 0;
 	pdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, pdata);
