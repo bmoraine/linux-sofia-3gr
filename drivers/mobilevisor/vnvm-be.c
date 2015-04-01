@@ -402,9 +402,18 @@ static void vnvm_on_connect(uint32_t token, void *cookie)
 static void vnvm_on_disconnect(uint32_t token, void *cookie)
 {
 	struct vnvm_ctx *p_vnvm_ctx = &vnvm_ctx;
+	mm_segment_t old_fs;
 
 	p_vnvm_ctx->dev_active = 0;
 	p_vnvm_ctx->status = VNVM_STATUS_DISCONNECT;
+
+	if (p_vnvm_ctx->fd) {
+		old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		filp_close(p_vnvm_ctx->fd, NULL);
+		p_vnvm_ctx->fd = NULL;
+		set_fs(old_fs);
+	}
 
 	/* wake up client if still waiting*/
 	if (p_vnvm_ctx->is_client_wait)
@@ -444,11 +453,15 @@ static void vnvm_exit_device ()
 	if(p_vnvm_ctx->dev_active == 0) return;
 
 	p_vnvm_ctx->dev_active = 0;
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
-	filp_close(p_vnvm_ctx->fd, NULL);
-	set_fs(old_fs);
-	p_vnvm_ctx->fd = NULL;
+
+	if (p_vnvm_ctx->fd) {
+		old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		filp_close(p_vnvm_ctx->fd, NULL);
+		p_vnvm_ctx->fd = NULL;
+		set_fs(old_fs);
+	}
+
 	p_vnvm_ctx->devsize = 0;
 	return;
 }

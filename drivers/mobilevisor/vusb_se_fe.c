@@ -666,6 +666,26 @@ static struct file *vusb_se_fe_open_mvpipe(char *name)
 }
 
 /*****************************************************************************/
+/* Function:... vusb_se_fe_close_mvpipe                                       */
+/* Description: Closes the mvpipe                  */
+/*****************************************************************************/
+static void vusb_se_fe_close_mvpipe(struct file *fp)
+{
+	/* Unused argument inode to function release */
+	mm_segment_t oldfs;
+
+	oldfs = get_fs();
+
+	set_fs(KERNEL_DS);
+
+	filp_close(fp, 0);
+
+	set_fs(oldfs);
+
+	return;
+}
+
+/*****************************************************************************/
 /* Function:... vusb_se_fe_open_gadget                                       */
 /* Description: Opens the gadget nominated by the pipe number                */
 /*****************************************************************************/
@@ -1543,7 +1563,7 @@ static int vusb_se_fe_command_thread(void *d)
 			} else {
 
 				VUSB_SE_FE_ERR("Command MVPIPE MEX Read Error");
-
+				vusb_se_fe_close_mvpipe(vusb_se_fe_command_mvpipe_fp);
 				/* re-open it */
 				if (mutex_lock_interruptible
 					(&vusb_se_fe_tx_lock))
@@ -1750,6 +1770,7 @@ static int vusb_se_fe_link_rx_thread(void *d)
 
 	int diagnostic = 1;
 	unsigned data = ((struct vusb_se_data *)d)->uint_val;
+	struct file *fp;
 
 	VUSB_SE_FE_CHECK_AND_SET_LINK(data, link, "BE-to-FE");
 
@@ -1763,6 +1784,10 @@ static int vusb_se_fe_link_rx_thread(void *d)
 					    vusb_se_fe_link_gadget_fp);
 
 		if (VUSB_SE_FE_TXFR_RX_ERR == diagnostic) {
+			if (vusb_se_fe_link_mvpipe_fp[link] != NULL) {
+				fp = vusb_se_fe_link_mvpipe_fp[link];
+				vusb_se_fe_close_mvpipe(fp);
+			}
 			/* re-open it */
 			if (mutex_lock_interruptible(&vusb_dat_reopen_lock))
 				return 0;
