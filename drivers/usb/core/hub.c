@@ -1704,6 +1704,9 @@ static int hub_probe(struct usb_interface *intf, const struct usb_device_id *id)
 		pm_runtime_set_autosuspend_delay(&hdev->dev, 0);
 #endif
 
+	/* Force HUB to be always wakeup capable */
+	device_wakeup_enable(&hdev->dev);
+
 	/*
 	 * Hubs have proper suspend/resume support, except for root hubs
 	 * where the controller driver doesn't have bus_suspend and
