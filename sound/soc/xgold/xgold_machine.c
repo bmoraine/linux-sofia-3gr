@@ -226,7 +226,6 @@ static struct snd_soc_dai_link xgold_dai[] = {
 	{
 		.name = "XGOLD_PCM2",
 		.stream_name = "PCM Audio 2",
-		.init = xgold_snd_init,
 		.ignore_suspend = 1,
 	},
 };
