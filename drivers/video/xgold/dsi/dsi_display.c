@@ -753,7 +753,7 @@ static void dsi_dphy_calculation(struct dsi_display *display)
 	display->dif.dsi.lp_tx_vref = 31;
 	display->dif.dsi.lp_clk_div =
 		DIV_ROUND_UP(display->dif.dsi.dc_clk_rate / 1000 * TLPX_NS,
-		1000000) - 1;
+		1000000);
 	display->dif.dsi.to_lp_hs_req = display->dif.dsi.lp_clk_div;
 	display->dif.dsi.to_hs_flip = DIV_ROUND_UP(display->dif.dsi.bitrate /
 		1000 * ths_trail_ns, 1000000 * 8);
