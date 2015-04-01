@@ -700,6 +700,7 @@ struct dwc2_hsotg {
 
 	unsigned int queuing_high_bandwidth:1;
 	unsigned int srp_success:1;
+	unsigned int bus_suspended:1;
 
 	struct workqueue_struct *wq_otg;
 	struct work_struct wf_otg;

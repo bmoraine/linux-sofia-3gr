@@ -1429,6 +1429,7 @@ static void dwc2_wakeup_detected(unsigned long data)
 	dev_dbg(hsotg->dev, "Clear Resume: HPRT0=%0x\n",
 		readl(hsotg->regs + HPRT0));
 
+	hsotg->bus_suspended = 0;
 	dwc2_hcd_rem_wakeup(hsotg);
 
 	/* Change to L0 state */
@@ -1466,7 +1467,7 @@ static void dwc2_port_suspend(struct dwc2_hsotg *hsotg, u16 windex)
 	writel(hprt0, hsotg->regs + HPRT0);
 
 	/* Update lx_state */
-	hsotg->lx_state = DWC2_L2;
+	hsotg->bus_suspended = 1;
 
 	/* Suspend the Phy Clock */
 	pcgctl = readl(hsotg->regs + PCGCTL);
