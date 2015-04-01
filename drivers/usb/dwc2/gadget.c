@@ -2287,7 +2287,8 @@ void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg,
 	u32 val;
 
 	if (!is_usb_reset)
-		s3c_hsotg_corereset(hsotg);
+		if (s3c_hsotg_corereset(hsotg))
+			goto core_init_abort;
 
 	/*
 	 * we must now enable ep0 ready for host detection and then
@@ -2417,6 +2418,9 @@ void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg,
 
 	hsotg->last_rst = jiffies;
 	hsotg->lx_state = DWC2_L0;
+
+core_init_abort:
+	return;
 }
 
 static void s3c_hsotg_core_disconnect(struct dwc2_hsotg *hsotg)
