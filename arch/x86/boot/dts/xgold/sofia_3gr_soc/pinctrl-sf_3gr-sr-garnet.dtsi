@@ -929,8 +929,8 @@ cam1_inactive_pins:cam1_inactive_pins {
 };
 cam1_sleep_pins:cam1_sleep_pins {
 	pinctrl-single,pins = <
-		0x2e0 0x1500	/* cam1_rst */
-		0x314 0x1500	/* cam1_pd */
+		0x2e0 0x3D100	/* cam1_rst */
+		0x314 0x3B100	/* cam1_pd */
 	>;
 };
 usb_default_pins:usb_default_pins {
@@ -1010,8 +1010,8 @@ cam2_inactive_pins:cam2_inactive_pins {
 };
 cam2_sleep_pins:cam2_sleep_pins {
 	pinctrl-single,pins = <
-		0x2f8 0x1500	/* cam2_rst */
-		0x2fc 0x1500	/* cam2_pd */
+		0x2f8 0x39100	/* cam2_rst */
+		0x2fc 0x3D100	/* cam2_pd */
 	>;
 };
 gauge_default_pins:gauge_default_pins {
