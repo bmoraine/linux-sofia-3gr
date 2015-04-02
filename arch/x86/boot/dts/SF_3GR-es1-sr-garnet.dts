@@ -7,6 +7,7 @@
 	model = "intel,sofia_3gr_soc-es2";
 	compatible = "intel,sofia_3gr_soc-svb", "intel,xgold";
 
+	#define SOFIA_3GR_GARNET_4_LEVEL_CPUFREQ
 	#include "xgold/sofia_3gr_soc/sofia_3gr_soc_garnet.dtsi"
 	#include "xgold/sofia_3gr_soc/irq.dtsi"
 	#include "xgold/mobilevisor/mobilevisor.dtsi"
