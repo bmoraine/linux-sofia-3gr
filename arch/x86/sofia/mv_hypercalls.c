@@ -30,6 +30,7 @@
 #include <linux/module.h>
 #include <sofia/mv_hypercalls.h>
 #include <sofia/vmcalls.h>
+#include <asm/irq_vectors.h>
 #include <linux/sysprofile.h>
 #include <linux/types.h>
 #else
@@ -158,7 +159,23 @@ EXPORT_SYMBOL(mv_virq_request);
 
 void mv_virq_eoi(uint32_t virq)
 {
-	mv_call(VMCALL_VIRQ_EOI, virq, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
+	/* currently sofia vmm directly ignores virq/hirq eoi request,
+	   so no need to talk to vmm anymore, which can avoid one
+	   unnecessary vmexit and reduce the overhead */
+
+	if (virq < NR_VECTORS) {
+		switch (virq) {
+		case REBOOT_VECTOR:
+		case CALL_FUNCTION_SINGLE_VECTOR:
+		case CALL_FUNCTION_VECTOR:
+		case RESCHEDULE_VECTOR:
+			break;
+		default:
+			mv_call(VMCALL_VIRQ_EOI, virq, UNUSED_ARG,
+						UNUSED_ARG, UNUSED_ARG);
+			break;
+		}
+	}
 }
 
 #ifdef __KERNEL__
