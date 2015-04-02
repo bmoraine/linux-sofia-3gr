@@ -1,0 +1,2 @@
+#define RECOVERY_KERNEL
+#include "SF_LTE-mrd6-p1.dts"
