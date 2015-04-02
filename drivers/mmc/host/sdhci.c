@@ -1328,10 +1328,16 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 		sdhci_runtime_pm_bus_on(host);
 
 	if (host->quirks2 & SDHCI_QUIRK2_POWER_CONTROL_BUG) {
-		while ((sdhci_readb(host, SDHCI_POWER_CONTROL)) != pwr) {
+		unsigned long timeout = 100;
+		do {
+			if (sdhci_readl(host, SDHCI_POWER_CONTROL) == pwr)
+				break;
 			sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 			udelay(10);
-		}
+			timeout --;
+
+		} while (timeout);
+
 	}
 	/*
 	 * Some controllers need an extra 10ms delay of 10ms before they
