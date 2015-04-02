@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 2013, 2014, 2015 Intel Mobile Communications GmbH
+ * Copyright (C) 2013, 2014 Intel Mobile Communications GmbH
  *
  * Notes:
  * Nov	5 2013: IMC: debug fs for hx170dec driver
  * Mar 13 2014: IMC: Review Comments & Clean up
  * May 20 2014: IMC: replace printk() with pr_*()
  * Oct 30 2014: IMC: include pingvm command
- * Mar 16 2015: IMC: VVPU only: remove code accessing HW
  */
 
 /*
@@ -61,6 +60,11 @@ static struct device	       *dev;
 static struct platform_device  *pdev;
 
 static const struct dev_pm_ops *dev_pm_ops;
+
+unsigned int hx170dec_n_dec_irq;
+unsigned int hx170dec_n_pp_irq;
+unsigned int hx170dec_n_spurious_irq;
+
 
 /*
  * define comands understood by the ctrl interface
@@ -233,6 +237,10 @@ static ssize_t hx170_ctrlwrite(struct file *fp, const char __user *user_buffer,
 		 */
 		pr_info("hx170dbg reset vpu decoder\n");
 
+		hx170dec_n_dec_irq = 0;
+		hx170dec_n_pp_irq = 0;
+		hx170dec_n_spurious_irq = 0;
+
 		n = platform_device_pm_set_state_by_name(pdev,
 					pm_platdata->pm_state_D3_name);
 
@@ -382,6 +390,9 @@ int hx170_init_debug(void)
 	hx170_ctrl = debugfs_create_file("ctrl", 0644, hx170_dir,
 		&hx170_fileValue, &fops_ctrl);
 
+	hx170dec_n_dec_irq = 0;
+	hx170dec_n_pp_irq  = 0;
+
 	return 0;
 }
 
@@ -465,6 +476,11 @@ static int hx170_print_state(char *p, ssize_t size)
 			(n > 0 ? "on" : "off"));
 		ADVANCE(i);
 	}
+
+	i = snprintf(p, rest, "	 + %d dec irqs, %d pp irqs, %d spurious irq\n",
+		hx170dec_n_dec_irq, hx170dec_n_pp_irq,
+		hx170dec_n_spurious_irq);
+	ADVANCE(i);
 
 	i = snprintf(p, rest, "	 + power handles\n");
 

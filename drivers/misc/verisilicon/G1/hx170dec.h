@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 - 2015 Intel Mobile Communications GmbH
+ * Copyright (C) 2013, 2014 Intel Mobile Communications GmbH
  *
  * Notes:
  * May	2 2013: IMC: make platform device/driver
@@ -13,7 +13,6 @@
  * Mar 13 2014: IMC: Review Comments & Clean up
  * May 19 2014: IMC: reset vpu when switching between decoder and encoder
  * Aug 18 2014: IMC: support for vbpipe
- * Mar 16 2015: IMC: VVPU only: remove code accessing HW
  */
 
 /*
@@ -87,20 +86,62 @@
 #define OF_MASTER_CLK		"clk_master"
 #define PM_CLASS_VPU_DEC	"vpu_dec"
 
+struct vpu_dec_resource {
+	unsigned pbase;
+	unsigned size;
+	phys_addr_t vbase;
+};
+
+struct vpu_dec_debug_t {
+	int showfps;
+	long long delay_max;	   /* max delay in us */
+	struct timeval cmd_delay;  /*cmd delay measure */
+	int level;
+	unsigned int frame_update_number;
+};
+
+#define NB_MEAS 20
+struct vpu_dec_meas_t {
+	unsigned max;
+	unsigned idx;
+	struct timeval t[NB_MEAS];
+	unsigned diffms[NB_MEAS];
+};
+
+struct vpu_dec_irq {
+	int dec;
+};
 
 struct vpu_dec_device_t {
 	struct platform_device *pdev;
 	struct device *dev;		/* TODO: skip this one??	  */
 	struct device_pm_platdata *pm_platdata;
-#if 0
+	struct vpu_dec_resource reg;	/* register memory desc		  */
+	struct vpu_dec_resource mem;	/* dedicated memory desc	  */
+	struct vpu_dec_irq irq;
 	struct reset_control *rstc;
-#endif
 #if defined(CONFIG_SW_SYNC_USER)
 	struct sw_sync_timeline *pphwc_timeline;
 	uint64_t ppwc_instance;
 #endif
 };
 
+
+#if 0 /* currently unused */
+static inline struct vpu_dec_device_t *vpu_dec_get_drvdata(
+	struct platform_device *pdev)
+{
+	struct vpu_dec_device_t *data =
+		(struct vpu_dec_device_t *)platform_get_drvdata(pdev);
+
+	if (!data) {
+		struct device *dev = &pdev->dev;
+		dev_err(dev, "drvdata is not yet set\n");
+	}
+
+	return data;
+}
+#endif
 
 
 /* power management state handles ----------------------------------- */
@@ -125,6 +166,8 @@ extern	int hx170dec_prepare(struct device *dev);
 extern void hx170dec_complete(struct device *dev);
 extern	int hx170dec_suspend(struct device *dev);
 extern	int hx170dec_resume(struct device *dev);
+extern	int hx170dec_freeze(struct device *dev);
+extern	int hx170dec_freeze(struct device *dev);
 extern	int hx170dec_suspend_noirq(struct device *dev);
 extern	int hx170dec_resume_noirq(struct device *dev);
 
@@ -155,6 +198,10 @@ extern void hx170_release_debug(void);
 
 extern	int hx170dec_power_state(int change);
 extern void hx170dec_reset_power_state(void);
+
+extern unsigned int hx170dec_n_dec_irq;
+extern unsigned int hx170dec_n_pp_irq;
+extern unsigned int hx170dec_n_spurious_irq;
 
 #endif /* CONFIG_VERISILICON_G1_DEBUG_FS */
 

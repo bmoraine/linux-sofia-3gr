@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 2013, 2014, 2015 Intel Mobile Communications GmbH
+ * Copyright (C) 2013, 2014 Intel Mobile Communications GmbH
  *
  * Notes:
  * Nov	5 2013: IMC: debug fs for hx280enc driver
  * Mar 13 2014: IMC: Review Comments & Clean up
  * May 20 2014: IMC: replace printk() with pr_*()
  * Oct 30 2014: IMC: include pingvm command
- * Mar 17 2015: IMC: VVPU only: remove code accessing HW
  */
 
 /*
@@ -60,6 +59,11 @@ static struct device	       *dev;
 static struct platform_device  *pdev;
 
 static const struct dev_pm_ops *dev_pm_ops;
+
+unsigned int hx280enc_n_irq;
+unsigned int hx280enc_n_spurious_irq;
+
+
 
 /*
  * define comands understood by the ctrl interface
@@ -231,6 +235,9 @@ static ssize_t hx280_ctrlwrite(struct file *fp, const char __user *user_buffer,
 		 */
 		pr_info("hx280dbg reset vpu encoder\n");
 
+		hx280enc_n_irq = 0;
+		hx280enc_n_spurious_irq = 0;
+
 		n = platform_device_pm_set_state_by_name(pdev,
 					pm_platdata->pm_state_D3_name);
 
@@ -377,6 +384,9 @@ int hx280_init_debug(void)
 	hx280_ctrl = debugfs_create_file("ctrl", 0644, hx280_dir,
 		&hx280_fileValue, &fops_ctrl);
 
+	hx280enc_n_irq = 0;
+
+
 	return 0;
 }
 
@@ -458,6 +468,10 @@ static int hx280_print_state(char *p, ssize_t size)
 			(n > 0 ? "on" : "off"));
 		ADVANCE(i);
 	}
+
+	i = snprintf(p, rest, "	 + %d irqs, %d spurious irqs\n",
+		hx280enc_n_irq, hx280enc_n_spurious_irq);
+	ADVANCE(i);
 
 	i = snprintf(p, rest, "	 + power handles\n");
 
