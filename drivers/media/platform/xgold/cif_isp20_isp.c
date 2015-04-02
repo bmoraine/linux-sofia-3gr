@@ -3719,7 +3719,8 @@ void cifisp_configure_isp(
 		enum cif_isp20_pix_fmt in_pix_fmt,
 		bool capture)
 {
-	CIFISP_DPRINT(CIFISP_DEBUG, "%s\n", __func__);
+	CIFISP_DPRINT(CIFISP_DEBUG, "%s format 0x%x capture %d\n",
+		__func__, in_pix_fmt, capture);
 
 	mutex_lock(&isp_dev->mutex);
 

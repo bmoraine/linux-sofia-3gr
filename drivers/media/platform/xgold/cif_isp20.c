@@ -1765,7 +1765,7 @@ static int cif_isp20_config_isp(
 		cifisp_configure_isp(&dev->isp_dev,
 			in_pix_fmt,
 			dev->config.jpeg_config.enable &&
-			(dev->config.input_sel > CIF_ISP20_INP_CPI));
+			(dev->config.input_sel <= CIF_ISP20_INP_CPI));
 	else
 		cifisp_disable_isp(&dev->isp_dev);
 
