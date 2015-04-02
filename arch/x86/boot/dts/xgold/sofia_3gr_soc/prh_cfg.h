@@ -22,8 +22,15 @@
 #define PRH_PER_ARM11_CLK_ENABLE_LOW_PERF (PRH_PER_ARM11_CLK_MODE_START + 1)
 /**< Enable PS_CPU_CLK med performance use cases (312MHz)*/
 #define PRH_PER_ARM11_CLK_ENABLE_MED_PERF (PRH_PER_ARM11_CLK_ENABLE_LOW_PERF + 1)
+#ifdef SOFIA_3GR_GARNET_4_LEVEL_CPUFREQ
+/**< Enable PS_CPU_CLK med-high performance use cases (520MHz)*/
+#define PRH_PER_ARM11_CLK_ENABLE_MED_HIGH_PERF (PRH_PER_ARM11_CLK_ENABLE_MED_PERF + 1)
+/**< Enable PS_CPU_CLK high performance use cases (624MHz) */
+#define PRH_PER_ARM11_CLK_ENABLE_HIGH_PERF (PRH_PER_ARM11_CLK_ENABLE_MED_HIGH_PERF + 1)
+#else
 /**< Enable PS_CPU_CLK high performance use cases (520MHz)*/
 #define PRH_PER_ARM11_CLK_ENABLE_HIGH_PERF (PRH_PER_ARM11_CLK_ENABLE_MED_PERF + 1)
+#endif
 /**< Enable PS_CPU_CLK high performance use cases (624MHz) */
 #define PRH_PER_ARM11_CLK_ENABLE_ULTRA_HIGH_PERF (PRH_PER_ARM11_CLK_ENABLE_HIGH_PERF + 1)
 /**< End indicator (reserved for PRH driver) */

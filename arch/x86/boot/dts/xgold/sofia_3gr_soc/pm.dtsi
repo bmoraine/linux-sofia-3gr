@@ -27,11 +27,17 @@ arm11_clk_pm_class:arm11_clk_pm_class {
 	intel,states-names =
 		"low_perf",
 		"med_perf",
+		#ifdef SOFIA_3GR_GARNET_4_LEVEL_CPUFREQ
+		"med_high_perf",
+		#endif
 		"high_perf",
 		"ultra_high_perf";
 	intel,states = <
 		PRH_PER_TYPE_ARM11_CLK PRH_PER_ARM11_CLK_ENABLE_LOW_PERF
 		PRH_PER_TYPE_ARM11_CLK PRH_PER_ARM11_CLK_ENABLE_MED_PERF
+		#ifdef SOFIA_3GR_GARNET_4_LEVEL_CPUFREQ
+		PRH_PER_TYPE_ARM11_CLK PRH_PER_ARM11_CLK_ENABLE_MED_HIGH_PERF
+		#endif
 		PRH_PER_TYPE_ARM11_CLK PRH_PER_ARM11_CLK_ENABLE_HIGH_PERF
 		PRH_PER_TYPE_ARM11_CLK PRH_PER_ARM11_CLK_ENABLE_ULTRA_HIGH_PERF >;
 };
