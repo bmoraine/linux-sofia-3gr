@@ -88,7 +88,7 @@ static int dwc2_backup_host_registers(struct dwc2_hsotg *hsotg)
 	for (i = 0; i < hsotg->core_params->host_channels; ++i)
 		hr->hcintmsk[i] = readl(hsotg->regs + HCINTMSK(i));
 
-	hr->hprt0 = readl(hsotg->regs + HPRT0);
+	hr->hprt0 = dwc2_read_hprt0(hsotg);
 	hr->hfir = readl(hsotg->regs + HFIR);
 
 	return 0;
