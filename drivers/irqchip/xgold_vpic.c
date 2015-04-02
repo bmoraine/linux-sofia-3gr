@@ -81,8 +81,6 @@ __assign_irq_vector(int irq, struct irq_cfg *cfg, const struct cpumask *mask)
 	int err;
 	cpumask_var_t tmp_mask;
 
-	struct irq_data *irqd = irq_get_irq_data(irq);
-
 	if (cfg == NULL)
 		BUG();
 
@@ -96,8 +94,6 @@ __assign_irq_vector(int irq, struct irq_cfg *cfg, const struct cpumask *mask)
 #if 0
 	/* Affinity changes  or first vector request ?*/
 	if (cfg->vector == (u8)VECTOR_UNDEFINED) {
-		trace_printk("%s: New irq %d mask %x\n",
-			__func__, irq, cpumask_bits(mask)[0]);
 		/* First vector request */
 		cfg->vector = sofia_irq_to_vector(irq);
 		/*
@@ -105,16 +101,12 @@ __assign_irq_vector(int irq, struct irq_cfg *cfg, const struct cpumask *mask)
 		cpumask_clear(cfg->domain);
 		*/
 		cpumask_and(tmp_mask, mask, cpu_online_mask);
-		trace_printk("%s: AFTER and mask New irq %d mask %x\n",
-			__func__, irq, cpumask_bits(tmp_mask)[0]);
 
 		for_each_cpu(cpu, tmp_mask)
 			per_cpu(vector_irq, cpu)[cfg->vector] = irq;
 
 		cpumask_copy(cfg->domain, tmp_mask);
 		cpumask_copy(cfg->old_domain, tmp_mask);
-		trace_printk("%s: final New irq %d mask %x\n",
-			__func__, irq, cpumask_bits(cfg->domain)[0]);
 
 		err = 0;
 	}
@@ -130,19 +122,10 @@ __assign_irq_vector(int irq, struct irq_cfg *cfg, const struct cpumask *mask)
 		unsigned core = smp_processor_id();
 
 		apic->vector_allocation_domain(core, tmp_mask, mask);
-		trace_printk("%s:[%d] irq %d vector %d affinity: apic %lx requested %lx domain %lx accessors %x\n",
-			__func__, core, irq, cfg->vector,
-			cpumask_bits(tmp_mask)[0],
-			cpumask_bits(mask)[0],
-			cpumask_bits(cfg->domain)[0],
-			irqd->state_use_accessors
-			);
 		/* Check whether the vector is already installed,
 		 * affinity domain correctly set, etc..*/
 		if (cpumask_subset(tmp_mask, cfg->domain)) {
 			err = 0;
-			trace_printk("%s:[%d] irq %d is a subset\n",
-				__func__, core, irq);
 			if (cpumask_equal(tmp_mask, cfg->domain))
 				break;
 			/*
@@ -154,10 +137,6 @@ __assign_irq_vector(int irq, struct irq_cfg *cfg, const struct cpumask *mask)
 			cfg->move_in_progress =
 			   cpumask_intersects(cfg->old_domain, cpu_online_mask);
 			cpumask_and(cfg->domain, cfg->domain, tmp_mask);
-			trace_printk("%s:[%d] irq %d is a subset, cleanup required, domain old/new %lx/%lx\n",
-				__func__, core, irq,
-				cpumask_bits(cfg->old_domain)[0],
-				cpumask_bits(cfg->domain)[0]);
 
 			break;
 		}
@@ -195,18 +174,12 @@ next:
 			cpumask_copy(cfg->old_domain, cfg->domain);
 			cfg->move_in_progress =
 			   cpumask_intersects(cfg->old_domain, cpu_online_mask);
-			trace_printk("%s:[%d] irq %d was already installed, move in progress %d\n",
-				__func__, core, irq, cfg->move_in_progress);
 		}
 		for_each_cpu_and(new_cpu, tmp_mask, cpu_online_mask)
 			per_cpu(vector_irq, new_cpu)[vector] = irq;
 		cfg->vector = vector;
 		cpumask_copy(cfg->domain, tmp_mask);
 		err = 0;
-		trace_printk("%s:[%d] DONE irq %d vector %d move ? %d domain old/new %lx/%lx\n ",
-			__func__, core, irq, cfg->vector, cfg->move_in_progress,
-			cpumask_bits(cfg->old_domain)[0],
-			cpumask_bits(cfg->domain)[0]);
 		break;
 	}
 	free_cpumask_var(tmp_mask);
@@ -349,7 +322,6 @@ void __setup_vector_irq(int cpu)
 	int irq, vector;
 	struct irq_cfg *cfg;
 
-	trace_printk("%s: cpu %d\n", __func__, cpu);
 	/*
 	 * vector_lock will make sure that we don't run into irq vector
 	 * assignments that might be happening on another cpu in parallel,
@@ -366,8 +338,6 @@ void __setup_vector_irq(int cpu)
 			continue;
 		vector = cfg->vector;
 		per_cpu(vector_irq, cpu)[vector] = irq;
-		trace_printk("%s:[%d] irq %d vector %d installed\n",
-				__func__, cpu, irq, cfg->vector);
 	}
 	/* Mark the free vectors */
 	for (vector = 0; vector < NR_VECTORS; ++vector) {
@@ -378,8 +348,6 @@ void __setup_vector_irq(int cpu)
 		cfg = irq_get_chip_data(irq);
 		if (!cpumask_test_cpu(cpu, cfg->domain)) {
 			per_cpu(vector_irq, cpu)[vector] = VECTOR_UNDEFINED;
-			trace_printk("%s:[%d] irq %d vector %d UNinstalled\n",
-				__func__, cpu, irq, cfg->vector);
 		}
 	}
 	raw_spin_unlock(&vector_lock);
@@ -402,8 +370,6 @@ static unsigned int sofia_vpic_irq_startup(struct irq_data *data)
 	 * */
 	assign_irq_vector(irq, cfg, apic->target_cpus());
 	affinity = cpumask_bits(cfg->domain)[0];
-	trace_printk("%s: Request irq %d, affinity domain %x, irq affinity %lx\n",
-		__func__, irq, affinity, cpumask_bits(data->affinity)[0]);
 	mv_virq_request(cfg->vector, affinity);
 	mv_virq_unmask(cfg->vector);
 	return 0;
@@ -471,11 +437,6 @@ static int sofia_vpic_set_affinity(struct irq_data *data,
 	unsigned int dest_id;
 	int err;
 
-	trace_printk("%s:[%d] ENTRY irq %d vector %d cpumask %lx affinity %lx\n",
-			__func__, smp_processor_id(), irq,
-			cfg->vector,
-			cpumask_bits(mask)[0],
-			cpumask_bits(data->affinity)[0]);
 	if (!config_enabled(CONFIG_SMP))
 		return -1;
 
@@ -484,7 +445,7 @@ static int sofia_vpic_set_affinity(struct irq_data *data,
 
 	err = assign_irq_vector(irq, cfg, mask);
 	if (err) {
-		trace_printk("%s: Error while assigning vector %d\n",
+		pr_debug("%s: Error while assigning vector %d\n",
 				__func__, cfg->vector);
 		return err;
 	}
@@ -492,19 +453,12 @@ static int sofia_vpic_set_affinity(struct irq_data *data,
 	err = apic->cpu_mask_to_apicid_and(mask, cfg->domain, &dest_id);
 	if (err) {
 		if (assign_irq_vector(irq, cfg, data->affinity))
-			trace_printk("Failed to recover vector for irq %d\n", irq);
+			pr_debug("Failed to recover vector for irq %d\n", irq);
 		return err;
 	}
 	cpumask_copy(data->affinity, mask);
 
 	mv_virq_set_affinity(vect, dest_id);
-
-	trace_printk("%s:[%d] DONE irq %d vector %d cpumask %lx affinity %lx ioapic %x\n",
-			__func__, smp_processor_id(), irq,
-			cfg->vector,
-			cpumask_bits(mask)[0],
-			cpumask_bits(data->affinity)[0],
-			dest_id);
 
 	return IRQ_SET_MASK_OK_NOCOPY;
 }
@@ -544,8 +498,6 @@ void __init sofia_vpic_fixup_affinity(void)
 			mask = idata->affinity;
 		else
 			mask = apic->target_cpus();
-		trace_printk("%s: Force affinity irq %d mask %lx\n",
-				__func__, irq, cpumask_bits(mask)[0]);
 		sofia_vpic_set_affinity(idata, mask, false);
 	}
 
@@ -562,8 +514,6 @@ static int sofia_vpic_irq_domain_map(struct irq_domain *d, unsigned int irq,
 	if (cfg == NULL)
 		BUG();
 	cfg->vector = VECTOR_UNDEFINED;
-	trace_printk("%s: irq %d cpu %d cfg %p vector %d\n",
-			__func__, irq, smp_processor_id(), cfg, cfg->vector);
 
 	irq_set_chip_data(irq, cfg);
 	irq_clear_status_flags(irq, IRQ_NOREQUEST);
@@ -574,7 +524,6 @@ static int sofia_vpic_irq_domain_map(struct irq_domain *d, unsigned int irq,
 		for_each_possible_cpu(cpu)
 			per_cpu(vector_irq, cpu)[vector] = VECTOR_UNDEFINED;
 	}
-	trace_printk("%s: done\n", __func__);
 	return 0;
 }
 
@@ -618,7 +567,7 @@ int __init vpic_of_init(struct device_node *np, struct device_node *parent)
 
 	ret = irq_create_strict_mappings(id, 0, 0, vpic_irqs);
 	if (ret)
-		trace_printk("%s: Error mapping legacy IRQs: %d\n", __func__, ret);
+		pr_err("%s: Error mapping legacy IRQs: %d\n", __func__, ret);
 
 	of_ioapic = 1;
 
