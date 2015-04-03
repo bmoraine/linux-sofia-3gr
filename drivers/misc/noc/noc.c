@@ -474,7 +474,8 @@ static int xgold_noc_get_error(struct xgold_noc_device *noc_device)
 	spin_lock_irqsave(&noc_device->lock, flags);
 	list_add_tail(&noc_err->link, &noc_device->err_queue);
 	spin_unlock_irqrestore(&noc_device->lock, flags);
-	dev_err(mydev,
+
+	dev_err_ratelimited(mydev,
 		"Error interrupt"
 		" -0 0x%08x -1 0x%08x -3 0x%08x -5 0x%08x -7 0x%08x\n",
 		noc_err->err[0], noc_err->err[1],
