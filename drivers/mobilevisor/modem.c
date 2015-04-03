@@ -249,14 +249,24 @@ int vmodem_probe(struct platform_device *pdev)
 	}
 
 	dev_set_drvdata(pdata->devfile.this_device, pdata);
-	pdata->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	/* Allocate resource */
+	pdata->res = devm_kzalloc(dev, sizeof(struct resource), GFP_KERNEL);
 	if (!pdata->res) {
-		dev_err(dev, "could not determine modem address\n");
-		return -EINVAL;
+		dev_err(dev, "Couldn't allocate resource\n");
+		return -ENOMEM;
 	}
 
 	/*
-	 * /sys/bus/platform/drivers/vmodem/vmodem.173/modem_state
+	 * Get the loading vm load info
+	 */
+	mv_svc_security_getvm_loadinfo(1, &mex_loadaddr, &mex_loadsize);
+	pdata->res->start = mex_loadaddr;
+	pdata->res->end = mex_loadaddr + mex_loadsize;
+	pdata->res->flags = IORESOURCE_MEM;
+
+	/*
+	 * /sys/class/misc/vmodem/modem_state
 	 */
 	if (device_create_file(pdata->devfile.this_device,
 				&dev_attr_modem_state))
@@ -270,7 +280,6 @@ int vmodem_probe(struct platform_device *pdev)
 
 	mv_gal_register_hirq_callback(512, modem_state_sysconf_hdl,
 					pdata);
-	mv_svc_security_getvm_loadinfo(1, &mex_loadaddr, &mex_loadsize);
 	/*
 	  linux2secvm_vlink_init();
 	  p_shared_mem_addr->vm_id = 1;
