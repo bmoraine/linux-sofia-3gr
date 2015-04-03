@@ -47,7 +47,6 @@
 
 	vmodem {
 		compatible = "intel,vmodem";
-		reg = < 0x1D000000 0x02C00000 >;
 	};
 
 	ion {
