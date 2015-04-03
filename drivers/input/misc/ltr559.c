@@ -284,7 +284,7 @@ static int ltr559_set_als_enable(struct i2c_client *client, int enable)
 	if (enable == 0)
 		ret = ltr559_write_byte(client, LTR559_ALS_CONTR, 0x00);
 	else
-		ret = ltr559_write_byte(client, LTR559_ALS_CONTR, 0x0D);
+		ret = ltr559_write_byte(client, LTR559_ALS_CONTR, 0x19);
 
 	mutex_unlock(&data->update_lock);
 	data->enable = enable;
@@ -478,7 +478,7 @@ static irqreturn_t ltr559_interrupt(int vec, void *info)
 	struct ltr559_data *data = i2c_get_clientdata(client);
 
 	ltr559_reschedule_work(data, 0);
-	enable_irq(vec);
+	/* enable_irq(vec); */
 
 	return IRQ_HANDLED;
 }
@@ -529,6 +529,15 @@ static ssize_t ltr559_store_enable_ps_sensor(struct device *dev,
 				dev_err(&client->dev, "%s: ps_enable on fail\n",
 					__func__);
 				return err;
+			}
+
+			if (0 == data->enable_als_sensor) {
+				err = ltr559_set_als_enable(client, 0);
+				if (err < 0) {
+					dev_err(&client->dev, "%s: als_enable on fail\n",
+						__func__);
+					return err;
+				}
 			}
 		}
 	} else {
@@ -606,6 +615,15 @@ static ssize_t ltr559_store_enable_als_sensor(struct device *dev,
 				dev_err(&client->dev, "%s: als_enable on fail\n",
 					__func__);
 				return ret;
+			}
+
+			if (0 == data->enable_ps_sensor) {
+				ret = ltr559_set_ps_enable(client, 0);
+				if (ret < 0) {
+					dev_err(&client->dev, "%s: ps_enable on fail\n",
+						__func__);
+					return ret;
+				}
 			}
 		}
 	} else {
@@ -912,6 +930,8 @@ static int ltr559_init_chip(struct i2c_client *client)
 	data->ps_threshold = LTR559_PS_DETECTION_THRESHOLD;
 	data->ps_hysteresis_threshold = LTR559_PS_HSYTERESIS_THRESHOLD;
 
+	ret = ltr559_write_byte(client, LTR559_ALS_MEAS_RATE,
+			0x13);
 	/* init threshold for als */
 	/*ltr559_set_ailt(client, 0);*/
 	/*ltr559_set_aiht(client, 0xFFFF);*/
