@@ -29,8 +29,9 @@
 
 #include "vdump.h"
 
-#define NVM_ADDR_SHIFT	(0x3D100000 - 0x3C000000)
-#define SEC_PACK_SIZE 2048
+#define NVM_PARTITION_NO	3
+#define NVM_ADDR_SHIFT		(0x3D100000 - 0x3C000000)
+#define SEC_PACK_SIZE 		2048
 
 struct vmodem_drvdata {
 	struct device *dev;
@@ -49,6 +50,16 @@ struct shared_secure_data {
 	char secpack[SEC_PACK_SIZE];
 };
 
+struct nvm_partition_info {
+	char* partition;
+	size_t partition_size;
+};
+
+static struct nvm_partition_info nvm_partition[] = {
+	{"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022", 262144},
+	{"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID023", 262144},
+	{"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID024", 524288},
+};
 
 struct shared_secure_data *p_shared_mem_addr;
 static unsigned int mex_loadaddr;
@@ -128,32 +139,36 @@ static ssize_t modem_sys_state_show(struct device *dev,
 */
 static int reload_nvm(struct vmodem_drvdata *p)
 {
+	int i = 0;
 	void * __iomem mex_buffer;
-	mm_segment_t fs = get_fs();
-	struct file *fd;
-	set_fs(get_fs());
-	fd = filp_open(
-		"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022",
-		(O_RDONLY | O_SYNC), 0);
-	set_fs(fs);
-	if (unlikely(IS_ERR(fd))) {
-		/* Better use system events to get notified
-		 * on device removal/creation */
-		return -EINVAL;
-	}
-	fs = get_fs();
-	set_fs(get_ds());
-	mex_buffer = ioremap(p->res->start + NVM_ADDR_SHIFT, 0x180000);
+	mex_buffer = ioremap(p->res->start + NVM_ADDR_SHIFT, 0x100000);
 	if (IS_ERR_OR_NULL(mex_buffer)) {
 		dev_err(p->dev, "ioremap failed\n");
 		return -ENOMEM;
 	}
+	for(i = 0; i < NVM_PARTITION_NO; i++) {
+		mm_segment_t fs = get_fs();
+		struct file *fd;
+		set_fs(get_fs());
+		fd = filp_open(nvm_partition[i].partition,
+				(O_RDONLY | O_SYNC), 0);
+		set_fs(fs);
+		if (unlikely(IS_ERR(fd))) {
+			/* Better use system events to get notified
+			 * on device removal/creation */
+			return -EINVAL;
+		}
+		fs = get_fs();
+		set_fs(get_ds());
 
-	fd->f_op->read(fd, mex_buffer,
-			0x180000, &(fd->f_pos));
+		fd->f_op->read(fd, mex_buffer,
+				nvm_partition[i].partition_size,
+				&(fd->f_pos));
+		mex_buffer += nvm_partition[i].partition_size;
+		set_fs(fs);
+		filp_close(fd, NULL);
+	}
 	iounmap(mex_buffer);
-	set_fs(fs);
-	filp_close(fd, NULL);
 	return 1;
 }
 
