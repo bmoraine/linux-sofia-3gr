@@ -2829,6 +2829,77 @@ static bool on_list(struct s3c_hsotg_ep *ep, struct s3c_hsotg_req *test)
 	return false;
 }
 
+static int s3c_hsotg_wait_bit_set(struct dwc2_hsotg *hs_otg, u32 reg,
+							u32 bit, u32 timeout)
+{
+	u32 i;
+	for (i = 0; i < timeout; i++) {
+		if (readl(hs_otg->regs + reg) & bit)
+			return 0;
+		udelay(1);
+	}
+	return -ETIMEDOUT;
+}
+
+static void s3c_hsotg_ep_stop_xfr(struct dwc2_hsotg *hsotg,
+						struct s3c_hsotg_ep *hs_ep)
+{
+	u32 epctrl_reg;
+	u32 epint_reg;
+
+	epctrl_reg = hs_ep->dir_in ? DIEPCTL(hs_ep->index) :
+					   DOEPCTL(hs_ep->index);
+	epint_reg = hs_ep->dir_in ? DIEPINT(hs_ep->index) :
+					DOEPINT(hs_ep->index);
+
+	dev_dbg(hsotg->dev, "%s: stopping transfer on %s\n", __func__,
+								hs_ep->name);
+	if (hs_ep->dir_in) {
+		__orr32(hsotg->regs + epctrl_reg, DXEPCTL_SNAK);
+		/* Wait for Nak effect */
+		if (s3c_hsotg_wait_bit_set(hsotg, epint_reg,
+						DXEPINT_INEPNAKEFF, 100))
+			dev_warn(hsotg->dev,
+				"%s: timeout DIEPINT.NAKEFF\n", __func__);
+	} else {
+		/* Clear any pending nak effect interrupt */
+		writel(GINTSTS_GINNAKEFF, hsotg->regs + GINTSTS);
+
+		__orr32(hsotg->regs + DCTL, DCTL_SGNPINNAK);
+
+		/* Wait for global nak to take effect */
+		if (s3c_hsotg_wait_bit_set(hsotg, GINTSTS,
+						GINTSTS_GINNAKEFF, 100))
+			dev_warn(hsotg->dev,
+				"%s: timeout GINTSTS.GINNAKEFF\n", __func__);
+	}
+
+	/* Disable ep */
+	__orr32(hsotg->regs + epctrl_reg, DXEPCTL_EPDIS | DXEPCTL_SNAK);
+
+	/* Wait for ep to be disabled */
+	if (s3c_hsotg_wait_bit_set(hsotg, epint_reg, DXEPINT_EPDISBLD, 100))
+		dev_warn(hsotg->dev,
+			"%s: timeout DOEPCTL.EPDisable\n", __func__);
+
+	if (hs_ep->dir_in) {
+		if (hsotg->dedicated_fifos) {
+			writel(GRSTCTL_TXFNUM(hs_ep->fifo_index) |
+				GRSTCTL_TXFFLSH, hsotg->regs + GRSTCTL);
+			/* Wait for fifo flush */
+			if (s3c_hsotg_wait_bit_set(hsotg, GRSTCTL,
+							GRSTCTL_TXFFLSH, 100))
+				dev_warn(hsotg->dev,
+					"%s: timeout flushing fifos\n",
+					__func__);
+		}
+		/* TODO: Flush shared tx fifo */
+	} else {
+		/* Remove global NAKs */
+		__bic32(hsotg->regs + DCTL, DCTL_SGNPINNAK);
+	}
+}
+
 /**
  * s3c_hsotg_ep_dequeue - dequeue given endpoint
  * @ep: The endpoint to dequeue.
@@ -2849,6 +2920,10 @@ static int s3c_hsotg_ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 		spin_unlock_irqrestore(&hs->lock, flags);
 		return -EINVAL;
 	}
+
+	/* Dequeue already started request */
+	if (req == &hs_ep->req->req)
+		s3c_hsotg_ep_stop_xfr(hs, hs_ep);
 
 	s3c_hsotg_complete_request(hs, hs_ep, hs_req, -ECONNRESET);
 	spin_unlock_irqrestore(&hs->lock, flags);
