@@ -1400,7 +1400,7 @@ config ARCH_PHYS_ADDR_T_64BIT
 
 config ARCH_DMA_ADDR_T_64BIT
 	def_bool y
-	depends on X86_64 || HIGHMEM64G
+	depends on X86_64 || HIGHMEM64G && !ARCH_PHYS_ADDR_T_32BIT
 
 config DIRECT_GBPAGES
 	bool "Enable 1GB pages for kernel pagetables" if EXPERT
