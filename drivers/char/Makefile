@@ -63,3 +63,4 @@ js-rtc-y = rtc.o
 
 obj-$(CONFIG_TILE_SROM)		+= tile-srom.o
 obj-$(CONFIG_TADI)			+= tadi.o
+obj-$(CONFIG_RPMB)		+= rpmb/

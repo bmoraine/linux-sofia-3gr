@@ -627,5 +627,8 @@ config TADI
 			driver which offers as an upper interface a standard Linux character
 			driver interface. This driver is the central driver to write traces
 			on AP side. It is the equivalent to TADI driver on MODEM side.
+
+source "drivers/char/rpmb/Kconfig"
+
 endmenu
 

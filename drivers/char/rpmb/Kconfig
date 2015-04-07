@@ -1,0 +1,8 @@
+config RPMB
+	bool "RPMB partition interface"
+	depends on MMC
+	help
+	Unified RPMB partition interface for eMMC, UFS and NVMe
+	Provide interface for user space and in kernel security controller
+
+	If unsure, select N.
