@@ -176,6 +176,7 @@ enum dsp_err_code {
 */
 enum dsp_aud_cmds {
 	DSP_AUDIO_CMD_VB_HW_AFE    = 2,  /* start or to stop the firmware */
+	DSP_AUDIO_CMD_IDLE         = 14, /* set dsp subsystem to idle state */
 	DSP_SBA_VB_HW_I2S2         = 22, /* start or to stop the I2S2 hw IF */
 	DSP_AUD_SET_SWM_AFE_OUT    = 27, /* set afe out switch matrix path */
 	DSP_AUD_SET_SWM_PCM_OUT    = 32, /* set pcm out switch matrix path */
