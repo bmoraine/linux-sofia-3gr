@@ -249,6 +249,9 @@ static u8 addr_tbl_hevc_dec[] = {
 	15, 16, 17, 18, 19, 20, 21, 22,
 	23, 24, 42, 43
 };
+static u8 addr_tbl_pp[] = {
+	12, 13, 18, 19, 20, 21, 22
+};
 #endif
 
 enum VPU_DEC_FMT {
@@ -912,6 +915,9 @@ static int vcodec_reg_address_translate(struct vpu_subdev_data *data,
 		} else if (reg->type == VPU_ENC) {
 			tbl = addr_tbl_vpu_enc;
 			size = sizeof(addr_tbl_vpu_enc);
+		} else if (reg->type == VPU_PP) {
+			tbl = addr_tbl_pp;
+			size = sizeof(addr_tbl_pp);
 		}
 	}
 
