@@ -50,7 +50,7 @@
 #include <linux/input/ft3x27.h>
 //#include <../arch/x86/platform/asustek/include/asustek_boardinfo.h>
 #include <linux/of_irq.h>
-//#include "ftxxxx_ex_fun.h"
+#include "ftxxxx_ex_fun.h"
 
 #define SYSFS_DEBUG
 #define FTS_APK_DEBUG
