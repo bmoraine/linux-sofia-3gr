@@ -18,6 +18,7 @@
 
 #include <linux/dma-mapping.h>
 #include <linux/scatterlist.h>
+#include <linux/highmem.h>
 #include <linux/string.h>
 #include <linux/init.h>
 #include <linux/gfp.h>
@@ -31,10 +32,35 @@
 static void __dma_page_sync(struct page *page, unsigned long off,
 	size_t size)
 {
-	void *vaddr = page_address(page) + off;
+	unsigned long pfn;
+	size_t left = size;
 
-	clflush_cache_range(vaddr, size);
-	flush_write_buffers();
+	pfn = page_to_pfn(page) + off / PAGE_SIZE;
+	off %= PAGE_SIZE;
+
+	do {
+		size_t len = left;
+		void *vaddr;
+		page = pfn_to_page(pfn);
+
+		if (PageHighMem(page)) {
+			if (len + off > PAGE_SIZE)
+				len = PAGE_SIZE - off;
+
+			vaddr = kmap_atomic(page);
+			clflush_cache_range(vaddr, len);
+			flush_write_buffers();
+			kunmap_atomic(vaddr);
+		} else {
+			vaddr = page_address(page) + off;
+			clflush_cache_range(vaddr, len);
+			flush_write_buffers();
+		}
+		off = 0;
+		pfn++;
+		left -= len;
+	} while (left);
+
 }
 
 static void __dma_page_dev_to_cpu(struct page *page, unsigned long off,
