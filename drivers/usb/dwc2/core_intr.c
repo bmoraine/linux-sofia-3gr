@@ -355,6 +355,10 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2_hsotg *hsotg)
 		/* Change to L0 state */
 		hsotg->lx_state = DWC2_L0;
 	} else {
+		if (hsotg->core_params->hibernation) {
+			writel(GINTSTS_WKUPINT, hsotg->regs + GINTSTS);
+			return;
+		}
 		if (hsotg->lx_state != DWC2_L1) {
 			u32 pcgcctl = readl(hsotg->regs + PCGCTL);
 
