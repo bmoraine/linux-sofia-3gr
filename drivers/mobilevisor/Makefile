@@ -26,5 +26,5 @@ obj-$(CONFIG_MOBILEVISOR_VDRIVER_ETHERNET)  += veth.o
 obj-$(CONFIG_MOBILEVISOR_VDRIVER_MODEM_CTL) += modem.o
 obj-$(CONFIG_SYSTEM_PROFILING)              += vsysprof-be.o
 obj-$(CONFIG_TEE_RPC) += tee_rpc.o
-tee_rpc-objs := tee_rpc_driver.o tee_rpc_ioctl.o tee_rpc_memory.o sec_rpc.o vsec.o
+tee_rpc-objs := tee_rpc_driver.o tee_rpc_ioctl.o tee_rpc_memory.o sec_rpc.o vsec.o rpmb_rpc.o
 

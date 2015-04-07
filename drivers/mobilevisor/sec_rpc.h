@@ -35,6 +35,7 @@ enum t_rpc_if_grp {
 	RPC_IF_SCU,
 	RPC_IF_KEYMASTER,
 	RPC_IF_IBFS,
+	RPC_IF_RPMB     = 0x00000103,
 	RPC_ATA_SEC     = 0x00001000,
 	RPC_ATA_CEU,
 	RPC_TST_SEC     = 0x00002000,
@@ -78,7 +79,7 @@ struct T_IBFS_TRC_BUF {
 void rpc_handle_cmd(void *shared_mem);
 
 int rpc_call(struct t_rpc_send_info *send_info, enum t_rpc_if_grp if_grp,
-		u32 opcode, u8 *io_data, u32 *io_data_len, u32 max_len);
+				u32 opcode, u8 *io_data, u32 *io_data_len, u32 max_len);
 
 #ifdef MEM_TEST_STUB
 int stub_call_sec_vm(int num_vec, struct pvec *phys_iov, int *remote_ret);

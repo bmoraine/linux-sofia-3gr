@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include "sec_rpc.h"
+#include "rpmb_rpc.h"
 
 #include <linux/io.h>
 #include <linux/uaccess.h>
@@ -467,13 +468,13 @@ static int rpc_write_ibfs(u8 *p_buf, u32 offset, u32 nof_bytes)
 
 	pos = vfs_llseek(fd, offset, SEEK_SET);
 	if (pos < 0) {
-		pr_err("rpc_op_ibfs_write: Seek %d failed\n", offset);
+    pr_err("rpc_op_ibfs_write: Seek %d failed\n", offset);
 		goto cleanup;
 	}
 
-	if (pos != offset) {
-		pr_err("rpc_op_ibfs_write: Seek %d Got %d\n",
-			offset, (u32)pos);
+	if (pos != offset) {      
+      pr_err("rpc_op_ibfs_write: Seek %d Got %d\n",
+              offset, (u32)pos);
 		goto cleanup;
 	}
 
@@ -481,9 +482,10 @@ static int rpc_write_ibfs(u8 *p_buf, u32 offset, u32 nof_bytes)
 	cnt = vfs_write(fd, p_buf, nof_bytes, &pos);
 	set_fs(old_fs);
 
-	if (nof_bytes != cnt) {
-		pr_err("rpc_op_ibfs_write: Wrt %d Got %d\n",
-			nof_bytes, (u32)cnt);
+	if (nof_bytes != cnt) { 
+    pr_err("rpc_op_ibfs_write: Wrt %d Got %d\n",
+                       nof_bytes, (u32)cnt);
+    
 		goto cleanup;
 	}
 
@@ -522,16 +524,18 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 
 		if (unlikely(IS_ERR(fd))) {
 			pr_err("rpc_op_ibfs_open: Failed %s\n", devname);
+			set_current_state (TASK_INTERRUPTIBLE);
+			schedule_timeout (1000);
 			goto cleanup;
 		}
-
+    
 		pos = vfs_llseek(fd, 0, SEEK_END);
 		if (pos < 0) {
 			pr_err("rpc_op_ibfs_open: Seek end failed\n");
 			goto cleanup;
 		}
 
-		if (pos == 0) {
+		if (pos == 0) {      
 			pr_err("rpc_op_ibfs_open: Empty %s\n", devname);
 			goto cleanup;
 		}
@@ -569,12 +573,12 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 		offset    = LIT_UCHARS_TO_UINT32(&(io_data[0]));
 		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[4]));
 		p_buf     = phys_to_virt((phys_addr_t)
-		   LIT_UCHARS_TO_UINT32(&(io_data[8])));
+      LIT_UCHARS_TO_UINT32(&(io_data[8])));
 
 		old_fs = get_fs();
 
 		pos = vfs_llseek(fd, offset, SEEK_SET);
-		if (pos < 0) {
+		if (pos < 0) {      
 			pr_err("rpc_op_ibfs_read: Failed %d\n", offset);
 			goto cleanup;
 		}
@@ -608,8 +612,8 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 	case rpc_op_ibfs_write:
 		offset    = LIT_UCHARS_TO_UINT32(&(io_data[0]));
 		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[4]));
-		p_buf     = phys_to_virt((phys_addr_t)
-		  LIT_UCHARS_TO_UINT32(&(io_data[8])));
+		p_buf     = phys_to_virt((phys_addr_t)      
+                LIT_UCHARS_TO_UINT32(&(io_data[8])));
 
 		rpc_result = rpc_write_ibfs(p_buf, offset, nof_bytes);
 		if (0 != rpc_result) {
@@ -738,8 +742,13 @@ static int rpc_dispatch(enum t_rpc_if_grp if_grp, u32 opcode,
 	case RPC_IF_SEC:
 		rpc_result = rpc_dispatch_sec(opcode, io_data, io_data_len);
 		break;
+	case RPC_IF_RPMB:
+		rpc_result =
+			rpc_rpmb_dispatch(opcode, io_data, io_data_len);
+		break;
 	case RPC_IF_IBFS:
 		rpc_result = rpc_dispatch_ibfs(opcode, io_data, io_data_len);
+    pr_err("rpc_dispatch_ibfs\n");
 		break;
 	default:
 		break;
@@ -993,9 +1002,10 @@ int rpc_call(struct t_rpc_send_info *send_info, enum t_rpc_if_grp if_grp,
 	entry_id = vsec_get_context_entry_id(cmd->send_info.vlink_name,
 					     cmd->send_info.recv_id);
 	if (entry_id == 0xFF) {
-		pr_err("No matching entry ID found based on VLINK: %s,",
-		       cmd->send_info.vlink_name);
-		pr_err(" Receiver: VM#%d\n", cmd->send_info.recv_id);
+		pr_err("No matching entry ID found based on VLINK: %s Receiver: VM#%d and sending as %d\n",
+			cmd->send_info.vlink_name,
+			cmd->send_info.recv_id,
+			cmd->send_info.send_id);
 		goto cleanup;
 	}
 

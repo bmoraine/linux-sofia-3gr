@@ -26,6 +26,7 @@
 #include "tee_rpc_ioctl.h"
 #include "tee_rpc_driver.h"
 #include "vsec.h"
+#include "rpmb_rpc.h"
 
 
 static int tee_major;		/* default to dynamic major */
@@ -90,6 +91,8 @@ static void tee_rpc_cleanup(void)
 {
 	int i;
 
+	rpc_rpmb_release();
+
 	if (client_contexts) {
 		for (i = 0; i < TEE_RPC_MAX_DEVS; i++)
 			cdev_del(&client_contexts[i].cdev);
@@ -146,6 +149,8 @@ static int __init tee_rpc_init(void)
 	/* initialize the underlying vsec communication mechanism */
 	if (!vsec_init())
 		goto out_err;
+
+	rpc_rpmb_init();
 
 	return 0;
 
