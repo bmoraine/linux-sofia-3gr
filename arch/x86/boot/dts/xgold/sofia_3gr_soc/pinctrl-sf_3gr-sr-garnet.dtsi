@@ -26,7 +26,8 @@
 	<&range 46 1 0x1500>,
 	<&range 47 1 0x1500>,/*gpio47, otg enable, output low, PP*/
 	<&range 48 1 0x100>,/*gpio48, hw_id1, input, open drain*/
-	<&range 49 6 0x100>,
+	<&range 49 5 0x100>,
+	<&range 54 1 0x4002>,
 	<&range 55 1 0x100>,/*gpio55, hw_id0, input, open drain*/
 	<&range 56 1 0x01500>,
 	<&range 57 2 0x100>,
