@@ -62,6 +62,7 @@
 #endif
 
 #include "vcodec_service.h"
+#include "vcodec_power_handler.h"
 
 #if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 
@@ -458,6 +459,7 @@ static void vcodec_debugfs_exit(void);
 static struct dentry *vcodec_debugfs_dir(char *dirname,
 					 struct dentry *parent);
 static int debug_vcodec_open(struct inode *inode, struct file *file);
+static inline void vpu_queue_power_off_work(struct vpu_service_info *pservice);
 
 static const struct file_operations debug_vcodec_fops = {
 	.open = debug_vcodec_open,
@@ -598,7 +600,7 @@ static void vpu_service_dump(struct vpu_service_info *pservice)
 	}
 }
 
-static void vpu_service_power_off(struct vpu_service_info *pservice)
+static void vpu_service_power_off(struct vpu_service_info *pservice, int flag)
 {
 	int total_running;
 	char *sta_name;
@@ -617,6 +619,19 @@ static void vpu_service_power_off(struct vpu_service_info *pservice)
 		mdelay(50);
 		pr_alert("alert: delay 50 ms for running task\n");
 		vpu_service_dump(pservice);
+	}
+
+	if (flag) {
+		vpu_power_req_vbpipe_init();
+		if (vpu_suspend_req()) {
+			pr_info("%s: secvm codec is busy..\n",
+					 dev_name(pservice->dev));
+			vpu_queue_power_off_work(pservice);
+			return;
+		} else {
+			pr_info("%s: secvm codec is done..\n",
+					 dev_name(pservice->dev));
+		}
 	}
 
 	pr_info("%s: power off...", dev_name(pservice->dev));
@@ -657,7 +672,11 @@ static void vpu_power_off_work(struct work_struct *work_s)
 	pservice = container_of(dlwork, struct vpu_service_info,
 				power_off_work);
 	if (mutex_trylock(&pservice->lock)) {
-		vpu_service_power_off(pservice);
+#if defined(CONFIG_SECURE_PLAYBACK)
+		vpu_service_power_off(pservice, 1);
+#else
+		vpu_service_power_off(pservice, 0);
+#endif
 		mutex_unlock(&pservice->lock);
 	} else {
 		/* Come back later if the device is busy... */
@@ -1480,6 +1499,11 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 				sizeof(vvpu_cmd)))
 			return -EFAULT;
 
+		if (vvpu_cmd.payload[1] == 2 || vvpu_cmd.payload[1] == 5
+				|| vvpu_cmd.payload[1] == 7) {
+			vpu_service_power_on(pservice);
+		}
+
 		vvpu_call(pservice->dev, &vvpu_cmd);
 
 		if (copy_to_user((void __user *)arg, &vvpu_cmd,
@@ -1970,7 +1994,7 @@ static int vcodec_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pservice);
 
-	vpu_service_power_off(pservice);
+	vpu_service_power_off(pservice, 0);
 
 	pr_info("init success\n");
 
@@ -1978,7 +2002,7 @@ static int vcodec_probe(struct platform_device *pdev)
 
 err:
 	pr_info("init failed\n");
-	vpu_service_power_off(pservice);
+	vpu_service_power_off(pservice, 0);
 	wake_lock_destroy(&pservice->wake_lock);
 
 	if (res)
