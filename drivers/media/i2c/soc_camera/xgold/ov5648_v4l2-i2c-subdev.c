@@ -1258,6 +1258,11 @@ static int ov5648_start_streaming(struct ov_camera_module *cam_mod)
 	ret = ov5648_write_aec(cam_mod);
 	if (IS_ERR_VALUE(ret))
 		goto err;
+
+	ret = ov_camera_module_write_reg(cam_mod, 0x301a, 0xf0);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
 	if (IS_ERR_VALUE(ov_camera_module_write_reg(cam_mod, 0x0100, 1)))
 		goto err;
 	ret = ov5648_flip(cam_mod);
@@ -1278,6 +1283,10 @@ static int ov5648_stop_streaming(struct ov_camera_module *cam_mod)
 	int ret = 0;
 
 	ov_camera_module_pr_debug(cam_mod, "\n");
+
+	ret = ov_camera_module_write_reg(cam_mod, 0x301a, 0xf1);
+	if (IS_ERR_VALUE(ret))
+		goto err;
 
 	ret = ov_camera_module_write_reg(cam_mod, 0x0100, 0);
 	if (IS_ERR_VALUE(ret))
