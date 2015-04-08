@@ -209,8 +209,6 @@ int __init sofia_vmm_init(void)
 	return 0;
 }
 
-early_initcall(sofia_vmm_init);
-
 inline unsigned int mv_gal_os_id(void)
 {
 	return myid;
