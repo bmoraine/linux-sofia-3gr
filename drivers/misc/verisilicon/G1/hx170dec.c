@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Intel Mobile Communications GmbH
+ * Copyright (C) 2013 - 2015 Intel Mobile Communications GmbH
  *
  * Notes:
  * Jan 15 2013: IMC: make it build
@@ -26,6 +26,7 @@
  * Aug 19 2014: IMC: if IO address present use traditional driver,
  *		     vvpu otherwise
  * Aug 22 2014: IMC: separate vvpu module to share with encoder
+ * Mar 16 2015: IMC: VVPU only: remove code accessing HW
  */
 
 /*
@@ -71,6 +72,8 @@
 #endif
 
 
+#include <linux/version.h>
+
 #include <linux/sched.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -92,24 +95,10 @@
 /* request_irq(), free_irq() */
 #include <linux/interrupt.h>
 
-/* needed for virt_to_phys() */
-#include <linux/io.h>
-#include <linux/pci.h>
-#include <linux/uaccess.h>
-#include <linux/ioport.h>
-
-#include <linux/semaphore.h>
-#include <linux/spinlock.h>
-
 #include <linux/delay.h>
 
 #include <asm/irq.h>
 
-#include <linux/version.h>
-
-/* our own stuff */
-#include "hx170dec.h"
-#include "hx170ioctl.h"
 
 #include <linux/pm.h>
 #include <linux/platform_device.h>
@@ -125,6 +114,10 @@
 #include <android/sw_sync.h>
 #include <linux/file.h>
 
+/* our own stuff */
+#include "hx170dec.h"
+#include "hx170ioctl.h"
+
 #if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 
 #include <sofia/vvpu_vbpipe.h>
@@ -133,9 +126,6 @@
 #include <linux/xgold_noc.h>
 #endif
 
-/* for communication with secure VM */
-/***** TODO: rm #include "../../../vlx/vrpc.h" *****/
-
 #endif /* CONFIG_MOBILEVISOR_VDRIVER_PIPE */
 
 /* module description */
@@ -143,53 +133,11 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Google Finland Oy");
 MODULE_DESCRIPTION("Driver module for 8170/8190/G1 Hantro decoder/pp");
 
-#define OF_VPU_ENC_REG_SIZE	"reg"
-#define OF_KERNEL_CLK		"clk_kernel"
-#define OF_SLAVE_CLK		"clk_slave"
-#define OF_MASTER_CLK		"clk_master"
-#define OF_CORE_REG		"video"
-#define PM_CLASS_VPU_ENC	"vpu_dec"
-
-
-/* Decoder interrupt register */
-#define X170_INTERRUPT_REGISTER_DEC	(1*4)
-#define X170_INTERRUPT_REGISTER_PP	(60*4)
-
-
-#define HX_DEC_INTERRUPT_BIT	    0x100
-#define HX_PP_INTERRUPT_BIT	    0x100
 
 struct vpu_dec_device_t *vpu_dec_data;
+
+/* supported HW IDs */
 static const int dec_hw_id[] = { 0x8190, 0x8170, 0x9170, 0x9190, 0x6731 };
-
-static u32 hx_pp_instance;
-static u32 hx_dec_instance;
-
-
-/* here's all the must remember stuff */
-/** TODO: move into vpu_dec_device_t ... */
-struct hx170dec {
-	char	      *buffer;
-	unsigned long  iobaseaddr;
-	unsigned int   iosize;
-	void __iomem  *hwregs;
-	int	       irq;
-	int	       use_vvpu;
-	struct fasync_struct *async_queue_dec;
-	struct fasync_struct *async_queue_pp;
-};
-
-/* dynamic allocation? */
-static struct hx170dec hx170dec_data;
-
-/* function to write to registers */
-#define hx170dec_writel writel
-
-struct vpu_common_sem {
-	struct semaphore vpu_sem;
-	int vpu_sem_owner;
-	int cur_user; /*0--> no owner, 1 --> decoder,PP, 2 --> encoder*/
-} vpu_com_sema;
 
 
 /*
@@ -200,8 +148,6 @@ struct vpu_common_sem {
  */
 static int hx170dec_pm_avail;
 DEFINE_SPINLOCK(hx170dec_pm_avail_lock);
-
-static struct semaphore hx170dec_pm_sem;
 
 #ifdef CONFIG_VERISILICON_G1_DEBUG_FS
 static const struct dev_pm_ops hx170dec_pm;
@@ -219,19 +165,9 @@ DEFINE_SEMAPHORE(hx170dec_req_counter_lock);
 static bool hx170dec_runtime_suspended;
 #endif
 
-#ifdef HW_PERFORMANCE
-static struct timeval end_time;
-#endif
 
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 static int check_vvpu_hw_id(long int hardware);
-
-static int reserve_io(struct vpu_dec_device_t *vpu_dec_p);
-static void release_io(void);
-
-static void reset_asic(struct hx170dec *dev);
-
-#ifdef HX170DEC_DUMP_REGS
-static void dump_regs(unsigned long data);
 #endif
 
 /*
@@ -243,20 +179,6 @@ static int hx170dec_miscdevice_register(struct platform_device *pdev);
 static void hx170dec_miscdevice_unregister(void);
 
 
-/* IRQ handler */
-static irqreturn_t hx170dec_isr(int irq, void *dev_id);
-
-
-/*
- * reservation for decoder and encoder
- */
-
-static struct file *dec_owner;
-static struct file *pp_owner;
-
-DEFINE_SPINLOCK(hx170dec_owner_lock);
-DEFINE_SPINLOCK(hx170dec_user_lock);
-
 #ifdef CONFIG_PM_RUNTIME
 /*
  * return number of current users of decoder and post processor
@@ -264,257 +186,15 @@ DEFINE_SPINLOCK(hx170dec_user_lock);
 static int hx170dec_users(void)
 {
 	int owners = 0;
-	unsigned long flags;
 
-	spin_lock_irqsave(&hx170dec_owner_lock, flags);
-	owners += (dec_owner != NULL) ? 1 : 0;
-	owners +=  (pp_owner != NULL) ? 1 : 0;
-	spin_unlock_irqrestore(&hx170dec_owner_lock, flags);
+	HX170_ENTER();
+
+	HX170_LEAVE(owners);
 
 	return owners;
 }
 #endif
 
-static int hx170dec_reset_vpu(void)
-{
-	int success = 0;
-
-	HX170_ENTER();
-
-	if (vpu_dec_data->rstc != NULL) {
-		success = reset_control_assert(vpu_dec_data->rstc);
-		if (success < 0)
-			goto end;
-
-		usleep_range(50, 200);
-		success = reset_control_deassert(vpu_dec_data->rstc);
-	} else {
-		success = -1;
-		pr_warn("hx170dec reset vpu: controller not present");
-	}
-end:
-	HX170_LEAVE(success);
-
-	return success;
-}
-
-
-/*
- * reserve decoder and assign filp as ownwer
- */
-static long hx170dec_reserve_decoder(struct hx170dec *dev, struct file *filp)
-{
-	unsigned long flags;
-	int success = -1;
-	int sl_locked = 0;
-
-	HX170_ENTER();
-
-	/*
-	 * if suspend was announced, wait on the PM semaphore
-	 * ... and immediately release it again, to trigger others
-	 */
-	if (hx170dec_pm_get_avail() == 0) {
-		if (down_interruptible(&hx170dec_pm_sem)) {
-			success = -ERESTARTSYS;
-			goto end;
-		}
-
-		up(&hx170dec_pm_sem);
-	}
-
-	/* reserve a core */
-	spin_lock_irqsave(&hx170dec_owner_lock, flags);
-	sl_locked = 1;
-
-	if ((vpu_com_sema.vpu_sem_owner == 0) ||
-		(vpu_com_sema.vpu_sem_owner != current->pid)) {
-		spin_unlock_irqrestore(&hx170dec_owner_lock, flags);
-		sl_locked = 0;
-
-		HX170_DEBUG("DEC current vpu_sem_owner %d, filp %p",
-			vpu_com_sema.vpu_sem_owner, dec_owner);
-
-		HX170_DEBUG("vpu_sem down");
-		if (down_interruptible(&vpu_com_sema.vpu_sem)) {
-			success = -ERESTARTSYS;
-			goto end;
-		}
-	}
-
-	if (sl_locked == 0) {
-		spin_lock_irqsave(&hx170dec_owner_lock, flags);
-		sl_locked = 1;
-	}
-
-	vpu_com_sema.vpu_sem_owner = current->pid;
-	dec_owner = filp;
-	spin_unlock_irqrestore(&hx170dec_owner_lock, flags);
-	sl_locked = 0;
-
-	spin_lock_irqsave(&hx170dec_user_lock, flags);
-
-	if ((vpu_com_sema.cur_user == 0) ||
-		(vpu_com_sema.cur_user == 2)) {
-		spin_unlock_irqrestore(&hx170dec_user_lock,
-			flags);
-
-		success = hx170dec_reset_vpu();
-		if (success < 0) {
-			HX170_DEBUG("reset_vpu failed");
-			goto end;
-		}
-
-		spin_lock_irqsave(&hx170dec_user_lock, flags);
-		vpu_com_sema.cur_user = 1;
-	}
-
-	spin_unlock_irqrestore(&hx170dec_user_lock,
-		flags);
-
-	success = 0;
-end:
-	HX170_LEAVE(success);
-
-	return success;
-}
-
-/*
- * make sure filp is decoder owner and release decoder
- */
-static void hx170dec_release_decoder(struct hx170dec *dev)
-{
-	unsigned long flags;
-	int is_vpu_sem_up = 1;
-
-	HX170_ENTER();
-
-	spin_lock_irqsave(&hx170dec_owner_lock, flags);
-
-	if ((current->pid == vpu_com_sema.vpu_sem_owner) &&
-		(vpu_com_sema.vpu_sem_owner != 0)) {
-
-		vpu_com_sema.vpu_sem_owner = 0;
-		is_vpu_sem_up = 0;
-	}
-
-	dec_owner = NULL;
-
-	spin_unlock_irqrestore(&hx170dec_owner_lock, flags);
-
-	if (is_vpu_sem_up == 0) {
-		up(&vpu_com_sema.vpu_sem);
-		HX170_DEBUG("vpu_sem up");
-	}
-
-	HX170_LEAVE(0);
-}
-
-/*
- * reserve post processor and assign filp as ownwer
- */
-static long hx170dec_reserve_post_processor(struct hx170dec *dev,
-	struct file *filp)
-{
-	unsigned long flags;
-	int success = -1;
-	int sl_locked = 0;
-
-	HX170_ENTER();
-
-	/*
-	 * if suspend was announced, wait on the PM semaphore
-	 * ... and immediately release it again, to trigger others
-	 */
-	if (hx170dec_pm_get_avail() == 0) {
-		if (down_interruptible(&hx170dec_pm_sem)) {
-			success = -ERESTARTSYS;
-			goto end;
-		}
-
-		up(&hx170dec_pm_sem);
-	}
-
-	spin_lock_irqsave(&hx170dec_owner_lock, flags);
-	sl_locked = 1;
-
-	if ((vpu_com_sema.vpu_sem_owner == 0) ||
-		(vpu_com_sema.vpu_sem_owner != current->pid)) {
-		spin_unlock_irqrestore(&hx170dec_owner_lock, flags);
-		sl_locked = 0;
-
-		HX170_DEBUG("PP current: vpu_sem_owner %d, filp %p",
-			vpu_com_sema.vpu_sem_owner, pp_owner);
-
-		HX170_DEBUG("vpu_sem down");
-		if (down_interruptible(&vpu_com_sema.vpu_sem)) {
-			success = -ERESTARTSYS;
-			goto end;
-		}
-	}
-
-	if (sl_locked == 0) {
-		spin_lock_irqsave(&hx170dec_owner_lock,	flags);
-		sl_locked = 1;
-	}
-
-	vpu_com_sema.vpu_sem_owner = current->pid;
-	pp_owner = filp;
-	spin_unlock_irqrestore(&hx170dec_owner_lock, flags);
-
-	spin_lock_irqsave(&hx170dec_user_lock, flags);
-	if ((vpu_com_sema.cur_user == 0) ||
-		(vpu_com_sema.cur_user == 2)) {
-		spin_unlock_irqrestore(&hx170dec_user_lock, flags);
-
-		success = hx170dec_reset_vpu();
-		if (success < 0) {
-			HX170_DEBUG("reset_vpu failed");
-			goto end;
-		}
-
-		spin_lock_irqsave(&hx170dec_user_lock, flags);
-		vpu_com_sema.cur_user = 1;
-	}
-
-	spin_unlock_irqrestore(&hx170dec_user_lock, flags);
-
-	success = 0;
-end:
-	HX170_LEAVE(success);
-
-	return success;
-}
-
-/*
- * make sure filp is post processor owner and release post processor
- */
-static void hx170dec_release_post_processor(struct hx170dec *dev)
-{
-	unsigned long flags;
-	int is_vpu_sem_up = 1;
-
-	HX170_ENTER();
-
-	spin_lock_irqsave(&hx170dec_owner_lock, flags);
-
-	if ((current->pid == vpu_com_sema.vpu_sem_owner) &&
-		(vpu_com_sema.vpu_sem_owner != 0)) {
-
-		vpu_com_sema.vpu_sem_owner = 0;
-		is_vpu_sem_up = 0;
-	}
-
-	pp_owner = NULL;
-	spin_unlock_irqrestore(&hx170dec_owner_lock, flags);
-
-
-	if (is_vpu_sem_up == 0) {
-		up(&vpu_com_sema.vpu_sem);
-		HX170_DEBUG("vpu_sem up");
-	}
-	HX170_LEAVE(0);
-}
 
 #if defined(CONFIG_SW_SYNC_USER)
 static int pphwc_fence_init(struct vpu_dec_device_t *pdata, void *instance)
@@ -612,10 +292,6 @@ static long hx170dec_ioctl(struct file *filp,
 	struct device_pm_platdata *pm_platdata = pdata->pm_platdata;
 	(void) pm_platdata; /* used for debug trace only */
 
-#ifdef HW_PERFORMANCE
-	struct timeval *end_time_arg;
-#endif
-
 	HX170_ENTER();
 	HX170_DEBUG("ioctl magic 0x%08x cmd %d", (int)_IOC_TYPE(cmd),
 		(int)_IOC_NR(cmd));
@@ -656,16 +332,6 @@ static long hx170dec_ioctl(struct file *filp,
 	default:
 		dev_err(dev, "ioctl %d cmd is not supported! - ignored", cmd);
 		break;
-
-#if 0 /** TODO: these seem to be unused anyway ... remove!! **/
-	case HX170DEC_IOC_CLI:
-		disable_irq(hx170dec_data.irq);
-		break;
-
-	case HX170DEC_IOC_STI:
-		enable_irq(hx170dec_data.irq);
-		break;
-#endif
 
 	case HX170DEC_IOC_PM_DISABLE:
 	{
@@ -744,52 +410,6 @@ static long hx170dec_ioctl(struct file *filp,
 	}
 	break;
 
-	case HX170DEC_IOCGHWOFFSET:
-		__put_user(hx170dec_data.iobaseaddr, (unsigned long *) arg);
-		break;
-
-	case HX170DEC_IOCGHWIOSIZE:
-		__put_user(hx170dec_data.iosize, (unsigned int *) arg);
-		break;
-
-	case HX170DEC_PP_INSTANCE:
-		filp->private_data = &hx_pp_instance;
-		break;
-
-	case HX170DEC_IOCH_DEC_RESERVE:
-		ret = hx170dec_reserve_decoder(&hx170dec_data, filp);
-		break;
-
-	case HX170DEC_IOCT_DEC_RELEASE:
-		if (dec_owner != filp) {
-			dev_err(dev, "bogus DEC release - not owner");
-			ret = -EFAULT;
-		} else
-			hx170dec_release_decoder(&hx170dec_data);
-
-		break;
-
-	case HX170DEC_IOCQ_PP_RESERVE:
-		ret =  hx170dec_reserve_post_processor(&hx170dec_data, filp);
-		break;
-
-	case HX170DEC_IOCT_PP_RELEASE:
-		if (pp_owner != filp) {
-			dev_err(dev, "bogus PP release - not owner");
-			ret = -EFAULT;
-		} else
-			hx170dec_release_post_processor(&hx170dec_data);
-
-		break;
-
-#ifdef HW_PERFORMANCE
-	case HX170DEC_HW_PERFORMANCE:
-		end_time_arg = (struct timeval *) arg;
-		end_time_arg->tv_sec = end_time.tv_sec;
-		end_time_arg->tv_usec = end_time.tv_usec;
-		break;
-#endif
-
 	case HX170DEC_IOCT_SECVM_CMD: {
 #if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 		/* IMC: send a VVPU command to secure VM */
@@ -797,18 +417,20 @@ static long hx170dec_ioctl(struct file *filp,
 
 		if (copy_from_user(&vvpu_cmd, (void __user *)arg,
 				sizeof(vvpu_cmd)))
-			return -EFAULT;
+			ret = -EFAULT;
+		else {
+			vvpu_call(dev, &vvpu_cmd);
 
-		vvpu_call(dev, &vvpu_cmd);
-
-		if (copy_to_user((void __user *)arg, &vvpu_cmd,
-				sizeof(vvpu_cmd)))
-			return -EFAULT;
+			if (copy_to_user((void __user *)arg, &vvpu_cmd,
+					sizeof(vvpu_cmd)))
+				ret = -EFAULT;
+		}
 #else
 		ret = -EFAULT;
 #endif
 		break;
 	}
+
 	case HX170DEC_IOCT_PPHWC_START: {
 #if defined(CONFIG_SW_SYNC_USER)
 		struct pphwc_cmd cmd;
@@ -837,6 +459,7 @@ static long hx170dec_ioctl(struct file *filp,
 #endif
 		break;
 	}
+
 	case HX170DEC_IOCT_PPHWC_DONE: {
 #if defined(CONFIG_SW_SYNC_USER)
 		struct pphwc_cmd cmd;
@@ -850,6 +473,7 @@ static long hx170dec_ioctl(struct file *filp,
 #endif
 		break;
 	}
+
 	case HX170DEC_IOCT_PPHWC_RELEASE: {
 #if defined(CONFIG_SW_SYNC_USER)
 		struct pphwc_cmd cmd;
@@ -899,8 +523,6 @@ static int hx170dec_open(struct inode *inode, struct file *filp)
 		pr_debug("hx170dec_open() = EAGAIN; suspend was announced");
 
 		ret = -EAGAIN;
-	} else {
-		filp->private_data = &hx_dec_instance;
 	}
 
 	HX170_DEBUG("open(%p) = %d", (void *)filp, ret);
@@ -910,44 +532,6 @@ static int hx170dec_open(struct inode *inode, struct file *filp)
 	return ret;
 }
 
-/*--------------------------------------------------------------------------
-  Function name	  : hx170dec_fasync
-  Description	  : Method for signing up for a interrupt
-
-  Return type	  : int
-  --------------------------------------------------------------------------*/
-
-static int hx170dec_fasync(int fd, struct file *filp, int mode)
-{
-
-	struct hx170dec *dev = &hx170dec_data;
-	struct fasync_struct **async_queue;
-	int ret = 0;
-
-	HX170_ENTER();
-
-	/* select which interrupt this instance will sign up for */
-
-	if (((u32 *) filp->private_data) == &hx_dec_instance) {
-		/* decoder */
-		HX170_DEBUG("decoder fasync(%d %x %d %x)",
-			fd, (u32) filp, mode, (u32) &dev->async_queue_dec);
-
-		async_queue = &dev->async_queue_dec;
-	} else {
-		/* pp */
-		HX170_DEBUG("pp fasync(%d %x %d %x)",
-			fd, (u32) filp, mode, (u32) &dev->async_queue_dec);
-
-		async_queue = &dev->async_queue_pp;
-	}
-
-	ret = fasync_helper(fd, filp, mode, async_queue);
-
-	HX170_LEAVE(ret);
-
-	return ret;
-}
 
 /*---------------------------------------------------------------------------
   Function name	  : hx170dec_release
@@ -958,26 +542,10 @@ static int hx170dec_fasync(int fd, struct file *filp, int mode)
 
 static int hx170dec_release(struct inode *inode, struct file *filp)
 {
-	struct hx170dec *dev = &hx170dec_data;
-
 	HX170_ENTER();
 
 	HX170_DEBUG("owners: dec %p pp %p", dec_owner, pp_owner);
 
-	if (dec_owner == filp) {
-		HX170_DEBUG("releasing dec lock");
-		hx170dec_release_decoder(dev);
-	}
-
-	if (pp_owner == filp) {
-		HX170_DEBUG("releasing pp lock");
-		hx170dec_release_post_processor(dev);
-	}
-
-	if (filp->f_flags & FASYNC) {
-		/* remove this filp from the asynchronusly notified filp's */
-		hx170dec_fasync(-1, filp, 0);
-	}
 
 	HX170_DEBUG("close(%p) = 0", (void *) filp);
 
@@ -996,9 +564,7 @@ static const struct file_operations hx170dec_fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl	= hx170dec_ioctl,
 #endif
-	.fasync		= hx170dec_fasync,
 };
-
 
 
 struct vpu_dec_pm_resources {
@@ -1098,6 +664,7 @@ struct device_state_pm_state *xgold_vpu_dec_get_initial_state(
 {
 	return &vpu_dec_pm_states[VPU_DEC_PM_STATE_D3];
 }
+
 /* USIF PM states & class & pm ops */
 static struct device_state_pm_ops vpu_dec_pm_ops = {
 	.set_state = xgold_vpu_dec_set_pm_state,
@@ -1177,15 +744,13 @@ static int xgold_vpu_dec_parse_platform_data(struct platform_device *pdev)
 
 static int xgold_vpu_dec_probe(struct platform_device *pdev)
 {
-	int error = 0;
 	int result = 0;
+	int ret = 0;
 
-	struct resource *resource;
 	struct device *dev = &pdev->dev;
 	struct device_pm_platdata *pm_platdata;
 
-
-	dev_info(dev, "probing device");
+	dev_info(dev, "probing vvpu");
 
 	/* Allocate driver data record */
 	vpu_dec_data = kzalloc(sizeof(struct vpu_dec_device_t), GFP_KERNEL);
@@ -1198,12 +763,10 @@ static int xgold_vpu_dec_probe(struct platform_device *pdev)
 	vpu_dec_data->pdev = pdev;
 	vpu_dec_data->dev  = dev;
 
-	/* assume traditional vpu decoder; vvpu: change later */
-	hx170dec_data.use_vvpu = 0;
-
 	result = xgold_vpu_dec_parse_platform_data(pdev);
 	if (result) {
 		kfree(vpu_dec_data);
+
 		return -EINVAL;
 	}
 
@@ -1255,7 +818,7 @@ static int xgold_vpu_dec_probe(struct platform_device *pdev)
 	 */
 #else
 	/*
-	 * switch on vpu ...
+	 * switch on vpu decoder ...
 	 */
 	result = hx170dec_dev_pm(dev, 1);
 	if (result) {
@@ -1264,168 +827,60 @@ static int xgold_vpu_dec_probe(struct platform_device *pdev)
 	}
 #endif /* CONFIG_PM_RUNTIME */
 
-
-
-	/*
-	 * determine IRQ and IO address from platform device
-	 */
-	vpu_dec_data->irq.dec = platform_get_irq(pdev, 0);
-	resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-
-	/*
-	 * TODO: temoprary test code
-	 *	 enable to use secure vm
-	 * eventually, dts should return IO addr 0x00000000
-	 */
-#if 0
-	resource = NULL;
-#endif
-
-	if (resource != NULL && resource->start != 0) {
-		/*
-		 * register IO address range and IRQ
-		 */
-
-		vpu_dec_data->reg.vbase = resource->start;
-		vpu_dec_data->reg.size	= (unsigned)
-			(resource->end - resource->start) + 1;
-		dev_err(dev, "register IO addr base 0x%pa",
-				&vpu_dec_data->reg.vbase);
-		dev_err(dev, "register IO addr size 0x%x",
-				vpu_dec_data->reg.size);
-
-
-		hx170dec_data.iobaseaddr =
-			(unsigned long)vpu_dec_data->reg.vbase;
-		hx170dec_data.iosize	 =
-			(unsigned int)vpu_dec_data->reg.size;
-
-		hx170dec_data.irq	 = vpu_dec_data->irq.dec;
-
-#ifdef HX170DEC_DEBUG /* reduce verbosity */
-		dev_info(dev, "dec/pp kernel module. %s",
-			"Revision: 1.12");
-		dev_info(dev, "supports 8170 and 8190 hardware");
-#endif
-		dev_err(dev, "base_port=0x%08lx len=%i, irq=%i",
-			(unsigned long)vpu_dec_data->reg.vbase,
-			vpu_dec_data->reg.size,	vpu_dec_data->irq.dec);
-
-		hx170dec_data.async_queue_dec = NULL;
-		hx170dec_data.async_queue_pp = NULL;
-
-		result = reserve_io(vpu_dec_data);
-		if (result < 0) {
-			error  = 1;
-
-			goto end;
-		}
-
-		reset_asic(&hx170dec_data);  /* reset hardware */
-
-		/* register IRQ line */
-		if (hx170dec_data.irq > 0) {
-			result = request_irq(hx170dec_data.irq, hx170dec_isr,
-				IRQF_DISABLED | IRQF_SHARED,
-				"hx170dec", (void *) &hx170dec_data);
-
-			if (result != 0) {
-				if (result == -EINVAL) {
-					dev_err(dev,
-						"Bad irq number/handler");
-				} else {
-					if (result == -EBUSY) {
-						dev_err(dev,
-						"IRQ <%d> busy, change cfg",
-						hx170dec_data.irq);
-					}
-				}
-
-				release_io();
-
-				error = 1;
-				goto end;
-			}
-			dev_info(dev, "ISR registered successfully");
-		} else {
-			dev_warn(dev, "IRQ not in use!");
-		}
-
-	} else {
 #if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
-		/*
-		 * initlialize secure VM decoder: init vbpipe
-		 */
+	/*
+	 * initlialize secure VM decoder: init pipe to secure vm
+	 */
+	dev_info(dev, "init SecureVM decoder");
 
-		dev_info(dev, "init SecureVM decoder");
+	result = vvpu_vbpipe_init(dev);
 
-		/* indicator for isr, ioctl, etc. */
-		hx170dec_data.use_vvpu = 1;
+	/*
+	 * during system boot the vbpipe may not yet be accessible
+	 * therefore ignore an error and init the pipe
+	 * the first time it is used
+	 */
+	if (result != 0) {
+		dev_warn(dev, "mvpipe open is postponed");
 
-		error = vvpu_vbpipe_init(dev);
+		result = 0;
+	} else {
+		struct vvpu_secvm_cmd cmd;
+		int vvpu_ret;
 
-		/*
-		 * during system boot the vbpipe may not yet be accessible
-		 * therefore ignore an error and init the pipe
-		 * the first time it is used
-		 */
-		if (error != 0) {
-			dev_warn(dev, "vbpipe open is postponed");
+		dev_info(dev, "probing secureVM decoder");
 
-			/* TODO: ignore and skip probing; open pipe later */
-			error = 0;
-		} else {
-			struct vvpu_secvm_cmd cmd;
-			int vvpu_ret;
+		/* set up init probe command */
+		memset(&cmd, 0, sizeof(cmd));
 
-			dev_info(dev, "probing secureVM decoder");
+		cmd.payload[0] = VVPU_VTYPE_DEC;
+		cmd.payload[1] = VVPU_VOP_INIT_PROBE;
 
-			/* set up init probe command */
-			memset(&cmd, 0, sizeof(cmd));
+		/* do command */
+		vvpu_ret = vvpu_call(dev, &cmd);
 
-			cmd.payload[0] = VVPU_VTYPE_DEC;
-			cmd.payload[1] = VVPU_VOP_INIT_PROBE;
+		if (vvpu_ret == 0)
+			dev_err(dev, "error probing secureVM decoder");
+		else
+			dev_info(dev, "found hw id 0x%08x",
+				cmd.payload[4]);
 
-			/* do command */
-			vvpu_ret = vvpu_call(dev, &cmd);
-
-			if (vvpu_ret == 0)
-				dev_err(dev, "error probing secureVM decoder");
-			else
-				dev_info(dev, "found hw id 0x%08x",
-					cmd.payload[4]);
-
-			check_vvpu_hw_id(cmd.payload[4]);
-
-			/* TODO: handle error ... */
-		}
+		check_vvpu_hw_id(cmd.payload[4]);
+	}
 
 #else
-		dev_err(dev, "platform_device does not provide IO addr");
+	dev_err(dev, "MOBILEVISOR_VDRIVER_PIPE is not available");
+	ret = -ENODEV;
 
-		result = 0; /* can happen depending on the build -- really? */
-		error  = 1;
-
-		goto end;
-
+	goto end;
 #endif
-	}
 
 	result = hx170dec_miscdevice_register(pdev);
 	if (result != 0) {
-		error  = 1;
+		ret = result;
 
 		goto end;
 	}
-
-	vpu_dec_data->rstc = reset_control_get(vpu_dec_data->dev,
-		G1_RESET_NAME);
-
-	if (IS_ERR(vpu_dec_data->rstc)) {
-		dev_err(dev, "Can't retrieve vpu reset controller");
-		result = PTR_ERR(vpu_dec_data->rstc);
-	} else
-		dev_info(dev, "got reset controller successfully");
 
 end:
 
@@ -1450,10 +905,16 @@ end:
 
 #endif	/* CONFIG_PM_RUNTIME */
 
-	if (error) {
-		dev_err(dev, "device probe error");
+	if (ret != 0) {
+		dev_err(dev, "vvpu probe error");
+
+		/* release resources */
+		if (vpu_dec_data != NULL)
+			kfree(vpu_dec_data);
 
 		hx170dec_miscdevice_unregister();
+
+		ret = -ENODEV;
 	} else {
 		/* show that the device may be used */
 		hx170dec_pm_set_avail(1);
@@ -1462,14 +923,14 @@ end:
 		hx170_probe_debug(dev, pdev, &hx170dec_pm);
 #endif
 
-		dev_info(dev, "device probe OK (%d)", result);
+		dev_info(dev, "vvpu probe OK (%d)", ret);
 	}
 
 #if defined(CONFIG_SW_SYNC_USER)
 	pphwc_fence_init(vpu_dec_data, 0);
 #endif
 
-	return result;
+	return ret;
 }
 
 
@@ -1641,22 +1102,9 @@ int hx170dec_prepare(struct device *dev)
 {
 	int ret = 0;
 
-
 	HX170_ENTER();
 
-	/*
-	 * get the PM semaphore, i.e. let others wait
-	 */
-	if (down_interruptible(&hx170dec_pm_sem))
-		ret = -ERESTARTSYS;
-	else {
-		/*
-		 * indicate, that device is currently not available
-		 * (this might not be neccessary)
-		 */
-		hx170dec_pm_set_avail(0);
-	}
-
+	hx170dec_pm_set_avail(0);
 
 	HX170_LEAVE(ret);
 
@@ -1673,11 +1121,6 @@ void hx170dec_complete(struct device *dev)
 	 * (this might not be neccessary)
 	 */
 	hx170dec_pm_set_avail(1);
-
-	/*
-	 * release PM semaphore; let others run again
-	 */
-	up(&hx170dec_pm_sem);
 
 	HX170_LEAVE(0);
 }
@@ -1799,36 +1242,6 @@ int hx170dec_resume(struct device *dev)
 	return ret;
 }
 
-/** #define __HAVE_FREEZE__ **/
-#ifdef __HAVE_FREEZE__
-int hx170dec_freeze(struct device *dev)
-{
-	int ret = 0;
-
-	HX170_ENTER();
-
-	/*
-	 * indicate, that device is currently not available
-	 */
-	hx170dec_dev_pm(dev, 0);
-
-	HX170_LEAVE(ret);
-
-	return ret;
-}
-
-int hx170dec_thaw(struct device *dev)
-{
-	int ret = 0;
-
-	HX170_ENTER();
-
-
-	HX170_LEAVE(ret);
-
-	return ret;
-}
-#endif /* __HAVE_FREEZE__ */
 
 int hx170dec_suspend_noirq(struct device *dev)
 {
@@ -1925,13 +1338,9 @@ static const struct dev_pm_ops hx170dec_pm = {
 	.complete	 = hx170dec_complete,
 	.suspend	 = hx170dec_suspend,
 	.resume		 = hx170dec_resume,
-#ifdef __HAVE_FREEZE__
-	.freeze		 = hx170dec_freeze,
-	.thaw		 = hx170dec_thaw,
-#else
+
 	.freeze		 = 0,
 	.thaw		 = 0,
-#endif
 	.poweroff	 = 0,
 	.restore	 = 0,
 	.suspend_noirq	 = hx170dec_suspend_noirq,
@@ -2008,14 +1417,6 @@ int __init hx170dec_init(void)
 
 		return -ENODEV;
 	}
-	dec_owner = 0;
-	pp_owner = 0;
-
-	sema_init(&vpu_com_sema.vpu_sem, 1);
-	sema_init(&hx170dec_pm_sem, 1);
-
-	vpu_com_sema.cur_user = 0;
-	vpu_com_sema.vpu_sem_owner = 0;
 
 #ifdef CONFIG_VERISILICON_G1_DEBUG_FS
 	hx170_init_debug();
@@ -2036,24 +1437,10 @@ int __init hx170dec_init(void)
 
 void __exit hx170dec_cleanup(void)
 {
-	struct hx170dec *dev = (struct hx170dec *) &hx170dec_data;
-
-	hx170dec_writel(0, dev->hwregs + X170_INTERRUPT_REGISTER_DEC);
-	hx170dec_writel(0, dev->hwregs + X170_INTERRUPT_REGISTER_PP);
-
-#ifdef HX170DEC_DUMP_REGS
-	dump_regs((unsigned long) dev); /* dump the regs */
-#endif
 
 #ifdef CONFIG_VERISILICON_G1_DEBUG_FS
 	hx170_release_debug();
 #endif
-
-	/* free the IRQ */
-	if (dev->irq != -1)
-		free_irq(dev->irq, (void *) dev);
-
-	release_io();
 
 	hx170dec_miscdevice_unregister();
 
@@ -2065,7 +1452,7 @@ void __exit hx170dec_cleanup(void)
 module_init(hx170dec_init);
 module_exit(hx170dec_cleanup);
 
-
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 static int check_vvpu_hw_id(long int hardware)
 {
 	int ret = 1;
@@ -2073,7 +1460,7 @@ static int check_vvpu_hw_id(long int hardware)
 
 	size_t num_hw = sizeof(dec_hw_id) / sizeof(*dec_hw_id);
 
-	HX170_DEBUG("HW ID=0x%08lx", hwid);
+	HX170_DEBUG("VVPU HW ID=0x%08lx", hwid);
 
 	hwid = (hwid >> 16) & 0xFFFF;	/* product version only */
 
@@ -2092,252 +1479,7 @@ static int check_vvpu_hw_id(long int hardware)
 
 	return ret;
 }
-
-static int check_hw_id(struct hx170dec *dev)
-{
-	long int hwid;
-	unsigned int vpu_dec_synthesis_configration_register_0 = 0;
-	unsigned int vpu_dec_synthesis_configration_register_1 = 0;
-	unsigned int vpu_pp_synthesis_configration_register    = 0;
-
-	unsigned int vpu_dec_configration_register = 0;
-
-	size_t num_hw = sizeof(dec_hw_id) / sizeof(*dec_hw_id);
-
-	hwid = readl(dev->hwregs);
-	HX170_DEBUG("HW ID=0x%08lx", hwid);
-
-	hwid = (hwid >> 16) & 0xFFFF;	/* product version only */
-
-	vpu_dec_synthesis_configration_register_0 =
-		readl((dev->hwregs) + 0xC8);
-	vpu_dec_synthesis_configration_register_1 =
-		readl((dev->hwregs) + 0xD8);
-	vpu_pp_synthesis_configration_register =
-		readl((dev->hwregs) + 0x190);
-
-	vpu_dec_configration_register = readl((dev->hwregs) + 0x08);
-
-	HX170_DEBUG("configration_register Test 1 0x%x",
-		vpu_dec_configration_register);
-
-	hx170dec_writel(0x401, dev->hwregs + 0x08);
-	vpu_dec_configration_register = readl((dev->hwregs) + 0x08);
-
-	HX170_DEBUG("configration_register Test 2 0x%x",
-		vpu_dec_configration_register);
-
-	while (num_hw--) {
-		if (hwid == dec_hw_id[num_hw]) {
-			HX170_DEBUG("Compatible HW found at 0x%08lx/0x%08lx",
-				dev->iobaseaddr, (unsigned long)dev->hwregs);
-
-			HX170_DEBUG("vpu_dec_configration_register_0 0x%x>",
-				vpu_dec_synthesis_configration_register_0);
-
-			HX170_DEBUG("vpu_dec_configration_register_1 0x%x",
-				vpu_dec_synthesis_configration_register_1);
-
-			HX170_DEBUG("vpu_pp_synthesis_config_register 0x%x",
-				vpu_pp_synthesis_configration_register);
-
-			return 1;
-		}
-	}
-
-	pr_warn("hx170dec: No Compatible HW found at 0x%08lx",
-		dev->iobaseaddr);
-	return 0;
-}
-
-/*--------------------------------------------------------------------------
-  Function name	  : reserv_io
-  Description	  : IO reserve
-
-  Return type	  : int
-  --------------------------------------------------------------------------*/
-static int reserve_io(struct vpu_dec_device_t *vpu_dec_data)
-{
-	HX170_ENTER();
-
-	hx170dec_data.hwregs = (void __iomem *)
-		ioremap_nocache((unsigned long)vpu_dec_data->reg.vbase,
-			vpu_dec_data->reg.size);
-
-	if (hx170dec_data.hwregs == NULL) {
-		pr_err("hx170dec: failed to ioremap HW regs");
-		release_io();
-		return -EBUSY;
-	}
-
-
-	/* check for correct HW */
-	if (!check_hw_id(&hx170dec_data)) {
-		release_io();
-		return -EBUSY;
-	}
-
-	HX170_DEBUG("ioremap() = 0x%08lx",
-		(unsigned long)hx170dec_data.hwregs);
-
-	HX170_LEAVE(0);
-
-	return 0;
-}
-
-/*--------------------------------------------------------------------------
-  Function name	  : release_io
-  Description	  : release
-
-  Return type	  : void
-  --------------------------------------------------------------------------*/
-
-static void release_io(void)
-{
-	if (hx170dec_data.hwregs)
-		iounmap((void *) hx170dec_data.hwregs);
-	release_mem_region(hx170dec_data.iobaseaddr, hx170dec_data.iosize);
-}
-
-/*--------------------------------------------------------------------------
-  Function name	  : hx170dec_isr
-  Description	  : interrupt handler
-
-  Return type	  : irqreturn_t
-  --------------------------------------------------------------------------*/
-irqreturn_t hx170dec_isr(int irq, void *dev_id)
-{
-	unsigned int handled = 0;
-
-	struct hx170dec *dev = (struct hx170dec *) dev_id;
-	u32 irq_status_dec;
-	u32 irq_status_pp;
-
-	HX170_ENTER();
-
-	/*
-	 * if, during boot, a vvpu channel was initialized,
-	 * there should not be any IRQ for the vpu decoder in linux
-	 * -> raise an error
-	 */
-	if (dev->use_vvpu) {
-		handled = 1;
-		pr_err("hx170dec: receive IRQ; should be in secure VM\n");
-		goto exit;
-	}
-
-	/* interrupt status register read */
-	irq_status_dec = readl(dev->hwregs + X170_INTERRUPT_REGISTER_DEC);
-	irq_status_pp = readl(dev->hwregs + X170_INTERRUPT_REGISTER_PP);
-
-	if ((irq_status_dec & HX_DEC_INTERRUPT_BIT) ||
-		(irq_status_pp & HX_PP_INTERRUPT_BIT)) {
-
-		HX170_DEBUG("IRQ; dec status 0x%08x, pp status 0x%08x",
-			irq_status_dec, irq_status_pp);
-
-		if (irq_status_dec & HX_DEC_INTERRUPT_BIT) {
-#ifdef HW_PERFORMANCE
-			do_gettimeofday(&end_time);
 #endif
-			/* clear dec IRQ */
-			hx170dec_writel(
-				irq_status_dec & (~HX_DEC_INTERRUPT_BIT),
-				dev->hwregs + X170_INTERRUPT_REGISTER_DEC);
-
-			/* fasync kill for decoder instances */
-			if (dev->async_queue_dec != NULL)
-				kill_fasync(&dev->async_queue_dec,
-					SIGUSR2, POLL_IN);
-			else
-				pr_warn(
-				"hx170dec: DEC IRQ no one waiting");
-
-			HX170_DEBUG("decoder IRQ received! (0x%08x)",
-				irq_status_dec);
-
-#ifdef CONFIG_VERISILICON_G1_DEBUG_FS
-			++hx170dec_n_dec_irq;
-#endif
-		}
-
-		if (irq_status_pp & HX_PP_INTERRUPT_BIT) {
-#ifdef HW_PERFORMANCE
-			do_gettimeofday(&end_time);
-#endif
-			/* clear pp IRQ */
-			hx170dec_writel(irq_status_pp & (~HX_PP_INTERRUPT_BIT),
-				dev->hwregs + X170_INTERRUPT_REGISTER_PP);
-
-			/* kill fasync for PP instances */
-			if (dev->async_queue_pp != NULL)
-				kill_fasync(&dev->async_queue_pp,
-					SIGUSR2, POLL_IN);
-			else
-				pr_warn(
-				"hx170dec: PP IRQ no one waiting");
-
-			HX170_DEBUG("pp IRQ received! (0x%08x)",
-				irq_status_pp);
-
-#ifdef CONFIG_VERISILICON_G1_DEBUG_FS
-			++hx170dec_n_pp_irq;
-#endif
-		}
-
-		handled = 1;
-	} else {
-#ifdef CONFIG_VERISILICON_G1_DEBUG_FS
-		++hx170dec_n_spurious_irq;
-#endif
-		pr_warn("IRQ received, but not x170dec's!");
-	}
-exit:
-	HX170_LEAVE(handled);
-
-	return IRQ_RETVAL(handled);
-}
-
-/*--------------------------------------------------------------------------
-  Function name	  : reset_asic
-  Description	  : reset asic
-
-  Return type	  :
-  --------------------------------------------------------------------------*/
-
-void reset_asic(struct hx170dec *dev)
-{
-	int i;
-
-	hx170dec_writel(0, dev->hwregs + 0x04);
-
-	for (i = 4; i < dev->iosize; i += 4)
-		hx170dec_writel(0, dev->hwregs + i);
-}
-
-/*--------------------------------------------------------------------------
-  Function name	  : dump_regs
-  Description	  : Dump registers
-
-  Return type	  :
-  --------------------------------------------------------------------------*/
-#ifdef HX170DEC_DUMP_REGS
-void dump_regs(unsigned long data)
-{
-	struct hx170dec *dev = (struct hx170dec *) data;
-	int i;
-
-	HX170_ENTER();
-
-
-	for (i = 0; i < dev->iosize; i += 4)
-		pr_info("\toffset %02X = %08X", i, readl(dev->hwregs + i));
-
-	HX170_LEAVE(0);
-}
-#endif
-
-
 
 static int hx170dec_miscdevice_register(struct platform_device *pdev)
 {
@@ -2354,6 +1496,7 @@ static int hx170dec_miscdevice_register(struct platform_device *pdev)
 
 	return err;
 }
+
 
 static void hx170dec_miscdevice_unregister(void)
 {
