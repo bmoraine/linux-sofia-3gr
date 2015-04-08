@@ -34,6 +34,7 @@
 
 struct vmodem_drvdata {
 	struct device *dev;
+	void *hirq_info;
 	int modem_state;
 	unsigned int running_guest;
 	struct miscdevice devfile;
@@ -277,6 +278,18 @@ int vmodem_probe(struct platform_device *pdev)
 	/* Create workqueues */
 	pdata->wq = alloc_ordered_workqueue(
 		"vmodem_wq", WQ_NON_REENTRANT | WQ_HIGHPRI);
+	if (!pdata->wq) {
+		dev_err(dev, "unable to allocate workqueue\n");
+		return -ENOMEM;
+	}
+
+	pdata->hirq_info = mv_gal_register_hirq_callback(512,
+		modem_state_sysconf_hdl, pdata);
+	if (!pdata->hirq_info) {
+		dev_err(dev, "unable to register hirq\n");
+		destroy_workqueue(pdata->wq);
+		return -EBUSY;
+	}
 
 	mv_gal_register_hirq_callback(512, modem_state_sysconf_hdl,
 					pdata);
@@ -295,6 +308,7 @@ static int vmodem_remove(struct platform_device *pdev)
 	struct vmodem_drvdata *pdata =
 		(struct vmodem_drvdata *)platform_get_drvdata(pdev);
 
+	mv_gal_hirq_detach(pdata->hirq_info);
 	flush_workqueue(pdata->wq);
 	destroy_workqueue(pdata->wq);
 	misc_deregister(&pdata->devfile);
