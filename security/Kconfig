@@ -167,5 +167,11 @@ config DEFAULT_SECURITY
 	default "yama" if DEFAULT_SECURITY_YAMA
 	default "" if DEFAULT_SECURITY_DAC
 
+config SECURE_PLAYBACK
+	bool "Multimedia secure playback"
+	default n
+	help
+	  This enable the secure path for media playback.
+
 endmenu
 
