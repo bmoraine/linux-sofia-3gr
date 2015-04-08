@@ -1115,7 +1115,9 @@ static int cif_isp20_img_src_select_strm_fmt(
 				/
 				img_src_width));
 			if (matching_format_found) {
-				if (dev->config.jpeg_config.enable &&
+				if (CIF_ISP20_PIX_FMT_IS_JPEG(
+					dev->config.mi_config.
+					mp.output.pix_fmt) &&
 					((img_src_width >=
 					request_strm_fmt.frm_fmt.width) &&
 					(img_src_height >
@@ -1123,7 +1125,9 @@ static int cif_isp20_img_src_select_strm_fmt(
 					/* for image capturing we try to
 						maximize the size */
 					better_match = true;
-				else if (!dev->config.jpeg_config.enable &&
+				else if (!CIF_ISP20_PIX_FMT_IS_JPEG(
+					dev->config.mi_config.
+					mp.output.pix_fmt) &&
 					((strm_fmt_desc.min_intrvl.denominator
 					/
 					strm_fmt_desc.min_intrvl.numerator)
@@ -1133,7 +1137,9 @@ static int cif_isp20_img_src_select_strm_fmt(
 					request_strm_fmt.frm_intrvl.numerator)))
 					/* maximize fps */
 					better_match = true;
-				else if (!dev->config.jpeg_config.enable &&
+				else if (!CIF_ISP20_PIX_FMT_IS_JPEG(
+					dev->config.mi_config.
+					mp.output.pix_fmt) &&
 					((strm_fmt_desc.min_intrvl.denominator
 					/
 					strm_fmt_desc.min_intrvl.numerator)
@@ -1624,7 +1630,8 @@ static int cif_isp20_config_isp(
 	output = &dev->config.isp_config.output;
 
 	if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(in_pix_fmt)) {
-		if (!dev->config.mi_config.raw_enable) {
+		if (!CIF_ISP20_PIX_FMT_IS_RAW_BAYER(
+			dev->config.mi_config.mp.output.pix_fmt)) {
 			output->pix_fmt = CIF_YUV422I;
 			cif_iowrite32(0xc,
 				dev->config.base_addr + CIF_ISP_DEMOSAIC);
@@ -1761,10 +1768,12 @@ static int cif_isp20_config_isp(
 	cif_iowrite32(irq_mask,
 		dev->config.base_addr + CIF_ISP_IMSC);
 
-	if (!dev->config.mi_config.raw_enable)
+	if (!CIF_ISP20_PIX_FMT_IS_RAW_BAYER(
+		dev->config.mi_config.mp.output.pix_fmt))
 		cifisp_configure_isp(&dev->isp_dev,
 			in_pix_fmt,
-			dev->config.jpeg_config.enable &&
+			CIF_ISP20_PIX_FMT_IS_JPEG(
+				dev->config.mi_config.mp.output.pix_fmt) &&
 			(dev->config.input_sel <= CIF_ISP20_INP_CPI));
 	else
 		cifisp_disable_isp(&dev->isp_dev);
@@ -2080,7 +2089,8 @@ static int cif_isp20_config_mi_mp(
 		CIF_MI_CTRL_BURST_LEN_CHROM_64 |
 		CIF_MI_CTRL_INIT_BASE_EN |
 		CIF_MI_CTRL_INIT_OFFSET_EN;
-	if (dev->config.jpeg_config.enable)
+	if (CIF_ISP20_PIX_FMT_IS_JPEG(
+		dev->config.mi_config.mp.output.pix_fmt))
 		mi_ctrl |= CIF_MI_CTRL_JPEG_ENABLE;
 
 	cif_iowrite32_verify(mi_ctrl,
@@ -2649,7 +2659,8 @@ static int cif_isp20_config_path(
 		!(dev->config.input_sel == CIF_ISP20_INP_DMA_SP)) {
 			dpcl |= CIF_VI_DPCL_CHAN_MODE_MP;
 		/* mp_dmux */
-		if (dev->config.jpeg_config.enable == true)
+		if (CIF_ISP20_PIX_FMT_IS_JPEG(
+			dev->config.mi_config.mp.output.pix_fmt))
 			dpcl |= CIF_VI_DPCL_MP_MUX_MRSZ_JPEG;
 		else
 			dpcl |= CIF_VI_DPCL_MP_MUX_MRSZ_MI;
@@ -3069,7 +3080,8 @@ static int cif_isp20_config_mp(
 	ret = cif_isp20_config_mi_mp(dev);
 	if (IS_ERR_VALUE(ret))
 		goto err;
-	if (dev->config.jpeg_config.enable) {
+	if (CIF_ISP20_PIX_FMT_IS_JPEG(
+		dev->config.mi_config.mp.output.pix_fmt)) {
 		ret = cif_isp20_config_jpeg_enc(dev);
 		if (IS_ERR_VALUE(ret))
 			goto err;
@@ -3162,7 +3174,8 @@ static int cif_isp20_config_cif(
 				goto err;
 		}
 		if ((stream_ids & CIF_ISP20_STREAM_MP) &&
-			(dev->config.jpeg_config.enable))
+			CIF_ISP20_PIX_FMT_IS_JPEG(
+				dev->config.mi_config.mp.output.pix_fmt))
 			dev->config.mi_config.async_updt |=
 				CIF_ISP20_ASYNC_JPEG;
 		if (dev->isp_dev.ycflt_en &&
@@ -3301,21 +3314,22 @@ static void cif_isp20_init_stream(
 		dev->config.sp_config.rsz_config.ycflt_adjust = false;
 		dev->config.sp_config.rsz_config.ism_adjust = false;
 		dev->config.mi_config.sp.busy = false;
+		dev->config.mi_config.sp.output.pix_fmt = CIF_UNKNOWN_FORMAT;
 		break;
 	case CIF_ISP20_STREAM_MP:
 		stream = &dev->mp_stream;
 		dev->config.jpeg_config.ratio = 50;
 		dev->config.jpeg_config.header =
 			CIF_ISP20_JPEG_HEADER_JFIF;
-		dev->config.jpeg_config.enable = false;
-		dev->config.mi_config.raw_enable = false;
 		dev->config.mp_config.rsz_config.ycflt_adjust = false;
 		dev->config.mp_config.rsz_config.ism_adjust = false;
 		dev->config.mi_config.mp.busy = false;
+		dev->config.mi_config.sp.output.pix_fmt = CIF_UNKNOWN_FORMAT;
 		break;
 	case CIF_ISP20_STREAM_DMA:
 		stream = &dev->dma_stream;
 		dev->config.mi_config.dma.busy = false;
+		dev->config.mi_config.dma.output.pix_fmt = CIF_UNKNOWN_FORMAT;
 		break;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
@@ -3510,7 +3524,8 @@ static int cif_isp20_update_mi_mp(
 		dev->config.mi_config.mp.curr_buff_addr,
 		dev->config.mi_config.mp.next_buff_addr);
 
-	if (dev->config.jpeg_config.enable) {
+	if (CIF_ISP20_PIX_FMT_IS_JPEG(
+		dev->config.mi_config.mp.output.pix_fmt)) {
 		/* in case of jpeg encoding, we don't have to disable the
 		   MI, because the encoding
 		   anyway has to be started explicitely */
@@ -3627,14 +3642,11 @@ static int cif_isp20_s_fmt_mp(
 
 	/* TBD: check whether format is a valid format for MP */
 
-	if (CIF_ISP20_PIX_FMT_IS_JPEG(strm_fmt->frm_fmt.pix_fmt))
-		dev->config.jpeg_config.enable = true;
-	else if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(strm_fmt->frm_fmt.pix_fmt)) {
+	if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(strm_fmt->frm_fmt.pix_fmt)) {
 		if ((dev->sp_stream.state == CIF_ISP20_STATE_READY) ||
 			(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING))
 			cif_isp20_pltfrm_pr_warn(dev->dev,
 				"cannot output RAW data when SP is active, you will not be able to (re-)start streaming\n");
-		dev->config.mi_config.raw_enable = true;
 	}
 
 	dev->config.mi_config.mp.output = strm_fmt->frm_fmt;
@@ -3680,7 +3692,8 @@ static int cif_isp20_s_fmt_sp(
 		strm_fmt->frm_intrvl.denominator,
 		stride);
 
-	if (dev->config.mi_config.raw_enable)
+	if (CIF_ISP20_PIX_FMT_IS_RAW_BAYER(
+		dev->config.mi_config.mp.output.pix_fmt))
 		cif_isp20_pltfrm_pr_warn(dev->dev,
 			"cannot activate SP when MP is set to RAW data output, you will not be able to (re-)start streaming\n");
 
@@ -3850,7 +3863,8 @@ static int cif_isp20_mi_frame_end(
 			dev->config.base_addr + CIF_MI_MP_Y_BASE_AD_SHD;
 		next_buff_addr = &dev->config.mi_config.mp.next_buff_addr;
 		update_mi = cif_isp20_update_mi_mp;
-		if (dev->config.jpeg_config.enable) {
+		if (CIF_ISP20_PIX_FMT_IS_JPEG(
+			dev->config.mi_config.mp.output.pix_fmt)) {
 			unsigned int jpe_status =
 				cif_ioread32(dev->config.base_addr +
 					CIF_JPE_STATUS_RIS);
@@ -3898,7 +3912,8 @@ static int cif_isp20_mi_frame_end(
 		cif_ioread32(y_base_addr));
 
 	if ((stream->next_buf == NULL) &&
-		!(dev->config.jpeg_config.enable &&
+		!(CIF_ISP20_PIX_FMT_IS_JPEG(
+		dev->config.mi_config.mp.output.pix_fmt) &&
 		(stream_id == CIF_ISP20_STREAM_MP))) {
 		stream->stall = dev->config.out_of_buffer_stall;
 	} else if ((stream->next_buf != NULL) &&
@@ -3945,7 +3960,8 @@ static int cif_isp20_mi_frame_end(
 			*next_buff_addr = videobuf_to_dma_contig(
 				stream->next_buf);
 		} else if (!dev->config.out_of_buffer_stall ||
-			(dev->config.jpeg_config.enable &&
+			(CIF_ISP20_PIX_FMT_IS_JPEG(
+				dev->config.mi_config.mp.output.pix_fmt) &&
 			(stream_id == CIF_ISP20_STREAM_MP)))
 			*next_buff_addr =
 				CIF_ISP20_INVALID_BUFF_ADDR;
@@ -4526,7 +4542,8 @@ static int cif_isp20_mi_isr(void *cntxt)
 	}
 	if (mi_mis & CIF_MI_DMA_READY)
 		(void)cif_isp20_dma_ready(dev);
-	if (dev->config.jpeg_config.enable &&
+	if (CIF_ISP20_PIX_FMT_IS_JPEG(
+		dev->config.mi_config.mp.output.pix_fmt) &&
 		(cif_ioread32(dev->config.base_addr +
 			CIF_JPE_STATUS_RIS) & CIF_JPE_STATUS_ENCODE_DONE))
 		dev->config.jpeg_config.busy = false;
@@ -4553,10 +4570,14 @@ static int cif_isp20_mi_isr(void *cntxt)
 			if (sp_y_off_cnt_shd != 0)
 				cif_isp20_requeue_bufs(dev, &dev->sp_stream);
 			if ((mp_y_off_cnt_shd != 0) &&
-				!dev->config.jpeg_config.enable)
+				!CIF_ISP20_PIX_FMT_IS_JPEG(
+					dev->config.mi_config.
+					mp.output.pix_fmt))
 				cif_isp20_requeue_bufs(dev, &dev->mp_stream);
 			if (((mp_y_off_cnt_shd != 0) &&
-				!dev->config.jpeg_config.enable) ||
+				!CIF_ISP20_PIX_FMT_IS_JPEG(
+					dev->config.mi_config.
+					mp.output.pix_fmt)) ||
 				(sp_y_off_cnt_shd != 0)) {
 				cif_isp20_pltfrm_pr_dbg(dev->dev,
 					"soft update too late (SP offset %d, MP offset %d)\n",
@@ -4728,7 +4749,9 @@ int cif_isp20_streamon(
 		goto err;
 	}
 
-	if (streamon_sp && dev->config.mi_config.raw_enable &&
+	if (streamon_sp &&
+		CIF_ISP20_PIX_FMT_IS_RAW_BAYER(
+			dev->config.mi_config.mp.output.pix_fmt) &&
 		(streamon_mp ||
 		(dev->mp_stream.state == CIF_ISP20_STATE_STREAMING))) {
 		cif_isp20_pltfrm_pr_err(dev->dev,
@@ -4834,8 +4857,6 @@ int cif_isp20_streamoff(
 		(dev->sp_stream.state == CIF_ISP20_STATE_READY))
 		dev->sp_stream.state = CIF_ISP20_STATE_INACTIVE;
 	if (streamoff_mp) {
-		dev->config.jpeg_config.enable = false;
-		dev->config.mi_config.raw_enable = false;
 		dev->config.mi_config.mp.output.width = 0;
 		dev->config.mi_config.mp.output.height = 0;
 		dev->config.mi_config.mp.output.pix_fmt =
@@ -5272,22 +5293,52 @@ int cif_isp20_get_target_frm_size(
 	u32 *target_height)
 {
 	if (dev->sp_stream.state >= CIF_ISP20_STATE_READY) {
-		if ((dev->mp_stream.state >= CIF_ISP20_STATE_READY) &&
-			(dev->config.mi_config.mp.output.width >
-			dev->config.mi_config.sp.output.width))
-			*target_width =
-				dev->config.mi_config.mp.output.width;
-		else
+		if (dev->mp_stream.state >= CIF_ISP20_STATE_READY) {
+			u32 mp_width, mp_height, sp_width, sp_height;
+			u32 width, height, width_ratio, height_ratio;
+			u32 input_width, input_height;
+
+			input_width = dev->config.isp_config.input->width;
+			input_height = dev->config.isp_config.input->height;
+			mp_width = dev->config.mi_config.mp.output.width;
+			mp_height = dev->config.mi_config.mp.output.height;
+			sp_width = dev->config.mi_config.sp.output.width;
+			sp_height = dev->config.mi_config.sp.output.height;
+
+			width = (mp_width > sp_width) ?
+				mp_width : sp_width;
+			height = (mp_height > sp_height) ?
+				mp_height : sp_height;
+
+			/* When SP/MP are both active, keep MP's ratio */
+			width_ratio = ((height * mp_width) / mp_height + 1)
+					& (~1);
+			height_ratio = ((width * mp_height) / mp_width + 1)
+					& (~1);
+
+			if (width_ratio > width) {
+				if (width_ratio > input_width)
+					*target_width = input_width;
+				else
+					*target_width = width_ratio;
+			} else {
+				*target_width = width;
+			}
+
+			if (height_ratio > height) {
+				if (height_ratio > input_height)
+					*target_height = input_height;
+				else
+					*target_height = height_ratio;
+			} else {
+				*target_height = height;
+			}
+		} else {
 			*target_width =
 				dev->config.mi_config.sp.output.width;
-		if ((dev->mp_stream.state >= CIF_ISP20_STATE_READY) &&
-			(dev->config.mi_config.mp.output.height >
-			dev->config.mi_config.sp.output.height))
-			*target_height =
-				dev->config.mi_config.mp.output.height;
-		else
 			*target_height =
 				dev->config.mi_config.sp.output.height;
+		}
 	} else if (dev->mp_stream.state >= CIF_ISP20_STATE_READY) {
 		*target_width = dev->config.mi_config.mp.output.width;
 		*target_height = dev->config.mi_config.mp.output.height;
@@ -5465,6 +5516,7 @@ int cif_isp20_s_ctrl(
 	case CIF_ISP20_CID_AUTO_FPS:
 	case CIF_ISP20_CID_HFLIP:
 	case CIF_ISP20_CID_VFLIP:
+	case CIF_ISP20_CID_3A_LOCK:
 		return cif_isp20_img_src_s_ctrl(dev->img_src,
 			id, val);
 	default:

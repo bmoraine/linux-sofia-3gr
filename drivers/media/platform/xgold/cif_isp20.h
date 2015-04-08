@@ -135,7 +135,8 @@ enum cif_isp20_cid {
 	CIF_ISP20_CID_VFLIP = 15,
 	CIF_ISP20_CID_AUTO_FPS = 16,
 	CIF_ISP20_CID_VBLANKING = 17,
-	CIF_ISP20_CID_ISO_SENSITIVITY
+	CIF_ISP20_CID_ISO_SENSITIVITY = 18,
+	CIF_ISP20_CID_3A_LOCK = 19
 };
 
 /* correspond to bit field values */
@@ -393,7 +394,6 @@ struct cif_isp20_mi_path_config {
 };
 
 struct cif_isp20_mi_config {
-	bool raw_enable;
 	u32 async_updt;
 	struct cif_isp20_mi_path_config mp;
 	struct cif_isp20_mi_path_config sp;
@@ -430,7 +430,6 @@ struct cif_isp20_stream {
 };
 
 struct cif_isp20_jpeg_config {
-	bool enable;
 	bool busy;
 	u32 ratio;
 	struct cif_isp20_frm_fmt *input;
