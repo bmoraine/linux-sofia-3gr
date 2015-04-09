@@ -44,6 +44,7 @@
 #define RUNTIME_SUSPEND_DELAY		5000 /* ms */
 
 #define USIF_FCI_POLL			msecs_to_jiffies(50)
+#define RESCHEDULE_WQ_DELAY		msecs_to_jiffies(50)
 
 #define XGOLD_USIF_ENTER pr_debug("--> %s\n", __func__);
 #define XGOLD_USIF_EXIT pr_debug("<-- %s\n", __func__);
@@ -325,9 +326,12 @@ static int xgold_usif_runtime_pm_suspended(struct uart_port *port,
 				dev_warn(port->dev,
 					"%s called while suspended\n",
 					function);
-				if (!work_pending(&uxp->usif_rpm_work)) {
-					dev_dbg(port->dev, "scheduling RPM work\n");
-					schedule_work(&uxp->usif_rpm_work);
+				if (!delayed_work_pending(
+						&uxp->usif_rpm_work)) {
+					dev_dbg(port->dev,
+						"scheduling RPM work\n");
+					schedule_delayed_work(
+						&uxp->usif_rpm_work, 0);
 				}
 				return 1;
 			} else {
@@ -1186,8 +1190,8 @@ static irqreturn_t xgold_usif_handle_wake_interrupt(int irq, void *dev_id)
 			enable_irq(platdata->irq_wk);
 		} else {
 			/* Resume from work queue. */
-			if (!work_pending(&uxp->usif_rpm_work))
-				schedule_work(&uxp->usif_rpm_work);
+			if (!delayed_work_pending(&uxp->usif_rpm_work))
+				schedule_delayed_work(&uxp->usif_rpm_work, 0);
 		}
 	}
 
@@ -1202,7 +1206,6 @@ static irqreturn_t handle_interrupt(int irq, void *dev_id)
 	unsigned reg;
 
 	spin_lock(&port->lock);
-	uxp->in_interrupt = true;
 
 	mask = USIF_STA_INT | USIF_ERR_INT;
 
@@ -1234,15 +1237,14 @@ static irqreturn_t handle_interrupt(int irq, void *dev_id)
 	}
 
 	spin_unlock(&port->lock);
-	uxp->in_interrupt = false;
 
 	if (usif_port_is_console(&uxp->port) &&
 		uxp->trace_buf_list &&
 		!list_empty(&uxp->trace_buf_list->list) &&
-		!work_pending(&uxp->usif_rpm_work)) {
+		!delayed_work_pending(&uxp->usif_rpm_work)) {
 		/* Console only: Flush any logs that we have buffered
 		 * while transferring data through TTY. */
-		schedule_work(&uxp->usif_rpm_work);
+		schedule_delayed_work(&uxp->usif_rpm_work, 0);
 	}
 
 	return IRQ_HANDLED;
@@ -1289,7 +1291,7 @@ static void xgold_usif_shutdown(struct uart_port *port)
 	struct xgold_usif_platdata *platdata = dev_get_platdata(port->dev);
 	if (platdata->runtime_pm_enabled) {
 		pm_runtime_get_sync(port->dev);
-		cancel_work_sync(&uxp->usif_rpm_work);
+		cancel_delayed_work_sync(&uxp->usif_rpm_work);
 	}
 #endif
 
@@ -2033,8 +2035,8 @@ static void xgold_usif_dma_tx_tasklet_func(unsigned long data)
 		char *buf = NULL;
 
 		if (xgold_usif_runtime_pm_suspended(port, __func__)) {
-			if (!work_pending(&uxp->usif_rpm_work))
-				schedule_work(&uxp->usif_rpm_work);
+			if (!delayed_work_pending(&uxp->usif_rpm_work))
+				schedule_delayed_work(&uxp->usif_rpm_work, 0);
 			return;
 		}
 
@@ -2760,7 +2762,7 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 #endif
 
 	local_irq_save(flags);
-	if (port->sysrq || uxp->in_interrupt)
+	if (port->sysrq)
 		locked = 0;
 	else if (oops_in_progress)
 		locked = spin_trylock(&port->lock);
@@ -2772,8 +2774,8 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 		port->dev->power.runtime_status != RPM_ACTIVE) {
 		xgold_usif_add_list(uxp->trace_buf_list, count, s);
 
-		if (!work_pending(&uxp->usif_rpm_work))
-			schedule_work(&uxp->usif_rpm_work);
+		if (!delayed_work_pending(&uxp->usif_rpm_work))
+			schedule_delayed_work(&uxp->usif_rpm_work, 0);
 
 		goto console_write_done;
 	} else
@@ -2781,7 +2783,8 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 #endif
 
 	if ((uxp->tx_tps_cnt > 0) &&
-		!oops_in_progress) {
+		!oops_in_progress &&
+		!port->sysrq) {
 		/* TX from user side is in progress and we
 		 * should not write to the console at the same
 		 * time -> buffer the data to write them later.
@@ -2791,6 +2794,8 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 		goto console_write_done;
 	}
 
+	cancel_delayed_work(&uxp->usif_rpm_work);
+
 	old_int_mask = ioread32(USIF_IMSC(port->membase));
 
 	/* Reset all TX interrupts. */
@@ -2798,7 +2803,8 @@ static void xgold_usif_console_write(struct console *co, const char *s,
 
 	/* Write buffered logs first, if any. */
 	if (uxp->trace_buf_list &&
-		!list_empty(&uxp->trace_buf_list->list)) {
+		!list_empty(&uxp->trace_buf_list->list) &&
+		locked) {
 		struct xgold_usif_trace_buffer_list *tmp;
 		struct list_head *pos, *q;
 
@@ -2842,8 +2848,10 @@ console_write_done:
 
 static void xgold_serial_usif_rpm_work(struct work_struct *work)
 {
-	struct uart_usif_xgold_port *uxp = container_of(work,
-				struct uart_usif_xgold_port, usif_rpm_work);
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct uart_usif_xgold_port *uxp = container_of(dwork,
+			struct uart_usif_xgold_port, usif_rpm_work);
+
 	struct uart_port *port = &uxp->port;
 	struct circ_buf *xmit = &port->state->xmit;
 	unsigned long flags;
@@ -2858,6 +2866,17 @@ static void xgold_serial_usif_rpm_work(struct work_struct *work)
 		!list_empty(&uxp->trace_buf_list->list)) {
 		struct xgold_usif_trace_buffer_list *tmp;
 		struct list_head *pos, *q;
+
+		if (uxp->tx_tps_cnt > 0) {
+			/* TX from user side is in progress ->
+			 * reschedule the work queue.
+			 */
+			spin_unlock_irqrestore(&uxp->port.lock, flags);
+			schedule_delayed_work(&uxp->usif_rpm_work,
+					RESCHEDULE_WQ_DELAY);
+			xgold_usif_runtime_pm_autosuspend(&uxp->port);
+			return;
+		}
 
 		list_for_each_entry(tmp, &uxp->trace_buf_list->list, list) {
 			if (tmp && tmp->trace_buf && tmp->buf_len > 0) {
@@ -3375,7 +3394,6 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 	uxp->port.ops = &usif_ops;
 	uxp->use_rxbuf_b = false;
 	uxp->is_console = false;
-	uxp->in_interrupt = false;
 	mutex_init(&uxp->runtime_lock);
 	/*
 	 * Enable wakeup capability if possible
@@ -3425,7 +3443,7 @@ struct uart_usif_xgold_port *xgold_usif_add_port(struct device *dev,
 		uxp->is_console) {
 		/* Initialize the worker function on the global
 		 * work queue */
-		INIT_WORK(&uxp->usif_rpm_work,
+		INIT_DELAYED_WORK(&uxp->usif_rpm_work,
 			xgold_serial_usif_rpm_work);
 	}
 

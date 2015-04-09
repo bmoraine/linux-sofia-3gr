@@ -94,7 +94,6 @@ struct uart_usif_xgold_port {
 	unsigned int modem_status[2];
 	struct timer_list modem_poll;
 	bool is_console;
-	bool in_interrupt;
 
 	/* For DMA mode */
 	struct dma_chan *dma_rx_channel;
@@ -110,7 +109,7 @@ struct uart_usif_xgold_port {
 
 	/* For runtime PM */
 	struct xgold_usif_trace_buffer_list *trace_buf_list;
-	struct work_struct usif_rpm_work;
+	struct delayed_work usif_rpm_work;
 	struct mutex runtime_lock;
 	unsigned long last_irq_wk_time;
 
