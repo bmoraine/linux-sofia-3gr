@@ -44,6 +44,8 @@
 #define MEAS_PMIC_ADC_RESOLUTION_BITS			(12)
 /* ADC range for gain=1 (0db) in uV */
 #define MEAS_PMIC_ADC_RANGE_GAIN_0DB_UV		(1200000)
+/* ADC saturation level */
+#define MEAS_PMIC_ADC_SATURATION_LEVEL_UV      (1199000)
 /* PMIC NVM version which works for BATT TEMP and SYS TEMP ADC
 	meausrement without any change */
 #define MEAS_PMIC_TLP2_SEQ_FIX_NVM_VERSION (0x4)
@@ -649,6 +651,11 @@ static int meas_pmic_get_meas(enum adc_channel channel,
 				average_sample, true);
 	/* Clear active channel */
 	meas_pmic_state.active_channel = ADC_MAX_NO_OF_CHANNELS;
+
+	/* Check for ADC saturation */
+	if (*p_result_uv > MEAS_PMIC_ADC_SATURATION_LEVEL_UV)
+		return -ERANGE;
+
 	return 0;
 }
 
