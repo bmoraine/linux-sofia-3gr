@@ -182,14 +182,6 @@
 #define VBATMAXL_REG_ADDR \
 		((PMIC_SLAVE_DEVICE_2 << 24) | (VBATMAXL_REG_OFFSET))
 
-#define ACDRSLTH_REG_OFFSET	(0xFC)
-#define ACDRSLTH_REG_ADDR \
-		((PMIC_SLAVE_DEVICE_2 << 24) | (ACDRSLTH_REG_OFFSET))
-
-#define ACDRSLTL_REG_OFFSET	(0xFD)
-#define ACDRSLTL_REG_ADDR \
-		((PMIC_SLAVE_DEVICE_2 << 24) | (ACDRSLTL_REG_OFFSET))
-
 #define NVM_MB_ADDRH_OFFSET	(0x3A)
 #define NVM_MB_ADDRH_REG_ADDR \
 		((PMIC_SLAVE_DEVICE_4 << 24) | (NVM_MB_ADDRH_OFFSET))
@@ -250,9 +242,8 @@ enum intel_adc_phy_channel {
 	ADC_PHY_PEAK      = 9,
 	ADC_PHY_AGND      = 10,
 	ADC_PHY_VREF      = 11,
-	ADC_PHY_ACCID     = 12,
-	ADC_PHY_OCV       = 13,
-	ADC_PHY_MAX       = 14
+	ADC_PHY_OCV       = 12,
+	ADC_PHY_MAX       = 13
 	};
 
 #endif /* __MEAS_PMIC_REG_H__ */

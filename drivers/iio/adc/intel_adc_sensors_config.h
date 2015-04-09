@@ -325,10 +325,6 @@ static struct adc_sensors_channel intel_adc_sensors_pmic_channels[] = {
 	{"usb", ADC_SENSORS_CHANNEL_USBID,
 	ADC_SENSORS_CONVERSION_LINEAR_UV_TO_OHM, &adc_sensors_usbid_data,
 	CAL_DEFAULT, 0},
-
-	{"accessory", ADC_SENSORS_CHANNEL_ACCID,
-	ADC_SENSORS_CONVERSION_LINEAR_UV_TO_MV, &adc_sensors_accid_data,
-	CAL_DEFAULT, ACCID_TOLERANCE_MV}
 };
 
 static struct adc_sensors_platform_data xgold_intel_adc_sensors_pmic_data
