@@ -21,11 +21,11 @@ auo_b070atn02 {
 			screen-type = <SCREEN_MIPI>;
 			out-face    = <OUT_P888>;
 			color-mode = <COLOR_RGB>;
-			clock-frequency = <49768320>;
+			clock-frequency = <48752640>;
 			hactive = <600>;
 			vactive = <1024>;
 			hback-porch = <60>;
-			hfront-porch = <100>;
+			hfront-porch = <84>;
 			vback-porch = <10>;
 			vfront-porch = <22>;
 			hsync-len = <24>;
