@@ -1078,8 +1078,10 @@ static const struct of_device_id iommu_dt_ids[] = {
 	{ .compatible = VIP_IOMMU_COMPATIBLE_NAME },
 	{ .compatible = VOPB_IOMMU_COMPATIBLE_NAME },
 	{ .compatible = VOPL_IOMMU_COMPATIBLE_NAME },
+#ifndef CONFIG_SECURE_PLAYBACK
 	{ .compatible = HEVC_IOMMU_COMPATIBLE_NAME },
 	{ .compatible = VPU_IOMMU_COMPATIBLE_NAME },
+#endif
 	{ .compatible = ISP_IOMMU_COMPATIBLE_NAME },
 	{ .compatible = VOP_IOMMU_COMPATIBLE_NAME },
 	{ /* end */ }
