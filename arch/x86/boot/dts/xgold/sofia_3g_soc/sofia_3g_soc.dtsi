@@ -585,7 +585,7 @@
 					phy:phy {
 						compatible = "intel,usb2phy";
 						#address-cells = < 0 >;
-						reg = < 0xE4800000 0x100000 >;
+						reg = < 0xE4800900 0xC >;
 						reg-names = "scu_usb";
 						interrupts = < 0 1 2 >;
 						interrupt-parent = < &phy >;
@@ -609,43 +609,41 @@
 						pm,class-name = "usb";
 						pm,user-name = "usb";
 						states-names = "disable", "suspend", "suspend_no_psv", "enable", "enable_iso";
-						intel,phy_sus = < 0x900 11 1
-								0x900 12 1 >;
+						intel,phy_sus = < 0x0 11 1
+								0x0 12 1 >;
 						intel,phy_sus-value = <1 0
 								   1 0 >;
-						intel,pll_en = < 0x900 27 1 >;
+						intel,pll_en = < 0x0 27 1 >;
 						intel,pll_en-value = < 0 1 >;
-						intel,avalid = < 0x900 22 1 >;
+						intel,avalid = < 0x0 22 1 >;
 						intel,avalid-value = < 0 1 >;
-						intel,bvalid = < 0x900 23 1 >;
+						intel,bvalid = < 0x0 23 1 >;
 						intel,bvalid-value = < 0 1 >;
-						intel,vbusvalid = < 0x900 24 1 >;
+						intel,vbusvalid = < 0x0 24 1 >;
 						intel,vbusvalid-value = < 0 1 >;
-						intel,sessend = < 0x900 25 1 >;
+						intel,sessend = < 0x0 25 1 >;
 						intel,sessend-value = < 0 1 >;
-						intel,iddig0 = < 0x904 0 1 >;
+						intel,iddig0 = < 0x4 0 1 >;
 						intel,iddig0-value = < 0 1 >;
-						intel,ridgnd = < 0x904 8 1 >;
+						intel,ridgnd = < 0x4 8 1 >;
 						intel,ridgnd-value = < 0 1 >;
-						intel,drvvbus = < 0x904 13 1 >;
+						intel,drvvbus = < 0x4 13 1 >;
 						intel,drvvbus-value = < 0 1 >;
-						intel,commononn = < 0x900 13 1 >;
+						intel,commononn = < 0x0 13 1 >;
 						intel,commononn-value = < 0 1 >;
-						intel,srp_clear = < 0xC 3 1 >;
-						intel,srp_clear-value = < 0 1 >;
-						intel,vdatsrcenb = < 0x900 18 1 >;
+						intel,vdatsrcenb = < 0x0 18 1 >;
 						intel,vdatsrcenb-value = < 0 1 >;
-						intel,vdatdetenb = < 0x900 19 1 >;
+						intel,vdatdetenb = < 0x0 19 1 >;
 						intel,vdatdetenb-value = < 0 1 >;
-						intel,dcdenb = < 0x900 16 1 >;
+						intel,dcdenb = < 0x0 16 1 >;
 						intel,dcdenb-value = < 0 1 >;
-						intel,chrgsel = < 0x900 21 1 >;
+						intel,chrgsel = < 0x0 21 1 >;
 						intel,chrgsel-value = < 0 1 >;
-						intel,fsvplus = < 0x904 11 1 >;
+						intel,fsvplus = < 0x4 11 1 >;
 						intel,fsvplus-value = < 0 1 >;
-						intel,chrgdet = < 0x904 12 1 >;
+						intel,chrgdet = < 0x4 12 1 >;
 						intel,chrgdet-value = < 0 1 >;
-						intel,trim = < 0x908 0 32 >;
+						intel,trim = < 0x8 0 32 >;
 						intel,trim-value = < 0x538352 0x538352 >;
 						intel,power_budget = < 500 >;
 #if defined(SOFIA_SECURED_VMM_ACCESS)
