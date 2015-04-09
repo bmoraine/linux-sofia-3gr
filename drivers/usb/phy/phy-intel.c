@@ -219,7 +219,6 @@ DECLARE_USB_ENABLE(bvalid)
 DECLARE_USB_ENABLE(vbusvalid)
 DECLARE_USB_ENABLE(sessend)
 DECLARE_USB_ENABLE(commononn)
-DECLARE_USB_ENABLE(srp_clear)
 DECLARE_USB_ENABLE(vdatsrcenb)
 DECLARE_USB_ENABLE(vdatdetenb)
 DECLARE_USB_ENABLE(dcdenb)
@@ -1546,7 +1545,6 @@ static int intel_usb2phy_probe(struct platform_device *pdev)
 	PARSE_USB_ACCESSOR(vbusvalid, false);
 	PARSE_USB_ACCESSOR(sessend, true);
 	PARSE_USB_ACCESSOR(commononn, true);
-	PARSE_USB_ACCESSOR(srp_clear, false);
 	PARSE_USB_ACCESSOR(vdatsrcenb, false);
 	PARSE_USB_ACCESSOR(vdatdetenb, false);
 	PARSE_USB_ACCESSOR(dcdenb, false);
