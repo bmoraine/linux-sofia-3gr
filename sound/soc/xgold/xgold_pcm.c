@@ -618,6 +618,12 @@ static void xgold_pcm_dma_submit(struct xgold_runtime_data *xrtd,
 			DMA_SL_MEM_TO_MEM,
 			DMA_PREP_INTERRUPT);
 
+	if (!desc) {
+		xgold_err("<-- %s, dmaengine_prep_slave_sg returns NULL\n",
+			__func__);
+		return;
+	}
+
 	/* Set the DMA callback */
 	desc->callback = xgold_dsp_pcm_dma_play_handler;
 	desc->callback_param = xrtd;
