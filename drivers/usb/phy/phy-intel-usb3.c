@@ -95,9 +95,8 @@ static const struct intel_usb3_bf scu_dppulldown	= {0x0610UL, BIT(29)};
 static const struct intel_usb3_bf scu_dmpulldown	= {0x0610UL, BIT(28)};
 static const struct intel_usb3_bf scu_freq_sel		= {0x0610UL, BIT(27)};
 static const struct intel_usb3_bf scu_ref_ssp_en	= {0x0610UL, BIT(26)};
-static const struct intel_usb3_bf scu_trace_mux_en	= {0x0610UL, BIT(22)};
-static const struct intel_usb3_bf scu_trace_mux_ep	= {0x0610UL,
-							     GENMASK(21, 18)};
+static const struct intel_usb3_bf scu_trace_mux		= {0x0610UL,
+							     GENMASK(22, 18)};
 static const struct intel_usb3_bf scu_otgdisable	= {0x0610UL, BIT(17)};
 static const struct intel_usb3_bf scu_commononn		= {0x0610UL, BIT(16)};
 static const struct intel_usb3_bf scu_pipe3_pwr_present	= {0x0610UL, BIT(15)};
@@ -106,10 +105,11 @@ static const struct intel_usb3_bf scu_gen_stat_u3pmu	= {0x0610UL, BIT(13)};
 static const struct intel_usb3_bf scu_gen_u2pmu		= {0x0610UL, BIT(12)};
 static const struct intel_usb3_bf scu_gen_u3pmu		= {0x0610UL, BIT(11)};
 static const struct intel_usb3_bf scu_pm_pwr_state_req	= {0x0610UL, BIT(9)};
-static const struct intel_usb3_bf scu_cr_cap_addr	= {0x0610UL, BIT(0)};
-static const struct intel_usb3_bf scu_cr_cap_data	= {0x0610UL, BIT(1)};
-static const struct intel_usb3_bf scu_cr_read		= {0x0610UL, BIT(2)};
+static const struct intel_usb3_bf scu_ssx		= {0x0610UL, BIT(5)};
 static const struct intel_usb3_bf scu_cr_write		= {0x0610UL, BIT(3)};
+static const struct intel_usb3_bf scu_cr_read		= {0x0610UL, BIT(2)};
+static const struct intel_usb3_bf scu_cr_cap_data	= {0x0610UL, BIT(1)};
+static const struct intel_usb3_bf scu_cr_cap_addr	= {0x0610UL, BIT(0)};
 static const struct intel_usb3_bf scu_cr_data_in	= {0x0614UL, 0x0FFFFUL};
 static const struct intel_usb3_bf scu_get_state_u3pmu	= {0x0620UL, BIT(18)};
 static const struct intel_usb3_bf scu_get_state_u2pmu	= {0x0620UL, BIT(17)};
@@ -393,6 +393,12 @@ static int intel_usb3_hw_init(struct intel_usb3 *iusb3)
 	return 0;
 #endif
 
+	/* select LMU TRB registers solution or
+	 * ensure LMU RAM read only for USB core */
+	intel_usb3_hw_bf_write(iusb3, &scu_ssx, 1);
+	/* disable OCT DvC interface */
+	intel_usb3_hw_bf_write(iusb3, &scu_trace_mux, ~0);
+
 	/* set the TRIM values */
 	if (ARRAY_SIZE(scu_usb_ss_trim) != ARRAY_SIZE(iusb3->scu_usb_ss_trim)) {
 		intel_phy_err("invalid parameter");
@@ -497,6 +503,9 @@ static int intel_usb3_hw_powerdown(struct intel_usb3 *iusb3)
 	intel_phy_warn("hw powerdown stubbed");
 	return 0;
 #endif
+
+	/* disable OCT DvC interface */
+	intel_usb3_hw_bf_write(iusb3, &scu_trace_mux, ~0);
 
 	/* enable D- pull-down resistor back */
 	intel_usb3_hw_bf_write(iusb3, &scu_dmpulldown, 1);
@@ -732,10 +741,14 @@ static int intel_usb3_ebc_ext_xfer_run_stop(
 	}
 	if (run) {
 		intel_phy_info("ebc mode for ep%din is active", ep);
+		/* enable TRB write protection */
 		iowrite32(0x33, iusb3->iomem_lmu + INTEL_USB3_LMU_TRB_CONFIG);
-		intel_usb3_hw_bf_write(iusb3, &scu_trace_mux_ep, ep);
+		/* enable OCT DvC interface */
+		intel_usb3_hw_bf_write(iusb3, &scu_trace_mux, ep);
 	} else {
-		intel_usb3_hw_bf_write(iusb3, &scu_trace_mux_ep, ~0);
+		/* disable OCT DvC interface */
+		intel_usb3_hw_bf_write(iusb3, &scu_trace_mux, ~0);
+		/* disable TRB write protection */
 		iowrite32(0x00, iusb3->iomem_lmu + INTEL_USB3_LMU_TRB_CONFIG);
 		intel_phy_info("ebc mode for ep%din is idle", ep);
 	}
