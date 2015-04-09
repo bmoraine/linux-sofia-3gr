@@ -43,10 +43,11 @@ enum afe_hzvumic {
  * Enumeration to set the vumic voltage level.
  */
 enum afe_vmicsel {
-	AFE_VMICSEL_1_9_V = 0,
+	AFE_VMICSEL_1_8_V = 0,
 	AFE_VMICSEL_2_0_V = 1,
 	AFE_VMICSEL_2_1_V = 2,
 	AFE_VMICSEL_2_2_V = 3,
+	AFE_VMICSEL_1_9_V = 0,
 	AFE_VMICSEL_END
 };
 
@@ -55,8 +56,8 @@ enum afe_vmicsel {
  */
 enum afe_micldo_mode {
 	AFE_MICLDO_MODE_OFF = 0,	 /* /< Micldo off*/
-	AFE_MICLDO_MODE_LOW_POWER = 1,	/* /< Micldo in low powermode*/
 	AFE_MICLDO_MODE_NORMAL = 2,	/* /< Micldo in normal mode*/
+	AFE_MICLDO_MODE_LOW_POWER = 1,	/* /< Micldo in low powermode*/
 	AFE_MICLDO_MODE_END	/* /< Indicates end of enum */
 };
 

@@ -64,24 +64,24 @@ struct afe_reg {
 };
 
 static const u8 afe_reg_cache[] = {
-	0x76, /* PLLA_CTRL_1 */
-	0x62, /* PLLA_CTRL_2 */
-	0x6,  /* PLLA_CTRL_3 */
-	0x0,  /* PLLA_STATUS */
-	0x0,  /* PLLA_PWRCRTL_REG */
-	0x0,  /* AFE_POWER1 */
-	0x0,  /* AFE_POWER2 */
-	0x0,  /* AFE_POWER3 */
-	0x0,  /* AFE_POWER_STAT */
-	0x0,  /* AFE_BCON1 */
-	0x1,  /* AFE_BCON2 */
-	0x0,  /* AFE_BCON3 */
-	0x0,  /* AFE_BCON4 */
-	0x0,  /* AFE_AUDOUTCTRL1A_REG */
+	0x0, /* PLLA_CTRL_1 */
+	0x0, /* PLLA_CTRL_2 */
+	0x0, /* PLLA_CTRL_3 */
+	0x0, /* PLLA_STATUS */
+	0x0, /* PLLA_PWRCRTL_REG */
+	0x0, /* AFE_POWER1 */
+	0x0, /* AFE_POWER2 */
+	0x0, /* AFE_POWER3 */
+	0x0, /* AFE_POWER_STAT */
+	0x0, /* AFE_BCON1 */
+	0x1, /* AFE_BCON2 */
+	0x0, /* AFE_BCON3 */
+	0x0, /* AFE_BCON4 */
+	0x0, /* AFE_AUDOUTCTRL1A_REG */
 	0x10, /* AFE_AUDOUTCTRL1B_REG */
 	0x80, /* AFE_AUDOUTCTRL1C_REG */
-	0x0,  /* AFE_AUDOUTCTRL1D_REG */
-	0x0,  /* AFE_AUDOUTCTRL2A_REG */
+	0x0, /* AFE_AUDOUTCTRL1D_REG */
+	0x0, /* AFE_AUDOUTCTRL2A_REG */
 	0x10, /* AFE_AUDOUTCTRL2B_REG */
 	0x08, /* AFE_AUDOUTCTRL2C_REG */
 	0x28, /* AFE_AUDOUTCTRL2D_REG */
@@ -92,7 +92,7 @@ static const u8 afe_reg_cache[] = {
 	0x40, /* AFE_AUDIOINCTRL1_REG */
 	0x00, /* AFE_AUDIOINCTRL2_REG */
 	0x18, /* AFE_AUDIOINCTRL3_REG */
-	0x02, /* AFE_AUDIOINCTRL4_REG */
+	0x03, /* AFE_AUDIOINCTRL4_REG */
 	0x13, /* AFE_GAIN_OUT1_REG */
 	0x13, /* AFE_GAIN_OUT2_REG */
 	0x06, /* AFE_GAIN_OUT3_REG */
@@ -130,24 +130,24 @@ static const u8 afe_reg_cache[] = {
 
 /* FIXME: remove ugly dupplication ASA A0 PMIC becomes deprecated */
 static const u8 afe_reg_cache_a0[] = {
-	0x76, /* PLLA_CTRL_3 */
-	0x62, /* PLLA_CTRL_2 */
-	0x6,  /* PLLA_CTRL_1 */
-	0x0,  /* PLLA_STATUS */
-	0x0,  /* PLLA_PWRCRTL_REG */
-	0x0,  /* AFE_POWER1 */
-	0x0,  /* AFE_POWER2 */
-	0x0,  /* AFE_POWER3 */
-	0x0,  /* AFE_POWER_STAT */
-	0x0,  /* AFE_BCON1 */
-	0x1,  /* AFE_BCON2 */
-	0x0,  /* AFE_BCON3 */
-	0x0,  /* AFE_BCON4 */
-	0x0,  /* AFE_AUDOUTCTRL1A_REG */
+	0x0, /* PLLA_CTRL_3 */
+	0x0, /* PLLA_CTRL_2 */
+	0x0, /* PLLA_CTRL_1 */
+	0x0, /* PLLA_STATUS */
+	0x0, /* PLLA_PWRCRTL_REG */
+	0x0, /* AFE_POWER1 */
+	0x0, /* AFE_POWER2 */
+	0x0, /* AFE_POWER3 */
+	0x0, /* AFE_POWER_STAT */
+	0x0, /* AFE_BCON1 */
+	0x1, /* AFE_BCON2 */
+	0x0, /* AFE_BCON3 */
+	0x0, /* AFE_BCON4 */
+	0x0, /* AFE_AUDOUTCTRL1A_REG */
 	0x10, /* AFE_AUDOUTCTRL1B_REG */
 	0x80, /* AFE_AUDOUTCTRL1C_REG */
-	0x0,  /* AFE_AUDOUTCTRL1D_REG */
-	0x0,  /* AFE_AUDOUTCTRL2A_REG */
+	0x0, /* AFE_AUDOUTCTRL1D_REG */
+	0x0, /* AFE_AUDOUTCTRL2A_REG */
 	0x10, /* AFE_AUDOUTCTRL2B_REG */
 	0x10, /* AFE_AUDOUTCTRL2C_REG */
 	0x45, /* AFE_AUDOUTCTRL2D_REG */
@@ -537,7 +537,7 @@ static int afe_handle_codec_power(struct snd_soc_codec *codec,
 	struct afe_data *afe =
 		(struct afe_data *)snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
-	afe_debug("%s: request_level: %d\n", __func__, request_level);
+	afe_debug("%s:\n", __func__);
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	if (SND_SOC_BIAS_OFF == request_level) {
 		/* Disable AFE Power */
@@ -551,11 +551,10 @@ static int afe_handle_codec_power(struct snd_soc_codec *codec,
 			afe->pm_platdata->pm_state_D0_name);
 
 	}
-	if (ret < 0)
-		afe_err("\n %s: failed to set PM state error %d",
-			__func__, ret);
-	else
-		afe->afe_pow.pm_state_lvl = request_level;
+	if (ret < 0) {
+			afe_err("\n %s: failed to set PM state error %d",
+				__func__, ret);
+	}
 #endif
 
 	udelay(5);
@@ -692,12 +691,9 @@ static inline int afe_reg_write(struct snd_soc_codec *codec,
 	unsigned int final_value = (unsigned int)value;
 	int ret;
 	u32 reg_address = 0;
-	enum snd_soc_bias_level pm_state_lvl;
-	struct afe_data *afe =
-		(struct afe_data *)snd_soc_codec_get_drvdata(codec);
-
-	if (reg >= AFE_REG_END || afe == NULL)
+	if (reg >= AFE_REG_END)
 		return -EIO;
+
 
 #ifdef CONFIG_SND_SOC_AGOLD_ACC_DET_INTERFACE
 	if ((reg == AFE_AUDIOINCTRL3_REG)
@@ -709,12 +705,6 @@ static inline int afe_reg_write(struct snd_soc_codec *codec,
 	}
 #endif
 
-	pm_state_lvl = afe->afe_pow.pm_state_lvl;
-	if (pm_state_lvl == SND_SOC_BIAS_OFF) {
-		afe_debug("Trying to write reg while power domain is off !\n");
-		afe_handle_codec_power(codec, SND_SOC_BIAS_STANDBY);
-	}
-
 	afe_write_register_cache(codec, reg, (u32)final_value);
 	afe_debug("%s : AFE REG OFFSET = %s, value = 0x%0x\n",
 		__func__, afe_reg_name[reg],
@@ -724,9 +714,6 @@ static inline int afe_reg_write(struct snd_soc_codec *codec,
 	ret = vmm_pmic_reg_write(reg_address, (u32)final_value);
 	if (ret < 0)
 		return -EINVAL;
-
-	if (pm_state_lvl == SND_SOC_BIAS_OFF)
-		afe_handle_codec_power(codec, SND_SOC_BIAS_OFF);
 
 	return 0;
 }
@@ -1527,6 +1514,7 @@ static int afe_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+
 static int afe_codec_probe(struct snd_soc_codec *codec)
 {
 	int ret = 0;
@@ -1535,7 +1523,7 @@ static int afe_codec_probe(struct snd_soc_codec *codec)
 	u8 *cache = codec->reg_cache;
 	struct afe_data *afe = NULL;
 
-	afe_debug("---> %s\n", __func__);
+	afe_debug("%s\n", __func__);
 
 	codec->dapm.bias_level = SND_SOC_BIAS_OFF;
 	codec->dapm.idle_bias_off = 1;
@@ -1550,26 +1538,12 @@ static int afe_codec_probe(struct snd_soc_codec *codec)
 		afe->codec = codec;
 		afe_set_private_data(afe);
 	}
-
-	/* Power on AFE before writing into the AFE registers */
-	ret = afe_handle_codec_power(codec, SND_SOC_BIAS_STANDBY);
-	if (0 > ret)
-		return ret;
-
 	for (i = 0; i < AFE_REG_END; i++) {
 		if (i != PLLA_STATUS_REG)
 			snd_soc_write(codec, i, (unsigned int)cache[i]);
 		else
 			continue;
 	}
-
-	snd_soc_write(codec, AFE_PLLA_PWRCRTL_REG, 0x3);
-	/* Wait for 100us for the output clock to stabilize */
-	udelay(100);
-	val = snd_soc_read(codec, AFE_PLLA_STATUS_REG);
-	if (!(val & 0x1))
-		afe_err("\n %s: failed to set lock PLL", __func__);
-
 	/* Trigger the AFE_AUDIOINCTRL register bit updates
 	required for accessory detection */
 	val = snd_soc_read(codec, AFE_AUDIOINCTRL1_REG);
@@ -1578,12 +1552,6 @@ static int afe_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_write(codec, AFE_AUDIOINCTRL3_REG, val);
 	val = snd_soc_read(codec, AFE_AUDIOINCTRL4_REG);
 	snd_soc_write(codec, AFE_AUDIOINCTRL4_REG, val);
-
-
-	/* Power off AFE again */
-	ret = afe_handle_codec_power(codec, SND_SOC_BIAS_OFF);
-
-	afe_debug("<--- %s\n", __func__);
 	return ret;
 }
 
@@ -1729,18 +1697,12 @@ static int afe_remove(struct snd_soc_codec *codec)
 static int afe_suspend(struct snd_soc_codec *codec)
 {
 	afe_debug("%s\n", __func__);
-
-	/* FIXME */
-
 	return afe_set_bias(codec, SND_SOC_BIAS_OFF);
 }
 
 static int afe_resume(struct snd_soc_codec *codec)
 {
 	afe_debug("%s\n", __func__);
-
-	/* FIXME */
-
 	return 0;
 }
 
