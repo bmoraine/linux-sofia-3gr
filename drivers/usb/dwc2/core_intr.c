@@ -334,7 +334,6 @@ static void dwc2_handle_session_req_intr(struct dwc2_hsotg *hsotg)
  */
 static void dwc2_handle_wakeup_detected_intr(struct dwc2_hsotg *hsotg)
 {
-	int ret;
 	dev_dbg(hsotg->dev, "++Resume or Remote Wakeup Detected Interrupt++\n");
 	dev_dbg(hsotg->dev, "%s lxstate = %d\n", __func__, hsotg->lx_state);
 
@@ -346,11 +345,6 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2_hsotg *hsotg)
 			/* Clear Remote Wakeup Signaling */
 			dctl &= ~DCTL_RMTWKUPSIG;
 			writel(dctl, hsotg->regs + DCTL);
-			ret = dwc2_exit_hibernation(hsotg, true);
-			if (ret)
-				dev_err(hsotg->dev, "exit hibernation failed\n");
-
-			call_gadget(hsotg, resume);
 		}
 		/* Change to L0 state */
 		hsotg->lx_state = DWC2_L0;
@@ -383,8 +377,6 @@ static void dwc2_handle_disconnect_intr(struct dwc2_hsotg *hsotg)
 		dwc2_is_host_mode(hsotg) ? "Host" : "Device",
 		dwc2_op_state_str(hsotg));
 
-	dwc2_hcd_disconnect(hsotg);
-
 	/* Change to L3 (OFF) state */
 	hsotg->lx_state = DWC2_L3;
 
@@ -402,7 +394,6 @@ static void dwc2_handle_disconnect_intr(struct dwc2_hsotg *hsotg)
 static void dwc2_handle_usb_suspend_intr(struct dwc2_hsotg *hsotg)
 {
 	u32 dsts;
-	int ret;
 
 	dev_dbg(hsotg->dev, "USB SUSPEND\n");
 
@@ -417,42 +408,10 @@ static void dwc2_handle_usb_suspend_intr(struct dwc2_hsotg *hsotg)
 			"DSTS.Suspend Status=%d HWCFG4.Power Optimize=%d\n",
 			!!(dsts & DSTS_SUSPSTS),
 			hsotg->hw_params.power_optimized);
-		if ((dsts & DSTS_SUSPSTS) && hsotg->hw_params.power_optimized) {
-			/* Ignore suspend request before enumeration */
-			if (!hsotg->connected) {
-				dev_dbg(hsotg->dev,
-						"ignore suspend request before enumeration\n");
-				goto clear_int;
-			}
-
-			ret = dwc2_enter_hibernation(hsotg);
-			if (ret) {
-				dev_err(hsotg->dev,
-					"enter hibernation failed\n");
-				goto skip_power_saving;
-			}
-
-			udelay(100);
-
-			/* Ask phy to be suspended */
-			if (!IS_ERR_OR_NULL(hsotg->uphy))
-				usb_phy_set_suspend(hsotg->uphy, true);
-skip_power_saving:
-			/*
-			 * Change to L2 (suspend) state before releasing
-			 * spinlock
-			 */
-			hsotg->lx_state = DWC2_L2;
-
-			/* Call gadget suspend callback */
-			call_gadget(hsotg, suspend);
-		}
 	} else {
 		if (hsotg->op_state == OTG_STATE_A_PERIPHERAL) {
 			dev_dbg(hsotg->dev, "a_peripheral->a_host\n");
 
-			/* Change to L2 (suspend) state */
-			hsotg->lx_state = DWC2_L2;
 			/* Clear the a_peripheral flag, back to a_host */
 			spin_unlock(&hsotg->lock);
 			dwc2_hcd_start(hsotg);
@@ -461,7 +420,9 @@ skip_power_saving:
 		}
 	}
 
-clear_int:
+	/* Change to L2 (suspend) state */
+	hsotg->lx_state = DWC2_L2;
+
 	/* Clear interrupt */
 	writel(GINTSTS_USBSUSP, hsotg->regs + GINTSTS);
 }
@@ -515,12 +476,12 @@ irqreturn_t dwc2_handle_common_intr(int irq, void *dev)
 	u32 gintsts;
 	irqreturn_t retval = IRQ_NONE;
 
+	spin_lock(&hsotg->lock);
+
 	if (!dwc2_is_controller_alive(hsotg)) {
 		dev_warn(hsotg->dev, "Controller is dead\n");
 		goto out;
 	}
-
-	spin_lock(&hsotg->lock);
 
 	gintsts = dwc2_read_common_intr(hsotg);
 	if (gintsts & ~GINTSTS_PRTINT)
@@ -554,8 +515,8 @@ irqreturn_t dwc2_handle_common_intr(int irq, void *dev)
 		}
 	}
 
-	spin_unlock(&hsotg->lock);
 out:
+	spin_unlock(&hsotg->lock);
 	return retval;
 }
 EXPORT_SYMBOL_GPL(dwc2_handle_common_intr);

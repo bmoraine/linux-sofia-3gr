@@ -47,7 +47,6 @@
 
 #include "core.h"
 #include "hcd.h"
-#include "debug.h"
 
 static const char dwc2_driver_name[] = "dwc2";
 
@@ -77,7 +76,6 @@ static const struct dwc2_core_params params_bcm2835 = {
 	.reload_ctl			= 0,
 	.ahbcfg				= 0x10,
 	.uframe_sched			= 0,
-	.external_id_pin_ctl		= -1,
 };
 
 static const struct dwc2_core_params params_rk3066 = {
@@ -106,7 +104,6 @@ static const struct dwc2_core_params params_rk3066 = {
 	.reload_ctl			= -1,
 	.ahbcfg				= 0x7, /* INCR16 */
 	.uframe_sched			= -1,
-	.external_id_pin_ctl		= -1,
 };
 
 /**
@@ -124,8 +121,10 @@ static int dwc2_driver_remove(struct platform_device *dev)
 {
 	struct dwc2_hsotg *hsotg = platform_get_drvdata(dev);
 
-	dwc2_hcd_remove(hsotg);
-	s3c_hsotg_remove(hsotg);
+	if (hsotg->hcd_enabled)
+		dwc2_hcd_remove(hsotg);
+	if (hsotg->gadget_enabled)
+		s3c_hsotg_remove(hsotg);
 
 	return 0;
 }
@@ -153,39 +152,19 @@ MODULE_DEVICE_TABLE(of, dwc2_of_match_table);
  */
 static int dwc2_driver_probe(struct platform_device *dev)
 {
-	struct device_node *np = dev->dev.of_node;
+	const struct of_device_id *match;
 	const struct dwc2_core_params *params;
 	struct dwc2_core_params defparams;
-	const struct of_device_id *match;
 	struct dwc2_hsotg *hsotg;
 	struct resource *res;
 	struct phy *phy;
 	struct usb_phy *uphy;
 	int retval;
 	int irq;
-	int len;
 
 	match = of_match_device(dwc2_of_match_table, &dev->dev);
 	if (match && match->data) {
 		params = match->data;
-	} else if (of_find_property(np, "dwc2_params", &len)) {
-		/* Try to get params from device tree */
-		int i = 0;
-		params = devm_kzalloc(&dev->dev,
-				sizeof(struct dwc2_core_params), GFP_KERNEL);
-		len /= sizeof(u32);
-		if (of_property_read_u32_array(np, "dwc2_params",
-					(u32 *) params, len)) {
-			dev_err(&dev->dev,
-				"can't get dwc2 params from device tree\n");
-			return -EINVAL;
-		}
-		/* Dump all paramters */
-		while (i < len) {
-			dev_dbg(&dev->dev, "dwc_params[%d] = %d\n",
-					i, ((int *) params)[i]);
-			i++;
-		}
 	} else {
 		/* Default all params to autodetect */
 		dwc2_set_all_params(&defparams, -1);
@@ -257,16 +236,25 @@ static int dwc2_driver_probe(struct platform_device *dev)
 
 	spin_lock_init(&hsotg->lock);
 	mutex_init(&hsotg->init_mutex);
-	retval = dwc2_gadget_init(hsotg, irq);
-	if (retval)
-		return retval;
-	retval = dwc2_hcd_init(hsotg, irq, params);
-	if (retval)
-		return retval;
+
+	if (hsotg->dr_mode != USB_DR_MODE_HOST) {
+		retval = dwc2_gadget_init(hsotg, irq);
+		if (retval)
+			return retval;
+		hsotg->gadget_enabled = 1;
+	}
+
+	if (hsotg->dr_mode != USB_DR_MODE_PERIPHERAL) {
+		retval = dwc2_hcd_init(hsotg, irq, params);
+		if (retval) {
+			if (hsotg->gadget_enabled)
+				s3c_hsotg_remove(hsotg);
+			return retval;
+		}
+		hsotg->hcd_enabled = 1;
+	}
 
 	platform_set_drvdata(dev, hsotg);
-
-	dwc2_debugfs_init(hsotg);
 
 	return retval;
 }

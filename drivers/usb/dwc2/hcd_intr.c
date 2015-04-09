@@ -350,9 +350,6 @@ static void dwc2_port_intr(struct dwc2_hsotg *hsotg)
 		dev_vdbg(hsotg->dev,
 			 "--Port Interrupt HPRT0=0x%08x Port Connect Detected--\n",
 			 hprt0);
-		if (hsotg->lx_state != DWC2_L0)
-			usb_hcd_resume_root_hub(hsotg->priv);
-
 		hsotg->flags.b.port_connect_status_change = 1;
 		hsotg->flags.b.port_connect_status = 1;
 		hprt0_modify |= HPRT0_CONNDET;
@@ -467,8 +464,6 @@ static int dwc2_update_urb_state(struct dwc2_hsotg *hsotg,
 
 	/* Non DWORD-aligned buffer case handling */
 	if (chan->align_buf && xfer_length && chan->ep_is_in) {
-		dma_unmap_single(hsotg->dev, chan->qh->dw_align_buf_dma,
-				chan->qh->dw_align_buf_size, DMA_FROM_DEVICE);
 		dev_vdbg(hsotg->dev, "%s(): non-aligned buffer\n", __func__);
 		memcpy(urb->buf + urb->actual_length, chan->qh->dw_align_buf,
 		       xfer_length);
@@ -561,8 +556,6 @@ static enum dwc2_halt_status dwc2_update_isoc_urb_state(
 		    chan->ep_is_in) {
 			dev_vdbg(hsotg->dev, "%s(): non-aligned buffer\n",
 				 __func__);
-			dma_unmap_single(hsotg->dev, chan->qh->dw_align_buf_dma,
-				chan->qh->dw_align_buf_size, DMA_FROM_DEVICE);
 			memcpy(urb->buf + frame_desc->offset +
 			       qtd->isoc_split_offset, chan->qh->dw_align_buf,
 			       frame_desc->actual_length);
@@ -592,8 +585,6 @@ static enum dwc2_halt_status dwc2_update_isoc_urb_state(
 		    chan->ep_is_in) {
 			dev_vdbg(hsotg->dev, "%s(): non-aligned buffer\n",
 				 __func__);
-			dma_unmap_single(hsotg->dev, chan->qh->dw_align_buf_dma,
-				chan->qh->dw_align_buf_size, DMA_FROM_DEVICE);
 			memcpy(urb->buf + frame_desc->offset +
 			       qtd->isoc_split_offset, chan->qh->dw_align_buf,
 			       frame_desc->actual_length);
@@ -932,8 +923,6 @@ static int dwc2_xfercomp_isoc_split_in(struct dwc2_hsotg *hsotg,
 
 	if (chan->align_buf) {
 		dev_vdbg(hsotg->dev, "%s(): non-aligned buffer\n", __func__);
-		dma_unmap_single(hsotg->dev, chan->qh->dw_align_buf_dma,
-				chan->qh->dw_align_buf_size, DMA_FROM_DEVICE);
 		memcpy(qtd->urb->buf + frame_desc->offset +
 		       qtd->isoc_split_offset, chan->qh->dw_align_buf, len);
 	}
@@ -1163,8 +1152,6 @@ static void dwc2_update_urb_state_abn(struct dwc2_hsotg *hsotg,
 	/* Non DWORD-aligned buffer case handling */
 	if (chan->align_buf && xfer_length && chan->ep_is_in) {
 		dev_vdbg(hsotg->dev, "%s(): non-aligned buffer\n", __func__);
-		dma_unmap_single(hsotg->dev, chan->qh->dw_align_buf_dma,
-				chan->qh->dw_align_buf_size, DMA_FROM_DEVICE);
 		memcpy(urb->buf + urb->actual_length, chan->qh->dw_align_buf,
 		       xfer_length);
 	}
