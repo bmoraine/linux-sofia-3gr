@@ -640,11 +640,6 @@ static int meas_pmic_get_meas(enum adc_channel channel,
 				average_sample, true);
 	/* Clear active channel */
 	meas_pmic_state.active_channel = ADC_MAX_NO_OF_CHANNELS;
-
-	/* Check for ADC saturation */
-	if (*p_result_uv > MEAS_PMIC_ADC_SATURATION_LEVEL_UV)
-		return -ERANGE;
-
 	return 0;
 }
 
