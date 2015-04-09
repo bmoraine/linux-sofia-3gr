@@ -64,6 +64,8 @@
 #define PROP_DISPLAY_CMDDELAY   "intel,cmd-delay"
 #define PROP_DISPLAY_CMDLP      "intel,cmd-lp"
 
+#define PORCH_SYNC_MAX 0xFF
+
 static struct of_device_id display_of_match[] = {
 	{ .compatible = PROP_DISPLAY, },
 	{ },
@@ -303,13 +305,52 @@ dsi_of_parse_display_timing(struct xgold_mipi_dsi_device *mipi_dsi)
 
 	display->dif.dsi.hfp = PIXELS_TO_BYTES(screen->mode.right_margin,
 					       display->bpp);
+	if (display->dif.dsi.hfp > PORCH_SYNC_MAX) {
+		pr_info("%s: Warning! HFP = %d, MAX HFP is %d\n", __func__,
+			screen->mode.right_margin,
+			BYTES_TO_PIXELS(PORCH_SYNC_MAX, display->bpp));
+		display->dif.dsi.hfp = PORCH_SYNC_MAX;
+	}
+
 	display->dif.dsi.hbp = PIXELS_TO_BYTES(screen->mode.left_margin,
 					       display->bpp);
+	if (display->dif.dsi.hbp > PORCH_SYNC_MAX) {
+		pr_info("%s: Warning! HBP = %d, MAX HBP is %d\n", __func__,
+			screen->mode.left_margin,
+			BYTES_TO_PIXELS(PORCH_SYNC_MAX, display->bpp));
+		display->dif.dsi.hbp = PORCH_SYNC_MAX;
+	}
+
 	display->dif.dsi.hsa = PIXELS_TO_BYTES(screen->mode.hsync_len,
 					       display->bpp);
+	if (display->dif.dsi.hsa > PORCH_SYNC_MAX) {
+		pr_info("%s: Warning! HSA = %d, MAX HSA is %d\n", __func__,
+			screen->mode.hsync_len,
+			BYTES_TO_PIXELS(PORCH_SYNC_MAX, display->bpp));
+		display->dif.dsi.hsa = PORCH_SYNC_MAX;
+	}
+
 	display->dif.dsi.vfp = screen->mode.lower_margin;
+	if (display->dif.dsi.vfp > PORCH_SYNC_MAX) {
+		pr_info("%s: Warning! VFP = %d, MAX VFP is %d\n", __func__,
+			screen->mode.lower_margin, PORCH_SYNC_MAX);
+		display->dif.dsi.vfp = PORCH_SYNC_MAX;
+	}
+
 	display->dif.dsi.vbp = screen->mode.upper_margin;
+	if (display->dif.dsi.vbp > PORCH_SYNC_MAX) {
+		pr_info("%s: Warning! VBP = %d, MAX VBP is %d\n", __func__,
+			screen->mode.upper_margin, PORCH_SYNC_MAX);
+		display->dif.dsi.vbp = PORCH_SYNC_MAX;
+	}
+
 	display->dif.dsi.vsa = screen->mode.vsync_len;
+	if (display->dif.dsi.vsa > PORCH_SYNC_MAX) {
+		pr_info("%s: Warning! VSA = %d, MAX VSA is %d\n", __func__,
+			screen->mode.vsync_len, PORCH_SYNC_MAX);
+		display->dif.dsi.vsa = PORCH_SYNC_MAX;
+	}
+
 	display->dif.dsi.hfp_lp = 0;
 	display->dif.dsi.hbp_lp = 0;
 	display->dif.dsi.hsa_lp = 0;
