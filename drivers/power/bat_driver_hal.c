@@ -680,6 +680,7 @@ static void bat_drv_hal_check_battery_status_update(bool new_presence_state)
 	BAT_DRV_HAL_DEBUG_PARAM(BAT_DRV_HAL_DEBUG_CHECK_STATUS_UPDATE,
 				new_presence_state);
 
+	new_presence_state = true;
 	if (new_presence_state) {
 		/* Send an update even if the last detected presence state was
 		fitted.

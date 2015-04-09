@@ -42,6 +42,7 @@ static int dt_add_bprofile(struct device_node *np,
 	size_t strlen = strnlen(prof_name, BATTID_STR_LEN);
 	struct property *pocv;
 	int plen;
+	const char *mname;
 
 	/* Check if the profile was already added before */
 	for (i = 0; i < len; ++i) {
@@ -127,6 +128,15 @@ static int dt_add_bprofile(struct device_node *np,
 	of_property_read_u32_array(np, propname,
 				&bprofile_ptr->cap_to_vbat_ocv[0],
 					BAT_CAP_TO_VBAT_TABLE_SIZE);
+
+	snprintf(propname, ARRAY_SIZE(propname), "prof-%s-model_name",
+						bprofile_ptr->batt_id);
+	if (of_property_read_string(np, propname, &mname)) {
+		pr_err("dt: parsing 'model_name' failed\n");
+		mname = "unknown";
+	}
+	strlen = strnlen(mname, BATTMODEL_STR_LEN);
+	strncpy(bprofile_ptr->model_name, mname, strlen);
 
 	return index;
 }

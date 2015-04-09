@@ -128,6 +128,8 @@ enum charger_debug_event {
 	CHG_DBG_TREG_IS_ON,
 	CHG_DBG_TSD_IS_ON,
 	CHG_DBG_OT_RECOVERY,
+
+	CHG_DBG_SLEEP,
 	CHG_DBG_POOR_INPUT_SRC,
 	CHG_DBG_VBAT_OVP,
 	CHG_DBG_NO_BAT,
@@ -193,6 +195,7 @@ enum charger_debug_event {
  * @param2			General purpose second parameter
  */
 struct charger_debug_data {
+	int		printk_logs_en;
 	spinlock_t      lock;
 	u32             read_index;
 	u32             write_index;

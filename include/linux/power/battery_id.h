@@ -73,6 +73,7 @@ enum bprof_valid_status {
 
 
 #define BATTID_STR_LEN		8
+#define BATTMODEL_STR_LEN	8
 #define BATT_TEMP_NR_RNG	6
 #define BAT_CAP_TO_VBAT_TABLE_SIZE (101)
 /* Charging Profile */
@@ -107,6 +108,8 @@ struct ps_pse_mod_prof {
 	short int min_temp_restart;
 	/* high temperature limit to restart charging, after stopping */
 	short int max_temp_restart;
+	/* battery model name */
+	char model_name[BATTMODEL_STR_LEN];
 } __packed;
 
 /*For notification of power supply events */

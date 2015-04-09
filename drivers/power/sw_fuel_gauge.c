@@ -983,7 +983,8 @@ static void sw_fuel_gauge_tbat_monitor(void)
 
 	tbat_error = iio_read_channel_processed(p_tbat->p_iio_tbat,
 						 &tbat_value);
-
+	tbat_value = 25;
+	tbat_error = IIO_VAL_INT;
 	/* Check for saturation. This is allowed when the phone is powered
 	by a PSU. */
 	if ((-EOVERFLOW == tbat_error) && (BAT_ID_PSU ==
