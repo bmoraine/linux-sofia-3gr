@@ -306,16 +306,7 @@ static void xgold_jack_check(struct xgold_jack *jack)
 
 static irqreturn_t xgold_jack_detection(int irq, void *data)
 {
-	struct xgold_jack *jack = data;
-
-	xgold_debug("%s\n", __func__);
-
 	xgold_jack_check((struct xgold_jack *)data);
-
-	if (jack->flags & XGOLD_JACK_PMIC)
-		xgold_jack_pmic_reg_write(jack->pmic_irq_addr,
-				IRQMULT_REG, IRQMULT_ACCDET1_M);
-
 	return IRQ_HANDLED;
 }
 
@@ -373,12 +364,13 @@ static void xgold_button_check(struct xgold_jack *jack)
 static irqreturn_t xgold_button_detection(int irq, void *data)
 {
 	struct xgold_jack *jack = data;
-
 	xgold_debug("%s\n", __func__);
 
-	if (jack->flags & XGOLD_JACK_PMIC)
-		xgold_jack_pmic_reg_write(jack->pmic_irq_addr,
-				IRQMULT_REG, IRQMULT_ACCDET2_M);
+	if ((jack->hs_jack->status & SND_JACK_HEADSET) != SND_JACK_HEADSET) {
+		/* this interrupt may occurs in case of slow jack insertion */
+		xgold_debug("button detection while no headset\n");
+		return xgold_jack_detection(irq, data);
+	}
 
 	if (jack->buttons_enabled)
 		xgold_button_check(jack);
