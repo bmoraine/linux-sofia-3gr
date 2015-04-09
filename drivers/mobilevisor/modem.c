@@ -39,7 +39,7 @@ struct vmodem_drvdata {
 	struct miscdevice devfile;
 	struct work_struct work;
 	struct workqueue_struct *wq;
-	void __iomem *mex_buffer;
+	struct resource *res;
 };
 
 struct shared_secure_data {
@@ -125,6 +125,7 @@ static ssize_t modem_sys_state_show(struct device *dev,
 */
 static int reload_nvm(struct vmodem_drvdata *p)
 {
+	void * __iomem mex_buffer;
 	mm_segment_t fs = get_fs();
 	struct file *fd;
 	set_fs(get_fs());
@@ -139,8 +140,15 @@ static int reload_nvm(struct vmodem_drvdata *p)
 	}
 	fs = get_fs();
 	set_fs(get_ds());
-	fd->f_op->read(fd, (p->mex_buffer + NVM_ADDR_SHIFT),
+	mex_buffer = ioremap(p->res->start + NVM_ADDR_SHIFT, 0x180000);
+	if (IS_ERR_OR_NULL(mex_buffer)) {
+		dev_err(p->dev, "ioremap failed\n");
+		return -ENOMEM;
+	}
+
+	fd->f_op->read(fd, mex_buffer,
 			0x180000, &(fd->f_pos));
+	iounmap(mex_buffer);
 	set_fs(fs);
 	filp_close(fd, NULL);
 	return 1;
@@ -177,13 +185,22 @@ static ssize_t modem_write(struct file *file, const char __user *buf,
 		size_t nbytes, loff_t *ppos)
 {
 	struct vmodem_drvdata *p = file->private_data;
+	void * __iomem mex_buffer;
+	int ret =  0;
+	mex_buffer = ioremap(p->res->start + *ppos, nbytes);
+	if (IS_ERR_OR_NULL(mex_buffer)) {
+		dev_err(p->dev, "ioremap failed\n");
+		return -ENOMEM;
+	}
 
-	if (copy_from_user(p->mex_buffer + *ppos, buf, nbytes))
-		return -EFAULT;
+	if (copy_from_user(mex_buffer, buf, nbytes))
+		ret = -EFAULT;
 	else {
 		*ppos += nbytes;
-		return nbytes;
+		ret = nbytes;
 	}
+	iounmap(mex_buffer);
+	return ret;
 }
 
 static int modem_open(struct inode *inode, struct file *file)
@@ -204,7 +221,6 @@ int vmodem_probe(struct platform_device *pdev)
 {
 	struct vmodem_drvdata *pdata;
 	struct device *dev = &pdev->dev;
-	struct resource *res;
 	int ret;
 	/* Allocate driver data record */
 	pdata = devm_kzalloc(dev,
@@ -230,16 +246,10 @@ int vmodem_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
+	pdata->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!pdata->res) {
 		dev_err(dev, "could not determine modem address\n");
 		return -EINVAL;
-	}
-
-	pdata->mex_buffer = devm_ioremap_resource(dev, res);
-	if (IS_ERR_OR_NULL(pdata->mex_buffer)) {
-		dev_err(dev, "can't ioremap modem address\n");
-		return -ENOMEM;
 	}
 
 	/*
