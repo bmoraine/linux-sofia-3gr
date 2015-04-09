@@ -306,7 +306,7 @@ static int GetParamValue(char *section, char *ItemName, int defaultvalue)
 	if(ini_get_key(g_testparamstring, section, ItemName, value) < 0) {
 		return paramvalue;
 	} else {
-		paramvalue = atoi(value);
+		paramvalue = my_strtoint(value);
 	}
 
 	return paramvalue;
@@ -443,7 +443,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.RawDataTest_Low_Min_node[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.RawDataTest_Low_Min_node[i][k] = (short)(my_strtoint(str_tmp));
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
 					k++;
@@ -485,7 +485,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.RawDataTest_Low_Max_node[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.RawDataTest_Low_Max_node[i][k] = (short)(my_strtoint(str_tmp));
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
 					k++;
@@ -528,7 +528,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.RawDataTest_High_Min_node[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.RawDataTest_High_Min_node[i][k] = (short)(my_strtoint(str_tmp));
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
 					k++;
@@ -571,7 +571,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.RawDataTest_High_Max_node[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.RawDataTest_High_Max_node[i][k] = (short)(my_strtoint(str_tmp));
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
 					k++;
@@ -617,7 +617,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.SCapCbTest_ON_Max[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.SCapCbTest_ON_Max[i][k] = (short)(my_strtoint(str_tmp));
 					//printk("zax8999  %d\n",g_TestParam_FT5X46.SCapCbTest_ON_Max[i][k] );
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
@@ -662,7 +662,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.SCapCbTest_ON_Min[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.SCapCbTest_ON_Min[i][k] = (short)(my_strtoint(str_tmp));
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
 					k++;
@@ -706,7 +706,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.SCapCbTest_OFF_Max[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.SCapCbTest_OFF_Max[i][k] = (short)(my_strtoint(str_tmp));
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
 					k++;
@@ -750,7 +750,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.SCapCbTest_OFF_Min[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.SCapCbTest_OFF_Min[i][k] = (short)(my_strtoint(str_tmp));
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
 					k++;
@@ -796,7 +796,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.SCapRawDataTest_OFF_Max[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.SCapRawDataTest_OFF_Max[i][k] = (short)(my_strtoint(str_tmp));
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
 					k++;
@@ -841,7 +841,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.SCapRawDataTest_OFF_Min[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.SCapRawDataTest_OFF_Min[i][k] = (short)(my_strtoint(str_tmp));
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
 					k++;
@@ -887,7 +887,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.SCapRawDataTest_ON_Max[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.SCapRawDataTest_ON_Max[i][k] = (short)(my_strtoint(str_tmp));
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
 					k++;
@@ -931,7 +931,7 @@ static void GetTestParam(void)
 			{
 				if(',' == str_value[j]) 
 				{
-					g_TestParam_FT5X46.SCapRawDataTest_ON_Min[i][k] = (short)(atoi(str_tmp));
+					g_TestParam_FT5X46.SCapRawDataTest_ON_Min[i][k] = (short)(my_strtoint(str_tmp));
 					index = 0;
 					memset(str_tmp, 0x00, sizeof(str_tmp));
 					k++;
@@ -1598,7 +1598,7 @@ boolean TestItem_WeakShortTest(void)
 
 	/////////////////////////////////////////////对地数据
 	//::GetPrivateProfileString("BaseSet","Weak_Short_Min","992", str.GetBuffer(MAX_PATH),MAX_PATH,g_strIniFile);
-	//int iMin_CG = atoi(str);
+	//int iMin_CG = my_strtoint(str);
 
 	iDoffset = iOffset - 1024;
 	iDrefn = iClbData_Ground;
@@ -1641,7 +1641,7 @@ boolean TestItem_WeakShortTest(void)
 
 	/////////////////////////////////////////////通道间数据
 	//::GetPrivateProfileString("BaseSet","Weak_Short_Min_CC","992", str.GetBuffer(MAX_PATH),MAX_PATH,g_strIniFile);
-	//int iMin_CC = atoi(str);
+	//int iMin_CC = my_strtoint(str);
 
 	iDoffset = iOffset - 1024;
 	iDrefn = iClbData_Mutual;	

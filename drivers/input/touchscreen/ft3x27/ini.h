@@ -40,8 +40,8 @@ int ini_get_key(char *filedata, char * section, char * key, char * value);
 int ini_get_sections(char *filedata, unsigned char * sections[], int max);
 
 int  ini_split_section(char *section, char **name, char **index);
-int atoi(char *nptr);
 char * ini_str_trim_r(char * buf);
 char * ini_str_trim_l(char * buf);
+int my_strtoint(char *nptr);
 
 #endif

@@ -14,7 +14,6 @@ char * ini_str_trim_r(char * buf);
 char * ini_str_trim_l(char * buf);
 static int ini_file_get_line(char *filedata, char *buffer, int maxlen); 
 static int ini_split_key_value(char *buf, char **key, char **val); 
-static long atol(char *nptr);
 
 
 /*************************************************************
@@ -319,26 +318,6 @@ static int  ini_split_key_value(char *buf, char **key, char **val)
 	return 1; 
 } 
 
-int my_atoi(const char *str)
-{
-	int result = 0;
-	int signal = 1; /* 默认为正数 */
-	if((*str>='0'&&*str<='9')||*str=='-'||*str=='+') {
-		if(*str=='-'||*str=='+') { 
-			if(*str=='-')
-				signal = -1; /*输入负数*/
-			str++;
-		}
-	}
-	else 
-		return 0;
-	/*开始转换*/
-	while(*str>='0' && *str<='9')
-		result = result*10 + (*str++ - '0' );
-
-	return signal*result;
-}
-
 int isspace(int x)  
 {  
 	if(x==' '||x=='\t'||x=='\n'||x=='\f'||x=='\b'||x=='\r')  
@@ -353,50 +332,12 @@ int isdigit(int x)
 		return 1;   
 	else   
 		return 0;  
-} 
-
-static long atol(char *nptr)
-{
-	int c; /* current char */
-	long total; /* current total */
-	int sign; /* if ''-'', then negative, otherwise positive */
-	/* skip whitespace */
-	while ( isspace((int)(unsigned char)*nptr) )
-		++nptr;
-	c = (int)(unsigned char)*nptr++;
-	sign = c; /* save sign indication */
-	if (c == '-' || c == '+')
-		c = (int)(unsigned char)*nptr++; /* skip sign */
-	total = 0;
-	while (isdigit(c)) {
-		total = 10 * total + (c - '0'); /* accumulate digit */
-		c = (int)(unsigned char)*nptr++; /* get next char */
-	}
-	if (sign == '-')
-		return -total;
-	else
-		return total; /* return result, negated if necessary */
-}
-/***
-*int atoi(char *nptr) - Convert string to long
-*
-*Purpose:
-* Converts ASCII string pointed to by nptr to binary.
-* Overflow is not detected. Because of this, we can just use
-* atol().
-*
-*Entry:
-* nptr = ptr to string to convert
-*
-*Exit:
-* return int value of the string
-*
-*Exceptions:
-* None - overflow is not detected.
-*
-*******************************************************************************/
-int atoi(char *nptr)
-{
-	return (int)atol(nptr);
 }
 
+int my_strtoint(char *nptr)
+{
+	int value;
+
+	kstrtoint(nptr, 10, &value);
+	return value;
+}
