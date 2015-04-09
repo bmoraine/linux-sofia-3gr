@@ -3092,7 +3092,11 @@ int dwc2_hcd_init(struct dwc2_hsotg *hsotg, int irq)
 
 	dwc2_hcd_dump_state(hsotg);
 
-	dwc2_enable_global_interrupts(hsotg);
+	/*
+	 * Hardware will be accessible once phy driver
+	 * call hc_driver start callback.
+	 */
+	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
 
 	return 0;
 
