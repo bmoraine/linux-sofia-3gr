@@ -446,7 +446,7 @@ static int dsi_configure_video_mode(struct dsi_display *display,
 	vid3 =	BITFLDS(EXR_DSI_VID3_PIXEL_BYTES, stride)|
 		BITFLDS(EXR_DSI_VID3_PIXEL_PACKETS, 1);
 
-	vid4 =	BITFLDS(EXR_DSI_VID4_BLANK_BYTES, stride)|
+	vid4 =	BITFLDS(EXR_DSI_VID4_BLANK_BYTES, 0)|
 		BITFLDS(EXR_DSI_VID4_BLANK_PACKETS, 0);
 
 	vid5 =	BITFLDS(EXR_DSI_VID5_LINE_TIME, dif->line_time)|
