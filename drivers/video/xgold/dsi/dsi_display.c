@@ -382,8 +382,12 @@ static int dsi_get_bllp(struct dsi_display *display,
 	/* clock cycle duration in ps */
 	unsigned int clk_time = 1000000 / (clk/1000000);
 
-	*bllp_time = ((tlt - slt)*1000) / clk_time;
-	*line_time = tlt*1000 / clk_time;
+	if (display->dif.dsi.video_mode == DSI_BURST)
+		*bllp_time = ((tlt - slt) * 1000) / clk_time;
+	else
+		*bllp_time = 0;
+
+	*line_time = tlt * 1000 / clk_time;
 
 	DSI_DBG2("%d bytes / %d lines\n", bytes, nlines);
 	DSI_DBG2("bits / frame = %d bits\n", bitpframe);
@@ -417,7 +421,7 @@ static int dsi_configure_video_mode(struct dsi_display *display,
 
 	dsi_get_bllp(display,
 		     nlines + dif->vfp + dif->vbp + dif->vsa,
-		     stride + dif->hfp + dif->hbp,
+		     stride + dif->hfp + dif->hbp + dif->hsa,
 		     dif->dc_clk_rate,
 		     display->fps,
 		     dsi_get_rate(display),
