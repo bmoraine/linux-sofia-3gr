@@ -304,6 +304,78 @@ int hm2051_g_vblanking(struct v4l2_subdev *sd, int *val)
 	return 0;
 }
 
+static int hm2051_g_VTS(struct v4l2_subdev *sd, u16 *vts)
+{
+	u16 RegH,RegL;
+	u16 uRdcfgMode;
+	u16 uVTS = 0, uVTS_Thrsh = HM2051_FULL_FRAME_VTS_THRESHOLD;
+	u16 uIntg;
+	struct hm2051_device *dev = to_hm2051_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	int ret=0;
+
+	ret = hm2051_read_reg(client, HM2051_8BIT, HM2051_RDCFG_REG, &uRdcfgMode);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+	uRdcfgMode &= HM2051_RDCFG_MODE_MASK;
+
+	ret = hm2051_read_reg(client, HM2051_8BIT, HM2051_REG_BLANKING_ROW_H, &RegH);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	ret = hm2051_read_reg(client, HM2051_8BIT, HM2051_REG_BLANKING_ROW_L, &RegL);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+
+	if (uRdcfgMode  == RDCFG_MODE_1616_736) uVTS_Thrsh = HM2051_CROP_FRAME_VTS_THRESHOLD;
+
+	uVTS = uVTS_Thrsh += (RegH << 8)  + RegL;
+
+	/* check intergration time */
+	ret = hm2051_read_reg(client, HM2051_8BIT, HM2051_EXPOSURE_H, &RegH);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	ret = hm2051_read_reg(client, HM2051_8BIT, HM2051_EXPOSURE_L, &RegL);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
+	uIntg = (RegH << 8) + RegL;
+	if (uIntg > (uVTS_Thrsh-2)) uVTS = uIntg + 4;
+	*vts = uVTS;
+
+	return 0;
+
+err:
+	pltfrm_camera_module_pr_err(sd,
+		"failed with error (%d)\n", ret);
+	*vts = hm2051_res[dev->fmt_idx].lines_per_frame;
+	return ret;
+}
+
+static int hm2051_g_HTS(struct v4l2_subdev *sd, u16 *hts)
+{
+	struct hm2051_device *dev = to_hm2051_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret=0;
+	u16 Hblank;
+
+	ret = hm2051_read_reg(client, HM2051_8BIT, HM2051_REG_BLANKING_COLUMN, &Hblank);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+	*hts = hm2051_res[dev->fmt_idx].pixels_per_line + 16*Hblank;
+
+	return 0;
+
+err:
+	pltfrm_camera_module_pr_err(sd,
+		"failed with error (%d)\n", ret);
+	*hts = hm2051_res[dev->fmt_idx].pixels_per_line;
+	return ret;
+}
+
 static int hm2051_get_intg_factor(struct i2c_client *client,
 				void *arg,
 				const struct hm2051_resolution *res)
@@ -403,6 +475,9 @@ static int hm2051_get_intg_factor(struct i2c_client *client,
 		__func__, buf->output_width, buf->output_height);
 #else
 
+	u16 vts = res->lines_per_frame;
+	u16 hts = res->pixels_per_line;
+
 	dev->vt_pix_clk_freq_mhz = res->pix_clk_freq;
 	buf->vt_pix_clk_freq_hz = res->pix_clk_freq;
 
@@ -416,8 +491,13 @@ static int hm2051_get_intg_factor(struct i2c_client *client,
 	buf->fine_integration_time_max_margin =
 				HM2051_FINE_INTG_TIME_MAX_MARGIN;
 
-	buf->frame_length_lines = res->lines_per_frame;
-	buf->line_length_pck = res->pixels_per_line;
+	/*VTS*/
+	hm2051_g_VTS(sd, &vts);
+	buf->frame_length_lines = vts;
+
+	/*HTS*/
+	hm2051_g_HTS(sd, &hts);
+	buf->line_length_pck = hts;
 
 	/* get the cropping and output resolution to ISP for this mode. */
 	buf->sensor_output_width = res->width;
@@ -514,19 +594,19 @@ static long __hm2051_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 		vts = (u16) coarse_itg + HM2051_INTEGRATION_TIME_MARGIN;
 
 
-	ret = hm2051_write_reg(client, HM2051_8BIT, HM2051_TIMING_VTS_H,
+	ret = hm2051_write_reg(client, HM2051_8BIT, HM2051_REG_BLANKING_ROW_H,
 		((vts - hm2051_res[dev->fmt_idx].height) & 0xFF00) >> 8);
 	if (ret) {
 		dev_err(&client->dev, "%s: write %x error, aborted\n",
-			__func__, HM2051_TIMING_VTS_H);
+			__func__, HM2051_REG_BLANKING_ROW_H);
 		return ret;
 	}
 
-	ret = hm2051_write_reg(client, HM2051_8BIT, HM2051_TIMING_VTS_L,
+	ret = hm2051_write_reg(client, HM2051_8BIT, HM2051_REG_BLANKING_ROW_L,
 		(vts - hm2051_res[dev->fmt_idx].height) & 0x00FF);
 	if (ret) {
 		dev_err(&client->dev, "%s: write %x error, aborted\n",
-			__func__, HM2051_TIMING_VTS_L);
+			__func__, HM2051_REG_BLANKING_ROW_L);
 		return ret;
 	}
 
@@ -1298,17 +1378,48 @@ static int hm2051_s_stream(struct v4l2_subdev *sd, int enable)
   #if ULPM_PROCEDURE
 	ret = hm2051_write_reg_array(client, enable ?
 			hm2051_stream_on : hm2051_stream_off);
-	if (enable == 0)
-		msleep(133);
-
-  #else
+#else
 	ret = hm2051_write_reg(client, HM2051_8BIT, HM2051_SW_STREAM,
 				enable ? HM2051_START_STREAMING :
 				HM2051_STOP_STREAMING);
-  #endif
+#endif
+	if (enable == 0)
+	{
+		int pclk;
+		int wait_ms = 0;
+		u16 vts = hm2051_res[dev->fmt_idx].lines_per_frame;
+		u16 hts = hm2051_res[dev->fmt_idx].pixels_per_line;
+
+		pclk = hm2051_res[dev->fmt_idx].pix_clk_freq / 1000;
+
+		if (!pclk)
+			goto err;
+
+		ret = hm2051_g_VTS(sd, &vts);
+		if (IS_ERR_VALUE(ret))
+			goto err;
+
+		ret = hm2051_g_HTS(sd, &hts);
+		if (IS_ERR_VALUE(ret))
+			goto err;
+
+		wait_ms = (hts * vts) / pclk;
+		dev_info(&client->dev, "stream off wait%d=%d*%d/%d\n", wait_ms, hts, vts, pclk);
+
+		/* wait for a frame period to make sure that there is
+			no pending frame left. */
+
+		msleep(wait_ms + 1);
+	}
+
 	mutex_unlock(&dev->input_lock);
 
 	return ret;
+  err:
+	msleep(133);
+	mutex_unlock(&dev->input_lock);
+
+	return 0;
 }
 
 /* hm2051 enum frame size, frame intervals */

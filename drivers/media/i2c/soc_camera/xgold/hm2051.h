@@ -101,8 +101,9 @@
 /*#define HM2051_HORIZONTAL_OUTPUT_SIZE	0x034c */
 /*#define HM2051_VERTICAL_OUTPUT_SIZE		0x034e */
 
-#define HM2051_TIMING_VTS_H				0x0010
-#define HM2051_TIMING_VTS_L				0x0011
+#define HM2051_REG_BLANKING_ROW_H				0x0010
+#define HM2051_REG_BLANKING_ROW_L				0x0011
+#define HM2051_REG_BLANKING_COLUMN				0x0013
 
 /*#define HM2051_DIGITAL_GAIN_GR		0x020e */
 /*#define HM2051_DIGITAL_GAIN_R			0x020e */
@@ -111,6 +112,19 @@
 
 #define HM2051_START_STREAMING			0x03
 #define HM2051_STOP_STREAMING		    0x02
+
+#define HM2051_RDCFG_REG      0x0006
+#define hm2051_IMAGE_ORIENTATION_REG HM2051_RDCFG_REG
+#define HM2051_RDCFG_MODE_MASK 0x0C
+
+enum hm2051_rdcfg_mode {
+	RDCFG_MODE_1616_1216  = 0,
+	RDCFG_MODE_1616_736  = 4,
+	RDCFG_MODE_UNKNOW = 99
+};
+
+#define HM2051_FULL_FRAME_VTS_THRESHOLD 1264
+#define HM2051_CROP_FRAME_VTS_THRESHOLD 784
 
 struct regval_list {
 	u16 reg_num;
@@ -219,7 +233,6 @@ static struct hm2051_reg const hm2051_stream_on[] = {
 
 static struct hm2051_reg const hm2051_stream_off[] = {
 	{HM2051_8BIT, 0x0005, 0x02},	/*Turn off rolling shutter*/
-	{HM2051_TOK_DELAY, 0 , 150},
 	{HM2051_TOK_TERM, 0, 0}
 };
 
