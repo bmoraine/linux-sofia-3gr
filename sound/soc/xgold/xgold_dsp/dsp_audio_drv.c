@@ -37,6 +37,7 @@
 #include "dsp_audio_platform.h"
 #include "dsp_audio_driverif.h"
 #include "aud_lib_dsp_internal.h"
+#include "dsp_audio_internal.h"
 
 
 #define MAX_DSP_CMD_LEN_BYTES		0x70
@@ -1864,6 +1865,23 @@ int dsp_stop_audio_hwafe(void)
 }
 EXPORT_SYMBOL(dsp_stop_audio_hwafe);
 
+static void send_idle_cmd(enum dsp_id id)
+{
+	struct dsp_audio_device *dsp_dev = NULL;
+	xgold_debug("-->%s\n", __func__);
+
+	list_for_each_entry(dsp_dev, &list_dsp, node) {
+		if (id == dsp_dev->id) {
+			dsp_add_audio_msg_2_dsp(dsp_dev,
+					DSP_AUDIO_CMD_IDLE,
+					DSP_AUDIO_CMD_ID_LEN,
+					NULL);
+			break;
+		}
+	}
+	xgold_debug("<-- %s\n", __func__);
+}
+
 #define OFFSET_SM_BOOT_DATA		OFFSET_SM_CUSTOMER_INTERFACE_VERSION
 #define OFFSET_SM_MCU_CMD_0             4
 
@@ -1927,6 +1945,12 @@ static int dsp_audio_resume(struct device *dev)
 		if (ret < 0)
 			xgold_err("%s: Boot Failed with error %d\n",
 				__func__, ret);
+
+		/* Send IDLE command to initialize FW properly */
+		/* TODO: During first boot, IDLE is sent from userspace.
+		   Send IDLE from kernel during probe */
+		if (ret == 0)
+			send_idle_cmd(dsp_dev->id);
 
 		/* Suspend DSP to Memory retention mode after dsp boot*/
 		ret = device_state_pm_set_state_by_name(dev,
