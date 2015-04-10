@@ -95,6 +95,8 @@ struct mvpipe_ring {
 inline uint32_t get_write_buf_size(struct mvpipe_ring *r)
 {
 	uint32_t reader_index = r->reader_index;
+	if (reader_index == r->size)
+		reader_index = 0;
 	if (r->writer_index < reader_index)
 		return reader_index - r->writer_index - 1;
 
@@ -104,6 +106,8 @@ inline uint32_t get_write_buf_size(struct mvpipe_ring *r)
 inline uint32_t get_read_buf_size(struct mvpipe_ring *r)
 {
 	uint32_t writer_index = r->writer_index;
+	if (writer_index == r->size)
+		writer_index = 0;
 	if (r->reader_index <= writer_index)
 		return writer_index - r->reader_index;
 
