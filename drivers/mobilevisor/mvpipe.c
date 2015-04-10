@@ -248,6 +248,7 @@ wait_was_interrupted:
 
 int mvpipe_dev_release(struct inode *inode, struct file *filp)
 {
+	uint32_t time;
 	int ret = 0;
 	struct mvpipe_instance *dev = filp->private_data;
 	mvpipe_info("Release mvpipe: %s\n", dev->dev_name);
@@ -280,9 +281,14 @@ int mvpipe_dev_release(struct inode *inode, struct file *filp)
 		mv_ipc_mbox_post(dev->token, dev->pipe_event);
 
 	/* wait until peer status is not OPEN */
-	wait_event_interruptible(dev->close_wait,
+	time = wait_event_timeout(dev->close_wait,
 			   get_peer_status(dev) != MVPIPE_OPEN ||
-			   dev->mbox_status != MBOX_CONNECTED);
+			   dev->mbox_status != MBOX_CONNECTED,
+			   msecs_to_jiffies(1000));
+	if (!time)
+		WARN(1, "mvpipe close timeout elapsed\n");
+
+	pr_debug("Close in %d ms\n", jiffies_to_msecs(time));
 
 	/* set status, and inform peer */
 	set_pipe_status(dev, MVPIPE_CLOSE);
