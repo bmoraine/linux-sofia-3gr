@@ -280,12 +280,9 @@ int mvpipe_dev_release(struct inode *inode, struct file *filp)
 		mv_ipc_mbox_post(dev->token, dev->pipe_event);
 
 	/* wait until peer status is not OPEN */
-	if (wait_event_interruptible(dev->close_wait,
-				 get_peer_status(dev) != MVPIPE_OPEN ||
-				 dev->mbox_status != MBOX_CONNECTED)) {
-		ret = -ERESTARTSYS;
-		goto wait_was_interrupted;
-	}
+	wait_event_interruptible(dev->close_wait,
+			   get_peer_status(dev) != MVPIPE_OPEN ||
+			   dev->mbox_status != MBOX_CONNECTED);
 
 	/* set status, and inform peer */
 	set_pipe_status(dev, MVPIPE_CLOSE);
@@ -293,7 +290,6 @@ int mvpipe_dev_release(struct inode *inode, struct file *filp)
 
 	mvpipe_info("Release mvpipe successful!\n");
 
-wait_was_interrupted:
 	up(&dev->open_sem);
 	return ret;
 }
