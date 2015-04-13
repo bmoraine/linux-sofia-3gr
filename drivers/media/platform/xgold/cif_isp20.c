@@ -1948,7 +1948,6 @@ static int cif_isp20_config_mipi(
 	cif_iowrite32(~0,
 		dev->config.base_addr + CIF_MIPI_ICR);
 	cif_iowrite32(
-		CIF_MIPI_FRAME_END |
 		CIF_MIPI_ERR_CSI |
 		CIF_MIPI_ERR_DPHY |
 		CIF_MIPI_SYNC_FIFO_OVFLW(3) |
@@ -5557,9 +5556,6 @@ static void marvin_hw_restart(struct cif_isp20_device *dev)
 	cif_iowrite32(0x00000841, dev->config.base_addr + CIF_IRCL);
 	cif_iowrite32(0x0, dev->config.base_addr + CIF_IRCL);
 
-	/* enable mipi frame end interrupt*/
-	cif_iowrite32(CIF_MIPI_FRAME_END,
-		      dev->config.base_addr + CIF_MIPI_IMSC);
 	/* enable csi protocol errors interrupts*/
 	cif_iowrite32OR(CIF_MIPI_ERR_CSI,
 			dev->config.base_addr + CIF_MIPI_IMSC);
@@ -5619,6 +5615,9 @@ int marvin_mipi_isr(void *cntxt)
 		cif_ioread32(dev->config.base_addr + CIF_MIPI_IMSC));
 
 	if (mipi_mis & CIF_MIPI_ERR_DPHY) {
+		unsigned int mipi_ris =
+			cif_ioread32(dev->config.base_addr +
+						CIF_MIPI_RIS);
 		/* clear_mipi_dphy_error*/
 		cif_iowrite32(CIF_MIPI_ERR_DPHY,
 			      dev->config.base_addr + CIF_MIPI_ICR);
@@ -5634,14 +5633,15 @@ int marvin_mipi_isr(void *cntxt)
 			    mask & (mipi_mis & CIF_MIPI_ERR_DPHY)) {
 				marvin_hw_errors[i].count++;
 				cif_isp20_pltfrm_pr_err(dev->dev,
-					"CIF_MIPI_ERR_DPHY 0x%x\n",
-					cif_ioread32(dev->config.base_addr +
-						CIF_MIPI_RIS));
+					"CIF_MIPI_ERR_DPHY 0x%x\n", mipi_ris);
 				break;
 			}
 		}
 	}
 	if (mipi_mis & CIF_MIPI_ERR_CSI) {
+		unsigned int mipi_ris =
+			cif_ioread32(dev->config.base_addr +
+						CIF_MIPI_RIS);
 		/*clear_mipi_csi_error*/
 		cif_iowrite32(CIF_MIPI_ERR_CSI,
 			      dev->config.base_addr + CIF_MIPI_ICR);
@@ -5657,9 +5657,7 @@ int marvin_mipi_isr(void *cntxt)
 			    mask & (mipi_mis & CIF_MIPI_ERR_CSI)) {
 				marvin_hw_errors[i].count++;
 				cif_isp20_pltfrm_pr_err(dev->dev,
-					"CIF_MIPI_ERR_CSI 0x%x\n",
-					cif_ioread32(dev->config.base_addr +
-						CIF_MIPI_RIS));
+					"CIF_MIPI_ERR_CSI 0x%x\n", mipi_ris);
 				break;
 			}
 		}
@@ -5720,11 +5718,6 @@ int marvin_mipi_isr(void *cntxt)
 				break;
 			}
 		}
-	}
-
-	if (mipi_mis & CIF_MIPI_FRAME_END) {
-		cif_iowrite32(CIF_MIPI_FRAME_END,
-			      dev->config.base_addr + CIF_MIPI_ICR);
 	}
 
 	return 0;
