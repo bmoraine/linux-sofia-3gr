@@ -24,6 +24,7 @@
 #include <linux/device_state_pm.h>
 #endif
 #include <linux/delay.h>
+#include <linux/regmap.h>
 #include <linux/string.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
@@ -699,114 +700,61 @@ int pltfrm_camera_module_write_reg(
 
 /* ======================================================================== */
 
-
 int pltfrm_camera_module_write_reglist(
 	struct v4l2_subdev *sd,
 	const struct pltfrm_camera_module_reg reglist[],
 	int len)
 {
+	static const struct regmap_config regmap_config = {
+		.reg_bits = 16,
+		.val_bits = 8,
+		.max_register = 0xffff,
+		.cache_type = REGCACHE_RBTREE,
+		.use_single_rw = 0,
+	};
+	struct regmap *regmap;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret = 0;
-	unsigned int k = 0, j = 0;
-	int i = 0;
-	struct i2c_msg *msg;
-	unsigned char *data;
-	unsigned int max_entries = len;
+	int i, r = 0;
+	regmap = regmap_init_i2c(client, &regmap_config);
+	if (IS_ERR(regmap))
+		return PTR_ERR(regmap);
 
-	msg = kmalloc((sizeof(struct i2c_msg) * I2C_MSG_MAX),
-				      GFP_KERNEL);
-	if (NULL == msg)
-		return -ENOMEM;
-	data = kmalloc((sizeof(unsigned char) * I2C_DATA_MAX),
-				     GFP_KERNEL);
-	if (NULL == data) {
-		kfree(msg);
-		return -ENOMEM;
-	}
-
-	for (i = 0; i < max_entries; i++) {
+	regcache_cache_only(regmap, true);
+	regcache_cache_bypass(regmap, false);
+	for (i = 0; i < len; i++) {
 		switch (reglist[i].flag) {
 		case PLTFRM_CAMERA_MODULE_REG_TYPE_DATA:
-			(msg + j)->addr = client->addr;
-			(msg + j)->flags = I2C_M_WR;
-			(msg + j)->len = 3;
-			(msg + j)->buf = (data + k);
+			r = regcache_sync(regmap);
+			if (r < 0)
+				break;
+			regcache_cache_only(regmap, false);
+			regcache_cache_bypass(regmap, true);
+			r = regmap_write(regmap, reglist[i].reg & 0xffff,
+					 reglist[i].val & 0xff);
 
-			data[k + 0] = (u8) ((reglist[i].reg & 0xFF00) >> 8);
-			data[k + 1] = (u8) (reglist[i].reg & 0xFF);
-			data[k + 2] = (u8) (reglist[i].val & 0xFF);
-			k = k + 3;
-			j++;
-			if (j == (I2C_MSG_MAX - 1)) {
-				/* Bulk I2C transfer */
-				pltfrm_camera_module_pr_debug(sd,
-					"messages transfers 1 0x%p msg %d bytes %d\n",
-					msg, j, k);
-				ret = i2c_transfer(client->adapter, msg, j);
-				if (ret < 0) {
-					pltfrm_camera_module_pr_err(sd,
-						"i2c transfer returned with err %d\n",
-						ret);
-					kfree(msg);
-					kfree(data);
-					return ret;
-				}
-				j = 0;
-				k = 0;
-				pltfrm_camera_module_pr_debug(sd,
-					"i2c_transfer return %d\n", ret);
-			}
+			regcache_cache_bypass(regmap, false);
+			regcache_cache_only(regmap, true);
+			break;
+		case PLTFRM_CAMERA_MODULE_REG_TYPE_DATA_ASYNC:
+			r = regmap_write(regmap, reglist[i].reg & 0xffff,
+					 reglist[i].val & 0xff);
 			break;
 		case PLTFRM_CAMERA_MODULE_REG_TYPE_TIMEOUT:
-			if (j > 0) {
-				/* Bulk I2C transfer */
-				pltfrm_camera_module_pr_debug(sd,
-					"messages transfers 1 0x%p msg %d bytes %d\n",
-					msg, j, k);
-				ret = i2c_transfer(client->adapter, msg, j);
-				if (ret < 0) {
-					pltfrm_camera_module_pr_debug(sd,
-						"i2c transfer returned with err %d\n",
-						ret);
-					kfree(msg);
-					kfree(data);
-					return ret;
-				}
-				pltfrm_camera_module_pr_debug(sd,
-					"i2c_transfer return %d\n", ret);
-			}
+			r = regcache_sync(regmap);
 			mdelay(reglist[i].val);
-			j = 0;
-			k = 0;
 			break;
 		default:
 			pltfrm_camera_module_pr_debug(sd, "unknown command\n");
-			kfree(msg);
-			kfree(data);
-			return -1;
+			r = -EBADE;
+			break;
 		}
-
+		if (r < 0)
+			break;
 	}
-
-	if (j != 0) {		/*Remaining I2C message*/
-		pltfrm_camera_module_pr_debug(sd,
-			"messages transfers 1 0x%p msg %d bytes %d\n",
-			msg, j, k);
-		ret = i2c_transfer(client->adapter, msg, j);
-		if (ret < 0) {
-			pltfrm_camera_module_pr_err(sd,
-				"i2c transfer returned with err %d\n", ret);
-			kfree(msg);
-			kfree(data);
-			return ret;
-		}
-		pltfrm_camera_module_pr_debug(sd,
-			"i2c_transfer return %d\n", ret);
-	}
-
-	kfree(msg);
-	kfree(data);
-	return 0;
+	if (r == 0)
+		r = regcache_sync(regmap);
+	regmap_exit(regmap);
+	return r;
 }
 
 static int pltfrm_camera_module_init_pm(
