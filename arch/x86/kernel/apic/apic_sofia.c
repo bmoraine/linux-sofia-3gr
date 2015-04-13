@@ -226,7 +226,7 @@ static struct apic apic_sofia = {
 	.setup_portio_remap		= NULL,
 	.check_phys_apicid_present	= sofia_check_phys_apicid_present,
 	.enable_apic_mode		= NULL,
-	.phys_pkg_id			= NULL,
+	.phys_pkg_id			= default_phys_pkg_id,
 	.mps_oem_check			= NULL,
 
 	.get_apic_id			= sofia_default_get_apic_id,
