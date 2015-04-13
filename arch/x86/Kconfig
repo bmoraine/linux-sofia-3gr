@@ -256,7 +256,7 @@ config X86_64_SMP
 
 config X86_HT
 	def_bool y
-	depends on SMP && !X86_INTEL_SOFIA
+	depends on SMP
 
 config X86_32_LAZY_GS
 	def_bool y
