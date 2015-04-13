@@ -722,13 +722,13 @@ static int rockchip_vop_standby(struct rockchip_vop_driver *dev_drv)
 	unsigned long flags;
 
 	if (vop_dev->clk_on) {
+		spin_lock_irqsave(&dev_drv->cpl_lock, flags);
+		reinit_completion(&dev_drv->frame_done);
+		spin_unlock_irqrestore(&dev_drv->cpl_lock, flags);
+
 		vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_LCDC_STANDBY,
 			    V_LCDC_STANDBY(1));
-
 		/* wait for standby hold valid */
-		spin_lock_irqsave(&dev_drv->cpl_lock, flags);
-		init_completion(&dev_drv->frame_done);
-		spin_unlock_irqrestore(&dev_drv->cpl_lock, flags);
 		timeout = wait_for_completion_timeout(&dev_drv->frame_done,
 						      msecs_to_jiffies(25));
 
