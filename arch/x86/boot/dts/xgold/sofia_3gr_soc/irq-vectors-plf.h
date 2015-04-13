@@ -20,11 +20,11 @@
 #define EXI15 0
 #define EXI9 0
 #define EXI11 0
-#define EXI0 58
-#define EXI1 59
-#define EXI2 60
-#define EXI6 62
-#define EXI12 63
+#define EXI0 56
+#define EXI1 57
+#define EXI2 58
+#define EXI6 60
+#define EXI12 61
 #define EXI8 118
 #define EXI14 121
 #define EXI10 122
