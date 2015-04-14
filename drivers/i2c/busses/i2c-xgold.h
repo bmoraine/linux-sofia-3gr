@@ -43,7 +43,7 @@
 #define XGOLD_I2C_P_RX_BIT		0x40
 
 #define XGOLD_I2C_P_MASK		0x3F
-#define XGOLD_I2C_P_MASK_ALL		(XGOLD_I2C_P_MASK | XGOLD_I2C_P_RX_BIT)
+#define XGOLD_I2C_P_MASK_ALL		(XGOLD_I2C_P_MASK)
 
 
 /* Unsefull mask */

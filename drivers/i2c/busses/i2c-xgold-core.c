@@ -764,7 +764,8 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 {
 	struct i2c_adapter *adap = (struct i2c_adapter *)dev;
 	struct xgold_i2c_algo_data *data = i2c_get_adapdata(adap);
-	u32 irqss = ioread32(data->regs + I2C_P_IRQSS_OFFSET);
+	u32 irqss = ioread32(data->regs + I2C_P_IRQSS_OFFSET) &
+		XGOLD_I2C_P_MASK_ALL;
 
 	i2c_debug(data, "%s irqss = 0x%X\n", __func__, irqss);
 
@@ -782,8 +783,6 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 		/* Receiving data */
 		i2c_debug(data, "M2: switching TX to RX.\n");
 		data->state = XGOLD_I2C_RECEIVE;
-		if (data->dma_mode == true && I2C_MSG_RD(data->flags))
-			xgold_i2c_dmae(data, true);
 
 		reg_write(I2C_P_IRQSC_RX_INTRS_CLR,
 				data->regs + I2C_P_IRQSC_OFFSET);
@@ -890,6 +889,13 @@ static irqreturn_t xgold_i2c_irq_handler(int irq, void *dev)
 						I2C_ICR_LBREQ_INT_CLR_INT |
 						I2C_ICR_BREQ_INT_CLR_INT),
 					data->regs + I2C_ICR_OFFSET);
+
+			if (data->state == XGOLD_I2C_TRANSMIT &&
+					I2C_MSG_RD(data->flags)) {
+				data->state = XGOLD_I2C_RECEIVE;
+				if (data->dma_mode == true)
+					xgold_i2c_dmae(data, true);
+			}
 
 			ret = IRQ_HANDLED;
 		}
