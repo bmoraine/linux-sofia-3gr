@@ -2504,6 +2504,7 @@ irq_retry:
 	if (gintsts & (GINTSTS_USBRST | GINTSTS_RESETDET)) {
 
 		u32 usb_status = readl(hsotg->regs + GOTGCTL);
+		u32 connected = hsotg->connected;
 
 		dev_dbg(hsotg->dev, "%s: USBRst\n", __func__);
 		dev_dbg(hsotg->dev, "GNPTXSTS=%08x\n",
@@ -2516,7 +2517,7 @@ irq_retry:
 
 		if (usb_status & GOTGCTL_BSESVLD) {
 			if (time_after(jiffies, hsotg->last_rst +
-				       msecs_to_jiffies(200))) {
+				       msecs_to_jiffies(200)) || connected) {
 
 				kill_all_requests(hsotg, hsotg->eps_out[0],
 							  -ECONNRESET);
