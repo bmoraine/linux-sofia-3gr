@@ -1563,12 +1563,12 @@ static int vusb_se_fe_command_thread(void *d)
 			} else {
 
 				VUSB_SE_FE_ERR("Command MVPIPE MEX Read Error");
-				vusb_se_fe_close_mvpipe(vusb_se_fe_command_mvpipe_fp);
 				/* re-open it */
 				if (mutex_lock_interruptible
 					(&vusb_se_fe_tx_lock))
 					return 0;
-
+				vusb_se_fe_close_mvpipe(vusb_se_fe_command_mvpipe_fp);
+				msleep(1000);
 				vusb_se_fe_command_mvpipe_fp =
 					vusb_se_fe_open_mvpipe
 						(VUSB_SE_FE_MVPIPE_CMD_NAME);
@@ -1784,14 +1784,15 @@ static int vusb_se_fe_link_rx_thread(void *d)
 					    vusb_se_fe_link_gadget_fp);
 
 		if (VUSB_SE_FE_TXFR_RX_ERR == diagnostic) {
-			if (vusb_se_fe_link_mvpipe_fp[link] != NULL) {
-				fp = vusb_se_fe_link_mvpipe_fp[link];
-				vusb_se_fe_close_mvpipe(fp);
-			}
 			/* re-open it */
 			if (mutex_lock_interruptible(&vusb_dat_reopen_lock))
 				return 0;
 
+			if (vusb_se_fe_link_mvpipe_fp[link] != NULL) {
+				fp = vusb_se_fe_link_mvpipe_fp[link];
+				vusb_se_fe_close_mvpipe(fp);
+			}
+			msleep(1000);
 			sprintf(mvpipe_name,
 				VUSB_SE_FE_MVPIPE_GENERIC_DATA_NAME, link);
 
