@@ -330,12 +330,12 @@ static struct hm2051_reg const hm2051_global_setting[] = {
 	{HM2051_8BIT, 0x0197, 0x04},/*Y_offset[2:0]*/
 	{HM2051_8BIT, 0x0198, 0xBF},/*Y_offset[7:0]*/
 
-	{HM2051_8BIT, 0x0144, 0x12},
+	{HM2051_8BIT, 0x0144, 0x10},
 	/*BPC_HOT_TH[8],[1]Median Filter with current pixel*/
 	{HM2051_8BIT, 0x0140, 0x20},/*BPC_HOT_TH[7:0]*/
-	{HM2051_8BIT, 0x015A, 0x80},/*BPC_HOT_2*/
-	{HM2051_8BIT, 0x015D, 0x20},/*BPC_HOT_3*/
-	{HM2051_8BIT, 0x0160, 0x65},
+	{HM2051_8BIT, 0x015A, 0x30},/*BPC_HOT_2*/
+	{HM2051_8BIT, 0x015D, 0xFF},/*BPC_HOT_3*/
+	{HM2051_8BIT, 0x0160, 0x61},
 	/*[0]hot_replace[1]cold_replace[3:2]Max1_Max2*/
 	/*[4]correct_all[5]Dynamic[6]Static[7]no write back */
 
