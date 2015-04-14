@@ -200,5 +200,5 @@ static void __exit rockchip_disp_exit(void)
 #endif
 }
 
-module_init(rockchip_disp_init);
+fs_initcall(rockchip_disp_init);
 module_exit(rockchip_disp_exit);
