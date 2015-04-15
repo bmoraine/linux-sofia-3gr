@@ -1651,6 +1651,8 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *g, int is_active)
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
 	int			ret = 0;
+	u32			reg = 0;
+	int			i = 0;
 
 	is_active = !!is_active;
 
@@ -1663,12 +1665,17 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *g, int is_active)
 		dwc3_gadget_reinit(dwc);
 		dwc3_gadget_enable_irq(dwc);
 		ret = dwc3_gadget_run_stop(dwc, is_active);
+		dev_info(dwc->dev, "vbus_session activated\n");
 	} else if (!is_active && !dwc->vbus_session_allow) {
-		/* Per databook, DEVCTRLHLT bit setting requires
-		 * interrupts to be acknowledged so we acknowledge
-		 * first */
+		/* disable interrupts */
 		dwc3_gadget_disable_irq(dwc);
-		dwc3_event_buffers_cleanup(dwc);
+
+		/* de-initialize USB stack */
+		__dwc3_gadget_ep_disable(dwc->eps[0]);
+		__dwc3_gadget_ep_disable(dwc->eps[1]);
+		if (dwc->start_config_issued)
+			dwc3_gadget_disconnect_interrupt(dwc);
+
 		/* DEVCTRLHLT bit sometimes does
 		 * not get set even when GEVNTCOUNT is acked so
 		 * do not care run stop function return value
@@ -1676,15 +1683,18 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *g, int is_active)
 		 * problem */
 		dwc3_gadget_run_stop(dwc, is_active);
 		dwc->vbus_session_allow = true;
-		if (dwc->start_config_issued)
-			dwc3_gadget_disconnect_interrupt(dwc);
-		__dwc3_gadget_ep_disable(dwc->eps[0]);
-		__dwc3_gadget_ep_disable(dwc->eps[1]);
+
+		/* mask interrupts and clear HW states */
+		for (i = 0; i < dwc->num_event_buffers; i++) {
+			reg = dwc3_readl(dwc->regs, DWC3_GEVNTSIZ(i));
+			reg |= DWC3_GEVNTSIZ_INTMASK;
+			dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(i), reg);
+			reg = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT(i));
+			dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(i), reg);
+		}
+		dev_info(dwc->dev, "vbus_session deactivated\n");
 	}
 	spin_unlock_irqrestore(&dwc->lock, flags);
-
-	dev_info(dwc->dev, "vbus_session %s\n",
-			is_active ? "activated" : "deactivated");
 	return ret;
 }
 
