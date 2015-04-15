@@ -374,7 +374,11 @@
 						/*setted by bootcode, capabilities register not correct*/
 						/*vmmc-supply = <&vemmc>;*/
 						/*vqmmc-supply = <&vdd1>;*/
+#ifdef SOFIALTE_ES2
+						intel,max_clock = <104000000>;
+#else
 						intel,max_clock = <52000000>;
+#endif
 						intel,min_clock = <203125>;
 						intel,tap-hwbase = < &stsbc1 >;
 						intel,tap_reg = < 0x40000 >;
@@ -417,8 +421,7 @@
 						resets = < &dbb_rst2 2 >;
 						reset-names = "sdmmc";
 						vqmmc-supply = <&vsdmmc>;
-						/* intel,max_clock = <52000000>;  Correct, but will not operate cards at highest speed */
-						intel,max_clock = <50000000>; /* Incorrect, but fake the driver to run cards at highest speed*/
+						intel,max_clock = <96000000>;
 						intel,min_clock = <203125>;
 						intel,tap-hwbase = < &stsbc1 >;
 						intel,tap_reg = < 0x80000 >;
