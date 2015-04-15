@@ -716,7 +716,19 @@ static void ft5x0x_report_value(struct i2c_client *client)
 		}
 		/* fallthrough */
 	case 2:
-		if (ft5x0x_check_position(client, event->x2, event->y2)) {
+		key_value = ft5x0x_is_button(client, event->x2, event->y2);
+		if (key_value) {
+			spin_lock_irqsave(&data->btn_lock, flags);
+			input_event(data->input_dev, EV_KEY, key_value,
+					1);
+			input_report_key(data->input_dev, BTN_TOUCH, 1);
+			data->btn_active++;
+			nbreport++;
+			spin_unlock_irqrestore(&data->btn_lock, flags);
+			dev_dbg(&client->dev, "*** x2 = %d, y2 = %d ***\n",
+					event->x2, event->y2);
+		} else if (ft5x0x_check_position(client, event->x2,
+				event->y2)) {
 			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
 					 event->touch_ID2);
 			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
