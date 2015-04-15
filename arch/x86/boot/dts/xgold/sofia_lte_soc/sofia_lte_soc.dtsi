@@ -800,7 +800,7 @@
 
 						intel,dcc-clkrate = <416000000>;
 						intel,dcc-gpio-reset = <&xgold_pmx_gpio 15 0 >;
-						resets = < &dbb_rst0 1 >;
+						resets = < &dbb_rst0 0 >;
 						reset-names = "dcc";
 					};
 
