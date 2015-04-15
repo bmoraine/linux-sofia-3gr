@@ -562,18 +562,18 @@
 			0x2dc 0x4100	/* sdio_dat1 */
 			0x2e0 0x4100	/* sdio_dat2 */
 			0x2e4 0x4100	/* sdio_dat3 */
-			0x2e8 0x2100	/* sdio_waken */
+			0x2e8 0x2006	/* sdio_waken */
 		>;
 	};
 	sdio_sleep_pins:sdio_sleep_pins {
 		pinctrl-single,pins = <
-			0x2d0 0x3011	/* sdio_cmd */
-			0x2d4 0x3011	/* sdio_clk */
-			0x2d8 0x3011	/* sdio_dat0 */
-			0x2dc 0x3011	/* sdio_dat1 */
-			0x2e0 0x3011	/* sdio_dat2 */
-			0x2e4 0x3011	/* sdio_dat3 */
-			0x2e8 0x2100	/* sdio_waken */
+			0x2d0 0x33011	/* sdio_cmd */
+			0x2d4 0x33011	/* sdio_clk */
+			0x2d8 0x33011	/* sdio_dat0 */
+			0x2dc 0x33011	/* sdio_dat1 */
+			0x2e0 0x33011	/* sdio_dat2 */
+			0x2e4 0x33011	/* sdio_dat3 */
+			0x2e8 0x2006	/* sdio_waken */
 		>;
 	};
 	usif1_default_pins:usif1_default_pins {
