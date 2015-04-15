@@ -634,17 +634,17 @@ int gc_camera_module_s_power(struct v4l2_subdev *sd, int on)
 			ret = pltfrm_camera_module_set_pin_state(&cam_mod->sd,
 				PLTFRM_CAMERA_MODULE_PIN_PD,
 				PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE);
-			msleep(20);
+			mdelay(5);
 
 			ret |= pltfrm_camera_module_set_pin_state(&cam_mod->sd,
 				PLTFRM_CAMERA_MODULE_PIN_PD,
 				PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
-			msleep(20);
+			mdelay(5);
 
 			ret |= pltfrm_camera_module_set_pin_state(&cam_mod->sd,
 				PLTFRM_CAMERA_MODULE_PIN_PD,
 				PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE);
-			msleep(20);
+
 			if (!IS_ERR_VALUE(ret)) {
 				mdelay(cam_mod->custom.power_up_delays_ms[1]);
 				cam_mod->state = GC_CAMERA_MODULE_SW_STANDBY;
@@ -676,11 +676,18 @@ int gc_camera_module_s_power(struct v4l2_subdev *sd, int on)
 			if (!IS_ERR_VALUE(ret))
 				cam_mod->state = GC_CAMERA_MODULE_HW_STANDBY;
 		}
+		mdelay(2);
 		if (GC_CAMERA_MODULE_HW_STANDBY == cam_mod->state) {
 			ret = pltfrm_camera_module_s_power(&cam_mod->sd, 0);
 			if (!IS_ERR_VALUE(ret)) {
 				cam_mod->state = GC_CAMERA_MODULE_POWER_OFF;
+				mdelay(8);
+				ret = pltfrm_camera_module_set_pin_state(
+					&cam_mod->sd,
+					PLTFRM_CAMERA_MODULE_PIN_PD,
+					PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE);
 				gc_camera_module_reset(cam_mod);
+
 			}
 		}
 	}

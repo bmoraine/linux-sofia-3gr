@@ -754,7 +754,7 @@ static struct gc_camera_module_custom_config gc0310_custom_config = {
 	.check_camera_id = gc0310_check_camera_id,
 	.configs = gc0310_configs,
 	.num_configs = sizeof(gc0310_configs) / sizeof(gc0310_configs[0]),
-	.power_up_delays_ms = {20, 20, 0}
+	.power_up_delays_ms = {0, 20, 0}
 };
 
 static int __init gc0310_probe(
