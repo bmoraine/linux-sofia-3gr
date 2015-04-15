@@ -1011,7 +1011,7 @@ cam2_inactive_pins:cam2_inactive_pins {
 cam2_sleep_pins:cam2_sleep_pins {
 	pinctrl-single,pins = <
 		0x2f8 0x39100	/* cam2_rst */
-		0x2fc 0x3D100	/* cam2_pd */
+		0x2fc 0x31700	/* cam2_pd */
 	>;
 };
 gauge_default_pins:gauge_default_pins {
