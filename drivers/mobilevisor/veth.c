@@ -536,6 +536,10 @@ static void mveth_on_disconnect(uint32_t token, void *cookie)
 	mveth_link_reset_tx(dev);
 
 	set_local_status(dev, MVETH_CLOSED);
+
+	if (netif_carrier_ok(dev->netdev))
+		netif_carrier_off(dev->netdev);
+
 	dev->mbox_status = MBOX_DISCONNECTED;
 }
 
