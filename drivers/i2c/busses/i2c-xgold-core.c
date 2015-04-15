@@ -374,6 +374,7 @@ static void xgold_i2c_dma_callback_txrx(void *param)
 {
 	struct xgold_i2c_algo_data *data = param;
 
+	spin_lock(&data->lock);
 	if (dma_async_is_tx_complete(data->dmach, data->dma_cookie, NULL, NULL)
 			== DMA_COMPLETE) {
 		i2c_debug(data, "DMA transfer complete\n");
@@ -395,6 +396,7 @@ static void xgold_i2c_dma_callback_txrx(void *param)
 	else
 		data->buf_len = 0;
 
+	spin_unlock(&data->lock);
 	i2c_debug(data, "<-- %s\n", __func__);
 }
 
@@ -789,6 +791,7 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 
 	} else if (irqss & I2C_P_IRQSS_TX_END_INTRS_PEND) {
 		/* End of transfer */
+		spin_lock(&data->lock);
 		if (!data->cmd_err && data->state == XGOLD_I2C_RECEIVE &&
 			data->buf_len > 0 && !data->dma_mode) {
 
@@ -802,6 +805,7 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 			 * The FIFO flush must be executed before to ack the
 			 * TX_END interrupt. Return NONE now, so the FIFO flush
 			 * can be executed */
+			spin_unlock(&data->lock);
 			return IRQ_NONE;
 		}
 
@@ -817,6 +821,8 @@ static irqreturn_t xgold_i2c_p_handler(void *dev)
 			complete(&data->cmd_complete);
 		else
 			data->buf_len = 0;
+
+		spin_unlock(&data->lock);
 
 	} else if (irqss & I2C_P_IRQSS_AL_INTRS_PEND) {
 		/* Arbitration lost */
@@ -874,6 +880,7 @@ static irqreturn_t xgold_i2c_irq_handler(int irq, void *dev)
 			i2c_debug(data, "xREQ_INT/LxREQ_INT recvd, state %d\n",
 					data->state);
 
+			spin_lock(&data->lock);
 			if (data->state == XGOLD_I2C_TRANSMIT) {
 				i2c_debug(data, "M1 MASTER TRANSMITS BYTES\n");
 				xgold_i2c_xmit_word(data);
@@ -896,6 +903,7 @@ static irqreturn_t xgold_i2c_irq_handler(int irq, void *dev)
 				if (data->dma_mode == true)
 					xgold_i2c_dmae(data, true);
 			}
+			spin_unlock(&data->lock);
 
 			ret = IRQ_HANDLED;
 		}
