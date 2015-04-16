@@ -371,6 +371,10 @@ pmic {
 #endif
 
 		/* Vibrator */
+		vibrator:vibrator {
+			compatible = "intel,pmic-vibra";
+		};
+
 		/* Key led */
 		pmic_key_led:pmic-key-backlight {
 			compatible = "intel,pmic-key-led";

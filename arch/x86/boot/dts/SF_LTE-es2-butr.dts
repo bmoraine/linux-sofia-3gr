@@ -136,9 +136,6 @@
 		compatible = "intel,fuel_gauge";
 	};
 
-	vibrator:vibrator {
-		compatible = "intel,pmic-vibra";
-       };
 };
 
 &pmic_bat {
