@@ -2275,6 +2275,10 @@ static int rockchip_fb_show_copy_from_loader(struct fb_info *info)
 	u32 src;
 	struct rockchip_vop_win *win = dev_drv->win[0];
 	u32 size = (win->area[0].xact) * (win->area[0].yact) << 2;
+	unsigned int nr_pages;
+	struct page **pages;
+	char *vaddr;
+	u32 i = 0, offset = 0;
 
 	dev_drv->ops->get_dsp_addr(dev_drv, dsp_addr);
 	src = dsp_addr[0];
@@ -2282,7 +2286,26 @@ static int rockchip_fb_show_copy_from_loader(struct fb_info *info)
 		 win->area[0].xact, win->area[0].yact, src,
 		 (u32)info->fix.smem_start);
 
-	memcpy(dst, phys_to_virt(src), size);
+	nr_pages = size >> PAGE_SHIFT;
+	offset = src & (~PAGE_MASK);
+	if (offset > 0)
+		nr_pages += 1;
+	pages = kcalloc(nr_pages, sizeof(*pages), GFP_KERNEL);
+	while (i < nr_pages) {
+		pages[i] = phys_to_page(src);
+		src += PAGE_SIZE;
+		i++;
+	}
+	vaddr = vmap(pages, nr_pages, VM_MAP, pgprot_writecombine(PAGE_KERNEL));
+	if (!vaddr) {
+		pr_err("failed to vmap phy addr 0x%x\n", src);
+		return -ENOMEM;
+	}
+
+	memcpy(dst, vaddr + offset, size);
+	vunmap(vaddr);
+	kfree(pages);
+
 	dev_drv->ops->direct_set_addr(dev_drv, 0, info->fix.smem_start);
 	/* wait blank */
 	rockchip_fb_poll_wait_frame_complete();
