@@ -97,7 +97,7 @@ static int __init __reserved_mem_alloc_size(unsigned long node,
 {
 	int t_len = (dt_root_addr_cells + dt_root_size_cells) * sizeof(__be32);
 	phys_addr_t start = 0, end = 0;
-	phys_addr_t base = 0, align = 0, size;
+	phys_addr_t base = 0, align = 0, size = 0;
 	unsigned long len;
 	__be32 *prop;
 	int nomap;
@@ -106,13 +106,17 @@ static int __init __reserved_mem_alloc_size(unsigned long node,
 	/* reserve cma default area */
 	if (of_get_flat_dt_prop(node, "linux,cma-default", NULL) != NULL) {
 		phys_addr_t limit = 0;
-		__be32 *prop_limit = of_get_flat_dt_prop(node, "limit", &len);
-		if (prop_limit)
+		prop = of_get_flat_dt_prop(node, "limit", &len);
+		if (prop)
 			limit = dt_mem_next_cell(dt_root_size_cells,
-						&prop_limit);
-		pr_info("Reserved memory: '%s' reserve CMA default limit %pa\n",
-			uname, &limit);
-		dma_contiguous_reserve(limit);
+						&prop);
+		prop = of_get_flat_dt_prop(node, "size", &len);
+		if (prop)
+			size = dt_mem_next_cell(dt_root_size_cells,
+						&prop);
+		pr_info("Reserved memory: '%s' reserve CMA default limit %pa, size %ld MiB\n",
+			uname, &limit, (unsigned long)size / SZ_1M);
+		dma_contiguous_reserve(limit, size);
 		return 0;
 	}
 

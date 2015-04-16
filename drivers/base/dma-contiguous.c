@@ -106,13 +106,15 @@ static inline __maybe_unused phys_addr_t cma_early_percent_memory(void)
  * has been activated and all other subsystems have already allocated/reserved
  * memory.
  */
-void __init dma_contiguous_reserve(phys_addr_t limit)
+void __init dma_contiguous_reserve(phys_addr_t limit, phys_addr_t size)
 {
 	phys_addr_t selected_size = 0;
 
 	pr_debug("%s(limit %08lx)\n", __func__, (unsigned long)limit);
 
-	if (size_cmdline != -1) {
+	if (size != 0)
+		selected_size = size;
+	else if (size_cmdline != -1) {
 		selected_size = size_cmdline;
 	} else {
 #ifdef CONFIG_CMA_SIZE_SEL_MBYTES
