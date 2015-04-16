@@ -45,6 +45,7 @@ struct xgold_irq_chip_data {
 	struct irq_reg **edge;
 	struct irq_reg **level;
 	struct irq_reg **status;
+	struct irq_reg **set;
 	struct clk *clk_kernel;
 	unsigned int type;
 	irq_flow_handler_t flow_handler;

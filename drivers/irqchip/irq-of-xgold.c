@@ -35,13 +35,9 @@ bool xgold_irq_get_io_master(struct device_node *np)
 int __init xgold_irq_of_parse(struct irq_reg **datareg,
 			struct device_node *np, char *comp)
 {
-	unsigned ret = 0;
-	unsigned int len = 0;
-	unsigned int idx = 0;
-	unsigned int j = 0;
-	u32 *array;
+	uint32_t ret = 0, len = 0, idx = 0, j = 0;
+	uint32_t *array;
 	struct irq_reg *reg;
-
 	if (of_find_property(np, comp, &len)) {
 		len /= sizeof(u32);
 		array = kzalloc(len * sizeof(u32), GFP_KERNEL);
@@ -80,9 +76,10 @@ int __init xgold_irq_of_parse(struct irq_reg **datareg,
 static void xgold_display_irq_reg(struct irq_reg *p,
 		uint32_t i, char *name)
 {
-	if (p)
-		pr_debug("[%02d] %s\t %08x %08x %08x\n",
-				i, name, p->base, p->offset, p->mask);
+	if (!p)
+		return;
+	pr_debug("[%02d] %s\t %08x %08x %08x\n",
+			i, name, p->base, p->offset, p->mask);
 }
 
 static void xgold_display_irq_regs(struct xgold_irq_chip_data *data)
@@ -99,6 +96,7 @@ static void xgold_display_irq_regs(struct xgold_irq_chip_data *data)
 		xgold_display_irq_reg(data->edge[i], i, "edge");
 		xgold_display_irq_reg(data->level[i], i, "level");
 		xgold_display_irq_reg(data->status[i], i, "status");
+		xgold_display_irq_reg(data->set[i], i, "set ");
 	}
 	xgold_display_irq_reg(data->globalmask[0], 0, "globalmask");
 }
@@ -106,15 +104,14 @@ static void xgold_display_irq_regs(struct xgold_irq_chip_data *data)
 /*
  * parse xgold irq domain description
  */
-int xgold_irq_of_get(struct device_node *np, void *chipdata)
+int xgold_irq_of_get(struct device_node *np, void *d)
 {
-	struct xgold_irq_chip_data *data =
-		(struct xgold_irq_chip_data *)chipdata;
-	unsigned i = 0;
-	int cplen;
+	struct xgold_irq_chip_data *data = (struct xgold_irq_chip_data *)d;
+	int32_t i = 0, cplen = 0;
 	const char *name = of_get_property(np, "compatible", &cplen);
 	char comp[30];
 	struct resource regs;
+	uint32_t sz = sizeof(struct irq_req *);
 	data->np = np;
 	if (!name) {
 		/* This is not a good point, just warn at this time */
@@ -136,90 +133,78 @@ int xgold_irq_of_get(struct device_node *np, void *chipdata)
 			data->io_master == IRQ_IO_ACCESS_BY_LNX ?
 			"linux" : "vmm", data->base, data->base_phys);
 	}
-	of_property_read_u32(np, "intel,hirq", &data->hirq);
-	if (data->hirq)
-		pr_debug("%s: hirq vector: %d\n", __func__, data->hirq);
 	/* Get NR of irqs */
 	data->nr_int = of_irq_count(np);
 	if (!data->nr_int) {
-		/* This is killing */
-		pr_err("%s: no interrupt found for %s\n", __func__, name);
-		return -1;
-	} else {
-		pr_debug("%s: %d interrupts found\n",
-				__func__, data->nr_int);
-		data->mask =
-			kzalloc(data->nr_int * sizeof(struct irq_req *),
-					GFP_KERNEL);
-		if (!data->mask) {
-			pr_err("data->mask allocation failed\n");
-			goto free_them_all;
-		}
-		data->unmask =
-			kzalloc(data->nr_int * sizeof(struct irq_req *),
-					GFP_KERNEL);
-		if (!data->unmask) {
-			pr_err("data->unmask allocation failed\n");
-			goto free_them_all;
-		}
-		data->slmask =
-			kzalloc(data->nr_int * sizeof(struct irq_req *),
-					GFP_KERNEL);
-		if (!data->slmask) {
-			pr_err("data->slmask allocation failed\n");
-			goto free_them_all;
-		}
-		data->ack =
-			kzalloc(data->nr_int * sizeof(struct irq_req *),
-					GFP_KERNEL);
-		if (!data->ack) {
-			pr_err("data->ack allocation failed\n");
-			goto free_them_all;
-		}
-		data->edge =
-			kzalloc(data->nr_int * sizeof(struct irq_req *),
-					GFP_KERNEL);
-		if (!data->edge) {
-			pr_err("data->edge allocation failed\n");
-			goto free_them_all;
-		}
-		data->level =
-			kzalloc(data->nr_int * sizeof(struct irq_req *),
-					GFP_KERNEL);
-		if (!data->level) {
-			pr_err("data->level allocation failed\n");
-			goto free_them_all;
-		}
-		data->status =
-			kzalloc(data->nr_int * sizeof(struct irq_req *),
-					GFP_KERNEL);
-		if (!data->status) {
-			pr_err("data->status allocation failed\n");
-			goto free_them_all;
-		}
-		data->globalmask
-			= kzalloc(sizeof(struct irq_req *),
-					GFP_KERNEL);
-		if (!data->globalmask) {
-			pr_err("data->globalmask allocation failed\n");
-			goto free_them_all;
-		}
-		data->virq =
-			kzalloc(data->nr_int * sizeof(unsigned),
-					GFP_KERNEL);
-		if (!data->virq) {
-			pr_err("data->virq allocation failed\n");
-			goto free_them_all;
-		}
-		data->preack =
-			kzalloc(data->nr_int * sizeof(unsigned),
-					GFP_KERNEL);
-		if (!data->preack) {
-			pr_err("data->preack allocation failed\n");
-			goto free_them_all;
+		/* nr_int passed thru property? */
+		of_property_read_u32(np, "intel,nr_int", &data->nr_int);
+		if (!data->nr_int) {
+			/* This is killing */
+			pr_err("%s: no irq found for %s\n", __func__, name);
+			return -1;
 		}
 	}
+	pr_debug("%s: %d interrupts found\n", __func__, data->nr_int);
 
+	of_property_read_u32(np, "intel,hirq", &data->hirq);
+	if (data->hirq)
+		pr_debug("%s: hirq vector: %d\n", __func__, data->hirq);
+
+	data->mask = kzalloc(data->nr_int * sz, GFP_KERNEL);
+	if (!data->mask) {
+		pr_err("data->mask allocation failed\n");
+		goto free_them_all;
+	}
+	data->unmask = kzalloc(data->nr_int * sz, GFP_KERNEL);
+	if (!data->unmask) {
+		pr_err("data->unmask allocation failed\n");
+		goto free_them_all;
+	}
+	data->slmask = kzalloc(data->nr_int * sz, GFP_KERNEL);
+	if (!data->slmask) {
+		pr_err("data->slmask allocation failed\n");
+		goto free_them_all;
+	}
+	data->ack = kzalloc(data->nr_int * sz, GFP_KERNEL);
+	if (!data->ack) {
+		pr_err("data->ack allocation failed\n");
+		goto free_them_all;
+	}
+	data->edge = kzalloc(data->nr_int * sz, GFP_KERNEL);
+	if (!data->edge) {
+		pr_err("data->edge allocation failed\n");
+		goto free_them_all;
+	}
+	data->level = kzalloc(data->nr_int * sz, GFP_KERNEL);
+	if (!data->level) {
+		pr_err("data->level allocation failed\n");
+		goto free_them_all;
+	}
+	data->status = kzalloc(data->nr_int * sz, GFP_KERNEL);
+	if (!data->status) {
+		pr_err("data->status allocation failed\n");
+		goto free_them_all;
+	}
+	data->set = kzalloc(data->nr_int * sz, GFP_KERNEL);
+	if (!data->set) {
+		pr_err("data->set allocation failed\n");
+		goto free_them_all;
+	}
+	data->globalmask = kzalloc(sz, GFP_KERNEL);
+	if (!data->globalmask) {
+		pr_err("data->globalmask allocation failed\n");
+		goto free_them_all;
+	}
+	data->virq = kzalloc(data->nr_int * sizeof(uint32_t), GFP_KERNEL);
+	if (!data->virq) {
+		pr_err("data->virq allocation failed\n");
+		goto free_them_all;
+	}
+	data->preack = kzalloc(data->nr_int * sizeof(uint32_t), GFP_KERNEL);
+	if (!data->preack) {
+		pr_err("data->preack allocation failed\n");
+		goto free_them_all;
+	}
 	for (i = 0; i < data->nr_int; i++) {
 		sprintf(comp, "intel,mask,%d", i);
 		xgold_irq_of_parse(&data->mask[i], np, comp);
@@ -235,6 +220,8 @@ int xgold_irq_of_get(struct device_node *np, void *chipdata)
 		xgold_irq_of_parse(&data->level[i], np, comp);
 		sprintf(comp, "intel,status,%d", i);
 		xgold_irq_of_parse(&data->status[i], np, comp);
+		sprintf(comp, "intel,set,%d", i);
+		xgold_irq_of_parse(&data->set[i], np, comp);
 		sprintf(comp, "intel,virq,%d", i);
 		of_property_read_u32(np, comp, &data->virq[i]);
 		if (data->virq[i])
@@ -258,10 +245,8 @@ free_them_all:
 	kfree(data->edge);
 	kfree(data->level);
 	kfree(data->status);
+	kfree(data->set);
 	kfree(data->virq);
 	kfree(data->preack);
 	return -1;
 }
-/*
- * EOF
- */

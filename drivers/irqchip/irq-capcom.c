@@ -193,6 +193,16 @@ static int xgold_irq_capcom_set_type(struct irq_data *data, unsigned int type)
 	return 0;
 }
 
+static inline int xgold_irq_capcom_retrigger(struct irq_data *data)
+{
+	struct xgold_irq_chip_data *chipdata = irq_data_get_irq_chip_data(data);
+	u32 irq = data->hwirq;
+	spin_lock(&capcom_lock);
+	xgold_irq_write(chipdata, chipdata->set[irq], 1, XGOLD_WO);
+	spin_unlock(&capcom_lock);
+	return 0;
+}
+
 static struct irq_chip xgold_irq_capcom_chip = {
 	.name = "CAPCOM",
 	.irq_mask = xgold_irq_capcom_mask,
@@ -201,6 +211,7 @@ static struct irq_chip xgold_irq_capcom_chip = {
 	.irq_mask_ack = xgold_irq_capcom_maskack,
 	.irq_ack = xgold_irq_capcom_ack,
 	.irq_set_type = xgold_irq_capcom_set_type,
+	.irq_retrigger = xgold_irq_capcom_retrigger,
 };
 
 static struct irq_domain_ops xgold_irq_capcom_domain_ops = {
