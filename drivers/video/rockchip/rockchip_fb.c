@@ -1377,6 +1377,9 @@ static int rockchip_fb_set_par(struct fb_info *info)
 	u32 stride = 0;
 	u32 uv_stride = 0;
 
+	if (dev_drv->suspend_flag)
+		return 0;
+
 	var->pixclock = dev_drv->pixclock;
 	win_id = dev_drv->ops->fb_get_win_id(dev_drv, info->fix.id);
 	if (win_id < 0)
@@ -1555,6 +1558,9 @@ static int rockchip_fb_pan_display(struct fb_var_screeninfo *var,
 	u32 yoffset = var->yoffset;
 	u32 xvir = var->xres_virtual;
 	u8 data_format = var->nonstd & 0xff;
+
+	if (dev_drv->suspend_flag)
+		return 0;
 
 	win_id = dev_drv->ops->fb_get_win_id(dev_drv, info->fix.id);
 	if (win_id < 0)
