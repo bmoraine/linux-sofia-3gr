@@ -64,10 +64,10 @@
 #define GC0310_PID_MAGIC 0xa310
 
 #define GC0310_ANALOG_GAIN_1 64  /* 1.00x*/
-#define GC0310_ANALOG_GAIN_2 92  /* 1.40x*/
-#define GC0310_ANALOG_GAIN_3 123  /* 2.00x*/
-#define GC0310_ANALOG_GAIN_4 190  /* 2.80x*/
-#define GC0310_ANALOG_GAIN_5 246  /* 4.00x*/
+#define GC0310_ANALOG_GAIN_2 90  /* 1.40625x*/
+#define GC0310_ANALOG_GAIN_3 128  /* 2.00x*/
+#define GC0310_ANALOG_GAIN_4 162  /* 2.53125x*/
+#define GC0310_ANALOG_GAIN_5 232  /* 3.625x*/
 #define GC0310_ANALOG_GAIN_6 355  /* 5.60x*/
 #define GC0310_ANALOG_GAIN_7 482  /* 8.00x*/
 
@@ -366,13 +366,24 @@ static int gc0310_write_aec(struct gc_camera_module *cam_mod)
 			ret |= gc_camera_module_write_reg(cam_mod,
 				GC0310_AEC_ANALOG_GAIN_REG,
 				temp);
-		}	else if (GC0310_ANALOG_GAIN_4 <= a_gain) {
+		}	else if ((GC0310_ANALOG_GAIN_4 <= a_gain) &&
+			(a_gain < GC0310_ANALOG_GAIN_5)) {
 			ret |= gc_camera_module_write_reg(cam_mod,
 				GC0310_AEC_ANALOG_GAIN_COL_REG,
 				0x03);
 			temp = 32 * a_gain / GC0310_ANALOG_GAIN_4 +
 			(((32 * a_gain % GC0310_ANALOG_GAIN_4) >=
 			(GC0310_ANALOG_GAIN_4 / 2)) ? 1 : 0);
+			ret |= gc_camera_module_write_reg(cam_mod,
+				GC0310_AEC_ANALOG_GAIN_REG,
+				temp);
+		}	 else if (GC0310_ANALOG_GAIN_5 <= a_gain) {
+			ret |= gc_camera_module_write_reg(cam_mod,
+				GC0310_AEC_ANALOG_GAIN_COL_REG,
+				0x04);
+			temp = 32 * a_gain / GC0310_ANALOG_GAIN_5 +
+			(((32 * a_gain % GC0310_ANALOG_GAIN_5) >=
+			(GC0310_ANALOG_GAIN_5 / 2)) ? 1 : 0);
 			ret |= gc_camera_module_write_reg(cam_mod,
 				GC0310_AEC_ANALOG_GAIN_REG,
 				temp);
