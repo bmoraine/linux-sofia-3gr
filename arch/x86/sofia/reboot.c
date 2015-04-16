@@ -138,6 +138,7 @@ void vmm_machine_shutdown(void)
 static void vmm_machine_restart(char *__unused)
 {
 #ifdef CONFIG_SMP
+	local_irq_disable();
 	stop_other_cpus();
 #endif
 	mv_vcpu_stop(smp_processor_id());
