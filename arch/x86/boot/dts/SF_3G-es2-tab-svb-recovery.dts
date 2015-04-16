@@ -1,2 +1,0 @@
-#define RECOVERY_KERNEL
-#include "SF_3G-es2-tab-svb.dts"
