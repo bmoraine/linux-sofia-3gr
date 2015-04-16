@@ -184,7 +184,6 @@ static inline int dsi_completion_timeout_ms(struct completion *comp, int to)
 	return wait_for_completion_timeout(comp, jiffies);
 }
 
-int dsi_set_phy_lock(struct dsi_display *display);
 void dsi_start_video(struct dsi_display *display);
 void dsi_interrupt_setup(struct dsi_display *display);
 int dsi_probe(struct dsi_display *display);

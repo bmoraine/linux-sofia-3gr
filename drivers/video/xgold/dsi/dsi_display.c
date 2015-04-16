@@ -22,6 +22,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#include <linux/reset.h>
 #include <video/mipi_display.h>
 
 #include "dsi_display.h"
@@ -474,9 +475,6 @@ static int dsi_configure_video_mode(struct dsi_display *display,
 	return 0;
 }
 
-/**
- * Callbacks
- */
 static void dsi_set_phy(struct dsi_display *display, int on)
 {
 	unsigned int phy0 = 0, phy1 = 0, phy2 = 0, phy3 = 0;
@@ -543,21 +541,6 @@ static void dsi_set_phy(struct dsi_display *display, int on)
 	}
 }
 
-int dsi_set_phy_lock(struct dsi_display *display)
-{
-	/* need_to_modify
-	struct dcc_drvdata *pdata = m_to_dccdata(display, display);
-	if (down_interruptible(&pdata->sem))
-		return -ERESTARTSYS;
-	*/
-	dsi_set_phy(display, 1);
-
-	/* need_to_modify
-	up(&pdata->sem);
-	*/
-	return 0;
-}
-
 static void dsi_send_msglist(struct dsi_display *display,
 			     struct display_msg *msgs)
 {
@@ -583,16 +566,18 @@ static int dsi_panel_init(struct dsi_display *display)
 
 int dsi_stop(struct dsi_display *display)
 {
-	/* swicth off PLL */
-	dsi_set_phy(display, 0);
-	/* switch off phy */
-	dsi_write_field(display, EXR_DSI_PHY3,
-			BITFLDS(EXR_DSI_PHY3_EN, 0x0));
-	/* switch off DSI block */
-	dsi_write_field(display, EXR_DSI_CFG, DSI_CFG_OFF(DSI_CMD));
+	/* Reset and re-init for entering ULPS*/
+	dsi_init(display);
+	dsi_config(display, DIF_TX_DATA);
 
-	dsi_write_field(display, EXR_DSI_CLC,
-			BITFLDS(EXR_DSI_CLC_RUN, DSI_MODE_CONF));
+	/* Enter ULPS */
+	dsi_write_field(display, EXR_DSI_CFG_ULPS, 1);
+
+	/* Swicth off PLL */
+	dsi_set_phy(display, 0);
+
+	/* Switch off phy */
+	dsi_write_field(display, EXR_DSI_PHY3, BITFLDS(EXR_DSI_PHY3_EN, 0x0));
 
 	return 0;
 }
@@ -601,9 +586,15 @@ int dsi_init(struct dsi_display *display)
 {
 	unsigned int clcstat;
 
+	if (display->dsi_reset) {
+		reset_control_assert(display->dsi_reset);
+		usleep_range(100, 101);
+		reset_control_deassert(display->dsi_reset);
+		usleep_range(2000, 2001);
+	}
+
 	dsi_write_field(display, EXR_DSI_CLC,
 			BITFLDS(EXR_DSI_CLC_RUN, DSI_MODE_RUN));
-
 	clcstat = BITFLDS(EXR_DSI_CLC_STAT_RUN, 1) |
 		BITFLDS(EXR_DSI_CLC_STAT_MODEN, 1) |
 		BITFLDS(EXR_DSI_CLC_STAT_KID, 1);
@@ -612,6 +603,7 @@ int dsi_init(struct dsi_display *display)
 	dsi_write_field(display, EXR_DSI_TO0, 0);
 	dsi_write_field(display, EXR_DSI_TO1, 0);
 	dsi_write_field(display, EXR_DSI_CFG, DSI_CFG_RX_LP_STP(1));
+	dsi_interrupt_setup(display);
 
 	return 0;
 }
