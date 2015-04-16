@@ -1073,7 +1073,7 @@ static int mmc_blk_rpmb_sequence(struct mmc_card *card,
 		}
 
 		/* STEP 3: get response from RPMB partition */
-		err = mmc_rpmb_send_cmd(card, type, MMC_DATA_READ, out_buf, 1);
+		err = mmc_rpmb_send_cmd(card, 0, MMC_DATA_READ, out_buf, 1);
 
 		if (err) {
 			pr_err("%s: mmc_rpmb_send_cmd failed(%d)\n",
