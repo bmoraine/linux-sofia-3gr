@@ -876,7 +876,6 @@ static void intel_phy_otg_fsm_add_timer(
 	tmr->function = &intel_phy_otg_set_tmout;
 	if (intel_phy_otg_get_timer_data(tmr, timer))
 		return;
-	intel_phy_dbg("start %s timer", intel_phy_otg_timer_to_str(timer));
 	add_timer(tmr);
 	return;
 }
@@ -914,7 +913,6 @@ static void intel_phy_otg_fsm_del_timer(
 
 	if (timer_pending(tmr))
 		del_timer_sync(tmr);
-	intel_phy_dbg("deleted %s timer", intel_phy_otg_timer_to_str(timer));
 	return;
 }
 
