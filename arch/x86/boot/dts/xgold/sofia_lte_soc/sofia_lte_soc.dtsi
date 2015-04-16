@@ -654,6 +654,14 @@
 						intel,status,5 = < 0x88 5 1 >; /* CCx_CCINT5 */
 						intel,status,6 = < 0x88 6 1 >; /* CCx_CCINT6 */
 						intel,status,7 = < 0x88 7 1 >; /* CCx_CCINT7 */
+						intel,set,0 = < 0x90 0 1 >; /* CCx_CCINT0 */
+						intel,set,1 = < 0x90 1 1 >; /* CCx_CCINT1 */
+						intel,set,2 = < 0x90 2 1 >; /* CCx_CCINT2 */
+						intel,set,3 = < 0x90 3 1 >; /* CCx_CCINT3 */
+						intel,set,4 = < 0x90 4 1 >; /* CCx_CCINT4 */
+						intel,set,5 = < 0x90 5 1 >; /* CCx_CCINT5 */
+						intel,set,6 = < 0x90 6 1 >; /* CCx_CCINT6 */
+						intel,set,7 = < 0x90 7 1 >; /* CCx_CCINT7 */
 					};
 
 					capcom2:capcom2 {
