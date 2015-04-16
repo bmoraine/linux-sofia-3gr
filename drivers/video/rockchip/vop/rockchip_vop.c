@@ -2203,7 +2203,7 @@ static void rockchip_vop_shutdown(struct platform_device *pdev)
 	rockchip_vop_standby(dev_drv);
 	rockchip_vop_deinit(vop_dev);
 	rockchip_vop_mmu_en(dev_drv, false);
-	rockchip_vop_clk_disable(vop_dev);
+	/* rockchip_vop_clk_disable(vop_dev); */
 	rockchip_disp_pwr_disable(vop_dev->driver.cur_screen);
 }
 
