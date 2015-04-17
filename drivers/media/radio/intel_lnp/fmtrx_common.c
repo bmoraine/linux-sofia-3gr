@@ -90,9 +90,8 @@ int fmtrx_init(
 {
 	int err = 0;
 
-	err = fmtrx_sys_init();
-
 	if (FMTRX_INIT_MODE_ON == mode) {
+		err = fmtrx_sys_init();
 		if (0 != err) {
 			err = -EIO;
 			fmtrx_sys_log
