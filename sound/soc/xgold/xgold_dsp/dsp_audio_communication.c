@@ -85,16 +85,20 @@ void dsp_audio_communication_init(void)
 
 /*****************************************************************************
 * Function:... dsp_cmd_int_2_audio_dsp
-* Parameters:. none
-* Returns:.... none
+* Parameters:. dsp - dsp device
+*              int_no - pipe number
+*              msg_id - command id
+* Returns:.... DSP_SUCCESS on success
+*              Error code on error
 * Description: This procedure sends either the command interrupt 0, 1 or
 *              2 to the frame based audio DSP.
 *****************************************************************************/
-void dsp_cmd_int_2_audio_dsp(struct dsp_audio_device *dsp,
+enum dsp_err_code dsp_cmd_int_2_audio_dsp(struct dsp_audio_device *dsp,
 			enum dsp_irq_no int_no,
 			u16 msg_id)
 {
 	int timeout_value;
+	enum dsp_err_code ret = DSP_SUCCESS;
 	enum dsp_irq_comm_flag comm_flag;
 	S16 *p_msg_id_shmem; /* Pointer into shared memory where the
 							msg_id is placed */
@@ -125,6 +129,7 @@ void dsp_cmd_int_2_audio_dsp(struct dsp_audio_device *dsp,
 
 	default:
 		dump_stack();
+		ret = DSP_ERR_INVALID_IRQ;
 	break;
 	}
 
@@ -154,10 +159,13 @@ void dsp_cmd_int_2_audio_dsp(struct dsp_audio_device *dsp,
 /* If timeout value larger than DSP_AUDIO_CMD_TIMEOUT then trap!
 	Means DSP was to long to respond and probably crashed */
 	if (timeout_value > DSP_AUDIO_CMD_TIMEOUT) {
-		xgold_err("DSP is not responding and probably crashed\n");
-	/* ToDo: add call to kernel stack dump here */
+		xgold_err("DSP %d is not responding for the command id %u\n",
+				dsp->id,
+				msg_id);
 		dump_stack();
+		ret = DSP_ERR_COMMAND_FAILURE;
 	}
+	return ret;
 }
 
 /*****************************************************************************
@@ -166,18 +174,19 @@ void dsp_cmd_int_2_audio_dsp(struct dsp_audio_device *dsp,
 *              msg_id: the ID number of the audio DSP command
 *              msg_length: Number of 16-bit words in the command
 *              p_msg_par: Pointer to the command data
-* Returns:.... none
+* Returns:.... 0 on success
+*              Error code on failure
 * Description: This procedure implements the frame based audio dsp command
 				interface.
 ******************************************************************************/
-void dsp_add_audio_msg_2_dsp(
+enum dsp_err_code dsp_add_audio_msg_2_dsp(
 	struct dsp_audio_device *dsp,
 	U16  msg_id,
 	U16 msg_length,
 	U16 *p_msg_par)
 {
 	U16  *p_dsp_cmd_pipe;
-
+	enum dsp_err_code ret = DSP_SUCCESS;
 	xgold_debug("in %s\n", __func__);
 
 
@@ -185,7 +194,7 @@ void dsp_add_audio_msg_2_dsp(
 	larger than the message ID length */
 	if (msg_length > DSP_AUDIO_CMD_ID_LEN && p_msg_par == NULL) {
 		xgold_debug("Too long message length\n");
-		return;
+		return DSP_ERR_INVALID_REQUEST;
 	}
 
 /* lock the pipe 2 */
@@ -210,8 +219,9 @@ void dsp_add_audio_msg_2_dsp(
 	xgold_debug("cmd id = %d, msg_length = %d", msg_id, msg_length);
 
 /* Generate interrupt to dsp for command in pipe 2 */
-	dsp_cmd_int_2_audio_dsp(dsp, DSP_IRQ_2, msg_id);
+	ret = dsp_cmd_int_2_audio_dsp(dsp, DSP_IRQ_2, msg_id);
 
 /* unlock the pipe 2 */
 	spin_unlock(&dsp_audio_cmd_pipe_lock);
+	return ret;
 }

@@ -206,7 +206,7 @@ enum dsp_aud_cmds {
  * \return None
  *
  */
-void dsp_add_audio_msg_2_dsp(struct dsp_audio_device *dsp,
+enum dsp_err_code dsp_add_audio_msg_2_dsp(struct dsp_audio_device *dsp,
 	U16 msg_id,
 	U16 msg_length,
 	U16 *p_msg_par);
