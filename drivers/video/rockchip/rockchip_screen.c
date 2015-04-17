@@ -314,7 +314,7 @@ int rockchip_disp_pwr_enable(struct rockchip_screen *screen)
 	}
 #endif
 
-	if (screen->type != SCREEN_MIPI) {
+	if (!support_loader_display() && screen->type != SCREEN_MIPI) {
 		if (screen->power_on)
 			screen->power_on(screen);
 	}

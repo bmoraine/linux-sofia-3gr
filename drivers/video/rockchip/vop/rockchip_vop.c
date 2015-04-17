@@ -771,8 +771,7 @@ static int rockchip_vop_pre_init(struct rockchip_vop_driver *dev_drv)
 			vop_dev->id);
 	}
 
-	if (!support_loader_display())
-		rockchip_disp_pwr_enable(screen);
+	rockchip_disp_pwr_enable(screen);
 	rockchip_vop_clk_enable(vop_dev);
 
 	xgold_noc_qos_set(NOC_VOP_NAME);
