@@ -53,6 +53,7 @@
 #define VNVM_FLAGS_REQUEST          0x1
 #define VNVM_FLAGS_REPLY            0x2
 #define VNVM_FLAGS_NOTIFICATION     0x4
+#define NVM_MAX_NB_PART 3
 
    /*
      * In general, in shared memory, all fields must be aligned on their
@@ -74,6 +75,8 @@ typedef struct {
     uint64_t cookie;     /* vnvm_request::cookie, opaque for backend */
     uint32_t addr;
     uint32_t size;
+    uint32_t part_id;
+    uint32_t devsize[NVM_MAX_NB_PART];
     uint8_t data[0];
 } nvm_request;
 
@@ -85,6 +88,8 @@ typedef struct {
     uint32_t retcode;    /* 0 if success, errno code otherwise */
     uint32_t retvalue;   /* only used for 'simple' data return */
     uint32_t size;
+    uint32_t part_id;
+    uint32_t devsize[NVM_MAX_NB_PART];
     uint8_t data[0];
 } nvm_reply;
 
