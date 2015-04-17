@@ -445,6 +445,8 @@ static struct of_device_id xgold_noc_of_match[] = {
 	{
 	 .compatible = "intel,l2noc",},
 	{
+	 .compatible = "intel,modemnoc",},
+	{
 	 .compatible = "intel,audionoc",},
 	{},
 };
