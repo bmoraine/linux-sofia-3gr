@@ -69,9 +69,9 @@ static int xgold_cpu_freq_pm_notifier(struct notifier_block *nb,
 {
 	struct cpufreq_policy *policy =	cpufreq_cpu_get(0);
 	if (val == PM_SUSPEND_PREPARE) {
-		frequency_locked = true;
 		pr_debug("%s: callback notified\n", __func__);
 		cpufreq_driver_target(policy, policy->user_policy.min, 0);
+		frequency_locked = true;
 	} else if (val == PM_POST_SUSPEND) {
 		frequency_locked = false;
 	}
