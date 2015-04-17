@@ -380,6 +380,12 @@ static irqreturn_t xgold_button_detection(int irq, void *data)
 		xgold_jack_pmic_reg_write(jack->pmic_irq_addr,
 				IRQMULT_REG, IRQMULT_ACCDET2_M);
 
+	if ((jack->hs_jack->status & SND_JACK_HEADSET) != SND_JACK_HEADSET) {
+		/* this interrupt may occurs in case of slow jack insertion */
+		xgold_debug("button detection while no headset\n");
+		return xgold_jack_detection(irq, data);
+	}
+
 	if (jack->buttons_enabled)
 		xgold_button_check(jack);
 
