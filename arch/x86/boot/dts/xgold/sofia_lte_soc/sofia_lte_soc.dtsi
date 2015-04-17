@@ -901,8 +901,21 @@
 				#address-cells = <1>;
 				#size-cells = <1>;
 				ranges;
-				/* FIXME: Add HW resources */
+				reg = <0xE9018000 0x4000>;
+				interrupts = < NOC_ERR_APS_MAC IRQ_TYPE_DEFAULT >, < NOC_STATALARM IRQ_TYPE_DEFAULT >;
+				interrupt-names = "error", "stat_alarm";
+				clock,rate = <200000000>;
+				probe,nr = < 3 >;
+				filter,nr = < 4 >;
+				counter,nr = < 2 >;
 
+				probe,offset = < 0x2000 >;
+
+				probe,portsel,0 = "DL_ECYPHER0", "DL_ECYPHER1", "DL_EMACPHY", "DL_EMACPHY", "MACPHY_TILE6", "UL_ECYPHER0", "UL_ECYPHER1", "UL_EMACPHY";
+				probe,portsel,1 = "L1CTRL_3G";
+				probe,portsel,2 = "L1CTRL_LTE", "LTE_TEST1", "LTE_TEST2";
+
+				#include "xgold/sofia_lte_soc/NoC.dtsi"
 				ahb_per@3 {
 					compatible = "intel,ahbper";
 					#address-cells = <1>;
