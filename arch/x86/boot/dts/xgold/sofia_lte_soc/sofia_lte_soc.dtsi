@@ -81,6 +81,13 @@
 					0x81000000 0x1000000>;
 			reg-names = "trace-port", "trace-port-1";
 		};
+               nvm:nvm {
+                       compatible = "intel,vnvm";
+                       #address-cells = < 0 >;
+                       intel,nb-part = < 1 >;
+                       intel,part-names =
+                       "/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022";
+               };
 
 		noc {
 			compatible = "intel,noc";

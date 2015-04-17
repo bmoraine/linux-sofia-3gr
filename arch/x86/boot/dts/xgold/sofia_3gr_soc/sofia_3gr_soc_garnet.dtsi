@@ -55,6 +55,16 @@
 			reg-names = "trace-port";
 		};
 
+		nvm:nvm {
+			compatible = "intel,vnvm";
+			#address-cells = < 0 >;
+			intel,nb-part = < 3 >;
+			intel,part-names =
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022",
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID023",
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID024";
+		};
+
 		noc {
 			compatible = "intel,noc";
 			#address-cells = <1>;
