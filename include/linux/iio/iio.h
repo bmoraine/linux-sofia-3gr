@@ -388,6 +388,8 @@ struct iio_buffer_setup_ops {
 				   const unsigned long *scan_mask);
 };
 
+#define IIO_MM_SIZE		18
+
 /**
  * struct iio_dev - industrial I/O device
  * @id:			[INTERN] used to identify device internally
@@ -423,6 +425,12 @@ struct iio_buffer_setup_ops {
  * @groups:		[INTERN] attribute groups
  * @groupcounter:	[INTERN] index of next attribute group
  * @flags:		[INTERN] file ops related flags including busy flag.
+ * @mounting_matrix:	[INTERN] the mounting matrix is a series of 9
+ *			IIO_VAL_INT_PLUS_MICRO pairs that describes the
+ *			transformation needed to account for the way the sensor
+ *			has been placed on the PCB. See the mounting_matrix
+ *			entry in Documentation/ABI/testing/sysfs-bus-iio about
+ *			details of the transformation operations.
  * @debugfs_dentry:	[INTERN] device specific debugfs dentry.
  * @cached_reg_addr:	[INTERN] cached register address for debugfs reads.
  */
@@ -463,6 +471,7 @@ struct iio_dev {
 	int				groupcounter;
 
 	unsigned long			flags;
+	int				mounting_matrix[IIO_MM_SIZE];
 #if defined(CONFIG_DEBUG_FS)
 	struct dentry			*debugfs_dentry;
 	unsigned			cached_reg_addr;

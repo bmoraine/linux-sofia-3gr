@@ -32,6 +32,7 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/events.h>
 #include <linux/iio/buffer.h>
+#include <linux/of.h>
 
 /* IDA to assign each registered device a unique id */
 static DEFINE_IDA(iio_ida);
@@ -843,6 +844,54 @@ static ssize_t iio_show_dev_name(struct device *dev,
 
 static DEVICE_ATTR(name, S_IRUGO, iio_show_dev_name, NULL);
 
+static bool iio_get_mounting_matrix(struct iio_dev *indio_dev)
+{
+#if IS_ENABLED(CONFIG_OF)
+	int i, err;
+
+	err = of_property_read_u32_array(indio_dev->dev.of_node,
+					 "mounting-matrix",
+					 indio_dev->mounting_matrix, 9);
+	if (!err) {
+		int *mm = indio_dev->mounting_matrix;
+
+		for (i = IIO_MM_SIZE - 2; i > 0; i -= 2) {
+			mm[i] = mm[i / 2];
+			mm[i + 1] = 0;
+		}
+
+		return true;
+	}
+#endif
+
+	return false;
+}
+
+static ssize_t iio_show_mounting_matrix(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	char *tmp = buf;
+	int i;
+
+	for (i = 0; i < IIO_MM_SIZE; i += 2) {
+		tmp += iio_format_value(tmp, IIO_VAL_INT_PLUS_MICRO,
+					indio_dev->mounting_matrix[i],
+					indio_dev->mounting_matrix[i + 1]);
+		/*
+		 * Format this a 3 x 3 matrix: keep a new line only for every
+		 * 3rd pair, for the rest of the pairs replace the new line with
+		 * a space.
+		 */
+		if (((i + 2) / 2) % 3)
+			tmp[-1] = ' ';
+	}
+	return tmp - buf;
+}
+
+static DEVICE_ATTR(mounting_matrix, S_IRUGO, iio_show_mounting_matrix, NULL);
+
 static int iio_device_register_sysfs(struct iio_dev *indio_dev)
 {
 	int i, ret = 0, attrcount, attrn, attrcount_orig = 0;
@@ -892,6 +941,9 @@ static int iio_device_register_sysfs(struct iio_dev *indio_dev)
 		indio_dev->chan_attr_group.attrs[attrn++] = &p->dev_attr.attr;
 	if (indio_dev->name)
 		indio_dev->chan_attr_group.attrs[attrn++] = &dev_attr_name.attr;
+	if (iio_get_mounting_matrix(indio_dev))
+		indio_dev->chan_attr_group.attrs[attrn++] =
+			&dev_attr_mounting_matrix.attr;
 
 	indio_dev->groups[indio_dev->groupcounter++] =
 		&indio_dev->chan_attr_group;
