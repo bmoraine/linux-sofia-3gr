@@ -192,7 +192,7 @@ static unsigned int xgold_irq_find_mapping_custom(unsigned int irq)
 {
 	struct xgold_irq_chip_data *data = irq_get_handler_data(irq);
 	pr_debug("%s(%d)\n", __func__, irq);
-	if (data->find_mapping)
+	if (data && data->find_mapping)
 		return data->find_mapping(irq);
 	else
 		return 0;

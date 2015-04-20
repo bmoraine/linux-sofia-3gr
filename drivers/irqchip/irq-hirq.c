@@ -113,9 +113,11 @@ static void xgold_hirq_resend(unsigned long arg)
 	int irq = data->hirq;
 	struct irq_desc *desc = irq_to_desc(irq);
 	pr_debug("%s(%d)\n", __func__, irq);
-	local_irq_disable();
-	desc->handle_irq(irq, desc);
-	local_irq_enable();
+	if (desc) {
+		local_irq_disable();
+		desc->handle_irq(irq, desc);
+		local_irq_enable();
+	}
 }
 
 static uint32_t xgold_irq_hirq_find_mapping(uint32_t irq)
