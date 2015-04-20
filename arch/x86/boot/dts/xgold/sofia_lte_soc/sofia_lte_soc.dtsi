@@ -339,6 +339,7 @@
 						pm,runtime = "enable";
 						pm,rpm_suspend_delay = < 15 >;
 						pm,auto_suspend_enable = "enable";
+						pm,gen_uevent;
 					};
 
 					i2c_1:i2c_1 {
