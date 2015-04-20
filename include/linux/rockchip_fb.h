@@ -411,6 +411,7 @@ struct rockchip_vop_driver {
 	u8 fb_index_base;	/* the first fb index of the vop device */
 
 	struct rockchip_screen *screen0;
+	struct rockchip_screen screen1;
 	struct rockchip_screen *cur_screen;
 	u32 pixclock;
 

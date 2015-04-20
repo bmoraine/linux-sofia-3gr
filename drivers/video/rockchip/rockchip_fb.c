@@ -1976,7 +1976,13 @@ int rockchip_fb_switch_screen(struct rockchip_screen *screen,
 	pr_info("hdmi %s vop%d\n", enable ? "connect to" : "remove from",
 		dev_drv->id);
 
-	memcpy(dev_drv->cur_screen, screen, sizeof(struct rockchip_screen));
+	if (enable) {
+		memcpy(&dev_drv->screen1, screen, sizeof(*screen));
+
+		dev_drv->cur_screen = &dev_drv->screen1;
+	} else {
+		dev_drv->cur_screen = dev_drv->screen0;
+	}
 
 	/* the main fb of vop */
 	info = sfb_info->fb[dev_drv->fb_index_base];
