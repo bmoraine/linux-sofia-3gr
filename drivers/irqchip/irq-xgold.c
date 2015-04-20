@@ -160,29 +160,32 @@ static int xgold_irq_find_mapping_n2n(unsigned int irq)
 			return i;
 		}
 	}
-	pr_err("%s: mapping not found for %d\n", __func__, irq);
+	pr_debug("%s: mapping not found for %d\n", __func__, irq);
 	return -1;
 }
 /*
  * xgold irq find mapping from a N to 1 domain
  */
-static unsigned int xgold_irq_find_mapping_n21(unsigned int irq)
+static int xgold_irq_find_mapping_n21(unsigned int irq)
 {
 	struct xgold_irq_chip_data *data = irq_get_handler_data(irq);
 	auto int i;
+	uint32_t raised = 0, enabled = 0;
 	pr_debug("%s(%d)\n", __func__, irq);
 	if (!data)
 		return -1;
 	for (i = 0; i < data->nr_int; i++) {
-		pr_debug("%s: %d for %d ?\n", __func__, i, irq);
-		if (xgold_irq_read(data, data->status[i]) &&
-			xgold_irq_read(data, data->mask[i])) {
+		raised = xgold_irq_read(data, data->status[i]);
+		enabled = xgold_irq_read(data, data->mask[i]);
+		pr_debug("%s: status:%#x - mask:%#x\n", __func__,
+				raised, enabled);
+		if (raised && enabled) {
 			pr_debug("%s: mapping found for %d: %d\n",
 							__func__, irq, i);
 			return i;
 		}
 	}
-	pr_err("%s: mapping not found for %d\n", __func__, irq);
+	pr_debug("%s: mapping not found for %d\n", __func__, irq);
 	return -1;
 }
 /*
@@ -191,16 +194,18 @@ static unsigned int xgold_irq_find_mapping_n21(unsigned int irq)
 static unsigned int xgold_irq_find_mapping_custom(unsigned int irq)
 {
 	struct xgold_irq_chip_data *data = irq_get_handler_data(irq);
-	pr_debug("%s(%d)\n", __func__, irq);
 	if (data && data->find_mapping)
 		return data->find_mapping(irq);
 	else
-		return 0;
+		return -2;
 }
 /*
  * xgold irq find mapping wrapper
+ *	will return (-1) if no mapping is found. That's could happen if the
+ *	IRQ is disabled while we just starting the ISR
+ *	will return (-2) in case of custom handler with NULL callback - killing
  */
-unsigned int xgold_irq_find_mapping(unsigned int irq, unsigned int type)
+static int xgold_irq_find_mapping(unsigned int irq, unsigned int type)
 {
 	if (XGOLD_IRQ_DOMAIN_N21 == type)
 		return xgold_irq_find_mapping_n21(irq);
@@ -218,19 +223,19 @@ void xgold_irq_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 	struct irq_domain *domain = NULL;
 	struct irq_chip *chip = irq_get_chip(irq);
 	uint32_t casc_irq = 0;
-	pr_debug("%s\n", __func__);
+	int32_t domain_irq = 0;
 	data = irq_get_handler_data(irq);
 	if (!data || !chip)
 		return;
 	domain = data->domain;
 	chained_irq_enter(chip, desc);
-	irq = xgold_irq_find_mapping(irq, data->type);
-	pr_debug("irq_find_mapping -> using domain @%p\n", data->domain);
-	casc_irq = irq_find_mapping(data->domain, irq);
-	pr_debug("%s: casc_irq found %d (from %d)\n", __func__, casc_irq, irq);
+	domain_irq = xgold_irq_find_mapping(irq, data->type);
+	if (domain_irq >= 0)
+		casc_irq = irq_find_mapping(data->domain, domain_irq);
 	if (data->handle_entry)
 		data->handle_entry(data);
-	generic_handle_irq(casc_irq);
+	if (casc_irq > 0)
+		generic_handle_irq(casc_irq);
 	if (data->handle_exit)
 		data->handle_exit(data);
 	chained_irq_exit(chip, desc);
