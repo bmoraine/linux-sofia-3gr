@@ -706,11 +706,15 @@ static int rockchip_vop_set_dclk(struct rockchip_vop_driver *dev_drv)
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	vop_dev->pixclock =
 		div_u64(1000000000000llu, screen->mode.pixclock);
-	ret = device_state_pm_set_state_by_name(vop_dev->dev,
-			vop_dev->pm_platdata->pm_state_D3_name);
-	if (ret)
-		dev_err(dev_drv->dev, "failed vop%d disable\n", vop_dev->id);
-	if (screen->mode.pixclock == 148500000)
+
+	/*
+	 * Mipi screen needs real dclk > screen->mode.pixclock,
+	 * otherwise the mipi controller will miss the fifo, and get error.
+	 */
+	if (screen->type == SCREEN_MIPI)
+		ret = device_state_pm_set_state_by_name(vop_dev->dev,
+							"ultra_high_perf");
+	else if (screen->mode.pixclock == 148500000)
 		ret = device_state_pm_set_state_by_name(vop_dev->dev,
 							"high_perf");
 	else if (screen->mode.pixclock == 74250000)
@@ -721,7 +725,7 @@ static int rockchip_vop_set_dclk(struct rockchip_vop_driver *dev_drv)
 							"low_perf");
 	else
 		ret = device_state_pm_set_state_by_name(vop_dev->dev,
-					vop_dev->pm_platdata->pm_state_D0_name);
+							"ultra_high_perf");
 	if (ret)
 		dev_err(dev_drv->dev, "set vop%d dclk failed\n", vop_dev->id);
 #else
@@ -926,26 +930,27 @@ static int rockchip_vop_load_screen(struct rockchip_vop_driver *dev_drv,
 	vop_msk_reg(vop_dev, VOP_DSP_CTRL0, M_SW_OVERLAY_MODE,
 		    V_SW_OVERLAY_MODE(dev_drv->overlay_mode));
 
+	mask = M_RGB_DCLK_EN | M_LVDS_DCLK_EN | M_MIPI_DCLK_EN;
 	switch (screen->type) {
 	case SCREEN_RGB:
-		mask = M_RGB_DCLK_EN | M_RGB_DCLK_INVERT;
+		mask |= M_RGB_DCLK_INVERT;
 		val = V_RGB_DCLK_EN(1) | V_RGB_DCLK_INVERT(0);
 		vop_msk_reg(vop_dev, VOP_BUS_INTF_CTRL, mask, val);
 		break;
 	case SCREEN_LVDS:
-		mask = M_LVDS_DCLK_EN | M_LVDS_DCLK_INVERT;
+		mask |= M_LVDS_DCLK_INVERT;
 		val = V_LVDS_DCLK_EN(1) | V_LVDS_DCLK_INVERT(0);
 		vop_msk_reg(vop_dev, VOP_BUS_INTF_CTRL, mask, val);
 		break;
 	case SCREEN_MIPI:
-		mask = M_MIPI_DCLK_EN | M_MIPI_DCLK_INVERT;
+		mask |= M_MIPI_DCLK_INVERT;
 		val = V_MIPI_DCLK_EN(1) | V_MIPI_DCLK_INVERT(0);
 		vop_msk_reg(vop_dev, VOP_BUS_INTF_CTRL, mask, val);
 		vop_msk_reg(vop_dev, VOP_MIPI_EDPI_CTRL,
 			    M_EDPI_HALT_EN, V_EDPI_HALT_EN(1));
 		break;
 	case SCREEN_HDMI:
-		mask = M_RGB_DCLK_EN | M_RGB_DCLK_INVERT;
+		mask |= M_RGB_DCLK_INVERT;
 		val = V_RGB_DCLK_EN(1) | V_RGB_DCLK_INVERT(0);
 		vop_msk_reg(vop_dev, VOP_BUS_INTF_CTRL, mask, val);
 		rockchip_vop_select_bcsh(dev_drv, vop_dev);
