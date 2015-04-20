@@ -945,6 +945,9 @@ static int rockchip_vop_load_screen(struct rockchip_vop_driver *dev_drv,
 			    M_EDPI_HALT_EN, V_EDPI_HALT_EN(1));
 		break;
 	case SCREEN_HDMI:
+		mask = M_RGB_DCLK_EN | M_RGB_DCLK_INVERT;
+		val = V_RGB_DCLK_EN(1) | V_RGB_DCLK_INVERT(0);
+		vop_msk_reg(vop_dev, VOP_BUS_INTF_CTRL, mask, val);
 		rockchip_vop_select_bcsh(dev_drv, vop_dev);
 		break;
 	default:
