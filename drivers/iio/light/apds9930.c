@@ -172,7 +172,7 @@
 /* Material-depending coefficients (set to open air values). They are scaled for
  * computation purposes by 100 (as stored in APDS9930_COEF_SCALE).
  */
-#define APDS9930_DEF_LUX_DIVISION_SCALE	10000
+#define APDS9930_DEF_LUX_DIVISION_SCALE	100
 #define APDS9930_DEF_GA			49
 #define APDS9930_DEF_B			186
 #define APDS9930_DEF_C			74
@@ -425,9 +425,10 @@ static int apds9930_compute_lux(struct apds9930_data *data, u16 ch0, u16 ch1)
 	iac             = (tmp_iac < 0) ? 0:(unsigned long)tmp_iac;
 	alsit_val	= (int)(data->alsit);
 	again_val	= apds9930_again_values[data->__again];
-	lux		= (iac * cf.ga * cf.df) /
-				(alsit_val * again_val *
-				 APDS9930_DEF_LUX_DIVISION_SCALE);
+	lux		=
+		DIV_ROUND_UP(DIV_ROUND_UP(iac, APDS9930_DEF_LUX_DIVISION_SCALE)
+			     * cf.ga * cf.df,
+		alsit_val * again_val * APDS9930_DEF_LUX_DIVISION_SCALE);
 
 	return data->agl_enabled ? (APDS9930_AGL_DIVISION_SCALE * lux) : lux;
 }
