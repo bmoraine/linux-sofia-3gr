@@ -291,8 +291,6 @@ int vmodem_probe(struct platform_device *pdev)
 		return -EBUSY;
 	}
 
-	mv_gal_register_hirq_callback(512, modem_state_sysconf_hdl,
-					pdata);
 	/*
 	  linux2secvm_vlink_init();
 	  p_shared_mem_addr->vm_id = 1;
