@@ -995,7 +995,8 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 				dma_async_is_tx_complete(
 					data->dmach, data->dma_cookie,
 					NULL, NULL) != DMA_COMPLETE) {
-			i2c_debug(data, "An error occured %#X. Terminate all dma\n",
+			dev_err(&adap->dev,
+				"An error occured %d. Terminate all dma\n",
 				data->cmd_err);
 			dmaengine_terminate_all(data->dmach);
 			xgold_i2c_dma_finish(data);
@@ -1006,7 +1007,8 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 
 		i2c_debug(data, "<-- RD dev=0x%x done\n", data->addr);
 	} else {
-		i2c_debug(data, "--> WR dev=0x%x, len=%d, reg=0x%x, flags=%d, mode %s\n",
+		i2c_debug(data,
+			"--> WR dev=0x%x, len=%d, reg=0x%x, flags=%d, mode %s\n",
 			data->addr, data->buf_len, data->buf[0], data->flags,
 			(data->dma_mode == true) ? "DMA" : "PIO");
 
@@ -1036,7 +1038,8 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 				dma_async_is_tx_complete(data->dmach,
 				data->dma_cookie, NULL, NULL) != DMA_COMPLETE) {
 
-			i2c_debug(data, "An error occured %#X. Terminate all dma\n",
+			dev_err(&adap->dev,
+				"An error occured %d. Terminate all dma\n",
 				data->cmd_err);
 			dmaengine_terminate_all(data->dmach);
 			xgold_i2c_dma_finish(data);
@@ -1049,15 +1052,8 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 	}
 
 out:
-	if (data->dma_mode) {
+	if (data->dma_mode)
 		xgold_i2c_dmae(data, false);
-		if (dma_async_is_tx_complete(data->dmach, data->dma_cookie,
-					NULL, NULL) != DMA_COMPLETE) {
-
-			dmaengine_terminate_all(data->dmach);
-			xgold_i2c_dma_finish(data);
-		}
-	}
 
 	if (data->cmd_err) {
 		i2c_debug(data, "An error occured %#X\n", data->cmd_err);
