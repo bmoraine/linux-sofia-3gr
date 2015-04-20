@@ -56,8 +56,8 @@
 	(a - XGOLD_SPEECH_PROBE_DEVICE_OFSET)
 
 
-#define	PROBE_POINT_TO_STREAM_PLAY(a)	(2*a)
-#define	PROBE_POINT_TO_STREAM_REC(a)	(2*a + 1)
+#define	PROBE_POINT_TO_STREAM_PLAY(a)	(2 * a)
+#define	PROBE_POINT_TO_STREAM_REC(a)	(2 * a + 1)
 
 enum xgold_speech_probe_point_id {
 	PROBE_POINT_A,

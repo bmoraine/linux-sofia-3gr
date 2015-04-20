@@ -2000,7 +2000,10 @@ static int dsp_audio_runtime_resume(struct device *dev)
 
 	dsp_dev = dev_get_drvdata(dev);
 
-	if (dsp_dev != NULL)
+	if (!dsp_dev)
+		return 0;
+
+	if (dsp_dev->pm_platdata)
 		ret = device_state_pm_set_state_by_name(dev,
 				dsp_dev->pm_platdata->pm_state_D0_name);
 	if (ret < 0)
@@ -2012,8 +2015,7 @@ static int dsp_audio_runtime_resume(struct device *dev)
 			ops->irq_activate(DSP_IRQ_4);
 		(void)dsp_dev->p_dsp_common_data->
 			ops->irq_activate(DSP_IRQ_5);
-	}
-	if (XGOLD_DSP_XG742_FBA == dsp_dev->id) {
+	} else if (XGOLD_DSP_XG742_FBA == dsp_dev->id) {
 		/* Activate FBA DSP interrupt 0 for VOLTE call */
 		(void)dsp_dev->p_dsp_common_data->
 			ops->irq_activate(DSP_FBA_IRQ_0);
@@ -2507,10 +2509,12 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 
 out:
 
-/* BU_HACK memory retention mode not working on ES 1.0
-    keep the DSP on always */
-	platform_device_pm_set_state_by_name(pdev,
-		dsp_dev->pm_platdata->pm_state_D0i3_name);
+	/* BU_HACK memory retention mode not working on ES 1.0
+	 * keep the DSP on always */
+	if (dsp_dev->pm_platdata)
+		platform_device_pm_set_state_by_name(pdev,
+				dsp_dev->pm_platdata->pm_state_D0i3_name);
+
 	pm_runtime_enable(dsp_dev->dev);
 	return ret;
 }

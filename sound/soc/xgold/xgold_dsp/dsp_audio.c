@@ -158,7 +158,7 @@ enum dsp_err_code dsp_audio_cmd(
 		is_command_id_supported = is_cmd_supported_on_dsp(
 						command_id,
 						supported_cmd_fba,
-						sizeof(supported_cmd_fba));
+						ARRAY_SIZE(supported_cmd_fba));
 		if (0x7fff != is_command_id_supported) {
 			is_command_valid = 1;
 			dsp_add_audio_msg_2_dsp(dsp.dsp_fba,
@@ -171,7 +171,7 @@ enum dsp_err_code dsp_audio_cmd(
 		is_command_id_supported = is_cmd_supported_on_dsp(
 						command_id,
 						supported_cmd_sba,
-						sizeof(supported_cmd_sba));
+						ARRAY_SIZE(supported_cmd_sba));
 		if (0x7fff != is_command_id_supported) {
 
 			is_command_valid = 1;
