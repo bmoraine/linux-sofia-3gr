@@ -99,14 +99,18 @@ uint32_t mbox_lookup_id_by_name(char *name,
 	struct mbox_dir_entry *entry = mbox_lookup_directory_entry(name);
 
 	if (entry) {
-		struct mbox_instance_directory *instance_directory
-			= (struct mbox_instance_directory *)
+		struct mbox_instance_dir_entry *instance_dir_entry = NULL;
+		struct mbox_instance_directory *instance_directory = NULL;
+
+		instance_directory = (struct mbox_instance_directory *)
 			  mv_gal_ptov((vmm_paddr_t) entry->p_instance_dir);
+		if (!instance_directory) {
+			pr_err("Could not get virt address\n");
+			return MBOX_ERROR;
+		}
 
-		struct mbox_instance_dir_entry *instance_dir_entry =
-			mbox_lookup_instance_directory_entry(instance_directory,
-						instance_name);
-
+		instance_dir_entry = mbox_lookup_instance_directory_entry(
+				instance_directory, instance_name);
 		if (instance_dir_entry) {
 			*mbox_id = entry->id;
 			*instance_number = instance_dir_entry->id;
@@ -150,6 +154,10 @@ uint32_t mv_ipc_init(void)
 {
 	mbox_dir =
 		(struct mbox_directory *)mv_gal_ptov(mv_mbox_get_directory());
+	if (!mbox_dir) {
+		pr_err("Could not get mbox virt address\n");
+		return -1;
+	}
 	mbox_database =
 		kmalloc(mbox_dir->num_of_instances *
 			sizeof(struct mbox_database_entry), GFP_KERNEL);
@@ -166,9 +174,10 @@ uint32_t mv_ipc_mbox_get_info(char *name,
 	uint32_t pinfo, token, mid, instance_no, res;
 	struct mbox_database_entry *db_entry;
 	int irq_on_connect, irq_on_disconnect, irq_event;
-	char *handler_name;
+	char *connect_name = NULL, *disc_name = NULL;
+	char **event_names = NULL;
 	struct mbox_db_guest_entry *info;
-	int i;
+	int i, req = 0;
 
 	res = mbox_lookup_id_by_name(name, instance_name, &mid, &instance_no);
 	if (res == MBOX_ERROR)
@@ -179,6 +188,11 @@ uint32_t mv_ipc_mbox_get_info(char *name,
 		return MBOX_INIT_ERR;
 
 	info = (struct mbox_db_guest_entry *)mv_gal_ptov(pinfo);
+	if (!info) {
+		pr_err("Could not get virt address\n");
+		goto exit1;
+	}
+
 	*cmdline = info->cmd_line;
 	*shared_mem_start = info->shared_mem;
 	*shared_mem_size = info->size_of_shared_memory;
@@ -186,20 +200,39 @@ uint32_t mv_ipc_mbox_get_info(char *name,
 	irq_on_connect = irq_create_mapping(hirq_domain,
 					    info->on_connect_hirq -
 					    HIRQ_OFFSET);
-	handler_name = kmalloc(MBOX_IRQ_HANDLER_NAME_SIZE, GFP_KERNEL);
-	snprintf(handler_name, MBOX_IRQ_HANDLER_NAME_SIZE,
-		 "mb-%s-%s-conn", name, instance_name);
-	request_irq(irq_on_connect, mbox_connect_handler,
-		    IRQF_NO_SUSPEND, handler_name, info);
+	connect_name = kmalloc(MBOX_IRQ_HANDLER_NAME_SIZE, GFP_KERNEL);
+	if (!connect_name) {
+		pr_err("Could not allocate connect name\n");
+		goto exit1;
+	}
+	snprintf(connect_name, MBOX_IRQ_HANDLER_NAME_SIZE,
+		"mb-%s-%s-conn", name, instance_name);
+	req = request_irq(irq_on_connect, mbox_connect_handler,
+		    IRQF_NO_SUSPEND, connect_name, info);
+	if (req) {
+		pr_err("Could not request_irq (%s - %d)\n", connect_name,
+				irq_on_connect);
+		goto exit2;
+	}
 
 	irq_on_disconnect = irq_create_mapping(hirq_domain,
 					       info->on_disconnect_hirq -
 					       HIRQ_OFFSET);
-	handler_name = kmalloc(MBOX_IRQ_HANDLER_NAME_SIZE, GFP_KERNEL);
-	snprintf(handler_name, MBOX_IRQ_HANDLER_NAME_SIZE,
+	disc_name = kmalloc(MBOX_IRQ_HANDLER_NAME_SIZE, GFP_KERNEL);
+	if (!disc_name) {
+		pr_err("Could not allocate disconnect name\n");
+		goto exit3;
+	}
+	snprintf(disc_name, MBOX_IRQ_HANDLER_NAME_SIZE,
 		 "mb-%s-%s-disc", name, instance_name);
-	request_irq(irq_on_disconnect, mbox_disconnect_handler,
-		IRQF_NO_SUSPEND, handler_name, info);
+
+	req = request_irq(irq_on_disconnect, mbox_disconnect_handler,
+		IRQF_NO_SUSPEND, disc_name, info);
+	if (req) {
+		pr_err("Could not request_irq (%s - %d)\n", disc_name,
+				irq_on_disconnect);
+		goto exit4;
+	}
 
 	db_entry = &mbox_database[token & 0xFF];
 	db_entry->info = info;
@@ -208,6 +241,16 @@ uint32_t mv_ipc_mbox_get_info(char *name,
 
 	db_entry->event_info_array = kmalloc(sizeof(struct mbox_event_info) *
 					     info->num_of_events, GFP_KERNEL);
+	if (!db_entry->event_info_array) {
+		pr_err("Could not allocate event_info_array\n");
+		goto exit5;
+	}
+
+	event_names = kmalloc(sizeof(char *) * info->num_of_events, GFP_KERNEL);
+	if (!event_names) {
+		pr_err("Could not allocate event names array\n");
+		goto exit6;
+	}
 
 	for (i = 0; i < info->num_of_events; i++) {
 		irq_event = irq_create_mapping(hirq_domain,
@@ -216,14 +259,48 @@ uint32_t mv_ipc_mbox_get_info(char *name,
 		db_entry->event_info_array[i].info = info;
 		db_entry->event_info_array[i].event_id = i;
 
-		handler_name = kmalloc(MBOX_IRQ_HANDLER_NAME_SIZE, GFP_KERNEL);
-		snprintf(handler_name, MBOX_IRQ_HANDLER_NAME_SIZE,
-			 "mb-%s-%s-%d", name, instance_name, i);
-		request_irq(irq_event, mbox_event_handler, IRQF_NO_SUSPEND,
-			    handler_name, &(db_entry->event_info_array[i]));
+		event_names[i] = kmalloc(MBOX_IRQ_HANDLER_NAME_SIZE,
+				GFP_KERNEL);
+		if (!event_names[i]) {
+			pr_err("Could not allocate event name\n");
+			goto exit7;
+		}
+		snprintf(event_names[i], MBOX_IRQ_HANDLER_NAME_SIZE,
+			"mb-%s-%s-%d", name, instance_name, i);
+		req = request_irq(irq_event, mbox_event_handler,
+				IRQF_NO_SUSPEND, event_names[i],
+				&(db_entry->event_info_array[i]));
+		if (req) {
+			pr_err("Could not request_irq (%s - %d)\n",
+					event_names[i], irq_event);
+			goto exit8;
+		}
 	}
-
+	kfree(event_names);
 	return token;
+exit8:
+	kfree(event_names[i]);
+exit7:
+	while (--i >= 0) {
+		irq_event = irq_find_mapping(hirq_domain,
+					       info->first_event_hirq + i -
+					       HIRQ_OFFSET);
+		free_irq(irq_event, &(db_entry->event_info_array[i]));
+		kfree(event_names[i]);
+	}
+	kfree(event_names);
+exit6:
+	kfree(db_entry->event_info_array);
+exit5:
+	free_irq(irq_on_disconnect, info);
+exit4:
+	kfree(disc_name);
+exit3:
+	free_irq(irq_on_connect, info);
+exit2:
+	kfree(connect_name);
+exit1:
+	return MBOX_INIT_ERR;
 }
 
 uint32_t mv_ipc_mbox_for_all_instances(char *name,
@@ -239,6 +316,10 @@ uint32_t mv_ipc_mbox_for_all_instances(char *name,
 
 	instance_dir = (struct mbox_instance_directory *)
 		       mv_gal_ptov((uint32_t) entry->p_instance_dir);
+	if (!instance_dir) {
+		pr_err("Could not get virt address\n");
+		return MBOX_ERROR;
+	}
 
 	for (i = 0; i < instance_dir->num_of_instances; i++) {
 		on_instance(instance_dir->entry[i].name, i,

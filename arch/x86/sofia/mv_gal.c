@@ -70,16 +70,16 @@ struct vmm_shared_data *mv_gal_get_shared_data(void)
 #endif
 }
 
-struct hirq_handler_wrapper
-{
+struct hirq_handler_wrapper {
 	int irq;
 	irq_handler_t handler;
-	void* cookie;
+	void *cookie;
 };
 
 irqreturn_t generic_hirq_handler(int irq, void *cookie)
 {
-	struct hirq_handler_wrapper* hirq_wrapper = (struct hirq_handler_wrapper*)cookie;
+	struct hirq_handler_wrapper *hirq_wrapper =
+		(struct hirq_handler_wrapper *)cookie;
 	return hirq_wrapper->handler(irq, hirq_wrapper->cookie);
 }
 
@@ -100,7 +100,8 @@ void *mv_gal_ptov(vmm_paddr_t paddr)
 {
 	if (pmem_vbase) {
 		void *ptr;
-		struct vmm_shared_data *p_shared_data = mv_gal_get_shared_data();
+		struct vmm_shared_data *p_shared_data =
+			mv_gal_get_shared_data();
 		if (paddr >= p_shared_data->pmem_paddr &&
 		    paddr <= p_shared_data->pmem_paddr +
 		    p_shared_data->pmem_size) {
@@ -120,7 +121,8 @@ vmm_paddr_t mv_gal_vtop(void *vaddr)
 {
 	if (pmem_vbase) {
 		vmm_paddr_t ptr;
-		struct vmm_shared_data *p_shared_data = mv_gal_get_shared_data();
+		struct vmm_shared_data *p_shared_data =
+			mv_gal_get_shared_data();
 		if (vaddr >= pmem_vbase &&
 			vaddr <= pmem_vbase + p_shared_data->pmem_size) {
 			ptr =
@@ -215,24 +217,45 @@ inline unsigned int mv_gal_os_id(void)
 }
 
 #define HIRQ_HANDLER_NAME_SIZE	16
-void *mv_gal_register_hirq_callback(uint32_t hirq, irq_handler_t cb, void *cookie)
+void *mv_gal_register_hirq_callback(uint32_t hirq, irq_handler_t cb,
+		void *cookie)
 {
 	int virq = irq_create_mapping(hirq_domain, hirq - VMM_HIRQ_START);
-	char* handler_name = kmalloc(HIRQ_HANDLER_NAME_SIZE, GFP_KERNEL);
-	struct hirq_handler_wrapper* wrapper = kmalloc(sizeof(struct hirq_handler_wrapper), GFP_KERNEL);
+	char *handler_name = NULL;
+	struct hirq_handler_wrapper *wrapper = NULL;
+
+	wrapper = kmalloc(sizeof(struct hirq_handler_wrapper), GFP_KERNEL);
+	if (!wrapper) {
+		pr_err("failed to allocate wrapper\n");
+		return NULL;
+	}
 	wrapper->irq = virq;
 	wrapper->handler = cb;
 	wrapper->cookie = cookie;
+	handler_name = kmalloc(HIRQ_HANDLER_NAME_SIZE, GFP_KERNEL);
+	if (!handler_name) {
+		pr_err("failed to allocate handler_name\n");
+		goto free_wrapper;
+	}
 	snprintf(handler_name, HIRQ_HANDLER_NAME_SIZE, "hirq-%d", hirq);
-	if(request_irq(virq, generic_hirq_handler, IRQF_SHARED | IRQF_NO_SUSPEND, handler_name, (void*)wrapper)) {
-		printk(KERN_ERR "failed to request irq\n");
+	if (request_irq(virq, generic_hirq_handler,
+				IRQF_SHARED | IRQF_NO_SUSPEND, handler_name,
+				(void *)wrapper)) {
+		pr_err("failed to request irq\n");
+		goto free_handler;
 	}
 	return wrapper;
+free_handler:
+	kfree(handler_name);
+free_wrapper:
+	kfree(wrapper);
+	return NULL;
 }
 
 void mv_gal_hirq_detach(void *id)
 {
-	struct hirq_handler_wrapper* hirq_wrapper = (struct hirq_handler_wrapper*)id;	
+	struct hirq_handler_wrapper *hirq_wrapper =
+		(struct hirq_handler_wrapper *)id;
 	free_irq(hirq_wrapper->irq, id);
 	kfree(id);
 }
@@ -250,31 +273,31 @@ static int32_t mv_gal_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id mv_gal_of_match[] = {
-        {
-                .compatible = "intel,mobilevisor",
-        },
-        {},
+	{
+		.compatible = "intel,mobilevisor",
+	},
+	{},
 };
 
 MODULE_DEVICE_TABLE(of, mv_gal_of_match);
 
 static struct platform_driver mv_gal_driver = {
-        .probe = mv_gal_probe,
-        .driver = {
-                .name = "mv_gal",
-                .owner = THIS_MODULE,
-                .of_match_table = of_match_ptr(mv_gal_of_match),
-        }
+	.probe = mv_gal_probe,
+	.driver = {
+		.name = "mv_gal",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(mv_gal_of_match),
+	}
 };
 
 static int32_t __init mv_gal_driver_init(void)
 {
-        return platform_driver_register(&mv_gal_driver);
+	return platform_driver_register(&mv_gal_driver);
 }
 
 static void __exit mv_gal_driver_exit(void)
 {
-        platform_driver_unregister(&mv_gal_driver);
+	 platform_driver_unregister(&mv_gal_driver);
 }
 
 core_initcall(mv_gal_driver_init);
