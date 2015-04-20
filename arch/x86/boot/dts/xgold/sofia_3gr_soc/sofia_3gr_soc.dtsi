@@ -479,10 +479,15 @@
 
 						     pm,class-name = "dcc_class";
 						     pm,user-name = "dcc";
-						     pm,state-D0 = "high_perf";
+						     pm,state-D0 = "ultra_high_perf";
 						     pm,state-D1 = "mid_perf";
 						     pm,state-D2 = "low_perf";
 						     pm,state-D3 = "disable";
+
+						     low_perf_freq = <54000000>;
+						     mid_perf_freq = <148500000>;
+						     high_perf_freq = <297000000>;
+						     uhigh_perf_freq = <297000000>;
 
 						     rockchip,iommu-enabled = <1>;
 					     };

@@ -706,9 +706,19 @@ static int rockchip_vop_set_dclk(struct rockchip_vop_driver *dev_drv)
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	vop_dev->pixclock =
 		div_u64(1000000000000llu, screen->mode.pixclock);
+	ret = device_state_pm_set_state_by_name(vop_dev->dev,
+			vop_dev->pm_platdata->pm_state_D3_name);
+	if (ret)
+		dev_err(dev_drv->dev, "failed vop%d disable\n", vop_dev->id);
 	if (screen->mode.pixclock == 148500000)
 		ret = device_state_pm_set_state_by_name(vop_dev->dev,
 							"high_perf");
+	else if (screen->mode.pixclock == 74250000)
+		ret = device_state_pm_set_state_by_name(vop_dev->dev,
+							"mid_perf");
+	else if (screen->mode.pixclock == 27000000)
+		ret = device_state_pm_set_state_by_name(vop_dev->dev,
+							"low_perf");
 	else
 		ret = device_state_pm_set_state_by_name(vop_dev->dev,
 					vop_dev->pm_platdata->pm_state_D0_name);
