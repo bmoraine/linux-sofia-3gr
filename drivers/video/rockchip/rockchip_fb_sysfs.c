@@ -26,6 +26,7 @@
 #include <asm/div64.h>
 #include <linux/rockchip_screen.h>
 #include <linux/rockchip_fb.h>
+#include <linux/string.h>
 
 static ssize_t show_screen_info(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -470,9 +471,13 @@ static ssize_t set_dsp_lut(struct device *dev, struct device_attribute *attr,
 {
 	u32 *dsp_lut = NULL;
 	const char *start = buf;
+	char curr1[20];
+	int index = 0;
+	const char *curr;
 	int i = 0, temp = 0;
 	int space_max = 10;
 	size_t size = 256 * 4;
+	unsigned long temp1 = 0;
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)fbi->par;
 	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
@@ -490,17 +495,21 @@ static ssize_t set_dsp_lut(struct device *dev, struct device_attribute *attr,
 	/* printk("count:%d\n>>%s\n\n",count,start); */
 
 	for (i = 0; i < 256; i++) {
-		space_max = 10;	/* max space number 10 */
-		kstrtoul(start, 10, (unsigned long *)&temp);
-		dsp_lut[i] = temp;
+		index = 0;
+		space_max = 20;	/* max space number 10 */
+		curr = start;
 		do {
+			index++;
 			start++;
 			space_max--;
 		} while ((*start != ' ') && space_max);
-
+		strncpy(curr1, curr, index);
+		curr1[index] = '\0';
+		kstrtoul(curr1, 16, (unsigned long *)&temp1);
+		dsp_lut[i] = temp1;
 		if (!space_max)
 			break;
-
+		index = 0;
 		start++;
 	}
 #ifdef FBSYS_DEBUG
