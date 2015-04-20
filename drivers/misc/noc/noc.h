@@ -151,6 +151,7 @@ struct xgold_noc_device {
 	unsigned nr_counters;	/* How many counters per probe */
 	struct xgold_noc_stat *stat;
 	struct dev_qos_cfg *qos;
+	bool trap_on_error;
 };
 
 struct xgold_noc_error {

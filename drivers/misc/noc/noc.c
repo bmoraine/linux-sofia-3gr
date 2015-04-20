@@ -493,6 +493,8 @@ static irqreturn_t xgold_noc_error_irq(int irq, void *dev)
 	while (ioread32(ERRLOG_0_ERRVLD(base)))
 		xgold_noc_get_error(noc_device);
 
+	BUG_ON(noc_device->trap_on_error == true);
+
 	return IRQ_HANDLED;
 }
 
@@ -1378,9 +1380,12 @@ static int xgold_noc_parse_dts(struct device *_dev)
 		return -EINVAL;
 	}
 
-	dev_info(_dev, "%d probe(s), %d filter(s), %d counter(s)\n",
+	noc_device->trap_on_error = of_property_read_bool(np, "errors,trap");
+
+	dev_info(_dev, "%d probe(s), %d filter(s), %d counter(s), error policy: %s\n",
 		 noc_device->nr_probes, noc_device->nr_filters,
-		 noc_device->nr_counters);
+		 noc_device->nr_counters,
+		 noc_device->trap_on_error ? "trap" : "print");
 
 
 	xgold_noc_parse_dts_qoslist(_dev);
