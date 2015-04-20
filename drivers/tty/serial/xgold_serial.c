@@ -2201,17 +2201,11 @@ static unsigned int xgold_usif_get_mctrl(struct uart_port *port)
 	return ret;
 }
 
-static void xgold_usif_set_mctrl(struct uart_port *port, unsigned int mctrl)
+static void _xgold_usif_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	unsigned char m_set = 0x00;
 	unsigned char m_clr = 0x00;
 	unsigned int reg;
-
-	if (xgold_usif_runtime_pm_suspended(port, __func__))
-		/* Need to return since we are suspended and can't wake up
-		 * in IRQ locked context.
-		 */
-		return;
 
 	if (!usif_port_is_console(port))
 		dev_dbg(port->dev, "Setting mctrl to %x\n", mctrl);
@@ -2243,6 +2237,18 @@ static void xgold_usif_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 	if (m_clr)
 		iowrite32(m_clr, USIF_MSS_CLR(port->membase));
+
+}
+
+static void xgold_usif_set_mctrl(struct uart_port *port, unsigned int mctrl)
+{
+	if (xgold_usif_runtime_pm_suspended(port, __func__))
+		/* Need to return since we are suspended and can't wake up
+		 * in IRQ locked context.
+		 */
+		return;
+
+	_xgold_usif_set_mctrl(port, mctrl);
 
 	xgold_usif_runtime_pm_autosuspend(port);
 }
@@ -2494,6 +2500,9 @@ int xgold_usif_serial_pm_runtime_resume(struct device *dev)
 		termios = uxp->port.state->port.tty->termios;
 
 	_xgold_usif_set_termios(&uxp->port, &termios, NULL);
+
+	/* restore last mctrl settings */
+	_xgold_usif_set_mctrl(&uxp->port, uxp->port.mctrl);
 
 	spin_unlock_irqrestore(&uxp->port.lock, flags);
 
