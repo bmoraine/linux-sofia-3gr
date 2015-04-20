@@ -701,13 +701,19 @@ static int rockchip_vop_set_dclk(struct rockchip_vop_driver *dev_drv)
 	struct vop_device *vop_dev =
 	    container_of(dev_drv, struct vop_device, driver);
 	struct rockchip_screen *screen = dev_drv->cur_screen;
-#if !defined(CONFIG_PLATFORM_DEVICE_PM)
 	int ret = 0;
-#endif
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	vop_dev->pixclock =
 		div_u64(1000000000000llu, screen->mode.pixclock);
+	if (screen->mode.pixclock == 148500000)
+		ret = device_state_pm_set_state_by_name(vop_dev->dev,
+							"high_perf");
+	else
+		ret = device_state_pm_set_state_by_name(vop_dev->dev,
+					vop_dev->pm_platdata->pm_state_D0_name);
+	if (ret)
+		dev_err(dev_drv->dev, "set vop%d dclk failed\n", vop_dev->id);
 #else
 	ret = clk_set_rate(vop_dev->dclk, screen->mode.pixclock);
 	if (ret)
