@@ -2358,6 +2358,7 @@ int xgold_usif_serial_pm_runtime_suspend(struct device *dev)
 	unsigned int imsc;
 	struct circ_buf *xmit = &port->state->xmit;
 	struct xgold_usif_platdata *platdata = dev_get_platdata(dev);
+	char *usif_rpm_event[4];
 
 	/* Disable all USIF irq as changing the pinctrl might cuase
 	 * unintended interrupt. it will be restored when resume */
@@ -2442,6 +2443,23 @@ int xgold_usif_serial_pm_runtime_suspend(struct device *dev)
 	}
 	spin_unlock_irqrestore(&uxp->port.lock, flags);
 
+	/* generate uevent for suspend */
+	if (platdata->rpm_gen_uevent) {
+		usif_rpm_event[0] = kasprintf(GFP_KERNEL, "MAJOR=%d",
+			uxp->drv->major);
+		usif_rpm_event[1] = kasprintf(GFP_KERNEL, "MINOR=%d",
+			(uxp->drv->minor + platdata->id));
+		usif_rpm_event[2] = kasprintf(GFP_KERNEL, "%s",
+			"UART_STATE=SUSPENDED");
+		usif_rpm_event[3] = NULL;
+
+		kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, usif_rpm_event);
+
+		kfree(usif_rpm_event[0]);
+		kfree(usif_rpm_event[1]);
+		kfree(usif_rpm_event[2]);
+	}
+
 	mutex_unlock(&uxp->runtime_lock);
 
 	return 0;
@@ -2461,6 +2479,7 @@ int xgold_usif_serial_pm_runtime_resume(struct device *dev)
 	struct xgold_usif_platdata *platdata = dev_get_platdata(dev);
 	struct ktermios termios;
 	int locked;
+	char *usif_rpm_event[4];
 
 	locked = mutex_trylock(&uxp->runtime_lock);
 
@@ -2530,6 +2549,23 @@ int xgold_usif_serial_pm_runtime_resume(struct device *dev)
 		iowrite32(USIF_MIS_CLR_ALL, USIF_ICR(uxp->port.membase));
 		iowrite32(USIF_IMSC_TX_RX_CONFIG, USIF_IMSC(uxp->port.membase));
 		spin_unlock_irqrestore(&uxp->port.lock, flags);
+	}
+
+	/* generate uevent for resume */
+	if (platdata->rpm_gen_uevent) {
+		usif_rpm_event[0] = kasprintf(GFP_KERNEL, "MAJOR=%d",
+			uxp->drv->major);
+		usif_rpm_event[1] = kasprintf(GFP_KERNEL, "MINOR=%d",
+			(uxp->drv->minor + platdata->id));
+		usif_rpm_event[2] = kasprintf(GFP_KERNEL, "%s",
+			"UART_STATE=RESUMED");
+		usif_rpm_event[3] = NULL;
+
+		kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, usif_rpm_event);
+
+		kfree(usif_rpm_event[0]);
+		kfree(usif_rpm_event[1]);
+		kfree(usif_rpm_event[2]);
 	}
 
 	if (locked)
@@ -3171,6 +3207,10 @@ skip_pinctrl:
 	}
 	dev_info(dev, "auto_suspend_enable is %s\n",
 		platdata->rpm_auto_suspend_enable?"enable":"disable");
+
+	platdata->rpm_gen_uevent = 0;
+	if (of_find_property(np, "pm,gen_uevent", NULL))
+		platdata->rpm_gen_uevent = 1;
 
 	return platdata;
 

@@ -58,6 +58,7 @@ struct xgold_usif_platdata {
 	unsigned long flags;
 	short runtime_pm_enabled;
 	short runtime_pm_debug;
+	short rpm_gen_uevent;
 	unsigned int rpm_suspend_delay;
 	short rpm_auto_suspend_enable;
 	unsigned int modem_poll_timeout;
