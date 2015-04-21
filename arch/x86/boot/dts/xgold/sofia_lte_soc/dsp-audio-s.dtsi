@@ -3,8 +3,8 @@ dspaud_sb:dspaud_sb {
 	intel,dsp,id = "XG742_SBA";
 	reg = <0xE3300000 0x2000>, <0xE3302000 0x2000>;
 	reg-names = "shm-regs", "shm-mem";
-	interrupts = < SBADSP_INT1 IRQ_TYPE_DEFAULT >, < SBADSP_INT2 IRQ_TYPE_DEFAULT >, < SBADSP_INT3 IRQ_TYPE_DEFAULT >; /* < SBADSP_INT0 IRQ_TYPE_DEFAULT >;*/
-	interrupt-names = "dsp_playback", "dsp_record", "dsp_hw_probe"; /*, "dsp_tone", "*/
+	interrupts = < SBADSP_INT1 IRQ_TYPE_DEFAULT >, < SBADSP_INT2 IRQ_TYPE_DEFAULT >, < SBADSP_INT1 IRQ_TYPE_DEFAULT >;
+	interrupt-names = "dsp_playback", "dsp_record", "dsp_hw_probe";
 	intel,uccf = <0x20C 0x210 0x214>;
 	intel,mcu2dsp = <0x208>;
 	intel,dsp-imsc = < 0xC 1 2 0 >;
