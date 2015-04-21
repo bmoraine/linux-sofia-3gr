@@ -1018,6 +1018,7 @@ RGA_set_bitblt_reg_info(u8 *base, const struct rga_req *msg,
 	u32 *b_RGA_SRC_TILE_OFFSETX;
 	u32 *b_RGA_SRC_TILE_OFFSETY;
 	u32 *b_RGA_DST_MST;
+	u32 *b_RGA_DST_UV_MST;
 	u32 *b_RGA_DST_CTR_INFO;
 	u32 m0, m1, m2, m3;
 	s32 pos[8];
@@ -1043,6 +1044,7 @@ RGA_set_bitblt_reg_info(u8 *base, const struct rga_req *msg,
 	b_RGA_SRC_TILE_OFFSETX = (u32 *)(base + RGA_SRC_TILE_OFFSETX_OFFSET);
 	b_RGA_SRC_TILE_OFFSETY = (u32 *)(base + RGA_SRC_TILE_OFFSETY_OFFSET);
 	b_RGA_DST_MST = (u32 *)(base + RGA_DST_MST_OFFSET);
+	b_RGA_DST_UV_MST = (u32 *)(base + RGA_DST_UV_MST_OFFSET);
 	b_RGA_DST_CTR_INFO = (u32 *)(base + RGA_DST_CTR_INFO_OFFSET);
 
 	    /* Matrix reg fill */
@@ -1172,6 +1174,9 @@ RGA_set_bitblt_reg_info(u8 *base, const struct rga_req *msg,
 	stride = (msg->dst.vir_w * pixel_width + 3) & (~3);
 	*b_RGA_DST_MST =
 	    (u32)msg->dst.yrgb_addr + (tile->dst_ctrl.y_off * stride) +
+	    (tile->dst_ctrl.x_off * pixel_width);
+	*b_RGA_DST_UV_MST =
+	    (u32)msg->dst.uv_addr + ((tile->dst_ctrl.y_off >> 1) * stride) +
 	    (tile->dst_ctrl.x_off * pixel_width);
 	*b_RGA_DST_CTR_INFO = (tile->dst_ctrl.w) | ((tile->dst_ctrl.h) << 16);
 	*b_RGA_DST_CTR_INFO |= ((1 << 29) | (1 << 28));
