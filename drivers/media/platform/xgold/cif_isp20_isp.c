@@ -4020,7 +4020,8 @@ static void cif_isp_send_measurement(struct work_struct *work)
 		spin_unlock_irqrestore(&isp_dev->irq_lock, lock_flags);
 
 		if (bufs_needed == 0) {
-			if (active_meas & CIF_ISP_AWB_DONE) {
+			if ((index >= 0) &&
+				(active_meas & CIF_ISP_AWB_DONE)) {
 				vb = vb_array[index];
 				cifisp_get_awb_meas(isp_dev,
 					videobuf_to_vmalloc(vb));
@@ -4029,13 +4030,15 @@ static void cif_isp_send_measurement(struct work_struct *work)
 						videobuf_to_vmalloc(vb));
 				index--;
 			}
-			if (active_meas & CIF_ISP_AFM_FIN) {
+			if ((index >= 0) &&
+				(active_meas & CIF_ISP_AFM_FIN)) {
 				vb = vb_array[index];
 				cifisp_get_afc_meas(isp_dev,
 					videobuf_to_vmalloc(vb));
 				index--;
 			}
-			if (active_meas & CIF_ISP_EXP_END) {
+			if ((index >= 0) &&
+				(active_meas & CIF_ISP_EXP_END)) {
 				vb = vb_array[index];
 				cifisp_get_aec_meas(isp_dev,
 					videobuf_to_vmalloc(vb));

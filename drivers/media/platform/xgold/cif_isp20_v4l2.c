@@ -90,6 +90,12 @@ static struct videobuf_queue *to_videobuf_queue(
 	struct cif_isp20_v4l2_node *node = to_node(fh);
 	struct videobuf_queue *q;
 
+	if (unlikely(!node)) {
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"node is NULL\n");
+		BUG();
+	}
+
 	if (unlikely(vdev == NULL)) {
 		cif_isp20_pltfrm_pr_err(NULL,
 			"vdev is NULL\n");
@@ -456,7 +462,7 @@ static int cif_isp20_v4l2_streamon(
 	struct cif_isp20_v4l2_node *node = to_node(fh);
 	u32 stream_ids = to_stream_id(file);
 
-	if (node->owner != fh)
+	if (likely(node) && (node->owner != fh))
 		return -EBUSY;
 
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "%s(%d)\n",
@@ -499,7 +505,7 @@ static int cif_isp20_v4l2_do_streamoff(
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
 
-	if (node->owner != fh)
+	if (likely(node) && (node->owner != fh))
 		return -EBUSY;
 
 	err = cif_isp20_streamoff(dev, stream_ids);
@@ -554,7 +560,7 @@ static int cif_isp20_v4l2_qbuf(
 		cif_isp20_v4l2_buf_type_string(buf->type),
 		buf->index);
 
-	if (node->owner != fh)
+	if (likely(node) && (node->owner != fh))
 		return -EBUSY;
 
 	ret = videobuf_qbuf(queue, buf);
@@ -578,7 +584,7 @@ static int cif_isp20_v4l2_dqbuf(
 	cif_isp20_pltfrm_pr_dbg(NULL, "%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
 
-	if (node->owner != fh)
+	if (likely(node) && (node->owner != fh))
 		return -EBUSY;
 
 	ret = videobuf_dqbuf(queue, buf, file->f_flags & O_NONBLOCK);
@@ -732,9 +738,11 @@ static int cif_isp20_v4l2_reqbufs(
 		cif_isp20_v4l2_buf_type_string(req->type),
 		req->count);
 
-	if (node->owner && node->owner != fh)
-		return -EBUSY;
-	node->owner = fh;
+	if (likely(node)) {
+		if (node->owner && (node->owner != fh))
+			return -EBUSY;
+		node->owner = fh;
+	}
 
 	ret = videobuf_reqbufs(queue, req);
 	if (IS_ERR_VALUE(ret))
@@ -815,7 +823,7 @@ static int cif_isp20_v4l2_s_fmt(
 		"%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
 
-	if (node->owner && node->owner != fh)
+	if (likely(node) && node->owner && (node->owner != fh))
 		return -EBUSY;
 
 	strm_fmt.frm_fmt.pix_fmt =
@@ -959,11 +967,13 @@ static int cif_isp20_v4l2_open(
 	v4l2_fh_add(&fh->fh);
 
 	node = to_node(fh);
-	if (++node->users > 1)
-		return 0;
+	if (likely(node)) {
+		if (++node->users > 1)
+			return 0;
 
-	/* First open of the device, so initialize everything */
-	node->owner = NULL;
+		/* First open of the device, so initialize everything */
+		node->owner = NULL;
+	}
 
 	videobuf_queue_dma_contig_init(
 		to_videobuf_queue(file),
@@ -980,7 +990,8 @@ static int cif_isp20_v4l2_open(
 		v4l2_fh_del(&fh->fh);
 		v4l2_fh_exit(&fh->fh);
 		kfree(fh);
-		node->users--;
+		if (likely(node))
+			node->users--;
 		goto err;
 	}
 
@@ -1003,15 +1014,15 @@ static int cif_isp20_v4l2_release(struct file *file)
 	cif_isp20_pltfrm_pr_dbg(dev->dev, "%s\n",
 		cif_isp20_v4l2_buf_type_string(queue->type));
 
-	if (node->users)
+	if (likely(node) && node->users)
 		--node->users;
-	else {
+	else if (likely(node)) {
 		cif_isp20_pltfrm_pr_warn(dev->dev,
 			"number of users for this device is already 0\n");
 		return 0;
 	}
 
-	if (!node->users) {
+	if (unlikely(!node) || !node->users) {
 		if (queue->streaming)
 			if (IS_ERR_VALUE(cif_isp20_v4l2_do_streamoff(file)))
 				cif_isp20_pltfrm_pr_warn(dev->dev,
@@ -1021,7 +1032,7 @@ static int cif_isp20_v4l2_release(struct file *file)
 		ret = cif_isp20_release(dev, stream_id);
 	}
 
-	if (node->owner == fh)
+	if (likely(node) && (node->owner == fh))
 		node->owner = NULL;
 
 	v4l2_fh_del(&fh->fh);
