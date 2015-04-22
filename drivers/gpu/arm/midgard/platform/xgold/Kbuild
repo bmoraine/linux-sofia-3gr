@@ -18,16 +18,8 @@
 ifeq ($(CONFIG_MALI_MIDGARD),y)
 obj-y += mali_kbase_config_xgold.o
 obj-y += mali_kbase_platform_xgold.o
-ifeq ($(CONFIG_MALI_MIDGARD_DVFS),y)
-obj-y += mali_kbase_dvfs_xgold.o
-obj-y += mali_kbase_platform_debugfs.o
-endif
 else ifeq ($(CONFIG_MALI_MIDGARD),m)
 SRC += platform/xgold/mali_kbase_config_xgold.c
 SRC += platform/xgold/mali_kbase_platform_xgold.c
-ifeq ($(CONFIG_MALI_MIDGARD_DVFS),y)
-SRC += platform/xgold/mali_kbase_mali_dvfs_xgold.c
-SRC += platform/xgold/mali_kbase_platform_debugfs.c
-endif
 endif
 

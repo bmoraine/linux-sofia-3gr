@@ -20,11 +20,6 @@
 #include <linux/platform_device.h>
 #include <linux/platform_device_pm.h>
 #include <linux/xgold_noc.h>
-#ifdef CONFIG_MALI_MIDGARD_DVFS
-#include <platform/xgold/mali_kbase_dvfs_xgold.h>
-#include <platform/xgold/mali_kbase_platform_debugfs.h>
-#endif
-
 
 static int kbase_platform_xgold_pm_init(struct kbase_device *kbdev)
 {
@@ -85,12 +80,6 @@ static int kbase_platform_xgold_pm_init(struct kbase_device *kbdev)
 
 	plf_context->curr_pm_state = MALI_PLF_PM_STATE_D3;
 	plf_context->resume_pm_state = MALI_PLF_PM_STATE_D0;
-#ifdef CONFIG_MALI_MIDGARD_DVFS
-	spin_lock_init(&plf_context->pm_lock);
-	plf_context->dvfs_off = MALI_FALSE;
-	platform_debugfs_register(kbdev);
-#endif
-	mutex_init(&plf_context->pm_lock_mutex);
 
 	return 0;
 }
@@ -117,6 +106,7 @@ int kbase_platform_xgold_pm_control(struct kbase_device *kbdev,
 		mali_err("Device pm set state failed (%d)\n", ret);
 		return ret;
 	}
+
 	if (plf_context->curr_pm_state == MALI_PLF_PM_STATE_D3) {
 		xgold_noc_qos_set("GPU");
 		mali_dbg("Set GPU QoS\n");
@@ -124,7 +114,6 @@ int kbase_platform_xgold_pm_control(struct kbase_device *kbdev,
 	plf_context->curr_pm_state = req_pm_state;
 
 	mali_dbg("%s() GPU pm state set to %d\n", __func__, req_pm_state);
-
 	return ret;
 }
 
@@ -149,11 +138,9 @@ mali_error kbase_platform_init(struct kbase_device *kbdev)
 	}
 
 	kbase_platform_xgold_pm_control(kbdev, plf_context->resume_pm_state);
-#ifdef CONFIG_MALI_MIDGARD_DVFS
-	kbase_platform_dvfs_init(plf_context);
-	plf_context->kbdev = kbdev;
-#endif
+
 	mali_info("Initialized\n");
+
 	return MALI_ERROR_NONE;
 }
 
@@ -166,19 +153,9 @@ void kbase_platform_term(struct kbase_device *kbdev)
 
 	plf_context = (struct xgold_platform_context *) kbdev->platform_context;
 
-#ifdef CONFIG_MALI_MIDGARD_DVFS
-	kbase_platform_dvfs_term(plf_context);
-#endif
-
-	mutex_lock(&plf_context->pm_lock_mutex);
-
 	ret = kbase_platform_xgold_pm_control(kbdev, MALI_PLF_PM_STATE_D3);
 	if (ret < 0)
 		mali_err("kbase_platform_xgold_pm_control failed (%d)\n", ret);
-
-	mutex_unlock(&plf_context->pm_lock_mutex);
-
-	mutex_destroy(&plf_context->pm_lock_mutex);
 
 	devm_kfree(kbdev->dev, kbdev->platform_context);
 	kbdev->platform_context = 0;

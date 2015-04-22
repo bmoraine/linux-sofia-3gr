@@ -28,9 +28,6 @@
 #include <mali_kbase_config.h>
 #include "mali_kbase_config_platform.h"
 #include "mali_kbase_platform_xgold.h"
-#ifdef CONFIG_MALI_MIDGARD_DVFS
-#include <platform/xgold/mali_kbase_dvfs_xgold.h>
-#endif
 
 #ifdef CONFIG_MALI_MIDGARD_RT_PM
 #define RUNTIME_PM_DELAY_TIME 100
@@ -85,7 +82,6 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 	ret = pm_runtime_resume(dev);
 
 	if (ret < 0 && ret == -EAGAIN) {
-		mutex_lock(&plf_context->pm_lock_mutex);
 		if (plf_context->curr_pm_state == MALI_PLF_PM_STATE_D3) {
 			ret = kbase_platform_xgold_pm_control(kbdev,
 						plf_context->resume_pm_state);
@@ -93,11 +89,9 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 				mali_err("%s (%d)\n",
 					"kbase_platform_xgold_pm_control",
 					ret);
-				mutex_unlock(&plf_context->pm_lock_mutex);
 				return ret;
 			}
 		}
-		mutex_unlock(&plf_context->pm_lock_mutex);
 	} else if (ret < 0)
 		mali_err("pm_runtime_get_sync failed (%d)\n", ret);
 
@@ -130,17 +124,8 @@ static void pm_callback_runtime_off(struct kbase_device *kbdev)
 
 	plf_context = (struct xgold_platform_context *) kbdev->platform_context;
 
-	mutex_lock(&plf_context->pm_lock_mutex);
-
-#ifdef CONFIG_MALI_MIDGARD_DVFS
-	if (!plf_context->dvfs_off)
-		kbase_platform_dvfs_enable(MALI_FALSE, kbdev);
-#endif
 	ret = kbase_platform_xgold_pm_control(kbdev,
 				MALI_PLF_PM_STATE_D3);
-
-	mutex_unlock(&plf_context->pm_lock_mutex);
-
 	if (ret < 0)
 		mali_err("kbase_platform_xgold_pm_control failed(%d)\n", ret);
 
@@ -155,17 +140,8 @@ static int pm_callback_runtime_on(struct kbase_device *kbdev)
 
 	plf_context = (struct xgold_platform_context *) kbdev->platform_context;
 
-	mutex_lock(&plf_context->pm_lock_mutex);
-
-#ifdef CONFIG_MALI_MIDGARD_DVFS
-	if (!plf_context->dvfs_off)
-		kbase_platform_dvfs_enable(MALI_TRUE, kbdev);
-#endif
 	ret = kbase_platform_xgold_pm_control(kbdev,
 				plf_context->resume_pm_state);
-
-	mutex_unlock(&plf_context->pm_lock_mutex);
-
 	if (ret < 0)
 		mali_err("kbase_platform_xgold_pm_control failed(%d)\n", ret);
 
@@ -314,4 +290,11 @@ int kbase_platform_early_init(void)
 	return 0;
 }
 
+int kbase_platform_dvfs_event(struct kbase_device *kbdev,
+		u32 utilisation,
+		u32 util_gl_share,
+		u32 util_cl_share[2])
+{
+	return 0;
+}
 
