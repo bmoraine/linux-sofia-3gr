@@ -409,7 +409,7 @@ enum {
 	CIF_ISP20_ASYNC_ISM = 0x4,
 	CIF_ISP20_ASYNC_DMA = 0x8
 };
-#define CIF_ISP20_ALWAYS_ASYNC 0x00
+#define CIF_ISP20_ALWAYS_ASYNC 0x80
 #define CIF_ISP20_ALWAYS_STALL_ON_NO_BUFS (false)
 
 #ifndef DIV_ROUND_UP
@@ -3565,8 +3565,12 @@ static int cif_isp20_update_mi_mp(
 				cif_iowrite32AND_verify(~CIF_MI_CTRL_MP_ENABLE,
 					dev->config.base_addr + CIF_MI_CTRL,
 					~0);
+				cif_isp20_mi_update_buff_addr(dev,
+					CIF_ISP20_STREAM_MP);
 			} else if (dev->config.mi_config.mp.curr_buff_addr ==
 				CIF_ISP20_INVALID_BUFF_ADDR) {
+				cif_isp20_mi_update_buff_addr(dev,
+					CIF_ISP20_STREAM_MP);
 				/* re-enable MI MP */
 				cif_isp20_pltfrm_pr_dbg(NULL,
 					"enabling MP MI\n");
@@ -3575,8 +3579,10 @@ static int cif_isp20_update_mi_mp(
 				cif_iowrite32OR_verify(CIF_MI_CTRL_MP_ENABLE,
 					dev->config.base_addr + CIF_MI_CTRL,
 					~0);
-			}
-			cif_isp20_mi_update_buff_addr(dev, CIF_ISP20_STREAM_MP);
+			} else
+				cif_isp20_mi_update_buff_addr(dev,
+					CIF_ISP20_STREAM_MP);
+
 			dev->config.mi_config.mp.curr_buff_addr =
 				dev->config.mi_config.mp.next_buff_addr;
 		}
@@ -3606,16 +3612,21 @@ static int cif_isp20_update_mi_sp(
 			/* 'switch off' MI interface */
 			cif_iowrite32AND_verify(~CIF_MI_CTRL_SP_ENABLE,
 				dev->config.base_addr + CIF_MI_CTRL, ~0);
+			cif_isp20_mi_update_buff_addr(dev,
+				CIF_ISP20_STREAM_SP);
 		} else if (dev->config.mi_config.sp.curr_buff_addr ==
 			CIF_ISP20_INVALID_BUFF_ADDR) {
+			cif_isp20_mi_update_buff_addr(dev,
+				CIF_ISP20_STREAM_SP);
 			/* re-enable MI SP */
 			cif_isp20_pltfrm_pr_dbg(NULL, "enabling SP MI\n");
 			cif_iowrite32(CIF_MI_SP_FRAME,
 				dev->config.base_addr + CIF_MI_ICR);
 			cif_iowrite32OR_verify(CIF_MI_CTRL_SP_ENABLE,
 				dev->config.base_addr + CIF_MI_CTRL, ~0);
-		}
-		cif_isp20_mi_update_buff_addr(dev, CIF_ISP20_STREAM_SP);
+		} else
+			cif_isp20_mi_update_buff_addr(dev,
+				CIF_ISP20_STREAM_SP);
 		dev->config.mi_config.sp.curr_buff_addr =
 			dev->config.mi_config.sp.next_buff_addr;
 	}
@@ -5829,8 +5840,15 @@ int marvin_isp_isr(void *cntxt)
 			!dev->config.jpeg_config.busy &&
 			(dev->config.mi_config.async_updt ||
 			(!dev->sp_stream.next_buf &&
-			!dev->mp_stream.next_buf)))
-			cif_isp20_mi_isr(dev);
+			!dev->mp_stream.next_buf))) {
+			u32 mi_isr = 0;
+			if (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)
+				mi_isr |= CIF_MI_SP_FRAME;
+			if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)
+				mi_isr |= CIF_MI_MP_FRAME;
+			cif_iowrite32(mi_isr,
+				dev->config.base_addr + CIF_MI_ISR);
+		}
 	}
 
 	cifisp_isp_isr(&dev->isp_dev, isp_mis);
