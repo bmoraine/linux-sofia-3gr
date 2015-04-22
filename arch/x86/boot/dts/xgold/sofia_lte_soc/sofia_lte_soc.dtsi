@@ -1077,6 +1077,111 @@
 						reg-names = "scu", "scu_hw", "scu_idc";
 					};
 
+					spcu_thermal0{
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4D00000 0x100000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <HIRQ_SPCU_THERM0_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM0_HIGH IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,thermal-type = "coretemp0";
+						intel,config-set_hw = <1>;
+						intel,thermal-id = <0>;
+						intel,config-reg = <0x2E0>;
+						intel,ctrl-reg = <0x2E4>;
+						intel,stat-reg = <0xA0060>;
+					};
+
+					spcu_thermal1{
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4D00000 0x100000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <HIRQ_SPCU_THERM1_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM1_HIGH IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,thermal-type = "coretemp1";
+						intel,config-set_hw = <1>;
+						intel,thermal-id = <1>;
+						intel,config-reg = <0x2E8>;
+						intel,ctrl-reg = <0x2EC>;
+						intel,stat-reg = <0xA0064>;
+					};
+
+					spcu_thermal2{
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4D00000 0x100000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <HIRQ_SPCU_THERM2_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM2_HIGH IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,thermal-type = "coretemp2";
+						intel,config-set_hw = <1>;
+						intel,thermal-id = <2>;
+						intel,config-reg = <0x2F4>;
+						intel,ctrl-reg = <0x2F8>;
+						intel,stat-reg = <0xA0068>;
+					};
+
+					spcu_thermal3{
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4D00000 0x100000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <HIRQ_SPCU_THERM3_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM3_HIGH IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,config-set_hw = <1>;
+						intel,thermal-type = "coretemp3";
+						intel,thermal-id = <3>;
+						intel,config-reg = <0x2FC>;
+						intel,ctrl-reg = <0x300>;
+						intel,stat-reg = <0xA006C>;
+					};
+
+					spcu_thermal4{
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4D00000 0x100000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <HIRQ_SPCU_THERM4_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM4_HIGH IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,config-set_hw = <1>;
+						intel,thermal-type = "LTE";
+						intel,thermal-id = <4>;
+						intel,config-reg = <0x304>;
+						intel,ctrl-reg = <0x308>;
+						intel,stat-reg = <0xA007C>;
+					};
+
+					spcu_thermal5{
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4D00000 0x100000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <HIRQ_SPCU_THERM5_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM5_HIGH IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,config-set_hw = <1>;
+						intel,thermal-type = "SPCU";
+						intel,thermal-id = <5>;
+						intel,config-reg = <0x30C>;
+						intel,ctrl-reg = <0x310>;
+						intel,stat-reg = <0xA0080>;
+					};
+
+					spcu_thermal6{
+						compatible = "intel,spcu-thermal";
+						reg = <0xE4D00000 0x100000>;
+						interrupt-parent = <&hirq>;
+						interrupts = <HIRQ_SPCU_THERM6_LOW IRQ_TYPE_DEFAULT>,
+							     <HIRQ_SPCU_THERM6_HIGH IRQ_TYPE_DEFAULT>;
+						interrupt-names = "TLOW", "THIGH";
+						intel,config-set_hw = <1>;
+						intel,thermal-type = "GPU";
+						intel,thermal-id = <6>;
+						intel,config-reg = <0x314>;
+						intel,ctrl-reg = <0x318>;
+						intel,stat-reg = <0xA0084>;
+					};
+
 					dbb_rst0:reset-controller0 {
 						compatible = "intel,xgold-reset";
 						reg = <0xE4900218 0x4>;
