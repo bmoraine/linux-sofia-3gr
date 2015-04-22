@@ -292,7 +292,7 @@ static ssize_t max_freq_level_store(struct device *dev,
 	if (ret != 1)
 		return 0;
 
-	mali_info("set max freq %d\n", max_freq_level);
+	mali_dbg("set max freq %d\n", max_freq_level);
 	if (max_freq_level > 0 && max_freq_level <= GPU_MAX_PM_STATE) {
 		mali_dev_pm.pm_limit_level = max_freq_level;
 		mali_dev_pm.resume_pm_state = max_freq_level;
@@ -540,7 +540,7 @@ int mali_platform_suspend(struct platform_device *pdev)
 	int ret;
 	bool skip_suspend = false;
 
-	mali_info("%s() \t\t-> Device pm set state to 0\n", __func__);
+	mali_dbg("%s() \t\t-> Device pm set state to 0\n", __func__);
 
 #if defined(CONFIG_PM_RUNTIME)
 	/*
@@ -571,7 +571,7 @@ int mali_platform_resume(struct platform_device *pdev)
 	int ret;
 	bool skip_resume = false;
 
-	mali_info("%s() \t\t-> Device pm set state to %d\n", __func__,
+	mali_dbg("%s() \t\t-> Device pm set state to %d\n", __func__,
 		mali_dev_pm.resume_pm_state);
 
 	/* Need to restore GPU QoS on system resume */
