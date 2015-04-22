@@ -21,6 +21,7 @@ dspaud_sb:dspaud_sb {
 	intel,dsp-pcm-offset = < 2530 2531 >;
 	intel,dsp-buf-size-ul-offset = < 1554 >;
 	intel,dsp-sm-aud-buf-dl-offset = < 594 >;
+	intel,dsp-sm-aud-buf-dl2-offset = < 1074 >;
 	intel,dsp-sm-aud-buf-ul-offset = < 114 >;
 	intel,dsp-sm-buf_sm_hw_probe_a_offset = < 1555 >;
 	intel,dsp-sm-buf_sm_hw_probe_b_offset = < 2035 >;
