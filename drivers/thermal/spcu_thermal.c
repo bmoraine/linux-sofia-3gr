@@ -45,12 +45,17 @@
 #define SW_HYST_DELAY 100		/* ms */
 
 #define SW_HYST_VAL 0			/* LSB */
-#define ACCURACY 3				/* LSB */
+#define ACCURACY 5				/* LSB */
 
 
 #define AF_RDONLY   00000000
 #define AF_WRONLY   00000001
 #define AF_RDWR     00000002
+
+#define MIN_TEMP    (-22400)
+#define MAX_TEMP    (133000)
+
+#define MAX_SPCU_THERMAL_DEVICE (10)
 
 enum {
 	SPCU_TDEV_THERMAL = 0,
@@ -85,6 +90,7 @@ static char *dts_reg[REG_COUNT] = {
 
 struct spcu_thermal_platform_data {
 	int id;
+	const char *type;
 	int reg_offset[REG_COUNT];
 
 	int device_type;
@@ -113,6 +119,16 @@ static struct {
 #define TRIP_STATE_UNKNOWN	(-1)
 #define TRIP_STATE_LOW		(0)
 #define TRIP_STATE_HIGH		(1)
+
+#define SPCU_THERMAL_DEV_DBG
+
+#ifdef SPCU_THERMAL_DEV_DBG
+#define SPCU_THERMAL_TRACE(dev, format, args...) \
+	dev_dbg(dev, format, ##args)
+#else
+#define SPCU_THERMAL_TRACE(dev, format, args...) \
+	pr_info("%s: dev=0x%08x " format, __func__, (unsigned int)dev, ##args)
+#endif
 
 struct thermal_trip {
 	int temp;
@@ -213,6 +229,8 @@ DEFINE_SPCU_REG_FIELD(CONFIG_REG, CONFIG_THIGHINTEN, 25, 1, AF_RDWR)
 DEFINE_SPCU_REG_FIELD(CONFIG_REG, CONFIG_TLOWINTSEL, 21, 1, AF_RDWR)
 DEFINE_SPCU_REG_FIELD(CONFIG_REG, CONFIG_THIGHINTSEL, 24, 1, AF_RDWR)
 DEFINE_SPCU_REG_FIELD(CONFIG_REG, CONFIG_TWAKEUPEN, 26, 1, AF_RDWR)
+DEFINE_SPCU_REG_FIELD(CONFIG_REG, CONFIG_HWLOWEN, 28, 1, AF_RDWR)
+DEFINE_SPCU_REG_FIELD(CONFIG_REG, CONFIG_HWHIGHEN, 29, 1, AF_RDWR)
 
 /* SpcuTSenseXCtrl */
 DEFINE_SPCU_REG_FIELD(CTRL_REG, CTRL_TMEASLOWSTART, 0, 1, AF_WRONLY)
@@ -235,11 +253,21 @@ DEFINE_SPCU_REG_FIELD(OHCONF_REG, OHCONF_OHTHRESHOLD, 24, 8, AF_RDWR)
 
 #define round_div_s64(n, d) (div_s64(((n) + (div_s64((d), 2))), (d)))
 
+
+struct spcu_thermal_device *spcu_thermal_device_array[MAX_SPCU_THERMAL_DEVICE];
+int spcu_thermal_device_idx = 0;
+
+
 /* regval = (degree + 22.4) / (degree *  0.001447 + 0.4192)*/
 static inline s32 temp2regval(s32 temp)
 {
 	s64 temp64 = (s64)temp;
 	s64 regval64;
+
+	if (MIN_TEMP > temp64)
+		temp64 = MIN_TEMP;
+	if (MAX_TEMP < temp64)
+		temp64 = MAX_TEMP;
 
 	regval64 = round_div_s64((temp64 * 1000000LL + 22400000000LL),
 			 (temp64 * 1447LL + 419200000LL));
@@ -296,6 +324,7 @@ static int spcu_reg_write(struct spcu_thermal_device *dev,
 DEFINE_THRESHOLD_ATTR_OPS(trigger_val, CONFIG_TLOW, CONFIG_THIGH)
 DEFINE_THRESHOLD_ATTR_OPS(trigger_type,
 	  CONFIG_TLOWINTSEL, CONFIG_THIGHINTSEL)
+DEFINE_THRESHOLD_ATTR_OPS(hw_en, CONFIG_HWHIGHEN, CONFIG_HWLOWEN)
 DEFINE_THRESHOLD_ATTR_OPS(sw_meas_start,
 	  CTRL_TMEASLOWSTART, CTRL_TMEASHIGHSTART)
 DEFINE_THRESHOLD_ATTR_OPS(sw_meas_valid, STAT_TLOWVALID, STAT_THIGHVALID)
@@ -356,8 +385,9 @@ static bool sw_confirm_meas(struct threshold *threshold)
 	if (ret)
 		return false;
 
-	dev_dbg(&dev->pdev->dev,
-		"old value of crossed threshold is %d\n", saved);
+	SPCU_THERMAL_TRACE(&dev->pdev->dev,
+		"type=%s trigger_type=%d old value of crossed threshold is %d\n",
+		dev->tzd->type, trigger_type, saved);
 
 	switch (trigger_type) {
 	case TRIGGER_BELOW:
@@ -401,13 +431,15 @@ static void update_thresholds(struct spcu_thermal_device *dev)
 			return;
 		}
 
-		dev_dbg(&dev->pdev->dev, "LOW threshold triggered\n");
+		SPCU_THERMAL_TRACE(&dev->pdev->dev,
+				"type=%s LOW threshold triggered\n",
+				dev->tzd->type);
 
-		dev_dbg(&dev->pdev->dev, "setting high to %d\n",
+		SPCU_THERMAL_TRACE(&dev->pdev->dev, "setting high to %d\n",
 				val + ACCURACY);
 		set_trigger_val(&dev->threshold[THRESHOLD_HIGH],
 				val + ACCURACY);
-		dev_dbg(&dev->pdev->dev, "setting low to %d\n",
+		SPCU_THERMAL_TRACE(&dev->pdev->dev, "setting low to %d\n",
 				val - ACCURACY);
 		set_trigger_val(&dev->threshold[THRESHOLD_LOW],
 				val - ACCURACY);
@@ -419,13 +451,14 @@ static void update_thresholds(struct spcu_thermal_device *dev)
 			return;
 		}
 
-		dev_dbg(&dev->pdev->dev, "HIGH threshold triggered\n");
-
-		dev_dbg(&dev->pdev->dev, "setting low to %d\n",
+		SPCU_THERMAL_TRACE(&dev->pdev->dev,
+				"type = %s HIGH threshold triggered\n",
+				dev->tzd->type);
+		SPCU_THERMAL_TRACE(&dev->pdev->dev, "setting low to %d\n",
 				val - ACCURACY);
 		set_trigger_val(&dev->threshold[THRESHOLD_LOW],
 				val - ACCURACY);
-		dev_dbg(&dev->pdev->dev, "setting high to %d\n",
+		SPCU_THERMAL_TRACE(&dev->pdev->dev, "setting high to %d\n",
 				val + ACCURACY);
 		set_trigger_val(&dev->threshold[THRESHOLD_HIGH],
 				val + ACCURACY);
@@ -460,7 +493,9 @@ static void update_temp(struct spcu_thermal_device *dev)
 
 	dev->cached_temp = cur_temp;
 
-	dev_dbg(&dev->pdev->dev, "new temp set to %d\n", dev->cached_temp);
+	SPCU_THERMAL_TRACE(&dev->pdev->dev,
+		"type=%s new temp set to %d mDegC\n",
+		dev->tzd->type, dev->cached_temp);
 }
 
 static void calculate_temp_and_set_threshold(struct spcu_thermal_device *dev)
@@ -527,11 +562,11 @@ static int bisect_calc_temp_val(struct spcu_thermal_device *dev,
 
 static void update_thresholds(struct spcu_thermal_device *dev, int cur_temp_val)
 {
-	dev_dbg(&dev->pdev->dev, "setting low to %d\n",
+	SPCU_THERMAL_TRACE(&dev->pdev->dev, "setting low to %d\n",
 				cur_temp_val - ACCURACY);
 	set_trigger_val(&dev->threshold[THRESHOLD_LOW],
 				cur_temp_val - ACCURACY);
-	dev_dbg(&dev->pdev->dev, "setting high to %d\n",
+	SPCU_THERMAL_TRACE(&dev->pdev->dev, "setting high to %d\n",
 				cur_temp_val + ACCURACY);
 	set_trigger_val(&dev->threshold[THRESHOLD_HIGH],
 				cur_temp_val + ACCURACY);
@@ -554,7 +589,9 @@ static void calculate_temp_and_set_threshold(struct spcu_thermal_device *dev)
 
 	update_thresholds(dev, cur_temp_val);
 
-	dev_dbg(&dev->pdev->dev, "new temp set to %d\n", dev->cached_temp);
+	SPCU_THERMAL_TRACE(&dev->pdev->dev,
+		"type = %s new temp set to %d mDegC\n",
+		dev->tzd->type, dev->cached_temp);
 
 }
 #endif
@@ -574,6 +611,9 @@ static void notify_thermal_event(struct spcu_thermal_device *dev, int trip_id)
 		kasprintf(GFP_KERNEL,
 				 "EVENT=%d", trip_id);
 	thermal_event[3] = NULL;
+
+	pr_info("%s: type=%s, trip_id=%d, temp=%d\n",
+		__func__, tzd->type, trip_id, dev->cached_temp);
 
 	kobject_uevent_env(&tzd->device.kobj, KOBJ_CHANGE, thermal_event);
 
@@ -646,7 +686,7 @@ static void spcu_thermal_device_isr_work(struct work_struct *work)
 {
 	struct spcu_thermal_device *dev =
 		container_of(work, struct spcu_thermal_device, isr_work.work);
-	int ret, i;
+	int ret;
 
 	mutex_lock(&dev->lock);
 
@@ -655,9 +695,15 @@ static void spcu_thermal_device_isr_work(struct work_struct *work)
 		goto out;
 	}
 
+	SPCU_THERMAL_TRACE(&dev->pdev->dev,
+		"type=%s, trigger_type=%d\n",
+		dev->tzd->type, dev->triggered->type);
+
 	ret = sw_confirm_meas(dev->triggered);
 	if (!ret) {
-		dev_dbg(&dev->pdev->dev, "unstable trigger\n");
+		SPCU_THERMAL_TRACE(&dev->pdev->dev,
+			"type=%s, unstable trigger\n",
+			dev->tzd->type);
 		goto out;
 	}
 
@@ -669,8 +715,10 @@ out:
 	/* re-enable interrupt and HW measurement timer */
 	set_hw_meas_start(dev, 1);
 
-	for (i = 0; i < THRESHOLD_COUNT; i++)
-		set_intr_enable(&dev->threshold[i], 1);
+	if (0 <= temp2regval(dev->cached_temp) - ACCURACY)
+		set_intr_enable(&dev->threshold[THRESHOLD_LOW], 1);
+	if (255 >= temp2regval(dev->cached_temp) + ACCURACY)
+		set_intr_enable(&dev->threshold[THRESHOLD_HIGH], 1);
 
 	mutex_unlock(&dev->lock);
 }
@@ -718,13 +766,23 @@ static int show_temp(struct thermal_zone_device *thermal, unsigned long *temp)
 
 	*temp = dev->cached_temp;
 
+	SPCU_THERMAL_TRACE(&dev->pdev->dev,
+		"type=%s, temp=%d mDegC\n", dev->tzd->type,
+		dev->cached_temp);
+
 	return 0;
 }
 
 static int show_trip_type(struct thermal_zone_device *thermal,
 				  int trip, enum thermal_trip_type *type)
 {
+	struct spcu_thermal_device *dev = thermal->devdata;
+
 	*type = THERMAL_TRIP_ACTIVE;
+
+	SPCU_THERMAL_TRACE(&dev->pdev->dev,
+		"type=%s, trip_type=%d\n",
+		dev->tzd->type, THERMAL_TRIP_ACTIVE);
 
 	return 0;
 }
@@ -735,6 +793,10 @@ static int show_trip_temp(struct thermal_zone_device *thermal,
 	struct spcu_thermal_device *dev = thermal->devdata;
 
 	*temp = dev->trip[trip].temp;
+	SPCU_THERMAL_TRACE(&dev->pdev->dev,
+		"type=%s, trip_id=%d, temp=%d mDegC\n",
+		dev->tzd->type, trip, dev->trip[trip].temp);
+
 	return 0;
 }
 
@@ -748,6 +810,9 @@ static int store_trip_temp(struct thermal_zone_device *thermal,
 	dev->trip[trip].temp = temp;
 	check_one_trip(dev, trip);
 	mutex_unlock(&dev->lock);
+	SPCU_THERMAL_TRACE(&dev->pdev->dev,
+		"type=%s, trip_id=%d, temp=%d mDegC\n",
+		dev->tzd->type, trip, dev->trip[trip].temp);
 
 	return 0;
 }
@@ -803,6 +868,10 @@ static irqreturn_t threshold_irq_handler(int irq, void *dev_id)
 
 	set_hw_meas_stop(dev, 1);
 
+	SPCU_THERMAL_TRACE(&dev->pdev->dev,
+		"type=%s, trigger_type=%d\n",
+		dev->tzd->type, threshold->type);
+
 	dev->triggered = threshold;
 	schedule_delayed_work(&dev->isr_work, msecs_to_jiffies(SW_HYST_DELAY));
 
@@ -814,6 +883,16 @@ static int spcu_thermal_irq_init(struct spcu_thermal_device *dev)
 	struct platform_device *pdev = dev->pdev;
 	int ret, i;
 	struct threshold *threshold;
+	int set_en = 0;
+
+#ifdef CONFIG_OF
+	{
+		struct device_node *node;
+
+		node = dev->pdev->dev.of_node;
+		of_property_read_u32(node, "intel,config-set_hw", &set_en);
+	}
+#endif
 
 	for (i = 0; i < THRESHOLD_COUNT; i++) {
 		threshold = &dev->threshold[i];
@@ -827,6 +906,8 @@ static int spcu_thermal_irq_init(struct spcu_thermal_device *dev)
 				threshold->virq, ret);
 			return ret;
 		}
+		if (set_en)
+			set_hw_en(threshold, 1);
 		set_intr_enable(threshold, 1);
 	}
 
@@ -853,6 +934,8 @@ static int spcu_thermal_get_of_pdata(struct device *dev,
 	int i;
 
 	node = dev->of_node;
+
+	of_property_read_string(node, "intel,thermal-type", &pdata->type);
 
 	if (of_property_read_u32(node, "intel,thermal-id", &pdata->id))
 		return -EINVAL;
@@ -1088,6 +1171,9 @@ static int spcu_thermal_probe(struct platform_device *pdev)
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return -ENOMEM;
+	pdata->type = devm_kzalloc(&pdev->dev, THERMAL_NAME_LENGTH, GFP_KERNEL);
+	if (!pdata->type)
+		return -ENOMEM;
 
 	err = spcu_thermal_get_of_pdata(&pdev->dev, pdata);
 	if (err)
@@ -1098,6 +1184,12 @@ static int spcu_thermal_probe(struct platform_device *pdev)
 					  sizeof(*thermal_device), GFP_KERNEL);
 	if (!thermal_device)
 		return -ENOMEM;
+
+	if (MAX_SPCU_THERMAL_DEVICE == spcu_thermal_device_idx) {
+		pr_err("increase the MAX_SPCU_THERMAL_DEVICE");
+		return -ENOMEM;
+	}
+	spcu_thermal_device_array[spcu_thermal_device_idx++] = thermal_device;
 
 	thermal_device->pdev = pdev;
 	platform_set_drvdata(pdev, thermal_device);
@@ -1124,7 +1216,11 @@ static int spcu_thermal_probe(struct platform_device *pdev)
 	spcu_thermal_device_init(thermal_device, pdata);
 	spcu_thermal_irq_init(thermal_device);
 
-	sprintf(thermal_type, "%s%d", TZDNAME, thermal_device->id);
+	if (strlen(pdata->type))
+		sprintf(thermal_type, "%s", pdata->type);
+	else
+		sprintf(thermal_type, "%s%d", TZDNAME, thermal_device->id);
+
 	thermal_device->tzd =
 		thermal_zone_device_register(thermal_type,
 			 TRIP_COUNT, TRIP_RW_MASK,
@@ -1135,7 +1231,9 @@ static int spcu_thermal_probe(struct platform_device *pdev)
 		err = PTR_ERR(thermal_device->tzd);
 		return err;
 	}
-	dev_info(&pdev->dev, "Thermal zone device registered.\n");
+	dev_info(&pdev->dev,
+		"Thermal zone device registered, type=%s\n",
+		thermal_type);
 
 	for (i = 0; thermal_attributes[i]; i++) {
 		err = device_create_file(&thermal_device->tzd->device,
