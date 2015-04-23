@@ -1742,7 +1742,7 @@ static ssize_t touch_enable(struct device *dev, struct device_attribute *attr, c
 	    ftxxxx_enable(1);
 	}
 #endif
-	return 0;
+	return count;
 }
 
 static ssize_t fw_ver_show(struct device *dev, struct device_attribute *attr, char *buf)
