@@ -114,7 +114,7 @@
 	fb {
 		compatible = "rockchip,fb";
 		rockchip,disp-mode = <NO_DUAL>;
-		rockchip,loader-logo-on = <0>;
+		rockchip,loader-logo-on = <1>;
 		rockchip,ion-drv = "rockchip";
 	};
 
