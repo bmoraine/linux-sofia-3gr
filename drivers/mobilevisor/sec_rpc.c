@@ -966,7 +966,7 @@ void rpc_handle_cmd(void *shared_mem)
 
 		/* Start RPC dispatcher thread */
 		pr_debug("Create thread context.\n");
-		dispatch->task = kthread_run(&rpc_dispatcher_cmd,
+		kthread_run(&rpc_dispatcher_cmd,
 					     (void *)dispatch,
 					     "RPC_THREAD");
 		break;
