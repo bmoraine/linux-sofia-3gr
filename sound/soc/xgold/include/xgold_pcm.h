@@ -71,7 +71,8 @@ struct xgold_runtime_data {
 	struct scatterlist *dma_sgl;
 	struct dma_chan *dmach;
 	dma_cookie_t dma_cookie;
-	spinlock_t lock;
+	struct completion dma_complete;
+	bool dma_stop;
 };
 
 #endif /* __XGOLD_PCM_H__ */

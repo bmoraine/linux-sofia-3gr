@@ -533,25 +533,28 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 	struct xgold_pcm *xgold_pcm;
 	dma_addr_t dma_addr;
 
+	xgold_debug("%s\n", __func__);
+
 	if (!xrtd) {
 		xgold_err("%s: xgold runtime data is NULL!!\n", __func__);
 		return;
 	}
 
-	spin_lock(&xrtd->lock);
-	xgold_debug("%s\n", __func__);
+	if (xrtd->dma_stop == true) {
+		complete(&xrtd->dma_complete);
+		pr_info("%s: dma complete\n", __func__);
+		return;
+	}
 
 	xgold_pcm = xrtd->pcm;
 	if (!xgold_pcm || !xrtd->stream || !xrtd->stream->runtime ||
 			!xrtd->stream->runtime->dma_area) {
 		xgold_debug("%s: stream data is NULL!!\n", __func__);
-		spin_unlock(&xrtd->lock);
 		return;
 	}
 
 	if (!xrtd->dmach) {
 		xgold_debug("%s: dma channel is NULL\n", __func__);
-		spin_unlock(&xrtd->lock);
 		return;
 	}
 
@@ -607,8 +610,6 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 	dma_async_issue_pending(xrtd->dmach);
 
 	xgold_debug("dma tx started\n");
-
-	spin_unlock(&xrtd->lock);
 }
 
 static void xgold_pcm_dma_submit(struct xgold_runtime_data *xrtd,
@@ -797,7 +798,6 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 	}
 
 	xrtd->pcm = xgold_pcm;
-	spin_lock_init(&xrtd->lock);
 	runtime->private_data = xrtd;
 
 out:
@@ -901,7 +901,6 @@ static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 {
 	struct xgold_runtime_data *xrtd = substream->runtime->private_data;
 	struct xgold_pcm *xgold_pcm;
-	unsigned long flags;
 
 	xgold_debug("%s\n", __func__);
 
@@ -912,12 +911,14 @@ static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
 			xgold_pcm->dma_mode) {
-		spin_lock_irqsave(&xrtd->lock, flags);
+
+		int ret = wait_for_completion_timeout(&xrtd->dma_complete, 120);
+		if (ret == 0)
+			xgold_debug("%s: dma completion timeout\n", __func__);
 
 		/* request DMA shutdown */
 		xgold_debug("terminate all dma: %p\n", xrtd->dmach);
 		dmaengine_terminate_all(xrtd->dmach);
-		spin_unlock_irqrestore(&xrtd->lock, flags);
 
 		/* Release the DMA channel */
 		dma_release_channel(xrtd->dmach);
@@ -965,6 +966,9 @@ static int xgold_pcm_play_dma_prepare(struct snd_pcm_substream *substream)
 		xgold_err("%s: dma channel req fail\n", __func__);
 		return -EIO;
 	}
+
+	xrtd->dma_stop = false;
+	init_completion(&xrtd->dma_complete);
 
 	if (xrtd->stream_type == STREAM_PLAY)
 		shm_base = dsp_get_audio_shmem_base_addr(xgold_pcm->dsp) +
@@ -1094,6 +1098,9 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 
 	case SNDRV_PCM_TRIGGER_STOP:
 		xgold_debug("%s: Trigger stop\n", __func__);
+
+		if (xgold_pcm->dma_mode)
+			xrtd->dma_stop = true;
 
 		dsp_pcm_stop(dsp, xrtd->stream_type);
 		xgold_debug("DSP stopped\n");
