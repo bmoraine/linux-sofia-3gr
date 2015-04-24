@@ -428,7 +428,8 @@
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_DISABLE_UHS: bit17 */
 						/* QUIRK2_HOST_EXEC_TUNING_WA: bit23 */
-						intel,quirks = < 0 0x804008 >;
+						/* QUIRK2_POWER_CONTROL_BUG: bit15 */
+						intel,quirks = < 0 0x80c008 >;
 						intel,io-access-guest;
 						intel,rpm_enabled = <1>;
 						pm_ctrl{
