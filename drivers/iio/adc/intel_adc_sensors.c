@@ -971,7 +971,7 @@ static int adc_sensors_probe(struct platform_device *p_platform_dev)
 		*/
 		BUG_ON(NULL == p_channels[i].consumer);
 		adc_chan = p_channels[i].adc_log_chan;
-		BUG_ON(ADC_SENSORS_CHANNEL_MAX < adc_chan);
+		BUG_ON(ADC_SENSORS_CHANNEL_MAX <= adc_chan);
 		BUG_ON(0 > adc_chan);
 
 		adc_sensors.p_iio_map[i].consumer_channel =
