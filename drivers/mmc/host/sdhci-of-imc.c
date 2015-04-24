@@ -13,10 +13,12 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/mmc/host.h>
+#include <linux/mmc/slot-gpio.h>
 #include <linux/pm_runtime.h>
 #include <linux/of_address.h>
 #include <linux/clk.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
 #ifdef CONFIG_X86_INTEL_SOFIA
@@ -366,6 +368,9 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 	mmc_pdata->rpm_enabled = xgold_sdhci_is_rpm_enabled(np);
 	pr_info("sdhci: %s, rpm = %d\n", dev_name(&pdev->dev),
 						mmc_pdata->rpm_enabled);
+	if (mmc_pdata->cd_gpio > 0)
+		mmc_gpio_request_cd(host->mmc, mmc_pdata->cd_gpio, 0);
+
 	/* enable runtime pm support per slot */
 	if (mmc_pdata->rpm_enabled) {
 		pm_runtime_put_noidle(&pdev->dev);
@@ -407,7 +412,7 @@ static struct sdhci_pltfm_data sdhci_xgold_pdata_default = {
 
 static irqreturn_t xgold_detect(int irq, void *dev_id)
 {
-	pr_info("%s: SD card inserted\n", __func__);
+	pr_info("%s: SD card inserted or removed\n", __func__);
 	return IRQ_HANDLED;
 }
 static irqreturn_t xgold_eint_detect(int irq, void *dev_id)
@@ -525,6 +530,7 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 		kfree(mmc_pdata);
 		return -1;
 	}
+
 	device_state_pm_set_state_by_name(&mmc_pdata->dev,
 			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name);
 #else
@@ -605,6 +611,8 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 	} else
 		mmc_pdata->irq_eint = 0;
 
+
+	mmc_pdata->cd_gpio = of_get_named_gpio(np, "cd-gpios", 0);
 
 	/* quirks */
 	sdhci_xgold_pdata.quirks = sdhci_xgold_pdata_default.quirks

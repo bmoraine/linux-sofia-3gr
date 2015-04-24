@@ -77,6 +77,7 @@ struct xgold_mmc_pdata {
 	bool rpm_enabled;
 	s32 irq_is_disable;
 	spinlock_t irq_lock;
+	int cd_gpio;
 };
 
 /* IO access depends on the platform - it may goes through an hypercall */
