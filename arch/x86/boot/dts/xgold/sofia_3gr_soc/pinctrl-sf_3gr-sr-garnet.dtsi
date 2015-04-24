@@ -1,9 +1,10 @@
 &xgold_pmx_gpio {
-		intel,gpio-to-irq-num = < 10 >;
+		intel,gpio-to-irq-num = < 11 >;
 		intel,gpio-to-irq = <
 			53 EXI0
 			54 EXI1
 			58 EXI2
+			43 EINT_EXI8
 			49 EXI4
 			50 EXI5
 			60 EXI6
@@ -575,7 +576,7 @@ sdmmc_default_pins:sdmmc_default_pins {
 		0x2a0 0x3011	/* sdmmc_dat2 */
 		0x2a4 0x3011	/* sdmmc_dat3 */
 		0x2a8 0x1011	/* sdmmc_clk */
-		0x2ac 0x2001	/* sdmmc_card_detect */
+		0x2ac 0x2003	/* sdmmc_card_detect */
 	>;
 };
 sdmmc_inactive_pins:sdmmc_inactive_pins {

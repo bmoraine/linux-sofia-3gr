@@ -385,7 +385,9 @@
 							0 &pic SDMMC_INT IRQ_TYPE_DEFAULT
 							1 &eint EINT_SDMMC_DETECT XGOLD_IRQ_TYPE_EDGE_BOTH
 							2 &eint EINT_EXI8 XGOLD_IRQ_TYPE_EDGE_BOTH >;
-						interrupt-names = "host", "wake", "eint";
+						interrupt-names = "host", "wake";
+						cd-gpios = < &xgold_pmx_gpio 43 0 >;
+						cd-inverted;
 						vqmmc-supply = <&lmmc1>;
 						intel,max_clock = <96000000>;
 						intel,min_clock = <203125>;
@@ -411,8 +413,8 @@
 							pm,class-name = "sdhci_class";
 							pm,user-name = "usd";
 							pm,state-D0 = "high_perf";
-							pm,state-D0i2 = "low_perf";
-							pm,state-D3 = "high_perf";
+							pm,state-D0i2 = "disable";
+							pm,state-D3 = "disable";
 						};
 					};
 
