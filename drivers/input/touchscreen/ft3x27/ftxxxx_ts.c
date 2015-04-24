@@ -730,12 +730,12 @@ static void ftxxxx_report_value(struct ftxxxx_ts_data *data)
 	if(event->touch_point == uppoint) {
 		input_report_key(data->input_dev, BTN_TOUCH, 0);
 		touch_down_up_status = 0;
-		printk("[Focal][Touch] touch up !\n");
+		pr_debug("[Focal][Touch] touch up !\n");
 	} else {
 		input_report_key(data->input_dev, BTN_TOUCH, event->touch_point > 0);
 		if (touch_down_up_status == 0) {
 			touch_down_up_status = 1;
-			printk("[Focal][Touch] touch down !\n");
+			pr_debug("[Focal][Touch] touch down !\n");
 		}
 			
 	}
