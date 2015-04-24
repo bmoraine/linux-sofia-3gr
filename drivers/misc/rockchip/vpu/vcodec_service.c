@@ -154,6 +154,7 @@ static struct timeval pp_start,  pp_end;
 #define DEC_IRQ_TIMEOUT				(0x2000)
 #define VPU_HEVC_SWITCH_REG			(0xe4800018)
 
+#if !defined(CONFIG_SECURE_PLAYBACK)
 static struct VPU_HW_INFO_E vpu_hw_set[] = {
 	[0] = {
 		.hw_id		= VPU_ID_8270,
@@ -194,6 +195,7 @@ static struct VPU_HW_INFO_E vpu_hw_set[] = {
 	},
 
 };
+#endif
 
 #define DEC_INTERRUPT_REGISTER			1
 #define PP_INTERRUPT_REGISTER			40
@@ -1527,6 +1529,7 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 	return ret;
 }
 
+#if !defined(CONFIG_SECURE_PLAYBACK)
 static int vpu_service_check_hw(struct vpu_subdev_data *data,
 				unsigned long hw_addr)
 {
@@ -1547,6 +1550,7 @@ static int vpu_service_check_hw(struct vpu_subdev_data *data,
 	iounmap((void *)tmp);
 	return ret;
 }
+#endif
 
 static int vpu_service_open(struct inode *inode, struct file *filp)
 {
@@ -1623,8 +1627,8 @@ static irqreturn_t vdpu_irq(int irq, void *dev_id);
 static irqreturn_t vdpu_isr(int irq, void *dev_id);
 static irqreturn_t vepu_irq(int irq, void *dev_id);
 static irqreturn_t vepu_isr(int irq, void *dev_id);
-#endif
 static void get_hw_info(struct vpu_subdev_data *data);
+#endif
 
 #ifdef CONFIG_VCODEC_MMU
 static struct device *rockchip_get_sysmmu_device_by_compatible(
@@ -1705,15 +1709,17 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 			       struct vpu_service_info *pservice)
 {
 	int ret = 0;
-	u32 offset = 0;
 	u32 ioaddr = 0;
 	struct device *dev = &pdev->dev;
 	void __iomem *regs = NULL;
 	struct device_node *np = pdev->dev.of_node;
 	char *prop = (char *)dev_name(dev);
 	struct vpu_subdev_data *data = NULL;
+#if !defined(CONFIG_SECURE_PLAYBACK)
+	u32 offset = 0;
 	struct vpu_device *edev, *ddev;
 	struct VPU_HW_INFO_E *hwinfo;
+#endif
 #if defined(CONFIG_VCODEC_MMU)
 	u32 iommu_en = 0;
 	char name[40];
@@ -1741,6 +1747,7 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 	regs = pservice->reg_base;
 	ioaddr = pservice->ioaddr;
 
+#if !defined(CONFIG_SECURE_PLAYBACK)
 	clear_bit(MMU_ACTIVATED, &data->state);
 	vcodec_enter_mode(data);
 
@@ -1771,7 +1778,6 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 		edev->hwregs = (u32 *)((u8 *)regs+hwinfo->enc_offset);
 		data->reg_size = data->reg_size > edev->iosize ?
 					data->reg_size : edev->iosize;
-#if !defined(CONFIG_SECURE_PLAYBACK)
 		data->irq_enc = platform_get_irq_byname(pdev, "irq_enc");
 		if (data->irq_enc < 0) {
 			dev_err(dev, "cannot find IRQ encoder\n");
@@ -1789,10 +1795,8 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 				data->irq_enc);
 			goto err;
 		}
-#endif
 	}
 
-#if !defined(CONFIG_SECURE_PLAYBACK)
 	data->irq_dec = platform_get_irq_byname(pdev, "irq_dec");
 	if (data->irq_dec < 0) {
 		dev_err(dev, "cannot find IRQ decoder\n");
@@ -1810,7 +1814,6 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 			data->irq_dec);
 		goto err;
 	}
-#endif
 
 	atomic_set(&data->dec_dev.irq_count_codec, 0);
 	atomic_set(&data->dec_dev.irq_count_pp, 0);
@@ -1831,6 +1834,7 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 		rockchip_iovmm_set_fault_handler(dev,
 					      vcodec_sysmmu_fault_handler);
 	}
+#endif
 #endif
 
 	/* create device */
@@ -1864,7 +1868,9 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 					    data->dev_t, NULL,
 					    prop);
 
+#if !defined(CONFIG_SECURE_PLAYBACK)
 	get_hw_info(data);
+#endif
 	platform_set_drvdata(pdev, data);
 
 	INIT_LIST_HEAD(&data->lnk_service);
@@ -2057,6 +2063,7 @@ static struct platform_driver vcodec_driver = {
 	},
 };
 
+#if !defined(CONFIG_SECURE_PLAYBACK)
 static void get_hw_info(struct vpu_subdev_data *data)
 {
 	struct vpu_service_info *pservice = data->pservice;
@@ -2104,7 +2111,6 @@ static void get_hw_info(struct vpu_subdev_data *data)
 	}
 }
 
-#if !defined(CONFIG_SECURE_PLAYBACK)
 static irqreturn_t vdpu_irq(int irq, void *dev_id)
 {
 	struct vpu_subdev_data *data = (struct vpu_subdev_data *)dev_id;
