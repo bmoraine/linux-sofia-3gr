@@ -2115,7 +2115,6 @@ static int rockchip_fb_alloc_buffer_by_ion(struct fb_info *fbi,
 	fbi->fix.smem_start = phy_addr;
 	fbi->fix.smem_len = len;
 	fbi->screen_base = ion_map_kernel(sfb_info->ion_client, handle);
-	memset(fbi->screen_base, 0, fbi->fix.smem_len);
 
 	return 0;
 
