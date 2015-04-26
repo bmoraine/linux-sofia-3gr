@@ -42,7 +42,7 @@ static int iov_to_pages(struct iovec *iov, struct page ***pages,
 	npage = (iov->iov_len + PAGE_SIZE - 1) / PAGE_SIZE;
 	offset = addr & ~PAGE_MASK;
 
-	page = kmalloc(npage * sizeof(struct page *), GFP_KERNEL);
+	page = kzalloc(npage * sizeof(struct page *), GFP_KERNEL);
 	if (!page)
 		return -ENOMEM;
 
@@ -87,7 +87,7 @@ static int copy_to_contig(struct iovec *iov, struct pvec *pvec_iov)
 		return -ENOMEM;
 	}
 
-	address = kmalloc(iov->iov_len, GFP_KERNEL);
+	address = kzalloc(iov->iov_len, GFP_KERNEL);
 	if (!address)
 		return -ENOMEM;
 
@@ -164,7 +164,7 @@ int tee_rpc_map_user_pages(struct tee_message __user *user_msg, int *num_v,
 	if (ret)
 		return -EFAULT;
 
-	kiov = kmalloc(iov_size, GFP_KERNEL);
+	kiov = kzalloc(iov_size, GFP_KERNEL);
 	if (kiov == NULL)
 		return -ENOMEM;
 

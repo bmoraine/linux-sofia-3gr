@@ -120,7 +120,7 @@ static int __init tee_rpc_init(void)
 
 	tee_major = MAJOR(major);
 
-	client_contexts = kmalloc(TEE_RPC_MAX_DEVS *
+	client_contexts = kzalloc(TEE_RPC_MAX_DEVS *
 				  sizeof(struct tee_rpc_client_ctx),
 				  GFP_KERNEL);
 	if (!client_contexts) {

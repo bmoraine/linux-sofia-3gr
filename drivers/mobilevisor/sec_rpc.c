@@ -394,7 +394,9 @@ static int rpc_thread_tx(struct t_rpc_cmd *cmd, u8 *inp_data, u32 inp_data_len,
 	pr_debug("RPC call finished with result: %d\n", result);
 
 cleanup:
-	kfree(ctx);
+	if (!ctx)
+		kfree(ctx);
+
 	return result;
 }
 
