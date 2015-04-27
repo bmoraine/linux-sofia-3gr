@@ -626,7 +626,7 @@ struct vop_device {
 	bool clk_on;		/* if vop clk on */
 	u8 atv_layer_cnt;	/* active layer counter,
 				 * when atv_layer_cnt = 0,vop is disable */
-	unsigned int irq;
+	int irq;
 
 	struct clk *dclk;	/* vop dclk */
 	u32 pixclock;
