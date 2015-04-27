@@ -1330,10 +1330,10 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	if (host->quirks2 & SDHCI_QUIRK2_POWER_CONTROL_BUG) {
 		unsigned long timeout = 100;
 		do {
-			if (sdhci_readl(host, SDHCI_POWER_CONTROL) == pwr)
+			if (sdhci_readb(host, SDHCI_POWER_CONTROL) == pwr)
 				break;
 			sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
-			udelay(10);
+			udelay(1000);
 			timeout --;
 
 		} while (timeout);
