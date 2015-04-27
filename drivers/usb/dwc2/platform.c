@@ -178,6 +178,9 @@ static int dwc2_driver_probe(struct platform_device *dev)
 		int i = 0;
 		params = devm_kzalloc(&dev->dev,
 				sizeof(struct dwc2_core_params), GFP_KERNEL);
+		if (!params)
+			return -ENOMEM;
+
 		len /= sizeof(u32);
 		if (of_property_read_u32_array(np, "dwc2_params",
 					(u32 *) params, len)) {
