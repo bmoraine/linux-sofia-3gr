@@ -345,11 +345,11 @@ static int rpc_thread_tx(struct t_rpc_cmd *cmd, u8 *inp_data, u32 inp_data_len,
 
 	/* Copy command data to shared memory */
 	if (cmd->action != RPC_DONE) {
-		pr_err("Copy %zu bytes from 0x%p to 0x%p\n",
+		pr_debug("Copy %zu bytes from 0x%p to 0x%p\n",
 		       sizeof(struct t_rpc_cmd), &ctx->cmd, shared_cmd);
 		memcpy(shared_cmd, &ctx->cmd, sizeof(struct t_rpc_cmd));
 	} else {
-		pr_err("Copy %zu bytes from 0x%p to 0x%p\n",
+		pr_debug("Copy %zu bytes from 0x%p to 0x%p\n",
 		       sizeof(struct t_rpc_cmd), cmd, shared_cmd);
 		memcpy(shared_cmd, cmd, sizeof(struct t_rpc_cmd));
 	}
@@ -470,13 +470,13 @@ static int rpc_write_ibfs(u8 *p_buf, u32 offset, u32 nof_bytes)
 
 	pos = vfs_llseek(fd, offset, SEEK_SET);
 	if (pos < 0) {
-    pr_err("rpc_op_ibfs_write: Seek %d failed\n", offset);
+		pr_err("rpc_op_ibfs_write: Seek %d failed\n", offset);
 		goto cleanup;
 	}
 
-	if (pos != offset) {      
-      pr_err("rpc_op_ibfs_write: Seek %d Got %d\n",
-              offset, (u32)pos);
+	if (pos != offset) {
+		pr_err("rpc_op_ibfs_write: Seek %d Got %d\n",
+				offset, (u32)pos);
 		goto cleanup;
 	}
 
@@ -484,10 +484,10 @@ static int rpc_write_ibfs(u8 *p_buf, u32 offset, u32 nof_bytes)
 	cnt = vfs_write(fd, p_buf, nof_bytes, &pos);
 	set_fs(old_fs);
 
-	if (nof_bytes != cnt) { 
-    pr_err("rpc_op_ibfs_write: Wrt %d Got %d\n",
-                       nof_bytes, (u32)cnt);
-    
+	if (nof_bytes != cnt) {
+		pr_err("rpc_op_ibfs_write: Wrt %d Got %d\n",
+				nof_bytes, (u32)cnt);
+
 		goto cleanup;
 	}
 
@@ -526,18 +526,18 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 
 		if (unlikely(IS_ERR(fd))) {
 			pr_err("rpc_op_ibfs_open: Failed %s\n", devname);
-			set_current_state (TASK_INTERRUPTIBLE);
-			schedule_timeout (1000);
+			set_current_state(TASK_INTERRUPTIBLE);
+			schedule_timeout(1000);
 			goto cleanup;
 		}
-    
+
 		pos = vfs_llseek(fd, 0, SEEK_END);
 		if (pos < 0) {
 			pr_err("rpc_op_ibfs_open: Seek end failed\n");
 			goto cleanup;
 		}
 
-		if (pos == 0) {      
+		if (pos == 0) {
 			pr_err("rpc_op_ibfs_open: Empty %s\n", devname);
 			goto cleanup;
 		}
@@ -574,13 +574,13 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 	case rpc_op_ibfs_read:
 		offset    = LIT_UCHARS_TO_UINT32(&(io_data[0]));
 		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[4]));
-		p_buf     = phys_to_virt((phys_addr_t)
-      LIT_UCHARS_TO_UINT32(&(io_data[8])));
+		p_buf     = phys_to_virt(
+			(phys_addr_t)LIT_UCHARS_TO_UINT32(&(io_data[8])));
 
 		old_fs = get_fs();
 
 		pos = vfs_llseek(fd, offset, SEEK_SET);
-		if (pos < 0) {      
+		if (pos < 0) {
 			pr_err("rpc_op_ibfs_read: Failed %d\n", offset);
 			goto cleanup;
 		}
@@ -614,8 +614,8 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 	case rpc_op_ibfs_write:
 		offset    = LIT_UCHARS_TO_UINT32(&(io_data[0]));
 		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[4]));
-		p_buf     = phys_to_virt((phys_addr_t)      
-                LIT_UCHARS_TO_UINT32(&(io_data[8])));
+		p_buf     = phys_to_virt(
+			(phys_addr_t)LIT_UCHARS_TO_UINT32(&(io_data[8])));
 
 		rpc_result = rpc_write_ibfs(p_buf, offset, nof_bytes);
 		if (0 != rpc_result) {
@@ -750,7 +750,7 @@ static int rpc_dispatch(enum t_rpc_if_grp if_grp, u32 opcode,
 		break;
 	case RPC_IF_IBFS:
 		rpc_result = rpc_dispatch_ibfs(opcode, io_data, io_data_len);
-    pr_err("rpc_dispatch_ibfs\n");
+		pr_debug("rpc_dispatch_ibfs\n");
 		break;
 	default:
 		break;
@@ -929,7 +929,7 @@ void rpc_handle_cmd(void *shared_mem)
 			   length from transfer buffer */
 			if (0 < cmd->tx_size &&
 			    cmd->tx_size <= cmd->param.buf_len) {
-				pr_err("%d bytes: 0x%p -> 0x%p\n",
+				pr_debug("%d bytes: 0x%p -> 0x%p\n",
 				       cmd->tx_size, data,
 				       dispatch->data);
 				memcpy(dispatch->data, data, cmd->tx_size);
