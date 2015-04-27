@@ -848,11 +848,12 @@ static ssize_t rndis_ethaddr_store(struct device *dev,
 	struct android_usb_function *f = dev_get_drvdata(dev);
 	struct rndis_function_config *rndis = f->config;
 
-	if (size <= sizeof(rndis->user_ethaddr)) {
-		if (sscanf(buf, "%s", rndis->user_ethaddr) == 1) {
-			rndis->user_ethaddr_valid = true;
-			return size;
-		}
+	if (size > sizeof(rndis->user_ethaddr))
+		return -EINVAL;
+
+	if (sscanf(buf, "%18s", rndis->user_ethaddr) == 1) {
+		rndis->user_ethaddr_valid = true;
+		return size;
 	}
 
 	return -EINVAL;
