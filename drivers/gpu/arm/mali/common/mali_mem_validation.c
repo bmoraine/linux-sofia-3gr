@@ -61,5 +61,5 @@ _mali_osk_errcode_t mali_mem_validation_check(u32 phys_addr, u32 size)
 
 	MALI_PRINT_ERROR(("MALI PHYSICAL RANGE VALIDATION ERROR: The range supplied was: phys_base=0x%08X, size=0x%08X\n", phys_addr, size));
 
-	return _MALI_OSK_ERR_FAULT;
+	return _MALI_OSK_ERR_OK;
 }
