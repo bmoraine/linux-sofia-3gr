@@ -106,6 +106,7 @@ void rockchip_iovmm_unmap_oto(struct device *dev, phys_addr_t phys);
 void rockchip_iovmm_set_fault_handler(struct device *dev,
 				   rockchip_iommu_fault_handler_t handler);
 
+int rockchip_iovmm_invalidate_tlb(struct device *dev);
 #else
 static inline int rockchip_iovmm_activate(struct device *dev)
 {
@@ -143,6 +144,11 @@ static inline void rockchip_iovmm_set_fault_handler(struct device *dev,
 						 rockchip_iommu_fault_handler_t
 						 handler)
 {
+}
+
+static inline int rockchip_iovmm_invalidate_tlb(struct device *dev)
+{
+	return -ENOSYS;
 }
 
 #endif /* CONFIG_ROCKCHIP_IOVMM */

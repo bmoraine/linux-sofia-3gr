@@ -153,8 +153,6 @@ enum iommu_status_bits {
  */
 #define IOMMU_ENTRY_ADDRESS(value) ((value) & 0xFFFFFC00)
 
-static struct kmem_cache *lv2table_kmem_cache;
-
 static unsigned long *rockchip_section_entry(unsigned long *pgtable,
 					  unsigned long iova)
 {
@@ -582,7 +580,7 @@ static bool rockchip_iommu_disable(struct iommu_drvdata *data)
 
 	spin_unlock_irqrestore(&data->data_lock, flags);
 
-	dev_info(data->iommu, "(%s) Disabled\n", data->dbgname);
+	dev_dbg(data->iommu, "(%s) Disabled\n", data->dbgname);
 
 	return ret;
 }
@@ -654,17 +652,49 @@ static int rockchip_iommu_enable(struct iommu_drvdata *data,
 
 	data->pgtable = pgtable;
 
-	dev_info(data->iommu, "(%s) Enabled\n", data->dbgname);
+	dev_dbg(data->iommu, "(%s) Enabled\n", data->dbgname);
 
 	spin_unlock_irqrestore(&data->data_lock, flags);
 
 	return 0;
 }
 
+int rockchip_iommu_tlb_invalidate_global(struct device *dev)
+{
+	unsigned long flags;
+	struct iommu_drvdata *data = dev_get_drvdata(dev->archdata.iommu);
+	int ret;
+
+	spin_lock_irqsave(&data->data_lock, flags);
+
+	if (rockchip_is_iommu_active(data)) {
+		int i;
+
+		for (i = 0; i < data->num_res_mem; i++) {
+			ret = rockchip_iommu_zap_tlb_without_stall(
+					data->res_bases[i]);
+			if (ret)
+				dev_err(dev->archdata.iommu, "(%s) %s failed\n",
+					data->dbgname, __func__);
+		}
+	} else {
+		dev_dbg(dev->archdata.iommu, "(%s) Disabled. Skipping invalidating TLB.\n",
+			data->dbgname);
+		ret = -1;
+	}
+
+	spin_unlock_irqrestore(&data->data_lock, flags);
+
+	return ret;
+}
+
 int rockchip_iommu_tlb_invalidate(struct device *dev)
 {
 	unsigned long flags;
 	struct iommu_drvdata *data = dev_get_drvdata(dev->archdata.iommu);
+
+	if (strstr(data->dbgname, "vpu") || strstr(data->dbgname, "hevc"))
+		return 0;
 
 	spin_lock_irqsave(&data->data_lock, flags);
 
@@ -733,13 +763,13 @@ static unsigned long *rockchip_alloc_lv2entry(unsigned long *sent,
 	if (rockchip_lv1ent_fault(sent)) {
 		unsigned long *pent;
 
-		pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_ATOMIC);
+		pent = (unsigned long *)__get_free_pages(GFP_KERNEL |
+				__GFP_ZERO, 0);
 		BUG_ON((unsigned long)pent & (LV2TABLE_SIZE - 1));
 		if (!pent)
 			return NULL;
 
 		*sent = rockchip_mk_lv1ent_page(__pa(pent));
-		kmemleak_ignore(pent);
 		*pgcounter = NUM_LV2ENTRIES;
 		rockchip_pgtable_flush(pent, pent + NUM_LV2ENTRIES);
 		rockchip_pgtable_flush(sent, sent + 1);
@@ -907,7 +937,7 @@ static void rockchip_iommu_domain_destroy(struct iommu_domain *domain)
 	for (i = 0; i < NUM_LV1ENTRIES; i++) {
 		if (rockchip_lv1ent_page(priv->pgtable + i)) {
 			base = __va(rockchip_lv2table_base(priv->pgtable + i));
-			kmem_cache_free(lv2table_kmem_cache, base);
+			free_pages((unsigned long)base, 0);
 		}
 	}
 
@@ -1103,14 +1133,6 @@ static struct platform_driver rockchip_iommu_driver = {
 static int __init rockchip_iommu_init_driver(void)
 {
 	int ret;
-
-	lv2table_kmem_cache = kmem_cache_create("rockchip-iommu-lv2table",
-						LV2TABLE_SIZE, LV2TABLE_SIZE,
-						0, NULL);
-	if (!lv2table_kmem_cache) {
-		pr_info("%s: failed to create kmem cache\n", __func__);
-		return -ENOMEM;
-	}
 
 	ret = bus_set_iommu(&platform_bus_type, &rockchip_iommu_ops);
 	if (ret)

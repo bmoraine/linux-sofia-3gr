@@ -32,6 +32,13 @@ static struct rockchip_vm_region *find_region(struct rockchip_iovmm *vmm,
 	return NULL;
 }
 
+int rockchip_iovmm_invalidate_tlb(struct device *dev)
+{
+	int ret = rockchip_iommu_tlb_invalidate_global(dev);
+
+	return ret;
+}
+
 void rockchip_iovmm_set_fault_handler(struct device *dev,
 				   rockchip_iommu_fault_handler_t handler)
 {
@@ -142,11 +149,14 @@ dma_addr_t rockchip_iovmm_map(struct device *dev,
 		goto err_map_map;
 
 	dev_dbg(dev->archdata.iommu, "IOVMM: Allocated VM region @ %#x/%#X bytes.\n",
-		region->start, region->size);
+		 region->start, region->size);
 
 	return region->start;
 
 err_map_map:
+	spin_lock(&vmm->lock);
+	list_del(&region->node);
+	spin_unlock(&vmm->lock);
 	iommu_unmap(vmm->domain, start, mapped_size);
 	gen_pool_free(vmm->vmm_pool, start, size);
 err_map_noiomem:
@@ -190,7 +200,7 @@ void rockchip_iovmm_unmap(struct device *dev, dma_addr_t iova)
 	WARN_ON(unmapped_size != region->size);
 
 	dev_dbg(dev->archdata.iommu, "IOVMM: Unmapped %#x bytes from %#x.\n",
-		unmapped_size, region->start);
+		 unmapped_size, region->start);
 
 	kfree(region);
 }
@@ -199,14 +209,15 @@ int rockchip_iovmm_map_oto(struct device *dev, phys_addr_t phys, size_t size)
 {
 	struct rockchip_vm_region *region;
 	struct rockchip_iovmm *vmm = rockchip_get_iovmm(dev);
+	dma_addr_t addr;
 	int ret;
-
+#if 0
 	if (WARN_ON((phys + size) >= IOVA_START)) {
 		dev_err(dev->archdata.iommu, "Unable to create one to one mapping for %#x @ %#x\n",
 			size, phys);
 		return -EINVAL;
 	}
-
+#endif
 	region = kmalloc(sizeof(*region), GFP_KERNEL);
 	if (!region)
 		return -ENOMEM;
@@ -214,14 +225,21 @@ int rockchip_iovmm_map_oto(struct device *dev, phys_addr_t phys, size_t size)
 	if (WARN_ON(phys & ~PAGE_MASK))
 		phys = round_down(phys, PAGE_SIZE);
 
-	ret = iommu_map(vmm->domain, (dma_addr_t)phys, phys, size, 0);
+	addr = (dma_addr_t)gen_pool_alloc(vmm->vmm_pool, size);
+	if (!addr) {
+		dev_err(dev, "failed to alloc iova from pool\n");
+		return -ENOMEM;
+	}
+
+	ret = iommu_map(vmm->domain, addr, phys, size, 0);
 	if (ret < 0) {
 		kfree(region);
 		return ret;
 	}
 
-	region->start = (dma_addr_t)phys;
+	region->start = addr;
 	region->size = size;
+
 	INIT_LIST_HEAD(&region->node);
 
 	spin_lock(&vmm->lock);
@@ -234,10 +252,13 @@ int rockchip_iovmm_map_oto(struct device *dev, phys_addr_t phys, size_t size)
 	if (ret)
 		return ret;
 
-	return 0;
+	dev_dbg(dev, "IOVMM: Allocated-O2O %#x bytes from %#x.\n",
+		region->size, region->start);
+
+	return region->start;
 }
 
-void rockchip_iovmm_unmap_oto(struct device *dev, phys_addr_t phys)
+void rockchip_iovmm_unmap_oto(struct device *dev, phys_addr_t iova)
 {
 	struct rockchip_vm_region *region;
 	struct rockchip_iovmm *vmm = rockchip_get_iovmm(dev);
@@ -246,12 +267,12 @@ void rockchip_iovmm_unmap_oto(struct device *dev, phys_addr_t phys)
 	/* This function must not be called in IRQ handlers */
 	BUG_ON(in_irq());
 
-	if (WARN_ON(phys & ~PAGE_MASK))
-		phys = round_down(phys, PAGE_SIZE);
+	if (WARN_ON(iova & ~PAGE_MASK))
+		iova = round_down(iova, PAGE_SIZE);
 
 	spin_lock(&vmm->lock);
 
-	region = find_region(vmm, (dma_addr_t)phys);
+	region = find_region(vmm, (dma_addr_t)iova);
 	if (WARN_ON(!region)) {
 		spin_unlock(&vmm->lock);
 		return;
@@ -262,9 +283,13 @@ void rockchip_iovmm_unmap_oto(struct device *dev, phys_addr_t phys)
 	spin_unlock(&vmm->lock);
 
 	unmapped_size = iommu_unmap(vmm->domain, region->start, region->size);
+
+	gen_pool_free(vmm->vmm_pool, region->start, region->size);
+
 	WARN_ON(unmapped_size != region->size);
-	dev_dbg(dev->archdata.iommu, "IOVMM: Unmapped %#x bytes from %#x.\n",
-		unmapped_size, region->start);
+
+	dev_dbg(dev->archdata.iommu, "IOVMM: Unmapped-O2O %#x bytes from %#x.\n",
+		 unmapped_size, region->start);
 
 	kfree(region);
 }
@@ -294,7 +319,7 @@ int rockchip_init_iovmm(struct device *iommu, struct rockchip_iovmm *vmm)
 
 	INIT_LIST_HEAD(&vmm->regions_list);
 
-	dev_info(iommu, "IOVMM: Created %#x B IOVMM from %#x.\n",
+	dev_dbg(iommu, "IOVMM: Created %#x B IOVMM from %#x.\n",
 		 IOVM_SIZE, IOVA_START);
 
 	return 0;
