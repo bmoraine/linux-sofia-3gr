@@ -176,7 +176,7 @@
 	intel,virq,14 = <1>; /* EINT_EXI14 */
 	intel,virq,15 = <1>; /* EINT_EXI15 */
 	intel,virq,16 = <0>; /* EINT_USB_HS_RESUME */
-	intel,virq,17 = <0>; /* EINT_SDMMC_DETECT */
+	intel,virq,17 = <1>; /* EINT_SDMMC_DETECT */
 	intel,virq,18 = <1>; /* EINT_SDIO_DAT3 */
 	intel,virq,19 = <1>; /* EINT_SDIO_DAT1 */
 	intel,virq,20 = <0>; /* EINT_USIF1_WK */
