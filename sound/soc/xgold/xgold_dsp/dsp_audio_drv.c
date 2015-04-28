@@ -625,8 +625,11 @@ static int dsp_audio_dev_set_controls(struct dsp_audio_device *dsp_dev,
 	xgold_debug("In :%s, cmd:%d\n", __func__, cmd);
 
 	if ((NULL == arg && cmd <= DSP_AUDIO_CONTROL_WRITE_SHM) ||
-		(NULL == arg && cmd == DSP_AUDIO_POWER_REQ))
+			(NULL == arg &&
+			 cmd == DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC) ||
+			(NULL == arg && cmd == DSP_AUDIO_POWER_REQ))
 		return -EINVAL;
+
 	if (cmd != DSP_AUDIO_POWER_REQ && !pm_runtime_active(dsp_dev->dev))
 		return 0;
 

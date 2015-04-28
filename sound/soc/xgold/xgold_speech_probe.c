@@ -590,11 +590,19 @@ static void dsp_cmd_set_params(
 	struct xgold_audio_speech_runtime_data *xrtd)
 {
 	int probe_point = xrtd->probe_point_id;
-	int stream_id_play = PROBE_POINT_TO_STREAM_PLAY(probe_point);
-	int stream_id_rec = PROBE_POINT_TO_STREAM_REC(probe_point);
+	int stream_id_play, stream_id_rec;
+	bool play_status, rec_status;
 
-	bool play_status = xrtd->speech_probe->sp_status[stream_id_play].active;
-	bool rec_status = xrtd->speech_probe->sp_status[stream_id_rec].active;
+	if (probe_point >= PROBE_POINT_END) {
+		xgold_err("%s: device: %d is out of range\n",
+				__func__, probe_point);
+		return;
+	}
+
+	stream_id_play = PROBE_POINT_TO_STREAM_PLAY(probe_point);
+	stream_id_rec = PROBE_POINT_TO_STREAM_REC(probe_point);
+	play_status = xrtd->speech_probe->sp_status[stream_id_play].active;
+	rec_status = xrtd->speech_probe->sp_status[stream_id_rec].active;
 
 	/* if inject is idle, mute gain 2 to avoid adding same signal again
 	   back to UL/DL path */
