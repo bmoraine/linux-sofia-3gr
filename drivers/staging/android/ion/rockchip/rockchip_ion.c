@@ -37,6 +37,8 @@ static struct ion_heap **heaps;
 
 #define MAX_ION_HEAP	(10)
 
+#define ALIGN(x, a)	(((x)+((a)-1))&(~((a)-1)))
+
 static struct ion_platform_heap ion_plat_heap[MAX_ION_HEAP];
 
 struct ion_platform_data ion_pdata = {
@@ -120,7 +122,6 @@ static int rk_ion_secure_alloc(struct ion_client *client,
 	int ret = 0;
 
 	dev = ion_struct_device_from_client(client);
-	dev_info(dev, "sofia_ion_secure_alloc()\n");
 	if (is_compat_task()) {
 		/* TODO: add compat here */
 		return -EFAULT;
@@ -144,7 +145,7 @@ static int rk_ion_secure_alloc(struct ion_client *client,
 	vvpu_cmd.payload[1] = VVPU_VOP_MEM_ALLOC;
 	vvpu_cmd.payload[2] = 0;
 	vvpu_cmd.payload[3] = 0;
-	vvpu_cmd.payload[4] = data->size;
+	vvpu_cmd.payload[4] = ALIGN(data->size, PAGE_SIZE);
 	vvpu_cmd.payload[5] = 0;
 
 	/* execute command */
@@ -156,7 +157,7 @@ static int rk_ion_secure_alloc(struct ion_client *client,
 		data->size = (unsigned int) vvpu_cmd.payload[4];
 		data->phys = (unsigned int) vvpu_cmd.payload[5];
 
-		dev_info(dev, "ion_alloc_secure() 0x%lx / %lu\n",
+		dev_info(dev, "ion_alloc_secure() 0x%lx / %lu, page aligned\n",
 			data->phys, data->size);
 	}
 
@@ -190,7 +191,6 @@ static int rk_ion_secure_free(struct ion_client *client,
 	int ret = 0;
 
 	dev = ion_struct_device_from_client(client);
-	dev_info(dev, "sofia_ion_secure_free()\n");
 	if (is_compat_task()) {
 		/* TODO: add compat here */
 		return -EFAULT;
@@ -213,7 +213,7 @@ static int rk_ion_secure_free(struct ion_client *client,
 	vvpu_cmd.payload[1] = VVPU_VOP_MEM_FREE;
 	vvpu_cmd.payload[2] = 0;
 	vvpu_cmd.payload[3] = 0;
-	vvpu_cmd.payload[4] = data->size;
+	vvpu_cmd.payload[4] = ALIGN(data->size, PAGE_SIZE);
 	vvpu_cmd.payload[5] = data->phys;
 
 	/* execute command */
@@ -227,6 +227,8 @@ static int rk_ion_secure_free(struct ion_client *client,
 		/* TODO: add compat here */
 		return -EFAULT;
 	} else {
+		dev_info(dev, "ion_free_secure() 0x%lx / %lu\n",
+			data->phys, data->size);
 		if (copy_to_user((void __user *) arg, data, sizeof(*data))) {
 			ret = -EFAULT;
 			goto free_data;
