@@ -373,8 +373,9 @@ static void xgold_i2c_dma_finish(struct xgold_i2c_algo_data *data)
 static void xgold_i2c_dma_callback_txrx(void *param)
 {
 	struct xgold_i2c_algo_data *data = param;
+	unsigned long flag;
 
-	spin_lock(&data->lock);
+	spin_lock_irqsave(&data->lock, flag);
 	if (dma_async_is_tx_complete(data->dmach, data->dma_cookie, NULL, NULL)
 			== DMA_COMPLETE) {
 		i2c_debug(data, "DMA transfer complete\n");
@@ -384,7 +385,7 @@ static void xgold_i2c_dma_callback_txrx(void *param)
 
 		if (I2C_MSG_RD(data->flags))
 			print_hex_dump_debug("<RX< ", DUMP_PREFIX_NONE,
-				16, 1, data->dma_buf, data->dma_buf_len, 0);
+				16, 1, data->buf, data->dma_buf_len, 0);
 	} else {
 		data->cmd_err = -EAGAIN;
 		i2c_debug(data, "DMA error\n");
@@ -396,7 +397,7 @@ static void xgold_i2c_dma_callback_txrx(void *param)
 	else
 		data->buf_len = 0;
 
-	spin_unlock(&data->lock);
+	spin_unlock_irqrestore(&data->lock, flag);
 	i2c_debug(data, "<-- %s\n", __func__);
 }
 
@@ -480,7 +481,7 @@ static int xgold_i2c_dma_setup_xfer(struct xgold_i2c_algo_data *data)
 		 * which would prevent the I2C to send odds amount of data.
 		 */
 		sg_init_one(&data->sg_io, data->dma_buf,
-			data->buf_len + 1);
+			round_up(data->buf_len + 1, 4));
 
 		dma_map_sg(data->i2c_dev->dev, &data->sg_io, 1, DMA_TO_DEVICE);
 		desc = dmaengine_prep_slave_sg(data->dmach, &data->sg_io, 1,
@@ -724,7 +725,7 @@ static inline void xgold_i2c_nostart(struct xgold_i2c_algo_data *data,
 	if ((sope && !disable) || (!sope && disable))
 		return;
 
-	/* turning ON I2C */
+	/* turning OFF I2C */
 	reg_write(I2C_RUN_CTRL_RUN_DIS, data->regs + I2C_RUN_CTRL_OFFSET);
 
 	reg &= ~I2C_ADDR_CFG_SOPE_MASK;
@@ -1056,7 +1057,7 @@ out:
 		xgold_i2c_dmae(data, false);
 
 	if (data->cmd_err) {
-		i2c_debug(data, "An error occured %#X\n", data->cmd_err);
+		i2c_debug(data, "An error occured %d\n", data->cmd_err);
 		return data->cmd_err;
 	}
 
@@ -1074,19 +1075,20 @@ static int xgold_i2c_xfer(struct i2c_adapter *adap,
 		struct i2c_msg msgs[], int num)
 {
 	struct xgold_i2c_algo_data *data = i2c_get_adapdata(adap);
+	unsigned long flag;
 	int ret = 0;
 	int i;
 
-	spin_lock(&data->lock);
+	spin_lock_irqsave(&data->lock, flag);
 	if (data->state != XGOLD_I2C_LISTEN) {
 		dev_err(&adap->dev, "Transaction ongoing\n");
-		spin_unlock(&data->lock);
+		spin_unlock_irqrestore(&data->lock, flag);
 		return -EAGAIN;
 	}
 
 	/* turning ON I2C */
 	reg_write(I2C_RUN_CTRL_RUN_EN, data->regs + I2C_RUN_CTRL_OFFSET);
-	spin_unlock(&data->lock);
+	spin_unlock_irqrestore(&data->lock, flag);
 
 	/* FIXME: while bus not free */
 	if (xgold_i2c_bus_status(data) != XGOLD_I2C_BUS_FREE) {
@@ -1111,11 +1113,11 @@ static int xgold_i2c_xfer(struct i2c_adapter *adap,
 		/* no error, must return byte count */
 		ret = num;
 
-	spin_lock(&data->lock);
+	spin_lock_irqsave(&data->lock, flag);
 	data->state = XGOLD_I2C_LISTEN;
 	/* turning OFF I2C */
 	reg_write(I2C_RUN_CTRL_RUN_DIS, data->regs + I2C_RUN_CTRL_OFFSET);
-	spin_unlock(&data->lock);
+	spin_unlock_irqrestore(&data->lock, flag);
 
 	return ret;
 }
