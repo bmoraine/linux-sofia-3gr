@@ -55,6 +55,7 @@ struct t_vsec_ctx {
 	wait_queue_head_t open_wq;
 
 	uint32_t is_client_wait;
+	uint32_t server_responded;
 	wait_queue_head_t client_wq;
 	struct mutex client_mutex;
 
@@ -108,6 +109,8 @@ u32 vsec_call(u8 entry_id)
 		if (mutex_lock_interruptible(&p_vsec_ctx->client_mutex))
         	return 0;
 
+		p_vsec_ctx->server_responded = 0;
+
 		/* Perform RPC call (post client event) */
 		mv_ipc_mbox_post(p_vsec_ctx->token, VSEC_RPC_EVENT_CLIENT);
 
@@ -118,6 +121,12 @@ u32 vsec_call(u8 entry_id)
 		if (p_vsec_ctx->status != VSEC_STATUS_CONNECT) {
         	mutex_unlock(&p_vsec_ctx->client_mutex);
         	return VSEC_FAILURE;
+		}
+
+		if (wait_event_interruptible(p_vsec_ctx->client_wq,
+			p_vsec_ctx->server_responded == 1)) {
+			mutex_unlock(&p_vsec_ctx->client_mutex);
+			return VSEC_FAILURE;
 		}
 
 		p_vsec_ctx->is_client_wait = 0;
@@ -194,6 +203,7 @@ static void vsec_on_event(uint32_t token, uint32_t event_id, void *cookie)
 		up(&p_vsec_ctx->server_sem);
 		break;
 	case VSEC_RPC_EVENT_SERVER:
+		p_vsec_ctx->server_responded = 1;
 		wake_up_interruptible(&p_vsec_ctx->client_wq);
 		break;
 	default:
