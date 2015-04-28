@@ -520,6 +520,9 @@ static void rockchip_fb_free_dma_buf(struct rockchip_vop_driver *dev_drv,
 				ion_unmap_iommu(dev_drv->dev,
 						sfb_info->ion_client,
 						area->ion_hdl);
+			else if (area->smem_start)
+				rockchip_iovmm_unmap_oto(dev_drv->dev,
+						area->smem_start);
 
 			freed_addr[freed_index++] = area->smem_start;
 		}
@@ -579,6 +582,7 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 	u8 ppixel_a = 0, global_a = 0;
 	int i = 0;
 	int buff_len;
+	int vaddr;
 
 	vop_win->id = win_par->win_id;
 	vop_win->z_order = win_par->z_order;
@@ -612,6 +616,21 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 
 		vop_win->area[i].xvir = xvir;
 		vop_win->area[i].yvir = yvir;
+
+		if (win_par->area_par[i].phy_addr != 0) {
+			vop_win->area[i].buff_len = xvir *
+					vop_win->area[i].yact * pixel_width;
+			vop_win->area[i].buff_len = ALIGN_N_TIMES(
+					vop_win->area[i].buff_len, PAGE_SIZE);
+			vaddr = rockchip_iovmm_map_oto(dev_drv->dev,
+						win_par->area_par[i].phy_addr,
+						vop_win->area[i].buff_len);
+			if (vaddr <= 0) {
+				pr_err("map phyical addr failed\n");
+				return -EINVAL;
+			}
+			vop_win->area[i].smem_start = (unsigned long) vaddr;
+		}
 
 		vir_width_bit = pixel_width * xvir;
 		stride_32bit_1 =  ALIGN_N_TIMES(vir_width_bit, 32) / 8;
@@ -718,12 +737,12 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 			vop_win->area[0].smem_start -
 			win_par->area_par[i].x_offset * pixel_width / 16;
 		if (buff_len > vop_win->area[0].buff_len) {
-			pr_err("err:fmt=%d,xvir[%d]*yact[%d]*bpp[%d]=",
+			pr_err("yuv err:fmt=%d,xvir[%d]*yact[%d]*bpp[%d]=",
 			       vop_win->area[0].format,
 			       win_par->area_par[0].xvir,
 			       win_par->area_par[0].yact,
 			       pixel_width);
-			pr_err("buff_len[0x%x]>>mmu len=0x%x\n",
+			pr_err("yuv buff_len[0x%x]>>mmu len=0x%x\n",
 			       buff_len,
 			       vop_win->area[0].buff_len);
 		}
