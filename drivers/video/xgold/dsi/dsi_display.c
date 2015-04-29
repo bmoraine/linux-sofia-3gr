@@ -588,9 +588,9 @@ int dsi_init(struct dsi_display *display)
 
 	if (display->dsi_reset) {
 		reset_control_assert(display->dsi_reset);
-		usleep_range(100, 101);
+		udelay(10);
 		reset_control_deassert(display->dsi_reset);
-		usleep_range(2000, 2001);
+		usleep_range(8000, 8001);
 	}
 
 	dsi_write_field(display, EXR_DSI_CLC,
