@@ -131,6 +131,26 @@ void sofia_set_cpu_frequency(const int cpufreq)
 }
 EXPORT_SYMBOL(sofia_set_cpu_frequency);
 
+u32 sofia_get_cpu_nb_freq(void)
+{
+	pr_debug("%s: ask vmm the nuber of supported frequencies", __func__);
+
+	return mv_svc_pm_control(PM_CPU_GET_NUM_FREQ_STEPS, 0, 0, 0);
+}
+EXPORT_SYMBOL(sofia_get_cpu_nb_freq);
+
+u32 sofia_get_cpu_freq_table(int *freq_table, const int nb_freq)
+{
+	u32 freq_size = nb_freq * sizeof(u32);
+
+	pr_debug("%s: ask vmm supported frequencies", __func__);
+
+	return mv_svc_pm_control(PM_CPU_GET_FREQ_STEPS,
+			(uint32_t)__pa(freq_table), freq_size, 0);
+
+}
+EXPORT_SYMBOL(sofia_get_cpu_freq_table);
+
 void sofia_set_cpu_policy(const int freqmin, const int freqmax)
 {
 	u32 retval;
