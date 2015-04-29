@@ -346,14 +346,11 @@ void __setup_vector_irq(int cpu)
 			continue;
 
 		cfg = irq_get_chip_data(irq);
-		if (!cpumask_test_cpu(cpu, cfg->domain)) {
+		if (!cpumask_test_cpu(cpu, cfg->domain))
 			per_cpu(vector_irq, cpu)[vector] = VECTOR_UNDEFINED;
-		}
 	}
 	raw_spin_unlock(&vector_lock);
-
 }
-
 
 /* void __setup_vector_irq(int cpu) { } */
 #endif
@@ -365,6 +362,8 @@ static unsigned int sofia_vpic_irq_startup(struct irq_data *data)
 	unsigned affinity;
 
 	cfg = irq_get_chip_data(irq);
+	if (!cfg)
+		return -ENXIO;
 	/* Vector assignement is fixed in sofia platform,
 	 * but this will set correctly the domain mask
 	 * */
@@ -491,6 +490,8 @@ void __init sofia_vpic_fixup_affinity(void)
 			continue;
 
 		idata = irq_get_irq_data(irq);
+		if (!idata)
+			return;
 		/*
 		 * Honour affinities which have been set in early boot
 		 */
@@ -500,9 +501,7 @@ void __init sofia_vpic_fixup_affinity(void)
 			mask = apic->target_cpus();
 		sofia_vpic_set_affinity(idata, mask, false);
 	}
-
 }
-
 
 static int sofia_vpic_irq_domain_map(struct irq_domain *d, unsigned int irq,
 			      irq_hw_number_t hw)
