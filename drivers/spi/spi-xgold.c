@@ -1,3 +1,17 @@
+/*
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ */
+
 #include <linux/module.h>
 #include <linux/spi/spi.h>
 #include <linux/interrupt.h>
@@ -208,12 +222,18 @@ static struct xgold_spi_platdata *xgold_spi_get_platdata(
 		struct platform_device *pdev)
 {
 	struct spi_master *master = spi_master_get(platform_get_drvdata(pdev));
-	struct xgold_spi_ctl_drv *ctl_drv = spi_master_get_devdata(master);
+	struct xgold_spi_ctl_drv *ctl_drv;
 	struct xgold_spi_platdata *platdata;
 	struct device_node *nspi;
 	int ret;
 
-	platdata = kzalloc(sizeof(struct xgold_spi_platdata), GFP_KERNEL);
+	if (!master)
+		return ERR_PTR(-EINVAL);
+
+	ctl_drv = spi_master_get_devdata(master);
+
+	platdata = devm_kzalloc(&pdev->dev, sizeof(struct xgold_spi_platdata),
+			GFP_KERNEL);
 	if (!platdata)
 		return ERR_PTR(-ENOMEM);
 
@@ -230,7 +250,8 @@ static struct xgold_spi_platdata *xgold_spi_get_platdata(
 
 	platdata->clock_spi = of_clk_get_by_name(nspi, OF_KERNEL_CLK);
 	if (IS_ERR(platdata->clock_spi)) {
-		dev_err(&pdev->dev, "Clk %s not found: fixed to 104MHz\n", OF_KERNEL_CLK);
+		dev_err(&pdev->dev, "Clk %s not found: fixed to 104MHz\n",
+				OF_KERNEL_CLK);
 		ctl_drv->clk_spi_rate = 104 * 1000 * 1000;
 	}
 
@@ -413,6 +434,12 @@ static irqreturn_t spi_irq_handler(int irq, void *dev_id)
 		/* RX SINGLE REQUEST */
 		if (mis & USIF_SPI_RXFIFO_MASK) {
 			unsigned rxffs = 0;
+
+			if (!ctl_drv->current_rxbuf) {
+				dev_err(ctl_drv->dev, "Unexpected RX interrupt\n");
+				goto skip_rx_memcpy;
+			}
+
 			/*
 			   RX FIFO is word aligned,
 			   so we can rely on the RXFFS number,
@@ -451,6 +478,7 @@ static irqreturn_t spi_irq_handler(int irq, void *dev_id)
 				ctl_drv->current_rxlen == xfer->len)
 				complete(&ctl_drv->done);
 
+skip_rx_memcpy:
 			iowrite32(mis & USIF_SPI_RXFIFO_MASK,
 					USIF_ICR(ctl_drv->base));
 		}
@@ -1827,9 +1855,14 @@ static int xgold_spi_resume(struct device *dev)
 static int __exit xgold_spi_remove(struct platform_device *pdev)
 {
 	struct spi_master *master = spi_master_get(platform_get_drvdata(pdev));
-	struct xgold_spi_ctl_drv *ctl_drv = spi_master_get_devdata(master);
 	struct xgold_spi_platdata *pdata = dev_get_platdata(&pdev->dev);
+	struct xgold_spi_ctl_drv *ctl_drv;
 	unsigned long flags;
+
+	if (!master)
+		return 0;
+
+	ctl_drv = spi_master_get_devdata(master);
 
 	spin_lock_irqsave(&ctl_drv->lock, flags);
 	ctl_drv->state |= SUSPND;
@@ -1844,9 +1877,9 @@ static int __exit xgold_spi_remove(struct platform_device *pdev)
 
 	xgold_spi_set_pinctrl_state(&pdev->dev, pdata->pins_inactive);
 	iounmap((void *)ctl_drv->base);
+	spi_master_put(master);
 	kfree(master);
 	platform_set_drvdata(pdev, NULL);
-	spi_master_put(master);
 
 	return 0;
 }
