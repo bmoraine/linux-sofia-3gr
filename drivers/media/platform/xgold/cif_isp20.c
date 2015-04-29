@@ -3531,6 +3531,10 @@ static int cif_isp20_update_mi_mp(
 		   MI, because the encoding
 		   anyway has to be started explicitely */
 		if (!dev->config.jpeg_config.busy) {
+			if (dev->config.mi_config.mp.next_buff_addr !=
+				CIF_ISP20_INVALID_BUFF_ADDR)
+				cif_isp20_mi_update_buff_addr(dev,
+					CIF_ISP20_STREAM_MP);
 			if ((dev->config.mi_config.mp.curr_buff_addr !=
 				dev->config.mi_config.mp.next_buff_addr) &&
 				(dev->config.mi_config.mp.curr_buff_addr !=
@@ -3549,10 +3553,6 @@ static int cif_isp20_update_mi_mp(
 					CIF_JPE_INIT);
 				dev->config.jpeg_config.busy = true;
 			}
-			if (dev->config.mi_config.mp.next_buff_addr !=
-				CIF_ISP20_INVALID_BUFF_ADDR)
-				cif_isp20_mi_update_buff_addr(dev,
-					CIF_ISP20_STREAM_MP);
 			dev->config.mi_config.mp.curr_buff_addr =
 				dev->config.mi_config.mp.next_buff_addr;
 		}
@@ -5345,20 +5345,37 @@ int cif_isp20_get_target_frm_size(
 			} else {
 				*target_height = height;
 			}
+			cif_isp20_pltfrm_pr_dbg(dev->dev,
+				"ISP %dx%d, MP %dx%d, SP %dx%d, target %dx%d\n",
+				input_width, input_height,
+				mp_width, mp_height,
+				sp_width, sp_height,
+				*target_width, *target_height);
 		} else {
 			*target_width =
 				dev->config.mi_config.sp.output.width;
 			*target_height =
 				dev->config.mi_config.sp.output.height;
+			cif_isp20_pltfrm_pr_dbg(dev->dev,
+				"SP %dx%d, target %dx%d\n",
+				dev->config.mi_config.sp.output.width,
+				dev->config.mi_config.sp.output.height,
+				*target_width, *target_height);
 		}
 	} else if (dev->mp_stream.state >= CIF_ISP20_STATE_READY) {
 		*target_width = dev->config.mi_config.mp.output.width;
 		*target_height = dev->config.mi_config.mp.output.height;
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"MP %dx%d, target %dx%d\n",
+			dev->config.mi_config.mp.output.width,
+			dev->config.mi_config.mp.output.height,
+			*target_width, *target_height);
 	} else {
 		cif_isp20_pltfrm_pr_err(dev->dev,
 			"cannot get target frame size, no path ready\n");
 		return -EFAULT;
 	}
+
 	return 0;
 }
 
@@ -5405,6 +5422,12 @@ int cif_isp20_calc_isp_cropping(
 		*width &= ~1;
 		*h_offs = (input_width - *width) >> 1;
 	}
+
+	cif_isp20_pltfrm_pr_dbg(dev->dev,
+		"%dx%d -> %dx%d@(%d,%d)\n",
+		input_width, input_height,
+		*width, *height,
+		*h_offs, *v_offs);
 
 	return 0;
 err:
