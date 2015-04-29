@@ -29,6 +29,8 @@
 #include <linux/delay.h>
 #define XGOLD_LED_MODULE_NAME "leds-agold620"
 #define PROP_BL_GPIO_ENABLE	"intel,bl-gpio-enable"
+#include <linux/notifier.h>
+#include <linux/fb.h>
 
 /* Offset Registers */
 #define LED_K1_CONTROL	0x000
@@ -230,6 +232,41 @@ static int32_t agold620_led_set_backlight(struct device *dev)
 	return 0;
 }
 
+static int fb_notifier_callback(struct notifier_block *self,
+				 unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank;
+	struct xgold_led_data *led =
+		container_of(self, struct xgold_led_data, fb_notif);
+
+	if (evdata && evdata->data && event == FB_EVENT_BLANK && led) {
+		blank = evdata->data;
+		switch (*blank) {
+		case FB_BLANK_UNBLANK:
+			iowrite32(SCU_LED_UP, (char *)led->mmio + LED_CTRL);
+			if (gpio_is_valid(led->gpio)) {
+				gpio_direction_output(led->gpio, true);
+				iowrite32(true ? 0x3 : 0x0, led->cgu_mmio);
+			}
+		break;
+
+		case FB_BLANK_POWERDOWN:
+		case FB_BLANK_HSYNC_SUSPEND:
+		case FB_BLANK_VSYNC_SUSPEND:
+		case FB_BLANK_NORMAL:
+			iowrite32(SCU_LED_DOWN, (char *)led->mmio + LED_CTRL);
+			if (gpio_is_valid(led->gpio)) {
+				gpio_direction_output(led->gpio, false);
+				iowrite32(false ? 0x3 : 0x0, led->cgu_mmio);
+			}
+		break;
+		}
+	}
+
+	return 0;
+}
+
 static int32_t agold620_led_probe(struct platform_device *pdev)
 {
 	struct xgold_led_data *led;
@@ -248,6 +285,9 @@ static int32_t agold620_led_probe(struct platform_device *pdev)
 	led->np = pdev->dev.of_node;
 	dev_set_drvdata(dev, led);
 	led->pdev = pdev;
+
+	led->fb_notif.notifier_call = fb_notifier_callback;
+	fb_register_client(&led->fb_notif);
 		/* Get io resources */
 	bl_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pmu-bl");
 	if (bl_res) {

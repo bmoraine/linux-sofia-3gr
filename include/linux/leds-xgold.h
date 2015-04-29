@@ -66,6 +66,8 @@ struct xgold_led_data {
 	struct pinctrl_state *pins_inactive;
 	int32_t gpio;
 	struct xgold_led_config config;
+	/* The framebuffer notifier block */
+	struct notifier_block fb_notif;
 };
 
 int32_t xgold_led_probe(struct platform_device *pdev);
