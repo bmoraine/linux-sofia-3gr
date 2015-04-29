@@ -496,26 +496,37 @@ found:
 int uevent_buffer_pm_notify(struct notifier_block *nb,
 			    unsigned long action, void *data)
 {
+	struct uevent_buffered *ub, *tmp;
+	LIST_HEAD(bl);
+
 	mutex_lock(&uevent_buffer_mutex);
 	if (action == PM_SUSPEND_PREPARE) {
 		uevent_buffer = true;
 	} else if (action == PM_POST_SUSPEND) {
-		struct uevent_buffered *ub, *tmp;
+		/* Atomically save off the list and handle below... */
 		list_for_each_entry_safe(ub, tmp, &uevent_buffer_list,
 					 buffer_list) {
-			kobject_deliver_uevent(ub->kobj, ub->env, ub->action,
-					       ub->devpath, ub->subsys);
 			list_del(&ub->buffer_list);
-			kobject_put(ub->kobj);
-			kfree(ub->env);
-			kfree(ub->devpath);
-			kfree(ub->subsys);
-			kfree(ub);
+			list_add(&ub->buffer_list, &bl);
 		}
-
 		uevent_buffer = false;
 	}
 	mutex_unlock(&uevent_buffer_mutex);
+
+	/* kobject_put() and the uevent handler callbacks may need to
+	 * deliver their own uevents; do the notification and list
+	 * deletion outside the mutex after the notifiers above */
+	list_for_each_entry_safe(ub, tmp, &bl, buffer_list) {
+		kobject_deliver_uevent(ub->kobj, ub->env, ub->action,
+				       ub->devpath, ub->subsys);
+		list_del(&ub->buffer_list);
+		kobject_put(ub->kobj);
+		kfree(ub->env);
+		kfree(ub->devpath);
+		kfree(ub->subsys);
+		kfree(ub);
+	}
+
 	return 0;
 }
 #endif
