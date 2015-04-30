@@ -406,7 +406,7 @@ int fmdev_send_vector(struct iovec *vector, const size_t count)
 		total_size += vector[i].iov_len;
 
 	if (kfifo_avail(&(fmdev_info.k2u_fifo.fifo)) < total_size) {
-		pr_crit("fmdev_send_vector(count: %u): Not enough space in fifo!\n",
+		pr_crit_ratelimited("fmdev_send_vector(count: %u): Not enough space in fifo!\n",
 					count);
 		retval = -EAGAIN;
 	}
