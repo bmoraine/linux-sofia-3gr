@@ -106,12 +106,7 @@ static int ft_rw_iic_drv_RDWR(struct i2c_client *client, unsigned long arg)
 	}
 
 	if (ret < 0) {
-		int j;
-		for (j=0; j<i; ++j)
-			kfree(i2c_rw_msg[j].buf);
-		kfree(data_ptrs);
-		kfree(i2c_rw_msg);
-		return ret;
+		goto free_resources;
 	}
 
 	for (i=0; i< i2c_rw_queue.queuenum; i++) {
@@ -123,6 +118,15 @@ static int ft_rw_iic_drv_RDWR(struct i2c_client *client, unsigned long arg)
 		}
 		else
 			ret = ft_rw_iic_drv_mywrite(client, i2c_rw_msg[i].buf, i2c_rw_msg[i].length);
+	}
+
+free_resources:
+	{
+		int j;
+		for (j = 0; j < i; ++j)
+			kfree(i2c_rw_msg[j].buf);
+		kfree(data_ptrs);
+		kfree(i2c_rw_msg);
 	}
 
 	return ret;
@@ -205,12 +209,7 @@ static int ft_rw_iic_drv_GetStartTestInfo(unsigned long arg)
 	}
 
 	if (ret < 0) {
-		int j;
-		for (j=0; j<i; ++j)
-			kfree(i2c_rw_msg[j].buf);
-		kfree(data_ptrs);
-		kfree(i2c_rw_msg);
-		return ret;
+		goto free_resources;
 	}
 
 	for (i=0; i< i2c_rw_queue.queuenum; i++) {
@@ -220,6 +219,15 @@ static int ft_rw_iic_drv_GetStartTestInfo(unsigned long arg)
 			i2c_rw_msg[i].buf[0] = 0;
 		ret = copy_to_user(data_ptrs[i], i2c_rw_msg[i].buf, i2c_rw_msg[i].length);
 
+	}
+
+free_resources:
+	{
+		int j;
+		for (j = 0; j < i; ++j)
+			kfree(i2c_rw_msg[j].buf);
+		kfree(data_ptrs);
+		kfree(i2c_rw_msg);
 	}
 	/*g_startbutton = 0;*/
 	return ret;

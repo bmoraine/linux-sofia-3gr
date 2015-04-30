@@ -1256,7 +1256,7 @@ static int ftxxxx_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	struct focal_i2c_platform_data *pdata;
 	int err = 0;
         struct input_dev *input_dev;
-        unsigned char uc_reg_value;
+	unsigned char uc_reg_value = 0;
         unsigned char uc_reg_addr;
 
 #ifdef CONFIG_OF

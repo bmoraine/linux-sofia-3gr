@@ -227,6 +227,8 @@ char * ini_str_trim_l(char * buf)
 
 	memset(tmp, 0, sizeof(tmp));
 	len = strlen(buf);
+	if (len > sizeof(tmp))
+		len = sizeof(tmp);
 
 	memset(tmp,0x00,len);
 
