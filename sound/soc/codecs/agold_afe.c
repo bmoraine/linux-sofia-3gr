@@ -991,6 +991,14 @@ static const char * const agold_afe_dmic_path_text[] = {
 	"MIC1_P1_MIC2_P2", "MIC1_P1_MIC2_P1",
 	"MIC1_P2_MIC2_P2", "MIC1_P2_MIC2_P1"
 };
+
+static const char * const agold_afe_dmic1_sample_phase_text[] = {
+	"falling", "rising"
+};
+
+static const char * const agold_afe_dmic2_sample_phase_text[] = {
+	"rising", "falling"
+};
 #endif
 
 static const DECLARE_TLV_DB_SCALE(DGAINCR_TLV, -2400, 1200, 1);
@@ -1028,6 +1036,14 @@ SOC_ENUM_SINGLE(AGOLD_AFE_AUDOUTCTRL2, 12, 2, agold_afe_gen_sw_enum_text);
 #ifdef CONFIG_SND_SOC_AGOLD_620
 static const struct soc_enum agold_afe_dmic_path_enum =
 SOC_ENUM_SINGLE(AGOLD_AFE_DIGMIC_CONTROL1, 4, 4, agold_afe_dmic_path_text);
+
+static const struct soc_enum agold_afe_dmic1_sample_phase_enum =
+SOC_ENUM_SINGLE(AGOLD_AFE_DIGMIC_CONTROL1, 7, 2,
+	agold_afe_dmic1_sample_phase_text);
+
+static const struct soc_enum agold_afe_dmic2_sample_phase_enum =
+SOC_ENUM_SINGLE(AGOLD_AFE_DIGMIC_CONTROL1, 6, 2,
+	agold_afe_dmic2_sample_phase_text);
 #endif
 
 static const struct snd_kcontrol_new agold_afe_ep_sel =
@@ -1150,7 +1166,9 @@ static const struct snd_kcontrol_new agold_afe_snd_controls[] = {
 	},
 #endif
 #ifdef CONFIG_SND_SOC_AGOLD_620
-	SOC_ENUM("DMIC Path", agold_afe_dmic_path_enum)
+	SOC_ENUM("DMIC Path", agold_afe_dmic_path_enum),
+	SOC_ENUM("DMIC1 Sample Phase", agold_afe_dmic1_sample_phase_enum),
+	SOC_ENUM("DMIC2 Sample Phase", agold_afe_dmic2_sample_phase_enum)
 #endif
 };
 
