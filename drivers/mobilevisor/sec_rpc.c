@@ -111,7 +111,7 @@ struct t_rpc_dispatch {
 
 static const char devname[] =
 	"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID010";
-static struct file *fd;
+static struct file *fd_sec_rpc;
 static struct t_rpc_ctx_list g_ctx_list;
 static struct t_rpc_data_list g_data_list;
 
@@ -124,14 +124,36 @@ DEFINE_SEMAPHORE(ctx_list_sem);
 DEFINE_SEMAPHORE(data_list_sem);
 DEFINE_SEMAPHORE(shared_mem_mutex);
 DEFINE_SEMAPHORE(sem_sec_mutex);
+DEFINE_SEMAPHORE(fd_sec_rpc_mutex);
 
 
-static u32 rpc_alloc_data(struct t_rpc_data_list *g_data_list, u32 length)
+#define SEC_RPC_KZALLOC_NB_RETRIES     5
+#define SEC_RPC_KZALLOC_RETRY_TIMEOUT 50
+
+void *sec_rpc_contig_alloc(u32 sz)
+{
+	u32 i=0;
+	void *ptr_ret=NULL;
+	do{
+		ptr_ret = kzalloc(sz, GFP_KERNEL);
+		if(ptr_ret == NULL){
+			schedule_timeout (SEC_RPC_KZALLOC_RETRY_TIMEOUT);
+		}
+	} while ((ptr_ret == NULL) && (i++ < SEC_RPC_KZALLOC_NB_RETRIES));
+	if (ptr_ret == NULL){
+		pr_err("[sec_rpc (linux)] sec_rpc_kzalloc: no memory to alloc\n");
+	}
+	return ptr_ret;
+}
+
+
+static u32 rpc_alloc_data(struct t_rpc_data_list *data_list, u32 length)
 {
 	struct t_rpc_data *rpc_data_elm;
-
+    
 	/* Allocate new data element */
-	rpc_data_elm = kzalloc(sizeof(struct t_rpc_data), GFP_KERNEL);
+	rpc_data_elm = (struct t_rpc_data *)
+	                sec_rpc_contig_alloc(sizeof(struct t_rpc_data));
 	if (rpc_data_elm == NULL) {
 		pr_err("Failed to allocate new data element (%zu bytes)\n",
 		       sizeof(struct t_rpc_data));
@@ -139,7 +161,7 @@ static u32 rpc_alloc_data(struct t_rpc_data_list *g_data_list, u32 length)
 	}
 
 	/* Allocate data area within current element */
-	rpc_data_elm->data = kzalloc(length, GFP_KERNEL);
+	rpc_data_elm->data = (u8 *)sec_rpc_contig_alloc(length);
 	if (rpc_data_elm->data == NULL) {
 		pr_err("Failed to allocate data area (%d bytes)\n", length);
 		kfree(rpc_data_elm);
@@ -148,35 +170,39 @@ static u32 rpc_alloc_data(struct t_rpc_data_list *g_data_list, u32 length)
 
 	/* Set data length and element ID */
 	rpc_data_elm->length = length;
-	rpc_data_elm->id = g_data_list->nof + 1;
+	rpc_data_elm->id = data_list->nof + 1;
 
 	/* Inject element into data list and update number of elements */
-	rpc_data_elm->next = g_data_list->first;
-	g_data_list->first = rpc_data_elm;
-	g_data_list->nof++;
+	rpc_data_elm->next = data_list->first;
+	data_list->first = rpc_data_elm;
+	data_list->nof++;
 
 	return rpc_data_elm->id;
 }
 
-static bool rpc_free_data(struct t_rpc_data_list *g_data_list, u32 id)
+static bool rpc_free_data(struct t_rpc_data_list *data_list, u32 id)
 {
 	struct t_rpc_data *rpc_data_elm;
 	struct t_rpc_data *prev_rpc_data_elm = NULL;
 
-	rpc_data_elm = g_data_list->first;
+	rpc_data_elm = data_list->first;
 
 	while (rpc_data_elm != NULL) {
 		if (rpc_data_elm->id == id) {
 			if (prev_rpc_data_elm == NULL)
-				g_data_list->first = rpc_data_elm->next;
+				data_list->first = rpc_data_elm->next;
 			else
 				prev_rpc_data_elm->next = rpc_data_elm->next;
 
-			g_data_list->nof--;
+			data_list->nof--;
 
-			kfree(rpc_data_elm->data);
-			kfree(rpc_data_elm);
-
+			if(rpc_data_elm != NULL){
+				if(rpc_data_elm->data != NULL){
+					kfree(rpc_data_elm->data);
+				}
+				kfree(rpc_data_elm);
+			}
+      
 			pr_debug("Cleared data element #%d\n", id);
 			return true;
 		}
@@ -189,12 +215,12 @@ static bool rpc_free_data(struct t_rpc_data_list *g_data_list, u32 id)
 	return false;
 }
 
-static struct t_rpc_data *rpc_get_data(struct t_rpc_data_list *g_data_list,
+static struct t_rpc_data *rpc_get_data(struct t_rpc_data_list *data_list,
 				       u32 id)
 {
 	struct t_rpc_data *rpc_data;
-
-	rpc_data = g_data_list->first;
+  
+	rpc_data = data_list->first;
 
 	while (rpc_data != NULL) {
 		if (rpc_data->id == id)
@@ -310,7 +336,7 @@ static int rpc_thread_tx(struct t_rpc_cmd *cmd, u8 *inp_data, u32 inp_data_len,
 
 	if (cmd->action != RPC_DONE) {
 		/* Allocate new RPC context element */
-		ctx = kzalloc(sizeof(struct t_rpc_ctx), GFP_KERNEL);
+		ctx = (struct t_rpc_ctx *)sec_rpc_contig_alloc(sizeof(struct t_rpc_ctx));
 		if (ctx == NULL) {
 			pr_err("Out of memory for the ctx\n");
 			goto cleanup;
@@ -394,7 +420,7 @@ static int rpc_thread_tx(struct t_rpc_cmd *cmd, u8 *inp_data, u32 inp_data_len,
 	pr_debug("RPC call finished with result: %d\n", result);
 
 cleanup:
-	if (!ctx)
+	if(ctx != NULL)
 		kfree(ctx);
 
 	return result;
@@ -466,9 +492,16 @@ static int rpc_write_ibfs(u8 *p_buf, u32 offset, u32 nof_bytes)
 	ssize_t cnt;
 	mm_segment_t old_fs;
 
-	old_fs = get_fs();
+	// Lock fd
+	if (down_interruptible(&fd_sec_rpc_mutex)) {
+		pr_err("Semaphore aquire interupted\n");
+		return -ERESTARTSYS;
+	}
 
-	pos = vfs_llseek(fd, offset, SEEK_SET);
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	pos = vfs_llseek(fd_sec_rpc, offset, SEEK_SET);
+  
 	if (pos < 0) {
 		pr_err("rpc_op_ibfs_write: Seek %d failed\n", offset);
 		goto cleanup;
@@ -480,14 +513,16 @@ static int rpc_write_ibfs(u8 *p_buf, u32 offset, u32 nof_bytes)
 		goto cleanup;
 	}
 
-	set_fs(KERNEL_DS);
-	cnt = vfs_write(fd, p_buf, nof_bytes, &pos);
+	cnt = vfs_write(fd_sec_rpc, p_buf, nof_bytes, &pos);
 	set_fs(old_fs);
 
-	if (nof_bytes != cnt) {
-		pr_err("rpc_op_ibfs_write: Wrt %d Got %d\n",
-				nof_bytes, (u32)cnt);
+	// Release fd lock
+	up(&fd_sec_rpc_mutex);
 
+	if (nof_bytes != cnt) { 
+		pr_err("rpc_op_ibfs_write: Wrt %d Got %d\n",
+						nof_bytes, (u32)cnt);
+    
 		goto cleanup;
 	}
 
@@ -498,7 +533,17 @@ cleanup:
 }
 
 
-static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
+#define FIXME_ADDED_CHECKS
+#ifdef FIXME_ADDED_CHECKS
+#define FIXME_ADDED_CHECK_READ
+#define FIXME_ADDED_CHECK_WRITE
+#define FIXME_ADDED_CHECK_ERASE
+#define FIXME_ADDED_CHECK_ALLOC
+#define FIXME_ADDED_CHECK_FREE
+#endif
+
+static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, 
+															u32 *io_data_len)
 {
 	int rpc_result = -1;
 	loff_t pos;
@@ -510,8 +555,10 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 	phys_addr_t p_buf_phys = 0;
 
 	if (io_data == NULL || io_data_len == NULL) {
-		pr_err("Invalid input : data(0x%08X),", (u32)io_data);
-		pr_err("io_data_len(0x%08X)\n", (u32)io_data_len);
+		pr_err("[sec_rpc] rpc_dispatch_ibfs: Invalid input : data(0x%08X),",
+		      (u32)io_data);
+		pr_err("[sec_rpc] rpc_dispatch_ibfs: io_data_len(0x%08X)\n",
+		      (u32)io_data_len);
 		goto cleanup;
 	}
 
@@ -519,26 +566,37 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 	switch (opcode) {
 	/*********************** rpc_op_ibfs_open ***********************/
 	case rpc_op_ibfs_open:
+		// Lock fd
+		if (down_interruptible(&fd_sec_rpc_mutex)) {
+			pr_err("Semaphore aquire interupted\n");
+			return -ERESTARTSYS;
+		}
 		old_fs = get_fs();
 		set_fs(KERNEL_DS);
-		fd = filp_open(devname, (O_RDWR | O_SYNC), 0);
+		fd_sec_rpc = filp_open(devname, (O_RDWR | O_SYNC), 0);
+  
+		if (unlikely(IS_ERR(fd_sec_rpc))) {
+			pr_err("[sec_rpc] rpc_op_ibfs_open: Failed %s\n", devname);
+			set_current_state (TASK_INTERRUPTIBLE);
+			schedule_timeout (1000);
+			// Release fd lock
+			up(&fd_sec_rpc_mutex);
+			goto cleanup;
+		}
+
+		pos = vfs_llseek(fd_sec_rpc, 0, SEEK_END);
 		set_fs(old_fs);
 
-		if (unlikely(IS_ERR(fd))) {
-			pr_err("rpc_op_ibfs_open: Failed %s\n", devname);
-			set_current_state(TASK_INTERRUPTIBLE);
-			schedule_timeout(1000);
-			goto cleanup;
-		}
+			// Release fd lock
+			up(&fd_sec_rpc_mutex);
 
-		pos = vfs_llseek(fd, 0, SEEK_END);
 		if (pos < 0) {
-			pr_err("rpc_op_ibfs_open: Seek end failed\n");
+			pr_err("[sec_rpc] rpc_op_ibfs_open: Seek end failed\n");
 			goto cleanup;
 		}
 
-		if (pos == 0) {
-			pr_err("rpc_op_ibfs_open: Empty %s\n", devname);
+		if (pos == 0) {      
+			pr_err("[sec_rpc] rpc_op_ibfs_open: Empty %s\n", devname);
 			goto cleanup;
 		}
 
@@ -556,11 +614,19 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 
 	/*********************** rpc_op_ibfs_close ***********************/
 	case rpc_op_ibfs_close:
-		old_fs = get_fs();
+		// Lock fd
+		if (down_interruptible(&fd_sec_rpc_mutex)) {
+			pr_err("Semaphore aquire interupted\n");
+			return -ERESTARTSYS;
+		}
+		old_fs = get_fs();  
 		set_fs(KERNEL_DS);
-		filp_close(fd, NULL);
+		filp_close(fd_sec_rpc, NULL);
 		set_fs(old_fs);
 
+		// Release fd lock
+		up(&fd_sec_rpc_mutex);
+    
 		/* Update output length */
 		*io_data_len = sizeof(u32);
 
@@ -574,29 +640,44 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 	case rpc_op_ibfs_read:
 		offset    = LIT_UCHARS_TO_UINT32(&(io_data[0]));
 		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[4]));
-		p_buf     = phys_to_virt(
-			(phys_addr_t)LIT_UCHARS_TO_UINT32(&(io_data[8])));
+		p_buf     = phys_to_virt((phys_addr_t)
+		                  LIT_UCHARS_TO_UINT32(&(io_data[8])));
 
+#ifdef FIXME_ADDED_CHECK_READ
+		if((nof_bytes == 0) || p_buf == NULL || ((phys_addr_t)
+				LIT_UCHARS_TO_UINT32(&(io_data[8])) == 0)){
+			pr_err("[sec_rpc] rpc_op_ibfs_read: parameters invalid\n");
+			goto cleanup;
+		}
+#endif
+
+		// Lock fd
+		if (down_interruptible(&fd_sec_rpc_mutex)) {
+			pr_err("Semaphore aquire interupted\n");
+			return -ERESTARTSYS;
+		}
 		old_fs = get_fs();
-
-		pos = vfs_llseek(fd, offset, SEEK_SET);
-		if (pos < 0) {
-			pr_err("rpc_op_ibfs_read: Failed %d\n", offset);
+		set_fs(KERNEL_DS);
+		pos = vfs_llseek(fd_sec_rpc, offset, SEEK_SET);
+		if (pos < 0) {      
+			pr_err("[sec_rpc] rpc_op_ibfs_read: Failed %d\n", offset);
 			goto cleanup;
 		}
 
 		if (pos != offset) {
-			pr_err("rpc_op_ibfs_read: Seek %d Got %d\n",
+			pr_err("[sec_rpc] rpc_op_ibfs_read: Seek %d Got %d\n",
 				offset, (u32)pos);
 			goto cleanup;
 		}
 
-		set_fs(KERNEL_DS);
-		cnt = vfs_read(fd, p_buf, nof_bytes, &pos);
+		cnt = vfs_read(fd_sec_rpc, p_buf, nof_bytes, &pos);
 		set_fs(old_fs);
+    
+		// Release fd lock
+		up(&fd_sec_rpc_mutex);
 
 		if (nof_bytes != cnt) {
-			pr_err("rpc_op_ibfs_read: Read %d. Got %d\n",
+			pr_err("[sec_rpc] rpc_op_ibfs_read: Read %d. Got %d\n",
 				nof_bytes, (u32)cnt);
 			goto cleanup;
 		}
@@ -614,12 +695,20 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 	case rpc_op_ibfs_write:
 		offset    = LIT_UCHARS_TO_UINT32(&(io_data[0]));
 		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[4]));
-		p_buf     = phys_to_virt(
-			(phys_addr_t)LIT_UCHARS_TO_UINT32(&(io_data[8])));
+		p_buf     = phys_to_virt((phys_addr_t)      
+		            LIT_UCHARS_TO_UINT32(&(io_data[8])));
 
+#ifdef FIXME_ADDED_CHECK_WRITE
+		if((nof_bytes == 0) || ((phys_addr_t)
+				LIT_UCHARS_TO_UINT32(&(io_data[8])) == 0)){
+			pr_err("[sec_rpc] rpc_op_ibfs_write: parameters invalid\n");
+			goto cleanup;
+		}
+#endif
+    
 		rpc_result = rpc_write_ibfs(p_buf, offset, nof_bytes);
 		if (0 != rpc_result) {
-			pr_err("rpc_op_ibfs_write: Write failed\n");
+			pr_err("[sec_rpc] rpc_op_ibfs_write: Write failed\n");
 			goto cleanup;
 		}
 
@@ -637,9 +726,15 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 		offset    = LIT_UCHARS_TO_UINT32(&(io_data[0]));
 		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[4]));
 
-		p_buf = kzalloc(nof_bytes, GFP_KERNEL);
+#ifdef FIXME_ADDED_CHECK_ERASE
+		if(nof_bytes == 0){
+			pr_err("[sec_rpc] rpc_op_ibfs_erase: parameters invalid\n");
+			goto cleanup;
+		}
+#endif
+		p_buf = (u8 *)sec_rpc_contig_alloc(nof_bytes);
 		if (NULL == p_buf) {
-			pr_err("rpc_op_ibfs_erase: kzalloc failed\n");
+			pr_err("[sec_rpc] rpc_op_ibfs_erase: kzalloc failed\n");
 			goto cleanup;
 		}
 
@@ -648,7 +743,7 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 		rpc_result = rpc_write_ibfs(p_buf, offset, nof_bytes);
 		if (0 != rpc_result) {
 			kfree(p_buf);
-			pr_err("rpc_op_ibfs_erase: Write failed\n");
+			pr_err("[sec_rpc] rpc_op_ibfs_erase: Write failed\n");
 			goto cleanup;
 		} else {
 			kfree(p_buf);
@@ -667,13 +762,28 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 	case rpc_op_ibfs_alloc:
 		nof_bytes = LIT_UCHARS_TO_UINT32(&(io_data[0]));
 
-		p_buf = kzalloc(nof_bytes, GFP_KERNEL);
+#ifdef FIXME_ADDED_CHECK_ALLOC
+		if(nof_bytes == 0){
+			pr_err("[sec_rpc] rpc_op_ibfs_alloc: parameters invalid\n");
+			goto cleanup;
+		}
+#endif
+		p_buf = (u8 *)sec_rpc_contig_alloc(nof_bytes);
 		if (NULL == p_buf) {
-			pr_err("rpc_op_ibfs_alloc: kzalloc failed\n");
+			pr_err("[sec_rpc] rpc_op_ibfs_alloc: kzalloc failed\n");
 			goto cleanup;
 		}
 
 		p_buf_phys = virt_to_phys(p_buf);
+
+#ifdef FIXME_ADDED_CHECK_ALLOC
+		if(p_buf_phys == 0){
+			pr_err(
+			"[sec_rpc] rpc_op_ibfs_alloc: conversion from virt to phys failed!\n");
+			kfree(p_buf);
+			goto cleanup;
+		}
+#endif
 
 		/* Update output length */
 		*io_data_len = 2*sizeof(u32);
@@ -689,12 +799,22 @@ static int rpc_dispatch_ibfs(u32 opcode, u8 *io_data, u32 *io_data_len)
 
 	/*********************** rpc_op_ibfs_free ***********************/
 	case rpc_op_ibfs_free:
-		p_buf_phys = (phys_addr_t)LIT_UCHARS_TO_UINT32(&(io_data[0]));
+		p_buf_phys = (phys_addr_t)
+		              LIT_UCHARS_TO_UINT32(&(io_data[0]));
 
+#ifdef FIXME_ADDED_CHECK_FREE
+		if(((phys_addr_t)
+			  LIT_UCHARS_TO_UINT32(&(io_data[0]))) == 0){
+			pr_err(
+			    "[sec_rpc] rpc_op_ibfs_free: physical address is 0\n");
+			goto cleanup;
+		}
+#endif
+    
 		p_buf = phys_to_virt(p_buf_phys);
 
 		if (NULL == p_buf) {
-			pr_err("rpc_op_ibfs_free: buf already freed\n");
+			pr_err("[sec_rpc] rpc_op_ibfs_free: buf already freed\n");
 			goto cleanup;
 		}
 
@@ -747,6 +867,7 @@ static int rpc_dispatch(enum t_rpc_if_grp if_grp, u32 opcode,
 	case RPC_IF_RPMB:
 		rpc_result =
 			rpc_rpmb_dispatch(opcode, io_data, io_data_len);
+		pr_debug("rpc_dispatch_rpmb\n");
 		break;
 	case RPC_IF_IBFS:
 		rpc_result = rpc_dispatch_ibfs(opcode, io_data, io_data_len);
@@ -849,9 +970,12 @@ static int rpc_dispatcher_cmd(void *arg)
 	rpc_thread_tx(cmd, return_data, return_data_len, NULL, 0);
 
 	/* Free this thread and its associated data */
-	kfree(dispatch->data);
-	kfree(dispatch);
-
+	if(dispatch != NULL){
+		if(dispatch->data != NULL)
+			kfree(dispatch->data);  
+		kfree(dispatch);
+	}
+  
 	return 0;
 }
 
@@ -879,7 +1003,7 @@ void rpc_handle_cmd(void *shared_mem)
 		   length from transfer buffer */
 		if ((ctx->data_out != NULL) && (0 < cmd->tx_size) &&
 		    (cmd->tx_size <= ctx->max_len)) {
-			pr_err("Transfer data (%d bytes) to 0x%p\n",
+			pr_debug("Transfer data (%d bytes) to 0x%p\n",
 			       cmd->tx_size, ctx->data_out);
 			memcpy(ctx->data_out, data, cmd->tx_size);
 		}
@@ -899,9 +1023,10 @@ void rpc_handle_cmd(void *shared_mem)
 	case RPC_ALL:
 	{
 		/* Allocate dispatcher information */
-		dispatch = kzalloc(sizeof(struct t_rpc_dispatch), GFP_KERNEL);
+		dispatch = (struct t_rpc_dispatch *)
+		    sec_rpc_contig_alloc(sizeof(struct t_rpc_dispatch));
 		if (dispatch == NULL) {
-			pr_err("Malloc error @ %d!\n", __LINE__);
+			pr_err("[sec_rpc] rpc_handle_cmd: Malloc error @ %d!\n", __LINE__);
 			break; /* Handle ERROR properly */
 		}
 
@@ -915,10 +1040,9 @@ void rpc_handle_cmd(void *shared_mem)
 			   total buffer size in the command parameter
 			   structure! */
 			if (cmd->param.buf_len) {
-				dispatch->data = kzalloc(cmd->param.buf_len,
-							 GFP_KERNEL);
+				dispatch->data = (u8 *)sec_rpc_contig_alloc(cmd->param.buf_len);
 				if (dispatch->data == NULL) {
-					pr_err("Malloc error!\n");
+					pr_err("[sec_rpc] handle_rpc_cmd: no memory for dispatch->data\n");
 					kfree(dispatch);
 					dispatch = NULL;
 					break;
@@ -926,7 +1050,7 @@ void rpc_handle_cmd(void *shared_mem)
 			}
 
 			/* If input data is available, copy specified
-			   length from transfer buffer */
+				length from transfer buffer */
 			if (0 < cmd->tx_size &&
 			    cmd->tx_size <= cmd->param.buf_len) {
 				pr_debug("%d bytes: 0x%p -> 0x%p\n",
@@ -938,8 +1062,7 @@ void rpc_handle_cmd(void *shared_mem)
 			/* If input data is available, copy specified
 			   length from transfer buffer */
 			if (cmd->tx_size) {
-				dispatch->data = kzalloc(cmd->tx_size,
-							 GFP_KERNEL);
+				dispatch->data = (u8 *)sec_rpc_contig_alloc(cmd->tx_size);
 				if (dispatch->data == NULL) {
 					pr_err("Malloc error @ %d!\n",
 					       __LINE__);
@@ -994,9 +1117,11 @@ int rpc_call(struct t_rpc_send_info *send_info, enum t_rpc_if_grp if_grp,
 		goto cleanup;
 
 	/* Allocate RPC command */
-	cmd = kzalloc(sizeof(struct t_rpc_cmd), GFP_KERNEL);
-	if (cmd == NULL)
+	cmd = (struct t_rpc_cmd *)sec_rpc_contig_alloc(sizeof(struct t_rpc_cmd));
+	if (cmd == NULL){
+		pr_err("[sec_rpc (linux] rpc_call: no memory for cmd\n");
 		goto cleanup;
+	}
 
 	memcpy(&cmd->send_info, send_info, sizeof(struct t_rpc_send_info));
 
@@ -1004,7 +1129,8 @@ int rpc_call(struct t_rpc_send_info *send_info, enum t_rpc_if_grp if_grp,
 	entry_id = vsec_get_context_entry_id(cmd->send_info.vlink_name,
 					     cmd->send_info.recv_id);
 	if (entry_id == 0xFF) {
-		pr_err("No matching entry ID found based on VLINK: %s Receiver: VM#%d and sending as %d\n",
+		pr_err(
+		  "No matching entry ID found based on VLINK: %s Receiver: VM#%d and sending as %d\n",
 			cmd->send_info.vlink_name,
 			cmd->send_info.recv_id,
 			cmd->send_info.send_id);
@@ -1144,7 +1270,9 @@ int rpc_call(struct t_rpc_send_info *send_info, enum t_rpc_if_grp if_grp,
 	}
 
 cleanup:
-	kfree(cmd);
+	if (cmd != NULL)
+		kfree(cmd);
+
 	return rpc_result;
 }
 

@@ -21,12 +21,19 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/uio.h>
+#include <linux/kthread.h> // FixMe: which to include for schedule_timeout()?
+#include <linux/semaphore.h> // FixMe: which to include for schedule_timeout()?
 
 #include "tee_rpc_driver.h"
 #include "tee_rpc_driver_abi.h"
 #include "tee_rpc_memory.h"
+#include <linux/uaccess.h> //FixMe: which to include for schedule_timeout()?
+#include <linux/fs.h> //FixMe: which to include for schedule_timeout()?
 
 #define WRITE_TO 1
+
+#define TEE_RPC_MEMORY_KZALLOC_NB_RETRIES      5
+#define TEE_RPC_MEMORY_KZALLOC_RETRY_TIMEOUT  50
 
 #ifdef TEE_RPC_MAP_PAGES
 
@@ -37,14 +44,23 @@ static int iov_to_pages(struct iovec *iov, struct page ***pages,
 	int npage;
 	void *page;
 	unsigned long offset;
+	unsigned int i;
 
 	addr = (unsigned long)iov->iov_base;
 	npage = (iov->iov_len + PAGE_SIZE - 1) / PAGE_SIZE;
 	offset = addr & ~PAGE_MASK;
 
-	page = kzalloc(npage * sizeof(struct page *), GFP_KERNEL);
-	if (!page)
+	i=0;
+	do{
+		page = kzalloc(npage * sizeof(struct page *), GFP_KERNEL);
+		if(page == NULL){
+			schedule_timeout (TEE_RPC_MEMORY_KZALLOC_RETRY_TIMEOUT);
+		}
+	} while ((page == NULL) && (i++ < TEE_RPC_MEMORY_KZALLOC_NB_RETRIES));
+	if (!page){
+		pr_err("[tee_rpc_memory] iov_to_pages: No mem for page\n");
 		return -ENOMEM;
+	}
 
 	/* pin the user pages */
 	npage = get_user_pages_fast(addr, npage, WRITE_TO, page);
@@ -80,6 +96,13 @@ static int copy_to_contig(struct iovec *iov, struct pvec *pvec_iov)
 {
 	int ret;
 	void *address = NULL;
+	unsigned int i;
+
+	// Input parameter check
+	if((iov == NULL) || (iov->iov_base == NULL) || (pvec_iov == NULL)){
+		pr_err("[tee_rpc_memory] copy_to_contig: input parameter error!");
+		return -EFAULT;
+	}
 
 	if (iov->iov_len > KMALLOC_MAX_SIZE) {
 		pr_err("Trying to alloc more than %lu memory not from kmalloc",
@@ -87,9 +110,17 @@ static int copy_to_contig(struct iovec *iov, struct pvec *pvec_iov)
 		return -ENOMEM;
 	}
 
-	address = kzalloc(iov->iov_len, GFP_KERNEL);
-	if (!address)
+	i=0;
+	do{
+		address = kzalloc(iov->iov_len, GFP_KERNEL);
+	if(address == NULL){
+			schedule_timeout (TEE_RPC_MEMORY_KZALLOC_RETRY_TIMEOUT);
+	}
+	} while ((address == NULL) && (i++ < TEE_RPC_MEMORY_KZALLOC_NB_RETRIES));
+	if (!address){
+    pr_err("[tee_rpc_memory] copy_to_contig: No mem for address\n");
 		return -ENOMEM;
+	}
 
 	pr_debug("copy_from_user address 0x%p, %zu",
 		 iov->iov_base, iov->iov_len);
@@ -113,6 +144,19 @@ out_err:
 	return ret;
 }
 
+
+void free_pvec_address(u32 phys_addr)
+{
+	u8 *phys_addr_local;
+
+	if (phys_addr == 0x00000000) {
+		pr_err("[tee_rpc_memory]  free_pvec_address: !!! physical address is 0!!!\n");
+	} else {
+		if((phys_addr_local = (u8 *)phys_to_virt(phys_addr)) != NULL)
+			kfree(phys_addr_local);
+	}
+}
+
 void free_pvec(int num_vec, struct pvec *vector)
 {
 	int i;
@@ -121,8 +165,9 @@ void free_pvec(int num_vec, struct pvec *vector)
 		return;
 
 	/*TODO when we have a combination of pages and kmalloc revisit this!!*/
-	for (i = 0; i < num_vec; i++)
-		kfree(phys_to_virt(vector[i].phys_addr));
+	for (i = 0; i < num_vec; i++){
+		free_pvec_address(vector[i].phys_addr);
+	}
 
 	kfree(vector);
 }
@@ -164,18 +209,32 @@ int tee_rpc_map_user_pages(struct tee_message __user *user_msg, int *num_v,
 	if (ret)
 		return -EFAULT;
 
-	kiov = kzalloc(iov_size, GFP_KERNEL);
-	if (kiov == NULL)
+	i=0;
+	do{
+		kiov = kzalloc(iov_size, GFP_KERNEL);
+		if(kiov == NULL){
+			schedule_timeout (TEE_RPC_MEMORY_KZALLOC_RETRY_TIMEOUT);
+		}
+	} while ((kiov == NULL) && (i++ < TEE_RPC_MEMORY_KZALLOC_NB_RETRIES));
+	if (kiov == NULL){
+		pr_err("No mem for kiov\n");
 		return -ENOMEM;
+	}
 
 	if (copy_from_user(kiov, kern_msg.iov, iov_size)) {
 		ret = -EFAULT;
 		goto out;
 	}
 
-	pvec_iov = kzalloc(*num_v * sizeof(struct pvec), GFP_KERNEL);
+	i=0;
+	do{
+		pvec_iov = kzalloc(*num_v * sizeof(struct pvec), GFP_KERNEL);
+		if(pvec_iov == NULL){
+			schedule_timeout (TEE_RPC_MEMORY_KZALLOC_RETRY_TIMEOUT);
+		}
+	} while ((pvec_iov == NULL) && (i++ < TEE_RPC_MEMORY_KZALLOC_NB_RETRIES));
 	if (pvec_iov == NULL) {
-		pr_err("No mem for pvec_iov\n");
+		pr_err("[tee_rpc_memory] tee_rpc_map_user_pages: No mem for pvec_iov\n");
 		ret = -ENOMEM;
 		goto out;
 	}
