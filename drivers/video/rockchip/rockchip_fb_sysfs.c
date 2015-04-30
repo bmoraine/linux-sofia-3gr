@@ -511,7 +511,7 @@ static ssize_t set_dsp_lut(struct device *dev, struct device_attribute *attr,
 			index++;
 			start++;
 			space_max--;
-		} while ((*start != ' ') && space_max);
+		} while ((*start != ' ') && space_max && (index < 20));
 		strncpy(curr1, curr, index);
 		curr1[index] = '\0';
 		kstrtoul(curr1, 16, (unsigned long *)&temp1);
