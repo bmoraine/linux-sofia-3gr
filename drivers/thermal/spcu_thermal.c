@@ -1158,6 +1158,36 @@ static int spcu_thermal_overheat_deinit(struct platform_device *pdev)
 }
 /*****!!for thermal hardware overheat*********************/
 
+static int spcu_thermal_panic_notify(struct notifier_block *n,
+		unsigned long val, void *v)
+{
+	uint32_t i = 0;
+	pr_info("%s\n", __func__);
+	for (i = 0; i < MAX_SPCU_THERMAL_DEVICE; i++) {
+		struct spcu_thermal_device *dev = spcu_thermal_device_array[i];
+		if (dev)
+			dev_emerg(&dev->pdev->dev, "type=%s, temp=%d mDegC\n",
+				dev->tzd->type, dev->cached_temp);
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block spcu_thermal_panic_notifier = {
+	.notifier_call = spcu_thermal_panic_notify,
+};
+
+void spcu_thermal_register_panic_notifier(void)
+{
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&spcu_thermal_panic_notifier);
+}
+
+void spcu_thermal_unregister_panic_notifier(void)
+{
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+			&spcu_thermal_panic_notifier);
+}
+
 static int spcu_thermal_probe(struct platform_device *pdev)
 {
 	int err;
@@ -1343,7 +1373,19 @@ static struct platform_driver spcu_thermal_driver = {
 	},
 };
 
-module_platform_driver(spcu_thermal_driver);
+static int __init spcu_thermal_driver_init(void)
+{
+	spcu_thermal_register_panic_notifier();
+	return platform_driver_register(&spcu_thermal_driver);
+}
+module_init(spcu_thermal_driver_init);
+
+static void __exit spcu_thermal_driver_exit(void)
+{
+	spcu_thermal_unregister_panic_notifier();
+	platform_driver_unregister(&spcu_thermal_driver);
+}
+module_exit(spcu_thermal_driver_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("SoFIA SPCU Thermal Driver");
