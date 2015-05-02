@@ -293,11 +293,11 @@ static int mveth_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	/* We drop the non-ip packet here */
 #ifdef SAVE_ETH_HEADER
-	   if (mveth_save_header(mveth, skb->data, skb->len) == 0) {
-	   mveth->stats.tx_errors++;
-	   dev_kfree_skb_any(skb);
-	   return NETDEV_TX_OK;
-	   }
+	if (mveth_save_header(mveth, skb->data, skb->len) == 0) {
+		mveth->stats.tx_errors++;
+		dev_kfree_skb_any(skb);
+		return NETDEV_TX_OK;
+	}
 #endif
 
 	/*
@@ -609,18 +609,15 @@ static void mveth_parse_mac_address(struct mveth_instance *mveth, char *cmdline)
 	 * Parse cmdline field to find
 	 * mac address.
 	 */
-	if (cmdline == 0)
+	if ((cmdline == NULL) || (*cmdline == 0))
 		return;
 
 	i = 0;
 	opt = cmdline;
-	while (*opt != 0)
-	{
+	while (*opt != 0) {
 		end = opt;
 		while (*end != ':' && *end != 0)
-		{
 			end++;
-		}
 		*end = 0;
 		if (kstrtoul(opt, 16, &tmp_addr[i++])) {
 			mveth_error("error while parsing %s mac address.\n",
@@ -688,7 +685,7 @@ void on_mveth_instance(char *instance_name, uint32_t instance_index,
 	mveth->netdev = netdev;	/* link them together */
 	mveths[instance_index] = mveth;	/* store the instance pointer */
 
-	strncpy(mveth->name, instance_name, sizeof(mveth->name));
+	strncpy(mveth->name, instance_name, MAX_MBOX_INSTANCE_NAME_SIZE);
 
 	/* Reset stats */
 	memset(&mveth->stats, 0, sizeof(mveth->stats));
@@ -737,6 +734,8 @@ void on_mveth_instance(char *instance_name, uint32_t instance_index,
 		/* p_share_mem = share mem start */
 		p_share_mem = shared_mem_start;
 		mveth->p_event = (struct mveth_event *)p_share_mem;
+		if (mveth->p_event == NULL)
+			panic("failed to init mveth event");
 
 		/* p_share_mem = ring 0 start */
 		p_share_mem += sizeof(struct mveth_event);
