@@ -776,6 +776,9 @@ static ssize_t attr_get_xy_mode(struct device *dev,
 	case X_Y_ULTRA_HIGH_PERFORMANCE:
 		strcpy(&(mode[0]), "ultra_high");
 		break;
+	default:
+		strcpy(&(mode[0]), "high");
+		break;
 	}
 	mutex_unlock(&stat->lock);
 	return sprintf(buf, "%s\n", mode);
@@ -847,6 +850,9 @@ static ssize_t attr_get_z_mode(struct device *dev,
 		break;
 	case Z_ULTRA_HIGH_PERFORMANCE:
 		strcpy(&(mode[0]), "ultra_high");
+		break;
+	default:
+		strcpy(&(mode[0]), "high");
 		break;
 	}
 	mutex_unlock(&stat->lock);
@@ -1318,7 +1324,7 @@ static int lsm303c_probe(struct i2c_client *client,
 		err = -ENOMEM;
 		dev_err(&client->dev,
 			"failed to allocate memory for module data: %d\n", err);
-		goto exit_check_functionality_failed;
+		return -ENOMEM;
 	}
 
 	stat->use_smbus = 0;
@@ -1334,7 +1340,7 @@ static int lsm303c_probe(struct i2c_client *client,
 		}
 	}
 
-	if (lsm303c_workqueue == 0)
+	if (lsm303c_workqueue == NULL)
 		lsm303c_workqueue = create_workqueue("lsm303c_workqueue");
 
 	hrtimer_init(&stat->hr_timer_mag, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -1439,12 +1445,12 @@ err_pdata_mag_init:
 exit_kfree_pdata:
 err_mutexunlock:
 	mutex_unlock(&stat->lock);
-	kfree(stat);
-	if (!lsm303c_workqueue) {
+	if (lsm303c_workqueue) {
 		flush_workqueue(lsm303c_workqueue);
 		destroy_workqueue(lsm303c_workqueue);
 	}
 exit_check_functionality_failed:
+	kfree(stat);
 	pr_err("%s: Driver Init failed\n", LSM303C_MAG_DEV_NAME);
 	return err;
 }
@@ -1463,7 +1469,7 @@ static int lsm303c_remove(struct i2c_client *client)
 	if (stat->pdata_mag->exit)
 		stat->pdata_mag->exit();
 
-	if (!lsm303c_workqueue) {
+	if (lsm303c_workqueue) {
 		flush_workqueue(lsm303c_workqueue);
 		destroy_workqueue(lsm303c_workqueue);
 	}

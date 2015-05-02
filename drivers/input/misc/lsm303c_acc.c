@@ -1405,7 +1405,7 @@ static int lsm303c_acc_probe(struct i2c_client *client,
 		err = -ENOMEM;
 		dev_err(&client->dev,
 			"failed to allocate memory for module data: %d\n", err);
-		goto exit_check_functionality_failed;
+		return -ENOMEM;
 	}
 
 	/* Support for both I2C and SMBUS adapter interfaces. */
@@ -1452,7 +1452,6 @@ static int lsm303c_acc_probe(struct i2c_client *client,
 	}
 
 #endif
-	stat->hr_timer_poll_work_queue = 0;
 	err = lsm303c_acc_validate_pdata(stat);
 	if (err < 0) {
 		dev_err(&client->dev, "failed to validate platform data\n");
@@ -1546,7 +1545,7 @@ err_remove_sysfs_int:
 err_input_cleanup:
 	lsm303c_acc_input_cleanup(stat);
 err_remove_hr_work_queue:
-	if (!stat->hr_timer_poll_work_queue) {
+	if (stat->hr_timer_poll_work_queue) {
 			flush_workqueue(stat->hr_timer_poll_work_queue);
 			destroy_workqueue(stat->hr_timer_poll_work_queue);
 	}
@@ -1559,8 +1558,8 @@ exit_kfree_pdata:
 err_mutexunlock:
 	mutex_unlock(&stat->lock);
 /* err_freedata: */
-	kfree(stat);
 exit_check_functionality_failed:
+	kfree(stat);
 	pr_err("%s: Driver Init failed\n", LSM303C_ACC_DEV_NAME);
 	return err;
 }
@@ -1583,7 +1582,7 @@ static int lsm303c_acc_remove(struct i2c_client *client)
 
 	remove_sysfs_interfaces(&client->dev);
 
-	if (!stat->hr_timer_poll_work_queue) {
+	if (stat->hr_timer_poll_work_queue) {
 			flush_workqueue(stat->hr_timer_poll_work_queue);
 			destroy_workqueue(stat->hr_timer_poll_work_queue);
 	}
