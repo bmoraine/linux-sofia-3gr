@@ -49,7 +49,7 @@ static int xgold_usif_serial_probe(struct platform_device *pdev)
 	struct console *usif_console = NULL;
 
 	uxp = xgold_usif_add_port(&pdev->dev, &xgold_usif_reg, 0, 0);
-	if (IS_ERR(uxp))
+	if (IS_ERR_OR_NULL(uxp))
 		return -EINVAL;
 
 	platform_set_drvdata(pdev, uxp);
