@@ -9,7 +9,7 @@
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- */ 
+ */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ":%s(): " fmt, __func__
 
@@ -57,7 +57,7 @@ int rpmb_send_req(struct rpmb_dev *dev, struct rpmb_data *data)
 	int err;
 
 	if (!dev || !data)
-		err = -EINVAL;
+		return -EINVAL;
 
 	disk = dev_to_disk(dev->parent);
 
