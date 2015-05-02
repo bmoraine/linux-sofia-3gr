@@ -172,7 +172,8 @@ struct mvpipe_instance {
 	struct mvpipe_event *p_event;
 	struct mvpipe_ring *ring[2];
 
-	uint32_t is_dbg;/*SMS06762396: echo AT cmd for debug/Fusing at customer*/
+	/* echo AT cmd for debug/Fusing at customer */
+	uint32_t is_dbg;
 };
 
 #define is_ring0_writer(dev) (dev->writer_id == 0)
@@ -217,7 +218,8 @@ int mvpipe_dev_open(struct inode *inode, struct file *filp)
 			dev->open_count++;
 			return 0;
 		} else {
-			mvpipe_error("Multiple open, open_count = %d!\n", dev->open_count);
+			mvpipe_error("Multiple open, open_count = %d!\n",
+					dev->open_count);
 			return -ERESTARTSYS;
 		}
 	}
@@ -600,9 +602,8 @@ static void mvpipe_on_event(uint32_t token, uint32_t event_id, void *cookie)
 				mv_ipc_mbox_post(dev->token, dev->pipe_event);
 			break;
 		case MVPIPE_CLOSE:
-			if (get_pipe_status(dev) == MVPIPE_CLOSING) {
+			if (get_pipe_status(dev) == MVPIPE_CLOSING)
 				wake_up_interruptible(&dev->close_wait);
-			}
 			break;
 		case MVPIPE_OPEN:
 		default:
@@ -638,6 +639,8 @@ void on_mvpipe_instance(char *instance_name, uint32_t instance_index,
 		mvpipes =
 			kmalloc(sizeof(struct mvpipe_instance) * instance_count,
 				GFP_KERNEL);
+		if (mvpipes == NULL)
+			panic("failed to init mvpipe");
 		mvpipe_count = instance_count;
 		cl_ipc = class_create(THIS_MODULE, "mvipc");
 		if (cl_ipc == NULL) {
@@ -647,7 +650,7 @@ void on_mvpipe_instance(char *instance_name, uint32_t instance_index,
 	}
 
 	mvpipe = &mvpipes[instance_index];
-	strncpy(mvpipe->name, instance_name, sizeof(mvpipe->name));
+	strncpy(mvpipe->name, instance_name, MAX_MBOX_INSTANCE_NAME_SIZE);
 	snprintf(mvpipe->dev_name, sizeof(mvpipe->dev_name), "mvpipe-%s",
 		 instance_name);
 
@@ -696,6 +699,8 @@ void on_mvpipe_instance(char *instance_name, uint32_t instance_index,
 		/* p_share_mem = share mem start */
 		p_share_mem = shared_mem_start;
 		mvpipe->p_event = (struct mvpipe_event *)p_share_mem;
+		if (mvpipe->p_event == NULL)
+			panic("Failed to init mv pipe event");
 
 		/* p_share_mem = ring 0 start */
 		p_share_mem += sizeof(struct mvpipe_event);
@@ -732,8 +737,7 @@ void on_mvpipe_instance(char *instance_name, uint32_t instance_index,
 
 		mv_mbox_set_online(mvpipe->token);
 
-
-		if (strstr(cmdline, "dbg") && (at_dbg_port == 1))
+		if ((cmdline) && strstr(cmdline, "dbg") && (at_dbg_port == 1))
 			mvpipe->is_dbg = 1;
 		else
 			mvpipe->is_dbg = 0;
