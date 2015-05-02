@@ -41,7 +41,13 @@ int ini_get_key(char *filedata, char * section, char * key, char * value)
 	int dataoff = 0;
 
 	buf1 = kmalloc(MAX_CFG_BUF + 1, GFP_KERNEL);
+	if (buf1 == NULL)
+		return -ENOMEM;
 	buf2 = kmalloc(MAX_CFG_BUF + 1, GFP_KERNEL);
+	if (buf2 == NULL) {
+		kfree(buf1);
+		return -ENOMEM;
+	}
 
 	*value='\0';
 

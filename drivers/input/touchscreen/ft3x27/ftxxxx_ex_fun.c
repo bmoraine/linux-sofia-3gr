@@ -1241,10 +1241,11 @@ static ssize_t asus_dump_tp_raw_data_to_file(struct device *dev, struct device_a
 				break;
 
 			}
-
-		filp->f_op->write(filp, buf, count, &filp->f_pos);
-		set_fs(oldfs);
-		filp_close(filp, NULL);
+			if (filp) {
+				filp->f_op->write(filp, buf, count, &filp->f_pos);
+				set_fs(oldfs);
+				filp_close(filp, NULL);
+			}
 
 		}
 
