@@ -190,6 +190,12 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 			descriptor->os_mem.count = (page_count - remaining) + i;
 			atomic_add(descriptor->os_mem.count, &mali_mem_os_allocator.allocated_pages);
 			mali_mem_os_free(descriptor);
+#ifdef CONFIG_X86
+			if (i)
+				set_pages_array_wb(array_pages, i);
+			kfree(array_pages);
+#endif
+
 			return -ENOMEM;
 		}
 
@@ -204,6 +210,7 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 #ifdef CONFIG_X86
 			if (i)
 				set_pages_array_wb(array_pages, i);
+			kfree(array_pages);
 #endif
 			__free_page(new_page);
 			descriptor->os_mem.count = (page_count - remaining) + i;
