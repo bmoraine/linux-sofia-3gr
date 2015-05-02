@@ -356,10 +356,14 @@ static int rk_ion_probe(struct platform_device *pdev)
 
 	if (pdata == NULL) {
 		pdata = rk_ion_of(pdev->dev.of_node);
+		if (pdata == NULL)
+			return -EINVAL;
 		pdev->dev.platform_data = pdata;
 	}
 
 	heaps = kcalloc(pdata->nr, sizeof(*heaps), GFP_KERNEL);
+	if (heaps == NULL)
+		return -ENOMEM;
 
 	idev = ion_device_create(rk_custom_ioctl);
 	if (IS_ERR_OR_NULL(idev)) {
