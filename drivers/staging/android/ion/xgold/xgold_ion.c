@@ -421,6 +421,8 @@ int xgold_ion_probe(struct platform_device *pdev)
 
 	if (pdata == NULL) {
 		pdata = xgold_ion_of(pdev->dev.of_node);
+		if (pdata == NULL)
+			return -EINVAL;
 		pdev->dev.platform_data = pdata;
 	}
 
