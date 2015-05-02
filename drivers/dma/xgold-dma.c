@@ -90,7 +90,7 @@ struct pl08x_signal {
 
 struct xgold_dma_irq {
 	unsigned int num;
-	unsigned int chx[8];
+	unsigned int chx[AMBA_NR_IRQS - 1];
 	unsigned int err;
 };
 
@@ -721,7 +721,7 @@ static int xgold_dma_probe(struct platform_device *pdev)
 	/* Fill amba device struct with missing properties */
 	adev = xgold_dma_to_amba(dma);
 	adev->dev.platform_data = pl08x_platdata;
-	memcpy(adev->irq, xgold_platdata->irq.chx, AMBA_NR_IRQS *
+	memcpy(adev->irq, xgold_platdata->irq.chx, (AMBA_NR_IRQS - 1) *
 			sizeof(unsigned int));
 	adev->periphid = xgold_platdata->periphid;
 	adev->dev.init_name = ADEV_NAME;
