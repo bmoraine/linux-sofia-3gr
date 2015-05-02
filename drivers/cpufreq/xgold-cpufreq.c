@@ -68,6 +68,10 @@ static int xgold_cpu_freq_pm_notifier(struct notifier_block *nb,
 					unsigned long val, void *data)
 {
 	struct cpufreq_policy *policy =	cpufreq_cpu_get(0);
+
+	if (policy == NULL)
+		return -EINVAL;
+
 	if (val == PM_SUSPEND_PREPARE) {
 		pr_debug("%s: callback notified\n", __func__);
 		cpufreq_driver_target(policy, policy->user_policy.min, 0);
