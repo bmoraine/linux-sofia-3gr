@@ -43,6 +43,8 @@
 #include <linux/fb.h>
 #include <linux/wakelock.h>
 
+#include <linux/xgold_noc.h>
+
 #if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 #include "../../../staging/android/ion/ion.h"
 #endif
@@ -266,6 +268,7 @@ static void rga_power_on(void)
 	/*clk_prepare_enable(drvdata->pd_rga); */
 #endif
 
+	xgold_noc_qos_set("RGA");
 	wake_lock(&drvdata->wake_lock);
 	rga_service.enable = true;
 }
