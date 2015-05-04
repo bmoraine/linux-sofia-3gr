@@ -24,6 +24,7 @@
 #include <linux/leds_pwm.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include "leds-backlight-config.h"
 
 struct led_pwm_data {
 	struct led_classdev	cdev;
@@ -151,6 +152,12 @@ static int led_pwm_probe(struct platform_device *pdev)
 	struct led_pwm_priv *priv;
 	int count, i;
 	int ret = 0;
+	struct device *dev = &pdev->dev;
+
+	if (!leds_backlight_config("P2.0"))
+		dev_info(dev, "led pwm backlight driver probed\n");
+	else
+		return -ENODEV;
 
 	if (pdata)
 		count = pdata->num_leds;

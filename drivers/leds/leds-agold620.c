@@ -27,6 +27,7 @@
 #include <sofia/mv_svc_hypercalls.h>
 #include <linux/leds-xgold.h>
 #include <linux/delay.h>
+#include "leds-backlight-config.h"
 #define XGOLD_LED_MODULE_NAME "leds-agold620"
 #define PROP_BL_GPIO_ENABLE	"intel,bl-gpio-enable"
 #include <linux/notifier.h>
@@ -220,7 +221,7 @@ static int32_t agold620_led_set_backlight(struct device *dev)
 	struct xgold_led_data *led = dev_get_drvdata(dev);
 	pr_debug("%s(%#x) -->\n", __func__, led->led_brightness);
 	mutex_lock(&led->lock);
-	if (led->led_brightness)
+	if (SCALING_INTENSITY(led->led_brightness))
 		agold620_led_on(dev);
 	else
 		agold620_led_off(dev);
@@ -268,7 +269,12 @@ static int32_t agold620_led_probe(struct platform_device *pdev)
 	struct xgold_led_data *led;
 	struct device *dev = &pdev->dev;
 	struct resource *bl_res, *cgu_res;
-	dev_info(dev, "AGOLD620 backlight driver probed\n");
+
+	if (!leds_backlight_config("P1.1"))
+		dev_info(dev, "AGOLD620 backlight driver probed\n");
+	else
+		return -ENODEV;
+
 	led = devm_kzalloc(dev, sizeof(struct xgold_led_data), GFP_KERNEL);
 	if (!led) {
 		dev_err(dev, "not enough memory for driver data\n");

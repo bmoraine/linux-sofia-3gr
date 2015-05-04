@@ -389,7 +389,13 @@ static int rockchip_pwm_probe(struct platform_device *pdev)
 #endif
 		dev_err(&pdev->dev, "pwmchip_add() failed: %d\n", ret);
 	}
-
+/* WA: enable backlight early in kernel boot */
+#if 1
+	writel(0x28a, pc->base + pc->data->regs.period);
+	writel(0x143, pc->base + pc->data->regs.duty);
+	writel(0, pc->base + pc->data->regs.cntr);
+	writel(0x0b, pc->base + pc->data->regs.ctrl);
+#endif
 	return ret;
 }
 

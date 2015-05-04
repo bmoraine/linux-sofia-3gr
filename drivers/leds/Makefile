@@ -54,7 +54,7 @@ obj-$(CONFIG_LEDS_ASIC3)		+= leds-asic3.o
 obj-$(CONFIG_LEDS_MAX8997)		+= leds-max8997.o
 obj-$(CONFIG_LEDS_LM355x)		+= leds-lm355x.o
 obj-$(CONFIG_LEDS_BLINKM)		+= leds-blinkm.o
-obj-$(CONFIG_LCD_LEDS_XGOLD)		+= leds-xgold.o leds-agold620.o leds-pmic.o
+obj-$(CONFIG_LCD_LEDS_XGOLD)		+= leds-xgold.o leds-agold620.o leds-pmic.o leds-backlight-config.o
 obj-$(CONFIG_LEDS_LP8557)		+= leds-lp8557.o leds-lp55xx-common.o
 obj-$(CONFIG_KEYPAD_LEDS_XGOLD)		 += leds-xgold-keypad.o leds-pmic-keypad.o
 
