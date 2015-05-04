@@ -99,11 +99,61 @@
 				stat,4 = "EMIC1";
 				stat,5 = "EMIC2";
 
-				intel,qos-configs = "LCDC";
+				intel,qos-configs = "LCDC", "VPU", "VPU128R", "CPU1", "GPUGP", "GPUPP", "CIF", "RGA";
+
+				intel,VPU128R-qos-settings = <
+					0x88 0xE      /* prio */
+					0x8C 0x3      /* mode */
+					0x90 0x1F0    /* bandwidth */
+					0x94 0x1D0     /* saturation */
+					0x98 0x5>;    /* QoSEn */
+
+				intel,RGA-qos-settings = <
+					0x108 0x5      /* prio */
+					0x10C 0x3      /* mode */
+					0x110 0x1D0    /* bandwidth */
+					0x114 0x000    /* saturation */
+					0x118 0x5>;    /* QoSEn */
+
+				intel,CIF-qos-settings = <
+					0x188 0x4      /* prio */
+					0x18C 0x3      /* mode */
+					0x190 0x200    /* bandwidth */
+					0x194 0x10     /* saturation */
+					0x198 0x5>;    /* QoSEn */
+
+				intel,CPU1-qos-owner;
+				intel,CPU1-qos-settings = <
+					0x208 0xF      /* prio */
+					0x20C 0x0      /* mode */
+					0x210 0xFFF    /* bandwidth */
+					0x214 0x000    /* saturation */
+					0x218 0x5>;    /* QoSEn */
+
+				intel,GPUGP-qos-settings = <
+					0x308 0x0      /* prio */
+					0x30C 0x1      /* mode */
+					0x310 0xFFF    /* bandwidth */
+					0x314 0x3FF    /* saturation */
+					0x318 0x5>;    /* QoSEn */
+
+				intel,GPUPP-qos-settings = <
+					0x388 0x0      /* prio */
+					0x38C 0x1      /* mode */
+					0x390 0xFFF    /* bandwidth */
+					0x394 0x3FF    /* saturation */
+					0x398 0x5>;    /* QoSEn */
+
+				intel,VPU-qos-settings = <
+					0x1D08 0xE      /* prio */
+					0x1D0C 0x3      /* mode */
+					0x1D10 0x1F0    /* bandwidth */
+					0x1D14 0x1D0    /* saturation */
+					0x1D18 0x5>;    /* QoSEn */
 
 				intel,LCDC-qos-settings = <
 					0x1D88 0xE      /* prio */
-					0x1D8C 0x0      /* mode fixed */
+					0x1D8C 0x0      /* mode */
 					0x1D90 0x15E    /* bandwidth */
 					0x1D94 0x152    /* saturation */
 					0x1D98 0x5>;    /* QoSEn */
