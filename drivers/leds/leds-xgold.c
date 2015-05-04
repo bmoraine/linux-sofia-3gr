@@ -131,7 +131,7 @@ int32_t xgold_led_probe(struct platform_device *pdev)
 	led->led_cdev.brightness = LED_HALF;
 	led->led_cdev.brightness_set = xgold_led_brightness_set;
 	mutex_init(&led->lock);
-	if (led_classdev_register(NULL, &led->led_cdev)) {
+	if (led_classdev_register(&pdev->dev, &led->led_cdev)) {
 		dev_err(dev, "unable to register with Leds class\n");
 		return -EINVAL;
 	}
