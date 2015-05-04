@@ -17,6 +17,7 @@
 #include <linux/rwsem.h>
 #include <linux/timer.h>
 #include <linux/workqueue.h>
+#include <linux/device.h>
 
 struct device;
 /*
@@ -282,6 +283,16 @@ extern void ledtrig_cpu(enum cpu_led_event evt);
 static inline void ledtrig_cpu(enum cpu_led_event evt)
 {
 	return;
+}
+#endif
+
+#ifdef CONFIG_OF
+struct led_classdev *of_find_led_classdev_by_node(struct device_node *node);
+#else
+static inline struct led_classdev *
+of_find_led_classdev_by_node(struct device_node *node)
+{
+	return NULL;
 }
 #endif
 

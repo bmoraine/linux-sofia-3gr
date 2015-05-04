@@ -273,6 +273,35 @@ void led_classdev_unregister(struct led_classdev *led_cdev)
 }
 EXPORT_SYMBOL_GPL(led_classdev_unregister);
 
+#ifdef CONFIG_OF
+static int of_parent_match(struct device *dev, const void *data)
+{
+	return dev->parent && dev->parent->of_node == data;
+}
+
+/**
+ * of_find_led_classdev_by_node() - find led classdev by device-tree node
+ * @node: device-tree node of the led classdev device
+ *
+ * Returns a pointer to the led classdev corresponding to the given DT
+ * node or NULL if no such led classdev exists or if the device hasn't
+ * been probed yet.
+ *
+ * This function obtains a reference on the led classdev and it is the
+ * caller's responsibility to drop the reference by calling put_device() on
+ * the led classdev's .dev field.
+ */
+struct led_classdev *of_find_led_classdev_by_node(struct device_node *node)
+{
+	struct device *dev;
+
+	dev = class_find_device(leds_class, NULL, node, of_parent_match);
+
+	return dev ? dev_get_drvdata(dev) : NULL;
+}
+EXPORT_SYMBOL(of_find_led_classdev_by_node);
+#endif
+
 static int __init leds_init(void)
 {
 	leds_class = class_create(THIS_MODULE, "leds");
