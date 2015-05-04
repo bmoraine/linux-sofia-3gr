@@ -711,6 +711,8 @@ static void vpu_service_power_on(struct vpu_service_info *pservice)
 	device_state_pm_set_state_by_name(pservice->dev,
 					  sta_name);
 #endif
+	xgold_noc_qos_set("VPU");
+	xgold_noc_qos_set("VPU128R");
 	wake_lock(&pservice->wake_lock);
 }
 
