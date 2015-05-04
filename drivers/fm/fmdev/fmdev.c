@@ -372,6 +372,9 @@ static ssize_t fmdev_send(const char *buffer, size_t length, bool block)
 	FMDEV_DEBUG("fmdev_send(buffer: %p, length: %u, block: %u)\n",
 			buffer, length, block);
 
+	if (!(fmdev_info.f_mode & FMODE_READ))
+		return length;
+
 	/* Write to the Kernel to User (K2U) fifo. */
 	retval = fmdev_fifo_access(&(fmdev_info.k2u_fifo), (char *) buffer,
 		length, &count, false, true, true);
@@ -392,6 +395,9 @@ int fmdev_send_vector(struct iovec *vector, const size_t count)
 
 	FMDEV_DEBUG("fmdev_send_vector(vector: %p, count: %u)\n",
 				vector, count);
+
+	if (!(fmdev_info.f_mode & FMODE_READ))
+                return retval;
 
 	/* Lock the mutex in blocking mode to ensure the vector blocks from
 		 different threads are written in the correct order. */
