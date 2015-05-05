@@ -398,6 +398,7 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 	unsigned start_limits[2];
 	struct cpufreq_frequency_table *cpufreq_table;
 	struct property *prop;
+	bool use_vmm_table = false;
 
 	pr_debug("Entering xgold_cpufreq init");
 
@@ -407,35 +408,52 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	prop = of_find_property(np, "intel,cpufreq-table", &def_len);
-	if (prop == NULL) {
-		pr_err("cpufreq table property not found in dts");
-		return -ENODEV;
+	if (of_find_property(np, "intel,table-from-vmm", NULL)) {
+		/* frequency table is given by vmm */
+		nr_freq = sofia_get_cpu_nb_freq();
+		if (nr_freq <= 0)
+			pr_err("can't read cpufreq table from vmm\n");
+		else {
+			use_vmm_table = true;
+			goto skip_cpufreq_table;
+		}
 	}
 
+	/* frequency table is coming from device tree */
+	prop = of_find_property(np, "intel,cpufreq-table", &def_len);
+	if (!prop) {
+		pr_err("can't get cpufreq table from device tree\n");
+		return -EINVAL;
+	}
 	nr_freq = def_len / sizeof(u32);
+
+skip_cpufreq_table:
 	xgold_cpu_info->nr_freq = nr_freq;
-	freq_table = kzalloc(def_len, GFP_KERNEL);
+	freq_table = kzalloc(nr_freq, GFP_KERNEL);
 	if (!freq_table) {
 		pr_err("unable to allocate memory for frequencies table");
 		return -ENOMEM;
 	}
 
-	ret = of_property_read_u32_array(np,
+	if (use_vmm_table) {
+		ret = sofia_get_cpu_freq_table(freq_table, nr_freq);
+
+		for (i = 0; i < nr_freq; i++)
+			freq_table[i] = freq_table[i] * 1000;
+	} else
+		ret = of_property_read_u32_array(np,
 					 "intel,cpufreq-table",
 					 (u32 *) freq_table, nr_freq);
+
 	if (ret) {
-		pr_err("unable to read frequencies table from dts");
+		pr_err("unable to read frequencies table\n");
 		kfree(freq_table);
 		return -ENOMEM;
 	}
-
-	cpufreq_table =
-	    kzalloc((nr_freq + 1) * sizeof(struct cpufreq_frequency_table),
-		    GFP_KERNEL);
+	cpufreq_table = kzalloc((nr_freq + 1) *
+			sizeof(struct cpufreq_frequency_table), GFP_KERNEL);
 	if (!cpufreq_table) {
-		pr_err
-		    ("Unable to allocate memory for cpufreq frequencies table");
+		pr_err("can't allocate cpu frequencies table\n");
 		kfree(freq_table);
 		ret = -ENOMEM;
 		goto err_cpufreq3;
