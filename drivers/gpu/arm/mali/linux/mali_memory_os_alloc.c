@@ -187,8 +187,14 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 #endif
 #endif
 		new_page = alloc_page(flags);
+		if (unlikely(NULL == new_page)) {
+			MALI_PRINT(("Fail to alloc new page, try it again.\n"));
+			flags |= __GFP_WAIT;
+			new_page = alloc_page(flags);
+		}
 
 		if (unlikely(NULL == new_page)) {
+			MALI_PRINT(("Error! Fail to alloc new page.\n"));
 			pr_err("%s: alloc_page failed. pagecount=0x%x remaining=0x%x total_alloc_pages=0x%x\n",
 				__func__, page_count, remaining);
 			if (array_pages != NULL) {
