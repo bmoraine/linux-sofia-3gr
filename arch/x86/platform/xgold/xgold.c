@@ -187,6 +187,7 @@ static void __init xgold_soc_init(void)
 	}
 	soc_dev_attr->family = "xgold";
 
+	pr_info("register chip revision 0x%s\n", soc_dev_attr->revision);
 	soc_dev = soc_device_register(soc_dev_attr);
 	if (IS_ERR_OR_NULL(soc_dev)) {
 		ret = PTR_ERR(soc_dev);
