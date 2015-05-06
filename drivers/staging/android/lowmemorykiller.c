@@ -89,6 +89,10 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	int other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
+	int cma_free = global_page_state(NR_FREE_CMA_PAGES);
+
+	if (other_free > cma_free)
+		other_free -= cma_free;
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
