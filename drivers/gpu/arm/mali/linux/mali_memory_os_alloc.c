@@ -3,16 +3,11 @@
  *
  * Notes:
  * Apr 06 2014: IMC: Fix portability issue for x86 OS mem alloc
- */
-
-/*
  * Copyright (C) 2013-2014 ARM Limited. All rights reserved.
- * 
+ *
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
  */
 
 #include <linux/list.h>
@@ -34,8 +29,10 @@
 #include "mali_kernel_linux.h"
 
 /* Minimum size of allocator page pool */
-#define MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_PAGES (MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB * 256)
-#define MALI_OS_MEMORY_POOL_TRIM_JIFFIES (10 * CONFIG_HZ) /* Default to 10s */
+#define MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_PAGES \
+	(CONFIG_MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB * 256)
+#define MALI_OS_MEMORY_POOL_TRIM_JIFFIES \
+	(CONFIG_MALI_OS_MEMORY_POOL_TRIM_JIFFIES * CONFIG_HZ)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 /* Write combine dma_attrs */
@@ -160,8 +157,15 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 	if (remaining) {
 		array_pages = kmalloc(sizeof(struct pages *) * remaining,
 				GFP_KERNEL);
-		if (array_pages == NULL)
+		if (array_pages == NULL) {
+			pr_err("%s: kmalloc array_pages fail! pagecount=0x%x remaining=0x%x\n",
+				__func__, page_count, remaining);
+			/* Calculate the number of pages actually allocated, and free them. */
+			descriptor->os_mem.count = page_count - remaining;
+			atomic_add(descriptor->os_mem.count, &mali_mem_os_allocator.allocated_pages);
+			mali_mem_os_free(descriptor);
 			return -ENOMEM;
+		}
 	}
 #endif
 
@@ -182,19 +186,23 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 		flags |= GFP_DMA;
 #endif
 #endif
-
 		new_page = alloc_page(flags);
 
 		if (unlikely(NULL == new_page)) {
+			pr_err("%s: alloc_page failed. pagecount=0x%x remaining=0x%x total_alloc_pages=0x%x\n",
+				__func__, page_count, remaining);
+			if (array_pages != NULL) {
+				/* prev alloc pages are added into pool in mali_mem_os_free
+				 * until after 10s delayed trim runs and frees them could still possibly be used!
+				 * set them to wc */
+				if (i)
+					set_pages_array_wc(array_pages, i);
+				kfree(array_pages);
+			}
 			/* Calculate the number of pages actually allocated, and free them. */
 			descriptor->os_mem.count = (page_count - remaining) + i;
 			atomic_add(descriptor->os_mem.count, &mali_mem_os_allocator.allocated_pages);
 			mali_mem_os_free(descriptor);
-#ifdef CONFIG_X86
-			if (i)
-				set_pages_array_wb(array_pages, i);
-			kfree(array_pages);
-#endif
 
 			return -ENOMEM;
 		}
@@ -207,10 +215,17 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 		if (unlikely(err)) {
 			MALI_DEBUG_PRINT_ERROR(("OS Mem: Failed to DMA map page %p: %u",
 						new_page, err));
+			pr_err("%s: OS Mem: Failed to DMA map page %p: %u",	__func__, new_page, err);
 #ifdef CONFIG_X86
-			if (i)
-				set_pages_array_wb(array_pages, i);
-			kfree(array_pages);
+
+			/* prev alloc pages are added into pool in mali_mem_os_free
+			 * until after 10s delayed trim runs and frees them could still possibly be used!
+			 * set them to wc */
+			if (array_pages != NULL) {
+				if (i)
+					set_pages_array_wc(array_pages, i);
+				kfree(array_pages);
+			}
 #endif
 			__free_page(new_page);
 			descriptor->os_mem.count = (page_count - remaining) + i;
@@ -234,6 +249,7 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 		kfree(array_pages);
 	}
 #endif
+
 
 	atomic_add(page_count, &mali_mem_os_allocator.allocated_pages);
 
@@ -269,7 +285,6 @@ static int mali_mem_os_mali_map(mali_mem_allocation *descriptor, struct mali_ses
 		 * wider than 32-bit. */
 		MALI_DEBUG_ASSERT(0 == (phys >> 32));
 #endif
-
 		mali_mmu_pagedir_update(pagedir, virt, (mali_dma_addr)phys, MALI_MMU_PAGE_SIZE, prop);
 		virt += MALI_MMU_PAGE_SIZE;
 	}
@@ -462,35 +477,57 @@ static void mali_mem_os_free_page(struct page *page)
 	__free_page(page);
 }
 
+#define FIXED_ARRAY_PAGES_SIZE 64 /* same as MALI_MEM_OS_CHUNK_TO_FREE */
 static int mali_mem_os_free_pages_list(struct list_head *pages_list)
 {
+	struct page *fixed_array_pages[FIXED_ARRAY_PAGES_SIZE];
 	unsigned i = 0;
 	struct page *page, *tmp;
 #ifdef CONFIG_X86
 	struct page **array_pages;
 	unsigned nr_items;
-
+	unsigned j = 0;
 
 	nr_items = i = 0;
 	list_for_each_entry_safe(page, tmp, pages_list, lru) {
 		nr_items++;
 	}
 
-	array_pages = kmalloc(sizeof(struct page *) * nr_items, GFP_KERNEL);
-	if (array_pages == NULL)
-		return -ENOMEM;
 
-	list_for_each_entry_safe(page, tmp, pages_list, lru)
-		array_pages[i++] = page;
-	set_pages_array_wb(array_pages, nr_items);
-	kfree(array_pages);
-	i = 0;
+	/* Is it better to preallocate a page aligned array and loop?
+	 * will keep doing this random sized kmalloc/kfree
+	 * causes memory fragmentation? */
+	array_pages = kmalloc(sizeof(struct page *) * nr_items, GFP_KERNEL);
+	/* Continue even if cannot alloc array_pages
+	 * (we do hit here at times esp when fail to get_page liao!)
+	 * cos caller already has marked marked pages as freed from pool
+	 * must really free! */
+	if (array_pages != NULL) {
+		list_for_each_entry_safe(page, tmp, pages_list, lru)
+			array_pages[i++] = page;
+		set_pages_array_wb(array_pages, nr_items);
+		kfree(array_pages);
+		i = 0;
+	}
 #endif
 
+	/* better slow than not actually freeing. */
 	list_for_each_entry_safe(page, tmp, pages_list, lru) {
 		mali_mem_os_free_page(page);
 		i++;
+		if (!array_pages) {
+			fixed_array_pages[j] = page;
+			j++;
+			if (j >= FIXED_ARRAY_PAGES_SIZE) {
+				set_pages_array_wb(fixed_array_pages,
+						FIXED_ARRAY_PAGES_SIZE);
+				j = 0;
+			}
+		}
 	}
+
+	if (j > 0)
+		set_pages_array_wb(fixed_array_pages, j);
 
 	return i;
 }
