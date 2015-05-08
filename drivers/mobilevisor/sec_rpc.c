@@ -126,7 +126,6 @@ DEFINE_SEMAPHORE(shared_mem_mutex);
 DEFINE_SEMAPHORE(sem_sec_mutex);
 DEFINE_SEMAPHORE(fd_sec_rpc_mutex);
 
-
 #define SEC_RPC_KZALLOC_NB_RETRIES     5
 #define SEC_RPC_KZALLOC_RETRY_TIMEOUT 50
 
@@ -353,12 +352,14 @@ static int rpc_thread_tx(struct t_rpc_cmd *cmd, u8 *inp_data, u32 inp_data_len,
 			goto cleanup;
 
 		/* Create already locked semaphore */
-		sema_init(&ctx->sem, 1);
+		sema_init(&ctx->sem, 0);
+		/*
 		if (down_interruptible(&ctx->sem)) {
 			pr_err("Semaphore aquire interupted\n");
 			result = -ERESTARTSYS;
 			goto cleanup;
 		}
+		*/
 	}
 
 
@@ -1275,7 +1276,6 @@ cleanup:
 
 	return rpc_result;
 }
-
 
 #ifdef MEM_TEST_STUB
 

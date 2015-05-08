@@ -55,8 +55,8 @@ struct t_vsec_ctx {
 	wait_queue_head_t open_wq;
 
 	uint32_t is_client_wait;
-	uint32_t server_responded;
-	wait_queue_head_t client_wq;
+	//uint32_t server_responded;
+	struct semaphore client_wq;
 	struct mutex client_mutex;
 
 	struct semaphore server_sem;
@@ -66,7 +66,7 @@ struct t_vsec_ctx {
 	/* point to share memory */
 	struct vsec_share_ctx *vsec_share;
 };
-
+ 
 static struct t_vsec_ctx vsec_ctx;
 
 u8 vsec_get_context_entry_id(char *vlink_name, enum t_vsec_vm_id peer_id)
@@ -109,13 +109,15 @@ u32 vsec_call(u8 entry_id)
 		if (mutex_lock_interruptible(&p_vsec_ctx->client_mutex))
         	return 0;
 
-		p_vsec_ctx->server_responded = 0;
+		//p_vsec_ctx->server_responded = 0;
 
 		/* Perform RPC call (post client event) */
 		mv_ipc_mbox_post(p_vsec_ctx->token, VSEC_RPC_EVENT_CLIENT);
 
-		/* Waiting for respond */
+		/* Waiting for response */
 		p_vsec_ctx->is_client_wait = 1;
+
+		down_interruptible(&p_vsec_ctx->client_wq);
 
 		/* Race condition protection */
 		if (p_vsec_ctx->status != VSEC_STATUS_CONNECT) {
@@ -123,12 +125,14 @@ u32 vsec_call(u8 entry_id)
         	return VSEC_FAILURE;
 		}
 
+    /*
 		if (wait_event_interruptible(p_vsec_ctx->client_wq,
 			p_vsec_ctx->server_responded == 1)) {
 			mutex_unlock(&p_vsec_ctx->client_mutex);
 			return VSEC_FAILURE;
 		}
-
+      */
+      
 		p_vsec_ctx->is_client_wait = 0;
 
 		 /* Disconnect exit */
@@ -156,10 +160,11 @@ static int vsec_server_thread(void *cookie)
 
 		if (p_vsec_ctx->status != VSEC_STATUS_CONNECT)
 			continue;
-
+		pr_debug("vsec server started %d\n",p_vsec_ctx->server_index);
 		/* Dispatch */
 		rpc_handle_cmd(p_vsec_ctx->vsec_rpc_ctx[p_vsec_ctx->server_index].data);
-
+		pr_debug("vsec server stopped\n");
+		
 		mv_ipc_mbox_post(p_vsec_ctx->token, VSEC_RPC_EVENT_SERVER);
 	}
 	
@@ -170,11 +175,13 @@ static int vsec_server_thread(void *cookie)
 static void vsec_on_connect(uint32_t token, void *cookie)
 {
 	struct t_vsec_ctx *p_vsec_ctx = (struct t_vsec_ctx *)cookie;
-	
+	pr_debug("vsec_on_connect\n");
 	/* Do handshake */
 	if (p_vsec_ctx->vsec_share->handshake == mv_gal_os_id()) {
 		p_vsec_ctx->server_index = 1;
+		pr_debug("vsec_on_connect server_idex 1\n");
 	} else {
+		pr_debug("vsec_on_connect server_idex 0\n");
 		p_vsec_ctx->server_index = 0;
 	}
 	
@@ -200,11 +207,13 @@ static void vsec_on_event(uint32_t token, uint32_t event_id, void *cookie)
 	struct t_vsec_ctx *p_vsec_ctx = (struct t_vsec_ctx *)cookie;
 	switch (event_id) {
 	case VSEC_RPC_EVENT_CLIENT:
+		pr_debug("vsec client event\n");
 		up(&p_vsec_ctx->server_sem);
 		break;
 	case VSEC_RPC_EVENT_SERVER:
-		p_vsec_ctx->server_responded = 1;
-		wake_up_interruptible(&p_vsec_ctx->client_wq);
+	  //p_vsec_ctx->server_responded = 1;
+		pr_debug("vsec server event\n");
+		up(&p_vsec_ctx->client_wq);
 		break;
 	default:
 		break;
@@ -223,6 +232,8 @@ u32 vsec_init(void)
 {
 	uint8_t *pshare_mem;
 	struct t_vsec_ctx *p_vsec_ctx = &vsec_ctx;
+
+	pr_debug("vsec_init\n");
 	
 	if(vsec_initialised)
 		return true;
@@ -249,11 +260,12 @@ u32 vsec_init(void)
 
 	
 	init_waitqueue_head(&p_vsec_ctx->open_wq);
-	init_waitqueue_head(&p_vsec_ctx->client_wq);
 	mutex_init(&p_vsec_ctx->client_mutex);
 	sema_init(&p_vsec_ctx->server_sem, 0);
+	sema_init(&p_vsec_ctx->client_wq, 0);
 	p_vsec_ctx->is_client_wait = 0;
 
+	p_vsec_ctx->server_index = 1;
 
 	/* Create server thread */
 	kthread_run(vsec_server_thread, (void *)p_vsec_ctx, "vsec");
@@ -266,3 +278,4 @@ u32 vsec_init(void)
 	return true;
 
 }
+
