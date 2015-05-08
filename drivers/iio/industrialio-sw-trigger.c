@@ -96,6 +96,8 @@ struct iio_sw_trigger *iio_sw_trigger_create(const char *type, const char *name)
 	if (IS_ERR(t))
 		goto out_module_put;
 
+	t->trigger_type = tt;
+
 	return t;
 out_module_put:
 	module_put(tt->owner);
