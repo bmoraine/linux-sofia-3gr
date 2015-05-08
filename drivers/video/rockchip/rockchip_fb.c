@@ -568,7 +568,6 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 	struct rockchip_fb_par *fb_par = (struct rockchip_fb_par *)info->par;
 	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
 	struct rockchip_screen *screen = dev_drv->cur_screen;
-	struct rockchip_screen pmy_screen;
 	struct fb_fix_screeninfo *fix = &info->fix;
 	u8 pixel_width = 0;
 	u32 vir_width_bit;
@@ -587,15 +586,15 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 	vop_win->id = win_par->win_id;
 	vop_win->z_order = win_par->z_order;
 
-	rockchip_get_prmry_screen(&pmy_screen);
 	for (i = 0; i < vop_win->area_num; i++) {
+		if (rockchip_fb_check_config_var(
+				&win_par->area_par[i], screen))
+			return -EINVAL;
+
 		vop_win->area[i].format = rockchip_fb_get_data_fmt(
 				win_par->area_par[i].data_format);
 		pixel_width = rockchip_fb_get_pixel_width(
 				vop_win->area[i].format);
-
-		rockchip_fb_check_config_var(
-				&win_par->area_par[i], &pmy_screen);
 
 		/* visiable pos in panel */
 		vop_win->area[i].xpos = win_par->area_par[i].xpos;
@@ -617,6 +616,7 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 		vop_win->area[i].xvir = xvir;
 		vop_win->area[i].yvir = yvir;
 
+#ifdef CONFIG_ROCKCHIP_IOMMU
 		if (win_par->area_par[i].phy_addr != 0) {
 			vop_win->area[i].buff_len = xvir *
 					vop_win->area[i].yact * pixel_width;
@@ -631,6 +631,7 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 			}
 			vop_win->area[i].smem_start = (unsigned long) vaddr;
 		}
+#endif
 
 		vir_width_bit = pixel_width * xvir;
 		stride_32bit_1 =  ALIGN_N_TIMES(vir_width_bit, 32) / 8;
@@ -811,7 +812,11 @@ static int rockchip_fb_set_win_buffer(struct fb_info *info,
 			vop_win->area_buf_num++;
 		}
 	} else {
+#ifdef CONFIG_ROCKCHIP_IOMMU
 		vop_win->area[0].smem_start = win_par->area_par[0].phy_addr;
+#else
+		vop_win->area[0].smem_start = win_par->area_par[0].phy_addr;
+#endif
 		vop_win->area_num = 1;
 	}
 
@@ -1006,27 +1011,19 @@ static void rockchip_fb_free_update_reg(struct rockchip_vop_driver *dev_drv,
 		}
 	}
 
-	/* No need update frame when system suspend, so free the buffer */
-	if (dev_drv->suspend_flag) {
-		/*
-		 * where we must not free last fence for it will update
-		 * the last buffer when resume system.
-		 * otherwises the buffer will be rebilt by GPU.
-		 * But it will happen fence timeout if we do not free fence.
-		 * So in order to avoid this problem, we should ensure that
-		 * do not update frame on android when system suspend.
-		 */
+	dev_drv->timeline_max++;
 #ifdef H_USE_FENCE
-		sw_sync_timeline_inc(dev_drv->timeline, 1);
+	sw_sync_timeline_inc(dev_drv->timeline, 1);
 #endif
+
 #if defined(CONFIG_ROCKCHIP_IOMMU)
-		if (dev_drv->iommu_enabled) {
-			freed_index = 0;
-			g_last_timeout = 0;
-		}
-#endif
-		rockchip_fb_free_reg_data(dev_drv, regs);
+	if (dev_drv->iommu_enabled) {
+		freed_index = 0;
+		g_last_timeout = 0;
 	}
+#endif
+	rockchip_fb_free_reg_data(dev_drv, regs);
+
 }
 
 static int rockchip_fb_update_win_config(struct fb_info *info,
@@ -1067,6 +1064,11 @@ static int rockchip_fb_update_win_config(struct fb_info *info,
 			return -ENOMEM;
 
 		ret = rockchip_fb_set_win_par(info, win_par, vop_win);
+		if (ret < 0) {
+			rockchip_fb_free_update_reg(dev_drv, regs);
+			return ret;
+		}
+
 		if (vop_win->area_num > 0) {
 			regs->win_num++;
 			regs->buf_num += vop_win->area_buf_num;
