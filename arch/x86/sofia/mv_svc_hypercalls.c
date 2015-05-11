@@ -155,10 +155,10 @@ uint32_t mv_svc_socwatch_run_control(uint32_t run_control)
 EXPORT_SYMBOL(mv_svc_socwatch_run_control);
 #endif
 
-uint32_t mv_svc_sep_config(struct sep_packet *p_packet)
+uint32_t mv_svc_sep_config(struct sep_buffer_info *p_buffer_info)
 {
 	mv_platform_service(SEP_SERVICE, SEP_CONFIG,
-			(uint32_t)p_packet, 0, 0, 0, 0, 0, 0);
+			(uint32_t)p_buffer_info, 0, 0, 0, 0, 0, 0);
 	return 0;
 }
 #ifdef __KERNEL__
@@ -204,6 +204,30 @@ uint32_t mv_svc_sep_write_counters(struct sep_counter *buffer_pointer)
 }
 #ifdef __KERNEL__
 EXPORT_SYMBOL(mv_svc_sep_write_counters);
+#endif
+
+uint32_t mv_svc_sep_pmi_msr_list(struct sep_msr_control *entry_list,
+					struct sep_msr_control *exit_list)
+{
+	mv_platform_service(SEP_SERVICE, SEP_CONTROL_PMI_MSR_LIST,
+				(uint32_t)entry_list, (uint32_t)exit_list,
+				0, 0, 0, 0, 0);
+	return 0;
+}
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_sep_pmi_msr_list);
+#endif
+
+uint32_t mv_svc_sep_vmswitch_msr_list(struct sep_msr_control *vmentry_list,
+					struct sep_msr_control *vmexit_list)
+{
+	mv_platform_service(SEP_SERVICE, SEP_CONTROL_VMSW_MSR_LIST,
+				(uint32_t)vmentry_list, (uint32_t)vmexit_list,
+				0, 0, 0, 0, 0);
+	return 0;
+}
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_sep_vmswitch_msr_list);
 #endif
 
 uint32_t mv_svc_watchdog_enable(uint32_t timeout)
@@ -303,12 +327,6 @@ uint32_t mv_svc_rtc_get_alarm_async(void)
 }
 
 
-void mv_svc_sysprof_service(uint32_t opcode, uint32_t *swt_paddr,
-						uint32_t mask)
-{
-	mv_platform_service(SYSPROF_SERVICE, opcode, (uint32_t)swt_paddr,
-				mask, 0, 0, 0, 0, 0);
-}
 
 void mv_svc_sysprof_trace_start(uint32_t *swt_paddr, uint32_t mask)
 {
@@ -320,6 +338,18 @@ void mv_svc_sysprof_trace_stop(void)
 {
 	mv_platform_service(SYSPROF_SERVICE, SYSPROF_TRACE_STOP,
 				0, 0, 0, 0, 0, 0, 0);
+}
+
+void mv_svc_sysprof_get_vcore_map(struct sysprof_vcore_info *vcore_map)
+{
+	mv_platform_service(SYSPROF_SERVICE, SYSPROF_VCORE_MAP_REQ,
+				(uint32_t)vcore_map, 0, 0, 0, 0, 0, 0);
+}
+
+void mv_svc_sysprof_perf_count_enable(uint32_t cnt_config)
+{
+	mv_platform_service(SYSPROF_SERVICE, SYSPROF_PERF_COUNT_ENABLE,
+				cnt_config, 0, 0, 0, 0, 0, 0);
 }
 
 struct pal_shared_data *mv_svc_get_shared_data(void)

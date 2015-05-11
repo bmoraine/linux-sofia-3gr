@@ -181,6 +181,13 @@ struct socwatch_buffer_info {
 	 2: buffer has been consumed
 	*/
 	uint32_t buffer_status[4];
+#if defined(SOCWATCH_LOGGING_DEBUG)
+	uint32_t samples_logged[4];
+	uint32_t samples_dropped[4];
+	uint32_t buffers_generated[4];
+	uint64_t first_tsc[4];
+	uint64_t last_tsc[4];
+#endif
 };
 
 /*
@@ -227,7 +234,9 @@ enum sep_op_code {
 	SEP_SET_GUEST_CONTEXT,
 	SEP_RUN_CONTROL,
 	SEP_READ_COUNTER_LIST,
-	SEP_WRITE_COUNTER_LIST
+	SEP_WRITE_COUNTER_LIST,
+	SEP_CONTROL_PMI_MSR_LIST,
+	SEP_CONTROL_VMSW_MSR_LIST
 };
 
 struct sep_packet {
@@ -241,6 +250,16 @@ struct sep_packet {
 	uint32_t task_id;
 	/** the task name */
 	char task[16];
+	/** physical core ID */
+	uint32_t cpu_id;
+	/** the process id */
+	uint32_t process_id;
+	/** perf global status msr value (for overflow status) */
+	uint64_t overflow_status;
+	/** rflags */
+	uint32_t rflags;
+	/** code segment */
+	uint32_t cs;
 } __packed;
 
 struct sep_counter {
@@ -250,6 +269,70 @@ struct sep_counter {
 	uint64_t value;
 } __packed;
 
+struct sep_msr_control {
+	/** msr to read/write; last entry will have value of -1 */
+	int32_t msr_id;
+	/** value to write or location to write into */
+	uint64_t value;
+	/** parameter; usage depends on operation */
+	uint32_t param;
+} __packed;
+
+/* Maximum number of MSRs in a list, including last entry with msr_id of -1 */
+#define SEP_MAX_MSR_LIST        16
+
+/* Define this for debug info on total and dropped samples of SEP packet */
+#define SEP_LOGGING_DEBUG       1
+
+/**
+  @brief sep buffer information
+**/
+struct sep_buffer_info {
+	/** buffer size in number of sep_packets */
+	uint32_t buffer_size;
+	/** addresses of buffers in a dual buffer implemetation
+	 * buffer_start values must be 64bit physical addresses
+	 * pointing to contiguous memory;
+	 * use the low 32 bits if 32 bit addresses are  used */
+	uint64_t buffer_start[2];
+	/** index of the buffer delivered for processing
+	 * buffer is delivered when it is full, or when it is to be flushed */
+	uint32_t buffer_delivered;
+	/** number of sep_packets in the delivered buffer
+	 * this value is usually equal to buffer_size when buffer is full,
+	 * but can be less when buffer is to be flushed
+	 * consumer of the buffer should reset this to zero after processing  */
+	uint32_t ndata_delivered;
+#if defined(SEP_LOGGING_DEBUG)
+	uint32_t total_samples_logged;
+	uint32_t total_samples_dropped;
+	uint32_t modem_samples_logged;
+	uint32_t modem_samples_dropped;
+#endif
+};
+
+/**
+  @brief sep ring buffer information
+**/
+struct sep_ring_buffer_info {
+	/** buffer size in number of sep_packets */
+	uint32_t buffer_size;
+	/** addresses of buffer in a ring buffer implementation
+	 * buffer_start values must be 64bit physical addresses
+	 * pointing to contiguous memory;
+	 * use the low 32 bits if 32 bit addresses are  used */
+	uint64_t buffer_start;
+	/** index to next entry in buffer for writing */
+	uint32_t buffer_wridx;
+	/** index to next entry in buffer for reading */
+	uint32_t buffer_rdidx;
+	/** flag indicating if buffer is to be actively filled */
+	uint32_t buffer_active;
+#if defined(SEP_LOGGING_DEBUG)
+	uint32_t samples_logged;
+	uint32_t samples_dropped;
+#endif
+};
 
 /**
   @typedef watchdog_op_code
@@ -298,7 +381,33 @@ enum sysprof_op_code {
 	SYSPROF_TASK_LIST_REQ = 2,
 	SYSPROF_ENTITY_INFO = 3,
 	SYSPROF_ENTITY_SENT = 4,
-	SYSPROF_IRQ_LIST_REQ = 5
+	SYSPROF_IRQ_LIST_REQ = 5,
+	SYSPROF_VCORE_MAP_REQ = 6,
+	SYSPROF_PERF_COUNT_ENABLE = 7
+};
+
+/**
+  @typedef sysprof_vmctxt_id
+  @brief   enumeration containing the VM Context ID used in System Profiling
+**/
+enum sysprof_vmctxt_id {
+	SYSPROF_VMCTXT_MEX = 0x00,
+	SYSPROF_VMCTXT_SECVM = 0x01,
+	SYSPROF_VMCTXT_LINUX = 0x10,
+	SYSPROF_VMCTXT_WINDOWS = 0x20,
+	SYSPROF_VMCTXT_VMM = 0x30,
+	SYSPROF_VMCTXT_INVALID = 0xff
+};
+
+/* Maximum number of vCores supported by System Profiling */
+#define SYSPROF_MAX_VCORES	16
+
+/**
+  @brief   Information of vCore needed by System Profiling
+**/
+struct sysprof_vcore_info {
+	uint8_t pcore;          /* physical core number */
+	uint8_t context;        /* any of sysprof_vmctxt_id */
 };
 
 /**
@@ -388,10 +497,10 @@ uint32_t mv_svc_socwatch_run_control(uint32_t run_control);
 
 /**
  @brief  MobileVisor sep configuration
- @param  p_packet
+ @param  p_buffer_info physical address of buffer information
  @return 0 if success
 **/
-uint32_t mv_svc_sep_config(struct sep_packet *p_packet);
+uint32_t mv_svc_sep_config(struct sep_buffer_info *p_buffer_info);
 
 /**
  @brief  MobileVisor sep config guest context
@@ -426,6 +535,24 @@ uint32_t mv_svc_sep_read_counters(struct sep_counter *buffer_pointer);
 uint32_t mv_svc_sep_write_counters(struct sep_counter *buffer_pointer);
 
 /**
+ @brief  MobileVisor sep PMI handler entry and exit MSR list
+ @param  entry_list list of MSR to be written on entry of PMI handler
+ @param  exit_list  list of MSR to be written on exit of PMI handler
+ @return 0 if success.
+**/
+uint32_t mv_svc_sep_pmi_msr_list(struct sep_msr_control *entry_list,
+					struct sep_msr_control *exit_list);
+
+/**
+ @brief  MobileVisor sep VM entry and exit MSR list
+ @param  vmentry_list list of MSR to be written on VM entry
+ @param  vmexit_list  list of MSR to be written on VM exit
+ @return 0 if success.
+**/
+uint32_t mv_svc_sep_vmswitch_msr_list(struct sep_msr_control *vmentry_list,
+					struct sep_msr_control *vmexit_list);
+
+/**
  @brief  Enable watchdog with the timeout specified
  @param  timeout period (in seconds) that the watchdog must be serviced
  @return 0 if success.
@@ -445,27 +572,30 @@ uint32_t mv_svc_watchdog_pet(void);
 uint32_t mv_svc_watchdog_disable(void);
 
 /**
- @brief  MobileVisor System Profiling service
- @param  opcode  system profiling operation code (enum sysprof_op_code)
- @param  swt_paddr	physical address for software trace channels
-			(one per physical core)
- @param  mask		mask for the classes of events
-**/
-void mv_svc_sysprof_service(uint32_t opcode, uint32_t *swt_paddr,
-			uint32_t mask);
-
-/**
  @brief  MobileVisor System Profiling service to start trace
  @param  swt_paddr	physical address for software trace channels
 			(one per physical core)
  @param  mask		mask for the classes of events
 **/
-void mv_svc_sysprof_start_trace(uint32_t *swt_paddr, uint32_t mask);
+void mv_svc_sysprof_trace_start(uint32_t *swt_paddr, uint32_t mask);
 
 /**
  @brief  MobileVisor System Profiling service to stop trace
 **/
-void mv_svc_sysprof_stop_trace(void);
+void mv_svc_sysprof_trace_stop(void);
+
+/**
+ @brief  MobileVisor System Profiling service to get vCore mapping
+ @param  vcore_map	physical address for storing the vCore mapping
+			(support up to SYSPROF_MAX_VCORES vCores)
+**/
+void mv_svc_sysprof_get_vcore_map(struct sysprof_vcore_info *vcore_map);
+
+/**
+ @brief  MobileVisor System Profiling service to enable performance counters
+ @param  cnt_config	configuration of performance counters
+**/
+void mv_svc_sysprof_perf_count_enable(uint32_t cnt_config);
 
 /**
  @return struct pal_shared_data * physical address to per VCPU-Mobilevisor
