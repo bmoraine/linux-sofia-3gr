@@ -21,6 +21,7 @@
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/dma-mapping.h>
+#include <linux/semaphore.h>
 #ifdef CONFIG_ROCKCHIP_IOMMU
 #include <linux/rockchip_iovmm.h>
 #endif
@@ -43,6 +44,8 @@ struct ion_cma_buffer_info {
 	dma_addr_t handle;
 	struct sg_table *table;
 };
+
+DEFINE_SEMAPHORE(ion_cma_sem);
 
 /*
  * Create scatter-list for the already allocated DMA buffer.
@@ -74,9 +77,6 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 
 	dev_dbg(dev, "Request buffer allocation len %ld\n", len);
 
-	/* set cma_area */
-	dev_set_cma_area(dev, cma_heap->cma_area);
-
 	if (align > PAGE_SIZE)
 		return -EINVAL;
 
@@ -85,6 +85,10 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 		dev_err(dev, "Can't allocate buffer info\n");
 		return ION_CMA_ALLOCATE_FAILED;
 	}
+
+	/* set cma_area */
+	down(&ion_cma_sem);
+	dev_set_cma_area(dev, cma_heap->cma_area);
 
 #ifdef CONFIG_X86
 	if (buffer->flags & ION_FLAG_CACHED)
@@ -98,7 +102,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	info->cpu_addr = dma_alloc_coherent(dev, len, &(info->handle),
 						GFP_HIGHUSER | __GFP_ZERO);
 #endif
-
+	up(&ion_cma_sem);
 	if (!info->cpu_addr) {
 		dev_err(dev, "Fail to allocate buffer\n");
 		goto err;
@@ -139,6 +143,7 @@ static void ion_cma_free(struct ion_buffer *buffer)
 
 	dev_dbg(dev, "Release buffer %p\n", buffer);
 	/* set cma_area */
+	down(&ion_cma_sem);
 	dev_set_cma_area(dev, cma_heap->cma_area);
 	/* release memory */
 #ifdef CONFIG_X86
@@ -146,6 +151,7 @@ static void ion_cma_free(struct ion_buffer *buffer)
 #else
 	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
 #endif
+	up(&ion_cma_sem);
 	/* release sg table */
 	sg_free_table(info->table);
 	kfree(info->table);
@@ -189,20 +195,24 @@ static int ion_cma_mmap(struct ion_heap *mapper, struct ion_buffer *buffer,
 	struct ion_cma_heap *cma_heap = to_cma_heap(buffer->heap);
 	struct device *dev = cma_heap->dev;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
+	int ret;
 
 	/* set cma_area */
+	down(&ion_cma_sem);
 	dev_set_cma_area(dev, cma_heap->cma_area);
 #ifdef CONFIG_X86
 	if (buffer->flags & ION_FLAG_CACHED)
-		return dma_mmap_writeback(dev, vma, info->cpu_addr,
+		ret = dma_mmap_writeback(dev, vma, info->cpu_addr,
 				info->handle, buffer->size);
 	else
-		return dma_mmap_writecombine(dev, vma, info->cpu_addr,
+		ret = dma_mmap_writecombine(dev, vma, info->cpu_addr,
 				info->handle, buffer->size);
 #else
-	return dma_mmap_coherent(dev, vma, info->cpu_addr, info->handle,
+	ret = dma_mmap_coherent(dev, vma, info->cpu_addr, info->handle,
 				buffer->size);
 #endif
+	up(&ion_cma_sem);
+	return ret;
 
 }
 
