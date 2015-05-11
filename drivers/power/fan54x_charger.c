@@ -690,8 +690,7 @@ static inline bool fan54x_is_online(struct fan54x_charger *chrgr,
 						struct power_supply *psy)
 {
 	if (!(chrgr->state.health == POWER_SUPPLY_HEALTH_GOOD) ||
-		(!chrgr->state.charger_enabled) ||
-			(!chrgr->state.charging_enabled))
+		(!chrgr->state.charger_enabled))
 		return false;
 
 
