@@ -14,6 +14,7 @@
 */
 
 #include <linux/platform_data/himax_852xES.h>
+#include <misc/gpio-hwid.h>
 
 #define HIMAX_I2C_RETRY_TIMES 10
 #define SUPPORT_FINGER_DATA_CHECKSUM 0x0F
@@ -5272,52 +5273,11 @@ enum {
 	BOE = 1,
 };
 
-static int get_gpio(unsigned int pin)
-{
-	int ret;
-
-	if (gpio_request(pin, "PCB_ID")) {
-		pr_info("Fail to get pcb id pin %d\n", pin);
-		return 0;
-	}
-	gpio_direction_input(pin);
-	ret = gpio_get_value_cansleep(pin);
-	pr_info("SOC GPIO %d := %x\n", pin, ret);
-	gpio_free(pin);
-
-	return ret;
-}
-
-#define  GPIO_LCM_1 59
-
-static int check_lcm_id(void)
-{
-	int ret = 0;
-	int error = -1;
-	int tmp = 0;
-	int lcm_id;
-
-	tmp = get_gpio(GPIO_LCM_1);
-	lcm_id = tmp;
-	pr_info("Get the lcm ID =%d\n", lcm_id);
-	if (lcm_id != KD) {
-		pr_err("LCM ID is not KD\n");
-		return error;
-	}
-	return ret;
-}
-
 static int himax852xes_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int ret = 0, err = 0;
 	struct himax_ts_data *ts;
 	struct himax_i2c_platform_data *pdata;
-
-	err = check_lcm_id();
-	if (err < 0) {
-		pr_err("[HIMAX][Touch] Hardware ID or LCM ID return probe\n");
-		return err;
-	}
 
 	//Check I2C functionality
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
@@ -5856,6 +5816,10 @@ static struct i2c_driver himax852xes_driver = {
 
 static void __init himax852xes_init_async(void *unused, async_cookie_t cookie)
 {
+	if (platform_gpio_lcmid_get() != GPIO_LCMID_KD) {
+		pr_info("%s: platform didnt support\n", __func__);
+		return;
+	}
 	i2c_add_driver(&himax852xes_driver);
 }
 
