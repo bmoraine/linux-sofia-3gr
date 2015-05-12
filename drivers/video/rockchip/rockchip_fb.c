@@ -2073,20 +2073,19 @@ static int rockchip_fb_alloc_buffer_by_ion(struct fb_info *fbi,
 		return -ENODEV;
 	}
 
+	dev_dbg(fbi->dev, "ion type %d, enable %d\n",
+		sfb_info->ion_server_type, dev_drv->iommu_enabled);
 	if (sfb_info->ion_server_type == ION_DRV_RK) {
 		if (dev_drv->iommu_enabled) {
-			pr_err("ion_alloc iommu enbled\n");
 			handle = ion_alloc(sfb_info->ion_client,
 				(size_t)fb_mem_size,
 				0, ION_HEAP_SYSTEM_MASK, 0);
 		} else {
-			pr_err("ion_alloc iommu disabled\n");
 			handle = ion_alloc(sfb_info->ion_client,
 				(size_t)fb_mem_size,
 				0, ION_HEAP_TYPE_DMA_MASK, 0);
 		}
 	} else if (sfb_info->ion_server_type == ION_DRV_XGOLD) {
-		pr_err("ion_alloc xgold\n");
 		handle = ion_alloc(sfb_info->ion_client, (size_t)fb_mem_size, 0,
 				ION_HEAP_TYPE_DMA_MASK, 0);
 	}
