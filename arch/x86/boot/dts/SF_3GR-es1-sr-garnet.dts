@@ -152,6 +152,8 @@
 		intel,gpio-hw-id =
 			<&xgold_pmx_gpio 55 0>,
 			<&xgold_pmx_gpio 48 0>;
+		intel,gpio-lcm-id =
+			<&xgold_pmx_gpio 59 0>;
 	};
 };
 
@@ -390,50 +392,86 @@
 		compatible = "ti,lp8557";
 		reg = < 0x2c >;
 	};
+#ifndef RECOVERY_KERNEL
+	touchscreen-focal-er2 {
+		compatible = "focaltech,ft3x27,er2";
+		focaltech,name = "ft3x27";
+		reg = < 0x38 >;
+		interrupt-parent = <&eint>;
+		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&touch_default_pins_er2>;
+		pinctrl-1 = <&touch_sleep_pins_er2>;
+		pinctrl-2 = <&touch_inactive_pins_er2>;
+		focaltech,reset-gpio = <&xgold_pmx_gpio 63 0>;
+		focaltech,irq-gpio = <&xgold_pmx_gpio 54 0>;
+		pm,class-name = "ft3x17_class";
+		pm,user-name = "ext_tp";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+		focaltech,panel-coords = <0 0 600 1024>;
+		focaltech,display-coords = <0 0 600 1024>;
+		focaltech,button-map= <139 102 158>;
+		focaltech,no-force-update;
+		focaltech,i2c-pull-up;
+		focaltech,group-id = <1>;
+		focaltech,hard-reset-delay-ms = <20>;
+		focaltech,soft-reset-delay-ms = <200>;
+		focaltech,num-max-touches = <5>;
+		focaltech,fw-delay-aa-ms = <30>;
+		focaltech,fw-delay-55-ms = <30>;
+		focaltech,fw-upgrade-id1 = <0x79>;
+		focaltech,fw-upgrade-id2 = <0x18>;
+		focaltech,fw-delay-readid-ms = <10>;
+		focaltech,fw-delay-era-flsh-ms = <2000>;
+		focaltech,fw-auto-cal;
+		focaltech,ignore-id-check;
+	};
+#endif
 };
-
 
 &i2c_4 {
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&i2c4_default_pins>;
 	pinctrl-1 = <&i2c4_sleep_pins>;
 	pinctrl-2 = <&i2c4_inactive_pins>;
+
 #ifndef RECOVERY_KERNEL
-	touchscreen-focal {
-                compatible = "focaltech,ft3x27";
-                focaltech,name = "ft3x27";
-                reg = < 0x38 >;
-                interrupt-parent = <&eint>;
-                interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_FALLING >;
-                pinctrl-names = "default", "sleep", "inactive";
-                pinctrl-0 = <&touch_default_pins>;
-                pinctrl-1 = <&touch_sleep_pins>;
-                pinctrl-2 = <&touch_inactive_pins>;
-                focaltech,reset-gpio = <&xgold_pmx_gpio 14 0>;
-                focaltech,irq-gpio = <&xgold_pmx_gpio 54 0>;
-                pm,class-name = "ft3x17_class";
-                pm,user-name = "ext_tp";
-                pm,state-D0 = "enable";
-                pm,state-D3 = "disable";
-                focaltech,panel-coords = <0 0 600 1024>;
-                focaltech,display-coords = <0 0 600 1024>;
-                focaltech,button-map= <139 102 158>;
-                focaltech,no-force-update;
-                focaltech,i2c-pull-up;
-                focaltech,group-id = <1>;
-                focaltech,hard-reset-delay-ms = <20>;
-                focaltech,soft-reset-delay-ms = <200>;
-                focaltech,num-max-touches = <5>;
-                focaltech,fw-delay-aa-ms = <30>;
-                focaltech,fw-delay-55-ms = <30>;
-                focaltech,fw-upgrade-id1 = <0x79>;
-                focaltech,fw-upgrade-id2 = <0x18>;
-                focaltech,fw-delay-readid-ms = <10>;
-                focaltech,fw-delay-era-flsh-ms = <2000>;
-                focaltech,fw-auto-cal;
-                focaltech,ignore-id-check;
-        };
-	touchscreen {
+	touchscreen-focal-sr {
+		compatible = "focaltech,ft3x27,sr";
+		focaltech,name = "ft3x27";
+		reg = < 0x38 >;
+		interrupt-parent = <&eint>;
+		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&touch_default_pins>;
+		pinctrl-1 = <&touch_sleep_pins>;
+		pinctrl-2 = <&touch_inactive_pins>;
+		focaltech,reset-gpio = <&xgold_pmx_gpio 14 0>;
+		focaltech,irq-gpio = <&xgold_pmx_gpio 54 0>;
+		pm,class-name = "ft3x17_class";
+		pm,user-name = "ext_tp";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+		focaltech,panel-coords = <0 0 600 1024>;
+		focaltech,display-coords = <0 0 600 1024>;
+		focaltech,button-map= <139 102 158>;
+		focaltech,no-force-update;
+		focaltech,i2c-pull-up;
+		focaltech,group-id = <1>;
+		focaltech,hard-reset-delay-ms = <20>;
+		focaltech,soft-reset-delay-ms = <200>;
+		focaltech,num-max-touches = <5>;
+		focaltech,fw-delay-aa-ms = <30>;
+		focaltech,fw-delay-55-ms = <30>;
+		focaltech,fw-upgrade-id1 = <0x79>;
+		focaltech,fw-upgrade-id2 = <0x18>;
+		focaltech,fw-delay-readid-ms = <10>;
+		focaltech,fw-delay-era-flsh-ms = <2000>;
+		focaltech,fw-auto-cal;
+		focaltech,ignore-id-check;
+	};
+	touchscreen-himax {
 		compatible = "himax,8528d";
 		reg = < 0x48 >;
 		interrupt-parent = <&eint>;

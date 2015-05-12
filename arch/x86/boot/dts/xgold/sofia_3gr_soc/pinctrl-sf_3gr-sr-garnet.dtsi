@@ -265,6 +265,27 @@ touch_sleep_pins:touch_sleep_pins {
 		0x2d8 0x4100	/* touch_irq */
 	>;
 };
+
+touch_default_pins_er2:touch_default_pins_er2 {
+	pinctrl-single,pins = <
+		0x2fc 0x1500
+		0x2d8 0x4002
+    >;
+};
+
+touch_inactive_pins_er2:touch_inactive_pins_er2 {
+	pinctrl-single,pins = <
+		0x2fc 0x4100
+		0x2d8 0x4100
+	>;
+};
+touch_sleep_pins_er2:touch_sleep_pins_er2 {
+	pinctrl-single,pins = <
+		0x2fc 0x1500
+		0x2d8 0x4100
+	>;
+};
+
 sim2_default_pins:sim2_default_pins {
 	pinctrl-single,pins = <
 		0x23c 0x5	/* sim2_det */
