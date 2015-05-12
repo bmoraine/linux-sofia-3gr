@@ -18,7 +18,13 @@
 				power-usage = <3>;
 				exit-latency = <22>;
 				target-residency = <50>; /* 15+20 (entry+exit+broadcast overhead) */
-				flags = <5>;	/* CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TIMER_STOP */
+				/*
+				 * CPUIDLE_FLAG_TIMER_STOP must be enabled only if timer is
+				 * disabled during idle.
+				 * This is true for LAPIC Timer on Sofia3g and Sofia3gr.
+				 */
+
+				flags = <1>;	/* CPUIDLE_FLAG_TIME_VALID */
 				vmm-id = <1>; /* Enable MCLK gating */
 			};
 		};
