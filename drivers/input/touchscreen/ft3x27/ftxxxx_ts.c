@@ -51,6 +51,7 @@
 //#include <../arch/x86/platform/asustek/include/asustek_boardinfo.h>
 #include <linux/of_irq.h>
 #include "ftxxxx_ex_fun.h"
+#include <misc/gpio-hwid.h>
 
 #define SYSFS_DEBUG
 #define FTS_APK_DEBUG
@@ -1250,43 +1251,6 @@ enum{
         BOE = 1,
 };
 
-static int get_gpio(unsigned int pin)
-{
-        int ret;
-
-        if(gpio_request(pin, "PCB_ID"))
-        {
-                pr_info("Fail to get pcb id pin %d \n", pin);
-                return 0;
-        }
-        gpio_direction_input(pin);
-        ret = gpio_get_value_cansleep(pin);
-        printk("SOC GPIO %d := %x\n", pin, ret);
-        gpio_free(pin);
-
-        return ret;
-}
-
-#define  GPIO_LCM_1 59
-
-static int check_lcm_id(void)
-{
-        int ret = 0;
-        int error = -1;
-        int tmp = 0;
-        int lcm_id;
-
-        //printk("Get the lcm ID \n");
-        tmp = get_gpio(GPIO_LCM_1);
-        lcm_id = tmp;
-        printk("Get the lcm ID =%d\n", lcm_id);
-        if (lcm_id != BOE){
-                printk("[Focal][Touch] LCM ID is not BOE\n");
-                return error;
-        }
-        return ret;
-}
-
 static int ftxxxx_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct focal_i2c_platform_data *pdata;
@@ -1294,11 +1258,6 @@ static int ftxxxx_ts_probe(struct i2c_client *client, const struct i2c_device_id
         struct input_dev *input_dev;
         unsigned char uc_reg_value;
         unsigned char uc_reg_addr;
-	err = check_lcm_id();
-	if (err < 0){
-		printk("[Focal][Touch] Hardware ID or LCM ID return probe\n");
-		return err;
-	}
 
 #ifdef CONFIG_OF
 	pdata = client->dev.platform_data =
@@ -1703,8 +1662,12 @@ static const struct i2c_device_id ftxxxx_ts_id[] = {
 /*MODULE_DEVICE_TABLE(i2c, ftxxxx_ts_id);*/
 
 #ifdef CONFIG_OF
-static struct of_device_id foceltech_match_table[] = {
-	{.compatible = "focaltech,ft3x27", },	
+static struct of_device_id foceltech_sr_match_table[] = {
+	{.compatible = "focaltech,ft3x27,sr", },
+	{},
+};
+static struct of_device_id foceltech_er2_match_table[] = {
+	{.compatible = "focaltech,ft3x27,er2", },
 	{},
 };
 
@@ -1719,47 +1682,28 @@ static struct i2c_driver ftxxxx_ts_driver = {
 	.driver = {
 		.name = FTXXXX_NAME,
 		.owner = THIS_MODULE,
-		.of_match_table = foceltech_match_table,
+		.of_match_table = foceltech_sr_match_table,
 /*#ifdef CONFIG_PM
 		.pm				= &himax852xes_pm_ops,
 #endif*/
 	},		
 };
 
-/*
-static int __init ftxxxx_ts_init(void)
-{
-	int ret;
-	printk("[Focal][Touch] %s : ftxxxx_ts_init !\n", __func__);
-	ret = i2c_add_driver(&ftxxxx_ts_driver);
-	if (ret) {
-		printk(KERN_WARNING " [Focal][TOUCH_ERR] Adding ftxxxx driver failed "
-			"(errno = %d)\n", ret);
-	} else {
-		printk("[Focal][Touch] %s : Successfully added driver %s\n", __func__,
-			ftxxxx_ts_driver.driver.name);
-	}
-	return ret;
-}
-*/
-/*
-static void __init ftxxxx_ts_init_async(void *unused, async_cookie_t cookie)
-{
-	printk("[Focal][Touch] %s : ftxxxx_ts_init !\n", __func__);
-	i2c_add_driver(&ftxxxx_ts_driver);
-}
-
-static int __init ftxxxx_ts_init(void)
-{
-	async_schedule(ftxxxx_ts_init_async, NULL);
-	return 0;
-}
-*/
 
 static int __init ftxxxx_ts_init(void)
 {
         int ret;
         printk("[Focal][Touch] %s : ftxxxx_ts_init !\n", __func__);
+
+		if (platform_gpio_lcmid_get() != GPIO_LCMID_BOE) {
+			pr_info("%s: platform didnt support\n", __func__);
+			return 0;
+		}
+
+		if (platform_gpio_hwid_get() > GPIO_HWID_ER) {
+			ftxxxx_ts_driver.driver.of_match_table = foceltech_er2_match_table;
+		}
+
         ret = i2c_add_driver(&ftxxxx_ts_driver);
         if (ret) {
                 printk(KERN_WARNING " [Focal][TOUCH_ERR] Adding ftxxxx driver failed "
