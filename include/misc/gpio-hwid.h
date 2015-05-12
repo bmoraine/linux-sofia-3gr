@@ -1,13 +1,21 @@
 #ifndef _GPIO_HWID_H_
 #define _GPIO_HWID_H_
 
-typedef enum hwid {
-	GPIO_HWID_STAGE0 = 0,
-	GPIO_HWID_STAGE1 = 1,
-	GPIO_HWID_STAGE2 = 2,
+enum hwid {
+	GPIO_HWID_SR = 0, /* SR */
+	GPIO_HWID_ER = 1, /* ER */
+	GPIO_HWID_ER2 = 2, /* ER2*/
+	GPIO_HWID_PR = 3, /* PR */
 	HWID_COUNT,
-} hwid_t;
+};
 
-hwid_t platform_gpio_hwid_get(void);
+enum lcmid {
+	GPIO_LCMID_KD,
+	GPIO_LCMID_BOE,
+	LCMID_COUNT,
+};
+
+int platform_gpio_hwid_get(void);
+int platform_gpio_lcmid_get(void);
 
 #endif /* _GPIO_HWID_H_ */

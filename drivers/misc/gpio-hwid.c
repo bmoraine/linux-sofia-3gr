@@ -12,25 +12,56 @@
 #include <misc/gpio-hwid.h>
 
 #define PROP_HWID "intel,gpio-hw-id"
+#define PROP_LCMID "intel,gpio-lcm-id"
 
 struct hwid_data {
 	int hwid0;
 	int hwid1;
+	int lcmid;
 };
 
 static struct hwid_data _hwid_data;
 
-hwid_t platform_gpio_hwid_get(void)
+int platform_gpio_hwid_get(void)
 {
 	struct hwid_data *hwid = &_hwid_data;
 	u8 id0, id1;
 
-	id0 = gpio_get_value(hwid->hwid0);
-	id1 = gpio_get_value(hwid->hwid1);
+	if (gpio_request(hwid->hwid0, "hwid0-gpio")) {
+		pr_err("%s: request gpio %d fail!\n", __func__, hwid->hwid0);
+		return -EINVAL;
+	}
+	if (gpio_request(hwid->hwid1, "hwid1-gpio")) {
+		pr_err("%s: request gpio %d fail!\n", __func__, hwid->hwid1);
+		return -EINVAL;
+	}
+
+	id0 = gpio_get_value_cansleep(hwid->hwid0);
+	id1 = gpio_get_value_cansleep(hwid->hwid1);
+
+	gpio_free(hwid->hwid0);
+	gpio_free(hwid->hwid1);
 
 	return (id0 | id1 << 1);
 }
 EXPORT_SYMBOL_GPL(platform_gpio_hwid_get);
+
+int platform_gpio_lcmid_get(void)
+{
+	struct hwid_data *hwid = &_hwid_data;
+	u8 id;
+
+	if (gpio_request(hwid->lcmid, "lcmid-gpio")) {
+		pr_err("%s: request gpio %d fail!\n", __func__, hwid->lcmid);
+		return -EINVAL;
+	}
+
+	id = gpio_get_value_cansleep(hwid->lcmid);
+
+	gpio_free(hwid->lcmid);
+
+	return id;
+}
 
 static int of_get_hwid(struct platform_device *pdev)
 {
@@ -48,14 +79,14 @@ static int of_get_hwid(struct platform_device *pdev)
 
 	dev_dbg(dev, "HWID0: %d, HWID1: %d\n", hwid->hwid0, hwid->hwid1);
 
-	if (gpio_request(hwid->hwid0, "hwid0-gpio")) {
-		dev_err(dev, "%s: request gpio %d fail!\n", __func__, hwid->hwid0);
-		return -EINVAL;
+	hwid->lcmid = of_get_named_gpio(np, PROP_LCMID, 0);
+
+	if (!gpio_is_valid(hwid->lcmid)) {
+		dev_err(dev, "invalid LCMID\n");
+		return 0;
 	}
-	if (gpio_request(hwid->hwid1, "hwid1-gpio")) {
-		dev_err(dev, "%s: request gpio %d fail!\n", __func__, hwid->hwid1);
-		return -EINVAL;
-	}
+
+	dev_dbg(dev, "LCMID: %d\n", hwid->lcmid);
 
 	return 0;
 }
@@ -101,11 +132,6 @@ static int hwid_probe(struct platform_device *pdev)
 
 static int hwid_remove(struct platform_device *pdev)
 {
-	struct hwid_data *hwid = &_hwid_data;
-	if (gpio_is_valid(hwid->hwid0))
-		gpio_free(hwid->hwid0);
-	if (gpio_is_valid(hwid->hwid1))
-		gpio_free(hwid->hwid1);
 	return 0;
 }
 
@@ -145,7 +171,7 @@ static void __exit hwid_exit(void)
 	platform_driver_unregister(&gpio_hwid_driver);
 }
 
-module_init(hwid_init);
+arch_initcall(hwid_init);
 module_exit(hwid_exit);
 
 MODULE_DESCRIPTION("Intel Generic GPIO HWID driver");
