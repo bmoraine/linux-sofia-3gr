@@ -391,6 +391,7 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 	int ret = -EINVAL, def_len, nr_freq, i;
 	unsigned *freq_table;
 	unsigned latency;
+	unsigned start_limits[2];
 	struct cpufreq_frequency_table *cpufreq_table;
 	struct property *prop;
 
@@ -491,6 +492,15 @@ static int xgold_cpufreq_probe(struct platform_device *pdev)
 	cpufreq_register_notifier(&xgold_cpufreq_notifier,
 			CPUFREQ_POLICY_NOTIFIER);
 
+	if (!of_property_read_u32_array(np, "intel,start-freq-limits",
+				(u32 *)start_limits, 2)) {
+		pr_info("limit start frequency to min: %d, max:%d\n",
+				start_limits[0], start_limits[1]);
+		mutex_lock(&cpufreq_lock);
+		sofia_thermal_set_cpu_policy(start_limits[0] / 1000,
+				start_limits[1] / 1000);
+		mutex_unlock(&cpufreq_lock);
+	}
 	return 0;
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 err_cpufreq:
