@@ -341,6 +341,8 @@ enum rtc_opcode {
 	RTC_GET_ALARM,
 	RTC_SET_ALARM,
 	RTC_CLEAR_ALARM,
+	RTC_SET_DATETIME_US,
+	RTC_OPCODE_END
 };
 
 /**
@@ -348,14 +350,67 @@ Data structure for keeping date and time\n
 */
 typedef struct rtc_datetime_shared_data pal_rtc_datetime;
 
+/**
+ @brief  Sets the time/date sent from the Guest VM.
+ @param  rtc_datetime  Pointer to the input Date and Time info
+ @return return 0
+**/
 uint32_t mv_svc_rtc_set_datetime(pal_rtc_datetime *rtc_datetime);
+
+/**
+ @brief  Reads the time/date set in the RTC Module and sends it to the Guest VM.
+ @param  rtc_datetime  Pointer to return the read Date and Time info
+ @return return 0
+**/
 uint32_t mv_svc_rtc_get_datetime(pal_rtc_datetime *rtc_datetime);
-uint32_t mv_svc_rtc_get_time_us(uint64_t *rtc_us_time);
-uint32_t mv_svc_rtc_clear_alarm(void);
-uint32_t mv_svc_rtc_set_alarm(pal_rtc_datetime *rtc_datetime);
-uint32_t mv_svc_rtc_get_alarm(pal_rtc_datetime *rtc_datetime);
-uint32_t mv_svc_rtc_get_alarm_async(void);
+
+/**
+ @brief  Reads the time/date set in the RTC Module and sends it to the Guest VM.
+ @return return 0
+**/
 uint32_t mv_svc_rtc_get_datetime_async(void);
+
+/**
+ @brief  Reads the time/date set in the RTC Module and sends it to the Guest
+ VM in microsecs.
+ @param  rtc_us_time  Pointer to return the read Date and Time info in ms.
+ @return return 0
+**/
+uint32_t mv_svc_rtc_get_time_us(uint64_t *rtc_us_time);
+
+/**
+ @brief  Sets the time/date sent from the Guest VM.
+ @param  rtc_us_time  Pointer to the input Date and Time info in microsecs.
+ @return return 0
+**/
+uint32_t mv_svc_rtc_set_time_us(uint64_t *rtc_us_time);
+
+/**
+ @brief  Sets the alarm sent from the Guest VM.
+ @param  rtc_datetime  Pointer to the input alarm info.
+ @return return 0 if successfull or RTC_RETURN_ERROR (-1) otherwise.
+**/
+uint32_t mv_svc_rtc_set_alarm(pal_rtc_datetime *rtc_alarm);
+
+/**
+ @brief  Reads the Alarm set in the RTC Module and returns to the Guest VM.
+ @param  rtc_datetime  Pointer to return the read Date and Time info.
+ @return return 0
+**/
+uint32_t mv_svc_rtc_get_alarm(pal_rtc_datetime *rtc_alarm);
+
+/**
+ @brief  Reads the alarm set in the RTC Module and sends it to the Guest VM.
+ @return return 0 if successfull or RTC_RETURN_ERROR (-1) otherwise (no alarm
+ or error)
+**/
+uint32_t mv_svc_rtc_get_alarm_async(void);
+
+/**
+ @brief  Clears the alarm set in the RTC Module.
+ @return return 0 if successfull or RTC_RETURN_ERROR (-1) otherwise.
+**/
+uint32_t mv_svc_rtc_clear_alarm(void);
 
 /**
   @typedef sysprof_op_code

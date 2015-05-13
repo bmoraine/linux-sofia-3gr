@@ -386,8 +386,8 @@ uint32_t mv_svc_rtc_get_time_us(uint64_t *rtc_us_time)
 
 uint32_t mv_svc_rtc_clear_alarm(void)
 {
-	mv_platform_service(RTC_SERVICE, RTC_CLEAR_ALARM, 0, 0, 0, 0, 0, 0, 0);
-	return 0;
+	return mv_platform_service(RTC_SERVICE, RTC_CLEAR_ALARM,
+			0, 0, 0, 0, 0, 0, 0);
 }
 
 uint32_t mv_svc_rtc_set_alarm(pal_rtc_datetime *rtc_alarm)
@@ -397,8 +397,8 @@ uint32_t mv_svc_rtc_set_alarm(pal_rtc_datetime *rtc_alarm)
 	memcpy((pal_rtc_datetime *)&pal_shared_data_ptr->rtc_shared_data,
 			rtc_alarm,
 			sizeof(pal_shared_data_ptr->rtc_shared_data));
-	mv_platform_service(RTC_SERVICE, RTC_SET_ALARM, 0, 0, 0, 0, 0, 0, 0);
-	return 0;
+	return mv_platform_service(RTC_SERVICE, RTC_SET_ALARM,
+			0, 0, 0, 0, 0, 0, 0);
 }
 
 uint32_t mv_svc_rtc_get_alarm(pal_rtc_datetime *rtc_alarm)
@@ -414,11 +414,9 @@ uint32_t mv_svc_rtc_get_alarm(pal_rtc_datetime *rtc_alarm)
 
 uint32_t mv_svc_rtc_get_alarm_async(void)
 {
-	mv_platform_service(RTC_SERVICE, RTC_GET_ALARM, 0, 0, 0, 0, 0, 0, 0);
-	return 0;
+	return mv_platform_service(RTC_SERVICE, RTC_GET_ALARM,
+			0, 0, 0, 0, 0, 0, 0);
 }
-
-
 
 void mv_svc_sysprof_trace_start(uint32_t *swt_paddr, uint32_t mask)
 {
