@@ -53,17 +53,17 @@ static irqreturn_t xgold_rtc_completion_irq(int irq, void *rtc_d)
 		case RTC_GET_ALARM:
 		case RTC_SET_ALARM:
 		case RTC_CLEAR_ALARM:
-			rtc_dbg("%s : service=%d\n", __func__, rtcd->opcode);
+		case RTC_SET_DATETIME_US:
+			rtc_dbg("service=%d\n", rtcd->opcode);
 			break;
 		default:
-			rtc_dbg("%s : interrupt for an unknown service (%d)\n",
-					__func__, rtcd->opcode);
+			rtc_dbg("interrupt for an unknown service (%d)\n",
+					rtcd->opcode);
 			break;
 		}
 		wake_up(&rtcd->waitqueue);
 	} else
-		rtc_err("%s : Must not reach this point if in sync mode\n",
-				__func__);
+		rtc_err("Must not reach this point if in sync mode\n");
 	return IRQ_HANDLED;
 }
 
@@ -72,8 +72,8 @@ static irqreturn_t xgold_rtc_irq(int irq, void *rtc_d)
 	struct rtc_driver_data *rtcd = rtc_d;
 	unsigned long events = RTC_AF;
 
-	spin_lock(&rtcd->lock);
 	XGOLD_RTC_ENTER;
+	spin_lock(&rtcd->lock);
 	rtc_update_irq(rtcd->rtc, 1, events);
 	spin_unlock(&rtcd->lock);
 	return IRQ_HANDLED;
@@ -107,7 +107,7 @@ static int xgold_rtc_read_time_async(struct device *dev, struct rtc_time *tm)
 	int result = 0, ret_wait = 0;
 
 	if (!rtc_data) {
-		rtc_err("%s: rtc shared mem unavailable\n", __func__);
+		rtc_err("rtc shared mem unavailable\n");
 		return  -EINVAL;
 	}
 	mutex_lock(&rtcd->rtc_mutex);
@@ -115,20 +115,17 @@ static int xgold_rtc_read_time_async(struct device *dev, struct rtc_time *tm)
 	rtcd->service_completed = 0;
 	mv_svc_rtc_get_datetime_async();
 	ret_wait = wait_event_interruptible_timeout(rtcd->waitqueue,
-			rtcd->service_completed, 2*HZ);
+			rtcd->service_completed, msecs_to_jiffies(2000));
 	if (ret_wait == 0) { /* timeout */
-		rtc_err("%s: incomplete rtc services after 2 seconds\n",
-				__func__);
+		rtc_err("incomplete rtc services after 2 seconds\n");
 		result = -ETIME;
 		goto read_time_end;
 	} else if (ret_wait == -ERESTARTSYS) { /* interrupted by signal */
-		rtc_err("%s: wait_event interrupted by signal\n", __func__);
+		rtc_err("wait_event interrupted by signal\n");
 		result = -ERESTARTSYS;
 		goto read_time_end;
 	}
-
-	/* tm->tm_year = rtc_data->m_year - DELTA_Y; */
-	tm->tm_year = rtc_data->m_year + rtcd->base_year - DELTA_Y;
+	tm->tm_year = rtc_data->m_year - DELTA_Y;
 	tm->tm_mon = rtc_data->m_month - DELTA_M;
 	tm->tm_mday = rtc_data->m_day;
 	tm->tm_hour = rtc_data->m_hour;
@@ -140,7 +137,7 @@ static int xgold_rtc_read_time_async(struct device *dev, struct rtc_time *tm)
 		goto read_time_end;
 	}
 
-	rtc_dbg("%s: rtc time %4d-%02d-%02d %02d:%02d:%02d (%lds)\n", __func__,
+	rtc_dbg("rtc time %4d-%02d-%02d %02d:%02d:%02d (%lds)\n",
 			tm->tm_year, tm->tm_mon, tm->tm_mday,
 			tm->tm_hour, tm->tm_min, tm->tm_sec
 			, time_s);
@@ -230,7 +227,7 @@ static int xgold_rtc_set_time_async(struct device *dev, struct rtc_time *tm)
 	}
 	mutex_lock(&rtcd->rtc_mutex);
 
-	rtc_dbg("%s: rtc time %4d-%02d-%02d %02d:%02d:%02d (%lds)\n", __func__,
+	rtc_dbg("rtc time %4d-%02d-%02d %02d:%02d:%02d (%lds)\n",
 			tm->tm_year, tm->tm_mon, tm->tm_mday,
 			tm->tm_hour, tm->tm_min, tm->tm_sec,
 			time);
@@ -245,23 +242,22 @@ static int xgold_rtc_set_time_async(struct device *dev, struct rtc_time *tm)
 		rtc_data.m_minute = tm->tm_min;
 		rtc_data.m_second = tm->tm_sec;
 		rtc_data.m_msecond = 0;
-		rtc_dbg("%s: hum time %4d-%02d-%02d %02d:%02d:%02d\n", __func__,
+		rtc_dbg("hum time %4d-%02d-%02d %02d:%02d:%02d\n",
 			rtc_data.m_year, rtc_data.m_month, rtc_data.m_day,
 			rtc_data.m_hour, rtc_data.m_minute, rtc_data.m_second);
 		rtcd->service_completed = 0;
 		rtcd->opcode = RTC_SET_DATETIME;
 		mv_svc_rtc_set_datetime(&rtc_data);
 		ret_wait = wait_event_interruptible_timeout(rtcd->waitqueue,
-				rtcd->service_completed, 2*HZ);
+				rtcd->service_completed,
+				msecs_to_jiffies(2000));
 		if (ret_wait == 0) { /* timeout */
-			rtc_err("%s: incomplete rtc services after 2 seconds\n",
-					__func__);
+			rtc_err("incomplete rtc services after 2 seconds\n");
 			result = -ETIME;
 			goto set_time_end;
 		} else if (ret_wait == -ERESTARTSYS) {
 			/* interrupted by signal */
-			rtc_err("%s: wait_event interrupted by signal\n",
-					__func__);
+			rtc_err("wait_event interrupted by signal\n");
 			result = -ERESTARTSYS;
 			goto set_time_end;
 		}
@@ -309,6 +305,69 @@ static int xgold_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
 		return 0;
 	else
 		return -EINVAL;
+}
+
+static int xgold_rtc_read_alarm_async(struct device *dev,
+		struct rtc_wkalrm *alm)
+{
+	struct rtc_driver_data *rtcd = dev_get_drvdata(dev);
+	struct rtc_time *tm;
+	unsigned long time_s = 0;
+	struct rtc_datetime_shared_data *rtc_data = vmm_get_rtc_shared_data();
+	int result = 0, ret_wait = 0, read_res;
+
+	if (!rtc_data) {
+		rtc_err("rtc shared mem unavailable\n");
+		return  -EINVAL;
+	}
+	mutex_lock(&rtcd->rtc_mutex);
+	tm = &alm->time;
+	rtcd->opcode = RTC_GET_ALARM;
+	rtcd->service_completed = 0;
+	read_res = mv_svc_rtc_get_alarm_async();
+	if (read_res != 0) {
+		tm->tm_year = 0;
+		tm->tm_mon = 0;
+		tm->tm_mday = 0;
+		tm->tm_hour = 0;
+		tm->tm_min = 0;
+		tm->tm_sec = 0;
+		rtc_dbg("No alarm set\n");
+		goto read_alarm_end;
+	}
+	ret_wait = wait_event_interruptible_timeout(rtcd->waitqueue,
+			rtcd->service_completed, msecs_to_jiffies(2000));
+	if (ret_wait == 0) { /* timeout */
+		rtc_err("incomplete rtc services after 2 seconds\n");
+		result = -ETIME;
+		goto read_alarm_end;
+	} else if (ret_wait == -ERESTARTSYS) { /* interrupted by signal */
+		rtc_err("wait_event interrupted by signal\n");
+		result = -ERESTARTSYS;
+		goto read_alarm_end;
+	}
+
+	tm->tm_year = rtc_data->m_year - DELTA_Y;
+	tm->tm_mon = rtc_data->m_month - DELTA_M;
+	tm->tm_mday = rtc_data->m_day;
+	tm->tm_hour = rtc_data->m_hour;
+	tm->tm_min = rtc_data->m_minute;
+	tm->tm_sec = rtc_data->m_second;
+	if (rtc_tm_to_time(tm, &time_s)) {
+		dev_info(dev, "RTC: conversion from time to seconds failed");
+		result = -EINVAL;
+		goto read_alarm_end;
+	}
+
+	rtc_dbg("rtc time %4d-%02d-%02d %02d:%02d:%02d (%lds)\n",
+			tm->tm_year, tm->tm_mon, tm->tm_mday,
+			tm->tm_hour, tm->tm_min, tm->tm_sec
+			, time_s);
+	result = rtc_valid_tm(tm);
+
+read_alarm_end:
+	mutex_unlock(&rtcd->rtc_mutex);
+	return result;
 }
 
 static int xgold_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
@@ -359,6 +418,106 @@ static int xgold_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	return 0;
 }
 
+static int xgold_rtc_clear_alarm_async(struct device *dev)
+{
+	struct rtc_driver_data *rtcd = dev_get_drvdata(dev);
+	int result = 0, ret_wait = 0, clr_res = 0;
+
+	mutex_lock(&rtcd->rtc_mutex);
+	rtcd->service_completed = 0;
+	rtcd->opcode = RTC_CLEAR_ALARM;
+	clr_res = mv_svc_rtc_clear_alarm();
+	if (clr_res != 0) {
+		rtc_err(
+			"clear alarm failed\n");
+		goto clr_alarm_end;
+	}
+	ret_wait = wait_event_interruptible_timeout(rtcd->waitqueue,
+			rtcd->service_completed, msecs_to_jiffies(2000));
+	if (ret_wait == 0) { /* timeout */
+		rtc_err("incomplete rtc services after 2 seconds\n");
+		result = -ETIME;
+		goto clr_alarm_end;
+	} else if (ret_wait == -ERESTARTSYS) {
+		/* interrupted by signal */
+		rtc_err("wait_event interrupted by signal\n");
+		result = -ERESTARTSYS;
+		goto clr_alarm_end;
+	}
+clr_alarm_end:
+	mutex_unlock(&rtcd->rtc_mutex);
+	return result;
+}
+
+static int xgold_rtc_set_alarm_async(struct device *dev, struct rtc_wkalrm *alm)
+{
+	unsigned long time;
+	struct rtc_driver_data *rtcd = dev_get_drvdata(dev);
+	struct rtc_time *tm;
+	int result = 0, ret_wait = 0, set_res = 0;
+	struct rtc_wkalrm alm2;
+
+	if (rtc_tm_to_time(&alm->time, &time)) {
+		dev_info(dev, "RTC: conversion from time to seconds failed");
+		return -EINVAL;
+	}
+
+	/* clear any previously set alarm */
+	xgold_rtc_read_alarm_async(dev, &alm2);
+	if (alm2.time.tm_hour != 0) {
+		xgold_rtc_clear_alarm_async(dev);
+		rtc_dbg("clear alarm\n");
+	}
+
+	/* now set new alarm into rtc */
+	mutex_lock(&rtcd->rtc_mutex);
+	tm = &alm->time;
+	rtc_dbg("rtc time %4d-%02d-%02d %02d:%02d:%02d (%lds)\n",
+			tm->tm_year, tm->tm_mon, tm->tm_mday,
+			tm->tm_hour, tm->tm_min, tm->tm_sec,
+			time);
+
+	if (!rtc_valid_tm(tm)) {
+		struct rtc_datetime_shared_data rtc_data;
+
+		rtc_data.m_year = tm->tm_year + DELTA_Y;
+		rtc_data.m_month = tm->tm_mon + DELTA_M;
+		rtc_data.m_day = tm->tm_mday;
+		rtc_data.m_hour = tm->tm_hour;
+		rtc_data.m_minute = tm->tm_min;
+		rtc_data.m_second = tm->tm_sec;
+		rtc_data.m_msecond = 0;
+		rtc_dbg("hum time %4d-%02d-%02d %02d:%02d:%02d\n",
+			rtc_data.m_year, rtc_data.m_month, rtc_data.m_day,
+			rtc_data.m_hour, rtc_data.m_minute, rtc_data.m_second);
+		rtcd->service_completed = 0;
+		rtcd->opcode = RTC_SET_ALARM;
+		set_res = mv_svc_rtc_set_alarm(&rtc_data);
+		if (set_res != 0) {
+			rtc_err("set alarm failed\n");
+			goto set_alarm_end;
+		}
+		ret_wait = wait_event_interruptible_timeout(rtcd->waitqueue,
+				rtcd->service_completed,
+				msecs_to_jiffies(2000));
+		if (ret_wait == 0) { /* timeout */
+			rtc_err("incomplete rtc services after 2 seconds\n");
+			result = -ETIME;
+			goto set_alarm_end;
+		} else if (ret_wait == -ERESTARTSYS) {
+			/* interrupted by signal */
+			rtc_err("wait_event interrupted by signal\n");
+			result = -ERESTARTSYS;
+			goto set_alarm_end;
+		}
+	} else {
+		pr_err("%s: Invalid RTC value !\n", __func__);
+	}
+set_alarm_end:
+	mutex_unlock(&rtcd->rtc_mutex);
+	return 0;
+}
+
 static int xgold_rtc_alarm_irq_enable(struct device *dev, unsigned int enabled)
 {
 	XGOLD_RTC_ENTER;
@@ -370,6 +529,9 @@ static int xgold_rtc_alarm_irq_enable(struct device *dev, unsigned int enabled)
 static struct rtc_class_ops xgold_rtc_class_ops_async = {
 	.read_time = xgold_rtc_read_time_async,
 	.set_time = xgold_rtc_set_time_async,
+	.read_alarm = xgold_rtc_read_alarm_async,
+	.set_alarm = xgold_rtc_set_alarm_async,
+	.alarm_irq_enable = xgold_rtc_alarm_irq_enable,
 };
 
 static struct rtc_class_ops xgold_rtc_class_ops = {
@@ -422,7 +584,7 @@ static int xgold_rtc_core_probe(struct device *dev)
 			rtcd->completion_irq = ret;
 			ret = request_irq(rtcd->completion_irq,
 					xgold_rtc_completion_irq,
-					IRQF_SHARED,
+					IRQF_NO_SUSPEND | IRQF_SHARED,
 					dev_name(dev), rtcd);
 			if (ret) {
 				dev_err(dev,
