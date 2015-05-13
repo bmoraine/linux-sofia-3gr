@@ -23,7 +23,6 @@
 #include <linux/version.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
-#include <linux/delay.h>
 
 #ifdef CONFIG_X86
 #include <asm/cacheflush.h>
@@ -36,7 +35,7 @@
 
 /* Minimum size of allocator page pool */
 #define MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_PAGES (MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB * 256)
-#define MALI_OS_MEMORY_POOL_TRIM_JIFFIES (3 * CONFIG_HZ)//(10 * CONFIG_HZ) /* Default to 10s */
+#define MALI_OS_MEMORY_POOL_TRIM_JIFFIES (10 * CONFIG_HZ) /* Default to 10s */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 /* Write combine dma_attrs */
@@ -58,7 +57,6 @@ static unsigned long mali_mem_os_shrink_count(struct shrinker *shrinker, struct 
 #endif
 #endif
 static void mali_mem_os_trim_pool(struct work_struct *work);
-static unsigned long mali_os_alloc_pages;
 
 static struct mali_mem_os_allocator {
 	spinlock_t pool_lock;
@@ -115,7 +113,6 @@ static void mali_mem_os_free(mali_mem_allocation *descriptor)
 
 	if (MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_PAGES < mali_mem_os_allocator.pool_count) {
 		MALI_DEBUG_PRINT(5, ("OS Mem: Starting pool trim timer %u\n", mali_mem_os_allocator.pool_count));
-		//pr_info("OS Mem: Starting pool trim timer %u\n", mali_mem_os_allocator.pool_count);
 		queue_delayed_work(mali_mem_os_allocator.wq, &mali_mem_os_allocator.timed_shrinker, MALI_OS_MEMORY_POOL_TRIM_JIFFIES);
 	}
 }
@@ -161,7 +158,6 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 	}
 #ifdef CONFIG_X86
 	if (remaining) {
-        //pr_info("%s: requested page_count=0x%x remaining to alloc=0x%x\n", __func__, page_count, remaining);
 		array_pages = kmalloc(sizeof(struct pages *) * remaining,
 				GFP_KERNEL);
 		if (array_pages == NULL)
@@ -187,24 +183,9 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 #endif
 #endif
 
-        if (mali_os_alloc_pages >= 0x4000) {
-            pr_err("%s: force alloc failure cos total alloc page=0x%x > 0x4000.\n", __func__, mali_os_alloc_pages);
-		    if (array_pages != NULL) {
-              if (i)
-                set_pages_array_wb(array_pages, i);
-              kfree(array_pages);
-            }
-			/* Calculate the number of pages actually allocated, and free them. */
-			descriptor->os_mem.count = (page_count - remaining) + i;
-			atomic_add(descriptor->os_mem.count, &mali_mem_os_allocator.allocated_pages);
-			mali_mem_os_free(descriptor);
-			return -ENOMEM;
-		}
-
 		new_page = alloc_page(flags);
 
 		if (unlikely(NULL == new_page)) {
-            pr_err("%s: alloc_page failed. required pagecount=0x%x total_alloc_pages=0x%x\n", __func__, page_count, mali_os_alloc_pages);
 			/* Calculate the number of pages actually allocated, and free them. */
 			descriptor->os_mem.count = (page_count - remaining) + i;
 			atomic_add(descriptor->os_mem.count, &mali_mem_os_allocator.allocated_pages);
@@ -217,8 +198,6 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 
 			return -ENOMEM;
 		}
-        else
-          mali_os_alloc_pages++;
 
 		/* Ensure page is flushed from CPU caches. */
 		dma_addr = dma_map_page(&mali_platform_device->dev, new_page,
@@ -228,14 +207,12 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 		if (unlikely(err)) {
 			MALI_DEBUG_PRINT_ERROR(("OS Mem: Failed to DMA map page %p: %u",
 						new_page, err));
-			pr_err("%s: OS Mem: Failed to DMA map page %p: %u",	__func__, new_page, err);
 #ifdef CONFIG_X86
 			if (i)
 				set_pages_array_wb(array_pages, i);
 			kfree(array_pages);
 #endif
 			__free_page(new_page);
-            mali_os_alloc_pages--;
 			descriptor->os_mem.count = (page_count - remaining) + i;
 			atomic_add(descriptor->os_mem.count, &mali_mem_os_allocator.allocated_pages);
 			mali_mem_os_free(descriptor);
@@ -258,16 +235,12 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 	}
 #endif
 
-    //udelay(500);
-
 	atomic_add(page_count, &mali_mem_os_allocator.allocated_pages);
 
 	if (MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_PAGES > mali_mem_os_allocator.pool_count) {
 		MALI_DEBUG_PRINT(4, ("OS Mem: Stopping pool trim timer, only %u pages on pool\n", mali_mem_os_allocator.pool_count));
-		//pr_info("%s: OS Mem: Stopping pool trim timer, only %u pages on pool\n", __func__, mali_mem_os_allocator.pool_count);
 		cancel_delayed_work(&mali_mem_os_allocator.timed_shrinker);
 	}
-	//pr_info("%s: alloc page_count=0x%x cur total_alloc_pages=0x%x\n", __func__, page_count, mali_os_alloc_pages);
 
 	return 0;
 }
@@ -487,7 +460,6 @@ static void mali_mem_os_free_page(struct page *page)
 	ClearPagePrivate(page);
 
 	__free_page(page);
-    mali_os_alloc_pages--;
 }
 
 static int mali_mem_os_free_pages_list(struct list_head *pages_list)
@@ -520,7 +492,6 @@ static int mali_mem_os_free_pages_list(struct list_head *pages_list)
 		i++;
 	}
 
-    //pr_info("%s: total_alloc_pages after free=0x%x\n", __func__, mali_os_alloc_pages);
 	return i;
 }
 
@@ -687,7 +658,6 @@ static void mali_mem_os_trim_pool(struct work_struct *data)
 
 	if (MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_PAGES < mali_mem_os_allocator.pool_count) {
 		MALI_DEBUG_PRINT(4, ("OS Mem: Starting pool trim timer %u\n", mali_mem_os_allocator.pool_count));
-		//pr_info("%s: OS Mem: Starting pool trim timer %u\n", __func__, mali_mem_os_allocator.pool_count);
 		queue_delayed_work(mali_mem_os_allocator.wq, &mali_mem_os_allocator.timed_shrinker, MALI_OS_MEMORY_POOL_TRIM_JIFFIES);
 	}
 }
