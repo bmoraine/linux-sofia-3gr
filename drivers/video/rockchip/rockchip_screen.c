@@ -243,7 +243,7 @@ static int rockchip_screen_parse_gpio(struct rockchip_screen *screen)
 	}
 
 	screen->gpio_vlow = of_get_named_gpio_flags(np,
-			PROP_DISPLAY_GPIOVL, 0, NULL);
+			PROP_DISPLAY_GPIOVL, 0, &gpio_flags);
 	if (gpio_is_valid(screen->gpio_vlow)) {
 		if (support_loader_display()) {
 			if (gpio_flags & OF_GPIO_ACTIVE_LOW)
@@ -267,7 +267,7 @@ static int rockchip_screen_parse_gpio(struct rockchip_screen *screen)
 	}
 
 	screen->gpio_reset = of_get_named_gpio_flags(np,
-			PROP_DISPLAY_GPIORST, 0, NULL);
+			PROP_DISPLAY_GPIORST, 0, &gpio_flags);
 	if (gpio_is_valid(screen->gpio_reset)) {
 		if (support_loader_display()) {
 			if (gpio_flags & OF_GPIO_ACTIVE_LOW)
