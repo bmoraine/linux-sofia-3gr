@@ -26,7 +26,7 @@
 #define EXI6 60
 #define EXI12 61
 #define EXI8 118
-#define EXI14 121
+#define EXI14 55
 #define EXI10 122
 #define EXI3 123
 #endif /*_IRQ_VECTORS_PLF_H */
