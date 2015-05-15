@@ -112,14 +112,12 @@ static inline void agold620_led_on(struct device *dev)
 	pr_debug("%s -->\n", __func__);
 	if (freerun_mode) {
 		int32_t val = (TOTAL_CLK_20K_IN_26M * intensity)/100;
-		mdelay(10);
 		led_write32(led, LED_K2_CONTROL, TOTAL_CLK_20K_IN_26M - val);
 		led_write32(led, LED_K1_CONTROL, val);
 	} else {
 		int32_t val = (SCU_K2_VAL * 100);
 		if (intensity)
 			val /= intensity;
-		mdelay(10);
 		led_write32(led, LED_K2_CONTROL, val);
 	}
 	led_write32(led, LED_K1MAX, SCU_K1MAX_VAL);
@@ -221,7 +219,6 @@ static int32_t agold620_led_set_backlight(struct device *dev)
 {
 	struct xgold_led_data *led = dev_get_drvdata(dev);
 	pr_debug("%s(%#x) -->\n", __func__, led->led_brightness);
-	mdelay(10);
 	mutex_lock(&led->lock);
 	if (led->led_brightness)
 		agold620_led_on(dev);
