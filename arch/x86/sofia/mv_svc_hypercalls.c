@@ -230,6 +230,19 @@ uint32_t mv_svc_sep_vmswitch_msr_list(struct sep_msr_control *vmentry_list,
 EXPORT_SYMBOL(mv_svc_sep_vmswitch_msr_list);
 #endif
 
+uint32_t mv_svc_sep_version_number(void)
+{
+	uint32_t ver_num;
+	if (mv_platform_service(SEP_SERVICE, SEP_VERSION_NUMBER,
+				0, 0, 0, &ver_num, 0, 0, 0) != 0)
+		return ver_num;
+	else
+		return 0;
+}
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_sep_version_number);
+#endif
+
 uint32_t mv_svc_watchdog_enable(uint32_t timeout)
 {
 	mv_platform_service(WATCHDOG_SERVICE, WATCHDOG_ENABLE, timeout,
@@ -474,3 +487,32 @@ int32_t mv_svc_security_getvm_loadinfo(uint32_t vm_id, uint32_t *vm_loadaddr,
 #ifdef __KERNEL__
 EXPORT_SYMBOL(mv_svc_security_getvm_loadinfo);
 #endif
+
+uint32_t mv_svc_timestamp_counter_frequency(void)
+{
+	uint32_t freq;
+	if (mv_platform_service(VMM_TIMESTAMP_COUNTER_INFO_SERVICE,
+				TIMESTAMP_COUNTER_FREQ,
+				0, 0, 0, &freq, 0, 0, 0) != 0)
+		return freq;
+	else
+		return 0;
+}
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_timestamp_counter_frequency);
+#endif
+
+uint32_t mv_svc_timestamp_counter_size(void)
+{
+	uint32_t size;
+	if (mv_platform_service(VMM_TIMESTAMP_COUNTER_INFO_SERVICE,
+				TIMESTAMP_COUNTER_SIZE,
+				0, 0, 0, &size, 0, 0, 0) != 0)
+		return size;
+	else
+		return 0;
+}
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_timestamp_counter_size);
+#endif
+

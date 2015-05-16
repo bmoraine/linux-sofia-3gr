@@ -70,7 +70,8 @@ enum mv_service_type {
 	VMM_SECURITY_VERIFY_VM_COMPLETED_SERVICE,
 	VMM_SECURITY_MEM_CLEANUP_DONE_SERVICE,
 	VMM_SECURITY_GETVM_LOADINFO_SERVICE,
-	VMM_SECURITY_SECURE_BUFFER_REQUEST_SERVICE
+	VMM_SECURITY_SECURE_BUFFER_REQUEST_SERVICE,
+	VMM_TIMESTAMP_COUNTER_INFO_SERVICE
 };
 
 
@@ -236,7 +237,8 @@ enum sep_op_code {
 	SEP_READ_COUNTER_LIST,
 	SEP_WRITE_COUNTER_LIST,
 	SEP_CONTROL_PMI_MSR_LIST,
-	SEP_CONTROL_VMSW_MSR_LIST
+	SEP_CONTROL_VMSW_MSR_LIST,
+	SEP_VERSION_NUMBER = 100
 };
 
 struct sep_packet {
@@ -293,7 +295,7 @@ struct sep_buffer_info {
 	/** addresses of buffers in a dual buffer implemetation
 	 * buffer_start values must be 64bit physical addresses
 	 * pointing to contiguous memory;
-	 * use the low 32 bits if 32 bit addresses are  used */
+	 * use the low 32 bits if 32 bit addresses are used */
 	uint64_t buffer_start[2];
 	/** index of the buffer delivered for processing
 	 * buffer is delivered when it is full, or when it is to be flushed */
@@ -440,6 +442,15 @@ enum pwm_op_code {
 };
 
 /**
+  @typedef timestamp_counter_info_op_code
+  @brief   enumeration containing the operation of timestamp counter info service
+**/
+enum timestamp_counter_info_op_code {
+	TIMESTAMP_COUNTER_FREQ = 0,
+	TIMESTAMP_COUNTER_SIZE
+};
+
+/**
  @brief  MobileVisor platform pin control service
  <b> Note, Use PINCTRL_ABB_IDX(agr1) for AGOLD PCL ,<b>
  @param  pinctrl_opcode  operation service
@@ -551,6 +562,12 @@ uint32_t mv_svc_sep_pmi_msr_list(struct sep_msr_control *entry_list,
 **/
 uint32_t mv_svc_sep_vmswitch_msr_list(struct sep_msr_control *vmentry_list,
 					struct sep_msr_control *vmexit_list);
+
+/**
+ @brief  MobileVisor sep version number
+ @return sep version number
+**/
+uint32_t mv_svc_sep_version_number(void);
 
 /**
  @brief  Enable watchdog with the timeout specified
@@ -696,5 +713,18 @@ int32_t mv_svc_security_verify_vm_completed(uint32_t verify_result,
 **/
 int32_t mv_svc_security_getvm_loadinfo(uint32_t vm_id, uint32_t *vm_loadaddr,
 					uint32_t *vm_loadsize);
+
+/**
+ @brief  MobileVisor timestamp counter frequency
+ @return timestamp counter frequency in Hz
+**/
+uint32_t mv_svc_timestamp_counter_frequency(void);
+
+/**
+ @brief  MobileVisor timestamp counter size
+ @return timestamp counter size in number of bits
+**/
+uint32_t mv_svc_timestamp_counter_size(void);
+
 
 #endif /* _MV_SVC_HYPERCALLS_H */
