@@ -1499,7 +1499,7 @@ static int __init rga_init(void)
 		buf_p = (uint32_t *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
 		if (buf_p == NULL) {
 			pr_info("RGA init pre scale buf falied\n");
-			return -ENOMEM;
+			goto free_mmu_buf;
 		}
 
 		mmu_buf[i] = virt_to_phys((void *)((uint32_t)buf_p));
@@ -1508,6 +1508,9 @@ static int __init rga_init(void)
 	rga_service.pre_scale_buf = (uint32_t *)mmu_buf;
 
 	buf_p = kmalloc(1024*512, GFP_KERNEL);
+	if (buf_p == NULL)
+		goto free_mmu_buf;
+
 	rga_mmu_buf.buf_virtual = buf_p;
 	i = (virt_to_phys((void *)((uint32_t)buf_p)));
 	rga_mmu_buf.buf = (unsigned int *)i;
@@ -1515,11 +1518,14 @@ static int __init rga_init(void)
 	rga_mmu_buf.back = 128*1024;
 	rga_mmu_buf.size = 128*1024;
 	rga_mmu_buf.pages = kmalloc((16384)*sizeof(struct page *), GFP_KERNEL);
+	if (rga_mmu_buf.pages == NULL)
+		goto free_mmu_buf;
+
 	ret = platform_driver_register(&rga_driver);
 
 	if (ret != 0) {
 		pr_info("Platform device register failed (%d).\n", ret);
-		return ret;
+		goto free_mmu_buf;
 	}
 
 	{
@@ -1561,6 +1567,16 @@ static int __init rga_init(void)
 	INFO("Module initialized.\n");
 
 	return 0;
+
+free_mmu_buf:
+	for (i = 0; i < 1024; i++) {
+		if ((uint32_t *)mmu_buf[i] != NULL)
+			__free_page((void *)mmu_buf[i]);
+	}
+
+	kfree(mmu_buf);
+	return -ENOMEM;
+
 }
 
 static void __exit rga_exit(void)
@@ -1569,15 +1585,20 @@ static void __exit rga_exit(void)
 
 	rga_power_off();
 
-	for (i = 0; i < 1024; i++) {
-		if ((uint32_t *)rga_service.pre_scale_buf[i] != NULL)
-			__free_page((void *)rga_service.pre_scale_buf[i]);
+	if (rga_service.pre_scale_buf != NULL) {
+		for (i = 0; i < 1024; i++) {
+			if ((uint32_t *)rga_service.pre_scale_buf[i] != NULL)
+				__free_page(
+				(void *)rga_service.pre_scale_buf[i]);
+		}
+		kfree((uint8_t *)rga_service.pre_scale_buf);
 	}
 
-	if (rga_service.pre_scale_buf != NULL)
-		kfree((uint8_t *)rga_service.pre_scale_buf);
-	kfree(rga_mmu_buf.buf_virtual);
-	kfree(rga_mmu_buf.pages);
+	if (rga_mmu_buf.buf_virtual != NULL)
+		kfree(rga_mmu_buf.buf_virtual);
+
+	if (rga_mmu_buf.pages != NULL)
+		kfree(rga_mmu_buf.pages);
 
 	platform_driver_unregister(&rga_driver);
 }
