@@ -671,7 +671,7 @@ static int rga_mmu_info_color_fill_mode(struct rga_reg *reg,
 		mmu_base = kzalloc(
 				     (all_size + 1) * sizeof(uint32_t),
 				     GFP_KERNEL);
-		if (pages == NULL) {
+		if (mmu_base == NULL) {
 			pr_err("RGA MMU malloc mmu_base point failed\n");
 			status = RGA_MALLOC_ERROR;
 			break;
@@ -765,7 +765,7 @@ static int rga_mmu_info_line_point_drawing_mode(struct rga_reg *reg,
 		}
 		mmu_base =
 		    kzalloc((all_size + 1) * sizeof(uint32_t), GFP_KERNEL);
-		if (pages == NULL) {
+		if (mmu_base == NULL) {
 			pr_err("RGA MMU malloc mmu_base point failed\n");
 			status = RGA_MALLOC_ERROR;
 			break;
@@ -866,7 +866,7 @@ static int rga_mmu_info_blur_sharp_filter_mode(struct rga_reg *reg,
 		}
 		mmu_base =
 		    kzalloc((all_size + 1) * sizeof(uint32_t), GFP_KERNEL);
-		if (pages == NULL) {
+		if (mmu_base == NULL) {
 			pr_err("RGA MMU malloc mmu_base point failed\n");
 			status = RGA_MALLOC_ERROR;
 			break;
@@ -1016,7 +1016,7 @@ static int rga_mmu_info_pre_scale_mode(struct rga_reg *reg,
 		     */
 		    mmu_base =
 		    kzalloc((all_size + 1) * sizeof(uint32_t), GFP_KERNEL);
-		if (pages == NULL) {
+		if (mmu_base == NULL) {
 			pr_err("RGA MMU malloc mmu_base point failed\n");
 			status = RGA_MALLOC_ERROR;
 			break;
@@ -1179,7 +1179,7 @@ static int rga_mmu_info_update_palette_table_mode(struct rga_reg *reg,
 		}
 		mmu_base =
 		    kzalloc((all_size + 1) * sizeof(uint32_t), GFP_KERNEL);
-		if (pages == NULL) {
+		if (mmu_base == NULL) {
 			pr_err("RGA MMU malloc mmu_base point failed\n");
 			status = RGA_MALLOC_ERROR;
 			break;
@@ -1195,6 +1195,8 @@ static int rga_mmu_info_update_palette_table_mode(struct rga_reg *reg,
 						 src_start, src_mem_size);
 			if (ret < 0) {
 				pr_err("rga map src memory failed\n");
+				kfree(pages);
+				kfree(mmu_base);
 				return -EINVAL;
 			}
 		} else {
@@ -1278,7 +1280,7 @@ static int rga_mmu_info_update_patten_buff_mode(struct rga_reg *reg,
 			break;
 		}
 		mmu_base = kcalloc(all_size * sizeof(uint32_t), 1, GFP_KERNEL);
-		if (pages == NULL) {
+		if (mmu_base == NULL) {
 			pr_err("RGA MMU malloc mmu_base point failed\n");
 			status = RGA_MALLOC_ERROR;
 			break;

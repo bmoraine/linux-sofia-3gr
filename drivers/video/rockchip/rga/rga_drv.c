@@ -1287,7 +1287,7 @@ static int __init rga_init(void)
 		buf_p = (uint32_t *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
 		if (buf_p == NULL) {
 			pr_info("RGA init pre scale buf falied\n");
-			return -ENOMEM;
+			goto free_mmu_buf;
 		}
 
 		mmu_buf[i] = virt_to_phys((void *)((uint32_t)buf_p));
@@ -1299,7 +1299,7 @@ static int __init rga_init(void)
 
 	if (ret != 0) {
 		pr_info("Platform device register failed (%d).\n", ret);
-		return ret;
+		goto free_mmu_buf;
 	}
 
 	{
@@ -1327,6 +1327,15 @@ static int __init rga_init(void)
 	INFO("Module initialized.\n");
 
 	return 0;
+
+free_mmu_buf:
+	for (i = 0; i < 1024; i++) {
+		if ((uint32_t *)mmu_buf[i] != NULL)
+			__free_page((void *)mmu_buf[i]);
+	}
+
+	kfree(mmu_buf);
+	return -ENOMEM;
 }
 
 static void __exit rga_exit(void)
@@ -1335,13 +1344,15 @@ static void __exit rga_exit(void)
 
 	rga_power_off();
 
-	for (i = 0; i < 1024; i++) {
-		if ((uint32_t *)rga_service.pre_scale_buf[i] != NULL)
-			__free_page((void *)rga_service.pre_scale_buf[i]);
-	}
+	if (rga_service.pre_scale_buf != NULL) {
+		for (i = 0; i < 1024; i++) {
+			if ((uint32_t *)rga_service.pre_scale_buf[i] != NULL)
+				__free_page(
+					(void *)rga_service.pre_scale_buf[i]);
+		}
 
-	if (rga_service.pre_scale_buf != NULL)
 		kfree((uint8_t *)rga_service.pre_scale_buf);
+	}
 
 	platform_driver_unregister(&rga_driver);
 }
