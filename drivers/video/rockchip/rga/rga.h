@@ -19,6 +19,9 @@
 
 #include <linux/mutex.h>
 #include <linux/scatterlist.h>
+#include <linux/file.h>
+#include <linux/kthread.h>
+#include "../../drivers/staging/android/sw_sync.h"
 
 #define RGA_BLIT_SYNC	0x5017
 #define RGA_BLIT_ASYNC  0x5018
@@ -304,6 +307,15 @@ struct TILE_INFO  {
 	struct mdp_img_act dst_ctrl;
 };
 
+struct rga_mmu_buf_t {
+	int32_t front;
+	int32_t back;
+	int32_t size;
+	int32_t curr;
+	unsigned int *buf;
+	unsigned int *buf_virtual;
+	struct page **pages;
+};
 /**
  * struct for process session which connect to rga
  *
@@ -325,6 +337,13 @@ struct rga_session {
 	pid_t pid;
 	atomic_t task_running;
 	atomic_t num_done;
+	/*
+	struct kthread_worker update_regs_worker;
+	struct task_struct *update_regs_thread;
+	struct kthread_work update_regs_work;
+	atomic_t queue_work_done;
+	wait_queue_head_t queue_work_wait;
+	*/
 };
 
 struct rga_reg {
@@ -334,6 +353,10 @@ struct rga_reg {
 	uint32_t sys_reg[RGA_REG_CTRL_LEN];
 	uint32_t cmd_reg[RGA_REG_CMD_LEN];
 	uint32_t *MMU_base;
+	struct sync_fence *fence;
+	struct sync_fence *dst_fence;
+	short dst_fence_fd;
+	int MMU_len;
 };
 
 struct rga_service_info {
@@ -357,7 +380,19 @@ struct rga_service_info {
 	atomic_t cmd_num;
 	atomic_t rga_working;
 	bool enable;
-    /* mutex */
+	atomic_t already_queue;
+	short src_fence_fd;
+	short src_fence_flag;
+	short dst_fence_fd;
+	short dst_fence_flag;
+	struct sync_fence *dst_fence;
+	struct sw_sync_timeline *timeline;
+	uint32_t timeline_max;
+	struct workqueue_struct *fence_workqueue;
+	struct delayed_work fence_delayed_work;
+	uint16_t timeout_num;
+	atomic_t delay_work_already_queue;
+	/* mutex */
 	struct mutex mutex;
 };
 

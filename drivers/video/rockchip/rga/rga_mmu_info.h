@@ -28,4 +28,6 @@
 #endif	/*  */
 int rga_set_mmu_info(struct rga_reg *reg, struct rga_req *req);
 
+extern struct rga_mmu_buf_t rga_mmu_buf;
+
 #endif	/*  */

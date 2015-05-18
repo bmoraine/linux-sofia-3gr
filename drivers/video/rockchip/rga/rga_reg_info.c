@@ -1177,7 +1177,7 @@ RGA_set_bitblt_reg_info(u8 *base, const struct rga_req *msg,
 	    (tile->dst_ctrl.x_off * pixel_width);
 	*b_RGA_DST_UV_MST =
 	    (u32)msg->dst.uv_addr + ((tile->dst_ctrl.y_off >> 1) * stride) +
-	    (tile->dst_ctrl.x_off * pixel_width);
+	    ((tile->dst_ctrl.x_off & (~1)) * pixel_width);
 	*b_RGA_DST_CTR_INFO = (tile->dst_ctrl.w) | ((tile->dst_ctrl.h) << 16);
 	*b_RGA_DST_CTR_INFO |= ((1 << 29) | (1 << 28));
 }
