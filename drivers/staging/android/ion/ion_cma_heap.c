@@ -88,10 +88,10 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 
 #ifdef CONFIG_X86
 	if (buffer->flags & ION_FLAG_CACHED)
-		info->cpu_addr = dma_alloc_writeback(dev, len, &(info->handle),
+		info->cpu_addr = dma_alloc_cma_writeback(dev, len, &(info->handle),
 						GFP_HIGHUSER | __GFP_ZERO);
 	else
-		info->cpu_addr = dma_alloc_writecombine(dev, len,
+		info->cpu_addr = dma_alloc_cma_writecombine(dev, len,
 					&(info->handle),
 					GFP_HIGHUSER | __GFP_ZERO);
 #else
@@ -122,7 +122,7 @@ free_table:
 	kfree(info->table);
 free_mem:
 #ifdef CONFIG_X86
-	dma_free_writecombine(dev, len, info->cpu_addr, info->handle);
+	dma_free_cma_writecombine(dev, len, info->cpu_addr, info->handle);
 #else
 	dma_free_coherent(dev, len, info->cpu_addr, info->handle);
 #endif
@@ -142,7 +142,7 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	dev_set_cma_area(dev, cma_heap->cma_area);
 	/* release memory */
 #ifdef CONFIG_X86
-	dma_free_writecombine(dev, buffer->size, info->cpu_addr, info->handle);
+	dma_free_cma_writecombine(dev, buffer->size, info->cpu_addr, info->handle);
 #else
 	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
 #endif
