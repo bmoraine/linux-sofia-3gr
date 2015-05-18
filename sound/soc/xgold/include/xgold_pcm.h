@@ -57,6 +57,11 @@ struct xgold_pcm {
 	int dump_dma_buffer_pos;
 	struct xgold_pcm_hw_probe_status
 		hw_probe_status[HW_PROBE_POINT_END];
+	/* RECORD DUMP */
+	int record_dump;
+	struct work_struct record_dump_work;
+	unsigned char *dump_record_buffer;
+	int dump_record_buffer_pos;
 };
 
 struct xgold_runtime_data {
@@ -73,6 +78,7 @@ struct xgold_runtime_data {
 	dma_cookie_t dma_cookie;
 	struct completion dma_complete;
 	bool dma_stop;
+	unsigned total_nof_bytes_read;
 };
 
 #endif /* __XGOLD_PCM_H__ */

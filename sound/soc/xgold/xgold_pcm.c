@@ -50,6 +50,9 @@
 #define DUMP_DMA_PERIOD (10)
 #define DUMP_DMA_SIZE (4 * 48000 * DUMP_DMA_PERIOD)
 
+/* RECORD DUMP */
+#define DUMP_RECORD_PERIOD (10)
+#define DUMP_RECORD_SIZE (4 * 48000 * DUMP_RECORD_PERIOD)
 
 /* Fix me move this to DTS */
 #define XGOLD_OUT_RATES SNDRV_PCM_RATE_8000_48000
@@ -136,9 +139,9 @@ static struct snd_pcm_hardware xgold_pcm_record_cfg = {
 	.rate_max = 48000,
 	.channels_min = 1,
 	.channels_max = 2,
-	.buffer_bytes_max = 61440,
+	.buffer_bytes_max = 112896,
 	.period_bytes_min = 40,
-	.period_bytes_max = 960,
+	.period_bytes_max = 1764,
 	.periods_min = 2,
 	.periods_max = 64,
 };
@@ -405,11 +408,10 @@ void xgold_dsp_pcm_rec_handler(void *dev)
 {
 	struct xgold_runtime_data *xrtd = (struct xgold_runtime_data *)dev;
 	struct xgold_pcm *xgold_pcm;
-	unsigned short nof_bytes_to_read = 0;
+	unsigned short nof_bytes_to_read;
 	struct dsp_rw_shm_data rw_shm_data;
-
+	unsigned short *pData;
 	xgold_debug("%s\n", __func__);
-
 	if (!xrtd) {
 		xgold_err("%s: xgold runtime data is NULL!!\n", __func__);
 		return;
@@ -421,8 +423,8 @@ void xgold_dsp_pcm_rec_handler(void *dev)
 		xgold_err("%s: stream data is NULL!!\n", __func__);
 		return;
 	}
-
 	xrtd->hwptr = (unsigned short *)(xrtd->stream->runtime->dma_area +
+			xrtd->total_nof_bytes_read +
 			xrtd->period_size_bytes * xrtd->hwptr_done);
 
 	/* read the buffer size */
@@ -435,8 +437,6 @@ void xgold_dsp_pcm_rec_handler(void *dev)
 			xgold_pcm->dsp,
 			DSP_AUDIO_CONTROL_READ_SHM,
 			&rw_shm_data);
-
-	/* read the samples */
 	rw_shm_data.word_offset =
 		xgold_pcm->dsp->p_dsp_common_data->buf_sm_ul_offset;
 
@@ -445,16 +445,58 @@ void xgold_dsp_pcm_rec_handler(void *dev)
 		(2 * nof_bytes_to_read * xrtd->stream->runtime->channels);
 
 	rw_shm_data.p_data = xrtd->hwptr;
+
 	xgold_pcm->dsp->p_dsp_common_data->ops->set_controls(
 			xgold_pcm->dsp,
 			DSP_AUDIO_CONTROL_READ_SHM,
 			&rw_shm_data);
 
-	xrtd->hwptr_done++;
-	xrtd->periods++;
-	xrtd->periods %= xrtd->stream->runtime->periods;
-	xrtd->hwptr_done %= xrtd->stream->runtime->periods;
-	snd_pcm_period_elapsed(xrtd->stream);
+	/* trigger data save for record dump */
+	if (xgold_pcm->record_dump == 1) {
+		if (xgold_pcm->dump_record_buffer) {
+			int nToWrite =
+				2 * nof_bytes_to_read *
+					xrtd->stream->runtime->channels;
+			pData =
+			(unsigned short *)(xrtd->stream->runtime->dma_area
+				+ xrtd->period_size_bytes * xrtd->hwptr_done);
+			if (DUMP_RECORD_SIZE -
+				xgold_pcm->dump_record_buffer_pos >
+				nToWrite) {
+				memcpy(xgold_pcm->dump_record_buffer +
+					xgold_pcm->dump_record_buffer_pos,
+					(void *)pData,
+					nToWrite);
+				xgold_pcm->dump_record_buffer_pos += nToWrite;
+			} else {
+				int nRemain =
+					nToWrite -
+					(DUMP_RECORD_SIZE -
+					xgold_pcm->dump_record_buffer_pos);
+				memcpy(xgold_pcm->dump_record_buffer +
+					xgold_pcm->dump_record_buffer_pos,
+					(void *)pData,
+					nToWrite - nRemain);
+				memcpy(xgold_pcm->dump_record_buffer,
+					(void *)(pData + nToWrite - nRemain),
+					nRemain);
+				xgold_pcm->dump_record_buffer_pos = nRemain;
+				xgold_pcm->record_dump = 2;
+				schedule_work(&xgold_pcm->record_dump_work);
+			}
+		}
+	}
+	xrtd->total_nof_bytes_read += (2 * nof_bytes_to_read *
+		xrtd->stream->runtime->channels);
+
+	if (xrtd->total_nof_bytes_read >= xrtd->period_size_bytes) {
+		xrtd->total_nof_bytes_read = 0;
+		xrtd->hwptr_done++;
+		xrtd->periods++;
+		xrtd->periods %= xrtd->stream->runtime->periods;
+		xrtd->hwptr_done %= xrtd->stream->runtime->periods;
+		snd_pcm_period_elapsed(xrtd->stream);
+	}
 }
 
 static void xgold_pcm_dma_submit(struct xgold_runtime_data *, dma_addr_t);
@@ -1272,7 +1314,109 @@ static int xgold_pcm_rec_path_sel_ctl_set(
 		(unsigned int)ucontrol->value.integer.value[0];
 	return 0;
 }
+/* RECORD DUMP */
+static void record_dump_handler(struct work_struct *work)
+{
+	struct file *filp = NULL;
+	mm_segment_t old_fs;
+	struct xgold_pcm *xgold_pcm =
+		container_of(work, struct xgold_pcm, record_dump_work);
 
+	xgold_debug("%s\n", __func__);
+
+	if (xgold_pcm->record_dump == 2) {
+		filp = filp_open("/data/record_dump.pcm",
+			O_CREAT|O_RDWR|O_TRUNC, 0600);
+		if (filp) {
+			old_fs = get_fs();
+			set_fs(get_ds());
+
+			filp->f_op->write(
+				filp,
+				xgold_pcm->dump_record_buffer +
+				xgold_pcm->dump_record_buffer_pos,
+				DUMP_RECORD_SIZE -
+				xgold_pcm->dump_record_buffer_pos,
+				&filp->f_pos);
+			if (xgold_pcm->dump_record_buffer_pos != 0)
+				filp->f_op->write(
+				filp,
+				xgold_pcm->dump_record_buffer,
+				xgold_pcm->dump_record_buffer_pos,
+				&filp->f_pos);
+
+			set_fs(old_fs);
+
+			filp_close(filp, NULL);
+	  } else {
+			xgold_err("%s, Create file failtrue!!\n", __func__);
+		}
+	} else {
+		xgold_err("%s, Should not be here\n", __func__);
+	}
+
+	xgold_pcm->record_dump = 0;
+}
+
+static int xgold_pcm_record_dump_sel_ctl_info(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
+{
+	xgold_debug("%s\n", __func__);
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 1;
+	return 0;
+}
+
+static int xgold_pcm_record_dump_sel_ctl_get(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
+	xgold_debug("%s - get value %d\n",
+		__func__, (int)xgold_pcm->record_dump);
+	ucontrol->value.integer.value[0] = (int)xgold_pcm->record_dump;
+	return 0;
+}
+
+/* Set function for the pcm rec dump select control */
+static int xgold_pcm_record_dump_sel_ctl_set(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
+
+	xgold_debug("%s - set value %d\n",
+		__func__, (int)ucontrol->value.integer.value[0]);
+
+	if ((int)xgold_pcm->record_dump == 0 &&
+		(unsigned int)ucontrol->value.integer.value[0] != 0) {
+		/* Allocate memory to stroe record data */
+		if (xgold_pcm->dump_record_buffer == NULL) {
+			xgold_pcm->dump_record_buffer =
+				vmalloc(DUMP_RECORD_SIZE);
+			if (xgold_pcm->dump_record_buffer == NULL) {
+				xgold_err("DUMP memory cannot be allocated\n");
+				return -ENOMEM;
+			} else {
+				memset(xgold_pcm->dump_record_buffer,
+				0, DUMP_RECORD_SIZE);
+				/* Add work for dumping record data*/
+				INIT_WORK(&xgold_pcm->record_dump_work,
+				record_dump_handler);
+				xgold_debug("DUMP record memory thread scheduled\n");
+			}
+		}
+
+		if (xgold_pcm->dump_record_buffer != NULL)
+			xgold_pcm->record_dump = 1;
+	}
+	return 0;
+}
 /* DMA DUMP */
 static void dma_dump_handler(struct work_struct *work)
 {
@@ -1474,6 +1618,13 @@ static const struct snd_kcontrol_new xgold_pcm_controls[] = {
 		.info = xgold_pcm_rec_path_sel_ctl_info,
 		.get = xgold_pcm_rec_path_sel_ctl_get,
 		.put = xgold_pcm_rec_path_sel_ctl_set,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "Start RECORD dump",
+		.info = xgold_pcm_record_dump_sel_ctl_info,
+		.get = xgold_pcm_record_dump_sel_ctl_get,
+		.put = xgold_pcm_record_dump_sel_ctl_set,
 	},
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
@@ -1680,6 +1831,15 @@ skip_pinctrl:
 static int xgold_pcm_remove(struct platform_device *pdev)
 {
 	struct xgold_pcm *pcm = platform_get_drvdata(pdev);
+
+	if (pcm && pcm->dump_record_buffer) {
+		vfree(pcm->dump_record_buffer);
+		pcm->dump_record_buffer = NULL;
+		pcm->dump_record_buffer_pos = 0;
+		pcm->record_dump = 0;
+		destroy_work_on_stack(&pcm->record_dump_work);
+	}
+
 	if (pcm && pcm->dump_dma_buffer) {
 		vfree(pcm->dump_dma_buffer);
 		pcm->dump_dma_buffer = NULL;
