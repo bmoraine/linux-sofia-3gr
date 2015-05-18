@@ -32,6 +32,8 @@
 #define VPU_IOC_PROBE_IOMMU_STATUS	_IOR(VPU_IOC_MAGIC, 5, unsigned long)
 #define VPU_IOC_SECVM_CMD		_IOWR(VPU_IOC_MAGIC, 6, \
 						struct vvpu_secvm_cmd)
+#define VPU_IOC_SECVM_PP_CMD            _IOWR(VPU_IOC_MAGIC, 7, \
+						struct vvpu_secvm_cmd)
 
 enum VPU_CLIENT_TYPE {
 	VPU_ENC				= 0x0,

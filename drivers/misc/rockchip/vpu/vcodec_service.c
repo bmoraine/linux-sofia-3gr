@@ -65,6 +65,7 @@
 
 #include "vcodec_service.h"
 #include "vcodec_power_handler.h"
+/*#include "vvpu_pp_pipe.h"*/
 
 #if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 
@@ -1514,6 +1515,25 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 
 		if (copy_to_user((void __user *)arg, &vvpu_cmd,
 				sizeof(vvpu_cmd)))
+			return -EFAULT;
+#else
+		ret = -EFAULT;
+#endif
+		break;
+	}
+	case VPU_IOC_SECVM_PP_CMD: {
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
+		/* IMC: send a VVPU command to secure VM */
+		struct vvpu_secvm_cmd vvpu_pp_cmd;
+		if (copy_from_user(&vvpu_pp_cmd, (void __user *)arg,
+				sizeof(vvpu_pp_cmd)))
+			return -EFAULT;
+		/*pr_err("ioctl VPU_IOC_SECVM_PP_CMD vop is %d\n",
+						vvpu_pp_cmd.payload[1]);*/
+		vpu_service_power_on(pservice);
+		vvpu_call(pservice->dev, &vvpu_pp_cmd);
+		if (copy_to_user((void __user *)arg, &vvpu_pp_cmd,
+				sizeof(vvpu_pp_cmd)))
 			return -EFAULT;
 #else
 		ret = -EFAULT;
