@@ -136,7 +136,12 @@ again:
 	page = NULL;
 	/* CMA can be used only in the context which permits sleeping */
 	if (flag & __GFP_WAIT)
-		page = dma_alloc_from_contiguous(dev, count, get_order(size));
+#ifdef CONFIG_CMA_EXPLICIT_USE
+		if (dma_get_attr(DMA_ATTR_CMA, attrs))
+#endif
+			page = dma_alloc_from_contiguous(dev,
+						count, get_order(size));
+
 	/* fallback */
 	if (!page)
 		page = alloc_pages_node(dev_to_node(dev), flag, get_order(size));

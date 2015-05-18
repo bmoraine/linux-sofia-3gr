@@ -505,6 +505,15 @@ config CMA
 
 	  If unsure, say "n".
 
+config CMA_EXPLICIT_USE
+	bool "CMA use must be explicitly requested"
+	depends on CMA
+	default n
+	help
+	  By default __dma_alloc can allocate through CMA region. This
+	  config requires DMA_ATTR_CMA to be set for allocating in the
+	  CMA region.
+
 config CMA_DEBUG
 	bool "CMA debug messages (DEVELOPMENT)"
 	depends on DEBUG_KERNEL && CMA
