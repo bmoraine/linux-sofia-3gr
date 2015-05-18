@@ -47,6 +47,15 @@
 #include "../../../staging/android/ion/ion.h"
 #endif
 
+#if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE) && defined(CONFIG_SECURE_PLAYBACK)
+#define RGA_SECURE_ACCESS
+#endif
+
+#if defined(RGA_SECURE_ACCESS)
+#include <sofia/mv_svc_hypercalls.h>
+#include <sofia/vrga_fe.h>
+#endif /* RGA_SECURE_ACCESS */
+
 #include "rga.h"
 #include "rga_reg_info.h"
 #include "rga_mmu_info.h"
@@ -589,7 +598,13 @@ static void rga_service_session_clear(struct rga_session *session)
 static void rga_try_set_reg(void)
 {
 	struct rga_reg *reg;
+#if defined(RGA_SECURE_ACCESS)
+	struct vrga_secvm_cmd vcmd;
+	int vrga_ret;
+#endif
+
 	int err;
+
 
 	if (list_empty(&rga_service.running)) {
 		if (!list_empty(&rga_service.waiting)) {
@@ -614,6 +629,8 @@ static void rga_try_set_reg(void)
 						       cmd_buff[28]));
 #endif
 
+/* secvm change */
+#if !defined(RGA_SECURE_ACCESS)
 			rga_soft_reset();
 
 			rga_write(0x0, RGA_SYS_CTRL);
@@ -622,6 +639,7 @@ static void rga_try_set_reg(void)
 			/* CMD buff */
 			rga_write(virt_to_phys(rga_service.cmd_buff),
 				  RGA_CMD_ADDR);
+#endif
 
 #if RGA_TEST
 			{
@@ -640,12 +658,15 @@ static void rga_try_set_reg(void)
 			}
 #endif
 
+/* secvm change */
+#if !defined(RGA_SECURE_ACCESS)
 			/* master mode */
 			rga_write((0x1 << 2) | (0x1 << 3), RGA_SYS_CTRL);
 
 			/* All CMD finish int */
 			rga_write(rga_read(RGA_INT) |
 				  (0x1 << 10) | (0x1 << 8), RGA_INT);
+#endif
 
 #if RGA_TEST_TIME
 			rga_start = ktime_get();
@@ -661,7 +682,24 @@ static void rga_try_set_reg(void)
 			/*queue_delayed_work(rga_service.fence_workqueue,
 				&rga_service.fence_delayed_work,
 				RGA_FENCE_TIMEOUT_DELAY);*/
+#if !defined(RGA_SECURE_ACCESS)
 			rga_write(1, RGA_CMD_CTRL);
+#else
+			/* call into secvm to update rga registers */
+			memset(&vcmd, 0, sizeof(vcmd));
+
+			vcmd.payload[0] = VRGA_VTYPE_REG;
+			vcmd.payload[1] = VRGA_VOP_REG_WRITE;
+			vcmd.payload[2] = 0;
+			vcmd.payload[3] = 0;
+			vcmd.payload[4] = virt_to_phys(rga_service.cmd_buff);
+
+			/* execute command */
+			vrga_ret = vrga_call(drvdata->dev, &vcmd);
+			if (vrga_ret == 0)
+				dev_err(drvdata->dev, "error rga registers writing");
+
+#endif
 
 /*RGA_TEST
 			{
@@ -1245,8 +1283,13 @@ static irqreturn_t rga_irq_thread(int irq, void *dev_id)
 static irqreturn_t rga_irq(int irq, void *dev_id)
 {
 	/*clear INT */
+#if !defined(RGA_SECURE_ACCESS)
 	rga_write(rga_read(RGA_INT) | (0x1 << 6) |
-		  (0x1 << 7) | (0x1 << 4), RGA_INT);
+		(0x1 << 7) | (0x1 << 4), RGA_INT);
+#else
+	mv_svc_reg_write(RGA_BASE + RGA_INT,
+		(0x1 << 6) | (0x1 << 7) | (0x1 << 4), BIT(4)|BIT(6)|BIT(7));
+#endif
 
 	return IRQ_WAKE_THREAD;
 }
@@ -1360,6 +1403,29 @@ static int rga_drv_probe(struct platform_device *pdev)
 		return PTR_ERR(data->ion_client);
 	}
 #endif
+
+#if defined(RGA_SECURE_ACCESS)
+	/*
+	 * initlialize secure VM decoder: init vbpipe
+	 */
+	dev_info(&pdev->dev, "init SecureVM rga");
+
+	/* indicator for isr, ioctl, etc. */
+	ret = vrga_fe_init(&pdev->dev);
+
+	/*
+	 * during system boot the vbpipe may not yet be accessible
+	 * therefore ignore an error and init the pipe
+	 * the first time it is used
+	 */
+	if (ret != 0) {
+		dev_warn(&pdev->dev, "vbpipe open is postponed");
+
+		/* TODO: ignore and skip probing; open pipe later */
+		ret = 0;
+	}
+#endif
+
 	ret = misc_register(&rga_dev);
 	if (ret) {
 		ERR("cannot register miscdev (%d)\n", ret);
@@ -1397,6 +1463,10 @@ static int rga_drv_remove(struct platform_device *pdev)
 #else
 	devm_clk_put(&pdev->dev, data->aclk_rga);
 	devm_clk_put(&pdev->dev, data->hclk_rga);
+#endif
+
+#if defined(RGA_SECURE_ACCESS)
+	vrga_fe_release(&pdev->dev);
 #endif
 
 	return 0;
