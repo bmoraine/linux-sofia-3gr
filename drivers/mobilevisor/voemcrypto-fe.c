@@ -90,6 +90,10 @@ struct voemcrypto_t {
 static struct voemcrypto_t *voemcrypto_data = (struct voemcrypto_t *) NULL;
 static enum voemcrypto_devstate_t device_state = VOEMCRYPTO_DEVICE_IDLE;
 
+/* structs for data channel */
+static struct voemcrypto_t voemcrypto_data_in;
+static struct voemcrypto_t voemcrypto_data_out;
+
 
 #define SIZE_OF_KCTL 16
 #define SIZE_OF_IV 16
@@ -216,11 +220,11 @@ static ssize_t dev_read(struct file *fl,
 
 	/* For now we assume only shared mem is used.
 	 * If not sufficient, we may need to kalloc extra */
-	if ((*off+size) > voemcrypto_data->share_data_size)
+	if (size > voemcrypto_data->share_data_size)
 		return -EINVAL;
 
 	/* Data is waiting in pmem and waiting to be read */
-	copy_to_user(buf, voemcrypto_data->share_data + (*off), size);
+	copy_to_user(buf, voemcrypto_data->share_data, size);
 
 	/* device is ready for next command */
 	device_state = VOEMCRYPTO_DEVICE_IDLE;
@@ -239,10 +243,10 @@ static ssize_t dev_write(struct file *fl,
 		return -EBUSY; /* Shared mem is still being used!*/
 	/* For now we assume only shared mem is used.
 	 * If not sufficient, we may need to kalloc extra */
-	if ((*off+size) > voemcrypto_data->share_data_size)
+	if (size > voemcrypto_data->share_data_size)
 		return -EINVAL;
 
-	copy_from_user(voemcrypto_data->share_data + (*off), buf, size);
+	copy_from_user(voemcrypto_data->share_data, buf, size);
 
 	TRACE("Write %d success.\n", size);
 
@@ -284,9 +288,106 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 
 	device_state = VOEMCRYPTO_DEVICE_BUSY;
 
-	TRACE("Dispatch IOCTL command 0x%08X\n", (uint32_t)cmd&0x000000FF);
+	TRACE("Dispatch IOCTL cmd 0x%08X\n", (uint32_t)cmd&0x000000FF);
 
 	switch (cmd) {
+	/*===================================================================*/
+	case VOEMC_IOCTL_DECRYPTCTR:
+	/*===================================================================*/
+	{
+		struct voemc_decryptctr_transfer_t *req =
+					(struct voemc_decryptctr_transfer_t *)input;
+
+		if (copy_from_user(data, (void __user *)input,
+			sizeof(struct voemc_decryptctr_transfer_t)))
+			return -EFAULT;
+
+		/* copy data to data in channel */
+		copy_from_user(voemcrypto_data_in.share_data,
+				(void __user *)req->req.data_addr,
+				req->req.data_length);
+
+		ret_size = voemcrypto_call_ext(voemcrypto_data,
+					sizeof(struct voemc_decryptctr_transfer_t));
+
+		copy_to_user((void __user *)input, voemcrypto_data->share_data, 2*sizeof(uint32_t));  // only need to return result
+
+		device_state = VOEMCRYPTO_DEVICE_IDLE;  // free device
+
+		/* check if need to read output data */
+		if (req->dest_buffer_desc.type == voemc_buffer_type_clear &&
+			req->req.is_encrypted == true) {
+			/* Read from shared out mem */
+			if (copy_to_user((void __user *)req->dest_buffer_desc.buffer.clear.address,
+							voemcrypto_data_out.share_data,
+							req->req.data_length)) {
+				pr_err("copy failed");
+				return -EFAULT;
+			}
+		}
+
+		return ret_size;
+	}
+
+	/*===================================================================*/
+	case VOEMC_IOCTL_WVC_DECRYPT_VIDEO:
+	/*===================================================================*/
+	{
+		struct voem_wvc_decrypt_video_t *req =
+			(struct voem_wvc_decrypt_video_t *)input;
+
+		if (copy_from_user(data, (void __user *)input,
+			sizeof(struct voem_wvc_decrypt_video_t)))
+			return -EFAULT;
+
+		/* copy data to data in channel */
+		copy_from_user(voemcrypto_data_in.share_data,
+				(void __user *)req->input,
+				req->input_length);
+
+		ret_size = voemcrypto_call_ext(voemcrypto_data,
+					sizeof(struct voem_wvc_decrypt_video_t));
+
+		copy_to_user((void __user *)input, voemcrypto_data->share_data,
+					sizeof(struct voem_wvc_decrypt_video_t));
+
+		device_state = VOEMCRYPTO_DEVICE_IDLE;  // free device
+
+		return ret_size;
+	}
+
+	/*===================================================================*/
+	case VOEMC_IOCTL_WVC_DECRYPT_AUDIO:
+	/*===================================================================*/
+	{
+		struct voem_wvc_decrypt_audio_t *out;
+		struct voem_wvc_decrypt_audio_t *req =
+			(struct voem_wvc_decrypt_audio_t *)input;
+
+		if (copy_from_user(data, (void __user *)input,
+			sizeof(struct voem_wvc_decrypt_audio_t)))
+			return -EFAULT;
+
+		/* copy data to data in channel */
+		copy_from_user(voemcrypto_data_in.share_data,
+				(void __user *)req->input,
+				req->input_length);
+
+		ret_size = voemcrypto_call_ext(voemcrypto_data,
+					sizeof(struct voem_wvc_decrypt_audio_t));
+
+		copy_to_user((void __user *)input, voemcrypto_data->share_data, sizeof(struct voem_wvc_decrypt_audio_t));  // only need to return result
+
+		device_state = VOEMCRYPTO_DEVICE_IDLE;  // free device
+
+		out = (struct voem_wvc_decrypt_audio_t *)voemcrypto_data->share_data;
+		copy_to_user((void __user *)req->output,
+					voemcrypto_data_out.share_data,
+					out->output_length);
+
+		return ret_size;
+	}
+
 	/*===================================================================*/
 	case VOEMC_IOCTL_INIT:
 	/*===================================================================*/
@@ -1306,39 +1407,6 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 			sizeof(struct voemc_delete_usage_table_t));
 
 		/* clean up */
-			break;
-
-	}
-
-	/*===================================================================*/
-	case VOEMC_IOCTL_WVC_DECRYPT_VIDEO:
-	/*===================================================================*/
-	{
-		struct voem_wvc_decrypt_video_t *req =
-			(struct voem_wvc_decrypt_video_t *)data;
-
-		req->cmd = VOEMCRYPTO_CMD_WVC_DECRYPT_VIDEO;
-
-		/* Invoke RPC call */
-		ret_size = voemcrypto_call_ext(voemcrypto_data,
-			sizeof(struct voem_wvc_decrypt_video_t));
-
-		break;
-	}
-
-	/*===================================================================*/
-	case VOEMC_IOCTL_WVC_DECRYPT_AUDIO:
-	/*===================================================================*/
-	{
-		struct voem_wvc_decrypt_audio_t *req =
-			(struct voem_wvc_decrypt_audio_t *)data;
-
-		req->cmd = VOEMCRYPTO_CMD_WVC_DECRYPT_AUDIO;
-
-		/* Invoke RPC call */
-		ret_size = voemcrypto_call_ext(voemcrypto_data,
-			sizeof(struct voem_wvc_decrypt_audio_t));
-
 		break;
 	}
 
@@ -1565,6 +1633,24 @@ static int __init voemcrypto_init(void)
 	}
 	p_voemcrypto->status = VOEC_CTL_STATUS_DISCONNECT;
 	mv_mbox_set_online(p_voemcrypto->token);
+
+	p_voemcrypto = &voemcrypto_data_in;
+	p_voemcrypto->token = mv_ipc_mbox_get_info("security",
+					"oec_dat_in",
+					&voemcrypto_ops,
+					&(p_voemcrypto->share_data),
+					&(p_voemcrypto->share_data_size),
+					&(p_voemcrypto->cmdline),
+					(void *)p_voemcrypto);
+
+	p_voemcrypto = &voemcrypto_data_out;
+	p_voemcrypto->token = mv_ipc_mbox_get_info("security",
+					"oec_dat_out",
+					&voemcrypto_ops,
+					&(p_voemcrypto->share_data),
+					&(p_voemcrypto->share_data_size),
+					&(p_voemcrypto->cmdline),
+					(void *)p_voemcrypto);
 
 	TRACE("Initialized.\n");
 	return 0;

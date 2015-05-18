@@ -71,12 +71,10 @@ enum voemcrypto_cmd_t {
 	VOEMCRYPTO_CMD_REPORTUSAGE = 30,
 	VOEMCRYPTO_CMD_DELETEUSAGEENTRY = 31,
 	VOEMCRYPTO_CMD_DELETEUSAGETABLE = 32,
-/* VOEMCRYPTO_CMD_FETCHLOG = 33, */
 	VOEMCRYPTO_CMD_WVC_DECRYPT_VIDEO = 50, /* Widevine classic */
 	VOEMCRYPTO_CMD_WVC_DECRYPT_AUDIO = 51, /* Widevine classic */
 	VOEMCRYPTO_CMD_WVC_SET_ENTITLEMENT_KEY = 52, /* Widevine classic */
 	VOEMCRYPTO_CMD_WVC_DERIVE_CONTROL_WORD = 53, /* Widevine classic */
-/* VOEMCRYPTO_CMD_GET_ADDRESS = 60, */
 	VOEMCRYPTO_CMD_MAX = 0xFFFFFFFF
 };
 
@@ -556,12 +554,12 @@ struct voem_wvc_decrypt_video_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint8_t iv[16];
-	uint8_t *input;
+	const uint8_t *input;
 	uint32_t input_length;
 	uint32_t output_handle;
 	uint32_t output_offset;
 	uint32_t pad_4bytes;
-	uint32_t *output_length;
+	uint32_t output_length;
 	uint8_t align64[64 - sizeof(uint32_t)*6 -
 		sizeof(uint8_t)*16 - sizeof(void *)*2];
 };
@@ -571,11 +569,11 @@ struct voem_wvc_decrypt_audio_t {
 	uint32_t cmd;
 	uint32_t result;
 	uint8_t iv[16];
-	uint8_t *input;
+	const uint8_t *input;
 	uint32_t input_length;
 	uint32_t pad_4bytes;
 	uint8_t *output;
-	uint32_t *output_length;
+	uint32_t output_length;
 	uint8_t align64[64 - sizeof(uint32_t)*4 -
 		sizeof(uint8_t)*16 - sizeof(void *)*3];
 };
