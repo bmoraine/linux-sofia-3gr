@@ -1662,8 +1662,11 @@ static int sdhci_do_get_cd(struct sdhci_host *host)
 		return 1;
 
 	/* Try slot gpio detect */
-	if (!IS_ERR_VALUE(gpio_cd))
+	if (!IS_ERR_VALUE(gpio_cd)) {
+		if (host->ops->card_status)
+			host->ops->card_status(host, !!gpio_cd);
 		return !!gpio_cd;
+	}
 
 	/* Host native card detect */
 	return !!(sdhci_readl(host, SDHCI_PRESENT_STATE) & SDHCI_CARD_PRESENT);
