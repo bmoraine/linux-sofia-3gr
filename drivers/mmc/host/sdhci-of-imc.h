@@ -66,6 +66,7 @@ struct xgold_mmc_pdata {
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
+	u8 pins_restore_default;
 	bool io_master;
 	struct device dev;
 	u32 fixup;

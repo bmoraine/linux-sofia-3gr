@@ -98,7 +98,8 @@ static unsigned int xgold_sdhci_of_get_min_clock(struct sdhci_host *host)
 	return min_clock;
 }
 
-static void xgold_default_regs_fixup(struct sdhci_host *host) {
+static void xgold_default_regs_fixup(struct sdhci_host *host)
+{
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *pdata = pdev->dev.platform_data;
 	struct device_node *np = pdev->dev.of_node;
@@ -230,6 +231,25 @@ int xgold_sdhci_of_select_card_ds(struct sdhci_host *host, unsigned int dtr)
 	return mmc_pdata->card_drive_strength[0];
 }
 
+void xgold_sdhci_of_card_status(struct sdhci_host *host, bool status)
+{
+	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
+	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
+	if (!status) {
+		dev_dbg(&pdev->dev, "card event: card removed\n");
+		/* pull down on pads */
+		xgold_sdhci_set_pinctrl_state(&pdev->dev,
+				mmc_pdata->pins_inactive);
+		mmc_pdata->pins_restore_default = 0;
+	} else {
+		/* pull up on pads */
+		dev_dbg(&pdev->dev, "card event: card inserted\n");
+		xgold_sdhci_set_pinctrl_state(&pdev->dev,
+				mmc_pdata->pins_default);
+		mmc_pdata->pins_restore_default = 1;
+	}
+
+}
 
 /*****************************************************************************\
  *                                                                           *
@@ -278,7 +298,7 @@ static void xgold_sdhci_of_resume(struct sdhci_host *host)
 		regulator_enable(host->vqmmc);
 	if (host->mmc->card) {
 		if (device_state_pm_set_state_by_name(&mmc_pdata->dev,
-				mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name))
+			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name))
 			dev_err(&pdev->dev, "set pm state D0 during runtime resume  failed !\n");
 	}
 #endif
@@ -320,7 +340,9 @@ static void xgold_sdhci_of_runtime_suspend(struct sdhci_host *host)
 {
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
-	xgold_sdhci_set_pinctrl_state(&pdev->dev, mmc_pdata->pins_sleep);
+	xgold_sdhci_set_pinctrl_state(&pdev->dev,
+			(mmc_pdata->pins_restore_default == 1 ?
+			mmc_pdata->pins_sleep : mmc_pdata->pins_inactive));
 #if defined CONFIG_PLATFORM_DEVICE_PM && defined CONFIG_PLATFORM_DEVICE_PM_VIRT
 	if (device_state_pm_set_state_by_name(&mmc_pdata->dev,
 			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0i2_name))
@@ -337,8 +359,9 @@ static void xgold_sdhci_of_runtime_resume(struct sdhci_host *host)
 
 	if (mmc_pdata->irq_eint)
 		xgold_cd_irq_disable(mmc_pdata);
-
-	xgold_sdhci_set_pinctrl_state(&pdev->dev, mmc_pdata->pins_default);
+	xgold_sdhci_set_pinctrl_state(&pdev->dev,
+			(mmc_pdata->pins_restore_default == 1 ?
+			mmc_pdata->pins_default : mmc_pdata->pins_inactive));
 #if defined CONFIG_PLATFORM_DEVICE_PM && defined CONFIG_PLATFORM_DEVICE_PM_VIRT
 	if (device_state_pm_set_state_by_name(&mmc_pdata->dev,
 			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name))
@@ -391,6 +414,7 @@ static struct sdhci_ops xgold_sdhci_ops = {
 	.set_clock = xgold_sdhci_of_set_clock,
 	.get_max_clock = xgold_sdhci_of_get_max_clock,
 	.get_min_clock = xgold_sdhci_of_get_min_clock,
+	.card_status = xgold_sdhci_of_card_status,
 	.set_uhs_signaling = xgold_sdhci_of_set_timing,
 	.select_card_drive_strength = xgold_sdhci_of_select_card_ds,
 #ifdef CONFIG_PM
@@ -575,6 +599,7 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 
 
 	xgold_sdhci_set_pinctrl_state(&pdev->dev, mmc_pdata->pins_default);
+	mmc_pdata->pins_restore_default = 1;
 
 	it_wk = of_property_match_string(np, "interrupt-names",
 					 "wake");
