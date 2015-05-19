@@ -195,6 +195,12 @@ int rpmb_dev_resume(struct gendisk *disk)
 }
 EXPORT_SYMBOL_GPL(rpmb_dev_resume);
 
+static void rpmb_dev_work(struct work_struct *work)
+{
+	struct rpmb_dev *dev = container_of(work, struct rpmb_dev, work);
+	blocking_notifier_call_chain(&rpmb_notifier, RPMB_PART_ADD, dev);
+}
+
 struct rpmb_dev *rpmb_dev_register(struct gendisk *disk, struct rpmb_ops *ops)
 {
 	struct rpmb_dev *dev;
@@ -218,12 +224,13 @@ struct rpmb_dev *rpmb_dev_register(struct gendisk *disk, struct rpmb_ops *ops)
 	dev->name   = dev_name(parent);
 	dev->ops    = ops;
 	dev->disk   = disk;
+	INIT_WORK(&dev->work, rpmb_dev_work);
 
 	mutex_lock(&rpmb_dev_list_mutex);
 	list_add_tail(&dev->dev_list, &rpmb_dev_list);
 	mutex_unlock(&rpmb_dev_list_mutex);
 
-	blocking_notifier_call_chain(&rpmb_notifier, RPMB_PART_ADD, dev);
+	schedule_work(&dev->work);
 
 	pr_debug("registered disk %s:%s\n", dev_name(parent), disk->disk_name);
 

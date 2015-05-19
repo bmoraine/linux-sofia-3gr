@@ -17,6 +17,7 @@
 #include <linux/device.h>
 #include <linux/kref.h>
 #include <linux/genhd.h>
+#include <linux/workqueue.h>
 
 
 struct rpmb_frame {
@@ -64,6 +65,7 @@ struct rpmb_dev {
 	struct rpmb_ops *ops;
 	const char *name;
 	struct mutex lock;
+	struct work_struct work;
 };
 
 
