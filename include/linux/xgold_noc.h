@@ -18,4 +18,17 @@
  ****************************************************************
  */
 
+#ifndef XGOLD_NOC_H_
+#define XGOLD_NOC_H_
+
+struct noc_qos_list {
+	struct list_head list;
+	const char *name;
+};
+
 extern void xgold_noc_qos_set(char *name);
+extern int of_noc_qos_populate(struct device *dev,
+			struct device_node *np,
+			struct noc_qos_list **qos);
+extern void of_noc_qos_free(struct noc_qos_list *qos_root);
+#endif
