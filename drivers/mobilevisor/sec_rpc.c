@@ -129,6 +129,15 @@ DEFINE_SEMAPHORE(fd_sec_rpc_mutex);
 #define SEC_RPC_KZALLOC_NB_RETRIES     5
 #define SEC_RPC_KZALLOC_RETRY_TIMEOUT 50
 
+static bool disable_sec_rpc;
+
+static int __init disable_sec_rpc_driver(char *arg)
+{
+	disable_sec_rpc = true;
+	return 0;
+}
+early_param("nosecvm", disable_sec_rpc_driver);
+
 void *sec_rpc_contig_alloc(u32 sz)
 {
 	u32 i=0;
@@ -1112,6 +1121,11 @@ int rpc_call(struct t_rpc_send_info *send_info, enum t_rpc_if_grp if_grp,
 	u32 block_size;
 	u8 entry_id;
 	u32 curr_size;
+
+	if (disable_sec_rpc) {
+		pr_err("sec_rpc disabled, call rejected\n");
+		return rpc_result;
+	}
 
 	/* Validate input parameters */
 	if (io_data == NULL && io_data_len == NULL)
