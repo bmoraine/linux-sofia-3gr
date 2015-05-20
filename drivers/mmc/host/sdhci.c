@@ -1328,7 +1328,7 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 		sdhci_runtime_pm_bus_on(host);
 
 	if (host->quirks2 & SDHCI_QUIRK2_POWER_CONTROL_BUG) {
-		unsigned long timeout = 100;
+		unsigned long timeout = 300;
 		do {
 			if (sdhci_readb(host, SDHCI_POWER_CONTROL) == pwr)
 				break;
