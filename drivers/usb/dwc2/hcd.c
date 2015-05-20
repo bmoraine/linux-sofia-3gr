@@ -1566,7 +1566,8 @@ static int dwc2_hcd_hub_control(struct dwc2_hsotg *hsotg, u16 typereq,
 			writel(0, hsotg->regs + PCGCTL);
 			usleep_range(20000, 40000);
 
-			dwc2_port_resume(hsotg);
+			if (hsotg->bus_suspended)
+				dwc2_port_resume(hsotg);
 			break;
 
 		case USB_PORT_FEAT_POWER:
