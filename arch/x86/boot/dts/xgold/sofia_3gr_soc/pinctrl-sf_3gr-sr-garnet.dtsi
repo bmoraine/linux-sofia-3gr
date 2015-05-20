@@ -587,7 +587,7 @@ sdmmc_inactive_pins:sdmmc_inactive_pins {
 		0x2a0 0x4001	/* sdmmc_dat2 */
 		0x2a4 0x4001	/* sdmmc_dat3 */
 		0x2a8 0x4000	/* sdmmc_clk */
-		0x2ac 0x2001	/* sdmmc_card_detect */
+		0x2ac 0x2003	/* sdmmc_card_detect */
 	>;
 };
 sdmmc_sleep_pins:sdmmc_sleep_pins {
