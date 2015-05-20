@@ -785,10 +785,34 @@ static int ov5670_write_aec(struct ov_camera_module *cam_mod)
 		(cam_mod->state == OV_CAMERA_MODULE_STREAMING)) {
 		u32 a_gain = cam_mod->exp_config.gain;
 		u32 exp_time = cam_mod->exp_config.exp_time << 4;
-		if (cam_mod->state == OV_CAMERA_MODULE_STREAMING)
-			ret = ov_camera_module_write_reg(cam_mod,
+		u8 blc = 0;
+		ret |= ov_camera_module_write_reg(cam_mod, 0x301D, 0xF0);
+		ret |= ov_camera_module_write_reg(cam_mod, 0x3209, 0x00);
+		ret |= ov_camera_module_write_reg(cam_mod, 0x320A, 0x01);
+
+		/* group 0 : delay 0x366a & MWB for one frame */
+		ret |= ov_camera_module_write_reg(cam_mod,
 			OV5670_AEC_GROUP_UPDATE_ADDRESS,
 			OV5670_AEC_GROUP_UPDATE_START_DATA);
+		if (a_gain < 0x100) /* <2x */
+			blc = 0x00;
+		else if (a_gain < 0x200) /* <4x */
+			blc = 0x01;
+		else if (a_gain < 0x400) /* <8x */
+			blc = 0x03;
+		else if (a_gain >= 0x400) /* >8x */
+			blc = 0x07;
+
+		ret |= ov_camera_module_write_reg(cam_mod, 0x366A, blc);
+
+		ret |= ov_camera_module_write_reg(cam_mod,
+			OV5670_AEC_GROUP_UPDATE_ADDRESS,
+			OV5670_AEC_GROUP_UPDATE_END_DATA);
+
+		/* group 1 : Again & exposure */
+		ret |= ov_camera_module_write_reg(cam_mod,
+			OV5670_AEC_GROUP_UPDATE_ADDRESS,
+			OV5670_AEC_GROUP_UPDATE_START_DATA_BANK1);
 		if (!IS_ERR_VALUE(ret) && cam_mod->auto_adjust_fps)
 			ret = OV5670_auto_adjust_fps(cam_mod,
 						cam_mod->exp_config.exp_time);
@@ -807,14 +831,15 @@ static int ov5670_write_aec(struct ov_camera_module *cam_mod)
 		ret |= ov_camera_module_write_reg(cam_mod,
 			OV5670_AEC_PK_LONG_EXPO_1ST_REG,
 			OV5670_FETCH_1ST_BYTE_EXP(exp_time));
-		if (cam_mod->state == OV_CAMERA_MODULE_STREAMING) {
-			ret = ov_camera_module_write_reg(cam_mod,
-				OV5670_AEC_GROUP_UPDATE_ADDRESS,
-				OV5670_AEC_GROUP_UPDATE_END_DATA);
-			ret = ov_camera_module_write_reg(cam_mod,
-				OV5670_AEC_GROUP_UPDATE_ADDRESS,
-				OV5670_AEC_GROUP_UPDATE_END_LAUNCH);
-		}
+		ret |= ov_camera_module_write_reg(cam_mod,
+			OV5670_AEC_GROUP_UPDATE_ADDRESS,
+			OV5670_AEC_GROUP_UPDATE_END_DATA_BANK1);
+		ret |= ov_camera_module_write_reg(cam_mod,
+			0x320B,
+			0x15);
+		ret |= ov_camera_module_write_reg(cam_mod,
+			OV5670_AEC_GROUP_UPDATE_ADDRESS,
+			OV5670_AEC_GROUP_UPDATE_END_LAUNCH_BANK1);
 	}
 
 	if (IS_ERR_VALUE(ret))
