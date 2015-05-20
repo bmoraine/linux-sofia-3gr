@@ -536,6 +536,8 @@
 						dvfs_off;
 						dvfs_clock_config = < 312 1000 >, < 416 2000 >, < 480 3000 >;
 
+						intel,qos-ports = "GPU";
+
 						clocks = <&clk_gpu>, <&clk_ahb_per2>;
 						clock-names = "clk_kernel", "clk_ahb";
 						gpu-supply = <&vdd_gpu>;
