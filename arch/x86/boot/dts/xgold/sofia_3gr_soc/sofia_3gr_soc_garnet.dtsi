@@ -552,6 +552,7 @@
 						dvfs_ultra_high;
 						dvfs_interval = <20>;
 						dvfs_clock_config = < 208 1000 >, < 312 2000 >, < 416 3000 >, <600 4000>;
+						intel,qos-ports = "GPUPP", "GPUGP";
 
 						clocks = <&clk_gpu>, <&clk_ahb_per2>;
 						clock-names = "clk_kernel", "clk_ahb";
