@@ -1,7 +1,5 @@
 /*
- * -------------------------------------------------------------------------
  *  Copyright (C) 2013 Intel Mobile Communications GmbH
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,10 +9,6 @@
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
  *
  */
 
@@ -434,6 +428,8 @@ static enum power_supply_property smb345_power_props[] = {
 	POWER_SUPPLY_PROP_MANUFACTURER,
 };
 
+static struct smb345_charger *smb345_dev;
+
 #ifdef SYSFS_FAKE_VBUS_SUPPORT
 
 /**
@@ -687,24 +683,28 @@ static void smb345_set_boost(struct work_struct *work)
 		}
 
 		/* Switching Frequency change 1.5Mhz 07h[7]="1" */
-		ret = smb345_masked_write(chrgr->client, CFG_CHARGE_CURRENT_TC_MASK,
-				BIT(7), BIT(7));
+		ret = smb345_masked_write(chrgr->client,
+				CFG_CHARGE_CURRENT_TC_MASK, BIT(7), BIT(7));
 		if (ret) {
-			pr_err("fail to set OTG current limit 250mA ret=%d\n", ret);
+			pr_err("fail to set OTG current limit 250mA ret=%d\n",
+					ret);
 			goto boost_fail;
 		}
 
 		/* Set OTG current limit to 250mA: 0Ah[3:2]="00" */
 		ret = smb345_masked_write(chrgr->client,
-				OTG_TLIM_THERM_CNTRL_REG, OTG_CURRENT_LIMIT_AT_USBIN_MASK, 0);
+				OTG_TLIM_THERM_CNTRL_REG,
+				OTG_CURRENT_LIMIT_AT_USBIN_MASK, 0);
 		if (ret) {
-			pr_err("fail to set OTG current limit 250mA ret=%d\n", ret);
+			pr_err("fail to set OTG current limit 250mA ret=%d\n",
+					ret);
 			goto boost_fail;
 		}
 
 		/* Set OTG battery UVLO threshold to 2.7V: 0Ah[1:0]="00" */
 		ret = smb345_masked_write(chrgr->client,
-				OTG_TLIM_THERM_CNTRL_REG, OTG_BATTERY_UVLO_THRESHOLD_MASK, 0);
+				OTG_TLIM_THERM_CNTRL_REG,
+				OTG_BATTERY_UVLO_THRESHOLD_MASK, 0);
 		if (ret) {
 			pr_err("fail to set OTG battery UVLO threshold to 2.7V ret=%d\n",
 					ret);
@@ -715,19 +715,23 @@ static void smb345_set_boost(struct work_struct *work)
 		gpio_direction_output(chrgr->chg_otg_en_gpio, 1);
 
 		/* Set OTG current limit to 500mA: 0Ah[3:2]="01" */
-		ret = smb345_masked_write(chrgr->client, OTG_TLIM_THERM_CNTRL_REG,
+		ret = smb345_masked_write(chrgr->client,
+				OTG_TLIM_THERM_CNTRL_REG,
 				BIT(2) | BIT(3), BIT(2));
 
 		if (ret) {
-			pr_err("fail to set OTG current limit 500mA ret=%d\n", ret);
+			pr_err("fail to set OTG current limit 500mA ret=%d\n",
+					ret);
 			goto boost_fail;
 		}
 	} else {
 		/* Set OTG current limit to 250mA: 0Ah[3:2]="00" */
 		ret = smb345_masked_write(chrgr->client,
-				OTG_TLIM_THERM_CNTRL_REG, OTG_CURRENT_LIMIT_AT_USBIN_MASK, 0);
+				OTG_TLIM_THERM_CNTRL_REG,
+				OTG_CURRENT_LIMIT_AT_USBIN_MASK, 0);
 		if (ret) {
-			pr_err("fail to set OTG current limit 250mA ret=%d\n", ret);
+			pr_err("fail to set OTG current limit 250mA ret=%d\n",
+					ret);
 			goto boost_fail;
 		}
 
@@ -757,7 +761,8 @@ static void smb345_chgint_cb_work_func(struct work_struct *work)
 
 	vbus_state_prev = chrgr->state.vbus;
 
-	pm_state_en = idi_peripheral_device_pm_get_state_handler(chrgr->ididev, "enable");
+	pm_state_en = idi_peripheral_device_pm_get_state_handler(chrgr->ididev,
+			"enable");
 
 	if (pm_state_en == NULL) {
 		pr_err("Unable to get handler for PM state 'enable'!\n");
@@ -782,20 +787,22 @@ static void smb345_chgint_cb_work_func(struct work_struct *work)
 
 	ret = smb345_i2c_read_reg(chrgr->client, STAT_C, &status);
 	chrgr->state.vbus = (status & STAT_C_CHG_ENABLED) ? VBUS_ON : VBUS_OFF;
-
-	ret = idi_set_power_state(chrgr->ididev, pm_state_dis, false); /*FIXME DO I NEED THIS */
+	/*FIXME DO I NEED THIS */
+	ret = idi_set_power_state(chrgr->ididev, pm_state_dis, false);
 	if (ret)
 		pr_err("setting PM state '%s' failed!\n", pm_state_dis->name);
 
-     /* If vbus status changed, then notify USB OTG */
+	/* If vbus status changed, then notify USB OTG */
 	if (chrgr->state.vbus != vbus_state_prev) {
 		if (chrgr->otg_handle) {
-			pr_info("%s: vbus changed: %d\n", __func__, chrgr->state.vbus);
+			pr_info("%s: vbus changed: %d\n", __func__,
+					chrgr->state.vbus);
 			atomic_notifier_call_chain(&chrgr->otg_handle->notifier,
 					USB_EVENT_VBUS, &chrgr->state.vbus);
 
 			CHARGER_DEBUG_REL(
-					chrgr_dbg, CHG_DBG_VBUS, chrgr->state.vbus, 0);
+					chrgr_dbg, CHG_DBG_VBUS,
+					chrgr->state.vbus, 0);
 		}
 	}
 
@@ -806,11 +813,12 @@ static void smb345_chgint_cb_work_func(struct work_struct *work)
 	/* charger detection CHARGER_CONTROL_CHDETLVL*/
 	regval &= ~(CHARGER_CONTROL_CHDETLVL_M << CHARGER_CONTROL_CHDETLVL_O);
 
-	if (chrgr->state.vbus) {
-		regval |= (CHARGER_CONTROL_CHDETLVL_HIGH << CHARGER_CONTROL_CHDETLVL_O);
-	} else {
-		regval |= (CHARGER_CONTROL_CHDETLVL_LOW << CHARGER_CONTROL_CHDETLVL_O);
-	}
+	if (chrgr->state.vbus)
+		regval |= (CHARGER_CONTROL_CHDETLVL_HIGH
+				<< CHARGER_CONTROL_CHDETLVL_O);
+	else
+		regval |= (CHARGER_CONTROL_CHDETLVL_LOW
+				<< CHARGER_CONTROL_CHDETLVL_O);
 
 	ret = idi_client_iowrite(chrgr->ididev,
 			CHARGER_CONTROL(chrgr->ctrl_io_res->start), regval);
@@ -878,7 +886,8 @@ static void unfreezable_bh_schedule(struct unfreezable_bh_struct *bh)
 	spin_unlock(&bh->lock);
 }
 
-static void __maybe_unused unfreezable_bh_resume(struct unfreezable_bh_struct *bh)
+static void __maybe_unused unfreezable_bh_resume(
+				struct unfreezable_bh_struct *bh)
 {
 	unsigned long flags;
 	struct smb345_charger *chrgr = &chrgr_data;
@@ -897,7 +906,8 @@ static void __maybe_unused unfreezable_bh_resume(struct unfreezable_bh_struct *b
 	spin_unlock_irqrestore(&bh->lock, flags);
 }
 
-static void __maybe_unused unfreezable_bh_suspend(struct unfreezable_bh_struct *bh)
+static void __maybe_unused unfreezable_bh_suspend(
+				struct unfreezable_bh_struct *bh)
 {
 	unsigned long flags;
 
@@ -922,16 +932,6 @@ static int smb345_configure_pmu_irq(struct smb345_charger *chrgr)
 {
 	int ret;
 
-#if 0
-	/* register callback with PMU for CHGINT irq */
-	ret = request_irq(chrgr->chgint_irq,
-		smb345_charger_chgint_cb,
-			IRQF_NO_SUSPEND, SMB345_NAME, chrgr);
-	if (ret != 0) {
-		pr_err("Failed to register @PMU for GHGINT irq! ret=%d", ret);
-		return ret;
-	}
-#endif
 	/* register callback with PMU for CHGDET irq */
 	ret = request_irq(chrgr->chgdet_irq,
 		smb345_charger_chgint_cb,
@@ -1273,6 +1273,79 @@ static int smb345_set_pinctrl_state(struct i2c_client *client,
 	return 0;
 }
 
+int smb345_get_charging_status(void)
+{
+	int ret, status;
+	int irqstat_c;
+
+	if (!smb345_dev)
+		return -EINVAL;
+
+	ret = smb345_read(smb345_dev, STAT_C);
+	if (ret < 0)
+		return ret;
+
+	irqstat_c = smb345_read(smb345_dev, IRQSTAT_C);
+	if (irqstat_c < 0)
+		return irqstat_c;
+
+	if ((ret & STAT_C_CHARGER_ERROR) ||
+		(ret & STAT_C_HOLDOFF_STAT)) {
+		/* set to NOT CHARGING upon charger error
+		 or charging has stopped. */
+		status = POWER_SUPPLY_STATUS_NOT_CHARGING;
+	} else {
+		if ((ret & STAT_C_CHG_MASK) >> STAT_C_CHG_SHIFT)
+			/* set to charging if battery is in pre-charge,
+			 * fast charge or taper charging mode. */
+			status = POWER_SUPPLY_STATUS_CHARGING;
+		else if (ret & STAT_C_CHG_TERM)
+			/* set the status to FULL if battery is not in
+			 * precharge, fast charge or taper charging mode AND
+			 * charging is terminated at least once. */
+			status = POWER_SUPPLY_STATUS_FULL;
+		else
+			/* in this case no charger error or termination
+			 * occured but charging is not in progress!!! */
+			status = POWER_SUPPLY_STATUS_NOT_CHARGING;
+
+		if (irqstat_c & IRQSTAT_C_TERMINATION_STAT)
+			status = POWER_SUPPLY_STATUS_FULL;
+	}
+	return status;
+}
+
+bool get_sw_charging_toggle(void)
+{
+	return true;
+}
+
+int get_charger_type(void)
+{
+	if (!smb345_dev) {
+		pr_err("%s: smb345_dev is null due to probe function has error\n",
+				__func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+void aicl_dete_worker(struct work_struct *dat)
+{
+	return;
+}
+EXPORT_SYMBOL(aicl_dete_worker);
+
+bool smb345_has_charger_error(void)
+{
+	return false;
+}
+
+int smb345_dump_registers(struct seq_file *s)
+{
+	return 0;
+}
 
 static int smb345_i2c_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
@@ -1334,7 +1407,7 @@ static int smb345_i2c_probe(struct i2c_client *client,
 	client->irq = chrgr->chgint_irq;
 
 	chrgr->chgdet_irq = irq_of_parse_and_map(np, 1);
-	if(!chrgr->chgdet_irq) {
+	if (!chrgr->chgdet_irq) {
 		ret = -EINVAL;
 		pr_err("Unable to retrieve IRQ for charger detection\n");
 		goto remap_fail;
@@ -1368,6 +1441,8 @@ static int smb345_i2c_probe(struct i2c_client *client,
 
 	if (ret != 0)
 		pr_err("failed to enable writable\n");
+
+	smb345_dev = chrgr;
 
 	/* Refer to SMB345 Application Note 72 to solve serious problems */
 	ret = smb345_masked_write(chrgr->client,
@@ -1505,9 +1580,8 @@ static int __exit smb345_i2c_remove(struct i2c_client *client)
 		usb_put_phy(chrgr_data.otg_handle);
 
 	ret = smb345_set_pinctrl_state(client, chrgr->pins_inactive);
-	if (ret != 0)
-		return ret;
-    return 0;
+
+	return ret;
 }
 
 static int smb345_idi_probe(struct idi_peripheral_device *ididev,
