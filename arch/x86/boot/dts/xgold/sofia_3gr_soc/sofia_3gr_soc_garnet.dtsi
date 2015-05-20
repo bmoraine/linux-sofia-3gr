@@ -766,8 +766,6 @@
 						intel,stm,cpumask = <0x3>;
 						intel,stm,evt,rating = <50>;
 						intel,stm,rate = <26000000>;
-						intel,evt,min-ns = <1000000>;
-						intel,evt,max-ns = <1000000000>;
                                         };
 
 					capcom1:capcom1 {
@@ -778,8 +776,6 @@
 						intel,cc,evt,rating = <50>;
 						intel,cc,cpumask = <0xc>;
 						intel,cc,rate = <26000000>;
-						intel,evt,min-ns = <1000000>;
-						intel,evt,max-ns = <1000000000>;
 					};
 
 					xgold_pmx_core: pinmux@E4600000 {
