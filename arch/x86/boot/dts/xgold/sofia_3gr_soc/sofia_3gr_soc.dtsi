@@ -367,8 +367,8 @@
 							pm,class-name = "sdhci_class";
 							pm,user-name = "emmc";
 							pm,state-D0 = "mid_perf";
-							pm,state-D0i2 = "low_perf";
-							pm,state-D3 = "mid_perf";
+							pm,state-D0i2 = "disable";
+							pm,state-D3 = "disable";
 						};
 
 					};
