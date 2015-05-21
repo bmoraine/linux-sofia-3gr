@@ -1238,7 +1238,7 @@ static void fan54x_chgdet_worker(struct work_struct *work)
 		} else {
 			pr_err("%s, fail to enable charging, retry: %d",
 				__func__, retry);
-			msleep(200);
+			msleep(400);
 		}
 	}
 
