@@ -408,6 +408,8 @@ static int xgold_cc_cpu_notify(struct notifier_block *n,
 		if (evt->irq)
 			free_irq(evt->irq, cc_evt);
 
+		if (cc_evt->flags & XGOLD_CC_EVT_ENABLE)
+			xgold_cc_evt_disable(cc_evt);
 		break;
 	}
 	return NOTIFY_OK;
