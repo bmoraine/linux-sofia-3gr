@@ -2285,6 +2285,7 @@ static int s3c_hsotg_corereset(struct dwc2_hsotg *hsotg)
 void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg,
 						bool is_usb_reset)
 {
+	u32 intmsk;
 	u32 val;
 
 	if (!is_usb_reset)
@@ -2313,14 +2314,16 @@ void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg,
 
 	/* Clear any pending interrupts */
 	writel(0xffffffff, hsotg->regs + GINTSTS);
-
-	writel(GINTSTS_ERLYSUSP | GINTSTS_SESSREQINT |
+	intmsk = GINTSTS_ERLYSUSP | GINTSTS_SESSREQINT |
 		GINTSTS_GOUTNAKEFF | GINTSTS_GINNAKEFF |
-		GINTSTS_CONIDSTSCHNG | GINTSTS_USBRST |
-		GINTSTS_RESETDET | GINTSTS_ENUMDONE |
-		GINTSTS_OTGINT | GINTSTS_USBSUSP |
-		GINTSTS_WKUPINT,
-		hsotg->regs + GINTMSK);
+		GINTSTS_USBRST | GINTSTS_RESETDET |
+		GINTSTS_ENUMDONE | GINTSTS_OTGINT |
+		GINTSTS_USBSUSP | GINTSTS_WKUPINT;
+
+	if (hsotg->core_params->external_id_pin_ctl <= 0)
+		intmsk |= GINTSTS_CONIDSTSCHNG;
+
+	writel(intmsk, hsotg->regs + GINTMSK);
 
 	if (using_dma(hsotg))
 		writel(GAHBCFG_GLBL_INTR_EN | GAHBCFG_DMA_EN |
