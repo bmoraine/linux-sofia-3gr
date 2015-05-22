@@ -976,6 +976,10 @@ static int cif_isp20_v4l2_open(
 	v4l2_fh_add(&fh->fh);
 
 	node = to_node(fh);
+	if (!node) {
+		ret = -ENXIO;
+		goto err_free;
+	}
 	if (likely(node)) {
 		if (++node->users > 1)
 			return 0;
@@ -996,15 +1000,17 @@ static int cif_isp20_v4l2_open(
 
 	ret = cif_isp20_init(dev, to_stream_id(file));
 	if (IS_ERR_VALUE(ret)) {
-		v4l2_fh_del(&fh->fh);
-		v4l2_fh_exit(&fh->fh);
-		kfree(fh);
 		if (likely(node))
 			node->users--;
-		goto err;
+		goto err_free;
 	}
 
 	return 0;
+
+err_free:
+	v4l2_fh_del(&fh->fh);
+	v4l2_fh_exit(&fh->fh);
+	kfree(fh);
 err:
 	cif_isp20_pltfrm_pr_err(NULL,
 		"failed with error %d\n", ret);
