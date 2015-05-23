@@ -47,6 +47,7 @@
 
 #if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 #include "../../../staging/android/ion/ion.h"
+#include <linux/rockchip_ion.h>
 #endif
 
 #if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE) && defined(CONFIG_SECURE_PLAYBACK)
@@ -70,7 +71,8 @@
 #define RGA_TEST_FLUSH_TIME 0
 #define RGA_INFO_BUS_ERROR 1
 
-#define PRE_SCALE_BUF_SIZE  (2048*1024*4)
+#define PRE_SCALE_BUF_SIZE  (1024*1024*4)
+#define USE_CMA_FOR_PRE_SCALE
 
 #define RGA_POWER_OFF_DELAY	(4*HZ)	/* 4s */
 #define RGA_TIMEOUT_DELAY	(1*HZ)	/* 1s */
@@ -125,6 +127,7 @@ struct rga_drvdata {
 
 #if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
 	struct ion_client *ion_client;
+	struct ion_handle *handle;
 #endif
 };
 
@@ -1322,6 +1325,11 @@ static int rga_drv_probe(struct platform_device *pdev)
 	struct rga_drvdata *data;
 	struct resource *res;
 	int ret = 0;
+#ifdef USE_CMA_FOR_PRE_SCALE
+	ion_phys_addr_t phy_addr;
+	size_t len;
+	int i;
+#endif
 
 	mutex_init(&rga_service.lock);
 	mutex_init(&rga_service.mutex);
@@ -1398,6 +1406,22 @@ static int rga_drv_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to create ion client for rga");
 		return PTR_ERR(data->ion_client);
 	}
+
+#ifdef USE_CMA_FOR_PRE_SCALE
+	data->handle = ion_alloc(data->ion_client, (size_t)PRE_SCALE_BUF_SIZE,
+				0, ION_HEAP_TYPE_SECURE2_MASK, 0);
+	if (IS_ERR(data->handle)) {
+		dev_err(&pdev->dev, "failed to ion_alloc:%ld\n",
+				PTR_ERR(data->handle));
+		return -ENOMEM;
+	}
+
+	/* prepare pre-scale buffer */
+	ion_phys(data->ion_client, data->handle, &phy_addr, &len);
+	for (i = 0; i < 1024; i++)
+		rga_service.pre_scale_buf[i] = phy_addr + (i<<12);
+#endif
+
 #elif defined(CONFIG_ION_XGOLD)
 	pr_info("create xgold ion client for RGA\n");
 	data->ion_client = xgold_ion_client_create("rga");
@@ -1405,6 +1429,21 @@ static int rga_drv_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to create ion client for rga");
 		return PTR_ERR(data->ion_client);
 	}
+
+#ifdef USE_CMA_FOR_PRE_SCALE
+	data->handle = ion_alloc(data->ion_client, (size_t)RGA_MMU_BUF_SIZE,
+				0, ION_HEAP_TYPE_SECURE2_MASK, 0);
+	if (IS_ERR(data->handle)) {
+		dev_err(&pdev->dev, "failed to ion_alloc:%ld\n",
+				PTR_ERR(data->handle));
+		return -ENOMEM;
+	}
+
+	/* prepare pre-scale buffer */
+	ion_phys(data->ion_client, data->handle, &phy_addr, &len);
+	for (i = 0; i < 1024; i++)
+		rga_service.pre_scale_buf[i] = phy_addr + (i<<12);
+#endif
 #endif
 
 #if defined(RGA_SECURE_ACCESS)
@@ -1468,6 +1507,14 @@ static int rga_drv_remove(struct platform_device *pdev)
 	devm_clk_put(&pdev->dev, data->hclk_rga);
 #endif
 
+#if defined(CONFIG_ION_XGOLD) || defined(CONFIG_ION_ROCKCHIP)
+	if (data != NULL && data->ion_client) {
+		if (data->handle)
+			ion_free(data->ion_client, data->handle);
+		ion_client_destroy(data->ion_client);
+	}
+#endif
+
 #if defined(RGA_SECURE_ACCESS)
 	vrga_fe_release(&pdev->dev);
 #endif
@@ -1497,6 +1544,7 @@ static int __init rga_init(void)
 	if (mmu_buf == NULL)
 		return -1;
 
+#ifndef USE_CMA_FOR_PRE_SCALE
 	/* malloc 4 M buf */
 	for (i = 0; i < 1024; i++) {
 		buf_p = (uint32_t *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
@@ -1507,6 +1555,7 @@ static int __init rga_init(void)
 
 		mmu_buf[i] = virt_to_phys((void *)((uint32_t)buf_p));
 	}
+#endif
 
 	rga_service.pre_scale_buf = (uint32_t *)mmu_buf;
 
@@ -1572,10 +1621,12 @@ static int __init rga_init(void)
 	return 0;
 
 free_mmu_buf:
+#ifndef USE_CMA_FOR_PRE_SCALE
 	for (i = 0; i < 1024; i++) {
 		if ((uint32_t *)mmu_buf[i] != NULL)
 			__free_page((void *)mmu_buf[i]);
 	}
+#endif
 
 	kfree(mmu_buf);
 	return -ENOMEM;
@@ -1584,10 +1635,13 @@ free_mmu_buf:
 
 static void __exit rga_exit(void)
 {
+#ifndef USE_CMA_FOR_PRE_SCALE
 	uint32_t i;
+#endif
 
 	rga_power_off();
 
+#ifndef USE_CMA_FOR_PRE_SCALE
 	if (rga_service.pre_scale_buf != NULL) {
 		for (i = 0; i < 1024; i++) {
 			if ((uint32_t *)rga_service.pre_scale_buf[i] != NULL)
@@ -1596,6 +1650,7 @@ static void __exit rga_exit(void)
 		}
 		kfree((uint8_t *)rga_service.pre_scale_buf);
 	}
+#endif
 
 	if (rga_mmu_buf.buf_virtual != NULL)
 		kfree(rga_mmu_buf.buf_virtual);
