@@ -396,6 +396,9 @@ static int xgold_stm_cpu_notify(struct notifier_block *n,
 			free_irq(levt->irq, stm_clkevt);
 			levt->irq = 0;
 		}
+
+		xgold_stm_mask_irq(stm_clkevt);
+
 		break;
 	}
 	return NOTIFY_OK;
