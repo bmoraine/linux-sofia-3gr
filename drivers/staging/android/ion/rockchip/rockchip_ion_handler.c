@@ -61,8 +61,8 @@ int rk_ion_handler_init(struct device_node *node, struct ion_device *idev,
 	 *   store size accordingly
 	 */
 	/* default settings */
-	rk_ion_heap_type_mask = ION_HEAP_TYPE_DMA_MASK;
-	rk_ion_heap_capacity	 = 0;
+	rk_ion_heap_type_mask	= ION_HEAP_TYPE_DMA_MASK;
+	rk_ion_heap_capacity	= 0;
 
 	if (pdata != NULL) {
 		for (i = 0; i < pdata->nr; i++) {
@@ -77,9 +77,7 @@ int rk_ion_handler_init(struct device_node *node, struct ion_device *idev,
 
 			/* secure heap is present; use this one */
 			if (heap_data->type == ION_HEAP_TYPE_DMA &&
-				heap_data->id == ION_HEAP_TYPE_SECURE) {
-				rk_ion_heap_type_mask =
-					ION_HEAP_TYPE_SECURE_MASK;
+				heap_data->id == ION_HEAP_TYPE_DMA) {
 
 				rk_ion_heap_capacity = heap_data->size;
 
@@ -385,7 +383,7 @@ static int rk_ion_handle_command(uint32_t cmd[], int cmd_len)
 
 			if (rk_ion_heap_capacity != 0) {
 				len = (ssize_t) rk_ion_heap_capacity;
-				pr_debug("rk_ion req len = -1 adjust to %d\n",
+				pr_err("rk_ion req len = -1 adjust to %d\n",
 					len);
 			} else
 				pr_err("rk_ion len = -1 not supported\n");
@@ -394,7 +392,7 @@ static int rk_ion_handle_command(uint32_t cmd[], int cmd_len)
 		i_handle = ion_alloc(rk_ion_client, len,
 			16, rk_ion_heap_type_mask, 0);
 
-		pr_debug("rk_ion ion_alloc(clnt %p, l %ul, 16, DMA, 0) = %p\n",
+		pr_err("rk_ion ion_alloc(clnt %p, l %ul, 16, DMA, 0) = %p\n",
 			rk_ion_client, len, i_handle);
 
 		if (IS_ERR(i_handle))
@@ -408,7 +406,7 @@ static int rk_ion_handle_command(uint32_t cmd[], int cmd_len)
 				cmd[4] = (uint32_t)phys_addr;
 				cmd[5] = (uint32_t)i_handle;
 
-				pr_debug("rk_ion alloc l %d, 0x%08lx, h 0x%p\n",
+				pr_err("rk_ion alloc l %d, 0x%08lx, h 0x%p\n",
 					len, phys_addr, i_handle);
 			} else {
 				pr_err("rk_ion mapping error; handle 0x%p\n",

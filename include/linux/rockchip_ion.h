@@ -28,6 +28,7 @@ enum {
 
 enum {
 	ION_HEAP_TYPE_SECURE = ION_HEAP_TYPE_CUSTOM,
+	ION_HEAP_TYPE_SECURE2,
 };
 
 struct ion_phys_data {
@@ -39,6 +40,7 @@ struct ion_phys_data {
 #define ION_IOC_ROCKCHIP_MAGIC 'R'
 
 #define ION_HEAP_TYPE_SECURE_MASK   (1 << ION_HEAP_TYPE_SECURE)
+#define ION_HEAP_TYPE_SECURE2_MASK   (1 << ION_HEAP_TYPE_SECURE2)
 
 /* Get phys addr of the handle specified. */
 #define ION_IOC_GET_PHYS	_IOWR(ION_IOC_ROCKCHIP_MAGIC, 0, \
