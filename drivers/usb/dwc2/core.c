@@ -510,9 +510,9 @@ static int dwc2_core_reset(struct dwc2_hsotg *hsotg)
 
 	/* Wait for AHB master IDLE state */
 	do {
-		usleep_range(20000, 40000);
+		usleep_range(1000, 2000);
 		greset = readl(hsotg->regs + GRSTCTL);
-		if (++count > 50) {
+		if (++count > 10000) {
 			dev_warn(hsotg->dev,
 				 "%s() HANG! AHB Idle GRSTCTL=%0x\n",
 				 __func__, greset);
@@ -525,9 +525,9 @@ static int dwc2_core_reset(struct dwc2_hsotg *hsotg)
 	greset |= GRSTCTL_CSFTRST;
 	writel(greset, hsotg->regs + GRSTCTL);
 	do {
-		usleep_range(20000, 40000);
+		usleep_range(1000, 2000);
 		greset = readl(hsotg->regs + GRSTCTL);
-		if (++count > 50) {
+		if (++count > 10000) {
 			dev_warn(hsotg->dev,
 				 "%s() HANG! Soft Reset GRSTCTL=%0x\n",
 				 __func__, greset);
@@ -566,8 +566,10 @@ static int dwc2_core_reset(struct dwc2_hsotg *hsotg)
 	}
 
 	/*
-	 * NOTE: This long sleep is _very_ important, otherwise the core will
-	 * not stay in host mode after a connector ID change!
+	 * TODO : Reset delay is huges but by experimentation, the delay
+	 * in host mode is higher than in peripheral mode. We should optimize
+	 * depending on the role. Note that this reset function is called from
+	 * may places and leads to ~ 1 sec delay during boot.
 	 */
 	usleep_range(150000, 200000);
 
