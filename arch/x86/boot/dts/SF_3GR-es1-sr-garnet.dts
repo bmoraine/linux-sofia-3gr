@@ -34,9 +34,15 @@
 
 		/* global autoconfigured region for contiguous allocations */
 		cma_default_region: region@0 {
-			size = <0x09000000>;
-			limit = <0x10000000>;
+			size = <0x07c00000>;
+			limit = <0x0fc00000>;
 			linux,cma-default;
+		};
+		/* special region for secured processing devices */
+		secured_region: region@fc00000 {
+			reg = <0x0fc00000 0x01400000>;
+			no-map;
+			linux,cma;
 		};
 	};
 
@@ -57,6 +63,10 @@
 		};
 		system-heap {
 			rockchip,ion_heap = < 0 >;
+		};
+		secured-heap {
+			memory-region = <&secured_region>;
+			rockchip,ion_heap = < 6 >;
 		};
 	};
 
