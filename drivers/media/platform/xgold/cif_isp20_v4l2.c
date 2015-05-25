@@ -98,7 +98,7 @@ static struct videobuf_queue *to_videobuf_queue(
 	struct videobuf_queue *q;
 
 	if (unlikely(!node)) {
-		cif_isp20_pltfrm_pr_err(dev->dev,
+		cif_isp20_pltfrm_pr_err(NULL,
 			"node is NULL\n");
 		BUG();
 	}

@@ -44,19 +44,29 @@
 #ifdef CONFIG_CIF_ISP20_REG_TRACE
 #include <stdarg.h>
 
+#define CIF_ISP20_REG_TRACE_TMPBUF_INIT_SIZE 270
+
 static struct {
 	char *reg_trace;
+	char *tmp_buf;
 	loff_t reg_trace_read_pos;
 	loff_t reg_trace_write_pos;
 	size_t reg_trace_max_size;
+	size_t tmp_buf_size;
 	void __iomem *base_addr;
+	bool ringbuffer_on;
 	bool rtrace;
 	bool ftrace;
 	bool internal;
+	bool last_operation_write;
 	spinlock_t lock;
 } cif_isp20_reg_trace;
 #endif
 #endif
+
+#define cif_isp20_vmm_pr_err(dev, fmt, arg...) \
+	pr_err("CIF ISP2.0 %s(%d) ERR: " fmt, \
+		__func__, __LINE__, ## arg); \
 
 struct cif_isp20_pltfrm_csi_config {
 	struct list_head list;
@@ -762,38 +772,140 @@ static const struct file_operations cif_isp20_dbgfs_fops = {
 static inline int cif_isp20_pltfrm_trace_printf(
 	struct device *dev,
 	const char *fmt,
-	va_list args)
+	va_list args,
+	u32 data,
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr)
 {
 	int i;
+	int free_space;
 	u32 rem_size;
 	unsigned long flags = 0;
+	char *new_temp_buf;
+
+	if (!cif_isp20_reg_trace.reg_trace_max_size)
+		return 0;
 
 	if (!in_irq())
 		spin_lock_irqsave(&cif_isp20_reg_trace.lock, flags);
+
 	cif_isp20_reg_trace.internal = true;
 
-	rem_size = cif_isp20_reg_trace.reg_trace_max_size -
-		cif_isp20_reg_trace.reg_trace_write_pos;
+	/* Calculate free space before writing */
+	if (cif_isp20_reg_trace.reg_trace_read_pos ==
+			cif_isp20_reg_trace.reg_trace_write_pos)
+		/* Buffer full */
+		if (cif_isp20_reg_trace.last_operation_write)
+			free_space = 0;
+		/* Buffer empty */
+		else
+			free_space = cif_isp20_reg_trace.reg_trace_max_size;
+	/* Buffer partially filled */
+	else {
+		free_space = cif_isp20_reg_trace.reg_trace_read_pos -
+			cif_isp20_reg_trace.reg_trace_write_pos;
 
-	if (rem_size <= 0) {
-		if (!in_irq())
-			spin_unlock_irqrestore(
-				&cif_isp20_reg_trace.lock, flags);
+		if (cif_isp20_reg_trace.reg_trace_read_pos <
+				cif_isp20_reg_trace.reg_trace_write_pos)
+			free_space += cif_isp20_reg_trace.reg_trace_max_size;
+	}
+
+	/* Ringbuffer disabled and buffer full */
+	if (!free_space && !cif_isp20_reg_trace.ringbuffer_on) {
 		cif_isp20_reg_trace.internal = false;
+		if (!in_irq())
+			spin_unlock_irqrestore(&cif_isp20_reg_trace.lock,
+				flags);
+
 		return 0;
 	}
 
-	i = vsnprintf(cif_isp20_reg_trace.reg_trace +
-		cif_isp20_reg_trace.reg_trace_write_pos,
-		rem_size,
-		fmt, args);
-	if (i == rem_size) /* buffer full */
-		i = 0;
-	else if (i < 0)
-		cif_isp20_pltfrm_pr_err(dev,
-			"error writing trace buffer, error %d\n", i);
-	else
+	/* Create trace in temporary buffer */
+	if (fmt && args) {
+		i = vsnprintf(cif_isp20_reg_trace.tmp_buf,
+			cif_isp20_reg_trace.tmp_buf_size, fmt, args);
+
+		/* Temp buffer too small, grow and retry */
+		if (i >= cif_isp20_reg_trace.tmp_buf_size) {
+			i = vsnprintf(NULL, 0, fmt, args) + 1;
+			new_temp_buf = devm_kzalloc(dev,
+				i*sizeof(char), GFP_KERNEL);
+			if (!new_temp_buf) {
+				cif_isp20_vmm_pr_err(dev,
+					"memory allocation failed\n");
+				i = cif_isp20_reg_trace.tmp_buf_size;
+			} else {
+				devm_kfree(dev, cif_isp20_reg_trace.tmp_buf);
+				cif_isp20_reg_trace.tmp_buf = new_temp_buf;
+				cif_isp20_reg_trace.tmp_buf_size = i;
+				i = vsnprintf(cif_isp20_reg_trace.tmp_buf,
+					cif_isp20_reg_trace.tmp_buf_size,
+					fmt, args);
+			}
+		}
+	} else
+		i = snprintf(cif_isp20_reg_trace.tmp_buf,
+			cif_isp20_reg_trace.tmp_buf_size, "%04x %08x\n",
+			addr - cif_isp20_reg_trace.base_addr,
+			data);
+
+	if (i < 0) {
+		cif_isp20_vmm_pr_err(dev,
+			"error writing trace buffer line, error %d\n", i);
+
+		cif_isp20_reg_trace.internal = false;
+		if (!in_irq())
+			spin_unlock_irqrestore(&cif_isp20_reg_trace.lock,
+				flags);
+
+		return i;
+	}
+
+	/* Truncate, if not enough free space and ringbuffer disabled */
+	if ((free_space < i) && !cif_isp20_reg_trace.ringbuffer_on)
+		i = free_space;
+
+	/* Remaining space until end of buffer */
+	rem_size = cif_isp20_reg_trace.reg_trace_max_size -
+		cif_isp20_reg_trace.reg_trace_write_pos;
+
+	/* No wraparound */
+	if (i <= rem_size) {
+		memcpy(cif_isp20_reg_trace.reg_trace +
+			cif_isp20_reg_trace.reg_trace_write_pos,
+			cif_isp20_reg_trace.tmp_buf, i*sizeof(char));
 		cif_isp20_reg_trace.reg_trace_write_pos += i;
+
+		/*
+		Update write position to zero,
+		if we have reached end of buffer
+		*/
+		if (cif_isp20_reg_trace.reg_trace_write_pos >=
+				cif_isp20_reg_trace.reg_trace_max_size)
+			cif_isp20_reg_trace.reg_trace_write_pos = 0;
+
+	/* Wraparound */
+	} else {
+		memcpy(cif_isp20_reg_trace.reg_trace +
+			cif_isp20_reg_trace.reg_trace_write_pos,
+			cif_isp20_reg_trace.tmp_buf,
+			rem_size*sizeof(char));
+
+		memcpy(cif_isp20_reg_trace.reg_trace,
+			cif_isp20_reg_trace.tmp_buf + rem_size,
+			(i - rem_size)*sizeof(char));
+		cif_isp20_reg_trace.reg_trace_write_pos = i - rem_size;
+	}
+
+	/*
+	If bytes written to buffer was bigger than available free space,
+	then update read position; We have overwritten data!
+	*/
+	if (i >= free_space)
+		cif_isp20_reg_trace.reg_trace_read_pos =
+			cif_isp20_reg_trace.reg_trace_write_pos;
+
+	cif_isp20_reg_trace.last_operation_write = true;
+
 	cif_isp20_reg_trace.internal = false;
 	if (!in_irq())
 		spin_unlock_irqrestore(&cif_isp20_reg_trace.lock, flags);
@@ -809,11 +921,31 @@ inline int cif_isp20_pltfrm_rtrace_printf(
 	va_list args;
 	int i;
 
+	/*
+	Some rtrace printfs are logged regardless
+	if rtrace flag is on or off. Only the register traces
+	are switched by rtrace flag. Intentional?
+	*/
+	if (cif_isp20_reg_trace.internal)
+		return 0;
+
 	va_start(args, fmt);
-	i = cif_isp20_pltfrm_trace_printf(dev, fmt, args);
+	i = cif_isp20_pltfrm_trace_printf(dev, fmt, args, 0, 0);
 	va_end(args);
 
 	return i;
+}
+
+inline void cif_isp20_pltfrm_rtrace_reg(
+	struct device *dev,
+	u32 data,
+	CIF_ISP20_PLTFRM_MEM_IO_ADDR addr)
+{
+	if (!cif_isp20_reg_trace.rtrace ||
+		cif_isp20_reg_trace.internal)
+		return;
+
+	cif_isp20_pltfrm_trace_printf(dev, NULL, NULL, data, addr);
 }
 
 inline int cif_isp20_pltfrm_ftrace_printf(
@@ -829,7 +961,7 @@ inline int cif_isp20_pltfrm_ftrace_printf(
 		return 0;
 
 	va_start(args, fmt);
-	i = cif_isp20_pltfrm_trace_printf(dev, fmt, args);
+	i = cif_isp20_pltfrm_trace_printf(dev, fmt, args, 0, 0);
 	va_end(args);
 
 	return i;
@@ -840,6 +972,7 @@ static void cif_isp20_dbgfs_reg_trace_clear(
 {
 	cif_isp20_reg_trace.reg_trace_write_pos = 0;
 	cif_isp20_reg_trace.reg_trace_read_pos = 0;
+	cif_isp20_reg_trace.last_operation_write = false;
 }
 
 static ssize_t cif_isp20_dbgfs_reg_trace_read(
@@ -849,34 +982,74 @@ static ssize_t cif_isp20_dbgfs_reg_trace_read(
 	loff_t *pos)
 {
 	ssize_t bytes;
-	size_t available = cif_isp20_reg_trace.reg_trace_write_pos -
-		cif_isp20_reg_trace.reg_trace_read_pos;
+	size_t available;
+	size_t buffer_size;
 	size_t rem = count;
 
 	cif_isp20_reg_trace.internal = true;
 
-	if (!available)
-		cif_isp20_reg_trace.reg_trace_read_pos = 0;
+	/*
+	Calculate read chunk for FIRST block of data
+	Note: If there is a wraparound; Second block will be
+	handled by next call into cif_isp20_dbgfs_reg_trace_read.
+	Also if we have more than 'count' data to dump, subsequent
+	call(s) into cif_isp20_dbgfs_reg_trace_read will handle that.
+	*/
+	if (cif_isp20_reg_trace.reg_trace_write_pos ==
+		cif_isp20_reg_trace.reg_trace_read_pos) {
+		if (cif_isp20_reg_trace.last_operation_write) {
+			/* Buffer full & Wraparound */
+			available = cif_isp20_reg_trace.reg_trace_max_size -
+				cif_isp20_reg_trace.reg_trace_read_pos;
+			buffer_size = cif_isp20_reg_trace.reg_trace_max_size;
+		} else {
+			/* Buffer empty */
+			available = 0;
+			buffer_size = 0;
+		}
+	} else if (cif_isp20_reg_trace.reg_trace_write_pos >
+		cif_isp20_reg_trace.reg_trace_read_pos) {
+		/* Buffer partially filled & No Wraparound */
+		available = cif_isp20_reg_trace.reg_trace_write_pos -
+			cif_isp20_reg_trace.reg_trace_read_pos;
+		buffer_size = cif_isp20_reg_trace.reg_trace_write_pos;
+	} else {
+		/* Buffer partially filled & Wraparound */
+		available = cif_isp20_reg_trace.reg_trace_max_size -
+			cif_isp20_reg_trace.reg_trace_read_pos;
+		buffer_size = cif_isp20_reg_trace.reg_trace_max_size;
+	}
 
 	while (rem && available) {
 		bytes = simple_read_from_buffer(
 			out + (count - rem), count,
 			&cif_isp20_reg_trace.reg_trace_read_pos,
 			cif_isp20_reg_trace.reg_trace,
-			cif_isp20_reg_trace.reg_trace_write_pos);
+			buffer_size);
+
 		if (bytes < 0) {
-			cif_isp20_pltfrm_pr_err(NULL,
+			cif_isp20_vmm_pr_err(NULL,
 				"buffer read failed with error %d\n",
 				bytes);
 			cif_isp20_reg_trace.internal = false;
 			return bytes;
 		}
+
 		rem -= bytes;
-		available = cif_isp20_reg_trace.reg_trace_write_pos -
-			cif_isp20_reg_trace.reg_trace_read_pos;
+		available -= bytes;
 	}
 
+	/*
+	Update read position to zero,
+	if we have reached end of buffer
+	*/
+	if (cif_isp20_reg_trace.reg_trace_read_pos >=
+			cif_isp20_reg_trace.reg_trace_max_size)
+		cif_isp20_reg_trace.reg_trace_read_pos = 0;
+
+	cif_isp20_reg_trace.last_operation_write = false;
 	cif_isp20_reg_trace.internal = false;
+
 	return count - rem;
 }
 
@@ -932,11 +1105,17 @@ static ssize_t cif_isp20_dbgfs_reg_trace_write(
 		if (cif_isp20_reg_trace.reg_trace) {
 			devm_kfree(dev, cif_isp20_reg_trace.reg_trace);
 			cif_isp20_reg_trace.reg_trace = NULL;
+			cif_isp20_reg_trace.reg_trace_max_size = 0;
+		}
+		if (cif_isp20_reg_trace.tmp_buf) {
+			devm_kfree(dev, cif_isp20_reg_trace.tmp_buf);
+			cif_isp20_reg_trace.tmp_buf = NULL;
+			cif_isp20_reg_trace.tmp_buf_size = 0;
 		}
 		cif_isp20_dbgfs_reg_trace_clear(dev);
 		if (max_size > 0) {
 			cif_isp20_reg_trace.reg_trace = devm_kzalloc(dev,
-				max_size, GFP_KERNEL);
+				max_size*sizeof(char), GFP_KERNEL);
 			if (!cif_isp20_reg_trace.reg_trace) {
 				cif_isp20_pltfrm_pr_err(dev,
 					"memory allocation failed\n");
@@ -944,9 +1123,47 @@ static ssize_t cif_isp20_dbgfs_reg_trace_write(
 				goto err;
 			}
 			cif_isp20_reg_trace.reg_trace_max_size = max_size;
+
+			cif_isp20_reg_trace.tmp_buf = devm_kzalloc(dev,
+				CIF_ISP20_REG_TRACE_TMPBUF_INIT_SIZE *
+				sizeof(char), GFP_KERNEL);
+			if (!cif_isp20_reg_trace.tmp_buf) {
+				devm_kfree(dev, cif_isp20_reg_trace.reg_trace);
+				cif_isp20_reg_trace.reg_trace = NULL;
+				cif_isp20_reg_trace.reg_trace_max_size = 0;
+				cif_isp20_pltfrm_pr_err(dev,
+					"memory allocation failed\n");
+				ret = -ENOMEM;
+				goto err;
+			}
+			cif_isp20_reg_trace.tmp_buf_size =
+				CIF_ISP20_REG_TRACE_TMPBUF_INIT_SIZE;
+
 			cif_isp20_pltfrm_pr_info(dev,
-				"register trace buffer size set to %d Byte\n",
-				max_size);
+				"register trace buffer size set to %d Bytes, line buffer size set to %d Bytes\n",
+				max_size, cif_isp20_reg_trace.tmp_buf_size);
+		}
+	} else if (!strncmp(token, "ringbuffer", 10)) {
+		token = strsep(&strp, " ");
+		if (IS_ERR_OR_NULL(token)) {
+			cif_isp20_pltfrm_pr_err(dev,
+				"missing token, command format is 'ringbuffer [on|off]'\n");
+			ret = -EINVAL;
+			goto err;
+		}
+		if (!strncmp(token, "on", 2)) {
+			cif_isp20_reg_trace.ringbuffer_on = true;
+			cif_isp20_pltfrm_pr_info(dev,
+				"ringbuffer enabled\n");
+		} else if (!strncmp(token, "off", 3)) {
+			cif_isp20_reg_trace.ringbuffer_on = false;
+			cif_isp20_pltfrm_pr_info(dev,
+				"ringbuffer disabled\n");
+		} else {
+			cif_isp20_pltfrm_pr_err(dev,
+				"missing token, command format is 'ringbuffer [on|off]'\n");
+			ret = -EINVAL;
+			goto err;
 		}
 	} else if (!strncmp(token, "rtrace", 6)) {
 		token = strsep(&strp, " ");
@@ -1084,34 +1301,7 @@ inline void cif_isp20_pltfrm_write_reg(
 {
 	iowrite32(data, addr);
 #ifdef CONFIG_CIF_ISP20_REG_TRACE
-	{
-		unsigned long flags = 0;
-		if (!in_irq())
-			spin_lock_irqsave(&cif_isp20_reg_trace.lock, flags);
-		cif_isp20_reg_trace.internal = true;
-		if (((cif_isp20_reg_trace.reg_trace_write_pos +
-			(20 * sizeof(char))) <
-			cif_isp20_reg_trace.reg_trace_max_size) &&
-			cif_isp20_reg_trace.rtrace) {
-			int bytes =
-				sprintf(cif_isp20_reg_trace.reg_trace +
-					cif_isp20_reg_trace.reg_trace_write_pos,
-					"%04x %08x\n",
-					addr - cif_isp20_reg_trace.base_addr,
-					data);
-			if (bytes > 0)
-				cif_isp20_reg_trace.reg_trace_write_pos +=
-					bytes;
-			else
-				cif_isp20_pltfrm_pr_err(dev,
-					"error writing trace buffer, error %d\n",
-					bytes);
-		}
-		cif_isp20_reg_trace.internal = false;
-		if (!in_irq())
-			spin_unlock_irqrestore(
-				&cif_isp20_reg_trace.lock, flags);
-	}
+	cif_isp20_pltfrm_rtrace_reg(dev, data, addr);
 #endif
 }
 
@@ -1277,9 +1467,12 @@ int cif_isp20_pltfrm_dev_init(
 		&cif_isp20_dbgfs_reg_trace_fops);
 	spin_lock_init(&cif_isp20_reg_trace.lock);
 	cif_isp20_reg_trace.reg_trace = NULL;
+	cif_isp20_reg_trace.tmp_buf = NULL;
 	cif_isp20_dbgfs_reg_trace_clear(dev);
 	cif_isp20_reg_trace.reg_trace_max_size = 0;
+	cif_isp20_reg_trace.tmp_buf_size = 0;
 	cif_isp20_reg_trace.base_addr = base_addr;
+	cif_isp20_reg_trace.ringbuffer_on = true;
 	cif_isp20_reg_trace.rtrace = true;
 	cif_isp20_reg_trace.ftrace = false;
 	cif_isp20_reg_trace.internal = false;
@@ -1799,6 +1992,19 @@ void cif_isp20_pltfrm_dev_release(
 		debugfs_remove(pdata->dbgfs.csi0_file);
 		debugfs_remove(pdata->dbgfs.csi1_file);
 		debugfs_remove_recursive(pdata->dbgfs.dir);
+
+#ifdef CONFIG_CIF_ISP20_REG_TRACE
+		if (cif_isp20_reg_trace.reg_trace) {
+			devm_kfree(dev, cif_isp20_reg_trace.reg_trace);
+			cif_isp20_reg_trace.reg_trace = NULL;
+			cif_isp20_reg_trace.reg_trace_max_size = 0;
+		}
+		if (cif_isp20_reg_trace.tmp_buf) {
+			devm_kfree(dev, cif_isp20_reg_trace.tmp_buf);
+			cif_isp20_reg_trace.tmp_buf = NULL;
+			cif_isp20_reg_trace.tmp_buf_size = 0;
+		}
+#endif
 	}
 #endif
 	ret = device_state_pm_remove_device(dev);
