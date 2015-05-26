@@ -116,9 +116,6 @@ struct xgold_i2c_algo_data {
 	int buf_len;
 	u16 addr;
 	unsigned flags;
-	int num_of_msg;
-	int recvd;
-	int retries;
 	bool debug;
 	/* DMA */
 	dma_addr_t regs_phys;

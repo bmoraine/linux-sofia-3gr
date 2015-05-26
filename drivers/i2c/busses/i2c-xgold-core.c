@@ -756,6 +756,21 @@ static irqreturn_t xgold_i2c_err_handler(void *dev)
 	data->cmd_err = -EAGAIN;
 	reg_write(err_irqss, data->regs + I2C_ERR_IRQSC_OFFSET);
 
+	/* We mask DMA request signals to avoid side effect with DMA controller
+	 * after any FIFO error occurence */
+	if (data->dma_mode == true)
+		xgold_i2c_dmae(data, false);
+
+	/* Write End bit to ensure that an End bit is sent at the end of
+	 * transfer. We are forcing this here. */
+	reg_write(I2C_ENDD_CTRL_SETEND_MASK,
+			data->regs + I2C_ENDD_CTRL_OFFSET);
+
+	/* Clear other pending FIFO interrupts */
+	reg_write(I2C_ICR_LSREQ_INT_CLR_INT | I2C_ICR_SREQ_INT_CLR_INT |
+			I2C_ICR_LBREQ_INT_CLR_INT | I2C_ICR_BREQ_INT_CLR_INT,
+			data->regs + I2C_ICR_OFFSET);
+
 	return IRQ_HANDLED;
 }
 
@@ -878,6 +893,13 @@ static irqreturn_t xgold_i2c_irq_handler(int irq, void *dev)
 					I2C_MIS_LBREQ_INT_INT_PEND |
 					I2C_MIS_BREQ_INT_INT_PEND)) {
 
+			/* by default, all FIFO register could be cleared,
+			 * except one case with dma */
+			u32 mask = I2C_ICR_LSREQ_INT_CLR_INT |
+				I2C_ICR_SREQ_INT_CLR_INT |
+				I2C_ICR_LBREQ_INT_CLR_INT |
+				I2C_ICR_BREQ_INT_CLR_INT;
+
 			i2c_debug(data, "xREQ_INT/LxREQ_INT recvd, state %d\n",
 					data->state);
 
@@ -885,18 +907,28 @@ static irqreturn_t xgold_i2c_irq_handler(int irq, void *dev)
 			if (data->state == XGOLD_I2C_TRANSMIT) {
 				i2c_debug(data, "M1 MASTER TRANSMITS BYTES\n");
 				xgold_i2c_xmit_word(data);
-			} else {
+			} else if (data->dma_mode == false) {
 				i2c_debug(data, "M2: MASTER Receives BYTES\n");
 				xgold_i2c_recv_word(data,
 					mis & (I2C_MIS_LSREQ_INT_INT_PEND |
 						I2C_MIS_LBREQ_INT_INT_PEND));
+			} else if (data->cmd_err == 0) {
+				/* If an error is detected, transfer is already
+				 * halted from err_handler. But request
+				 * interrupt may stay pending and must be
+				 * cleared to avoid infinite loop. No need to
+				 * fill/empty fifo */
+
+				i2c_debug(data, "%s: Unexpected REQ. Must be DMA\n",
+						__func__);
+
+				/* There should not be any request while in DMA
+				 * mode. All request are ack by DMA, not SW.
+				 * Thus we must not clear any request here. */
+				mask = 0;
 			}
 
-			reg_write(mis & (I2C_ICR_LSREQ_INT_CLR_INT |
-						I2C_ICR_SREQ_INT_CLR_INT |
-						I2C_ICR_LBREQ_INT_CLR_INT |
-						I2C_ICR_BREQ_INT_CLR_INT),
-					data->regs + I2C_ICR_OFFSET);
+			reg_write(mis & mask, data->regs + I2C_ICR_OFFSET);
 
 			if (data->state == XGOLD_I2C_TRANSMIT &&
 					I2C_MSG_RD(data->flags)) {
@@ -905,7 +937,6 @@ static irqreturn_t xgold_i2c_irq_handler(int irq, void *dev)
 					xgold_i2c_dmae(data, true);
 			}
 			spin_unlock(&data->lock);
-
 			ret = IRQ_HANDLED;
 		}
 
@@ -962,7 +993,8 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 	data->dma_mode = (data->dmach && data->buf_len > 32) ? true : false;
 
 	if (I2C_MSG_RD(data->flags)) {
-		i2c_debug(data, "--> RD dev=0x%x, %d bytes, flags=%d, mode %s\n",
+		i2c_debug(data,
+			"--> RD dev=0x%x, %d bytes, flags=%d, mode %s\n",
 			data->addr, data->buf_len, data->flags,
 			(data->dma_mode == true) ? "DMA" : "PIO");
 
@@ -990,12 +1022,14 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 
 		/* Wait for transfer completion */
 		ret = wait_for_completion_timeout(&data->cmd_complete,
-				data->timeout);
+				msecs_to_jiffies(data->timeout));
 
 		if (data->dma_mode == true && (ret == 0 || data->cmd_err) &&
 				dma_async_is_tx_complete(
 					data->dmach, data->dma_cookie,
 					NULL, NULL) != DMA_COMPLETE) {
+			data->cmd_err = (data->cmd_err) ?
+				data->cmd_err : -ETIMEDOUT;
 			dev_err(&adap->dev,
 				"An error occured %d. Terminate all dma\n",
 				data->cmd_err);
@@ -1033,7 +1067,7 @@ static int xgold_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg)
 				data->regs + I2C_TPS_CTRL_OFFSET);
 
 		ret = wait_for_completion_timeout(&data->cmd_complete,
-				data->timeout);
+				msecs_to_jiffies(data->timeout));
 
 		if (data->dma_mode == true && (ret == 0 || data->cmd_err) &&
 				dma_async_is_tx_complete(data->dmach,
@@ -1058,6 +1092,21 @@ out:
 
 	if (data->cmd_err) {
 		i2c_debug(data, "An error occured %d\n", data->cmd_err);
+
+		/* Clear pending Error interrupts */
+		reg_write(XGOLD_I2C_ERR_MASK,
+				data->regs + I2C_ERR_IRQSC_OFFSET);
+
+		/* Clear pending Protocol interrupts */
+		reg_write(XGOLD_I2C_P_MASK_ALL,
+				data->regs + I2C_P_IRQSC_OFFSET);
+
+		/* Clear pending FIFO interrupts */
+		reg_write(I2C_ICR_LSREQ_INT_CLR_INT | I2C_ICR_SREQ_INT_CLR_INT |
+				I2C_ICR_LBREQ_INT_CLR_INT |
+				I2C_ICR_BREQ_INT_CLR_INT,
+				data->regs + I2C_ICR_OFFSET);
+
 		return data->cmd_err;
 	}
 
