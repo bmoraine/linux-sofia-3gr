@@ -1019,20 +1019,17 @@ p_sleep_pins:p_sleep_pins {
 };
 cam2_default_pins:cam2_default_pins {
 	pinctrl-single,pins = <
-		0x2f8 0x1500	/* cam2_rst */
-		0x2fc 0x1500	/* cam2_pd */
+		0x238 0x1500	/* SUB_PWDN_N */
 	>;
 };
 cam2_inactive_pins:cam2_inactive_pins {
 	pinctrl-single,pins = <
-		0x2f8 0x2100	/* cam2_rst */
-		0x2fc 0x2100	/* cam2_pd */
+		0x238 0x2100	/* SUB_PWDN_N */
 	>;
 };
 cam2_sleep_pins:cam2_sleep_pins {
 	pinctrl-single,pins = <
-		0x2f8 0x39100	/* cam2_rst */
-		0x2fc 0x31700	/* cam2_pd */
+		0x238 0x39100	/* SUB_PWDN_N */
 	>;
 };
 gauge_default_pins:gauge_default_pins {

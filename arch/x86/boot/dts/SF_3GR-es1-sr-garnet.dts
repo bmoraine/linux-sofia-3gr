@@ -356,8 +356,7 @@
 		pinctrl-1 = <&cam2_sleep_pins>;
 		pinctrl-2 = <&cam2_inactive_pins>;
 
-		intel,pd-gpio = <&xgold_pmx_gpio 63 0>;
-
+		intel,pd-gpio = <&xgold_pmx_gpio 14 0>;
 
 		pm,class-name = "generic_class";
 		pm,user-name = "seccam";
