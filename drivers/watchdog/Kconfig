@@ -643,6 +643,16 @@ config INTEL_SCU_WATCHDOG
 
 	  To compile this driver as a module, choose M here.
 
+config INTEL_SOFIA_WATCHDOG
+	bool "Intel SOFIA Watchdog for Mobile Platforms"
+	depends on X86_INTEL_SOFIA
+	---help---
+	  Linux watchdog driver for Intel Mobile
+	  Sofia Platforms. VMM use soft timer to
+	  monitor linux guest os.
+
+	  To compile this driver as a module, choose M here.
+
 config ITCO_WDT
 	tristate "Intel TCO Timer/Watchdog"
 	depends on (X86 || IA64) && PCI
