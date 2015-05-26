@@ -2513,10 +2513,12 @@ static int cif_isp20_config_jpeg_enc(
 
 	if (dev->config.input_sel > CIF_ISP20_INP_CPI ||
 		!CIF_ISP20_PIX_FMT_IS_RAW_BAYER(
-		dev->config.isp_config.input->pix_fmt)) {
+		dev->config.isp_config.input->pix_fmt) ||
+		cifisp_is_ie_active(&dev->isp_dev)) {
 		/*
 		upscaling of BT601 color space to full range 0..255
-		TODO: DMA or YUV sensor input in full range.
+		The image effec block requires reduced range.
+		TODO: input in full range from DMA or YUV sensor.
 		*/
 		cif_iowrite32(CIF_JPE_LUM_SCALE_ENABLE,
 			dev->config.base_addr + CIF_JPE_Y_SCALE_EN);

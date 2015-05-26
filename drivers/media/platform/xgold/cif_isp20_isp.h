@@ -137,5 +137,5 @@ void cifisp_ycflt_en(const struct xgold_isp_dev *isp_dev);
 void cifisp_ycflt_end(const struct xgold_isp_dev *isp_dev);
 void cifisp_v_start(struct xgold_isp_dev *isp_dev,
 	const struct timeval *timestamp);
-
+bool cifisp_is_ie_active(const struct xgold_isp_dev *isp_dev);
 #endif

@@ -2603,7 +2603,7 @@ static void cifisp_cproc_config(const struct xgold_isp_dev *isp_dev,
 	cifisp_iowrite32(pconfig->sat, CIF_C_PROC_SATURATION);
 	cifisp_iowrite32(pconfig->brightness, CIF_C_PROC_BRIGHTNESS);
 
-	if (!capture) {
+	if (!capture || cifisp_is_ie_active(isp_dev)) {
 		cifisp_iowrite32OR(
 			pconfig->c_out_range << 3 |
 			pconfig->y_in_range << 2 |
@@ -3083,7 +3083,10 @@ static void cifisp_ie_end(const struct xgold_isp_dev *isp_dev)
 static void cifisp_csm_config(const struct xgold_isp_dev *isp_dev,
 				bool capture)
 {
-	if (!capture) {
+	/* The color effects cause corrupted color if full value range
+	 * is enabled. Therefore, disable full range with color effects.
+	 */
+	if (!capture || cifisp_is_ie_active(isp_dev)) {
 		/* Reduced range conversion */
 		cifisp_iowrite32(0x21, CIF_ISP_CC_COEFF_0);
 		cifisp_iowrite32(0x40, CIF_ISP_CC_COEFF_1);
@@ -3915,6 +3918,16 @@ void cifisp_v_start(struct xgold_isp_dev *isp_dev,
 	isp_dev->frame_id += 2;
 	isp_dev->frame_start_tv = *timestamp;
 }
+
+bool cifisp_is_ie_active(const struct xgold_isp_dev *isp_dev)
+{
+	if (isp_dev->ie_en &&
+		isp_dev->ie_config.effect != V4L2_COLORFX_NONE)
+		return true;
+	else
+		return false;
+}
+
 
 /* Not called when the camera active, thus not isr protection. */
 void cifisp_disable_isp(struct xgold_isp_dev *isp_dev)
