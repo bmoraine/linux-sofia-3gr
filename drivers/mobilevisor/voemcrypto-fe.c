@@ -39,7 +39,7 @@
 
 #include "voemcrypto_common.h"
 
-#if 1
+#if 0
 #define VOEMCRYPTO_DEBUG
 #endif
 
@@ -288,7 +288,7 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 
 	device_state = VOEMCRYPTO_DEVICE_BUSY;
 
-	TRACE("Dispatch IOCTL cmd 0x%08X\n", (uint32_t)cmd&0x000000FF);
+	DTRACE("Dispatch IOCTL cmd 0x%08X\n", (uint32_t)cmd&0x000000FF);
 
 	switch (cmd) {
 	/*===================================================================*/
