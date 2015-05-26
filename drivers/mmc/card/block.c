@@ -1487,7 +1487,21 @@ static int mmc_blk_err_check(struct mmc_card *card,
 				       status);
 				gen_err = 1;
 			}
-
+			if (status & R1_WP_VIOLATION) {
+				pr_err("%s: %s: write protect error , card status %#x\n",
+				       req->rq_disk->disk_name, __func__,
+				       status);
+				switch (mmc_blk_cmd_recovery(card, req, brq, &ecc_err, &gen_err)) {
+					case ERR_RETRY:
+						return MMC_BLK_RETRY;
+					case ERR_ABORT:
+						return MMC_BLK_ABORT;
+					case ERR_NOMEDIUM:
+						return MMC_BLK_NOMEDIUM;
+					case ERR_CONTINUE:
+						break;
+				}
+			}
 			/* Timeout if the device never becomes ready for data
 			 * and never leaves the program state.
 			 */
