@@ -141,6 +141,56 @@ err:
 	return ret;
 }
 
+#define GPIO_HARDWARE_ID_0 55
+#define GPIO_HARDWARE_ID_1 48
+#define UNKNOWN (-1)
+enum {
+	SR,
+	ER,
+	PR,
+	MP,
+};
+
+static int get_gpio_170(unsigned int pin) {
+	int ret = 0;
+
+	if(gpio_request(pin, "HW_ID")) {
+		pr_info("Fail to get pcb id pin %d\n", pin);
+		return 0;
+	}
+
+	gpio_direction_input(pin);
+	ret = gpio_get_value_cansleep(pin);
+	printk("SOC GPIO %d := %x\n", pin, ret);
+	gpio_free(pin);
+
+	return ret;
+}
+
+int get_hw_id_170(void) {
+	int ret = -1;
+	int tmp = 0;
+	int hardware_id = 0;
+
+	tmp = get_gpio_170(GPIO_HARDWARE_ID_1);
+	hardware_id |= (tmp<<1);
+	tmp = get_gpio_170(GPIO_HARDWARE_ID_0);
+	hardware_id |= tmp;
+	switch (hardware_id) {
+	case 0:
+		return SR;
+	case 1:
+		return ER;
+	case 2:
+		return PR;
+	case 3:
+		return MP;
+	default:
+		return UNKNOWN;
+	}
+	return ret;
+}
+
 static struct pltfrm_camera_module_data *pltfrm_camera_module_get_data(
 	struct v4l2_subdev *sd)
 {
@@ -197,30 +247,38 @@ static struct pltfrm_camera_module_data *pltfrm_camera_module_get_data(
 	}
 
 	pdata->pinctrl = devm_pinctrl_get(&client->dev);
-	if (!IS_ERR(pdata->pinctrl)) {
+	if ((client->addr == 0x21) && (get_hw_id_170() == ER)) {
+		pltfrm_camera_module_pr_err(sd," disable pinctrl\n");
+	} else {
+		if (!IS_ERR(pdata->pinctrl)) {
 
-		pdata->pins_default = pinctrl_lookup_state(
+			pdata->pins_default = pinctrl_lookup_state(
 				pdata->pinctrl, PINCTRL_STATE_DEFAULT);
-		if (IS_ERR(pdata->pins_default))
-			pltfrm_camera_module_pr_warn(sd,
-			"could not get default pinstate\n");
+			if (IS_ERR(pdata->pins_default))
+				pltfrm_camera_module_pr_warn(sd,
+				"could not get default pinstate\n");
 
-		pdata->pins_sleep = pinctrl_lookup_state(
+			pdata->pins_sleep = pinctrl_lookup_state(
 				pdata->pinctrl, PINCTRL_STATE_SLEEP);
-		if (IS_ERR(pdata->pins_sleep))
-			pltfrm_camera_module_pr_warn(sd,
-			"could not get sleep pinstate\n");
+			if (IS_ERR(pdata->pins_sleep))
+				pltfrm_camera_module_pr_warn(sd,
+				"could not get sleep pinstate\n");
 
-		pdata->pins_inactive = pinctrl_lookup_state(
+			pdata->pins_inactive = pinctrl_lookup_state(
 				pdata->pinctrl, "inactive");
-		if (IS_ERR(pdata->pins_inactive))
-			pltfrm_camera_module_pr_warn(sd,
-			"could not get inactive pinstate\n");
+			if (IS_ERR(pdata->pins_inactive))
+				pltfrm_camera_module_pr_warn(sd,
+				"could not get inactive pinstate\n");
+		}
 	}
+
 
 	pdata->gpios[0].label = PLTFRM_CAMERA_MODULE_PIN_PD;
 	pdata->gpios[0].pltfrm_gpio =
 		of_get_named_gpio_flags(np, pdata->gpios[0].label, 0, NULL);
+	if ((client->addr == 0x21) && (pdata->gpios[0].pltfrm_gpio == 14) && (get_hw_id_170() == ER)) {
+		pdata->gpios[0].pltfrm_gpio=63;
+	}
 	pdata->gpios[0].active_low =
 		of_property_read_bool(np, OF_OV_GPIO_PD "-is_active_low");
 
