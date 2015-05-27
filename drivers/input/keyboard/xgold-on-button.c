@@ -40,6 +40,9 @@ struct xgold_on_button_pdata {
 	struct platform_device *pdev;
 	struct matrix_keymap_data *keymap_data;
 	bool utility;
+	bool suspended;
+	bool pending_event_0; /* for isr 1 during suspend */
+	bool pending_event_1; /* for isr 2 during suspend */
 };
 
 static uint16_t keycodes[] = { KEY_POWER };
@@ -110,10 +113,9 @@ static int32_t pmic_btn_init(struct device *dev)
 #define pmic_btn_time_log(btn)\
 	dev_dbg(dev, "%s button held for %d secs\n", btn, time)\
 
-static irqreturn_t _pmic_on_button_isr(int32_t irq, void *d)
+static void __pmic_on_button_isr(struct xgold_on_button_pdata *data)
 {
 	int32_t ret = 0;
-	struct xgold_on_button_pdata *data = (struct xgold_on_button_pdata *)d;
 	struct platform_device *pdev = data->pdev;
 	struct device *dev = &pdev->dev;
 	uint32_t status, level = 0;
@@ -123,7 +125,7 @@ static irqreturn_t _pmic_on_button_isr(int32_t irq, void *d)
 			&status);
 
 	if (ret)
-		return IRQ_HANDLED;
+		return;
 
 	level = PBSTATUS_REG_PBLVL(status);
 	pmic_btn_lvl_log("Power");
@@ -139,13 +141,11 @@ static irqreturn_t _pmic_on_button_isr(int32_t irq, void *d)
 #endif
 	input_report_key(data->input_dev, KEY_POWER, !level);
 	input_sync(data->input_dev);
-	return IRQ_HANDLED;
 }
 
-static irqreturn_t _pmic_ui_button_isr(int32_t irq, void *d)
+static void __pmic_ui_button_isr(struct xgold_on_button_pdata *data)
 {
 	int32_t ret = 0;
-	struct xgold_on_button_pdata *data = (struct xgold_on_button_pdata *)d;
 	struct platform_device *pdev = data->pdev;
 	struct device *dev = &pdev->dev;
 	uint32_t status, level = 0;
@@ -155,7 +155,7 @@ static irqreturn_t _pmic_ui_button_isr(int32_t irq, void *d)
 			&status);
 
 	if (ret)
-		return IRQ_HANDLED;
+		return;
 
 	level = UBSTATUS_REG_UBLVL(status);
 	pmic_btn_lvl_log("Utility");
@@ -172,12 +172,10 @@ static irqreturn_t _pmic_ui_button_isr(int32_t irq, void *d)
 
 	input_report_key(data->input_dev, KEY_POWER, !level);
 	input_sync(data->input_dev);
-	return IRQ_HANDLED;
 }
 
-static irqreturn_t _on_button_press_isr(int32_t irq, void *d)
+static void __on_button_press_isr(struct xgold_on_button_pdata *data)
 {
-	struct xgold_on_button_pdata *data = (struct xgold_on_button_pdata *)d;
 	struct platform_device *pdev = data->pdev;
 	struct device *dev = &pdev->dev;
 	if (data->input_dev) {
@@ -186,12 +184,10 @@ static irqreturn_t _on_button_press_isr(int32_t irq, void *d)
 			KEY_POWER, 1);
 		input_sync(data->input_dev);
 	}
-	return IRQ_HANDLED;
 }
 
-static irqreturn_t _on_button_release_isr(int32_t irq, void *d)
+static void __on_button_release_isr(struct xgold_on_button_pdata *data)
 {
-	struct xgold_on_button_pdata *data = (struct xgold_on_button_pdata *)d;
 	struct platform_device *pdev = data->pdev;
 	struct device *dev = &pdev->dev;
 	if (data->input_dev) {
@@ -200,33 +196,54 @@ static irqreturn_t _on_button_release_isr(int32_t irq, void *d)
 			KEY_POWER, 0);
 		input_sync(data->input_dev);
 	}
+}
+
+static void _on_button_0_isr(struct xgold_on_button_pdata *data)
+{
+	struct device_node *np = data->pdev->dev.of_node;
+	struct platform_device *pdev = data->pdev;
+	struct device *dev = &pdev->dev;
+	dev_dbg(dev, "%s\n", __func__);
+	if (of_device_is_compatible(np, PROP_PMIC_ON_BUTTON))
+		__pmic_on_button_isr(data);
+	else
+		__on_button_release_isr(data);
+}
+
+static void _on_button_1_isr(struct xgold_on_button_pdata *data)
+{
+	struct device_node *np = data->pdev->dev.of_node;
+	struct platform_device *pdev = data->pdev;
+	struct device *dev = &pdev->dev;
+	dev_dbg(dev, "%s\n", __func__);
+	if (of_device_is_compatible(np, PROP_PMIC_ON_BUTTON))
+		__pmic_ui_button_isr(data);
+	else
+		__on_button_press_isr(data);
+}
+
+static irqreturn_t xgold_on_button_0_isr(int irq, void *d)
+{
+	struct xgold_on_button_pdata *data = (struct xgold_on_button_pdata *)d;
+
+	if (data->suspended)
+		data->pending_event_0 = true;
+	else
+		_on_button_0_isr(data);
+
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t on_button_0_isr(int32_t irq, void *d)
+static irqreturn_t xgold_on_button_1_isr(int irq, void *d)
 {
 	struct xgold_on_button_pdata *data = (struct xgold_on_button_pdata *)d;
-	struct device_node *np = data->pdev->dev.of_node;
-	struct platform_device *pdev = data->pdev;
-	struct device *dev = &pdev->dev;
-	dev_dbg(dev, "%s\n", __func__);
-	if (of_device_is_compatible(np, PROP_PMIC_ON_BUTTON))
-		return _pmic_on_button_isr(irq, d);
-	else
-		return _on_button_release_isr(irq, d);
-}
 
-static irqreturn_t on_button_1_isr(int32_t irq, void *d)
-{
-	struct xgold_on_button_pdata *data = (struct xgold_on_button_pdata *)d;
-	struct device_node *np = data->pdev->dev.of_node;
-	struct platform_device *pdev = data->pdev;
-	struct device *dev = &pdev->dev;
-	dev_dbg(dev, "%s\n", __func__);
-	if (of_device_is_compatible(np, PROP_PMIC_ON_BUTTON))
-		return _pmic_ui_button_isr(irq, d);
+	if (data->suspended)
+		data->pending_event_1 = true;
 	else
-		return _on_button_press_isr(irq, d);
+		_on_button_1_isr(data);
+
+	return IRQ_HANDLED;
 }
 
 #ifdef CONFIG_PM
@@ -244,8 +261,23 @@ static int32_t xgold_on_button_suspend(struct platform_device *pdev,
 			if (data->irq[i] &&
 					(enable_irq_wake(data->irq[i]) == 0))
 				__set_bit(i, data->irqwake_enabled);
+	data->suspended = true;
 	mutex_unlock(&input_dev->mutex);
 	return 0;
+}
+
+static void disable_interrupts_on_button(struct xgold_on_button_pdata *data)
+{
+	int i;
+	for (i = 0; i < MAX_ON_BUTTON_IRQ; i++)
+		disable_irq(data->irq[i]);
+}
+
+static void enable_interrupts_on_button(struct xgold_on_button_pdata *data)
+{
+	int i;
+	for (i = 0; i < MAX_ON_BUTTON_IRQ; i++)
+		enable_irq(data->irq[i]);
 }
 
 static int32_t xgold_on_button_resume(struct platform_device *pdev)
@@ -260,7 +292,21 @@ static int32_t xgold_on_button_resume(struct platform_device *pdev)
 		for (i = 0; i < MAX_ON_BUTTON_IRQ; i++)
 			if (test_and_clear_bit(i, data->irqwake_enabled))
 				disable_irq_wake(data->irq[i]);
+	data->suspended = false;
 	mutex_unlock(&input_dev->mutex);
+
+	disable_interrupts_on_button(data);
+	if (data->pending_event_0) {
+		_on_button_0_isr(data);
+		data->pending_event_0 = false;
+	}
+
+	if (data->pending_event_1) {
+		_on_button_1_isr(data);
+		data->pending_event_1 = false;
+	}
+	enable_interrupts_on_button(data);
+
 	return 0;
 }
 #endif
@@ -299,7 +345,7 @@ static int32_t xgold_on_button_probe(struct platform_device *pdev)
 	data->irq[irq_count] = platform_get_irq_byname(pdev, ON_BUTTON_0);
 	if (!IS_ERR_VALUE(data->irq[irq_count])) {
 		if (devm_request_threaded_irq(dev,
-				data->irq[irq_count], NULL, on_button_0_isr,
+				data->irq[irq_count], NULL, xgold_on_button_0_isr,
 				IRQF_SHARED | IRQF_NO_SUSPEND | IRQF_ONESHOT,
 				ON_BUTTON_0, data)) {
 			dev_err(dev, "setup irq%d failed\n",
@@ -315,7 +361,7 @@ static int32_t xgold_on_button_probe(struct platform_device *pdev)
 	data->irq[irq_count] = platform_get_irq_byname(pdev, ON_BUTTON_1);
 	if (!IS_ERR_VALUE(data->irq[irq_count])) {
 		if (devm_request_threaded_irq(dev,
-				data->irq[irq_count], NULL, on_button_1_isr,
+				data->irq[irq_count], NULL, xgold_on_button_1_isr,
 				IRQF_SHARED | IRQF_NO_SUSPEND | IRQF_ONESHOT,
 				ON_BUTTON_1, data)) {
 			dev_err(dev, "setup irq%d failed\n",
