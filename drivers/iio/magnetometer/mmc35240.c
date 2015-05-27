@@ -63,7 +63,6 @@ enum mmc35240_resolution {
 	MMC35240_16_BITS_FAST,     /* 200 Hz */
 	MMC35240_14_BITS,          /* 333 Hz */
 	MMC35240_12_BITS,          /* 666 Hz */
-	MMC35240_MAX_BITS /* this must be last */
 };
 
 enum mmc35240_axis {
@@ -105,7 +104,7 @@ struct mmc35240_data {
 	enum mmc35240_resolution res;
 };
 
-int mmc35240_samp_freq[] = {100, 200, 333, 666};
+static const int mmc35240_samp_freq[] = {100, 200, 333, 666};
 
 static IIO_CONST_ATTR_SAMP_FREQ_AVAIL("100 200 333 666");
 
@@ -181,7 +180,7 @@ static int mmc35240_init(struct mmc35240_data *data)
 		return ret;
 	}
 
-	dev_info(&data->client->dev, "MMC35240 chip id %x\n", reg_id);
+	dev_dbg(&data->client->dev, "MMC35240 chip id %x\n", reg_id);
 
 	/*
 	 * make sure we restore sensor characteristics, by doing
@@ -239,11 +238,12 @@ static int mmc35240_read_measurement(struct mmc35240_data *data, __le16 buf[3])
 		return ret;
 
 	return regmap_bulk_read(data->regmap, MMC35240_REG_XOUT_L, (u8 *)buf,
-				3 * sizeof(__be16));
+				3 * sizeof(__le16));
 }
 
-int mmc35240_raw_to_gauss(struct mmc35240_data *data, int index, __le16 buf[],
-			   int *val, int *val2)
+static int mmc35240_raw_to_gauss(struct mmc35240_data *data, int index,
+				 __le16 buf[],
+				 int *val, int *val2)
 {
 	int raw_x, raw_y, raw_z;
 	int sens_x, sens_y, sens_z;
@@ -314,7 +314,7 @@ static int mmc35240_read_raw(struct iio_dev *indio_dev,
 
 		*val = mmc35240_samp_freq[i];
 		*val2 = 0;
-		return IIO_VAL_INT_PLUS_MICRO;
+		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
 	}
@@ -430,7 +430,6 @@ static int mmc35240_probe(struct i2c_client *client,
 	}
 
 	data = iio_priv(indio_dev);
-	i2c_set_clientdata(client, indio_dev);
 	data->client = client;
 	data->regmap = regmap;
 	data->res = MMC35240_16_BITS_SLOW;
@@ -450,11 +449,6 @@ static int mmc35240_probe(struct i2c_client *client,
 		return ret;
 	}
 	return devm_iio_device_register(&client->dev, indio_dev);
-}
-
-static int mmc35240_remove(struct i2c_client *client)
-{
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -497,7 +491,7 @@ static const struct acpi_device_id mmc35240_acpi_match[] = {
 MODULE_DEVICE_TABLE(acpi, mmc35240_acpi_match);
 
 static const struct i2c_device_id mmc35240_id[] = {
-	{"mmc35240", 0},
+	{"MMC35240", 0},
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, mmc35240_id);
@@ -509,7 +503,6 @@ static struct i2c_driver mmc35240_driver = {
 		.acpi_match_table = ACPI_PTR(mmc35240_acpi_match),
 	},
 	.probe		= mmc35240_probe,
-	.remove		= mmc35240_remove,
 	.id_table	= mmc35240_id,
 };
 
