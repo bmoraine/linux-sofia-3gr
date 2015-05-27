@@ -158,7 +158,7 @@ void sofia_set_cpu_policy(const int freqmin, const int freqmax)
 
 	pr_debug("%s: ask vmm to change policy to min %d kHz, max %d kHz",
 			__func__, freqmin*1000, freqmax*1000);
-	freq_requested = (freqmax<<16)|((u32)freqmin);
+	freq_requested = (freqmax<<16)|((u16)freqmin);
 	retval = mv_svc_pm_control(PM_OMP_SET_POLICY, 1, freq_requested, 0);
 
 }
@@ -172,7 +172,7 @@ void sofia_thermal_set_cpu_policy(const int freqmin, const int freqmax)
 
 	pr_debug("%s: ask vmm to change policy to min %d kHz, max %d kHz",
 			__func__, freqmin*1000, freqmax*1000);
-	freq_requested = (freqmax<<16)|((u32)freqmin);
+	freq_requested = (freqmax<<16)|((u16)freqmin);
 	retval = mv_svc_pm_control(PM_OMP_SET_POLICY, 2, freq_requested, 0);
 }
 EXPORT_SYMBOL(sofia_thermal_set_cpu_policy);
