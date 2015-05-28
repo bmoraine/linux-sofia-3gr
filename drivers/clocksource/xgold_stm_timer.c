@@ -392,6 +392,9 @@ static int xgold_stm_cpu_notify(struct notifier_block *n,
 		destroy_timer_on_stack(&work.work.timer);
 		break;
 	case CPU_DEAD:
+		if (!cpu_isset(cpu, stm_cpumask))
+			return NOTIFY_OK;
+
 		if (levt->irq) {
 			free_irq(levt->irq, stm_clkevt);
 			levt->irq = 0;
@@ -401,6 +404,7 @@ static int xgold_stm_cpu_notify(struct notifier_block *n,
 
 		break;
 	}
+
 	return NOTIFY_OK;
 }
 
