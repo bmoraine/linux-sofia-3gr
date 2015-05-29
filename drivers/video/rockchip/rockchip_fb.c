@@ -2300,6 +2300,7 @@ static int rockchip_fb_show_copy_from_loader(struct fb_info *info)
 	struct page **pages;
 	char *vaddr;
 	u32 i = 0, offset = 0;
+	u32 line_len = 0, xact_len = 0;
 
 	dev_drv->ops->get_dsp_addr(dev_drv, dsp_addr);
 	src = dsp_addr[0];
@@ -2323,7 +2324,21 @@ static int rockchip_fb_show_copy_from_loader(struct fb_info *info)
 		return -ENOMEM;
 	}
 
-	memcpy(dst, vaddr + offset, size);
+	if (info->var.xres % 32 == 0) {
+		memcpy(dst, vaddr + offset, size);
+	} else {
+		/* format is ARGB888 in loader */
+		line_len = ALIGN_N_TIMES(info->var.xres, 32) << 2;
+		xact_len = win->area[0].xact << 2;
+		for (i = 0; i < win->area[0].yact; i++)
+			memcpy(dst + line_len * i,
+			       vaddr + offset + xact_len * i,
+			       xact_len);
+
+		if (dev_drv->ops->reg_writel)
+			dev_drv->ops->reg_writel(dev_drv, 0x30, line_len >> 2);
+	}
+
 	vunmap(vaddr);
 	kfree(pages);
 
