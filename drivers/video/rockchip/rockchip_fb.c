@@ -422,6 +422,45 @@ static void rockchip_fb_fence_wait(struct rockchip_vop_driver *dev_drv,
 		dev_err(dev_drv->dev, "error waiting on fence\n");
 }
 
+static int rockchip_fb_fence_create(struct rockchip_vop_driver *dev_drv,
+				    const char *name)
+{
+	int fd = get_unused_fd();
+	int err;
+	struct sync_pt *pt;
+	struct sync_fence *fence;
+
+	if (unlikely(!dev_drv) || unlikely(!name))
+		return -EINVAL;
+
+	if (fd < 0) {
+		pr_err("%s: get %s fd falied, fd=%d\n", __func__, name, fd);
+		return fd;
+	}
+
+	pt = sw_sync_pt_create(dev_drv->timeline, dev_drv->timeline_max);
+	if (pt == NULL) {
+		pr_err("%s: create sync pt falied!\n", __func__);
+		err = -ENOMEM;
+		goto err;
+	}
+
+	fence = sync_fence_create(name, pt);
+	if (fence == NULL) {
+		pr_err("%s: create %s fence falied!\n", __func__, name);
+		sync_pt_free(pt);
+		err = -ENOMEM;
+		goto err;
+	}
+
+	sync_fence_install(fence, fd);
+	return fd;
+
+err:
+	put_unused_fd(fd);
+	return err;
+}
+
 static int rockchip_fb_check_config_var(struct rockchip_fb_area_par *area_par,
 				    struct rockchip_screen *screen)
 {
@@ -1052,11 +1091,7 @@ static int rockchip_fb_update_win_config(struct fb_info *info,
 	int list_is_empty = 0;
 
 #ifdef H_USE_FENCE
-	struct sync_fence *release_fence[SFA_MAX_BUF_NUM];
-	struct sync_fence *retire_fence;
-	struct sync_pt *release_sync_pt[SFA_MAX_BUF_NUM];
-	struct sync_pt *retire_sync_pt;
-	char fence_name[20];
+	char fence_name[20] = {0};
 #endif
 
 	regs = kzalloc(sizeof(*regs), GFP_KERNEL);
@@ -1104,40 +1139,25 @@ static int rockchip_fb_update_win_config(struct fb_info *info,
 	for (i = 0; i < SFA_MAX_BUF_NUM; i++) {
 		if (i < regs->buf_num) {
 			sprintf(fence_name, "fence%d", i);
-			win_data->rel_fence_fd[i] = get_unused_fd();
+			win_data->rel_fence_fd[i] =
+				rockchip_fb_fence_create(dev_drv, fence_name);
 			if (win_data->rel_fence_fd[i] < 0) {
-				pr_info("get fence fd failed,rel_fence_fd=%d\n",
-					win_data->rel_fence_fd[i]);
+				dev_drv->timeline_max--;
 				ret = -EFAULT;
 				goto err_out;
 			}
-			release_sync_pt[i] =
-			    sw_sync_pt_create(dev_drv->timeline,
-					      dev_drv->timeline_max);
-			release_fence[i] =
-			    sync_fence_create(fence_name, release_sync_pt[i]);
-			sync_fence_install(release_fence[i],
-					   win_data->rel_fence_fd[i]);
 		} else {
 			win_data->rel_fence_fd[i] = -1;
 		}
 	}
 
-	win_data->ret_fence_fd = get_unused_fd();
+	win_data->ret_fence_fd =
+		rockchip_fb_fence_create(dev_drv, "ret_fence");
 	if (win_data->ret_fence_fd < 0) {
-		pr_info("ret_fence_fd=%d\n", win_data->ret_fence_fd);
+		dev_drv->timeline_max--;
 		ret = -EFAULT;
 		goto err_out;
 	}
-	retire_sync_pt =
-	    sw_sync_pt_create(dev_drv->timeline, dev_drv->timeline_max);
-	retire_fence = sync_fence_create("ret_fence", retire_sync_pt);
-	if (retire_fence == NULL) {
-		pr_info("ret_fence pointer is NULL\n");
-		ret = -EFAULT;
-		goto err_out;
-	}
-	sync_fence_install(retire_fence, win_data->ret_fence_fd);
 #else
 	for (i = 0; i < SFA_MAX_BUF_NUM; i++)
 		win_data->rel_fence_fd[i] = -1;
