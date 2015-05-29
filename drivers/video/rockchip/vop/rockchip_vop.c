@@ -744,27 +744,53 @@ static int rockchip_vop_set_dclk(struct rockchip_vop_driver *dev_drv)
 	return 0;
 }
 
-static int rockchip_vop_standby(struct rockchip_vop_driver *dev_drv)
+static int rockchip_vop_standby(struct rockchip_vop_driver *dev_drv,
+				bool enable)
 {
 	struct vop_device *vop_dev =
 		container_of(dev_drv, struct vop_device, driver);
 	int timeout;
 	unsigned long flags;
 
-	if (vop_dev->clk_on) {
+	if (unlikely(!vop_dev->clk_on))
+		return 0;
+
+	if (!enable) {
+		spin_lock(&vop_dev->reg_lock);
+		/* Recovery EDPI halt en */
+		if (dev_drv->cur_screen->type == SCREEN_MIPI) {
+			vop_msk_reg(vop_dev, VOP_MIPI_EDPI_CTRL,
+				    M_EDPI_HALT_EN, V_EDPI_HALT_EN(1));
+			vop_cfg_done(vop_dev);
+		}
+
+		vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_LCDC_STANDBY,
+			    V_LCDC_STANDBY(0));
+		spin_unlock(&vop_dev->reg_lock);
+	} else {
 		spin_lock_irqsave(&dev_drv->cpl_lock, flags);
 		reinit_completion(&dev_drv->frame_done);
 		spin_unlock_irqrestore(&dev_drv->cpl_lock, flags);
 
+		spin_lock(&vop_dev->reg_lock);
+		/* Disable EDPI halt to avoid vop standby time out */
+		if (dev_drv->cur_screen->type == SCREEN_MIPI) {
+			vop_msk_reg(vop_dev, VOP_MIPI_EDPI_CTRL,
+				    M_EDPI_HALT_EN, V_EDPI_HALT_EN(0));
+			vop_cfg_done(vop_dev);
+		}
+
 		vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_LCDC_STANDBY,
 			    V_LCDC_STANDBY(1));
+		spin_unlock(&vop_dev->reg_lock);
+
 		/* wait for standby hold valid */
 		timeout = wait_for_completion_timeout(&dev_drv->frame_done,
 						      msecs_to_jiffies(25));
 
 		if (!timeout && (!dev_drv->frame_done.done)) {
 			dev_info(dev_drv->dev,
-				 "wait for standy hold valid start time out!\n");
+				 "wait for standby hold valid start time out!\n");
 			return -ETIMEDOUT;
 		}
 	}
@@ -840,24 +866,12 @@ static int rockchip_vop_pre_init(struct rockchip_vop_driver *dev_drv)
 
 static void rockchip_vop_deinit(struct vop_device *vop_dev)
 {
-	u32 mask, val;
+	struct rockchip_vop_driver *dev_drv = &vop_dev->driver;
 
-	spin_lock(&vop_dev->reg_lock);
-	if (likely(vop_dev->clk_on)) {
-		mask = M_FS_INT_CLEAR | M_FS_INT_EN |
-		    M_LF_INT_CLEAR | M_LF_INT_EN |
-		    M_BUS_ERR_INT_CLEAR | M_BUS_ERR_INT_EN;
-		val = V_FS_INT_CLEAR(0) | V_FS_INT_EN(0) |
-		    V_LF_INT_CLEAR(0) | V_LF_INT_EN(0) |
-		    V_BUS_ERR_INT_CLEAR(0) | V_BUS_ERR_INT_EN(0);
-		vop_msk_reg(vop_dev, VOP_INT_STATUS, mask, val);
-		vop_set_bit(vop_dev, VOP_SYS_CTRL, M_LCDC_STANDBY);
-		vop_cfg_done(vop_dev);
-		spin_unlock(&vop_dev->reg_lock);
-	} else {
-		spin_unlock(&vop_dev->reg_lock);
-	}
-	mdelay(1);
+	rockchip_vop_standby(dev_drv, true);
+	rockchip_vop_disable_irq(vop_dev);
+	rockchip_vop_mmu_en(dev_drv, false);
+	/* rockchip_vop_clk_disable(vop_dev); */
 }
 
 static void rockchip_vop_select_bcsh(struct rockchip_vop_driver *dev_drv,
@@ -1150,12 +1164,9 @@ static int rockchip_vop_open(struct rockchip_vop_driver *dev_drv, int win_id,
 		dev_err(vop_dev->dev, "invalid win id:%d\n", win_id);
 
 	/* when all layer closed,disable clk */
-	if ((!open) && (!vop_dev->atv_layer_cnt)) {
-		rockchip_vop_standby(dev_drv);
-		rockchip_vop_disable_irq(vop_dev);
-		rockchip_vop_mmu_en(dev_drv, open);
-		rockchip_vop_clk_disable(vop_dev);
-	}
+	if ((!open) && (!vop_dev->atv_layer_cnt))
+		rockchip_vop_deinit(vop_dev);
+
 	return 0;
 }
 
@@ -1464,7 +1475,7 @@ static int rockchip_vop_early_suspend(struct rockchip_vop_driver *dev_drv)
 		return 0;
 	}
 
-	rockchip_vop_standby(dev_drv);
+	rockchip_vop_standby(dev_drv, true);
 	rockchip_vop_mmu_en(dev_drv, false);
 	rockchip_vop_clk_disable(vop_dev);
 	rockchip_disp_pwr_disable(screen);
@@ -1523,11 +1534,7 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 		dev_drv->trsm_ops->enable();
 
 	/* VOP leave standby mode after DSI enable */
-	spin_lock(&vop_dev->reg_lock);
-	vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_LCDC_STANDBY,
-		V_LCDC_STANDBY(0));
-	spin_unlock(&vop_dev->reg_lock);
-
+	rockchip_vop_standby(dev_drv, false);
 	return 0;
 }
 
@@ -2248,10 +2255,7 @@ static void rockchip_vop_shutdown(struct platform_device *pdev)
 	    dev_drv->trsm_ops && dev_drv->trsm_ops->disable)
 		dev_drv->trsm_ops->disable();
 
-	rockchip_vop_standby(dev_drv);
 	rockchip_vop_deinit(vop_dev);
-	rockchip_vop_mmu_en(dev_drv, false);
-	/* rockchip_vop_clk_disable(vop_dev); */
 	rockchip_disp_pwr_disable(vop_dev->driver.cur_screen);
 }
 
