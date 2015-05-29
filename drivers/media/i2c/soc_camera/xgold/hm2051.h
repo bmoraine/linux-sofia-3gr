@@ -101,6 +101,12 @@
 /*#define HM2051_HORIZONTAL_OUTPUT_SIZE	0x034c */
 /*#define HM2051_VERTICAL_OUTPUT_SIZE		0x034e */
 
+/* Add for sofia blanking sync */
+#define HM2051_IMG_OUT_CONF          0x000F
+#define HM2051_FIXED_FRAME_RATE_MASK 0x08
+#define HM2051_IMG_OUT_VALUE        0x08
+/* End Add for sofia blanking sync */
+
 #define HM2051_REG_BLANKING_ROW_H				0x0010
 #define HM2051_REG_BLANKING_ROW_L				0x0011
 #define HM2051_REG_BLANKING_COLUMN				0x0013
@@ -183,6 +189,7 @@ struct hm2051_device {
 	u16 fine_itg;
 	u16 digital_gain;
 	u16 gain;
+	u16 sensor_blanking;  /* Add for sofia blanking sync */
 };
 
 enum hm2051_tok_type {

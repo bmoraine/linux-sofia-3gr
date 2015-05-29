@@ -306,30 +306,34 @@ int hm2051_g_vblanking(struct v4l2_subdev *sd, int *val)
 
 static int hm2051_g_VTS(struct v4l2_subdev *sd, u16 *vts)
 {
-	u16 RegH,RegL;
+	u16 RegH, RegL;
 	u16 uRdcfgMode;
 	u16 uVTS = 0, uVTS_Thrsh = HM2051_FULL_FRAME_VTS_THRESHOLD;
 	u16 uIntg;
 	struct hm2051_device *dev = to_hm2051_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
-	int ret=0;
+	int ret = 0;
 
-	ret = hm2051_read_reg(client, HM2051_8BIT, HM2051_RDCFG_REG, &uRdcfgMode);
+	ret = hm2051_read_reg(client,
+		HM2051_8BIT, HM2051_RDCFG_REG, &uRdcfgMode);
 	if (IS_ERR_VALUE(ret))
 		goto err;
 	uRdcfgMode &= HM2051_RDCFG_MODE_MASK;
 
-	ret = hm2051_read_reg(client, HM2051_8BIT, HM2051_REG_BLANKING_ROW_H, &RegH);
+	ret = hm2051_read_reg(client,
+		HM2051_8BIT, HM2051_REG_BLANKING_ROW_H, &RegH);
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
-	ret = hm2051_read_reg(client, HM2051_8BIT, HM2051_REG_BLANKING_ROW_L, &RegL);
+	ret = hm2051_read_reg(client,
+		HM2051_8BIT, HM2051_REG_BLANKING_ROW_L, &RegL);
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
 
-	if (uRdcfgMode  == RDCFG_MODE_1616_736) uVTS_Thrsh = HM2051_CROP_FRAME_VTS_THRESHOLD;
+	if (uRdcfgMode  == RDCFG_MODE_1616_736)
+		uVTS_Thrsh = HM2051_CROP_FRAME_VTS_THRESHOLD;
 
 	uVTS = uVTS_Thrsh += (RegH << 8)  + RegL;
 
@@ -343,7 +347,8 @@ static int hm2051_g_VTS(struct v4l2_subdev *sd, u16 *vts)
 		goto err;
 
 	uIntg = (RegH << 8) + RegL;
-	if (uIntg > (uVTS_Thrsh-2)) uVTS = uIntg + 4;
+	if (uIntg > (uVTS_Thrsh-2))
+		uVTS = uIntg + 4;
 	*vts = uVTS;
 
 	return 0;
@@ -359,10 +364,11 @@ static int hm2051_g_HTS(struct v4l2_subdev *sd, u16 *hts)
 {
 	struct hm2051_device *dev = to_hm2051_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret=0;
+	int ret = 0;
 	u16 Hblank;
 
-	ret = hm2051_read_reg(client, HM2051_8BIT, HM2051_REG_BLANKING_COLUMN, &Hblank);
+	ret = hm2051_read_reg(client,
+		HM2051_8BIT, HM2051_REG_BLANKING_COLUMN, &Hblank);
 	if (IS_ERR_VALUE(ret))
 		goto err;
 	*hts = hm2051_res[dev->fmt_idx].pixels_per_line + 16*Hblank;
@@ -509,7 +515,7 @@ static int hm2051_get_intg_factor(struct i2c_client *client,
 	buf->crop_vertical_start = res->vertical_start;
 	buf->crop_vertical_end = res->vertical_end;
 
-	pr_info("%s: output_width %d output_height %d\n",
+	pr_debug("%s: output_width %d output_height %d\n",
 		__func__, buf->sensor_output_width, buf->sensor_output_height);
 #endif
 	return 0;
@@ -586,13 +592,13 @@ static long __hm2051_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	struct hm2051_device *dev = to_hm2051_sensor(sd);
 	u16 vts, hts;
 	int ret = 0;
+	u16 img_out_conf = 0;
 
 	hts = hm2051_res[dev->fmt_idx].pixels_per_line;
 	vts = hm2051_res[dev->fmt_idx].lines_per_frame;
 
 	if (vts < coarse_itg)
 		vts = (u16) coarse_itg + HM2051_INTEGRATION_TIME_MARGIN;
-
 
 	ret = hm2051_write_reg(client, HM2051_8BIT, HM2051_REG_BLANKING_ROW_H,
 		((vts - hm2051_res[dev->fmt_idx].height) & 0xFF00) >> 8);
@@ -632,6 +638,26 @@ static long __hm2051_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 			__func__);
 		return ret;
 	}
+
+	/* Add for sofia blanking sync */
+	ret = hm2051_read_reg(client, HM2051_8BIT,
+		HM2051_IMG_OUT_CONF, &img_out_conf);
+
+	if (ret)
+		dev_err(&client->dev, "HM2051_IMG_OUT_CONF err\n");
+
+	if (coarse_itg <
+		(dev->sensor_blanking - 2 +
+		hm2051_res[dev->fmt_idx].lines_per_frame)) {
+		img_out_conf |= HM2051_FIXED_FRAME_RATE_MASK;
+		hm2051_write_reg(client, HM2051_8BIT,
+			HM2051_IMG_OUT_CONF, img_out_conf);
+	} else {
+		img_out_conf &= (~HM2051_FIXED_FRAME_RATE_MASK);
+		hm2051_write_reg(client, HM2051_8BIT,
+			HM2051_IMG_OUT_CONF, img_out_conf);
+	}
+	/* End Add for sofia blanking sync */
 
 	ret = hm2051_write_reg(client, HM2051_8BIT,
 			       HM2051_COMMAND_UPDATE, 1);
@@ -959,7 +985,7 @@ static int hm2051_init(struct v4l2_subdev *sd)
 {
 	struct hm2051_device *dev = to_hm2051_sensor(sd);
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	mutex_lock(&dev->input_lock);
 
 	/* restore settings */
@@ -1061,7 +1087,7 @@ fail_power:
 	/* delay time for first i2c command */
 	msleep(20);
 
-	pltfrm_camera_module_pr_info(sd, "sensor power-up done.\n");
+	pltfrm_camera_module_pr_debug(sd, "sensor power-up done.\n");
 	return ret;
 
 fail_power:
@@ -1305,6 +1331,9 @@ static int hm2051_s_mbus_fmt(struct v4l2_subdev *sd,
 	if (ret)
 		dev_err(&client->dev, "hm2051 startup err\n");
 
+	/* Add for sofia blanking sync */
+	dev->sensor_blanking = 0x33;
+
 #if 0
 	ret = hm2051_get_intg_factor(client, hm2051_info,
 		&hm2051_res[dev->fmt_idx]);
@@ -1383,8 +1412,7 @@ static int hm2051_s_stream(struct v4l2_subdev *sd, int enable)
 				enable ? HM2051_START_STREAMING :
 				HM2051_STOP_STREAMING);
 #endif
-	if (enable == 0)
-	{
+	if (enable == 0) {
 		int pclk;
 		int wait_ms = 0;
 		u16 vts = hm2051_res[dev->fmt_idx].lines_per_frame;
@@ -1404,7 +1432,9 @@ static int hm2051_s_stream(struct v4l2_subdev *sd, int enable)
 			goto err;
 
 		wait_ms = (hts * vts) / pclk;
-		dev_info(&client->dev, "stream off wait%d=%d*%d/%d\n", wait_ms, hts, vts, pclk);
+		dev_dbg(&client->dev,
+			"stream off wait%d=%d*%d/%d\n",
+			wait_ms, hts, vts, pclk);
 
 		/* wait for a frame period to make sure that there is
 			no pending frame left. */
@@ -1415,7 +1445,7 @@ static int hm2051_s_stream(struct v4l2_subdev *sd, int enable)
 	mutex_unlock(&dev->input_lock);
 
 	return ret;
-  err:
+err:
 	msleep(133);
 	mutex_unlock(&dev->input_lock);
 
@@ -1738,7 +1768,7 @@ static int hm2051_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct hm2051_device *dev;
-	int ret;
+	int ret = 0;
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
 		dev_err(&client->dev, "out of memory\n");
