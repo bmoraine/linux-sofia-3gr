@@ -2,6 +2,8 @@
  * drivers/video/rockchip/rockchip_fb_sysfs.c
  *	--sysfs entries for device fb
  *
+ * Copyright (C) 2012-2015 Rockchip Electronics Co., Ltd.
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
  * the Free Software Foundation.

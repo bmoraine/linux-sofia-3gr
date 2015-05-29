@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2014 ROCKCHIP, Inc.
- * Author:      Wenlong Zhuang <zwl@rock-chips.com>
+ * Copyright (C) 2014-2015 Rockchip Electronics Co., Ltd.
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.

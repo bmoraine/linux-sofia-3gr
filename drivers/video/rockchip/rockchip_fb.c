@@ -1,7 +1,7 @@
 /*
  * rockchip fb framework driver
  *
- * Copyright (C) 2010-2014 ROCKCHIP, Inc.
+ * Copyright (C) 2012-2015 Rockchip Electronics Co., Ltd.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
