@@ -41,6 +41,13 @@
 #define DMA_DEV 2
 #define ISP_DEV 3
 
+enum isp_camera_port {
+	ISP_CAMERA_PORT_SECONDARY,
+	ISP_CAMERA_PORT_PRIMARY,
+	ISP_CAMERA_PORT_TERTIARY,
+	ISP_CAMERA_NR_PORTS
+};
+
 /* One structure per open file handle */
 struct cif_isp20_v4l2_fh {
 	enum cif_isp20_stream_id stream_id;
@@ -1201,6 +1208,20 @@ static int v4l2_s_parm(
 	return 0;
 }
 
+static enum isp_camera_port isp_camera_port_from_inp(enum cif_isp20_inp inp)
+{
+	switch (inp) {
+	case CIF_ISP20_INP_CSI_0:
+		return ISP_CAMERA_PORT_PRIMARY;
+	case CIF_ISP20_INP_CSI_1:
+		return ISP_CAMERA_PORT_SECONDARY;
+	default:
+		break;
+	}
+
+	return ISP_CAMERA_NR_PORTS; // Unknown
+}
+
 static int v4l2_enum_input(struct file *file, void *priv,
 			   struct v4l2_input *input)
 {
@@ -1228,6 +1249,8 @@ static int v4l2_enum_input(struct file *file, void *priv,
 	inp = cif_isp20_v4l2_inp2cif_isp20_inp(input->index);
 	if (IS_ERR_VALUE(inp))
 		return inp;
+	input->reserved[1] = isp_camera_port_from_inp(inp);
+
 	inp_name = cif_isp20_g_input_name(dev, inp);
 	if (IS_ERR(inp_name))
 		return -ENODEV;
