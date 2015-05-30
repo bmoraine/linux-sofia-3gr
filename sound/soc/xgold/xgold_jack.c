@@ -124,7 +124,7 @@ struct hs_key_cfg xgold_hs_keymap[] = {
 /* Headset Typemap */
 struct hs_cfg xgold_hs_typemap[] = {
 	{0, 50, XGOLD_HEADPHONE},
-	{475, 1700, XGOLD_HEADSET},
+	{475, 1850, XGOLD_HEADSET},
 };
 static int jack_write(struct xgold_jack *jack, unsigned val)
 {
