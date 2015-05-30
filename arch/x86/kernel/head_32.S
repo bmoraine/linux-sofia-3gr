@@ -404,9 +404,7 @@ default_entry:
 	jz enable_paging		# No flags or only CPUID.FPU = no CR4
 
 	movl pa(mmu_cr4_features),%eax
-#ifndef CONFIG_X86_INTEL_SOFIA
 	movl %eax,%cr4
-#endif
 
 	testb $X86_CR4_PAE, %al		# check if PAE is enabled
 	jz enable_paging
