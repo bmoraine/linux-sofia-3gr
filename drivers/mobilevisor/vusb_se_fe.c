@@ -1709,12 +1709,12 @@ static int vusb_se_fe_do_link_txfr(unsigned int link, char *tag,
 
 		set_fs(KERNEL_DS);
 		{
+			if (mutex_lock_interruptible(&vusb_dat_reopen_lock))
+				return 0;
+
 			/* get file pointer to the specific link
 			 */
 			tx_fp = tx_fps[link];
-
-			if (mutex_lock_interruptible(&vusb_dat_reopen_lock))
-				return 0;
 
 			if (NULL != tx_fp) {
 				have_used =
