@@ -14,6 +14,7 @@
  */
 
 #include "fan54x_charger.h"
+#include <linux/delay.h>
 
 #define REG_CHARGE_CTRL0	0x0
 #define REG_CHARGE_CTRL1	0x1
@@ -196,6 +197,7 @@ static int fan54015_get_charger_state(struct fan54x_charger *chrgr)
 {
 	u8 charge_ctrl0_reg, monitor_reg;
 	int ret;
+	int timeout = 3;
 
 	ret = fan54x_attr_read(chrgr->client,
 			CHARGE_CTRL0_REG, &charge_ctrl0_reg);
@@ -256,6 +258,24 @@ static int fan54015_get_charger_state(struct fan54x_charger *chrgr)
 		break;
 	default:
 		break;
+	}
+
+	/* Check three times that if the over current happens */
+	if (chrgr->state.boost_enabled) {
+		while (timeout--) {
+			msleep(5);
+			ret = fan54x_attr_read(chrgr->client,
+				CHARGE_CTRL0_REG, &charge_ctrl0_reg);
+			if (ret)
+				goto fail;
+			if ((charge_ctrl0_reg & (FAULT_M << FAULT_O)) == BOOST_OV)
+				chrgr->state.boost_ov = BOOSTOV_OCCURRED;
+			else
+				chrgr->state.boost_ov = 0;
+
+			pr_debug("timeout = %d, chrgr->state.boost_ov = %d\n",
+				timeout, chrgr->state.boost_ov);
+		}
 	}
 
 fail:
