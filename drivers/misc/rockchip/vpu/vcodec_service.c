@@ -65,7 +65,7 @@
 
 #include "vcodec_service.h"
 #include "vcodec_power_handler.h"
-/*#include "vvpu_pp_pipe.h"*/
+#include "vvpu_pp_pipe.h"
 
 #if defined(CONFIG_MOBILEVISOR_VDRIVER_PIPE)
 
@@ -616,7 +616,6 @@ static void vpu_service_power_off(struct vpu_service_info *pservice, int flag)
 	if (!pservice->enabled)
 		return;
 
-	pservice->enabled = false;
 	total_running = atomic_read(&pservice->total_running);
 	if (total_running) {
 		pr_alert("alert: power off when %d task running!!\n",
@@ -658,6 +657,7 @@ static void vpu_service_power_off(struct vpu_service_info *pservice, int flag)
 					  sta_name);
 #endif
 
+	pservice->enabled = false;
 	wake_unlock(&pservice->wake_lock);
 	pr_info("done\n");
 }
@@ -1531,7 +1531,7 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 		/*pr_err("ioctl VPU_IOC_SECVM_PP_CMD vop is %d\n",
 						vvpu_pp_cmd.payload[1]);*/
 		vpu_service_power_on(pservice);
-		vvpu_call(pservice->dev, &vvpu_pp_cmd);
+		vvpu_pp_call(pservice->dev, &vvpu_pp_cmd);
 		if (copy_to_user((void __user *)arg, &vvpu_pp_cmd,
 				sizeof(vvpu_pp_cmd)))
 			return -EFAULT;

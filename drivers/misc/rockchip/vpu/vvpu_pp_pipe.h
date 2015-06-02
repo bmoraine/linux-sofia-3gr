@@ -17,7 +17,7 @@
 
 #ifndef _VVPU_PP_PIPE_H_
 #define _VVPU_PP_PIPE_H_
-
+#include <sofia/vvpu_vbpipe.h>
 
 /*
  * initialize vvpu connection to the secure vm
