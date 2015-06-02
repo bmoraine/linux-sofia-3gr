@@ -616,12 +616,11 @@ static void rga_service_session_clear(struct rga_session *session)
 static void rga_try_set_reg(void)
 {
 	struct rga_reg *reg;
+	int err;
 #if defined(RGA_SECURE_ACCESS)
 	struct vrga_secvm_cmd vcmd;
 	int vrga_ret;
 #endif
-
-	int err;
 
 
 	if (list_empty(&rga_service.running)) {
@@ -824,6 +823,9 @@ static void rga_del_running_list_timeout(struct work_struct *work)
 		    rga_int_f_num, rga_int_b_num, (int)ktime_to_us(rga_end), (int)ktime_to_us(rga_end_0));
 
 		rga_soft_reset();
+
+		/*atomic_set(&reg->session->queue_work_done, 1);
+		wake_up(&reg->session->queue_work_wait);*/
 
 		if (list_empty(&reg->session->waiting)) {
 			atomic_set(&reg->session->done, 1);
@@ -1563,6 +1565,9 @@ static int __init rga_init(void)
 	uint32_t i;
 	uint32_t *buf_p;
 
+	/* init rga_mmu_buf */
+	memset(&rga_mmu_buf, 0x0, sizeof(rga_mmu_buf));
+
 	/* malloc pre scale mid buf mmu table */
 	mmu_buf = kzalloc(1024 * 8, GFP_KERNEL);
 	if (mmu_buf == NULL)
@@ -1653,6 +1658,12 @@ free_mmu_buf:
 #endif
 
 	kfree(mmu_buf);
+
+	if (rga_mmu_buf.buf_virtual != NULL)
+		kfree(rga_mmu_buf.buf_virtual);
+	if (rga_mmu_buf.pages != NULL)
+		kfree(rga_mmu_buf.pages);
+
 	return -ENOMEM;
 
 }
