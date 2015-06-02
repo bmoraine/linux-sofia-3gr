@@ -378,6 +378,7 @@ static int rga_map_ion(struct sg_table *sg, uint32_t *memory,
 	uint32_t len;
 	struct scatterlist *sgl = sg->sgl;
 	uint32_t sg_num = 0;
+	uint32_t break_flag = 0;
 
 	status = 0;
 	address = 0;
@@ -385,9 +386,15 @@ static int rga_map_ion(struct sg_table *sg, uint32_t *memory,
 	do {
 		len = sg_dma_len(sgl) >> PAGE_SHIFT;
 		address = sg_phys(sgl);
-		for (i = 0; i < len; i++)
+		for (i = 0; i < len; i++) {
+			if (mapped_size + i >= page_count) {
+				break_flag = 1;
+				break;
+			}
 			memory[mapped_size + i] = address + (i << PAGE_SHIFT);
-
+		}
+		if (break_flag)
+			break;
 		mapped_size += len;
 		sg_num += 1;
 		sgl = sg_next(sgl);
