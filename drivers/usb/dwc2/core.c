@@ -72,17 +72,7 @@ static int dwc2_backup_host_registers(struct dwc2_hsotg *hsotg)
 	dev_dbg(hsotg->dev, "%s\n", __func__);
 
 	/* Backup Host regs */
-	hr = hsotg->hr_backup;
-	if (!hr) {
-		hr = devm_kzalloc(hsotg->dev, sizeof(*hr), GFP_KERNEL);
-		if (!hr) {
-			dev_err(hsotg->dev, "%s: can't allocate host regs\n",
-					__func__);
-			return -ENOMEM;
-		}
-
-		hsotg->hr_backup = hr;
-	}
+	hr = &hsotg->hr_backup;
 	hr->hcfg = readl(hsotg->regs + HCFG);
 	hr->haintmsk = readl(hsotg->regs + HAINTMSK);
 	for (i = 0; i < hsotg->core_params->host_channels; ++i)
@@ -90,6 +80,7 @@ static int dwc2_backup_host_registers(struct dwc2_hsotg *hsotg)
 
 	hr->hprt0 = dwc2_read_hprt0(hsotg);
 	hr->hfir = readl(hsotg->regs + HFIR);
+	hr->valid = true;
 
 	return 0;
 }
@@ -109,12 +100,13 @@ static int dwc2_restore_host_registers(struct dwc2_hsotg *hsotg)
 	dev_dbg(hsotg->dev, "%s\n", __func__);
 
 	/* Restore host regs */
-	hr = hsotg->hr_backup;
-	if (!hr) {
+	hr = &hsotg->hr_backup;
+	if (!hr->valid) {
 		dev_err(hsotg->dev, "%s: no host registers to restore\n",
 				__func__);
 		return -EINVAL;
 	}
+	hr->valid = false;
 
 	writel(hr->hcfg, hsotg->regs + HCFG);
 	writel(hr->haintmsk, hsotg->regs + HAINTMSK);
@@ -153,17 +145,7 @@ static int dwc2_backup_device_registers(struct dwc2_hsotg *hsotg)
 	dev_dbg(hsotg->dev, "%s\n", __func__);
 
 	/* Backup dev regs */
-	dr = hsotg->dr_backup;
-	if (!dr) {
-		dr = devm_kzalloc(hsotg->dev, sizeof(*dr), GFP_KERNEL);
-		if (!dr) {
-			dev_err(hsotg->dev, "%s: can't allocate device regs\n",
-					__func__);
-			return -ENOMEM;
-		}
-
-		hsotg->dr_backup = dr;
-	}
+	dr = &hsotg->dr_backup;
 
 	dr->dcfg = readl(hsotg->regs + DCFG);
 	dr->dctl = readl(hsotg->regs + DCTL);
@@ -196,7 +178,7 @@ static int dwc2_backup_device_registers(struct dwc2_hsotg *hsotg)
 		dr->doeptsiz[i] = readl(hsotg->regs + DOEPTSIZ(i));
 		dr->doepdma[i] = readl(hsotg->regs + DOEPDMA(i));
 	}
-
+	dr->valid = true;
 	return 0;
 }
 
@@ -216,12 +198,13 @@ static int dwc2_restore_device_registers(struct dwc2_hsotg *hsotg)
 	dev_dbg(hsotg->dev, "%s\n", __func__);
 
 	/* Restore dev regs */
-	dr = hsotg->dr_backup;
-	if (!dr) {
+	dr = &hsotg->dr_backup;
+	if (!dr->valid) {
 		dev_err(hsotg->dev, "%s: no device registers to restore\n",
 				__func__);
 		return -EINVAL;
 	}
+	dr->valid = false;
 
 	writel(dr->dcfg, hsotg->regs + DCFG);
 	writel(dr->dctl, hsotg->regs + DCTL);
@@ -269,17 +252,7 @@ static int dwc2_backup_global_registers(struct dwc2_hsotg *hsotg)
 	int i;
 
 	/* Backup global regs */
-	gr = hsotg->gr_backup;
-	if (!gr) {
-		gr = devm_kzalloc(hsotg->dev, sizeof(*gr), GFP_KERNEL);
-		if (!gr) {
-			dev_err(hsotg->dev, "%s: can't allocate global regs\n",
-					__func__);
-			return -ENOMEM;
-		}
-
-		hsotg->gr_backup = gr;
-	}
+	gr = &hsotg->gr_backup;
 
 	gr->gotgctl = readl(hsotg->regs + GOTGCTL);
 	gr->gintmsk = readl(hsotg->regs + GINTMSK);
@@ -292,6 +265,7 @@ static int dwc2_backup_global_registers(struct dwc2_hsotg *hsotg)
 	for (i = 0; i < MAX_EPS_CHANNELS; i++)
 		gr->dtxfsiz[i] = readl(hsotg->regs + DPTXFSIZN(i));
 
+	gr->valid = true;
 	return 0;
 }
 
@@ -310,12 +284,13 @@ static int dwc2_restore_global_registers(struct dwc2_hsotg *hsotg)
 	dev_dbg(hsotg->dev, "%s\n", __func__);
 
 	/* Restore global regs */
-	gr = hsotg->gr_backup;
-	if (!gr) {
+	gr = &hsotg->gr_backup;
+	if (!gr->valid) {
 		dev_err(hsotg->dev, "%s: no global registers to restore\n",
 				__func__);
 		return -EINVAL;
 	}
+	gr->valid = false;
 
 	writel(0xffffffff, hsotg->regs + GINTSTS);
 	writel(gr->gotgctl, hsotg->regs + GOTGCTL);
