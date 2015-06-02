@@ -45,6 +45,9 @@ extern void init_ISA_irqs(void);
 #ifdef CONFIG_X86_LOCAL_APIC
 void arch_trigger_all_cpu_backtrace(void);
 #define arch_trigger_all_cpu_backtrace arch_trigger_all_cpu_backtrace
+#ifdef CONFIG_X86_INTEL_SOFIA
+#undef arch_trigger_all_cpu_backtrace
+#endif
 #endif
 
 #endif /* _ASM_X86_IRQ_H */
