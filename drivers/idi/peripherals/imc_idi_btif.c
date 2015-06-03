@@ -661,11 +661,12 @@ static void btif_rx_transaction_complete(struct idi_transaction *trans)
 	list_del(&trans->queue);
 	spin_unlock_irqrestore(&p_btif->rxbuff_lock, flags);
 
-
 	/* Insert, and push chars to tty buffer */
-	port->icount.rx += idi_push_xfer_to_tty(p_btif->p_dev, xfer, tty);
-
-	dump_xfer(p_btif, " <--- ", xfer);
+	if (trans->status == IDI_STATUS_COMPLETE) {
+		port->icount.rx +=
+			idi_push_xfer_to_tty(p_btif->p_dev, xfer, tty);
+		dump_xfer(p_btif, " <--- ", xfer);
+	}
 
 	idi_free_transaction(trans);
 
