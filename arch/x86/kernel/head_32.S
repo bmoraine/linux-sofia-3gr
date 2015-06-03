@@ -360,13 +360,8 @@ default_entry:
 			 X86_CR0_NE | X86_CR0_WP | X86_CR0_AM | \
 			 X86_CR0_PG)
 
-#if defined(CONFIG_X86_INTEL_SOFIA) && !defined(CONFIG_X86_PAE)
-	jmp enable_paging
-#endif
-#if !defined(CONFIG_X86_INTEL_SOFIA)
 	movl $(CR0_STATE & ~X86_CR0_PG),%eax
 	movl %eax,%cr0
-#endif
 
 /*
  * We want to start out with EFLAGS unambiguously cleared. Some BIOSes leave
