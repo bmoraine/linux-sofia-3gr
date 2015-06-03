@@ -64,12 +64,6 @@ enum T_IBFS_TRC_TYPE {
 	IBFS_TRC_FREE  = 7
 };
 
-enum T_RPC_RESULT {
-	RPC_SUCCESS    = 0,
-	RPC_FAILURE    = 1,
-	RPC_ENUM_SIZE  = 0x7FFFFFFF
-};
-
 struct T_IBFS_TRC_BUF_ELEM {
 	enum T_IBFS_TRC_TYPE  trc_type;
 	u32                   val0;
@@ -84,13 +78,8 @@ struct T_IBFS_TRC_BUF {
 
 void rpc_handle_cmd(void *shared_mem);
 
-int rpc_call(
-	struct t_rpc_send_info *send_info,
-	enum t_rpc_if_grp if_grp,
-	u32 opcode,
-	u8 *io_data,
-	u32 *io_data_len,
-	u32 max_len);
+int rpc_call(struct t_rpc_send_info *send_info, enum t_rpc_if_grp if_grp,
+				u32 opcode, u8 *io_data, u32 *io_data_len, u32 max_len);
 
 #ifdef MEM_TEST_STUB
 int stub_call_sec_vm(int num_vec, struct pvec *phys_iov, int *remote_ret);
