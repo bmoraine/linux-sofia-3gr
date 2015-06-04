@@ -2615,8 +2615,11 @@ static int xgold_usif_serial_suspend(struct device *dev)
 
 	/* Ensure that no TX is going on before we suspend.
 	 */
-	while (USIF_FIFO_STAT_TXFFS(ioread32(USIF_FIFO_STAT(port->membase))))
-		barrier();
+
+	if (xgold_usif_is_clk_enabled(port))
+		while (USIF_FIFO_STAT_TXFFS(
+			ioread32(USIF_FIFO_STAT(port->membase))))
+				barrier();
 
 	/* uart_suspend_port will call the PM callback which
 	 * disables the USIF HW and powers it off. */
