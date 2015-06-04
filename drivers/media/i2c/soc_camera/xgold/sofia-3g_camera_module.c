@@ -460,8 +460,8 @@ static int pltfrm_camera_module_config_matches(
 		ret = of_property_read_u32_index(config,
 				"intel,frm-interval-range", 0, &min);
 		if (ret == -EINVAL) {
-			min = 0;
-			max = UINT_MAX;
+			min = min2 = 0;
+			max = max2 = UINT_MAX;
 		} else if (IS_ERR_VALUE(ret)) {
 			pltfrm_camera_module_pr_err(sd,
 					"malformed property 'intel,frm-interval-range'\n");

@@ -366,7 +366,7 @@ int ov_camera_module_s_stream(struct v4l2_subdev *sd, int enable)
 	} else {
 		int pclk;
 		int wait_ms;
-		struct ov_camera_module_timings timings;
+		struct ov_camera_module_timings timings = {0};
 		if (cam_mod->state != OV_CAMERA_MODULE_STREAMING)
 			return 0;
 		ret = cam_mod->custom.stop_streaming(cam_mod);
