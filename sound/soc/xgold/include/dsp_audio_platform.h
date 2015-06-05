@@ -157,11 +157,13 @@ int dsp_stop_audio_hwafe(void);
 struct dsp_audio_device *of_dsp_register_client(
 		struct device *, struct device_node *);
 int dsp_pcm_play(struct dsp_audio_device *, enum xgold_pcm_stream_type,
-		unsigned int, unsigned int, bool);
+		unsigned int, unsigned int, bool, unsigned short,
+		unsigned short, unsigned short);
 int dsp_pcm_rec(struct dsp_audio_device *, unsigned int, unsigned int, bool,
 		unsigned int path_select);
 int dsp_pcm_feed(struct dsp_audio_device *, enum xgold_pcm_stream_type,
-		unsigned int, unsigned int);
+		unsigned int, unsigned int, unsigned short,
+		unsigned short, unsigned short);
 int dsp_pcm_stop(struct dsp_audio_device *, enum xgold_pcm_stream_type);
 
 int dsp_cmd_hw_probe(struct dsp_audio_device *,

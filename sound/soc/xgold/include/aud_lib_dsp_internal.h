@@ -192,6 +192,9 @@ struct T_AUD_DSP_CMD_PCM_PLAY_PAR {
 	U16  mode;
 	U16  rate;
 	U16  req;
+	U16  buffer_mode;
+	U16  dma_req_interval_time;
+	U16  buffer_size;
 };
 
 /**

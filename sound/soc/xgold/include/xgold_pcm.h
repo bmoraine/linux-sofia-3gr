@@ -40,6 +40,21 @@ struct xgold_pcm_hw_probe_status {
 	unsigned int hw_probe_sel;
 };
 
+enum xgold_pcm_buffer_type {
+	NORMAL_MODE = 0,
+	BURST_MODE = 2,
+};
+
+enum xgold_pcm_dma_interval_time {
+	NORMAL_DMA_INTERVAL = 0,	/* Not Used */
+	BURST_DMA_INTERVAL = 2,		/* 250 us */
+};
+
+enum xgold_pcm_buffer_size {
+	NORMAL_BUFFER_SIZE = 2,		/* 10 ms */
+	BURST_BUFFER_SIZE = 16,		/* 80 ms */
+};
+
 struct xgold_pcm {
 	struct device *dev;
 	struct dsp_audio_device *dsp;
@@ -50,6 +65,9 @@ struct xgold_pcm {
 	struct pinctrl_state *pins_inactive;
 	struct device_pm_platdata *pm_platdata;
 	unsigned int path_select;
+	unsigned short buffer_mode;
+	unsigned short dma_req_interval_time;
+	unsigned short buffer_size;
 	/* DMA DUMP */
 	int dma_dump;
 	struct work_struct dma_dump_work;
@@ -75,6 +93,7 @@ struct xgold_runtime_data {
 	unsigned int periods;
 	unsigned int period_size_bytes;
 	/* DMA stream */
+	unsigned int dma_sgl_count;
 	struct scatterlist *dma_sgl;
 	struct dma_chan *dmach;
 	dma_cookie_t dma_cookie;

@@ -2117,7 +2117,10 @@ struct dsp_audio_device *of_dsp_register_client(
 EXPORT_SYMBOL(of_dsp_register_client);
 
 int dsp_pcm_play(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type,
-		unsigned int channels, unsigned int rate, bool dma_mode)
+		unsigned int channels, unsigned int rate, bool dma_mode,
+		unsigned short buffer_mode,
+		unsigned short dma_req_interval_time,
+		unsigned short buffer_size)
 {
 	struct T_AUD_DSP_CMD_PCM_PLAY_PAR pcm_par = { 0 };
 	struct dsp_aud_cmd_data cmd_data;
@@ -2126,10 +2129,17 @@ int dsp_pcm_play(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type,
 	pcm_par.mode = get_dsp_pcm_channels(channels);
 	pcm_par.rate = get_dsp_pcm_rate(rate);
 	pcm_par.req = (dma_mode == true) ? 1 : 0;
+	if (dsp->id == XGOLD_DSP_XG642) {
+		pcm_par.buffer_mode = buffer_mode;
+		pcm_par.dma_req_interval_time = dma_req_interval_time;
+		pcm_par.buffer_size = buffer_size;
+	}
 
-	xgold_debug("PCM %s cmd mode %d rate %d req %s\n",
+	xgold_debug("PCM %s cmd mode %d rate %d buffer_mode %d dma_interval_time %d buffer_size :%d req %s\n",
 			(type == STREAM_PLAY) ? "PLAY1" : "PLAY2",
-			pcm_par.mode, pcm_par.rate,
+			pcm_par.mode, pcm_par.rate, pcm_par.buffer_mode,
+			pcm_par.dma_req_interval_time,
+			pcm_par.buffer_size,
 			(dma_mode == true) ? "DMA" : "PIO");
 
 	cmd_data.command_id = (type == STREAM_PLAY) ?
@@ -2170,7 +2180,10 @@ int dsp_pcm_rec(struct dsp_audio_device *dsp, unsigned int channels,
 }
 
 int dsp_pcm_feed(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type,
-		unsigned int channels, unsigned int rate)
+		unsigned int channels, unsigned int rate,
+		unsigned short buffer_mode,
+		unsigned short dma_req_interval_time,
+		unsigned short buffer_size)
 {
 	struct T_AUD_DSP_CMD_PCM_PLAY_PAR pcm_par = { 0 };
 	struct dsp_aud_cmd_data cmd_data;
@@ -2179,6 +2192,11 @@ int dsp_pcm_feed(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type,
 	pcm_par.mode = get_dsp_pcm_channels(channels);
 	pcm_par.rate = get_dsp_pcm_rate(rate);
 	pcm_par.req = 0;
+	if (dsp->id == XGOLD_DSP_XG642) {
+		pcm_par.buffer_mode = buffer_mode;
+		pcm_par.dma_req_interval_time = dma_req_interval_time;
+		pcm_par.buffer_size = buffer_size;
+	}
 
 	cmd_data.command_id = (STREAM_PLAY == type) ?
 		DSP_AUD_PCM1_PLAY : DSP_AUD_PCM2_PLAY;
