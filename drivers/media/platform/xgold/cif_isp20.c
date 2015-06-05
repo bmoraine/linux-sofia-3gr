@@ -4513,54 +4513,111 @@ static int cif_isp20_update_ism_ycflt_rsz(
 	struct cif_isp20_device *dev)
 {
 	int ret = 0;
+	unsigned int dpcl;
+	unsigned int mi_ctrl_shd;
 
-	if (dev->isp_dev.ycflt_update ||
-		dev->config.isp_config.ism_config.ism_update_needed) {
+	bool mi_mp_off = false;
 
-		if (dev->config.isp_config.ism_config.ism_en) {
-			if (dev->isp_dev.cif_ism_cropping == false) {
-				dev->isp_dev.cif_ism_cropping = true;
-				dev->isp_dev.ycflt_update = true;
-			}
-		} else {
-			if (dev->isp_dev.cif_ism_cropping == true) {
-				dev->isp_dev.cif_ism_cropping = false;
-				dev->isp_dev.ycflt_update = true;
-			}
+	dpcl = cif_ioread32(dev->config.base_addr + CIF_VI_DPCL);
+	if ((dpcl & CIF_VI_DPCL_CHAN_MODE_MP) &&
+	    (dpcl & CIF_VI_DPCL_CHAN_MODE_SP) &&
+	    (dpcl & CIF_VI_DPCL_MP_MUX_MRSZ_JPEG)) {
+		mi_ctrl_shd = cif_ioread32(dev->config.base_addr
+			+ CIF_MI_CTRL_SHD);
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"mi_ctrl=0x%08x, dpcl=0x%08x\n",
+			mi_ctrl_shd, dpcl);
+
+		if (!(mi_ctrl_shd & CIF_MI_CTRL_SHD_MP_ENABLE) &&
+			!(mi_ctrl_shd & CIF_MI_CTRL_SHD_JPEG_ENABLE) &&
+			!(mi_ctrl_shd & CIF_MI_CTRL_SHD_RAW_ENABLE)) {
+			mi_mp_off = true;
 		}
 	}
 
-	/* Update YCFLT */
-	if (dev->isp_dev.ycflt_update) {
-		if (dev->isp_dev.ycflt_en) {
-			cifisp_ycflt_config(&dev->isp_dev);
-			cifisp_ycflt_en(&dev->isp_dev);
-		} else
-			cifisp_ycflt_end(&dev->isp_dev);
+	if (mi_mp_off) {
+		/* Branch for partial stop on MP */
+		/* Turn off MRSZ since it is not needed */
+		cif_iowrite32(0, dev->config.base_addr + CIF_MRSZ_CTRL);
+		cif_iowrite32OR(CIF_RSZ_CTRL_CFG_UPD,
+			dev->config.base_addr + CIF_MRSZ_CTRL);
 
-		dev->isp_dev.ycflt_update = false;
+		/* Also need to turn off XNR SS if it is ON and not
+		connected to SP, otherwise there are
+		MIPI_SYNC_OVERFLOW issues.  Possible explanation
+		is that in our capture usecase, DPCL is set to sp_mp
+		and when we can not change it to sp here without
+		stopping the whole CIF, so the output of YCFLT has
+		nowhere to go. */
+		/* We must turn off the whole YCFLT in this
+		case. Only XNR SS is not enough */
+		cifisp_ycflt_end(&dev->isp_dev);
+		dev->isp_dev.ycflt_en = false;
 
-		if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)
-			dev->config.mp_config.rsz_config.ycflt_adjust = true;
-		if (dev->config.sp_config.inp_yc_filt &&
-			(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING))
-			dev->config.sp_config.rsz_config.ycflt_adjust = true;
-	}
+		/* SRSZ might still need to be updated because we might
+		haved changed YCFLT XNR SS */
+		dev->config.sp_config.rsz_config.ycflt_adjust = true;
+		cif_isp20_pltfrm_pr_dbg(dev->dev, "mp stop seq\n");
 
-	/* Update ISM, cif_isp20_config_ism() changes the output size of isp,
-	so it must be called before cif_isp20_config_rsz() */
-	if (dev->config.isp_config.ism_config.ism_update_needed) {
-		cif_isp20_config_ism(dev, false);
-		if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)
-			dev->config.mp_config.rsz_config.ism_adjust = true;
-		if (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)
-			dev->config.sp_config.rsz_config.ism_adjust = true;
-		dev->config.isp_config.ism_config.ism_update_needed = false;
-		cif_iowrite32OR(CIF_ISP_CTRL_ISP_CFG_UPD,
-			dev->config.base_addr + CIF_ISP_CTRL);
+	} else {
+		/* Branch for normal update of YCFLT/ISM */
+		if (dev->isp_dev.ycflt_update ||
+			dev->config.isp_config.ism_config.ism_update_needed) {
 
-		if (dev->config.isp_config.ism_config.ism_en)
-			dev->config.mi_config.async_updt |= CIF_ISP20_ASYNC_ISM;
+			if (dev->config.isp_config.ism_config.ism_en) {
+				if (dev->isp_dev.cif_ism_cropping == false) {
+					dev->isp_dev.cif_ism_cropping = true;
+					dev->isp_dev.ycflt_update = true;
+				}
+			} else {
+				if (dev->isp_dev.cif_ism_cropping == true) {
+					dev->isp_dev.cif_ism_cropping = false;
+					dev->isp_dev.ycflt_update = true;
+				}
+			}
+		}
+
+		/* Update YCFLT */
+		if (dev->isp_dev.ycflt_update) {
+			if (dev->isp_dev.ycflt_en) {
+				cifisp_ycflt_config(&dev->isp_dev);
+				cifisp_ycflt_en(&dev->isp_dev);
+			} else
+				cifisp_ycflt_end(&dev->isp_dev);
+
+			dev->isp_dev.ycflt_update = false;
+
+			if (dev->mp_stream.state ==
+					CIF_ISP20_STATE_STREAMING)
+				dev->config.mp_config.rsz_config.ycflt_adjust
+					= true;
+			if (dev->config.sp_config.inp_yc_filt &&
+				(dev->sp_stream.state ==
+					CIF_ISP20_STATE_STREAMING))
+				dev->config.sp_config.rsz_config.ycflt_adjust
+					= true;
+		}
+
+		/* Update ISM, cif_isp20_config_ism() changes the
+		output size of isp, so it must be called before
+		cif_isp20_config_rsz() */
+		if (dev->config.isp_config.ism_config.ism_update_needed) {
+			cif_isp20_config_ism(dev, false);
+			if (dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)
+				dev->config.mp_config.rsz_config.
+					ism_adjust = true;
+			if (dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)
+				dev->config.sp_config.rsz_config.
+					ism_adjust = true;
+			dev->config.isp_config.ism_config.
+				ism_update_needed = false;
+			cif_iowrite32OR(CIF_ISP_CTRL_ISP_CFG_UPD,
+				dev->config.base_addr + CIF_ISP_CTRL);
+
+			if (dev->config.isp_config.ism_config.ism_en)
+				dev->config.mi_config.async_updt
+					|= CIF_ISP20_ASYNC_ISM;
+		}
 	}
 
 	/* Update RSZ */
@@ -4669,26 +4726,10 @@ static int cif_isp20_mi_isr(void *cntxt)
 		if (dev->mp_stream.stop &&
 			(dev->mp_stream.state == CIF_ISP20_STATE_STREAMING)) {
 			cif_isp20_stop_mi(dev, false, true);
+			cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
+				dev->config.base_addr + CIF_MI_INIT);
 			dev->mp_stream.state = CIF_ISP20_STATE_READY;
 			dev->mp_stream.stop = false;
-
-
-			/* Turn off MRSZ since it is not needed */
-			cif_iowrite32(0, dev->config.base_addr + CIF_MRSZ_CTRL);
-			cif_iowrite32OR(CIF_RSZ_CTRL_CFG_UPD,
-				dev->config.base_addr + CIF_MRSZ_CTRL);
-
-			/* Also need to turn off XNR SS if it is ON and not
-			connected to SP, otherwise there are
-			MIPI_SYNC_OVERFLOW issues.  Possible explanation
-			is that in our capture usecase, DPCL is set to sp_mp
-			and when we can not change it to sp here without
-			stopping the whole CIF, so the output of YCFLT has
-			nowhere to go. */
-			if (!dev->config.sp_config.inp_yc_filt)
-				/* We must turn off the whole YCFLT in this
-				case. Only XNR SS is not enough */
-				cifisp_ycflt_end(&dev->isp_dev);
 
 			cif_isp20_pltfrm_pr_dbg(NULL,
 				"MP has stopped\n");
@@ -4698,13 +4739,10 @@ static int cif_isp20_mi_isr(void *cntxt)
 		if (dev->sp_stream.stop &&
 			(dev->sp_stream.state == CIF_ISP20_STATE_STREAMING)) {
 			cif_isp20_stop_mi(dev, true, false);
+			cif_iowrite32(CIF_MI_INIT_SOFT_UPD,
+				dev->config.base_addr + CIF_MI_INIT);
 			dev->sp_stream.state = CIF_ISP20_STATE_READY;
 			dev->sp_stream.stop = false;
-
-			/* Turn off SRSZ since it is not needed */
-			cif_iowrite32(0, dev->config.base_addr + CIF_SRSZ_CTRL);
-			cif_iowrite32OR(CIF_RSZ_CTRL_CFG_UPD,
-				dev->config.base_addr + CIF_SRSZ_CTRL);
 
 			cif_isp20_pltfrm_pr_dbg(NULL,
 				"SP has stopped\n");

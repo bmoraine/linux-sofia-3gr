@@ -82,6 +82,12 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_MI_CTRL_HFLIP_SHIFT  4
 #define CIF_MI_CTRL_VFLIP_SHIFT  5
 
+/* MI_CTRL_SHD */
+#define CIF_MI_CTRL_SHD_MP_ENABLE              (1<<0)
+#define CIF_MI_CTRL_SHD_SP_ENABLE              (1<<2)
+#define CIF_MI_CTRL_SHD_JPEG_ENABLE            (1<<4)
+#define CIF_MI_CTRL_SHD_RAW_ENABLE             (1<<5)
+
 /* MI_INIT */
 #define CIF_MI_INIT_SKIP                   (1<<2)
 #define CIF_MI_INIT_SOFT_UPD               (1<<4)
