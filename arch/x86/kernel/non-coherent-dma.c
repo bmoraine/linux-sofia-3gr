@@ -29,8 +29,25 @@
 #include <asm/dma.h>
 #include <asm/cacheflush.h>
 
+static void dma_sync_cache_range(void *vaddr, unsigned int size,
+					enum dma_data_direction dir)
+{
+	void *vend = vaddr + size - 1;
+
+	for (; vaddr < vend; vaddr += boot_cpu_data.x86_clflush_size)
+		clflush(vaddr);
+	/*
+	 * Flush any possible final partial cacheline:
+	 */
+	clflush(vend);
+
+	if (dir != DMA_FROM_DEVICE)
+		mb();
+
+}
+
 static void __dma_page_sync(struct page *page, unsigned long off,
-	size_t size)
+	size_t size, enum dma_data_direction dir)
 {
 	unsigned long pfn;
 	size_t left = size;
@@ -48,12 +65,12 @@ static void __dma_page_sync(struct page *page, unsigned long off,
 				len = PAGE_SIZE - off;
 
 			vaddr = kmap_atomic(page);
-			clflush_cache_range(vaddr, len);
+			dma_sync_cache_range(vaddr, len, dir);
 			flush_write_buffers();
 			kunmap_atomic(vaddr);
 		} else {
 			vaddr = page_address(page) + off;
-			clflush_cache_range(vaddr, len);
+			dma_sync_cache_range(vaddr, len, dir);
 			flush_write_buffers();
 		}
 		off = 0;
@@ -66,13 +83,13 @@ static void __dma_page_sync(struct page *page, unsigned long off,
 static void __dma_page_dev_to_cpu(struct page *page, unsigned long off,
 	size_t size, enum dma_data_direction dir)
 {
-	__dma_page_sync(page, off, size);
+	__dma_page_sync(page, off, size, dir);
 }
 
 static void __dma_page_cpu_to_dev(struct page *page, unsigned long off,
 	size_t size, enum dma_data_direction dir)
 {
-	__dma_page_sync(page, off, size);
+	__dma_page_sync(page, off, size, dir);
 }
 
 
