@@ -1081,6 +1081,7 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	struct dsp_audio_device *dsp = xgold_pcm->dsp;
 
 	xgold_debug("%s type %d\n", __func__, substream->stream);
+	xgold_pcm->xrtd = substream->runtime->private_data;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -1140,32 +1141,9 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
-		xgold_debug("%s: Trigger stop\n", __func__);
-
 		if (xgold_pcm->dma_mode)
 			xrtd->dma_stop = true;
-
-		dsp_pcm_stop(dsp, xrtd->stream_type);
-		xgold_debug("DSP stopped\n");
-
-		if (xrtd->stream_type == HW_PROBE_A)
-			xrtd->pcm->
-			hw_probe_status[HW_PROBE_POINT_A].active = false;
-		else if (xrtd->stream_type == HW_PROBE_B)
-			xrtd->pcm->
-			hw_probe_status[HW_PROBE_POINT_B].active = false;
-
-		/* call hw probe function with runtime as parameter, and
-		   the function will enable/disable HW probe as requested */
-		dsp_cmd_hw_probe(xgold_pcm->dsp, xrtd);
-
-		/* HW_AFE should be switched off before audio codec power
-		 * down */
-		if (xgold_pcm_sysfs_attribute_value ==
-				XGOLD_PCM_ATTR_SEND_DSP_CMD &&
-				xrtd->stream_type != HW_PROBE_A &&
-				xrtd->stream_type != HW_PROBE_B)
-			dsp_stop_audio_hwafe();
+		schedule_work(&xgold_pcm->xgold_pcm_stop);
 		break;
 
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
@@ -1418,6 +1396,37 @@ static int xgold_pcm_record_dump_sel_ctl_set(
 	}
 	return 0;
 }
+
+static void xgold_pcm_stop_handler(struct work_struct *work)
+{
+	struct xgold_pcm *xgold_pcm =
+		container_of(work, struct xgold_pcm, xgold_pcm_stop);
+	struct dsp_audio_device *dsp = xgold_pcm->dsp;
+	xgold_debug("%s: Trigger stop\n", __func__);
+
+	dsp_pcm_stop(dsp, xgold_pcm->xrtd->stream_type);
+	xgold_debug("DSP stopped\n");
+	if (xgold_pcm->xrtd->stream_type == HW_PROBE_A)
+		xgold_pcm->
+		hw_probe_status[HW_PROBE_POINT_A].active = false;
+	else if (xgold_pcm->xrtd->stream_type == HW_PROBE_B)
+		xgold_pcm->
+		hw_probe_status[HW_PROBE_POINT_B].active = false;
+
+		/* call hw probe function with runtime as parameter, and
+		   the function will enable/disable HW probe as requested */
+		dsp_cmd_hw_probe(xgold_pcm->dsp, xgold_pcm->xrtd);
+
+		/* HW_AFE should be switched off before audio codec power
+		 * down */
+		if (xgold_pcm_sysfs_attribute_value ==
+				XGOLD_PCM_ATTR_SEND_DSP_CMD &&
+				xgold_pcm->xrtd->stream_type != HW_PROBE_A &&
+				xgold_pcm->xrtd->stream_type != HW_PROBE_B)
+			dsp_stop_audio_hwafe();
+
+}
+
 /* DMA DUMP */
 static void dma_dump_handler(struct work_struct *work)
 {
@@ -1816,6 +1825,9 @@ skip_pinctrl:
 	xgold_debug("HW probe select initialized to: %d / %d\n",
 		pcm->hw_probe_status[HW_PROBE_POINT_A].hw_probe_sel,
 		pcm->hw_probe_status[HW_PROBE_POINT_B].hw_probe_sel);
+
+	INIT_WORK(&pcm->xgold_pcm_stop,
+				xgold_pcm_stop_handler);
 
 	platform_set_drvdata(pdev, pcm);
 	/* Disable I2S2 pins at init */

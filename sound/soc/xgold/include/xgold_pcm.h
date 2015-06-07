@@ -62,6 +62,8 @@ struct xgold_pcm {
 	struct work_struct record_dump_work;
 	unsigned char *dump_record_buffer;
 	int dump_record_buffer_pos;
+	struct work_struct xgold_pcm_stop;
+	struct xgold_runtime_data *xrtd;
 };
 
 struct xgold_runtime_data {
