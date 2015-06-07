@@ -1857,9 +1857,6 @@ static int btif_startup(struct uart_port *port)
 
 	p_btif->dstate = D3;
 
-	/* Workaround for phonetool initialization issue */
-	btif_init_hw(p_btif);
-
 	/* Get the ADC channel for temperature sensor */
 	/* FIXME: Get "pmic_temp" channel */
 	p_btif->temp_iio_chan = iio_channel_get(NULL, "PMICTEMP_SENSOR");
