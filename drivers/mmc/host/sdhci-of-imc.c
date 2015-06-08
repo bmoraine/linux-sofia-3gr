@@ -21,6 +21,7 @@
 #include <linux/of_gpio.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
+#include <linux/reset.h>
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <sofia/mv_svc_hypercalls.h>
 #endif
@@ -62,6 +63,14 @@ DECLARE_DEVICE_STATE_PM_CLASS(sdhci);
 
 #endif
 #endif
+
+static void xgold_sdhci_reset_controller(struct device *dev)
+{
+	struct xgold_mmc_pdata *mmc_pdata = dev_get_platdata(dev);
+
+	if (mmc_pdata && (!IS_ERR_OR_NULL(mmc_pdata->reset)))
+		reset_control_reset(mmc_pdata->reset);
+}
 
 static inline int xgold_sdhci_set_pinctrl_state(struct device *dev,
 						struct pinctrl_state *state)
@@ -302,6 +311,9 @@ static void xgold_sdhci_of_resume(struct sdhci_host *host)
 			dev_err(&pdev->dev, "set pm state D0 during runtime resume  failed !\n");
 	}
 #endif
+
+	xgold_sdhci_reset_controller(&pdev->dev);
+
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
@@ -557,6 +569,8 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 
 	device_state_pm_set_state_by_name(&mmc_pdata->dev,
 			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name);
+
+	xgold_sdhci_reset_controller(&pdev->dev);
 #else
 	if (clk_prepare(mmc_pdata->bus_clk)) {
 		dev_dbg(&pdev->dev, "clk_ahb prepare failed\n");
@@ -576,6 +590,12 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 		return -1;
 	}
 #endif
+
+	/* reset */
+	mmc_pdata->reset = reset_control_get(&pdev->dev, "controller");
+	if (IS_ERR_OR_NULL(mmc_pdata->reset))
+		dev_warn(&pdev->dev, "missing reset controller\n");
+
 	/* pcl */
 	mmc_pdata->pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(mmc_pdata->pinctrl)) {
@@ -617,6 +637,7 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 		}
 		disable_irq_nosync(mmc_pdata->irq_wk);
 	}
+
 
 	spin_lock_init(&mmc_pdata->irq_lock);
 	it_eint = of_property_match_string(np, "interrupt-names",
