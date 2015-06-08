@@ -421,6 +421,8 @@
 						clocks = <&clk_emmc>, <&clk_ahb_per2_emmc>;
 						clock-names = "clk_core", "clk_ahb";
 						interrupts = < EMMC_INT IRQ_TYPE_DEFAULT >;
+						resets = < &dbb_rst1 12 >;
+						reset-names = "controller";
 						/* vqmmc-supply = <&lemmc>; */
 						intel,max_clock = <52000000>;
 						intel,min_clock = <203125>;
@@ -449,7 +451,6 @@
 							pm,state-D0i2 = "disable";
 							pm,state-D3 = "disable";
 						};
-
 					};
 					sd:sd{	/* SD */
 						compatible = "intel,sdhci";
@@ -464,6 +465,8 @@
 							0 &pic SDMMC_INT IRQ_TYPE_DEFAULT
 							1 &eint EINT_EXI8 XGOLD_IRQ_TYPE_EDGE_BOTH >;
 						interrupt-names = "host";
+						resets = < &dbb_rst1 14 >;
+						reset-names = "controller";
 						cd-gpios = < &xgold_pmx_gpio 43 0 >;
 						cd-inverted;
 						vmmc-supply = <&sd_ldo>;
