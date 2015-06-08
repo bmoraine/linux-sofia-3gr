@@ -4508,6 +4508,18 @@ err:
 	return ret;
 }
 
+static inline bool cif_isp20_check_for_ovs(
+		struct cif_isp20_device *dev, int line)
+{
+	if (cif_ioread32(dev->config.base_addr + CIF_ISP_RIS)
+			& CIF_ISP_V_START) {
+		cif_isp20_pltfrm_pr_warn(dev->dev,
+			"(%d) Overlapping V_SYNC\n", line);
+		return true;
+	}
+	return false;
+}
+
 /* Function to be called inside ISR to update CIF ISM/YCFLT/RSZ */
 static int cif_isp20_update_ism_ycflt_rsz(
 	struct cif_isp20_device *dev)
@@ -4517,6 +4529,9 @@ static int cif_isp20_update_ism_ycflt_rsz(
 	unsigned int mi_ctrl_shd;
 
 	bool mi_mp_off = false;
+
+	if (cif_isp20_check_for_ovs(dev, __LINE__))
+		return 0;
 
 	dpcl = cif_ioread32(dev->config.base_addr + CIF_VI_DPCL);
 	if ((dpcl & CIF_VI_DPCL_CHAN_MODE_MP) &&
@@ -6004,6 +6019,8 @@ int marvin_isp_isr(void *cntxt)
 		}
 	}
 
+	if (cif_isp20_check_for_ovs(dev, __LINE__))
+		return 0;
 	cifisp_isp_isr(&dev->isp_dev, isp_mis);
 
 	return 0;

@@ -1565,6 +1565,13 @@ int cif_isp20_v4l2_s_crop(
 	struct cif_isp20_ism_params *ism_params =
 		&(dev->config.isp_config.ism_config.ism_params);
 
+	/* Return if no change*/
+	if ((ism_params->h_size == a->c.width) &&
+			(ism_params->v_size == a->c.height) &&
+			(ism_params->h_offs == a->c.left) &&
+			(ism_params->v_offs == a->c.top))
+		return 0;
+
 	local_irq_save(flags);
 
 	/* check legal range*/
