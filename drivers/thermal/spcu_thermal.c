@@ -40,12 +40,12 @@
 #include <sofia/mv_svc_hypercalls.h>
 
 #define DEFAULT_TEMP 40000		/* 40 degrees */
-#define MEAS_INTERVAL 3			/* 80 ms */
+#define MEAS_INTERVAL 0			/* 80 ms */
 #define MEAS_DELAY 90			/* us */
-#define SW_HYST_DELAY 100		/* ms */
+#define SW_HYST_DELAY 70		/* ms */
 
 #define SW_HYST_VAL 0			/* LSB */
-#define ACCURACY 5				/* LSB */
+#define ACCURACY 2				/* LSB */
 
 
 #define AF_RDONLY   00000000
@@ -515,7 +515,7 @@ static int do_bisect_temp_val(struct threshold *test_thres, u32 thres_low_val,
 	high_val = thres_high_val;
 	low_val = thres_low_val;
 
-	while ((high_val - low_val) > 2) {
+	while ((high_val - low_val) > 1) {
 		test_val = ((low_val + high_val) >> 1);
 		if (sw_meas_oneshot(test_thres, test_val) == TRIGGER_ABOVE)
 			low_val = test_val;
@@ -563,9 +563,9 @@ static int bisect_calc_temp_val(struct spcu_thermal_device *dev,
 static void update_thresholds(struct spcu_thermal_device *dev, int cur_temp_val)
 {
 	SPCU_THERMAL_TRACE(&dev->pdev->dev, "setting low to %d\n",
-				cur_temp_val - ACCURACY);
+				cur_temp_val - ACCURACY*5);
 	set_trigger_val(&dev->threshold[THRESHOLD_LOW],
-				cur_temp_val - ACCURACY);
+				cur_temp_val - ACCURACY*5);
 	SPCU_THERMAL_TRACE(&dev->pdev->dev, "setting high to %d\n",
 				cur_temp_val + ACCURACY);
 	set_trigger_val(&dev->threshold[THRESHOLD_HIGH],
