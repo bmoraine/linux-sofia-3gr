@@ -196,7 +196,14 @@ static int sofia_apic_id_registered(void)
 
 static void sofia_init_lapic_ldr(void) { }
 static void sofia_apic_wait_icr_idle(void) { }
-static void sofia_apic_ipi_self(int vector) { }
+
+static void sofia_apic_ipi_self(int vector)
+{
+	unsigned int vcpus;
+	vcpus = (1 << smp_processor_id());
+
+	mv_ipi_post(vector, vcpus);
+}
 
 static struct apic apic_sofia = {
 
