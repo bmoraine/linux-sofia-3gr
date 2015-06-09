@@ -571,7 +571,8 @@ static int dwc2_core_reset(struct dwc2_hsotg *hsotg)
 	 * depending on the role. Note that this reset function is called from
 	 * may places and leads to ~ 1 sec delay during boot.
 	 */
-	usleep_range(150000, 200000);
+	if (hsotg->hcd_enabled)
+		msleep(200);
 
 	return 0;
 }
