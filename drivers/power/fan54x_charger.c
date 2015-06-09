@@ -869,6 +869,10 @@ static int fan54x_charger_set_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
+		if (val->intval == 0) {
+			pr_info("%s: keep charge coltage when disconnects\n", __func__);
+			break;
+		}
 		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_SET_PROP_CHARGE_VOLTAGE,
 								val->intval, 0);
 
@@ -887,6 +891,10 @@ static int fan54x_charger_set_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_ENABLE_CHARGER:
+		if (chrgr->state.to_enable_boost) {
+			pr_info("%s: do not enable charger when boost is on\n", __func__);
+			break;
+		}
 		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_SET_PROP_ENABLE_CHARGER,
 								val->intval, 0);
 
@@ -898,6 +906,10 @@ static int fan54x_charger_set_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_ENABLE_CHARGING:
+		if (chrgr->state.to_enable_boost) {
+			pr_info("%s: do not enable charging when boost is on\n", __func__);
+			break;
+		}
 		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_SET_PROP_ENABLE_CHARGING,
 								val->intval, 0);
 
@@ -1241,6 +1253,10 @@ static void fan54x_chgdet_worker(struct work_struct *work)
 
 	wake_lock_timeout(&chrgr->suspend_lock, EVT_WAKELOCK_TIMEOUT);
 
+	if (chrgr->state.to_enable_boost) {
+		pr_info("%s: do not turn on charging when boost is on\n", __func__);
+		return;
+	}
 	down(&chrgr->prop_lock);
 
 	/* the CHGDET interrupt is configured as CONNECT only */
