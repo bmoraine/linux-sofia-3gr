@@ -627,6 +627,8 @@ static int dsp_audio_dev_set_controls(struct dsp_audio_device *dsp_dev,
 	if ((NULL == arg && cmd <= DSP_AUDIO_CONTROL_WRITE_SHM) ||
 		(NULL == arg && cmd == DSP_AUDIO_POWER_REQ))
 		return -EINVAL;
+	if (cmd != DSP_AUDIO_POWER_REQ && !pm_runtime_active(dsp_dev->dev))
+		return 0;
 
 	switch (cmd) {
 	case DSP_AUDIO_CONTROL_SEND_CMD:
@@ -2557,18 +2559,18 @@ static void dsp_audio_drv_shutdown(struct platform_device *pdev)
 {
 	struct dsp_audio_device *dsp = platform_get_drvdata(pdev);
 	struct T_AUD_DSP_CMD_VB_HW_AFE_PAR afe_hw_cmd = { 0 };
+	int power_control = 0;
 	xgold_debug("dsp_audio_drv_shutdown\n");
 
 	if (dsp->dsp_sched_start) {
 		xgold_err("%s: Scheduler is on. Turning it off\n", __func__);
-		dsp_audio_cmd(DSP_AUDIO_CMD_VB_HW_AFE,
+		if (pm_runtime_active(dsp->dev)) {
+			dsp_audio_cmd(DSP_AUDIO_CMD_VB_HW_AFE,
 				sizeof(struct T_AUD_DSP_CMD_VB_HW_AFE_PAR),
 				(u16 *)&afe_hw_cmd);
-
-		if (dsp->pm_platdata)
-			device_state_pm_set_state_by_name(&pdev->dev,
-					dsp->pm_platdata->pm_state_D3_name);
+		}
 	}
+	dsp_audio_dev_set_controls(dsp, DSP_AUDIO_POWER_REQ, &power_control);
 }
 
 static struct of_device_id xgold_snd_dsp_of_match[] = {
