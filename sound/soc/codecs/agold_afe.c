@@ -2570,14 +2570,7 @@ static int agold_afe_drv_remove(struct idi_peripheral_device
 
 static void agold_afe_drv_shutdown(struct idi_peripheral_device *dev)
 {
-	struct agold_afe_data *afe_data = dev_get_drvdata(&dev->device);
-
 	afe_debug("%s:\n", __func__);
-	if (afe_data) {
-		afe_debug("%s: Forcing AFE shutdown\n", __func__);
-		afe_data->codec_force_shutdown = 1;
-		agold_afe_set_bias(afe_data->codec, SND_SOC_BIAS_OFF);
-	}
 }
 
 static const struct idi_device_id idi_ids[] = {
