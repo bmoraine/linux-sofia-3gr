@@ -51,7 +51,7 @@ int xgold_dev_pm_set_state(struct device *dev,
 			ui->user_id, ui->per_id, new_state->name);
 	ret = vpower_call_prh(ui->user_id, ui->per_id, mi, sz);
 	if (ret)
-		pr_err("#PM_DBG: Error->Power State change\n");
+		pr_err("#PM_DBG: Error->Power State change %d\n", ret);
 	pr_debug("#PM_DBG: Ret:%d\n", ret);
 	return ret;
 }
