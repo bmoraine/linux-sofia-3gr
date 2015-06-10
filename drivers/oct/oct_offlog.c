@@ -39,7 +39,7 @@ static void oct_detect_off_flag(char *gadget_name)
 {
 	struct file *fp = NULL;
 	mm_segment_t old_fs;
-	int retry = 3;
+	int retry = 12;
 	OCT_DBG("oct_detect_off_flag[%s]", gadget_name);
 
 	while (!kthread_should_stop() && retry >= 0) {
