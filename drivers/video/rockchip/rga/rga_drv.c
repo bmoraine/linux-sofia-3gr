@@ -86,7 +86,7 @@
 #define DRIVER_DESC		"RGA Device Driver"
 #define DRIVER_NAME		"rga"
 
-#define RGA_VERSION   "1.000"
+#define RGA_VERSION   "1.001"
 
 #define RGA_GET_SRC_FENCE_ERROR     -190
 #define RGA_GET_DST_FENCE_ERROR     -191
@@ -795,7 +795,7 @@ static void rga_del_running_list_timeout(struct work_struct *work)
 	struct rga_reg *reg;
 
 	mutex_lock(&rga_service.lock);
-	pr_info("Warning RGA process task timeout\n");
+	/*pr_info("Warning RGA process task timeout\n");*/
 	rga_service.timeout_num++;
 	while (!list_empty(&rga_service.running)) {
 		reg =
