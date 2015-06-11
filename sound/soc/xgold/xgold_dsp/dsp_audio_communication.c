@@ -47,8 +47,8 @@
 /*!< Pointer to access command pipes for FBA audio in shared memory */
 static struct dsp_aud_cmd_pipes *p_sm_aud_cmd_data;
 /*!< Mutex to serialize one command at a time in the command pipe */
-static spinlock_t dsp_audio_cmd_pipe_lock;
-
+static spinlock_t dsp_audio_cmd_pipe_2_lock;
+static spinlock_t dsp_audio_cmd_pipe_1_lock;
 /*===========================================================================
 **
 **								LOCAL PROTOTYPES
@@ -80,7 +80,8 @@ static spinlock_t dsp_audio_cmd_pipe_lock;
 void dsp_audio_communication_init(void)
 {
 	/* Initialize the mutex for command pipe */
-	spin_lock_init(&dsp_audio_cmd_pipe_lock);
+	spin_lock_init(&dsp_audio_cmd_pipe_2_lock);
+	spin_lock_init(&dsp_audio_cmd_pipe_1_lock);
 }
 
 /*****************************************************************************
@@ -198,7 +199,7 @@ enum dsp_err_code dsp_add_audio_msg_2_dsp(
 	}
 
 /* lock the pipe 2 */
-	spin_lock(&dsp_audio_cmd_pipe_lock);
+	spin_lock(&dsp_audio_cmd_pipe_2_lock);
 	p_sm_aud_cmd_data = dsp->shm_mem +
 				DSP_AUDIO_COMMAND_PIPE_SM_OFFSET * 2;
 
@@ -222,6 +223,64 @@ enum dsp_err_code dsp_add_audio_msg_2_dsp(
 	ret = dsp_cmd_int_2_audio_dsp(dsp, DSP_IRQ_2, msg_id);
 
 /* unlock the pipe 2 */
-	spin_unlock(&dsp_audio_cmd_pipe_lock);
+	spin_unlock(&dsp_audio_cmd_pipe_2_lock);
+	return ret;
+}
+
+/*****************************************************************************
+* Function:... dsp_add_audio_msg_2_dsp_cmd_pipe_1
+* Parameters:. dsp_device: the dsp_device structure pointing to the DSP
+*              msg_id: the ID number of the audio DSP command
+*              msg_length: Number of 16-bit words in the command
+*              p_msg_par: Pointer to the command data
+* Returns:.... 0 on success
+*              Error code on failure
+* Description: This procedure implements the frame based audio dsp command
+				interface.
+******************************************************************************/
+enum dsp_err_code dsp_add_audio_msg_2_dsp_cmd_pipe_1(
+	struct dsp_audio_device *dsp,
+	U16  msg_id,
+	U16 msg_length,
+	U16 *p_msg_par)
+{
+	U16  *p_dsp_cmd_pipe;
+	enum dsp_err_code ret = DSP_SUCCESS;
+	xgold_debug("in %s\n", __func__);
+
+
+/* Make a sanity check. Check that no parameters are sent if message length is
+	larger than the message ID length */
+	if (msg_length > DSP_AUDIO_CMD_ID_LEN && p_msg_par == NULL) {
+		xgold_debug("Too long message length\n");
+		return DSP_ERR_INVALID_REQUEST;
+	}
+
+/* lock the pipe 1 */
+	spin_lock(&dsp_audio_cmd_pipe_1_lock);
+	p_sm_aud_cmd_data = dsp->shm_mem +
+				DSP_AUDIO_COMMAND_PIPE_SM_OFFSET * 2;
+
+/* Point to pipe 1 */
+	p_dsp_cmd_pipe = p_sm_aud_cmd_data->cmd_1_data;
+
+/* copy message id */
+	*p_dsp_cmd_pipe++ = msg_id;
+
+/* Decrement message length */
+	--msg_length;
+
+/* copy message parameter */
+	if (NULL != p_msg_par)
+		memcpy((void *)p_dsp_cmd_pipe, p_msg_par,
+			msg_length * sizeof(U16));
+
+	xgold_debug("cmd id = %d, msg_length = %d", msg_id, msg_length);
+
+/* Generate interrupt to dsp for command in pipe 2 */
+	ret = dsp_cmd_int_2_audio_dsp(dsp, DSP_IRQ_1, msg_id);
+
+/* unlock the pipe 2 */
+	spin_unlock(&dsp_audio_cmd_pipe_1_lock);
 	return ret;
 }

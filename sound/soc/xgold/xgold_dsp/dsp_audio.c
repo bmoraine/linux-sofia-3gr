@@ -141,7 +141,8 @@ enum dsp_err_code dsp_audio_init(struct list_head *list)
 * Function:... dsp_audio_cmd
 * Parameters:. command id,command lenght, command paramaters
 * Returns:.... error
-* Description: This function sends the dsp command to a requested DSP.
+* Description: This function sends the dsp command to a requested DSP command
+* pipe #2.
 ******************************************************************************/
 enum dsp_err_code dsp_audio_cmd(
 	U16 command_id,
@@ -230,6 +231,101 @@ enum dsp_err_code dsp_audio_cmd(
 	return dsp_result;
 }
 EXPORT_SYMBOL(dsp_audio_cmd);
+
+/******************************************************************************
+* Function:... dsp_audio_cmd_pipe_1
+* Parameters:. command id,command lenght, command paramaters
+* Returns:.... error
+* Description: This function sends the dsp command to a requested DSP command
+* pipe #1.
+******************************************************************************/
+enum dsp_err_code dsp_audio_cmd_pipe_1(
+	U16 command_id,
+	U16 command_len,
+	U16 *p_command)
+{
+	enum dsp_err_code dsp_result = DSP_SUCCESS;
+	U16 is_command_id_supported = 0x7fff;
+	U16 is_command_valid = 0;
+	xgold_debug("in %s\n", __func__);
+	if (dsp.num_dsp == 2) {
+		enum dsp_err_code fba_err = DSP_SUCCESS;
+		enum dsp_err_code sba_err = DSP_SUCCESS;
+		/* call the command if it is relevant for
+			the frame-based processing */
+		is_command_id_supported = is_cmd_supported_on_dsp(
+						command_id,
+						supported_cmd_fba,
+						ARRAY_SIZE(supported_cmd_fba));
+		if (0x7fff != is_command_id_supported) {
+			is_command_valid = 1;
+			fba_err = dsp_add_audio_msg_2_dsp_cmd_pipe_1(dsp.dsp_fba,
+					command_id, command_len / 2 +
+					DSP_AUDIO_CMD_ID_LEN, p_command);
+		}
+
+		/* call the command if it is relevant for
+			the sample-based processing */
+		is_command_id_supported = is_cmd_supported_on_dsp(
+						command_id,
+						supported_cmd_sba,
+						ARRAY_SIZE(supported_cmd_sba));
+		if (0x7fff != is_command_id_supported) {
+
+			is_command_valid = 1;
+			/* Enable I2S2 power&clock domain */
+			if (command_id == DSP_SBA_VB_HW_I2S2) {
+				if (*p_command != 0)
+					dsp.dsp_sba->p_dsp_common_data->
+					i2s_set_power_state(
+					dsp.dsp_sba->p_dsp_common_data->
+					p_i2s_dev[XGOLD_I2S2],
+					1);
+				else
+					dsp.dsp_sba->p_dsp_common_data->
+					i2s_set_power_state(
+					dsp.dsp_sba->p_dsp_common_data->
+					p_i2s_dev[XGOLD_I2S2],
+					0);
+			}
+			/* Enable I2S1 power&clock domain */
+			else if (command_id == DSP_AUD_VB_HW_I2S1) {
+				if (*p_command != 0) {
+					dsp.dsp_sba->p_dsp_common_data->
+					i2s_set_power_state(
+					dsp.dsp_sba->p_dsp_common_data->
+					p_i2s_dev[XGOLD_I2S1],
+					1);
+					}
+				else
+					dsp.dsp_sba->p_dsp_common_data->
+					i2s_set_power_state(
+					dsp.dsp_sba->p_dsp_common_data->
+					p_i2s_dev[XGOLD_I2S1],
+					0);
+			}
+			sba_err = dsp_add_audio_msg_2_dsp_cmd_pipe_1(dsp.dsp_sba,
+					command_id, command_len / 2 +
+					DSP_AUDIO_CMD_ID_LEN, p_command);
+		}
+		/* return error if an error occurred */
+		if (!is_command_valid) {
+			xgold_err("%s: Invalid DSP command %u\n",
+					__func__, command_id);
+			dsp_result = DSP_ERR_INVALID_REQUEST;
+		} else if (DSP_SUCCESS != fba_err)
+			dsp_result = fba_err;
+		else
+			dsp_result = sba_err;
+	} else {
+		dsp_result = dsp_add_audio_msg_2_dsp_cmd_pipe_1(dsp.dsp_fba,
+			command_id,
+			command_len / 2 + DSP_AUDIO_CMD_ID_LEN,
+			p_command);
+	}
+	return dsp_result;
+}
+EXPORT_SYMBOL(dsp_audio_cmd_pipe_1);
 
 /******************************************************************************
 * Function:... dsp_audio_read_shm

@@ -656,6 +656,32 @@ static int dsp_audio_dev_set_controls(struct dsp_audio_device *dsp_dev,
 		dsp_audio_mark_scheduler_status(p_cmd_data);
 		break;
 
+	case DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC:
+		/* control to send the commands in atomic context */
+		p_cmd_data = (struct dsp_aud_cmd_data *) arg;
+
+		xgold_dsp_log("dsp_log: cmd_id: %d, cmd_len:%d\n",
+			      p_cmd_data->command_id,
+			      p_cmd_data->command_len);
+
+		xgold_dsp_log("dsp_log: parameters: ");
+		data_trace_ptr = (unsigned short *)p_cmd_data->p_data;
+		for (i = 0; i < (p_cmd_data->command_len + 1) / 2; i += 2)
+			xgold_dsp_log(" %X - %X\n", data_trace_ptr[i],
+					data_trace_ptr[i + 1]);
+
+		xgold_dsp_log("\n");
+
+		ret_val = (int)dsp_audio_cmd_pipe_1(
+				p_cmd_data->command_id,
+				p_cmd_data->command_len,
+				p_cmd_data->p_data);
+
+		/* Mark the DSP scheduler status */
+		dsp_audio_mark_scheduler_status(p_cmd_data);
+		break;
+
+
 	case DSP_AUDIO_CONTROL_READ_SHM:
 		/* control to read data from the shared memory */
 		p_rw_shm = (struct dsp_rw_shm_data *) arg;
@@ -2148,7 +2174,7 @@ int dsp_pcm_play(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type,
 	cmd_data.p_data = (u16 *)&pcm_par;
 
 	dsp->p_dsp_common_data->ops->set_controls(
-			dsp, DSP_AUDIO_CONTROL_SEND_CMD, &cmd_data);
+			dsp, DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC, &cmd_data);
 
 	return 0;
 }
@@ -2174,7 +2200,7 @@ int dsp_pcm_rec(struct dsp_audio_device *dsp, unsigned int channels,
 	cmd_data.p_data = (u16 *)&pcm_rec_par;
 
 	dsp->p_dsp_common_data->ops->set_controls(
-			dsp, DSP_AUDIO_CONTROL_SEND_CMD, &cmd_data);
+			dsp, DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC, &cmd_data);
 
 	return 0;
 }
@@ -2204,7 +2230,9 @@ int dsp_pcm_feed(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type,
 	cmd_data.p_data = (u16 *)&pcm_par;
 
 	dsp->p_dsp_common_data->ops->set_controls(
-			dsp, DSP_AUDIO_CONTROL_SEND_CMD, &cmd_data);
+			dsp,
+			DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC,
+			&cmd_data);
 
 	return 0;
 }
@@ -2226,7 +2254,9 @@ int dsp_pcm_stop(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type)
 			sizeof(struct T_AUD_DSP_CMD_PCM_PLAY_PAR);
 		cmd_data.p_data = (u16 *)&pcm_par;
 		dsp->p_dsp_common_data->ops->set_controls(
-				dsp, DSP_AUDIO_CONTROL_SEND_CMD, &cmd_data);
+				dsp,
+				DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC,
+				&cmd_data);
 		break;
 
 	case STREAM_REC:
@@ -2236,7 +2266,9 @@ int dsp_pcm_stop(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type)
 			sizeof(struct T_AUD_DSP_CMD_PCM_REC_PAR);
 		cmd_data.p_data = (u16 *)&pcm_rec_par;
 		dsp->p_dsp_common_data->ops->set_controls(
-				dsp, DSP_AUDIO_CONTROL_SEND_CMD, &cmd_data);
+				dsp,
+				DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC,
+				&cmd_data);
 		break;
 
 	case HW_PROBE_B:
@@ -2248,7 +2280,9 @@ int dsp_pcm_stop(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type)
 		cmd_data.p_data = (u16 *)&hw_probe_par;
 
 		dsp->p_dsp_common_data->ops->set_controls(
-				dsp, DSP_AUDIO_CONTROL_SEND_CMD, &cmd_data);
+				dsp,
+				DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC,
+				&cmd_data);
 		break;
 
 	default:
@@ -2287,7 +2321,7 @@ int dsp_cmd_hw_probe(
 	cmd_data.p_data = (u16 *)&hw_probe_par;
 
 	dsp->p_dsp_common_data->ops->set_controls(
-			dsp, DSP_AUDIO_CONTROL_SEND_CMD, &cmd_data);
+			dsp, DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC, &cmd_data);
 
 	xgold_debug("hardware probe configured: setting: %d,\n",
 		hw_probe_par.setting);
@@ -2313,7 +2347,7 @@ void dsp_cmd_afe_streaming_off(struct dsp_audio_device *dsp)
 			xgold_debug("%s: Send AFE OFF command\n", __func__);
 			dsp->p_dsp_common_data->ops->set_controls(
 				dsp,
-				DSP_AUDIO_CONTROL_SEND_CMD,
+				DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC,
 				&dsp_cmd);
 		}
 	}
@@ -2578,16 +2612,21 @@ static void dsp_audio_drv_shutdown(struct platform_device *pdev)
 	struct dsp_audio_device *dsp = platform_get_drvdata(pdev);
 	struct T_AUD_DSP_CMD_VB_HW_AFE_PAR afe_hw_cmd = { 0 };
 	int power_control = 0;
-	xgold_debug("dsp_audio_drv_shutdown\n");
+	struct dsp_aud_cmd_data cmd_data;
+	cmd_data.command_id = DSP_AUDIO_CMD_VB_HW_AFE;
+	cmd_data.command_len = sizeof(struct T_AUD_DSP_CMD_VB_HW_AFE_PAR);
+	cmd_data.p_data = (u16 *)&afe_hw_cmd;
 
 	if (dsp->dsp_sched_start) {
 		xgold_err("%s: Scheduler is on. Turning it off\n", __func__);
 		if (pm_runtime_active(dsp->dev)) {
-			dsp_audio_cmd(DSP_AUDIO_CMD_VB_HW_AFE,
-				sizeof(struct T_AUD_DSP_CMD_VB_HW_AFE_PAR),
-				(u16 *)&afe_hw_cmd);
+			dsp->p_dsp_common_data->ops->set_controls(
+				dsp,
+				DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC,
+				&cmd_data);
 		}
 	}
+
 	dsp_audio_dev_set_controls(dsp, DSP_AUDIO_POWER_REQ, &power_control);
 }
 

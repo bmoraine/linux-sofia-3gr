@@ -196,8 +196,8 @@ enum dsp_aud_cmds {
 /**
  * \brief dsp_add_fba_audio_msg_2_dsp \n
  *
- * Send an audio dsp command immediately to dsp without
- * buffering.
+ * Send an audio dsp command immediately to dsp command pipe #2
+ * without buffering.
  *
  * \param dsp_device
  * \param word msg_id
@@ -211,6 +211,24 @@ enum dsp_err_code dsp_add_audio_msg_2_dsp(struct dsp_audio_device *dsp,
 	U16 msg_length,
 	U16 *p_msg_par);
 
+/**
+ * \brief dsp_add_audio_msg_2_dsp_cmd_pipe_1 \n
+ *
+ * Send an audio dsp command issued in atomic context to dsp
+ * command pipe #1 without buffering.
+ *
+ * \param dsp_device
+ * \param word msg_id
+ * \param word msg_length
+ * \param word* p_msg_par
+ * \return None
+ *
+ */
+enum dsp_err_code dsp_add_audio_msg_2_dsp_cmd_pipe_1(
+	struct dsp_audio_device *dsp,
+	U16 msg_id,
+	U16 msg_length,
+	U16 *p_msg_par);
 
 /**
  * @brief Activate a previously allocated interrupt.
@@ -309,6 +327,21 @@ enum dsp_err_code dsp_audio_init(struct list_head *dsp_linked_list);
   @return enum dsp_err_code error
  */
 enum dsp_err_code dsp_audio_cmd(
+	U16    command_id,
+	U16    command_len,
+	U16    *p_command);
+
+/**
+  @brief Register DSP INT interrupt function and enable  interrupt
+
+  @param DSP_AUDIO_TYPE: Indication of the dsp type.
+  @param U16: Command id.
+  @param U16: Command length.
+  @param U16*: Pointer to command parameters.
+
+  @return enum dsp_err_code error
+ */
+enum dsp_err_code dsp_audio_cmd_pipe_1(
 	U16    command_id,
 	U16    command_len,
 	U16    *p_command);
