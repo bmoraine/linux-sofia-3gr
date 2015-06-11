@@ -69,6 +69,7 @@ struct pm_control_shared_data {
        volatile uint32_t cpu_scaling_states[7];
        volatile uint32_t cpu_clk;
        volatile uint32_t vcpu_c0[12];
+       volatile uint32_t num_dev_sleep_blockers;
 };
 
 #define PMIC_ACCESS_MAX_SIZE 64
