@@ -41,6 +41,15 @@
 
 	vmodem {
 		compatible = "intel,vmodem";
+		vmodem,nvm-part = < 3 >;
+		vmodem,part-names =
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022",
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID023",
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID024";
+		part-addr,part-size =
+			<0x1FA78000 0x40000>,
+			<0x1fab8000 0x40000>,
+			<0x1FAF8000 0x80000>;
 	};
 
 	ion {

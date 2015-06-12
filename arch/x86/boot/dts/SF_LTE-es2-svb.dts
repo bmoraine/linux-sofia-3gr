@@ -40,6 +40,15 @@
 		};
 	};
 
+	vmodem {
+		compatible = "intel,vmodem";
+		vmodem,nvm-part = < 1 >;
+		vmodem,part-names =
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022";
+		part-addr,part-size =
+			<0x3FE80000 0x180000>;
+	};
+
 
 	ion {
 		compatible = "intel,ion";
