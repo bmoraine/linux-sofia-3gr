@@ -392,6 +392,8 @@ struct rga_service_info {
 	struct delayed_work fence_delayed_work;
 	uint16_t timeout_num;
 	atomic_t delay_work_already_queue;
+	atomic_t interrupt_flag;
+	atomic_t interrupt_timeout_flag;
 	/* mutex */
 	struct mutex mutex;
 };

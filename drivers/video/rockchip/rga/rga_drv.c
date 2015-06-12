@@ -76,7 +76,7 @@
 
 #define RGA_POWER_OFF_DELAY	(4*HZ)	/* 4s */
 #define RGA_TIMEOUT_DELAY	(1*HZ)	/* 1s */
-#define RGA_FENCE_TIMEOUT_DELAY	(20)	/* 200ms */
+#define RGA_FENCE_TIMEOUT_DELAY	msecs_to_jiffies(220) 	/* 220ms */
 
 #define RGA_MAJOR		255
 
@@ -100,10 +100,13 @@
 
 ktime_t rga_start;
 ktime_t rga_end;
+ktime_t rga_end_0;
 
 uint32_t rga_fence_create_num = 0;
 uint32_t rga_fence_interrupt_num = 0;
 uint32_t rga_fence_timeout_num = 0;
+uint32_t rga_int_f_num = 0;
+uint32_t rga_int_b_num = 0;
 
 struct rga_session rga_session_global;
 
@@ -684,11 +687,18 @@ static void rga_try_set_reg(void)
 					pr_info("error wait for src fence\n");
 			}
 			atomic_set(&reg->session->done, 0);
-			/*atomic_set(&reg->session->queue_work_done, 0);*/
-			/*queue_delayed_work(rga_service.fence_workqueue,
-				&rga_service.fence_delayed_work,
-				RGA_FENCE_TIMEOUT_DELAY);*/
-#if !defined(RGA_SECURE_ACCESS)
+			if (atomic_read(&rga_service.delay_work_already_queue)) {
+				cancel_delayed_work(&rga_service.fence_delayed_work);
+				atomic_set(&rga_service.delay_work_already_queue, 0);
+			}
+			queue_delayed_work(rga_service.fence_workqueue,
+					&rga_service.fence_delayed_work,
+					RGA_FENCE_TIMEOUT_DELAY);
+			atomic_set(&rga_service.delay_work_already_queue, 1);
+					rga_int_f_num++;
+					rga_start = ktime_get();
+					atomic_set(&rga_service.interrupt_flag, 1);
+ #if !defined(RGA_SECURE_ACCESS)
 			rga_write(1, RGA_CMD_CTRL);
 #else
 			/* call into secvm to update rga registers */
@@ -724,6 +734,7 @@ static void rga_try_set_reg(void)
 					rga_read(0x100 + i * 16 + 4));
 			}
 */
+			rga_end = ktime_get();
 		}
 	}
 }
@@ -795,7 +806,23 @@ static void rga_del_running_list_timeout(struct work_struct *work)
 		atomic_sub(1, &reg->session->task_running);
 		atomic_sub(1, &rga_service.total_running);
 
+		rga_end = ktime_sub(rga_end, rga_start);
+		rga_end_0 = ktime_sub(rga_end_0, rga_start);
+
+		/* whether is a fake Timeout */
+		//if (atomic_read(&rga_service.interrupt_flag))
+		    pr_info("RGA STATUS %.8x INT %.8x F %d B %d end %d end_0 %d\n", rga_read(0xc), rga_read(0x10),
+		    rga_int_f_num, rga_int_b_num, (int)ktime_to_us(rga_end), (int)ktime_to_us(rga_end_0));
+
 		rga_soft_reset();
+
+		device_state_pm_set_state_by_name(drvdata->dev,
+			drvdata->pm_platdata->
+			pm_state_D3_name);
+		udelay(10);
+		device_state_pm_set_state_by_name(drvdata->dev,
+			drvdata->pm_platdata->
+			pm_state_D0_name);
 
 		if (list_empty(&reg->session->waiting)) {
 			atomic_set(&reg->session->done, 1);
@@ -836,12 +863,12 @@ static void rga_del_running_list_timeout(struct work_struct *work)
 		}
 		rga_reg_deinit(reg);
 	}*/
+	if (atomic_read(&rga_service.delay_work_already_queue)) {
+		cancel_delayed_work(&rga_service.fence_delayed_work);
+		atomic_set(&rga_service.delay_work_already_queue, 0);
+	}
+	atomic_set(&rga_service.interrupt_timeout_flag, 1);
 	rga_try_set_reg();
-	atomic_set(&rga_service.already_queue, 0);
-	queue_delayed_work(rga_service.fence_workqueue,
-			&rga_service.fence_delayed_work,
-			RGA_FENCE_TIMEOUT_DELAY);
-	atomic_set(&rga_service.delay_work_already_queue, 1);
 	mutex_unlock(&rga_service.lock);
 }
 
@@ -944,15 +971,6 @@ static int rga_blit(struct rga_session *session, struct rga_req *req)
 #if RGA_TEST
 	print_info(req);
 #endif
-
-	if (atomic_read(&rga_service.delay_work_already_queue)) {
-		atomic_set(&rga_service.delay_work_already_queue, 0);
-		cancel_delayed_work(&rga_service.fence_delayed_work);
-	}
-	queue_delayed_work(rga_service.fence_workqueue,
-			&rga_service.fence_delayed_work,
-			RGA_FENCE_TIMEOUT_DELAY);
-	atomic_set(&rga_service.delay_work_already_queue, 1);
 
 	rga_service.src_fence_flag =
 		(req->line_draw_info.start_point.y) & 0x1;
@@ -1276,6 +1294,15 @@ static int rga_release(struct inode *inode, struct file *file)
 static irqreturn_t rga_irq_thread(int irq, void *dev_id)
 {
 	mutex_lock(&rga_service.lock);
+	if (atomic_read(&rga_service.interrupt_timeout_flag)) {
+        pr_info("rga timeout double in\n");
+		mutex_unlock(&rga_service.lock);
+		return IRQ_HANDLED;
+	}
+	if (atomic_read(&rga_service.delay_work_already_queue)) {
+		cancel_delayed_work(&rga_service.fence_delayed_work);
+		atomic_set(&rga_service.delay_work_already_queue, 0);
+	}
 	if (rga_service.enable) {
 		rga_del_running_list();
 		rga_try_set_reg();
@@ -1296,6 +1323,10 @@ static irqreturn_t rga_irq(int irq, void *dev_id)
 	mv_svc_reg_write(RGA_BASE + RGA_INT,
 		(0x1 << 6) | (0x1 << 7) | (0x1 << 4), BIT(4)|BIT(6)|BIT(7));
 #endif
+	atomic_set(&rga_service.interrupt_flag, 0);
+	atomic_set(&rga_service.interrupt_timeout_flag, 0);
+	rga_int_b_num++;
+	rga_end_0 = ktime_get();
 
 	return IRQ_WAKE_THREAD;
 }
@@ -1559,7 +1590,7 @@ static int __init rga_init(void)
 
 	rga_service.pre_scale_buf = (uint32_t *)mmu_buf;
 
-	buf_p = kmalloc(1024*512, GFP_KERNEL);
+	buf_p = kmalloc(1024*(512+32), GFP_KERNEL);
 	if (buf_p == NULL)
 		goto free_mmu_buf;
 

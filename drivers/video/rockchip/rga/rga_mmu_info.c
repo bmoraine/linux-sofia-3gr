@@ -734,7 +734,7 @@ static int rga_mmu_info_color_fill_mode(struct rga_reg *reg,
 		mutex_unlock(&rga_service.lock);
 		pages = rga_mmu_buf.pages;
 
-		if (req->dst.yrgb_addr < KERNEL_SPACE_VALID) {
+		if ((req->mmu_info.mmu_flag >> 10) & 1) {
 			if (req->sg_dst) {
 				ret =
 				    rga_map_ion(req->sg_dst, &mmu_base[0],
