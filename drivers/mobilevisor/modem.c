@@ -21,6 +21,10 @@
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/of.h>
+#include <linux/slab.h>
+
+
 
 #include <sofia/vmcalls.h>
 #include <sofia/mv_svc_hypercalls.h>
@@ -29,9 +33,12 @@
 
 #include "vdump.h"
 
-#define NVM_PARTITION_NO	3
-#define NVM_ADDR_SHIFT		(0x3D100000 - 0x3C000000)
-#define SEC_PACK_SIZE 		2048
+#define MAX_NVM_PARTITION_NO	3
+/* #define NVM_ADDR_SHIFT		(0x3D100000 - 0x3C000000) */
+#define VMODEM_NVM_PARTITION_NB "vmodem,nvm-part"
+#define VMODEM_NVM_PARTITION_NAME "vmodem,part-names"
+#define VMODME_NVM_PARTITION_LOADINFO "part-addr,part-size"
+
 
 struct vmodem_drvdata {
 	struct device *dev;
@@ -44,30 +51,23 @@ struct vmodem_drvdata {
 	struct resource *res;
 };
 
-struct shared_secure_data {
-	unsigned int vm_id;
-	unsigned int image_startaddr;
-	char secpack[SEC_PACK_SIZE];
-};
 
 struct nvm_partition_info {
-	char* partition;
-	size_t partition_size;
+	const char *partition_name;
+	size_t loadaddr;
+	size_t loadsize;
 };
 
-static struct nvm_partition_info nvm_partition[] = {
-	{"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022", 262144},
-	{"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID023", 262144},
-	{"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID024", 524288},
-};
+static struct nvm_partition_info nvm_partition[MAX_NVM_PARTITION_NO];
 
-struct shared_secure_data *p_shared_mem_addr;
 static unsigned int mex_loadaddr;
 static unsigned int mex_loadsize;
-vmm_paddr_t p_shared_mem_phy_addr;
 static struct vmodem_drvdata *g_vm_data;
+static unsigned int nvm_partition_no;
+static unsigned int nvm_total_size;
 
-static void modem_state_work(struct work_struct *ws)
+
+static void vmodem_state_work(struct work_struct *ws)
 {
 	struct vmodem_drvdata *pdata =
 		container_of(ws, struct vmodem_drvdata, work);
@@ -101,7 +101,7 @@ static void modem_state_work(struct work_struct *ws)
 	}
 }
 
-static irqreturn_t modem_state_sysconf_hdl(int xirq, void *arg)
+static irqreturn_t vmodem_state_sysconf_hdl(int xirq, void *arg)
 {
 	struct vmodem_drvdata *p = (struct vmodem_drvdata *)arg;
 	queue_work(p->wq, &p->work);
@@ -114,7 +114,7 @@ void schedule_vmodem_workqueue(void)
 }
 EXPORT_SYMBOL(schedule_vmodem_workqueue);
 
-static ssize_t modem_sys_state_show(struct device *dev,
+static ssize_t vmodem_sys_state_show(struct device *dev,
 				     struct device_attribute *attr,
 				     char *buf)
 {
@@ -134,51 +134,105 @@ static ssize_t modem_sys_state_show(struct device *dev,
 	}
 	return ret;
 }
+static int vmodem_nvm_parse(struct device *dev)
+{
+	int i = 0;
+	unsigned *partinfos_tab;
+	struct device_node *np = dev->of_node;
+	if (of_property_read_u32(np, VMODEM_NVM_PARTITION_NB,
+					&nvm_partition_no)) {
+		nvm_partition_no = 0;
+		dev_err(dev, "no partition defined...\n");
+		return -EINVAL;
+	} else {
+		for (i = 0; i < nvm_partition_no; i++) {
+			if (of_property_read_string_index(np,
+					VMODEM_NVM_PARTITION_NAME, i,
+					&(nvm_partition[i].partition_name))) {
+				dev_err(dev, "missing partition %d name\n", i);
+				return -EINVAL;
+			}
+			dev_dbg(dev,
+				"nvm_partition[%d].partition_name is %s\n",
+				i, nvm_partition[i].partition_name);
+		}
+		partinfos_tab = kcalloc(nvm_partition_no * 2,
+					sizeof(unsigned), GFP_KERNEL);
+		if (!partinfos_tab) {
+			dev_err(dev, "Not able to alloc mem\n");
+			return -ENOMEM;
+		}
+		if (of_property_read_u32_array(np,
+				VMODME_NVM_PARTITION_LOADINFO,
+				partinfos_tab,
+				nvm_partition_no * 2)) {
+			dev_err(dev,
+				"Error while parsing nvm partition info.");
+			dev_err(dev, "address info is missing\n");
+			kfree(partinfos_tab);
+			return -EINVAL;
+		}
+		for (i = 0; i < nvm_partition_no; i++)	{
+			nvm_partition[i].loadaddr = partinfos_tab[2 * i];
+			nvm_partition[i].loadsize = partinfos_tab[2 * i + 1];
+			nvm_total_size += nvm_partition[i].loadsize;
+			dev_dbg(dev,
+				" %d loadaddrs is 0x%x, loadsize is 0x%x\n",
+				i, nvm_partition[i].loadaddr,
+				nvm_partition[i].loadsize);
+		}
+		kfree(partinfos_tab);
+	}
+	dev_info(dev, "VMODEM: nvm partition parse successful\n");
+	return 0;
+}
+
 /*
  * This function will be revmoved once the vvfs driver is ready
 */
-static int reload_nvm(struct vmodem_drvdata *p)
+static int reload_nvm(struct device *dev)
 {
 	int i = 0;
-	void * __iomem mex_buffer;
-	mex_buffer = ioremap(p->res->start + NVM_ADDR_SHIFT, 0x100000);
-	if (IS_ERR_OR_NULL(mex_buffer)) {
-		dev_err(p->dev, "ioremap failed\n");
+	void * __iomem nvm_buffer;
+	nvm_buffer = ioremap(nvm_partition[0].loadaddr, nvm_total_size);
+	if (IS_ERR_OR_NULL(nvm_buffer)) {
+		dev_err(dev, "ioremap failed\n");
 		return -ENOMEM;
 	}
-	for(i = 0; i < NVM_PARTITION_NO; i++) {
+	for (i = 0; i < nvm_partition_no; i++) {
 		mm_segment_t fs = get_fs();
 		struct file *fd;
 		set_fs(get_fs());
-		fd = filp_open(nvm_partition[i].partition,
+		fd = filp_open(nvm_partition[i].partition_name,
 				(O_RDONLY | O_SYNC), 0);
 		set_fs(fs);
 		if (unlikely(IS_ERR(fd))) {
 			/* Better use system events to get notified
 			 * on device removal/creation */
+			dev_err(dev, "ERROR:Can't open %s\n",
+					nvm_partition[i].partition_name);
 			return -EINVAL;
 		}
 		fs = get_fs();
 		set_fs(get_ds());
 
-		fd->f_op->read(fd, mex_buffer,
-				nvm_partition[i].partition_size,
+		fd->f_op->read(fd, nvm_buffer,
+				nvm_partition[i].loadsize,
 				&(fd->f_pos));
-		mex_buffer += nvm_partition[i].partition_size;
+		nvm_buffer += nvm_partition[i].loadsize;
 		set_fs(fs);
 		filp_close(fd, NULL);
 	}
-	iounmap(mex_buffer);
+	iounmap(nvm_buffer);
 	return 1;
 }
 
 
-static ssize_t modem_sys_state_store(struct device *dev,
+static ssize_t vmodem_sys_state_store(struct device *dev,
 			       struct device_attribute *attr,
 			       const char *buf, size_t count)
 {
 	int en, ret;
-	struct vmodem_drvdata *p = dev_get_drvdata(dev);
 	ret = sscanf(buf, "%d", &en);
 	if (ret != 1) {
 		dev_err(dev, "invalid input\n");
@@ -186,7 +240,7 @@ static ssize_t modem_sys_state_store(struct device *dev,
 	}
 	dev_dbg(dev, "%s sets modem %s\n", __func__, en ? "On" : "Off");
 	if (en != 0) {
-		reload_nvm(p);
+		reload_nvm(dev);
 		mv_vm_start(1);
 	} else {
 		mv_vm_stop(1);
@@ -196,10 +250,10 @@ static ssize_t modem_sys_state_store(struct device *dev,
 }
 
 static DEVICE_ATTR(modem_state, 0664,
-		modem_sys_state_show, modem_sys_state_store);
+		vmodem_sys_state_show, vmodem_sys_state_store);
 
 
-static ssize_t modem_write(struct file *file, const char __user *buf,
+static ssize_t vmodem_write(struct file *file, const char __user *buf,
 		size_t nbytes, loff_t *ppos)
 {
 	struct vmodem_drvdata *p = file->private_data;
@@ -221,7 +275,7 @@ static ssize_t modem_write(struct file *file, const char __user *buf,
 	return ret;
 }
 
-static int modem_open(struct inode *inode, struct file *file)
+static int vmodem_open(struct inode *inode, struct file *file)
 {
 	struct vmodem_drvdata *p = container_of(file->private_data, struct
 			vmodem_drvdata, devfile);
@@ -229,10 +283,10 @@ static int modem_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static const struct file_operations modem_fops = {
+static const struct file_operations vmodem_fops = {
 	.owner   = THIS_MODULE,
-	.open	 = modem_open,
-	.write   = modem_write,
+	.open	 = vmodem_open,
+	.write   = vmodem_write,
 };
 
 int vmodem_probe(struct platform_device *pdev)
@@ -255,7 +309,7 @@ int vmodem_probe(struct platform_device *pdev)
 	/* Register device */
 	pdata->devfile.minor = MISC_DYNAMIC_MINOR;
 	pdata->devfile.name = "vmodem";
-	pdata->devfile.fops = &modem_fops;
+	pdata->devfile.fops = &vmodem_fops;
 	pdata->devfile.parent = NULL;
 
 	ret = misc_register(&pdata->devfile);
@@ -282,13 +336,21 @@ int vmodem_probe(struct platform_device *pdev)
 	pdata->res->flags = IORESOURCE_MEM;
 
 	/*
+	 * Get the nvm partition info.
+	 */
+	if (vmodem_nvm_parse(dev)) {
+		dev_err(dev, "failed to get nvm partition info\n");
+		return -EINVAL;
+	}
+
+	/*
 	 * /sys/class/misc/vmodem/modem_state
 	 */
 	if (device_create_file(pdata->devfile.this_device,
 				&dev_attr_modem_state))
 		return -ENOMEM;
 
-	INIT_WORK(&pdata->work, modem_state_work);
+	INIT_WORK(&pdata->work, vmodem_state_work);
 
 	/* Create workqueues */
 	pdata->wq = alloc_ordered_workqueue(
@@ -299,18 +361,12 @@ int vmodem_probe(struct platform_device *pdev)
 	}
 
 	pdata->hirq_info = mv_gal_register_hirq_callback(512,
-		modem_state_sysconf_hdl, pdata);
+		vmodem_state_sysconf_hdl, pdata);
 	if (!pdata->hirq_info) {
 		dev_err(dev, "unable to register hirq\n");
 		destroy_workqueue(pdata->wq);
 		return -EBUSY;
 	}
-
-	/*
-	  linux2secvm_vlink_init();
-	  p_shared_mem_addr->vm_id = 1;
-	  p_shared_mem_addr->image_startaddr = mex_loadaddr;
-	*/
 	dev_dbg(dev, "modem device initialized");
 	return 0;
 }
@@ -344,18 +400,18 @@ static struct platform_driver vmodem_driver = {
 	},
 };
 
-int __init modem_init(void)
+int __init vmodem_init(void)
 {
 	return platform_driver_register(&vmodem_driver);
 }
 
-static void __exit modem_exit(void)
+static void __exit vmodem_exit(void)
 {
 	platform_driver_unregister(&vmodem_driver);
 }
 
-module_init(modem_init);
-module_exit(modem_exit);
+module_init(vmodem_init);
+module_exit(vmodem_exit);
 
 MODULE_DESCRIPTION("Modem Runtime Loading");
 MODULE_AUTHOR("Intel Mobile Communications GmbH");
