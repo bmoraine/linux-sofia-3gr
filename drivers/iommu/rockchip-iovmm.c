@@ -228,6 +228,7 @@ int rockchip_iovmm_map_oto(struct device *dev, phys_addr_t phys, size_t size)
 	addr = (dma_addr_t)gen_pool_alloc(vmm->vmm_pool, size);
 	if (!addr) {
 		dev_err(dev, "failed to alloc iova from pool\n");
+		kfree(region);
 		return -ENOMEM;
 	}
 
