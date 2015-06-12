@@ -965,7 +965,7 @@ static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 			xgold_pcm->dma_mode) {
 
 		int ret = wait_for_completion_timeout(&xrtd->dma_complete,
-				msecs_to_jiffies(200));
+				msecs_to_jiffies(120));
 		if (ret == 0)
 			xgold_debug("%s: dma completion timeout\n", __func__);
 
