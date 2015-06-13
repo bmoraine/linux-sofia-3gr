@@ -1216,6 +1216,7 @@ static void intel_otg_sm_work(struct work_struct *w)
 		if (test_bit(ID, &iphy->inputs) || test_bit(A_BUS_DROP,
 					&iphy->inputs)) {
 			dev_dbg(iphy->dev, "id || a_bus_drop\n");
+			usleep_range(10000, 10010);
 			clear_bit(B_CONN, &iphy->inputs);
 			clear_bit(A_BUS_REQ, &iphy->inputs);
 			intel_otg_del_timer(iphy);
