@@ -150,7 +150,7 @@ static int jack_write(struct xgold_jack *jack, unsigned val)
 #ifdef CONFIG_X86_INTEL_SOFIA
 	return mv_svc_reg_write(jack->base_phys, val, -1);
 #else
-	iowrite(val, jack->mmio_base);
+	iowrite32(val, jack->mmio_base);
 	return 0;
 #endif
 }
