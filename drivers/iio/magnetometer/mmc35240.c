@@ -359,9 +359,51 @@ static int mmc35240_read_measurement(struct mmc35240_data *data, __le16 buf[3])
 				3 * sizeof(__le16));
 }
 
+static int mmc34160_raw_to_mgauss(int raw[3], int sens[3], int nfo,
+				  int index, int *val)
+{
+	switch (index) {
+	case AXIS_X:
+		*val = (raw[AXIS_X] - nfo) * 1000 / sens[AXIS_X];
+		break;
+	case AXIS_Y:
+		*val = (raw[AXIS_Y] - nfo) * 1000 / sens[AXIS_Y];
+		break;
+	case AXIS_Z:
+		*val = (raw[AXIS_Z] - nfo) * 1000 / sens[AXIS_Z];
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int mmc35240_raw_to_mgauss(int raw[3], int sens[3], int nfo,
+				  int index, int *val)
+{
+	switch (index) {
+	case AXIS_X:
+		*val = (raw[AXIS_X] - nfo) * 1000 / sens[AXIS_X];
+		break;
+	case AXIS_Y:
+		*val = (raw[AXIS_Y] - nfo) * 1000 / sens[AXIS_Y] -
+			(raw[AXIS_Z] - nfo)  * 1000 / sens[AXIS_Z];
+		break;
+	case AXIS_Z:
+		*val = (raw[AXIS_Y] - nfo) * 1000 / sens[AXIS_Y] +
+			(raw[AXIS_Z] - nfo) * 1000 / sens[AXIS_Z];
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /**
- * mmc35240_raw_to_mgauss - convert raw readings to mili gauss. Also apply
-			    compensation for output value.
+ * memsic_raw_to_mgauss - convert raw readings to mili gauss. Also apply
+			  compensation for output value.
  *
  * @data: device private data
  * @index: axis index for which we want the conversion
@@ -370,45 +412,42 @@ static int mmc35240_read_measurement(struct mmc35240_data *data, __le16 buf[3])
  *
  * Returns: 0 in case of success, -EINVAL when @index is not valid
  */
-static int mmc35240_raw_to_mgauss(struct mmc35240_data *data, int index,
-				  __le16 buf[], int *val)
+
+static int memsic_raw_to_mgauss(struct mmc35240_data *data, int index,
+				__le16 buf[], int *val)
 {
-	int raw_x, raw_y, raw_z;
-	int sens_x, sens_y, sens_z;
+	int raw[3];
+	int sens[3];
 	int nfo;
+	int ret;
 	int id = data->chipset;
 
-	raw_x = le16_to_cpu(buf[AXIS_X]);
-	raw_y = le16_to_cpu(buf[AXIS_Y]);
-	raw_z = le16_to_cpu(buf[AXIS_Z]);
+	raw[AXIS_X] = le16_to_cpu(buf[AXIS_X]);
+	raw[AXIS_Y] = le16_to_cpu(buf[AXIS_Y]);
+	raw[AXIS_Z] = le16_to_cpu(buf[AXIS_Z]);
 
-	sens_x = mmc35240_props_table[id][data->res].sens[AXIS_X];
-	sens_y = mmc35240_props_table[id][data->res].sens[AXIS_Y];
-	sens_z = mmc35240_props_table[id][data->res].sens[AXIS_Z];
+	sens[AXIS_X] = mmc35240_props_table[id][data->res].sens[AXIS_X];
+	sens[AXIS_Y] = mmc35240_props_table[id][data->res].sens[AXIS_Y];
+	sens[AXIS_Z] = mmc35240_props_table[id][data->res].sens[AXIS_Z];
 
 	nfo = mmc35240_props_table[id][data->res].nfo;
 
-	switch (index) {
-	case AXIS_X:
-		*val = (raw_x - nfo) * 1000 / sens_x;
-		break;
-	case AXIS_Y:
-		*val = (raw_y - nfo) * 1000 / sens_y -
-			(raw_z - nfo)  * 1000 / sens_z;
-		break;
-	case AXIS_Z:
-		*val = (raw_y - nfo) * 1000 / sens_y +
-			(raw_z - nfo) * 1000 / sens_z;
-		break;
+	switch (id) {
+	case MMC35240:
+		ret = mmc35240_raw_to_mgauss(raw, sens, nfo, index, val);
+		if (ret < 0)
+			return ret;
+
+		/* apply OTP compensation */
+		*val = (*val) * data->axis_coef[index] /
+			data->axis_scale[index];
+
+		return 0;
+	case MMC34160:
+		return mmc34160_raw_to_mgauss(raw, sens, nfo, index, val);
 	default:
 		return -EINVAL;
 	}
-
-	if (!mmc35240_needs_compensation(data->chipset))
-		return 0;
-
-	/* apply OTP compensation */
-	*val = (*val) * data->axis_coef[index] / data->axis_scale[index];
 
 	return 0;
 }
@@ -429,7 +468,7 @@ static int mmc35240_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&data->mutex);
 		if (ret < 0)
 			return ret;
-		ret = mmc35240_raw_to_mgauss(data, chan->address, buf, val);
+		ret = memsic_raw_to_mgauss(data, chan->address, buf, val);
 		if (ret < 0)
 			return ret;
 		return IIO_VAL_INT;
