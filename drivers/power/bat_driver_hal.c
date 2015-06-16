@@ -102,13 +102,14 @@
 for Bat Drv HAL */
 #define BAT_DRV_HAL_DEBUG(_array, _event, _param) \
 { \
-	spin_lock(&_array.lock); \
+	unsigned long flags; \
+	spin_lock_irqsave(&_array.lock, flags); \
 	_array.log_array[_array.index].time_stamp = jiffies; \
 	_array.log_array[_array.index].event = (_event); \
 	_array.log_array[_array.index].param = (long)(_param); \
 	_array.index++; \
 	_array.index &= (BAT_DRV_HAL_DEBUG_DATA_SIZE-1); \
-	spin_unlock(&_array.lock); \
+	spin_unlock_irqrestore(&_array.lock, flags); \
 	pr_debug("%s 0x%lx  dec=%ld\n", #_event, \
 			(unsigned long)_param, (long)_param); \
 }
