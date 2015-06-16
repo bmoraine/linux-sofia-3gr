@@ -2423,7 +2423,6 @@ void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg,
 	/* must be at-least 3ms to allow bus to see disconnect */
 	mdelay(3);
 
-	hsotg->last_rst = jiffies;
 	hsotg->lx_state = DWC2_L0;
 
 core_init_abort:
@@ -2521,13 +2520,8 @@ irq_retry:
 		/* Report disconnection if it is not already done. */
 		s3c_hsotg_disconnect(hsotg);
 
-		if (usb_status & GOTGCTL_BSESVLD) {
-			if (time_after(jiffies, hsotg->last_rst +
-				       msecs_to_jiffies(200)) || connected) {
-
-				s3c_hsotg_core_init_disconnected(hsotg, true);
-			}
-		}
+		if (usb_status & GOTGCTL_BSESVLD && connected)
+			s3c_hsotg_core_init_disconnected(hsotg, true);
 	}
 
 	/* check both FIFOs */
