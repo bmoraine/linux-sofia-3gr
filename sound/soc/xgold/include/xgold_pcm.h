@@ -63,7 +63,8 @@ enum xgold_pcm_buffer_size {
 struct xgold_pcm {
 	struct device *dev;
 	struct dsp_audio_device *dsp;
-	bool dma_mode;
+	bool play_dma_mode;
+	bool rec_dma_mode;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
@@ -104,6 +105,7 @@ struct xgold_runtime_data {
 	struct completion dma_complete;
 	bool dma_stop;
 	unsigned total_nof_bytes_read;
+	bool have_harmonics;
 };
 
 #endif /* __XGOLD_PCM_H__ */

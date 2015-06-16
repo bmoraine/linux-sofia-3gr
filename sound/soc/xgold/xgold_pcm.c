@@ -67,6 +67,7 @@
 
 #define PROP_PCM_DMA_EN_NAME		"intel,pcm,dma_en"
 #define PROP_SND_SOC_BT_INIT		"intel,pcm,bt_init_en"
+#define PROP_PCM_REC_DMA_EN_NAME	"intel,pcm,rec_dma_en"
 #define PROP_SND_SOC_BURST_EN_NAME_PCM2		"intel,pcm,burst_mode_en_pcm2"
 
 #define ON 1
@@ -155,6 +156,9 @@ const unsigned xg642_hw_probe_valid[] = {
 
 const unsigned hw_probe_valid[] = {
 	1, 2, 3, 4, 9, 10, 11, 12, 13, 14};
+
+static void xgold_pcm_dma_play_submit(struct xgold_runtime_data *, dma_addr_t);
+static void xgold_pcm_dma_rec_submit(struct xgold_runtime_data *, dma_addr_t);
 
 static bool is_hw_probe_point_valid(
 	enum dsp_id dsp_id,
@@ -409,8 +413,8 @@ void xgold_dsp_pcm_rec_handler(void *dev)
 {
 	struct xgold_runtime_data *xrtd = (struct xgold_runtime_data *)dev;
 	struct xgold_pcm *xgold_pcm;
-	unsigned short nof_bytes_to_read;
 	struct dsp_rw_shm_data rw_shm_data;
+	unsigned short nof_bytes_to_read = 0;
 	unsigned short *pData;
 	xgold_debug("%s\n", __func__);
 	if (!xrtd) {
@@ -499,8 +503,6 @@ void xgold_dsp_pcm_rec_handler(void *dev)
 		snd_pcm_period_elapsed(xrtd->stream);
 	}
 }
-
-static void xgold_pcm_dma_submit(struct xgold_runtime_data *, dma_addr_t);
 
 void xgold_dsp_pcm_play_handler(void *dev)
 {
@@ -669,7 +671,7 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 	snd_pcm_period_elapsed(xrtd->stream);
 
 	/* Reload scatter list and submit DMA request */
-	xgold_pcm_dma_submit(xrtd, dma_addr);
+	xgold_pcm_dma_play_submit(xrtd, dma_addr);
 
 	/* Restart the DMA tx for next data transfer i.e. after 20 ms */
 	dma_async_issue_pending(xrtd->dmach);
@@ -677,7 +679,102 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 	xgold_debug("dma tx started\n");
 }
 
-static void xgold_pcm_dma_submit(struct xgold_runtime_data *xrtd,
+void xgold_dsp_pcm_dma_rec_handler(void *dev)
+{
+	struct xgold_runtime_data *xrtd = (struct xgold_runtime_data *)dev;
+	struct xgold_pcm *xgold_pcm;
+	dma_addr_t dma_addr;
+	if (!xrtd) {
+		xgold_err("%s: xgold runtime data is NULL!!\n", __func__);
+		return;
+	}
+
+	if (xrtd->dma_stop == true) {
+		complete(&xrtd->dma_complete);
+		xgold_debug("%s: dma complete\n", __func__);
+		return;
+	}
+
+	xgold_pcm = xrtd->pcm;
+	if (!xgold_pcm || !xrtd->stream || !xrtd->stream->runtime ||
+			!xrtd->stream->runtime->dma_area) {
+		xgold_debug("%s: stream data is NULL!!\n", __func__);
+		return;
+	}
+
+	if (!xrtd->dmach) {
+		xgold_debug("%s: dma channel is NULL\n", __func__);
+		return;
+	}
+	xgold_debug("<-- %s hwptr_done %d periods %d, runtime periods %d total_nof_bytes_read %d\n",
+			__func__,
+			xrtd->hwptr_done,
+			xrtd->periods,
+			xrtd->stream->runtime->periods,
+			xrtd->total_nof_bytes_read);
+
+	/* trigger data save for record dump */
+	if (xgold_pcm->record_dump == 1) {
+		if (xgold_pcm->dump_record_buffer) {
+			int nToWrite =
+				(xrtd->have_harmonics) ?
+				xrtd->period_size_bytes :
+				xrtd->period_size_bytes * XGOLD_MAX_SG_LIST;
+			dma_addr = xrtd->stream->runtime->dma_addr +
+				xrtd->period_size_bytes * xrtd->hwptr_done;
+			dma_addr = (dma_addr_t)phys_to_virt(dma_addr);
+			if (DUMP_RECORD_SIZE -
+				xgold_pcm->dump_record_buffer_pos > nToWrite) {
+				memcpy(xgold_pcm->dump_record_buffer +
+					xgold_pcm->dump_record_buffer_pos,
+					(void *)dma_addr,
+					nToWrite);
+				xgold_pcm->dump_record_buffer_pos += nToWrite;
+			} else {
+				int nRemain =
+					nToWrite -
+					(DUMP_RECORD_SIZE -
+					xgold_pcm->dump_record_buffer_pos);
+				memcpy(xgold_pcm->dump_record_buffer +
+					xgold_pcm->dump_record_buffer_pos,
+					(void *)dma_addr,
+					nToWrite - nRemain);
+				memcpy(xgold_pcm->dump_record_buffer,
+					(void *)(dma_addr + nToWrite - nRemain),
+					nRemain);
+				xgold_pcm->dump_record_buffer_pos = nRemain;
+				xgold_pcm->record_dump = 2;
+				schedule_work(&xgold_pcm->record_dump_work);
+			}
+		}
+	}
+
+	if (xrtd->total_nof_bytes_read >= xrtd->period_size_bytes) {
+		xrtd->total_nof_bytes_read = 0;
+		xrtd->hwptr_done += (xrtd->have_harmonics) ?
+			1 : xrtd->dma_sgl_count;
+		xrtd->periods += (xrtd->have_harmonics) ?
+			1 : xrtd->dma_sgl_count;
+		xrtd->periods %= xrtd->stream->runtime->periods;
+		xrtd->hwptr_done %= xrtd->stream->runtime->periods;
+		snd_pcm_period_elapsed(xrtd->stream);
+	}
+
+
+	dma_addr = xrtd->stream->runtime->dma_addr +
+		xrtd->total_nof_bytes_read +
+		xrtd->period_size_bytes * xrtd->hwptr_done;
+
+	/* Reload scatter list and submit DMA request */
+	xgold_pcm_dma_rec_submit(xrtd, dma_addr);
+
+	/* Restart the DMA tx for next data transfer i.e. after 20 ms */
+	dma_async_issue_pending(xrtd->dmach);
+
+	xgold_debug("dma rx started\n");
+}
+
+static void xgold_pcm_dma_play_submit(struct xgold_runtime_data *xrtd,
 		dma_addr_t dma_addr)
 {
 	struct xgold_pcm *xgold_pcm = xrtd->pcm;
@@ -711,7 +808,7 @@ static void xgold_pcm_dma_submit(struct xgold_runtime_data *xrtd,
 	desc = dmaengine_prep_slave_sg(xrtd->dmach,
 			xrtd->dma_sgl,
 			xrtd->dma_sgl_count,
-			DMA_SL_MEM_TO_MEM,
+			DMA_MEM_TO_DEV_INCR,
 			DMA_PREP_INTERRUPT);
 
 	if (!desc) {
@@ -722,6 +819,81 @@ static void xgold_pcm_dma_submit(struct xgold_runtime_data *xrtd,
 
 	/* Set the DMA callback */
 	desc->callback = xgold_dsp_pcm_dma_play_handler;
+	desc->callback_param = xrtd;
+
+	/* Submit DMA request */
+	dma_cookie_tx = dmaengine_submit(desc);
+
+	xgold_debug("<-- %s\n", __func__);
+}
+
+static void xgold_pcm_dma_rec_submit(struct xgold_runtime_data *xrtd,
+		dma_addr_t dma_addr)
+{
+	struct xgold_pcm *xgold_pcm = xrtd->pcm;
+	struct dma_async_tx_descriptor *desc;
+	dma_cookie_t dma_cookie_tx;
+	int i = 0;
+	unsigned int dma_bytes;
+
+	dma_bytes = xrtd->stream->runtime->period_size*
+		xrtd->stream->runtime->channels*2;
+	if (xrtd->have_harmonics) {
+		/* for 44.1kHz sampling rate, and dividers */
+		dma_bytes = (dma_bytes >> 4);
+		dma_bytes = (dma_bytes << 4) / xrtd->dma_sgl_count;
+	}
+	xrtd->period_size_bytes =
+		frames_to_bytes(xrtd->stream->runtime,
+				xrtd->stream->runtime->period_size);
+	xrtd->total_nof_bytes_read += xrtd->stream->runtime->period_size *
+		xrtd->stream->runtime->channels*2;
+
+	xgold_debug(" %s ,period_size_bytes %d channels %d dma_bytes %d dma_sgl_count%d\n",
+			__func__,
+			xrtd->period_size_bytes,
+			xrtd->stream->runtime->channels,
+			dma_bytes,
+			xrtd->dma_sgl_count);
+
+	/* Prepare the scatter list */
+	while (i < xrtd->dma_sgl_count) {
+		int cur_dma_bytes;
+		if (xrtd->have_harmonics)
+			cur_dma_bytes = (i == (xrtd->dma_sgl_count - 1)) ?
+				dma_bytes + 2 *
+					xrtd->stream->runtime->channels :
+				dma_bytes;
+		else
+			cur_dma_bytes = dma_bytes;
+
+		xgold_debug(" %d - period_size_bytes %d\n", i, cur_dma_bytes);
+
+		sg_set_buf(xrtd->dma_sgl + i,
+			(void *)phys_to_virt(dma_addr),
+			cur_dma_bytes);
+		i++;
+		dma_addr += cur_dma_bytes;
+	}
+
+	dma_map_sg(xgold_pcm->dev, xrtd->dma_sgl, xrtd->dma_sgl_count,
+			DMA_FROM_DEVICE);
+
+	/* Prepare DMA slave sg */
+	desc = dmaengine_prep_slave_sg(xrtd->dmach,
+			xrtd->dma_sgl,
+			xrtd->dma_sgl_count,
+			DMA_DEV_INCR_TO_MEM,
+			DMA_PREP_INTERRUPT);
+
+	if (!desc) {
+		xgold_err("<-- %s, dmaengine_prep_slave_sg returns NULL\n",
+			__func__);
+		return;
+	}
+
+	/* Set the DMA callback */
+	desc->callback = xgold_dsp_pcm_dma_rec_handler;
 	desc->callback_param = xrtd;
 
 	/* Submit DMA request */
@@ -808,7 +980,7 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 			goto out;
 		}
 
-		if (!xgold_pcm->dma_mode) {
+		if (!xgold_pcm->play_dma_mode) {
 			if (xrtd->stream_type == STREAM_PLAY)
 				register_dsp_audio_lisr_cb(
 					DSP_LISR_CB_PCM_PLAYER,
@@ -836,11 +1008,14 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 					DSP_LISR_CB_HW_PROBE_B,
 					xgold_dsp_hw_probe_b_handler,
 					(void *)xrtd);
-		} else
-			register_dsp_audio_lisr_cb(
+		} else {
+			if (!xgold_pcm->rec_dma_mode) {
+				register_dsp_audio_lisr_cb(
 					DSP_LISR_CB_PCM_RECORDER,
 					xgold_dsp_pcm_rec_handler,
 					(void *)xrtd);
+			}
+		}
 	}
 
 	/* Make sure, that the period size is always even */
@@ -889,7 +1064,7 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 	xgold_pcm = xrtd->pcm;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (!xgold_pcm->dma_mode) {
+		if (!xgold_pcm->play_dma_mode) {
 			if (xrtd->stream_type == STREAM_PLAY)
 				register_dsp_audio_lisr_cb(
 					DSP_LISR_CB_PCM_PLAYER,
@@ -911,11 +1086,12 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 			DSP_LISR_CB_HW_PROBE_B,
 			NULL,
 			NULL);
-	else if (xrtd->stream_type == STREAM_REC)
+	else if (xrtd->stream_type == STREAM_REC && !xgold_pcm->rec_dma_mode) {
 		register_dsp_audio_lisr_cb(
 			DSP_LISR_CB_PCM_RECORDER,
 			NULL,
 			NULL);
+		}
 	else {
 		xgold_err("Unsupported stream type %d\n", xrtd->stream_type);
 		ret = -EINVAL;
@@ -940,13 +1116,14 @@ static int xgold_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	xgold_debug("%s\n", __func__);
 
-	if (xgold_pcm->dma_mode) {
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	if ((xgold_pcm->play_dma_mode &&
+		substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ||
+		(xgold_pcm->rec_dma_mode && substream->stream ==
+			SNDRV_PCM_STREAM_CAPTURE))
 			substream->dma_buffer.dev.type = SNDRV_DMA_TYPE_DEV;
 		else
 			substream->dma_buffer.dev.type =
 				SNDRV_DMA_TYPE_CONTINUOUS;
-	}
 
 	/* Allocating DMA buffer */
 	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
@@ -972,9 +1149,10 @@ static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 
 	xgold_pcm = xrtd->pcm;
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
-			xgold_pcm->dma_mode) {
-
+	if ((xgold_pcm->play_dma_mode && substream->stream ==
+			SNDRV_PCM_STREAM_PLAYBACK) ||
+		(xgold_pcm->rec_dma_mode && substream->stream ==
+			SNDRV_PCM_STREAM_CAPTURE)) {
 		int ret = wait_for_completion_timeout(&xrtd->dma_complete,
 				msecs_to_jiffies(120));
 		if (ret == 0)
@@ -1065,7 +1243,96 @@ static int xgold_pcm_play_dma_prepare(struct snd_pcm_substream *substream)
 	sg_init_table(xrtd->dma_sgl, xrtd->dma_sgl_count);
 
 	/* Load scatter list and submit DMA request */
-	xgold_pcm_dma_submit(xrtd, dma_addr);
+	xgold_pcm_dma_play_submit(xrtd, dma_addr);
+
+	return 0;
+}
+
+static int xgold_pcm_rec_dma_prepare(struct snd_pcm_substream *substream)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct xgold_runtime_data *xrtd = runtime->private_data;
+	struct xgold_pcm *xgold_pcm = xrtd->pcm;
+	struct dma_slave_config pcm_dma_config;
+	dma_addr_t shm_base, dma_addr;
+	int ret = 0;
+#ifndef CONFIG_OF
+	dma_cap_mask_t tx_mask;
+#endif
+
+	xgold_debug("%s period_size = %d\n", __func__,
+			(int)runtime->period_size);
+
+#ifdef CONFIG_OF
+	xrtd->dmach = xgold_of_dsp_get_dmach(xgold_pcm->dsp, xrtd->stream_type);
+#else
+	dma_cap_zero(tx_mask);
+	dma_cap_set(DMA_SLAVE, tx_mask);
+
+	xrtd->dmach = dma_request_channel(tx_mask, pl08x_filter_id,
+			(void *)"dsp_dma_req3");
+#endif
+
+	if (!xrtd->dmach) {
+		xgold_err("%s: dma channel req fail\n", __func__);
+		return -EIO;
+	}
+
+	xrtd->dma_stop = false;
+	init_completion(&xrtd->dma_complete);
+
+	if (xrtd->stream->runtime->period_size % 2)
+		/* for 44.1kHz sampling rate, and dividers */
+		xrtd->have_harmonics = true;
+
+	shm_base = dsp_get_audio_shmem_base_addr(xgold_pcm->dsp) +
+	xgold_pcm->dsp->p_dsp_common_data->buf_sm_ul_offset * 2;
+
+	/* Config DMA slave parameters */
+	pcm_dma_config.direction = DMA_FROM_DEVICE;
+	pcm_dma_config.src_addr = shm_base;
+	pcm_dma_config.src_addr_width =
+		(xrtd->have_harmonics && xrtd->stream->runtime->channels == 1) ?
+		DMA_SLAVE_BUSWIDTH_2_BYTES : DMA_SLAVE_BUSWIDTH_4_BYTES;
+	pcm_dma_config.src_maxburst = DMA_BURST_SIZE;
+	pcm_dma_config.device_fc = false;
+
+	ret = dmaengine_slave_config(xrtd->dmach,
+					&pcm_dma_config);
+	if (ret) {
+		xgold_debug("pcm: error in dma slave configuration\n");
+		return ret;
+	}
+
+	dma_addr = runtime->dma_addr;
+	if (!xrtd->have_harmonics)
+		xrtd->dma_sgl_count = XGOLD_MAX_SG_LIST;
+	else {
+		switch (substream->runtime->rate) {
+		case 44100:
+			xrtd->dma_sgl_count = 2;
+			break;
+		case 22050:
+			xrtd->dma_sgl_count = 4;
+			break;
+		case 11025:
+			xrtd->dma_sgl_count = 8;
+			break;
+		default:
+			return -EINVAL;
+		}
+	}
+
+	xrtd->dma_sgl = kzalloc(sizeof(struct scatterlist) *
+			xrtd->dma_sgl_count, GFP_KERNEL);
+
+	if (!xrtd->dma_sgl)
+		return -ENOMEM;
+
+	sg_init_table(xrtd->dma_sgl, xrtd->dma_sgl_count);
+
+	/* Load scatter list and submit DMA request */
+	xgold_pcm_dma_rec_submit(xrtd, dma_addr);
 
 	return 0;
 }
@@ -1075,6 +1342,7 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 	struct xgold_runtime_data *xrtd = substream->runtime->private_data;
 	struct xgold_pcm *xgold_pcm = xrtd->pcm;
 	unsigned short shm_samples = SM_AUDIO_BUFFER_DL_SAMPLES;
+	int ret = 0;
 
 	xgold_debug("%s\n", __func__);
 
@@ -1090,7 +1358,7 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 					psize * pcnt = 80ms*2 - 160ms */
 		xgold_debug("%s(): playback_mode pcm1:%d pcm2:%d\n", __func__,
 		xgold_pcm->playback_mode[0], xgold_pcm->playback_mode[1]);
-		if (xgold_pcm->dma_mode) {
+		if (xgold_pcm->play_dma_mode) {
 			if (xrtd->stream_type == STREAM_PLAY) {
 				/* Burst mode */
 				if (BURST == xgold_pcm->playback_mode[0]) {
@@ -1124,7 +1392,7 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 							NORMAL_DMA_INTERVAL;
 				}
 			}
-			xgold_pcm_play_dma_prepare(substream);
+			ret = xgold_pcm_play_dma_prepare(substream);
 		} else {
 			/* Configure to NORMAL mode in Interrupt mode */
 			if (xrtd->stream_type == STREAM_PLAY) {
@@ -1144,10 +1412,19 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 
 		if (audio_native_mode)
 			setup_pcm_play_path(xgold_pcm);
-	} else if (audio_native_mode && xrtd->stream_type == STREAM_REC)
-		setup_pcm_record_path(xgold_pcm);
+	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		if (xgold_pcm->rec_dma_mode)
+			ret = xgold_pcm_rec_dma_prepare(substream);
+		if (ret < 0) {
+			xgold_err("%s : rec dma prepare failed %d\n",
+			__func__, ret);
+			return ret;
+		}
+		if (audio_native_mode)
+			setup_pcm_record_path(xgold_pcm);
+	}
 
-	return 0;
+	return ret;
 }
 
 static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
@@ -1174,7 +1451,7 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 				frames_to_bytes(xrtd->stream->runtime,
 					xrtd->stream->runtime->period_size);
 
-			if (xgold_pcm->dma_mode)
+			if (xgold_pcm->play_dma_mode)
 				/* request DMA to start tx */
 				dma_async_issue_pending(xrtd->dmach);
 
@@ -1182,7 +1459,7 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 				dsp_pcm_play(dsp, xrtd->stream_type,
 					substream->runtime->channels,
 					substream->runtime->rate,
-					xgold_pcm->dma_mode,
+					xgold_pcm->play_dma_mode,
 					xgold_pcm->buffer_mode[0],
 					xgold_pcm->dma_req_interval_time[0],
 					xgold_pcm->buffer_size[0]);
@@ -1190,7 +1467,7 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 				dsp_pcm_play(dsp, xrtd->stream_type,
 					substream->runtime->channels,
 					substream->runtime->rate,
-					xgold_pcm->dma_mode,
+					xgold_pcm->play_dma_mode,
 					xgold_pcm->buffer_mode[1],
 					xgold_pcm->dma_req_interval_time[1],
 					xgold_pcm->buffer_size[1]);
@@ -1212,9 +1489,14 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 					xrtd->stream->runtime,
 					xrtd->stream->runtime->period_size);
 
+			if (xgold_pcm->rec_dma_mode)
+				/* request DMA to start rx */
+				dma_async_issue_pending(xrtd->dmach);
+
 			dsp_pcm_rec(dsp, substream->runtime->channels,
 					substream->runtime->rate,
-					false, xgold_pcm->path_select);
+					xgold_pcm->rec_dma_mode,
+					xgold_pcm->path_select);
 		}
 		/* call hw probe function with runtime as parameter, and
 		   the function will enable/disable HW probe as requested */
@@ -1231,7 +1513,7 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_STOP:
 		xgold_debug("%s: Trigger stop\n", __func__);
 
-		if (xgold_pcm->dma_mode)
+		if (xgold_pcm->play_dma_mode || xgold_pcm->rec_dma_mode)
 			xrtd->dma_stop = true;
 
 		dsp_pcm_stop(dsp, xrtd->stream_type);
@@ -1291,7 +1573,7 @@ static int xgold_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	int ret = 0;
 	xgold_debug("%s\n", __func__);
 
-	if (xgold_pcm->dma_mode) {
+	if (xgold_pcm->play_dma_mode || xgold_pcm->rec_dma_mode) {
 		if (!rtd->dev->dma_mask)
 			rtd->dev->dma_mask = &xgold_pcm_dmamask;
 
@@ -1631,7 +1913,7 @@ static int xgold_pcm_dma_dump_sel_ctl_set(
 	xgold_debug("%s - set value %d\n",
 		__func__, (int)ucontrol->value.integer.value[0]);
 
-	if (xgold_pcm->dma_mode &&
+	if (xgold_pcm->play_dma_mode &&
 		(int)xgold_pcm->dma_dump == 0 &&
 		(unsigned int)ucontrol->value.integer.value[0] != 0) {
 		/* Allocate memory to stroe DMA data */
@@ -1873,13 +2155,16 @@ static int xgold_pcm_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 
-	pcm->dma_mode =
+	pcm->play_dma_mode =
 		(of_find_property(np, PROP_PCM_DMA_EN_NAME, NULL)) ?
+		true : false;
+	pcm->rec_dma_mode =
+		(of_find_property(np, PROP_PCM_REC_DMA_EN_NAME, NULL)) ?
 		true : false;
 	bt_init_en = (of_find_property(np, PROP_SND_SOC_BT_INIT, NULL)) ?
 		true : false;
 
-	if (pcm->dma_mode) {
+	if (pcm->play_dma_mode) {
 		/* Configure PCM1 to NORMAL mode by default */
 		/* Configure PCM2 in NORMAL/BURST mode */
 		pcm->playback_mode[0] = NORMAL;
