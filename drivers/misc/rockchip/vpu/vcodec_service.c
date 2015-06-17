@@ -1510,7 +1510,9 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 
 		if (vvpu_cmd.payload[1] == 2 || vvpu_cmd.payload[1] == 5
 				|| vvpu_cmd.payload[1] == 7) {
+			mutex_lock(&pservice->lock);
 			vpu_service_power_on(pservice);
+			mutex_unlock(&pservice->lock);
 		}
 
 		vvpu_call(pservice->dev, &vvpu_cmd);
@@ -1532,7 +1534,9 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 			return -EFAULT;
 		/*pr_err("ioctl VPU_IOC_SECVM_PP_CMD vop is %d\n",
 						vvpu_pp_cmd.payload[1]);*/
+		mutex_lock(&pservice->lock);
 		vpu_service_power_on(pservice);
+		mutex_unlock(&pservice->lock);
 		vvpu_pp_call(pservice->dev, &vvpu_pp_cmd);
 		if (copy_to_user((void __user *)arg, &vvpu_pp_cmd,
 				sizeof(vvpu_pp_cmd)))
