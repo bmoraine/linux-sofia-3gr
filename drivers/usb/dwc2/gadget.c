@@ -2463,6 +2463,36 @@ irq_retry:
 
 	gintsts &= gintmsk;
 
+	if (gintsts & GINTSTS_RESETDET) {
+		dev_dbg(hsotg->dev, "%s: USBRstDet\n", __func__);
+
+		writel(GINTSTS_RESETDET, hsotg->regs + GINTSTS);
+
+		/* This event must be used only if controller is suspended */
+		if (hsotg->lx_state == DWC2_L2) {
+			dwc2_exit_hibernation(hsotg, true);
+			hsotg->lx_state = DWC2_L0;
+		}
+	}
+
+	if (gintsts & (GINTSTS_USBRST | GINTSTS_RESETDET)) {
+
+		u32 usb_status = readl(hsotg->regs + GOTGCTL);
+		u32 connected = hsotg->connected;
+
+		dev_dbg(hsotg->dev, "%s: USBRst\n", __func__);
+		dev_dbg(hsotg->dev, "GNPTXSTS=%08x\n",
+			readl(hsotg->regs + GNPTXSTS));
+
+		writel(GINTSTS_USBRST, hsotg->regs + GINTSTS);
+
+		/* Report disconnection if it is not already done. */
+		s3c_hsotg_disconnect(hsotg);
+
+		if (usb_status & GOTGCTL_BSESVLD && connected)
+			s3c_hsotg_core_init_disconnected(hsotg, true);
+	}
+
 	if (gintsts & GINTSTS_ENUMDONE) {
 		writel(GINTSTS_ENUMDONE, hsotg->regs + GINTSTS);
 
@@ -2492,36 +2522,6 @@ irq_retry:
 			if (daint_in & 1)
 				s3c_hsotg_epint(hsotg, ep, 1);
 		}
-	}
-
-	if (gintsts & GINTSTS_RESETDET) {
-		dev_dbg(hsotg->dev, "%s: USBRstDet\n", __func__);
-
-		writel(GINTSTS_RESETDET, hsotg->regs + GINTSTS);
-
-		/* This event must be used only if controller is suspended */
-		if (hsotg->lx_state == DWC2_L2) {
-			dwc2_exit_hibernation(hsotg, true);
-			hsotg->lx_state = DWC2_L0;
-		}
-	}
-
-	if (gintsts & (GINTSTS_USBRST | GINTSTS_RESETDET)) {
-
-		u32 usb_status = readl(hsotg->regs + GOTGCTL);
-		u32 connected = hsotg->connected;
-
-		dev_dbg(hsotg->dev, "%s: USBRst\n", __func__);
-		dev_dbg(hsotg->dev, "GNPTXSTS=%08x\n",
-			readl(hsotg->regs + GNPTXSTS));
-
-		writel(GINTSTS_USBRST, hsotg->regs + GINTSTS);
-
-		/* Report disconnection if it is not already done. */
-		s3c_hsotg_disconnect(hsotg);
-
-		if (usb_status & GOTGCTL_BSESVLD && connected)
-			s3c_hsotg_core_init_disconnected(hsotg, true);
 	}
 
 	/* check both FIFOs */
