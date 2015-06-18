@@ -100,13 +100,10 @@
 
 ktime_t rga_start;
 ktime_t rga_end;
-ktime_t rga_end_0;
 
 uint32_t rga_fence_create_num = 0;
 uint32_t rga_fence_interrupt_num = 0;
 uint32_t rga_fence_timeout_num = 0;
-uint32_t rga_int_f_num = 0;
-uint32_t rga_int_b_num = 0;
 
 struct rga_session rga_session_global;
 
@@ -687,15 +684,9 @@ static void rga_try_set_reg(void)
 					pr_info("error wait for src fence\n");
 			}
 			atomic_set(&reg->session->done, 0);
-			if (atomic_read(&rga_service.delay_work_already_queue)) {
-				cancel_delayed_work(&rga_service.fence_delayed_work);
-				atomic_set(&rga_service.delay_work_already_queue, 0);
-			}
 			queue_delayed_work(rga_service.fence_workqueue,
 					&rga_service.fence_delayed_work,
 					RGA_FENCE_TIMEOUT_DELAY);
-			atomic_set(&rga_service.delay_work_already_queue, 1);
-					rga_int_f_num++;
 					rga_start = ktime_get();
 					atomic_set(&rga_service.interrupt_flag, 1);
  #if !defined(RGA_SECURE_ACCESS)
@@ -763,11 +754,6 @@ static void rga_del_running_list(void)
 		/*atomic_set(&reg->session->queue_work_done, 1);
 		wake_up(&reg->session->queue_work_wait);*/
 
-		if (atomic_read(&rga_service.delay_work_already_queue)) {
-			cancel_delayed_work(&rga_service.fence_delayed_work);
-			atomic_set(&rga_service.delay_work_already_queue, 0);
-		}
-
 		if (list_empty(&reg->session->waiting)) {
 			atomic_set(&reg->session->done, 1);
 			wake_up(&reg->session->wait);
@@ -781,13 +767,10 @@ static void rga_del_running_list(void)
 	}
 }
 
-/* Caller must hold rga_service.lock */
-static void rga_del_running_list_timeout(struct work_struct *work)
+static void rga_del_running_list_wq(struct work_struct *work)
 {
 	struct rga_reg *reg;
 
-	mutex_lock(&rga_service.lock);
-	pr_info("Warning RGA process task timeout\n");
 	rga_service.timeout_num++;
 	while (!list_empty(&rga_service.running)) {
 		reg =
@@ -807,12 +790,6 @@ static void rga_del_running_list_timeout(struct work_struct *work)
 		atomic_sub(1, &rga_service.total_running);
 
 		rga_end = ktime_sub(rga_end, rga_start);
-		rga_end_0 = ktime_sub(rga_end_0, rga_start);
-
-		/* whether is a fake Timeout */
-		//if (atomic_read(&rga_service.interrupt_flag))
-		    pr_info("RGA STATUS %.8x INT %.8x F %d B %d end %d end_0 %d\n", rga_read(0xc), rga_read(0x10),
-		    rga_int_f_num, rga_int_b_num, (int)ktime_to_us(rga_end), (int)ktime_to_us(rga_end_0));
 
 		rga_soft_reset();
 
@@ -863,13 +840,49 @@ static void rga_del_running_list_timeout(struct work_struct *work)
 		}
 		rga_reg_deinit(reg);
 	}*/
-	if (atomic_read(&rga_service.delay_work_already_queue)) {
+}
+
+static void prepare_next_job(struct work_struct *work)
+{
+	/* Cancel previous delay work and make sure all had ended... */
+	if (work)
+		/* Caller from work queue... */
 		cancel_delayed_work(&rga_service.fence_delayed_work);
-		atomic_set(&rga_service.delay_work_already_queue, 0);
+	else
+		/* Caller from IST... */
+		cancel_delayed_work_sync(&rga_service.fence_delayed_work);
+
+	mutex_lock(&rga_service.lock);
+	if (rga_service.enable) {
+		if (work) {
+			/* Porcess timeout case... */
+			rga_del_running_list_wq(work);
+			rga_try_set_reg();
+			if (atomic_xchg(&rga_service.bWaitISTRunning, 0))
+				pr_info("WQ replace IST...\n");
+			else
+				pr_info("Warning RGA process task timeout\n");
+		} else {
+			/* Process IST case... */
+			if (atomic_xchg(&rga_service.bWaitISTRunning, 0)) {
+				/* IST is coming normally... */
+				rga_del_running_list();
+				rga_try_set_reg();
+			} else {
+				pr_info("IST came late...\n");
+				queue_delayed_work(rga_service.fence_workqueue,
+					&rga_service.fence_delayed_work,
+					RGA_FENCE_TIMEOUT_DELAY);
+			}
+		}
 	}
-	atomic_set(&rga_service.interrupt_timeout_flag, 1);
-	rga_try_set_reg();
 	mutex_unlock(&rga_service.lock);
+}
+
+/* Caller must hold rga_service.lock */
+static void rga_del_running_list_timeout(struct work_struct *work)
+{
+	prepare_next_job(work);
 }
 
 static int rga_convert_dma_buf(struct rga_req *req)
@@ -1076,6 +1089,8 @@ static int rga_blit(struct rga_session *session, struct rga_req *req)
 			num = 1;
 		}
 
+		/* Cancel previous delay work and make sure it had ended... */
+		cancel_delayed_work_sync(&rga_service.fence_delayed_work);
 		mutex_lock(&rga_service.lock);
 		atomic_add(num, &rga_service.total_running);
 		rga_try_set_reg();
@@ -1293,22 +1308,7 @@ static int rga_release(struct inode *inode, struct file *file)
 
 static irqreturn_t rga_irq_thread(int irq, void *dev_id)
 {
-	mutex_lock(&rga_service.lock);
-	if (atomic_read(&rga_service.interrupt_timeout_flag)) {
-        pr_info("rga timeout double in\n");
-		mutex_unlock(&rga_service.lock);
-		return IRQ_HANDLED;
-	}
-	if (atomic_read(&rga_service.delay_work_already_queue)) {
-		cancel_delayed_work(&rga_service.fence_delayed_work);
-		atomic_set(&rga_service.delay_work_already_queue, 0);
-	}
-	if (rga_service.enable) {
-		rga_del_running_list();
-		rga_try_set_reg();
-		atomic_set(&rga_service.already_queue, 0);
-	}
-	mutex_unlock(&rga_service.lock);
+	prepare_next_job(NULL);
 
 	return IRQ_HANDLED;
 }
@@ -1324,9 +1324,8 @@ static irqreturn_t rga_irq(int irq, void *dev_id)
 		(0x1 << 6) | (0x1 << 7) | (0x1 << 4), BIT(4)|BIT(6)|BIT(7));
 #endif
 	atomic_set(&rga_service.interrupt_flag, 0);
-	atomic_set(&rga_service.interrupt_timeout_flag, 0);
-	rga_int_b_num++;
-	rga_end_0 = ktime_get();
+
+	atomic_set(&rga_service.bWaitISTRunning, 1);
 
 	return IRQ_WAKE_THREAD;
 }
@@ -1366,11 +1365,11 @@ static int rga_drv_probe(struct platform_device *pdev)
 	mutex_init(&rga_service.mutex);
 	atomic_set(&rga_service.total_running, 0);
 	rga_service.enable = false;
+	atomic_set(&rga_service.bWaitISTRunning, 0);
 	rga_service.timeline =
 				sw_sync_timeline_create("rga-rockchip");
 	rga_service.timeline_max = 0;
 	rga_service.timeout_num = 0;
-	atomic_set(&rga_service.delay_work_already_queue, 0);
 
 	data = devm_kzalloc(&pdev->dev, sizeof(struct rga_drvdata), GFP_KERNEL);
 	if (!data) {
