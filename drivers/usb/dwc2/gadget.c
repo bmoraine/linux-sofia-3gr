@@ -3307,6 +3307,13 @@ static int s3c_hsotg_vbus_session(struct usb_gadget *gadget, int is_active)
 		if (hsotg->enabled)
 			s3c_hsotg_core_connect(hsotg);
 	} else {
+		/*
+		 * If controller is hibernated, it must exit from hibernation
+		 * before being de-initialized
+		 */
+		if (hsotg->lx_state == DWC2_L2)
+			dwc2_exit_hibernation(hsotg, false);
+
 		s3c_hsotg_core_disconnect(hsotg);
 		s3c_hsotg_disconnect(hsotg);
 	}
