@@ -79,7 +79,6 @@ struct xgold_mmc_pdata {
 	s32 irq_is_disable;
 	spinlock_t irq_lock;
 	int cd_gpio;
-	struct reset_control *reset;
 };
 
 /* IO access depends on the platform - it may goes through an hypercall */
