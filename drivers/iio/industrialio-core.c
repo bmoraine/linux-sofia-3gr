@@ -855,7 +855,7 @@ static bool iio_get_mounting_matrix(struct iio_dev *indio_dev)
 	if (!err) {
 		int *mm = indio_dev->mounting_matrix;
 
-		for (i = IIO_MM_SIZE - 2; i > 0; i -= 2) {
+		for (i = IIO_MM_SIZE - 2; i >= 0; i -= 2) {
 			mm[i] = mm[i / 2];
 			mm[i + 1] = 0;
 		}
