@@ -778,6 +778,37 @@ static int fan54x_enable_charger(struct fan54x_charger *chrgr,
 	return 0;
 }
 
+static int fan54x_timer_expired_work(struct fan54x_charger *chrgr)
+{
+	int ret;
+	int value;
+
+	/* When timer expries on charger, registers are set to default values.
+	 * So this is to again set those registers to values before timer expires.
+	 * This is to ensure charging can continue.
+	 *
+	 * The minimum set of registers to reset:
+	 * 1. VBUS input limit
+	 * 2. Charging voltage (VOREG)
+	 * 3. Charging current (IOCHARGE)
+	 */
+
+	ret = fan54x_set_ibus_limit(chrgr, chrgr->state.inlmt, &value);
+	if (ret)
+		dev_err(&chrgr->client->dev,
+			"reset: cannot set ibus limit\n");
+
+	ret = fan54x_set_voreg(chrgr, chrgr->state.cv, &value, true);
+	if (ret)
+		dev_err(&chrgr->client->dev, "reset: cannot set cv\n");
+
+	ret = fan54x_set_iocharge(chrgr, chrgr->state.cc, &value, true);
+	if (ret)
+		dev_err(&chrgr->client->dev, "reset: cannot set cc\n");
+
+	return 0;
+}
+
 static int fan54x_enable_charging(struct fan54x_charger *chrgr, bool enable)
 {
 	int ret;
@@ -1350,6 +1381,13 @@ static void fan54x_chgint_cb_work_func(struct work_struct *work)
 	if (chrgr->state.t32s_timer_expired) {
 		chrgr->state.health = POWER_SUPPLY_HEALTH_DEAD;
 		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_T32_TIMER_EXPIRED, 0, 0);
+
+		/* Since the charger chip resets itself and all registers,
+		 * so disable charging here to sync internal state.
+		 */
+		chrgr->state.charging_enabled = false;
+		fan54x_timer_expired_work(chrgr);
+
 		power_supply_changed(chrgr->current_psy);
 		goto fail;
 	}
