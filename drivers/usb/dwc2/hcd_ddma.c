@@ -87,22 +87,26 @@ static u16 dwc2_frame_incr_val(struct dwc2_qh *qh)
 static int dwc2_desc_list_alloc(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 				gfp_t flags)
 {
-	qh->desc_list = dma_alloc_coherent(hsotg->dev,
-				sizeof(struct dwc2_hcd_dma_desc) *
-				dwc2_max_desc_num(qh), &qh->desc_list_dma,
-				flags);
+	if (qh && qh->desc_list)
+		return 0;
 
+	qh->desc_list_sz = sizeof(struct dwc2_hcd_dma_desc) *
+						dwc2_max_desc_num(qh);
+
+	qh->desc_list = kzalloc(qh->desc_list_sz, GFP_KERNEL | GFP_DMA);
 	if (!qh->desc_list)
 		return -ENOMEM;
 
-	memset(qh->desc_list, 0,
-	       sizeof(struct dwc2_hcd_dma_desc) * dwc2_max_desc_num(qh));
+	qh->desc_list_dma = dma_map_single(hsotg->dev, qh->desc_list,
+			qh->desc_list_sz,
+			DMA_TO_DEVICE);
 
 	qh->n_bytes = kzalloc(sizeof(u32) * dwc2_max_desc_num(qh), flags);
 	if (!qh->n_bytes) {
-		dma_free_coherent(hsotg->dev, sizeof(struct dwc2_hcd_dma_desc)
-				  * dwc2_max_desc_num(qh), qh->desc_list,
-				  qh->desc_list_dma);
+		dma_unmap_single(hsotg->dev, qh->desc_list_dma,
+				qh->desc_list_sz,
+				DMA_FROM_DEVICE);
+		kfree(qh->desc_list);
 		qh->desc_list = NULL;
 		return -ENOMEM;
 	}
@@ -112,10 +116,13 @@ static int dwc2_desc_list_alloc(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 
 static void dwc2_desc_list_free(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 {
+	if (!qh)
+		return;
+
 	if (qh->desc_list) {
-		dma_free_coherent(hsotg->dev, sizeof(struct dwc2_hcd_dma_desc)
-				  * dwc2_max_desc_num(qh), qh->desc_list,
-				  qh->desc_list_dma);
+		dma_unmap_single(hsotg->dev, qh->desc_list_dma,
+				qh->desc_list_sz, DMA_FROM_DEVICE);
+		kfree(qh->desc_list);
 		qh->desc_list = NULL;
 	}
 
@@ -128,21 +135,19 @@ static int dwc2_frame_list_alloc(struct dwc2_hsotg *hsotg, gfp_t mem_flags)
 	if (hsotg->frame_list)
 		return 0;
 
-	hsotg->frame_list = dma_alloc_coherent(hsotg->dev,
-					       4 * FRLISTEN_64_SIZE,
-					       &hsotg->frame_list_dma,
-					       mem_flags);
+	hsotg->frame_list_sz = 4 * FRLISTEN_64_SIZE;
+	hsotg->frame_list = kzalloc(hsotg->frame_list_sz, GFP_ATOMIC | GFP_DMA);
 	if (!hsotg->frame_list)
 		return -ENOMEM;
 
-	memset(hsotg->frame_list, 0, 4 * FRLISTEN_64_SIZE);
+	hsotg->frame_list_dma = dma_map_single(hsotg->dev, hsotg->frame_list,
+			hsotg->frame_list_sz, DMA_TO_DEVICE);
+
 	return 0;
 }
 
 static void dwc2_frame_list_free(struct dwc2_hsotg *hsotg)
 {
-	u32 *frame_list;
-	dma_addr_t frame_list_dma;
 	unsigned long flags;
 
 	spin_lock_irqsave(&hsotg->lock, flags);
@@ -152,14 +157,14 @@ static void dwc2_frame_list_free(struct dwc2_hsotg *hsotg)
 		return;
 	}
 
-	frame_list = hsotg->frame_list;
-	frame_list_dma = hsotg->frame_list_dma;
+	dma_unmap_single(hsotg->dev, hsotg->frame_list_dma,
+			hsotg->frame_list_sz, DMA_FROM_DEVICE);
+
+	kfree(hsotg->frame_list);
 	hsotg->frame_list = NULL;
 
 	spin_unlock_irqrestore(&hsotg->lock, flags);
 
-	dma_free_coherent(hsotg->dev, 4 * FRLISTEN_64_SIZE, frame_list,
-			  frame_list_dma);
 }
 
 static void dwc2_per_sched_enable(struct dwc2_hsotg *hsotg, u32 fr_list_en)
@@ -248,6 +253,15 @@ static void dwc2_update_frame_list(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 			hsotg->frame_list[j] &= ~(1 << chan->hc_num);
 		j = (j + inc) & (FRLISTEN_64_SIZE - 1);
 	} while (j != i);
+
+	/*
+	 * Sync frame list since controller will acces it if periodic channel is
+	 * currently enabled.
+	 */
+	dma_sync_single_for_device(hsotg->dev,
+			hsotg->frame_list_dma,
+			hsotg->frame_list_sz,
+			DMA_TO_DEVICE);
 
 	if (!enable)
 		return;
@@ -529,6 +543,11 @@ static void dwc2_fill_host_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 	if (qtd->isoc_frame_index_last == qtd->urb->packet_count)
 		dma_desc->status |= HOST_DMA_IOC;
 #endif
+	dma_sync_single_for_device(hsotg->dev,
+			qh->desc_list_dma +
+			(idx * sizeof(struct dwc2_hcd_dma_desc)),
+			sizeof(struct dwc2_hcd_dma_desc),
+			DMA_TO_DEVICE);
 
 	qh->ntd++;
 	qtd->isoc_frame_index_last++;
@@ -558,8 +577,15 @@ static void dwc2_init_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 	list_for_each_entry(qtd, &qh->qtd_list, qtd_list_entry) {
 		while (qh->ntd < ntd_max && qtd->isoc_frame_index_last <
 						qtd->urb->packet_count) {
-			if (n_desc > 1)
+			if (n_desc > 1) {
 				qh->desc_list[n_desc - 1].status |= HOST_DMA_A;
+				dma_sync_single_for_device(hsotg->dev,
+					qh->desc_list_dma +
+					((n_desc - 1) *
+					sizeof(struct dwc2_hcd_dma_desc)),
+					sizeof(struct dwc2_hcd_dma_desc),
+					DMA_TO_DEVICE);
+			}
 			dwc2_fill_host_isoc_dma_desc(hsotg, qtd, qh,
 						     max_xfer_size, idx);
 			idx = dwc2_desclist_idx_inc(idx, inc, qh->dev_speed);
@@ -575,6 +601,11 @@ static void dwc2_init_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 	if (qh->ntd == ntd_max) {
 		idx = dwc2_desclist_idx_dec(qh->td_last, inc, qh->dev_speed);
 		qh->desc_list[idx].status |= HOST_DMA_IOC;
+		dma_sync_single_for_device(hsotg->dev,
+				qh->desc_list_dma +
+				(idx * sizeof(struct dwc2_hcd_dma_desc)),
+				sizeof(struct dwc2_hcd_dma_desc),
+				DMA_TO_DEVICE);
 	}
 #else
 	/*
@@ -603,13 +634,30 @@ static void dwc2_init_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 		 */
 		idx = dwc2_desclist_idx_dec(qh->td_last, inc, qh->dev_speed);
 
-	qh->desc_list[idx].status |= HOST_DMA_IOC;
+		qh->desc_list[idx].status |= HOST_DMA_IOC;
+		dma_sync_single_for_device(hsotg->dev,
+				qh->desc_list_dma +
+				(idx * sizeof(struct dwc2_hcd_dma_desc)),
+				sizeof(struct dwc2_hcd_dma_desc),
+				DMA_TO_DEVICE);
+	}
 #endif
 
 	if (n_desc) {
 		qh->desc_list[n_desc - 1].status |= HOST_DMA_A;
-		if (n_desc > 1)
+		dma_sync_single_for_device(hsotg->dev,
+				qh->desc_list_dma +
+				((n_desc - 1) *
+				sizeof(struct dwc2_hcd_dma_desc)),
+				sizeof(struct dwc2_hcd_dma_desc),
+				DMA_TO_DEVICE);
+		if (n_desc > 1) {
 			qh->desc_list[0].status |= HOST_DMA_A;
+			dma_sync_single_for_device(hsotg->dev,
+					qh->desc_list_dma,
+					sizeof(struct dwc2_hcd_dma_desc),
+					DMA_TO_DEVICE);
+		}
 	}
 }
 
@@ -646,6 +694,12 @@ static void dwc2_fill_host_dma_desc(struct dwc2_hsotg *hsotg,
 		dma_desc->status |= HOST_DMA_SUP;
 
 	dma_desc->buf = (u32)chan->xfer_dma;
+
+	dma_sync_single_for_device(hsotg->dev,
+			qh->desc_list_dma +
+			(n_desc * sizeof(struct dwc2_hcd_dma_desc)),
+			sizeof(struct dwc2_hcd_dma_desc),
+			DMA_TO_DEVICE);
 
 	/*
 	 * Last (or only) descriptor of IN transfer with actual size less
@@ -697,6 +751,12 @@ static void dwc2_init_non_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 					 "set A bit in desc %d (%p)\n",
 					 n_desc - 1,
 					 &qh->desc_list[n_desc - 1]);
+				dma_sync_single_for_device(hsotg->dev,
+					qh->desc_list_dma +
+					((n_desc - 1) *
+					sizeof(struct dwc2_hcd_dma_desc)),
+					sizeof(struct dwc2_hcd_dma_desc),
+					DMA_TO_DEVICE);
 			}
 			dwc2_fill_host_dma_desc(hsotg, chan, qtd, qh, n_desc);
 			dev_vdbg(hsotg->dev,
@@ -722,10 +782,19 @@ static void dwc2_init_non_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 				HOST_DMA_IOC | HOST_DMA_EOL | HOST_DMA_A;
 		dev_vdbg(hsotg->dev, "set IOC/EOL/A bits in desc %d (%p)\n",
 			 n_desc - 1, &qh->desc_list[n_desc - 1]);
+		dma_sync_single_for_device(hsotg->dev,
+				qh->desc_list_dma + (n_desc - 1) *
+				sizeof(struct dwc2_hcd_dma_desc),
+				sizeof(struct dwc2_hcd_dma_desc),
+				DMA_TO_DEVICE);
 		if (n_desc > 1) {
 			qh->desc_list[0].status |= HOST_DMA_A;
 			dev_vdbg(hsotg->dev, "set A bit in desc 0 (%p)\n",
 				 &qh->desc_list[0]);
+			dma_sync_single_for_device(hsotg->dev,
+					qh->desc_list_dma,
+					sizeof(struct dwc2_hcd_dma_desc),
+					DMA_TO_DEVICE);
 		}
 		chan->ntd = n_desc;
 	}
@@ -800,13 +869,19 @@ static int dwc2_cmpl_host_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 					struct dwc2_qtd *qtd,
 					struct dwc2_qh *qh, u16 idx)
 {
-	struct dwc2_hcd_dma_desc *dma_desc = &qh->desc_list[idx];
+	struct dwc2_hcd_dma_desc *dma_desc;
 	struct dwc2_hcd_iso_packet_desc *frame_desc;
 	u16 remain = 0;
 	int rc = 0;
 
 	if (!qtd->urb)
 		return -EINVAL;
+
+	dma_sync_single_for_cpu(hsotg->dev, qh->desc_list_dma + (idx *
+				sizeof(struct dwc2_hcd_dma_desc)),
+			sizeof(struct dwc2_hcd_dma_desc), DMA_FROM_DEVICE);
+
+	dma_desc = &qh->desc_list[idx];
 
 	frame_desc = &qtd->urb->iso_descs[qtd->isoc_frame_index_last];
 	dma_desc->buf = (u32)(qtd->urb->dma + frame_desc->offset);
@@ -1028,6 +1103,11 @@ static int dwc2_process_non_isoc_desc(struct dwc2_hsotg *hsotg,
 
 	if (!urb)
 		return -EINVAL;
+
+	dma_sync_single_for_cpu(hsotg->dev,
+			qh->desc_list_dma + (desc_num *
+				sizeof(struct dwc2_hcd_dma_desc)),
+			sizeof(struct dwc2_hcd_dma_desc), DMA_FROM_DEVICE);
 
 	dma_desc = &qh->desc_list[desc_num];
 	n_bytes = qh->n_bytes[desc_num];

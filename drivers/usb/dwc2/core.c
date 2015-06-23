@@ -1949,6 +1949,15 @@ void dwc2_hc_start_transfer_ddma(struct dwc2_hsotg *hsotg,
 
 	writel(hctsiz, hsotg->regs + HCTSIZ(chan->hc_num));
 
+	/* Sync frame list only for periodics channels */
+	if (chan->ep_type == USB_ENDPOINT_XFER_ISOC ||
+			chan->ep_type == USB_ENDPOINT_XFER_INT)
+		dma_sync_single_for_device(hsotg->dev, hsotg->frame_list_dma,
+				hsotg->frame_list_sz, DMA_TO_DEVICE);
+
+	dma_sync_single_for_device(hsotg->dev, chan->desc_list_addr,
+			chan->desc_list_sz, DMA_TO_DEVICE);
+
 	hc_dma = (u32)chan->desc_list_addr & HCDMA_DMA_ADDR_MASK;
 
 	/* Always start from first descriptor */
