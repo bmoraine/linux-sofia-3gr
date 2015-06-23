@@ -188,6 +188,80 @@ static void ion_buffer_add(struct ion_device *dev,
 	rb_insert_color(&buffer->node, &dev->buffers);
 }
 
+static size_t ion_debug_heap_total(struct ion_client *client,
+				   unsigned int id)
+{
+	size_t size = 0;
+	struct rb_node *n;
+
+	mutex_lock(&client->lock);
+	for (n = rb_first(&client->handles); n; n = rb_next(n)) {
+		struct ion_handle *handle = rb_entry(n,
+						     struct ion_handle,
+						     node);
+		if (handle->buffer->heap->id == id)
+			size += handle->buffer->size;
+	}
+	mutex_unlock(&client->lock);
+	return size;
+}
+
+static int ion_dump_heap(struct ion_heap *heap, struct ion_device *dev)
+{
+	struct rb_node *n;
+	size_t total_size = 0;
+	size_t total_orphaned_size = 0;
+
+	pr_info("%16.s %16.s %16.s\n", "client", "pid", "size");
+	pr_info("----------------------------------------------------\n");
+
+	for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
+		struct ion_client *client = rb_entry(n, struct ion_client,
+						     node);
+		size_t size = ion_debug_heap_total(client, heap->id);
+		if (!size)
+			continue;
+		if (client->task) {
+			char task_comm[TASK_COMM_LEN];
+
+			get_task_comm(task_comm, client->task);
+			pr_info("%16.s %16u %16zu\n", task_comm,
+				   client->pid, size);
+		} else {
+			pr_info("%16.s %16u %16zu\n", client->name,
+				   client->pid, size);
+		}
+	}
+	pr_info("----------------------------------------------------\n");
+	pr_info("orphaned allocations (info is from last known client):\n");
+	mutex_lock(&dev->buffer_lock);
+	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
+		struct ion_buffer *buffer = rb_entry(n, struct ion_buffer,
+						     node);
+		if (buffer->heap->id != heap->id)
+			continue;
+		total_size += buffer->size;
+		if (!buffer->handle_count) {
+			pr_info("%16.s %16u %16zu %d %d\n",
+				   buffer->task_comm, buffer->pid,
+				   buffer->size, buffer->kmap_cnt,
+				   atomic_read(&buffer->ref.refcount));
+			total_orphaned_size += buffer->size;
+		}
+	}
+	mutex_unlock(&dev->buffer_lock);
+	pr_info("----------------------------------------------------\n");
+	pr_info("%16.s %16zu\n", "total orphaned",
+		   total_orphaned_size);
+	pr_info("%16.s %16zu\n", "total ", total_size);
+	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
+		pr_info("%16.s %16zu\n", "deferred free",
+				heap->free_list_size);
+	pr_info("----------------------------------------------------\n");
+
+	return 0;
+}
+
 /* this function should only be called while dev->lock is held */
 static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 				     struct ion_device *dev,
@@ -211,6 +285,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	ret = heap->ops->allocate(heap, buffer, len, align, flags);
 
 	if (ret) {
+		ion_dump_heap(heap, dev);
 		if (!(heap->flags & ION_HEAP_FLAG_DEFER_FREE))
 			goto err2;
 
@@ -1631,24 +1706,6 @@ static const struct file_operations ion_fops = {
 	.unlocked_ioctl = ion_ioctl,
 	.compat_ioctl   = compat_ion_ioctl,
 };
-
-static size_t ion_debug_heap_total(struct ion_client *client,
-				   unsigned int id)
-{
-	size_t size = 0;
-	struct rb_node *n;
-
-	mutex_lock(&client->lock);
-	for (n = rb_first(&client->handles); n; n = rb_next(n)) {
-		struct ion_handle *handle = rb_entry(n,
-						     struct ion_handle,
-						     node);
-		if (handle->buffer->heap->id == id)
-			size += handle->buffer->size;
-	}
-	mutex_unlock(&client->lock);
-	return size;
-}
 
 static int ion_debug_heap_show(struct seq_file *s, void *unused)
 {
