@@ -686,6 +686,7 @@
 							0xffffffff	/* otg_ver */
 							0xffffffff	/* dma_enable */
 							0		/* dma_desc_enable */
+							1		/* dma_desc_fs_enable */
 							0xffffffff	/* speed */
 							0xffffffff	/* enable_dynamic_fifo */
 							0xffffffff	/* en_multiple_tx_fifo */
