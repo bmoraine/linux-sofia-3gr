@@ -229,7 +229,15 @@ struct dwc2_qh *dwc2_hcd_qh_create(struct dwc2_hsotg *hsotg,
  */
 void dwc2_hcd_qh_free(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 {
-	if (hsotg->core_params->dma_desc_enable > 0)
+	/*
+	 * dma_desc_enable flag is disabled during disconnect,
+	 * whereas freeing of qh can be called after disconnection.
+	 * Ensure queue header is correctly freed independently of
+	 * dma_desc_enable flag.
+	 */
+	if (hsotg->core_params->dma_desc_enable > 0 ||
+			(hsotg->core_params->dma_desc_fs_enable
+			 && qh->dev_speed == USB_SPEED_FULL))
 		dwc2_hcd_qh_free_ddma(hsotg, qh);
 	else if (qh->dw_align_buf) {
 		kfree(qh->dw_align_buf);

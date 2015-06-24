@@ -358,6 +358,7 @@ struct dwc2_core_params {
 	int otg_ver;
 	int dma_enable;
 	int dma_desc_enable;
+	int dma_desc_fs_enable;
 	int speed;
 	int enable_dynamic_fifo;
 	int en_multiple_tx_fifo;
@@ -749,6 +750,7 @@ struct dwc2_hsotg {
 	u16 frame_usecs[8];
 	u16 frame_number;
 	u16 periodic_qh_count;
+	bool new_connection;
 
 #ifdef CONFIG_USB_DWC2_TRACK_MISSED_SOFS
 #define FRAME_NUM_ARRAY_SIZE 1000
