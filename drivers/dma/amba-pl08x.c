@@ -1149,6 +1149,9 @@ static int pl08x_fill_llis_for_desc(struct pl08x_driver_data *pl08x,
 		last_lli[PL080_LLI_CCTL] |= PL080_CONTROL_TC_IRQ_EN;
 	}
 
+	/* Drain the cpu wc buffer */
+	wmb();
+
 	pl08x_dump_lli(pl08x, llis_va, num_llis);
 
 	return num_llis;
@@ -1161,6 +1164,9 @@ static void pl08x_free_txd(struct pl08x_driver_data *pl08x,
 
 	if (txd->llis_va)
 		dma_pool_free(pl08x->pool, txd->llis_va, txd->llis_bus);
+
+	/* Drain the cpu wc buffer */
+	wmb();
 
 	list_for_each_entry_safe(dsg, _dsg, &txd->dsg_list, node) {
 		list_del(&dsg->node);
