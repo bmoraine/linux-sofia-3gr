@@ -572,8 +572,14 @@ static int intel_usb2phy_set_suspend(struct usb_phy *phy, int suspend)
 			if (atomic_read(&iphy->in_lpm) &&
 					!atomic_read(&iphy->pm_suspended))
 				pm_runtime_resume(phy->dev);
+
 			 if (atomic_read(&iphy->pm_suspended))
 				iphy->async_int = 1;
+
+			 if (!atomic_read(&phy->dev->power.usage_count)) {
+				pr_err("race condition between suspend/resume?\n");
+				pm_runtime_get(phy->dev);
+			 }
 			break;
 		case OTG_STATE_A_HOST:
 			set_bit(A_BUS_REQ, &iphy->inputs);
