@@ -889,6 +889,10 @@ static void intel_chg_detect_work(struct work_struct *w)
 
 	switch (iphy->chg_state) {
 	case USB_CHG_STATE_UNDEFINED:
+		if (!atomic_read(&phy->dev->power.usage_count)) {
+			dev_dbg(phy->dev, "race condition between suspend/resume\n");
+			pm_runtime_get_sync(phy->dev);
+		}
 		/* Start DCD processing stage 1 */
 		intel_chg_enable_dcd(iphy, true);
 
