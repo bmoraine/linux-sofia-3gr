@@ -30,6 +30,8 @@ static struct clk *stm_clk;
 #ifdef CONFIG_XGOLD_STM_TIMER_SCHED_CLOCK
 static int stm_disabled __read_mostly = 1;
 static unsigned long sched_clock_mult __read_mostly;
+static cycle_t cycle_last, cycle_offset;
+static DEFINE_SPINLOCK(stm_shed_lock);
 #endif
 static DEFINE_SPINLOCK(stm_hw_lock);
 static int irq_nodes[2];
@@ -254,25 +256,7 @@ static void __init xgold_stm_init(void)
 **************************************/
 cycle_t xgold_stm_clock_source_read(struct clocksource *cs)
 {
-
-	u64 ull_time;
-	u64 ull_time2;
-
-	unsigned *ptime = (unsigned *)&ull_time;
-	unsigned *ptime2 = (unsigned *)&ull_time2;
-
-	ptime[0] = ioread32(stm_hw_base + REG_STM_TIM0_OFFSET);
-	ptime[1] = ioread32(stm_hw_base + REG_STM_CAP_OFFSET);
-	ptime2[0] = ioread32(stm_hw_base + REG_STM_TIM0_OFFSET);
-
-	/* Detect overflow condition by reading the TIM0 again
-	 *  if overflow, read the CAP again to get the correct time
-	 */
-	if (ptime[0] <= ptime2[0])
-		return ull_time;
-
-	ptime2[1] = ioread32(stm_hw_base + REG_STM_CAP_OFFSET);
-	return ull_time2;
+	return (cycle_t) ioread32(stm_hw_base + REG_STM_TIM0_OFFSET);
 }
 EXPORT_SYMBOL(xgold_stm_clock_source_read);
 
@@ -305,8 +289,7 @@ static struct clocksource xgold_stm_clocksource = {
 	.name = "xgold_stm_clocksource",
 	.rating = 300,		/*FIXME: Refine this choice */
 	.read = xgold_stm_clock_source_read,
-	.mask = CLOCKSOURCE_MASK(56),
-	.shift = 24,		/*FIXME: Refine this choice */
+	.mask = CLOCKSOURCE_MASK(32),
 	.flags = CLOCK_SOURCE_IS_CONTINUOUS | CLOCK_SOURCE_SUSPEND_NONSTOP,
 };
 
@@ -495,12 +478,21 @@ static void __init xgold_of_timer_map(struct device_node *np)
 unsigned long long notrace sched_clock(void)
 {
 	cycle_t cycle;
+	unsigned long flags;
 
 	if (unlikely(stm_disabled))
 		return (jiffies_64 - INITIAL_JIFFIES) * (NSEC_PER_SEC / HZ);
 
+	spin_lock_irqsave(&stm_shed_lock, flags);
 	cycle = xgold_stm_clock_source_read(NULL);
 	cycle &= xgold_stm_clocksource.mask;
+	/* Counter wrapped */
+	if (unlikely(cycle_last > cycle))
+		cycle_offset += BIT_ULL(32);
+
+	cycle_last = cycle;
+	cycle += cycle_offset;
+	spin_unlock_irqrestore(&stm_shed_lock, flags);
 
 	return cycle * sched_clock_mult;
 }
