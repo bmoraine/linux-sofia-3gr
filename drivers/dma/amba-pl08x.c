@@ -1546,13 +1546,20 @@ static struct pl08x_txd *pl08x_init_txd(
 		maxburst = plchan->cfg.src_maxburst;
 		src_buses = plchan->cd->periph_buses;
 		dst_buses = pl08x->mem_buses;
-	} else if (direction == DMA_SL_MEM_TO_MEM) {
+	} else if (direction == DMA_MEM_TO_DEV_INCR) {
 		cctl = PL080_CONTROL_SRC_INCR | PL080_CONTROL_DST_INCR;
 		*slave_addr = plchan->cfg.dst_addr;
 		addr_width = plchan->cfg.dst_addr_width;
 		maxburst = plchan->cfg.dst_maxburst;
 		src_buses = pl08x->mem_buses;
 		dst_buses = plchan->cd->periph_buses;
+	} else if (direction == DMA_DEV_INCR_TO_MEM) {
+		cctl = PL080_CONTROL_SRC_INCR | PL080_CONTROL_DST_INCR;
+		*slave_addr = plchan->cfg.src_addr;
+		addr_width = plchan->cfg.src_addr_width;
+		maxburst = plchan->cfg.src_maxburst;
+		src_buses = plchan->cd->periph_buses;
+		dst_buses = pl08x->mem_buses;
 	} else {
 		pl08x_free_txd(pl08x, txd);
 		dev_err(&pl08x->adev->dev,
@@ -1572,11 +1579,11 @@ static struct pl08x_txd *pl08x_init_txd(
 
 	if (plchan->cfg.device_fc)
 		tmp = (direction == DMA_MEM_TO_DEV ||
-				direction == DMA_SL_MEM_TO_MEM) ?
+				direction == DMA_MEM_TO_DEV_INCR) ?
 			PL080_FLOW_MEM2PER_PER : PL080_FLOW_PER2MEM_PER;
 	else
-		tmp = (direction == DMA_MEM_TO_DEV  ||
-				direction == DMA_SL_MEM_TO_MEM) ?
+		tmp = (direction == DMA_MEM_TO_DEV ||
+				direction == DMA_MEM_TO_DEV_INCR) ?
 			PL080_FLOW_MEM2PER : PL080_FLOW_PER2MEM;
 
 	txd->ccfg |= tmp << PL080_CONFIG_FLOW_CONTROL_SHIFT;
@@ -1594,7 +1601,7 @@ static struct pl08x_txd *pl08x_init_txd(
 		 plchan->signal, plchan->name);
 
 	/* Assign the flow control signal to this channel */
-	if (direction == DMA_MEM_TO_DEV || direction == DMA_SL_MEM_TO_MEM)
+	if (direction == DMA_MEM_TO_DEV || direction == DMA_MEM_TO_DEV_INCR)
 		txd->ccfg |= plchan->signal << PL080_CONFIG_DST_SEL_SHIFT;
 	else
 		txd->ccfg |= plchan->signal << PL080_CONFIG_SRC_SEL_SHIFT;
@@ -1617,8 +1624,7 @@ static int pl08x_tx_add_sg(struct pl08x_txd *txd,
 	list_add_tail(&dsg->node, &txd->dsg_list);
 
 	dsg->len = len;
-	if (direction == DMA_MEM_TO_DEV ||
-				direction == DMA_SL_MEM_TO_MEM) {
+	if (direction == DMA_MEM_TO_DEV || direction == DMA_MEM_TO_DEV_INCR) {
 		dsg->src_addr = buf_addr;
 		dsg->dst_addr = slave_addr;
 	} else {

@@ -87,14 +87,16 @@ enum dma_transaction_type {
  * @DMA_MEM_TO_DEV: Slave mode & From Memory to Device
  * @DMA_DEV_TO_MEM: Slave mode & From Device to Memory
  * @DMA_DEV_TO_DEV: Slave mode & From Device to Device
- * @DMA_SL_MEM_TO_MEM: Slave mode & From Memory to Memory
+ * @DMA_MEM_TO_DEV_INCR: Slave mode & From Memory to Device using auto-increment
+ * @DMA_DEV_INCR_TO_MEM: Slave mode & From Device using auto-increment to Memory
  */
 enum dma_transfer_direction {
 	DMA_MEM_TO_MEM,
 	DMA_MEM_TO_DEV,
 	DMA_DEV_TO_MEM,
 	DMA_DEV_TO_DEV,
-	DMA_SL_MEM_TO_MEM,
+	DMA_MEM_TO_DEV_INCR,
+	DMA_DEV_INCR_TO_MEM,
 	DMA_TRANS_NONE,
 };
 
