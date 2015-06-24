@@ -1,0 +1,5 @@
+* List of compatibles used by SSG for coho board types
+
+compatible = "SOFIA3GR_MRD6"
+compatible = "SOFIA3GR_OARS7"
+compatible = "SOFIA3GR_MRD6_720"
