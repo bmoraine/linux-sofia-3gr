@@ -29,6 +29,9 @@
 #include <asm/fixmap.h>
 #include <asm/hpet.h>
 #include <asm/vvar.h>
+#ifdef CONFIG_XGOLD_STM_TIMER
+#include <asm/xgold.h>
+#endif
 
 #ifdef CONFIG_COMPAT_VDSO
 #define VDSO_DEFAULT	0
@@ -219,6 +222,17 @@ int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
 		if (ret)
 			goto up_fail;
 	}
+#endif
+
+#ifdef CONFIG_XGOLD_STM_TIMER
+	ret = io_remap_pfn_range(vma,
+		addr - VDSO_OFFSET(VDSO_STM_PAGE),
+		stm_addr >> PAGE_SHIFT,
+		PAGE_SIZE,
+		pgprot_noncached(PAGE_READONLY));
+
+	if (ret)
+		goto up_fail;
 #endif
 
 	current_thread_info()->sysenter_return =

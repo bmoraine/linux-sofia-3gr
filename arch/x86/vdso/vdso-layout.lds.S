@@ -9,6 +9,8 @@ SECTIONS
 #ifdef BUILD_VDSO32
 #include <asm/vdso32.h>
 
+	stm_page = . - VDSO_OFFSET(VDSO_STM_PAGE);
+
 	hpet_page = . - VDSO_OFFSET(VDSO_HPET_PAGE);
 
 	vvar = . - VDSO_OFFSET(VDSO_VVAR_PAGE);

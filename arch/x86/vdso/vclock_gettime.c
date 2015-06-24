@@ -140,10 +140,28 @@ static notrace cycle_t vread_pvclock(int *mode)
 extern u8 hpet_page
 	__attribute__((visibility("hidden")));
 
+extern u8 stm_page
+	__attribute__((visibility("hidden")));
+
 #ifdef CONFIG_HPET_TIMER
 static notrace cycle_t vread_hpet(void)
 {
 	return read_hpet_counter((const void *)(&hpet_page));
+}
+#endif
+
+#ifdef CONFIG_XGOLD_STM_TIMER
+/* REGISTER : STM_TIM0 */
+#define REG_STM_TIM0_OFFSET   0x20
+
+static inline u32 read_stm_counter(const volatile void *addr)
+{
+	return *(const volatile u32 *) (addr + REG_STM_TIM0_OFFSET);
+}
+
+static notrace cycle_t vread_stm(void)
+{
+	return read_stm_counter((const void *)(&stm_page));
 }
 #endif
 
@@ -227,6 +245,10 @@ notrace static inline u64 vgetsns(int *mode)
 
 	if (gtod->vclock_mode == VCLOCK_TSC)
 		cycles = vread_tsc();
+#ifdef CONFIG_XGOLD_STM_TIMER
+	else if (gtod->vclock_mode == VCLOCK_STM)
+		cycles = vread_stm();
+#endif
 #ifdef CONFIG_HPET_TIMER
 	else if (gtod->vclock_mode == VCLOCK_HPET)
 		cycles = vread_hpet();
