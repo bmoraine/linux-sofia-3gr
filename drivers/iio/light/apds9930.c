@@ -126,7 +126,7 @@
 
 /* Default values for registers content */
 #define APDS9930_DISABLE_ALL	0	/* Disable and powerdown */
-#define APDS9930_ENABLE_ALL	0x37	/* Set all ALS & PS bits and power on */
+#define APDS9930_ENABLE_ALL	0x07	/* Set all ALS & PS bits and power on */
 #define APDS9930_DEF_ATIME	0xdb	/* 50 ms - ALSIT value in order to
 					 * reject 50/60 Hz ripple; if higher
 					 * resolution is needed, increase ALSIT
@@ -443,8 +443,6 @@ static int apds9930_enable_all(struct apds9930_data *data)
 	if (ret < 0)
 		goto err;
 
-	data->als_intr_state	= true;
-	data->ps_intr_state	= true;
 err:
 	mutex_unlock(&data->mutex);
 
@@ -461,8 +459,6 @@ static int apds9930_disable_all(struct apds9930_data *data)
 	if (ret < 0)
 		goto err;
 
-	data->als_intr_state	= false;
-	data->ps_intr_state	= false;
 err:
 	mutex_unlock(&data->mutex);
 
