@@ -22,6 +22,9 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/iio/buffer.h>
+#include <linux/iio/triggered_buffer.h>
+#include <linux/iio/trigger_consumer.h>
 
 #define MMC35240_DRV_NAME "mmc35240"
 #define MMC35240_REGMAP_NAME "mmc35240_regmap"
@@ -184,21 +187,31 @@ static const struct {
 
 static IIO_CONST_ATTR_SAMP_FREQ_AVAIL("1.5 13 25 50");
 
-#define MMC35240_CHANNEL(_axis) { \
-	.type = IIO_MAGN, \
-	.modified = 1, \
-	.channel2 = IIO_MOD_ ## _axis, \
-	.address = AXIS_ ## _axis, \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ) |\
-			BIT(IIO_CHAN_INFO_SCALE),  \
+#define MMC35240_CHANNEL(_axis) {				\
+	.type = IIO_MAGN,					\
+	.modified = 1,						\
+	.channel2 = IIO_MOD_##_axis,				\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |	\
+				BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	.scan_index = AXIS_##_axis,				\
+	.scan_type = {						\
+		.sign = 's',					\
+		.realbits = 32,					\
+		.storagebits = 32,				\
+		.shift = 0,					\
+		.endianness = IIO_CPU,				\
+	},							\
 }
 
 static const struct iio_chan_spec mmc35240_channels[] = {
 	MMC35240_CHANNEL(X),
 	MMC35240_CHANNEL(Y),
 	MMC35240_CHANNEL(Z),
+	IIO_CHAN_SOFT_TIMESTAMP(3),
 };
+
+static const unsigned long mmc35240_scan_masks[] = {0x7, 0};
 
 static struct attribute *mmc35240_attributes[] = {
 	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
@@ -453,6 +466,40 @@ static int memsic_raw_to_mgauss(struct mmc35240_data *data, int index,
 	return 0;
 }
 
+static irqreturn_t mmc35240_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct mmc35240_data *data = iio_priv(indio_dev);
+	__le16 mag_buf[3];
+	int bit, ret, i = 0;
+	s32 buf[6]; /* 3*s32 = 12 bytes axis + 2*s32 = 8 bytes timestamp */
+
+	memset(buf, 0, sizeof(buf));
+
+	mutex_lock(&data->mutex);
+	ret = mmc35240_read_measurement(data, mag_buf);
+	if (ret < 0) {
+		mutex_unlock(&data->mutex);
+		goto done;
+	}
+
+	for_each_set_bit(bit, indio_dev->active_scan_mask,
+			 indio_dev->masklength) {
+		ret = memsic_raw_to_mgauss(data, bit, mag_buf, &buf[i++]);
+		if (ret < 0) {
+			mutex_unlock(&data->mutex);
+			goto done;
+		}
+	}
+	mutex_unlock(&data->mutex);
+
+	iio_push_to_buffers_with_timestamp(indio_dev, buf, iio_get_time_ns());
+done:
+	iio_trigger_notify_done(indio_dev->trig);
+
+	return IRQ_HANDLED;
+}
 static int mmc35240_read_raw(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan, int *val,
 			     int *val2, long mask)
@@ -469,7 +516,7 @@ static int mmc35240_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&data->mutex);
 		if (ret < 0)
 			return ret;
-		ret = memsic_raw_to_mgauss(data, chan->address, buf, val);
+		ret = memsic_raw_to_mgauss(data, chan->scan_index, buf, val);
 		if (ret < 0)
 			return ret;
 		return IIO_VAL_INT;
@@ -642,6 +689,7 @@ static int mmc35240_probe(struct i2c_client *client,
 	indio_dev->name = name;
 	indio_dev->channels = mmc35240_channels;
 	indio_dev->num_channels = ARRAY_SIZE(mmc35240_channels);
+	indio_dev->available_scan_masks = mmc35240_scan_masks;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	ret = mmc35240_init(data);
@@ -649,7 +697,31 @@ static int mmc35240_probe(struct i2c_client *client,
 		dev_err(&client->dev, "mmc35240 chip init failed\n");
 		return ret;
 	}
-	return devm_iio_device_register(&client->dev, indio_dev);
+
+	ret = iio_triggered_buffer_setup(indio_dev, NULL,
+					 mmc35240_trigger_handler, NULL);
+	if (ret < 0)
+		return ret;
+
+	ret = iio_device_register(indio_dev);
+	if (ret < 0)
+		goto err_unreg_buffer;
+
+	return 0;
+
+err_unreg_buffer:
+	iio_triggered_buffer_cleanup(indio_dev);
+	return ret;
+}
+
+static int mmc35240_remove(struct i2c_client *client)
+{
+	struct iio_dev *indio_dev = i2c_get_clientdata(client);
+
+	iio_device_unregister(indio_dev);
+	iio_triggered_buffer_cleanup(indio_dev);
+
+	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -706,6 +778,7 @@ static struct i2c_driver mmc35240_driver = {
 		.acpi_match_table = ACPI_PTR(mmc35240_acpi_match),
 	},
 	.probe		= mmc35240_probe,
+	.remove		= mmc35240_remove,
 	.id_table	= mmc35240_id,
 };
 
