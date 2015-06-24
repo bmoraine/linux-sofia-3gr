@@ -23,6 +23,9 @@
 #endif
 #include "stm_regs.h"
 
+#include "asm/xgold.h"
+#include "asm/clocksource.h"
+
 static void __iomem *stm_hw_base;
 static unsigned period0;
 static unsigned long clk_rate;
@@ -36,6 +39,8 @@ static DEFINE_SPINLOCK(stm_shed_lock);
 static DEFINE_SPINLOCK(stm_hw_lock);
 static int irq_nodes[2];
 cpumask_t stm_cpumask = CPU_MASK_NONE;
+/* Will be used by vdso code */
+unsigned long stm_addr;
 
 struct xgold_stm_clkevt {
 	struct clock_event_device evt;
@@ -396,12 +401,18 @@ static void __init xgold_of_timer_map(struct device_node *np)
 {
 	int ret, i, mask;
 	unsigned int faf, evt_rating, src_rating, evt_min, evt_max, clk_val;
+	struct resource res;
 
 	stm_clk = of_clk_get_by_name(np, "kernel");
 
 	if (stm_clk != ERR_PTR(-ENOENT))
 		clk_rate = clk_get_rate(stm_clk);
 	clk_prepare_enable(stm_clk);
+
+	/* feng: map the STM HW base to vbase range */
+	of_address_to_resource(np, 0, &res);
+	stm_addr = res.start;
+
 	stm_hw_base = of_iomap(np, 0);
 	if (!stm_hw_base)
 		panic("unable to map timer cpu registers\n");

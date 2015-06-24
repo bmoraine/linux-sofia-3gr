@@ -19,4 +19,9 @@ static inline void pstore_ram_reserve_memory(void) { }
 #endif
 
 extern bool xgold_platform_needs_broadcast_timer(void);
+
+#ifdef CONFIG_XGOLD_STM_TIMER
+/* STM timer HW base address */
+extern unsigned long stm_addr;
+#endif
 #endif
