@@ -1920,7 +1920,6 @@ void dwc2_hc_start_transfer_ddma(struct dwc2_hsotg *hsotg,
 				 struct dwc2_host_chan *chan)
 {
 	u32 hcchar;
-	u32 hc_dma;
 	u32 hctsiz = 0;
 
 	if (chan->do_ping)
@@ -1958,14 +1957,12 @@ void dwc2_hc_start_transfer_ddma(struct dwc2_hsotg *hsotg,
 	dma_sync_single_for_device(hsotg->dev, chan->desc_list_addr,
 			chan->desc_list_sz, DMA_TO_DEVICE);
 
-	hc_dma = (u32)chan->desc_list_addr & HCDMA_DMA_ADDR_MASK;
+	/* Always start from first descriptor, so no need to mask address */
+	writel(chan->desc_list_addr, hsotg->regs + HCDMA(chan->hc_num));
 
-	/* Always start from first descriptor */
-	hc_dma &= ~HCDMA_CTD_MASK;
-	writel(hc_dma, hsotg->regs + HCDMA(chan->hc_num));
 	if (dbg_hc(chan))
 		dev_vdbg(hsotg->dev, "Wrote %08x to HCDMA(%d)\n",
-			 hc_dma, chan->hc_num);
+			 chan->desc_list_addr, chan->hc_num);
 
 	hcchar = readl(hsotg->regs + HCCHAR(chan->hc_num));
 	hcchar &= ~HCCHAR_MULTICNT_MASK;

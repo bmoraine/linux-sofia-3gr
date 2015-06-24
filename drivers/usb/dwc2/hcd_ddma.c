@@ -97,6 +97,14 @@ static int dwc2_desc_list_alloc(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 	if (!qh->desc_list)
 		return -ENOMEM;
 
+	if ((u32)qh->desc_list & HOST_DMA_DESC_LIST_ALIGNMENT_MASK) {
+		dev_err(hsotg->dev, "%s: desc list not aligned %p\n",
+						__func__, qh->desc_list);
+		kfree(qh->desc_list);
+		qh->desc_list = NULL;
+		return -EFAULT;
+	}
+
 	qh->desc_list_dma = dma_map_single(hsotg->dev, qh->desc_list,
 			qh->desc_list_sz,
 			DMA_TO_DEVICE);

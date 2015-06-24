@@ -768,10 +768,6 @@
 #define TSIZ_XFERSIZE_SHIFT		0
 
 #define HCDMA(_ch)			HSOTG_REG(0x0514 + 0x20 * (_ch))
-#define HCDMA_DMA_ADDR_MASK		(0x1fffff << 11)
-#define HCDMA_DMA_ADDR_SHIFT		11
-#define HCDMA_CTD_MASK			(0xff << 3)
-#define HCDMA_CTD_SHIFT			3
 
 #define HCDMAB(_ch)			HSOTG_REG(0x051c + 0x20 * (_ch))
 
@@ -807,7 +803,13 @@ struct dwc2_hcd_dma_desc {
 #define HOST_DMA_NBYTES_SHIFT		0
 
 #define MAX_DMA_DESC_SIZE		131071
+/*
+ * Must be at least 64 otherwise descriptor list alignment requirements will
+ * not be met.
+ */
 #define MAX_DMA_DESC_NUM_GENERIC	64
 #define MAX_DMA_DESC_NUM_HS_ISOC	256
+
+#define HOST_DMA_DESC_LIST_ALIGNMENT_MASK (512 - 1)
 
 #endif /* __DWC2_HW_H__ */
