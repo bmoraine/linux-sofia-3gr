@@ -103,6 +103,7 @@ static int fan54x_enable_charging(
 			struct fan54x_charger *chrgr, bool enable);
 
 static void unfreezable_bh_schedule(struct unfreezable_bh_struct *bh);
+static bool check_if_in_cos(void);
 struct charger_debug_data chrgr_dbg = {
 	.printk_logs_en = 0,
 };
@@ -116,6 +117,8 @@ static struct power_supply_throttle fan54x_dummy_throttle_states[] = {
 static char *fan54x_supplied_to[] = {
 		"battery",
 };
+/*module parameter, record boot mode is AOS or COS*/
+static char *bootmode;
 
 static enum power_supply_property fan54x_power_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
@@ -689,11 +692,21 @@ static int fan54x_set_ibus_limit(struct fan54x_charger *chrgr,
 static inline bool fan54x_is_online(struct fan54x_charger *chrgr,
 						struct power_supply *psy)
 {
-	if (!(chrgr->state.health == POWER_SUPPLY_HEALTH_GOOD) ||
-		(!chrgr->state.charger_enabled) ||
+	if (check_if_in_cos()) {
+		/*
+		  if in charging OS, we return not online
+		  if no vbus or charger not in health
+		*/
+		if (!chrgr->state.vbus
+			|| !(chrgr->state.health == POWER_SUPPLY_HEALTH_GOOD)) {
+			return false;
+		}
+	} else {
+		if (!(chrgr->state.health == POWER_SUPPLY_HEALTH_GOOD) ||
+			(!chrgr->state.charger_enabled) ||
 			(!chrgr->state.charging_enabled))
-		return false;
-
+			return false;
+	}
 
 	if (psy->type == POWER_SUPPLY_TYPE_MAINS)
 		return ((chrgr->state.cable_type ==
@@ -1752,6 +1765,14 @@ static void fan54x_setup_dbglogs_sysfs_attr(struct device *dev)
 }
 
 
+ #define BOOT_MODE_CHARGER "charger"
+static bool check_if_in_cos(void)
+{
+    /*boot mode is module parameter passed from kernel cmd line*/
+	return  (bootmode
+			 && 0 == strcmp(bootmode, BOOT_MODE_CHARGER)) ?
+		true : false;
+}
 static int fan54x_i2c_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
@@ -2236,9 +2257,16 @@ static struct idi_peripheral_driver fan54x_idi_driver = {
 };
 
 
+module_param(bootmode, charp, S_IRUGO);
+
 static int __init fan54x_init(void)
 {
 	int ret;
+
+	if (bootmode)
+		pr_info("boot mode: %s\n", bootmode);
+	else
+		pr_info("boot mode NULL\n");
 
 	ret = idi_register_peripheral_driver(&fan54x_idi_driver);
 	if (ret)
