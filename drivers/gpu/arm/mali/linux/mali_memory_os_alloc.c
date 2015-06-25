@@ -155,10 +155,10 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 	}
 #ifdef CONFIG_X86
 	if (remaining) {
-		array_pages = kmalloc(sizeof(struct pages *) * remaining,
-				GFP_KERNEL);
+		array_pages = vmalloc(sizeof(struct pages *) * remaining);
+
 		if (array_pages == NULL) {
-			pr_err("%s: kmalloc array_pages fail! pagecount=0x%x remaining=0x%x\n",
+			pr_err("%s: vmalloc array_pages fail! pagecount=0x%x remaining=0x%x\n",
 				__func__, page_count, remaining);
 			/* Calculate the number of pages actually allocated, and free them. */
 			descriptor->os_mem.count = page_count - remaining;
@@ -195,7 +195,7 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 
 		if (unlikely(NULL == new_page)) {
 			MALI_PRINT(("Error! Fail to alloc new page.\n"));
-			pr_err("%s: alloc_page failed. pagecount=0x%x remaining=0x%x total_alloc_pages=0x%x\n",
+			pr_err("%s: alloc_page failed. pagecount=0x%x remaining=0x%x\n",
 				__func__, page_count, remaining);
 			if (array_pages != NULL) {
 				/* prev alloc pages are added into pool in mali_mem_os_free
@@ -203,7 +203,7 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 				 * set them to wc */
 				if (i)
 					set_pages_array_wc(array_pages, i);
-				kfree(array_pages);
+				vfree(array_pages);
 			}
 			/* Calculate the number of pages actually allocated, and free them. */
 			descriptor->os_mem.count = (page_count - remaining) + i;
@@ -230,7 +230,7 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 			if (array_pages != NULL) {
 				if (i)
 					set_pages_array_wc(array_pages, i);
-				kfree(array_pages);
+				vfree(array_pages);
 			}
 #endif
 			__free_page(new_page);
@@ -252,7 +252,7 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 #ifdef CONFIG_X86
 	if (remaining) {
 		set_pages_array_wc(array_pages, remaining);
-		kfree(array_pages);
+		vfree(array_pages);
 	}
 #endif
 
@@ -503,7 +503,7 @@ static int mali_mem_os_free_pages_list(struct list_head *pages_list)
 	/* Is it better to preallocate a page aligned array and loop?
 	 * will keep doing this random sized kmalloc/kfree
 	 * causes memory fragmentation? */
-	array_pages = kmalloc(sizeof(struct page *) * nr_items, GFP_KERNEL);
+	array_pages = vmalloc(sizeof(struct page *) * nr_items);
 	/* Continue even if cannot alloc array_pages
 	 * (we do hit here at times esp when fail to get_page liao!)
 	 * cos caller already has marked marked pages as freed from pool
@@ -512,7 +512,7 @@ static int mali_mem_os_free_pages_list(struct list_head *pages_list)
 		list_for_each_entry_safe(page, tmp, pages_list, lru)
 			array_pages[i++] = page;
 		set_pages_array_wb(array_pages, nr_items);
-		kfree(array_pages);
+		vfree(array_pages);
 		i = 0;
 	}
 #endif
