@@ -2476,6 +2476,9 @@ static int _dwc2_hcd_resume(struct usb_hcd *hcd)
 		spin_unlock_irqrestore(&hsotg->lock, flags);
 		dwc2_port_resume(hsotg);
 	} else {
+		/* Wait for controller to correctly update D+/D- level */
+		mdelay(3);
+
 		/*
 		 * Clear Port Enable and Port Status changes.
 		 * Enable Port Power.
