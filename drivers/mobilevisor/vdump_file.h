@@ -20,7 +20,9 @@
 #define _VDUMP_FILE_H_
 
 void vdump_set_linux_config(void);
-void vdump_save_coredump(void *ptr, int num_bytes, int end);
+void vdump_open_coredump(void);
+void vdump_close_coredump(void);
+void vdump_save_coredump(void *ptr, int num_bytes);
 int vdump_get_shmem_config(void);
 void vdump_setting_init(void);
 

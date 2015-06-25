@@ -55,8 +55,13 @@
 #define VDUMP_CONFIG_FILE "/system/etc/vdump.conf"
 #define VDUMP_COREDUMP_FILE "/storage/sdcard0/coredump.istp"
 #define VDUMP_CONFIG_FILE_SIZE 500
-#define VDUMP_CONFIG_MAX_VALUE_LENGTH 10
+#define VDUMP_CONFIG_MAX_VALUE_LENGTH 50
+#define VDUMP_CONFIG_PATH_LEN 255
 
+#define DEFAULT_COREDUMP_PATH "/storage/sdcard0/"
+#define DEFAULT_COREDUMP_NAME "coredump"
+
+#define VDUMP_CONFIG_TAG_PATH "save_path"
 #define VDUMP_CONFIG_TAG_ENABLE "enable"
 #define VDUMP_CONFIG_TAG_SHMEM "shmem"
 #define VDUMP_CONFIG_TAG_DEVICE "device"
@@ -77,6 +82,9 @@ struct vdump_vmm_settings {
 	struct cd_config cd_config_linux;
 };
 static struct vdump_vmm_settings vdump_vmm_setting;
+static char coredump_path[VDUMP_CONFIG_PATH_LEN+1] = {0};
+static struct file *coredump_file_ptr;
+static loff_t coredump_file_pos;
 
 void vdump_setting_init(void)
 {
@@ -90,90 +98,86 @@ int vdump_get_shmem_config(void)
 
 void vdump_set_linux_config(void)
 {
+	int i = 20;
 	vdump_detect(VDUMP_CONFIG_FILE);
-	if (true == vdump_get_config(VDUMP_CONFIG_FILE))
-		vdump_send_config();
+	while (i--) {
+		if (true == vdump_get_config(VDUMP_CONFIG_FILE)) {
+			vdump_send_config();
+			break;
+		}
+		msleep(2000);
+	}
 }
 
-void vdump_save_coredump(void *ptr, int num_bytes, int end)
+void vdump_open_coredump(void)
 {
-	static struct file *fp;
-	static loff_t pos;
-	int written_bytes = 0;
-	int verify_fp = 2;
-	mm_segment_t old_fs;
-	char filename[50];
 	int i;
+	char filename[VDUMP_CONFIG_PATH_LEN+1];
+	mm_segment_t old_fs;
 
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	/* VD_LOG("Write: %d bytes\n", num_bytes); */
-
-	if (end) {
-		if (!IS_ERR_OR_NULL(fp)) {
-			VD_LOG("File closed.\n");
-			filp_close(fp, NULL);
-			fp = NULL;
-			pos = 0;
-			verify_fp = -1;
+	/* scan for new coredump file to be saved */
+	for (i = 0; i <= 99; i++) {
+		snprintf(filename,
+			VDUMP_CONFIG_PATH_LEN,
+			"%s_%02d.istp",
+			coredump_path,
+			i);
+		coredump_file_ptr = filp_open(filename,
+			O_RDWR | O_CREAT | O_EXCL, 0);
+		if (IS_ERR_OR_NULL(coredump_file_ptr)) {
+			if (i == 99)
+				VD_LOG("ERROR: Cannot save coredump file:%s.\n",
+					filename);
+		} else {
+			coredump_file_pos = 0;
+			VD_LOG("File opened:%s\n", filename);
+			break;
 		}
 	}
+	set_fs(old_fs);
+}
 
-	while (verify_fp > 0) {
-		if (IS_ERR_OR_NULL(fp)) {
+void vdump_close_coredump(void)
+{
+	mm_segment_t old_fs;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	if (!IS_ERR_OR_NULL(coredump_file_ptr)) {
+		filp_close(coredump_file_ptr, NULL);
+		coredump_file_ptr = NULL;
+		coredump_file_pos = 0;
+		VD_LOG("File closed.\n");
+	}
+	set_fs(old_fs);
+}
+
+void vdump_save_coredump(void *ptr, int num_bytes, int end)
+{
+	int written_bytes = 0;
+	mm_segment_t old_fs;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	if (!IS_ERR_OR_NULL(coredump_file_ptr)) {
+		/* try a first time write */
+		written_bytes = coredump_file_ptr->f_op->write(
+			coredump_file_ptr, (char *)ptr,
+			num_bytes, &coredump_file_pos);
+		if (written_bytes <= 0) {
 			VD_LOG(
-				"Gadget fp=%p is not valid=%ld!\n",
-				fp, PTR_ERR(fp));
-			/* re-open the tty gadget */
-			for (i = 0; i <= 99; i++) {
-				sprintf(filename,
-					"/storage/sdcard0/coredump_%02d.istp",
-					i);
-				fp = filp_open(filename,
-					O_RDWR | O_CREAT | O_EXCL, 0);
-				if (IS_ERR_OR_NULL(fp)) {
-					VD_LOG(
-						"Gadget fp=%p re-open failed with error=%ld!\n",
-						fp, PTR_ERR(fp));
-					if (i == 99)
-						verify_fp = -1;
-				} else {
-					VD_LOG("File opened:%s\n", filename);
-					break;
-				}
-			}
-		}
-		if (!IS_ERR_OR_NULL(fp)) {
-			/* try a first time write */
-			written_bytes = fp->f_op->write(fp,
-				(char *)ptr, num_bytes, &pos);
-			if (written_bytes <= 0) {
-				VD_LOG(
-					"Error: file write Error with valid fp=%p, %d\n",
-					fp, written_bytes);
-				/* come back and force the loop to re-open fp */
-				fp = NULL;
-				/* avoid infinity loop doing only
-				* one time the loop */
-				verify_fp--;
-				/* skip bytes in buffer and leave loop */
-				written_bytes = num_bytes;
-			} else {
-				/* write sucessfuly to file
-					and leave the loop */
-				/* VD_LOG("Write ok!\n"); */
-				verify_fp = -1;
-			}
-		} else {
-			verify_fp--;
+				"Error: file write Error with valid fp=%p, %d\n",
+				coredump_file_ptr, written_bytes);
 		}
 	}
 
 	set_fs(old_fs);
 }
-
-
 
 static bool vdump_get_config(char *cfg_path)
 {
@@ -185,6 +189,7 @@ static bool vdump_get_config(char *cfg_path)
 	char value_debug_device[VDUMP_CONFIG_MAX_VALUE_LENGTH+1] = {0};
 	char value_debug_device_baud[VDUMP_CONFIG_MAX_VALUE_LENGTH+1] = {0};
 	char value_usb_config[VDUMP_CONFIG_MAX_VALUE_LENGTH+1] = {0};
+	char value_path[VDUMP_CONFIG_MAX_VALUE_LENGTH+1] = {0};
 	struct file *fp_cfg;
 	loff_t pos_cfg = 0;
 	/* loff_t pos_dir = 0; */
@@ -206,6 +211,10 @@ static bool vdump_get_config(char *cfg_path)
 			fp_cfg->f_op->read(fp_cfg, cfg_context,
 					file_len, &pos_cfg);
 		if (strlen(cfg_context) != 0) {
+			get_value_by_tag(cfg_context,
+				VDUMP_CONFIG_TAG_PATH,
+				value_path,
+				VDUMP_CONFIG_MAX_VALUE_LENGTH);
 			get_value_by_tag(cfg_context,
 				VDUMP_CONFIG_TAG_ENABLE,
 				value_enable,
@@ -245,6 +254,14 @@ static bool vdump_get_config(char *cfg_path)
 	set_fs(old_fs);
 
 	if (true == valid) {
+		/* config path */
+		memset(coredump_path, 0, VDUMP_CONFIG_PATH_LEN + 1);
+		if (value_path == NULL || strlen(value_path) == 0)
+			snprintf(coredump_path, VDUMP_CONFIG_PATH_LEN, "%s%s",
+				DEFAULT_COREDUMP_PATH, DEFAULT_COREDUMP_NAME);
+		else
+			snprintf(coredump_path, VDUMP_CONFIG_PATH_LEN, "%s%s",
+				value_path, DEFAULT_COREDUMP_NAME);
 		/* config enable */
 		vdump_vmm_setting.vdump_enable =
 			(value_enable == NULL
@@ -343,6 +360,7 @@ static void vdump_send_config(void)
 	cd_config_linux->usb_config =
 		vdump_vmm_setting.cd_config_linux.usb_config;
 
+	VD_LOG("save_path:%s\n", coredump_path);
 	VD_LOG("cd_config_linux->device=%d\n",
 		cd_config_linux->device);
 	VD_LOG("cd_config_linux->device_baud=%d\n",

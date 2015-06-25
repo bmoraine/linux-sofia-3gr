@@ -26,6 +26,7 @@
 
 #include "vdump_stp.h"
 #include "vdump_istp.h"
+#include "vdump_file.h"
 
 
 /*============================================================================
@@ -243,6 +244,8 @@ void VD_stp_start(struct cd_sharemem *cd_info)
 	struct sys_trap *trap_ptr = &cd_info->trap_ptr;
 	struct x86_cpu_regs *regs_ptr = NULL;
 	struct sys_vm_dump *vm_dump_ptr = &cd_info->vm_dump;
+
+	vdump_open_coredump();
 
 	TracePort = VD_TRACE_PORT_USIF;
 	Protocol = VD_COREDUMP_PROTOCOL_ISTP;

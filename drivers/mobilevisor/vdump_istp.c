@@ -16,6 +16,7 @@
 *
 */
 #include <stdarg.h>
+#include <linux/io.h>
 #include "vdump_istp.h"
 #include "vdump_file.h"
 
@@ -190,8 +191,8 @@ static void VD_Istp_add_data_to_frame(unsigned char *data, int length)
 	int tCnt;
 
 
-	for (tCnt = 0; tCnt < length; tCnt++) {
-		unsigned char cTmp = data[tCnt];
+	for (tCnt = 0; tCnt < length; tCnt++, data++) {
+		unsigned char cTmp = ioread8(data);
 
 		/* update FCS */
 		pLocalData->fcs =
@@ -294,7 +295,7 @@ static void VD_Istp_flush_buffer(void)
 	/* cd_stream_write
 		(CD_STREAM_COREDUMP, pLocalData->fbuf, pLocalData->fbuf_pos); */
 	vdump_save_coredump((void *)pLocalData->fbuf,
-		(int)pLocalData->fbuf_pos, 0);
+		(int)pLocalData->fbuf_pos);
 	pLocalData->fbuf_pos = 0;
 }
 
@@ -341,7 +342,7 @@ void VD_Istp_deinit(void)
 	Istp_enc_data.ccid = INVALID_CID;
 
 	/* Close the file */
-	vdump_save_coredump(0, 0, 1);
+	vdump_close_coredump();
 }
 
 /*****************************************************************************
