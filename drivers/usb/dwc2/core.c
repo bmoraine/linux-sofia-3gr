@@ -423,6 +423,12 @@ int dwc2_enter_hibernation(struct dwc2_hsotg *hsotg)
 		}
 	}
 
+	/*
+	 * Clear any pending interrupts since controller will no more be able to
+	 * handle it.
+	 */
+	writel(0xffffffff, hsotg->regs + GINTSTS);
+
 	/* Put the controller in low power state */
 	pcgcctl = readl(hsotg->regs + PCGCTL);
 
