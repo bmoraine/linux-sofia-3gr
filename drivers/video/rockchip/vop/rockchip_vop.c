@@ -1205,6 +1205,12 @@ static int rockchip_vop_set_par(struct rockchip_vop_driver *dev_drv, int win_id)
 		win->area[0].dsp_sty = win->area[0].ypos +
 		    screen->mode.upper_margin + screen->mode.vsync_len;
 	}
+
+	if (win->area[0].xsize == 1 || win->area[0].ysize == 1) {
+		dev_err(dev_drv->dev, "unsupported win number (x, y)=(%d, %d)\n",
+				win->area[0].xsize, win->area[0].ysize);
+	}
+
 	win->scale_yrgb_x = CALSCALE(win->area[0].xact, win->area[0].xsize);
 	win->scale_yrgb_y = CALSCALE(win->area[0].yact, win->area[0].ysize);
 
