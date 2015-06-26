@@ -380,6 +380,7 @@ struct rga_service_info {
 	atomic_t cmd_num;
 	atomic_t rga_working;
 	bool enable;
+	atomic_t already_queue;
 	short src_fence_fd;
 	short src_fence_flag;
 	short dst_fence_fd;
@@ -390,8 +391,9 @@ struct rga_service_info {
 	struct workqueue_struct *fence_workqueue;
 	struct delayed_work fence_delayed_work;
 	uint16_t timeout_num;
+	atomic_t delay_work_already_queue;
 	atomic_t interrupt_flag;
-	atomic_t bWaitISTRunning;
+	atomic_t interrupt_timeout_flag;
 	/* mutex */
 	struct mutex mutex;
 };
