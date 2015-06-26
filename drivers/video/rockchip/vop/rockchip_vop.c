@@ -75,6 +75,7 @@ static void rockchip_vop_clk_enable(struct vop_device *vop_dev)
 #else
 		clk_prepare_enable(vop_dev->dclk);
 #endif
+		xgold_noc_qos_set(NOC_VOP_NAME);
 		vop_dev->clk_on = true;
 	}
 }
@@ -773,8 +774,6 @@ static int rockchip_vop_pre_init(struct rockchip_vop_driver *dev_drv)
 
 	rockchip_disp_pwr_enable(screen);
 	rockchip_vop_clk_enable(vop_dev);
-
-	xgold_noc_qos_set(NOC_VOP_NAME);
 
 	/* backup reg config at uboot */
 	vop_read_reg_default_cfg(vop_dev);
