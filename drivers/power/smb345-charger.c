@@ -425,7 +425,7 @@ static enum power_supply_property smb345_power_props[] = {
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_INLMT,
 	POWER_SUPPLY_PROP_MODEL_NAME,
-	POWER_SUPPLY_PROP_MANUFACTURER
+	POWER_SUPPLY_PROP_MANUFACTURER,
 };
 
 static struct smb345_charger *smb345_dev;
@@ -641,27 +641,6 @@ static int __maybe_unused smb345_set_iocharge(
 	return 0;
 }
 
-static inline bool smb345_is_online(struct smb345_charger *chrgr,
-						struct power_supply *psy)
-{
-	if (!chrgr->state.charger_enabled)
-		return false;
-
-	if (psy->type == POWER_SUPPLY_TYPE_MAINS)
-		return ((chrgr->state.cable_type ==
-			POWER_SUPPLY_CHARGER_TYPE_USB_CDP) ||
-			(chrgr->state.cable_type ==
-			POWER_SUPPLY_CHARGER_TYPE_USB_DCP));
-
-	else if (psy->type == POWER_SUPPLY_TYPE_USB)
-		return ((chrgr->state.cable_type ==
-			POWER_SUPPLY_CHARGER_TYPE_USB_SDP) ||
-			(chrgr->state.cable_type ==
-			POWER_SUPPLY_CHARGER_TYPE_USB_FLOATING));
-
-	return false;
-}
-
 static int __maybe_unused smb345_set_ibus_limit(struct smb345_charger *chrgr,
 						int ilim_to_set, int *ilim_set)
 {
@@ -672,18 +651,6 @@ static int __maybe_unused smb345_charger_set_property(struct power_supply *psy,
 					enum power_supply_property psp,
 					const union power_supply_propval *val)
 {
-	struct smb345_charger *chrgr = &chrgr_data;
-	down(&chrgr->prop_lock);
-
-	switch (psp) {
-	case POWER_SUPPLY_PROP_ENABLE_CHARGER:
-		chrgr->state.charger_enabled = val->intval;
-		break;
-	default:
-		break;
-	};
-
-	up(&chrgr->prop_lock);
 	return 0;
 }
 
@@ -691,41 +658,6 @@ static int __maybe_unused smb345_charger_get_property(struct power_supply *psy,
 					enum power_supply_property psp,
 					union power_supply_propval *val)
 {
-	struct smb345_charger *chrgr = &chrgr_data;
-	down(&chrgr->prop_lock);
-
-	switch (psp) {
-	case POWER_SUPPLY_PROP_PRESENT:
-	if (psy->type == POWER_SUPPLY_TYPE_USB)
-			val->intval = ((chrgr->state.cable_type ==
-				POWER_SUPPLY_CHARGER_TYPE_USB_SDP) ||
-				(chrgr->state.cable_type ==
-				POWER_SUPPLY_CHARGER_TYPE_USB_FLOATING));
-
-		else if (psy->type == POWER_SUPPLY_TYPE_MAINS)
-			val->intval = ((chrgr->state.cable_type ==
-				POWER_SUPPLY_CHARGER_TYPE_USB_DCP) ||
-				(chrgr->state.cable_type ==
-				POWER_SUPPLY_CHARGER_TYPE_USB_CDP));
-		else
-			val->intval = 0;
-
-		break;
-
-	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = smb345_is_online(chrgr, psy);
-		break;
-
-	case POWER_SUPPLY_PROP_ENABLE_CHARGER:
-		val->intval = chrgr->state.charger_enabled;
-		break;
-
-	default:
-		break;
-	};
-
-	up(&chrgr->prop_lock);
-
 	return 0;
 }
 
@@ -1286,19 +1218,16 @@ static int smb345_enable_charging(struct smb345_charger *chrgr,
 		if (chrgr->state.cable_type ==
 				POWER_SUPPLY_CHARGER_TYPE_USB_SDP) {
 			power_supply_changed(&chrgr->usb_psy);
-			chrgr->state.charger_enabled = 1;
 		} else if (chrgr->state.cable_type
 				== POWER_SUPPLY_CHARGER_TYPE_USB_CDP ||
 				chrgr->state.cable_type
 				== POWER_SUPPLY_CHARGER_TYPE_USB_DCP) {
 			power_supply_changed(&chrgr->ac_psy);
-			chrgr->state.charger_enabled = 1;
 		}
 
 	} else {
 		power_supply_changed(&chrgr->ac_psy);
 		power_supply_changed(&chrgr->usb_psy);
-		chrgr->state.charger_enabled = 0;
 	}
 
 fail:
