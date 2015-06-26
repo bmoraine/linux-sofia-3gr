@@ -306,9 +306,6 @@ static void xgold_sdhci_of_resume(struct sdhci_host *host)
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 #endif
-	while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
-			      SDHCI_CARD_DET_STABLE))
-		usleep_range(250, 500);
 }
 
 #endif
@@ -369,9 +366,6 @@ static void xgold_sdhci_of_runtime_resume(struct sdhci_host *host)
 			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name))
 		dev_err(&pdev->dev, "set pm state D0 during runtime resume  failed !\n");
 #endif
-	while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
-			      SDHCI_CARD_DET_STABLE))
-		usleep_range(250, 500);
 }
 
 #endif
@@ -411,9 +405,6 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 			MMC_CAP_AGGRESSIVE_PM;*/
 	}
 
-	while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
-			      SDHCI_CARD_DET_STABLE))
-		usleep_range(250, 500);
 	if (mmc_pdata->fixup & XGOLD_DEFAULT_REGS_FIXUP)
 		xgold_default_regs_fixup(host);
 }
