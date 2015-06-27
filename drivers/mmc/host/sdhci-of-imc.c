@@ -289,6 +289,7 @@ static void xgold_sdhci_of_resume(struct sdhci_host *host)
 {
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
+	u32 timeout = 1000;
 	if (device_may_wakeup(&pdev->dev)) {
 		disable_irq_wake(mmc_pdata->irq_wk);
 		disable_irq_nosync(mmc_pdata->irq_wk);
@@ -306,9 +307,17 @@ static void xgold_sdhci_of_resume(struct sdhci_host *host)
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 #endif
+
+	/*
+	 * Timeout after 250 ms to 500 ms if SDHCI_CARD_DET_STABLE
+	 * doesn't happen.
+	 */
 	while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
-			      SDHCI_CARD_DET_STABLE))
+			      SDHCI_CARD_DET_STABLE) && --timeout)
 		usleep_range(250, 500);
+
+	WARN(!timeout, "Timeout waiting for SDHCI_CARD_DET_STABLE: %s\n",
+			mmc_hostname(host->mmc));
 }
 
 #endif
@@ -358,6 +367,7 @@ static void xgold_sdhci_of_runtime_resume(struct sdhci_host *host)
 {
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
+	u32 timeout = 1000;
 
 	if (mmc_pdata->irq_eint)
 		xgold_cd_irq_disable(mmc_pdata);
@@ -369,9 +379,17 @@ static void xgold_sdhci_of_runtime_resume(struct sdhci_host *host)
 			mmc_pdata->pm_platdata_clock_ctrl->pm_state_D0_name))
 		dev_err(&pdev->dev, "set pm state D0 during runtime resume  failed !\n");
 #endif
+
+	/*
+	 * Timeout after 250 ms to 500 ms if SDHCI_CARD_DET_STABLE
+	 * doesn't happen.
+	 */
 	while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
-			      SDHCI_CARD_DET_STABLE))
+			      SDHCI_CARD_DET_STABLE) && --timeout)
 		usleep_range(250, 500);
+
+	WARN(!timeout, "Timeout waiting for SDHCI_CARD_DET_STABLE: %s\n",
+			mmc_hostname(host->mmc));
 }
 
 #endif
@@ -390,6 +408,7 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct xgold_mmc_pdata *mmc_pdata = pdev->dev.platform_data;
 	struct device_node *np = pdev->dev.of_node;
+	u32 timeout = 1000;
 
 	mmc_of_parse(host->mmc);
 
@@ -411,9 +430,17 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 			MMC_CAP_AGGRESSIVE_PM;*/
 	}
 
+	/*
+	 * Timeout after 250 ms to 500 ms if SDHCI_CARD_DET_STABLE
+	 * doesn't happen
+	 */
 	while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
-			      SDHCI_CARD_DET_STABLE))
+			      SDHCI_CARD_DET_STABLE) && --timeout)
 		usleep_range(250, 500);
+
+	WARN(!timeout, "Timeout waiting for SDHCI_CARD_DET_STABLE: %s\n",
+			mmc_hostname(host->mmc));
+
 	if (mmc_pdata->fixup & XGOLD_DEFAULT_REGS_FIXUP)
 		xgold_default_regs_fixup(host);
 }
