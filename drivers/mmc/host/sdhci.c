@@ -1327,18 +1327,6 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
 		sdhci_runtime_pm_bus_on(host);
 
-	if (host->quirks2 & SDHCI_QUIRK2_POWER_CONTROL_BUG) {
-		unsigned long timeout = 300;
-		do {
-			if (sdhci_readb(host, SDHCI_POWER_CONTROL) == pwr)
-				break;
-			sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
-			udelay(1000);
-			timeout --;
-
-		} while (timeout);
-
-	}
 	/*
 	 * Some controllers need an extra 10ms delay of 10ms before they
 	 * can apply clock after applying power
