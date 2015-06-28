@@ -51,7 +51,7 @@
 #define DTRACE(x...)
 #endif
 
-#define TRACE(x...)	pr_notice("VOEMCRYPTO-FE: " x)
+#define TRACE(x...)	pr_debug("VOEMCRYPTO-FE: " x)
 #define WTRACE(x...)	pr_warn("VOEMCRYPTO-FE: " x)
 #define ETRACE(x...)	pr_err("VOEMCRYPTO-FE: " x)
 
