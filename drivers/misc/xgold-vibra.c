@@ -57,7 +57,7 @@ static void vibra_write32(struct xgold_vibra_device *vib, u16 offset, u32 val)
 	int ret;
 
 	if (vib->flags & XGOLD_VIBRA_USE_SECURE_IO_ACCESS) {
-		ret = mv_svc_reg_write_only(vib->phys_io_addr + offset,
+		ret = mv_svc_reg_write(vib->phys_io_addr + offset,
 							val, 0xFFFFFFFF);
 		BUG_ON(ret);
 	} else {
