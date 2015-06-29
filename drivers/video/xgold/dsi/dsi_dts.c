@@ -234,8 +234,6 @@ static int dsi_of_parse_gpio(struct platform_device *pdev,
 {
 	struct device_node *screen_dev_n;
 	enum of_gpio_flags gpio_flags;
-	unsigned long flags;
-	int ret;
 
 	screen_dev_n = of_find_matching_node(NULL, screen_of_match);
 	if (!screen_dev_n) {
@@ -245,76 +243,18 @@ static int dsi_of_parse_gpio(struct platform_device *pdev,
 
 	display->gpio_vhigh = of_get_named_gpio_flags(screen_dev_n,
 		PROP_DISPLAY_GPIOVH, 0, &gpio_flags);
-	if (gpio_is_valid(display->gpio_vhigh)) {
-		if (support_loader_display()) {
-			if (gpio_flags & OF_GPIO_ACTIVE_LOW)
-				flags = GPIOF_OUT_INIT_LOW;
-			else
-				flags = GPIOF_OUT_INIT_HIGH;
-		} else {
-			if (gpio_flags & OF_GPIO_ACTIVE_LOW)
-				flags = GPIOF_OUT_INIT_HIGH;
-			else
-				flags = GPIOF_OUT_INIT_LOW;
-		}
-		ret = gpio_request_one(display->gpio_vhigh, flags,
-				       "disp_vhigh");
-		if (ret) {
-			pr_err("%s: request display high power gpio fail: %d\n",
-			       __func__, ret);
-			display->gpio_vhigh = 0;
-		}
-	} else {
+	if (!gpio_is_valid(display->gpio_vhigh))
 		display->gpio_vhigh = 0;
-	}
 
 	display->gpio_vlow = of_get_named_gpio_flags(screen_dev_n,
-			PROP_DISPLAY_GPIOVL, 0, &gpio_flags);
-	if (gpio_is_valid(display->gpio_vlow)) {
-		if (support_loader_display()) {
-			if (gpio_flags & OF_GPIO_ACTIVE_LOW)
-				flags = GPIOF_OUT_INIT_LOW;
-			else
-				flags = GPIOF_OUT_INIT_HIGH;
-		} else {
-			if (gpio_flags & OF_GPIO_ACTIVE_LOW)
-				flags = GPIOF_OUT_INIT_HIGH;
-			else
-				flags = GPIOF_OUT_INIT_LOW;
-		}
-		ret = gpio_request_one(display->gpio_vlow, flags, "disp_vlow");
-		if (ret) {
-			pr_err("%s: request display low power gpio fail: %d\n",
-			       __func__, ret);
-			display->gpio_vlow = 0;
-		}
-	} else {
+		PROP_DISPLAY_GPIOVL, 0, &gpio_flags);
+	if (!gpio_is_valid(display->gpio_vlow))
 		display->gpio_vlow = 0;
-	}
 
 	display->gpio_reset = of_get_named_gpio_flags(screen_dev_n,
-			PROP_DISPLAY_GPIORST, 0, &gpio_flags);
-	if (gpio_is_valid(display->gpio_reset)) {
-		if (support_loader_display()) {
-			if (gpio_flags & OF_GPIO_ACTIVE_LOW)
-				flags = GPIOF_OUT_INIT_LOW;
-			else
-				flags = GPIOF_OUT_INIT_HIGH;
-		} else {
-			if (gpio_flags & OF_GPIO_ACTIVE_LOW)
-				flags = GPIOF_OUT_INIT_HIGH;
-			else
-				flags = GPIOF_OUT_INIT_LOW;
-		}
-		ret = gpio_request_one(display->gpio_reset, flags, "disp_rst");
-		if (ret) {
-			pr_err("%s: request display reset gpio fail: %d\n",
-			       __func__, ret);
-			display->gpio_reset = 0;
-		}
-	} else {
+		PROP_DISPLAY_GPIORST, 0, &gpio_flags);
+	if (!gpio_is_valid(display->gpio_reset))
 		display->gpio_reset = 0;
-	}
 
 	return 0;
 }

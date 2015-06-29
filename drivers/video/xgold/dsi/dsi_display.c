@@ -619,6 +619,7 @@ dsi_set_gpiolist(struct dsi_display *display, struct display_gpio *gpios)
 			if (!display->gpio_vhigh)
 				break;
 
+			gpio_request(display->gpio_vhigh, "disp_vhigh");
 			gpio_direction_output(display->gpio_vhigh, gpio->value);
 			break;
 
@@ -626,6 +627,7 @@ dsi_set_gpiolist(struct dsi_display *display, struct display_gpio *gpios)
 			if (!display->gpio_vlow)
 				break;
 
+			gpio_request(display->gpio_vlow, "disp_vlow");
 			gpio_direction_output(display->gpio_vlow, gpio->value);
 			break;
 
@@ -633,6 +635,7 @@ dsi_set_gpiolist(struct dsi_display *display, struct display_gpio *gpios)
 			if (!display->gpio_reset)
 				break;
 
+			gpio_request(display->gpio_reset, "disp_rst");
 			gpio_direction_output(display->gpio_reset, gpio->value);
 			break;
 		}
