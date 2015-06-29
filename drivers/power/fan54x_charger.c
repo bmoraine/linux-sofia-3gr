@@ -37,7 +37,8 @@
 #include <linux/idi/idi_device_pm.h>
 #include <linux/usb/phy-intel.h>
 #include <linux/slab.h>
-
+#include <linux/init.h>
+#include <linux/string.h>
 #include <linux/time.h>
 #include <linux/wakelock.h>
 #include "fan54x_charger.h"
@@ -117,8 +118,7 @@ static struct power_supply_throttle fan54x_dummy_throttle_states[] = {
 static char *fan54x_supplied_to[] = {
 		"battery",
 };
-/*module parameter, record boot mode is AOS or COS*/
-static char *bootmode;
+
 
 static enum power_supply_property fan54x_power_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
@@ -1765,14 +1765,43 @@ static void fan54x_setup_dbglogs_sysfs_attr(struct device *dev)
 }
 
 
- #define BOOT_MODE_CHARGER "charger"
+/*this parameter set by bootloader, so if bootloader guys changed
+them, please sync with them*/
+#define BOOT_MODE_CHARGER "androidboot.mode=charger"
+#define BOOT_MODE_NORMAL "androidboot.mode=normal"
+
 static bool check_if_in_cos(void)
 {
-    /*boot mode is module parameter passed from kernel cmd line*/
-	return  (bootmode
-			 && 0 == strcmp(bootmode, BOOT_MODE_CHARGER)) ?
-		true : false;
+	static bool is_checked;
+	static bool is_in_cos;
+
+	/*the parameter will not change after bootloader set them.
+	 so we just run one time check and cache result here*/
+	if (!is_checked) {
+
+		if (strstr(saved_command_line,
+				BOOT_MODE_NORMAL)) {
+			is_in_cos = false;
+			pr_info("boot mode MOS\n");
+		} else if (strstr(saved_command_line,
+				BOOT_MODE_CHARGER)) {
+			is_in_cos = true;
+			pr_info("boot mode COS\n");
+		} else {
+		/*cover both NORMAL and CHARGER not exist case
+		  we assume always NOT in COS in such case
+		 */
+			is_in_cos = false;
+			pr_info("boot mode can not detect from bootloader, assume in MOS\n");
+		}
+
+		is_checked = true;
+	}
+
+	/*boot mode is module parameter passed from kernel cmd line*/
+	return is_in_cos;
 }
+
 static int fan54x_i2c_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
@@ -2256,17 +2285,9 @@ static struct idi_peripheral_driver fan54x_idi_driver = {
 	.remove = fan54x_idi_remove,
 };
 
-
-module_param(bootmode, charp, S_IRUGO);
-
 static int __init fan54x_init(void)
 {
 	int ret;
-
-	if (bootmode)
-		pr_info("boot mode: %s\n", bootmode);
-	else
-		pr_info("boot mode NULL\n");
 
 	ret = idi_register_peripheral_driver(&fan54x_idi_driver);
 	if (ret)
