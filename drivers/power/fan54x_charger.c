@@ -925,6 +925,8 @@ static int fan54x_charger_set_property(struct power_supply *psy,
 			value_set = val->intval;
 			call_psy_changed = true;
 		}
+		if(!(val->intval))
+			chrgr->state.cc = 0;
 		break;
 
 	case POWER_SUPPLY_PROP_INLMT:
