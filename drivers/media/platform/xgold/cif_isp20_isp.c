@@ -4020,6 +4020,7 @@ static void cif_isp_send_measurement(struct work_struct *work)
 
 		list_for_each_entry_safe(vb, n, &isp_dev->stat, queue) {
 			list_del(&vb->queue);
+			vb->state = VIDEOBUF_ACTIVE;
 
 			vb_array[index] = vb;
 			bufs_needed--;
@@ -4099,9 +4100,11 @@ static void cif_isp_send_measurement(struct work_struct *work)
 			int i;
 			spin_lock_irqsave(&isp_dev->irq_lock, lock_flags);
 			for (i = 0; i < 3; i++) {
-				if (vb_array[i] != NULL)
+				if (vb_array[i] != NULL) {
+					vb_array[i]->state = VIDEOBUF_QUEUED;
 					list_add_tail(&vb_array[i]->queue,
 					&isp_dev->stat);
+				}
 			}
 			spin_unlock_irqrestore(&isp_dev->irq_lock, lock_flags);
 		}
