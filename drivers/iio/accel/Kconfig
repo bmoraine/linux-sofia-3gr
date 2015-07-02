@@ -80,4 +80,15 @@ config KXSD9
 	  Say yes here to build support for the Kionix KXSD9 accelerometer.
 	  Currently this only supports the device via an SPI interface.
 
+config MXC4005
+	tristate "Memsic MXC4005XC 3-Axis Accelerometer Driver"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Say yes here to build support for the Memsic MXC4005XC 3-axis
+	  accelerometer.
+
+	  To compile this driver as a module, choose M. The module will be
+	  called mxc4005.
+
 endmenu
