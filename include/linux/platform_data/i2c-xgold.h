@@ -31,6 +31,8 @@ struct xgold_i2c_platdata {
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
 	struct pinctrl_state *pins_inactive;
+	int sda_pin;
+	int scl_pin;
 	u32 rxbs;
 	u32 txbs;
 	unsigned long flags;

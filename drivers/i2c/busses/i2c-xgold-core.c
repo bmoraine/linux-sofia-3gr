@@ -25,6 +25,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/of_gpio.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/reset.h>
@@ -182,6 +183,8 @@ static struct device_state_pm_state *xgold_i2c_get_initial_state(
 #define OF_I2C_DMA_REQ		"intel,i2c,dma"
 #define OF_I2C_RXBS		"intel,i2c,rxbs"
 #define OF_I2C_TXBS		"intel,i2c,txbs"
+#define OF_I2C_PIN_SDA		"intel,i2c,gpio-sda"
+#define OF_I2C_PIN_SCL		"intel,i2c,gpio-scl"
 
 static struct xgold_i2c_platdata *xgold_i2c_of_get_platdata(struct device *dev)
 {
@@ -277,6 +280,16 @@ static struct xgold_i2c_platdata *xgold_i2c_of_get_platdata(struct device *dev)
 			"inactive");
 	if (IS_ERR(platdata->pins_inactive))
 		dev_err(dev, "could not get inactive pinstate\n");
+
+	platdata->sda_pin = of_get_named_gpio_flags(np, OF_I2C_PIN_SDA,
+			0, NULL);
+	if (platdata->sda_pin < 0)
+		dev_err(dev, "could not get inactive sda gpio\n");
+
+	platdata->scl_pin = of_get_named_gpio_flags(np, OF_I2C_PIN_SCL,
+			0, NULL);
+	if (platdata->scl_pin < 0)
+		dev_err(dev, "could not get inactive scl gpio\n");
 
 skip_pinctrl:
 	/* pm */
@@ -1113,6 +1126,56 @@ out:
 	return 0;
 }
 
+static inline void xgold_i2c_bus_clear(struct i2c_adapter *adap)
+{
+	struct xgold_i2c_algo_data *data = i2c_get_adapdata(adap);
+	struct xgold_i2c_platdata *pdata =
+		dev_get_platdata(data->i2c_dev->dev);
+	int ret, i;
+
+	if (pdata->scl_pin < 0 || pdata->sda_pin < 0)
+		return;
+
+	dev_err(&adap->dev, "%s: reset I2C bus\n", __func__);
+
+	xgold_i2c_set_pinctrl_state(data->i2c_dev->dev, pdata->pins_sleep);
+	ret = gpio_request(pdata->scl_pin, "I2C_SCL");
+	if (ret < 0) {
+		dev_err(&adap->dev, "cannot request SCL pin %d as gpio: %d\n",
+				pdata->scl_pin, ret);
+		return;
+	}
+
+	ret = gpio_request(pdata->sda_pin, "I2C_SDA");
+	if (ret < 0) {
+		dev_err(&adap->dev, "cannot request SDA pin %d as gpio: %d\n",
+				pdata->sda_pin, ret);
+		return;
+	}
+
+	/* Generate 9 SCL pulses */
+	for (i = 0; i < 9; i++) {
+		gpio_set_value(pdata->scl_pin, 0);
+		usleep_range(10, 20);
+		gpio_set_value(pdata->scl_pin, 1);
+		usleep_range(10, 20);
+	}
+
+	/* Generate STOP condition */
+	gpio_direction_output(pdata->sda_pin, 0);
+	gpio_set_value(pdata->scl_pin, 0);
+	usleep_range(10, 20);
+	gpio_set_value(pdata->scl_pin, 1);
+	usleep_range(10, 20);
+	gpio_set_value(pdata->sda_pin, 1);
+
+	xgold_i2c_set_pinctrl_state(data->i2c_dev->dev, pdata->pins_default);
+	gpio_free(pdata->scl_pin);
+	gpio_free(pdata->sda_pin);
+
+	i2c_info("Bus state %lu\n", xgold_i2c_bus_status(data));
+}
+
 /*****************************************************************************
  * Function:... xgold_i2c_xfer()
  * Description:  msgs has the parameters needed for transfer
@@ -1145,6 +1208,9 @@ static int xgold_i2c_xfer(struct i2c_adapter *adap,
 		dev_err(&adap->dev, "Driver state %d, Bus state %u.\n",
 				data->state,
 				(unsigned int)xgold_i2c_bus_status(data));
+
+		xgold_i2c_bus_clear(adap);
+
 		return -EBUSY;
 	}
 
