@@ -296,6 +296,7 @@ static struct clocksource xgold_stm_clocksource = {
 	.read = xgold_stm_clock_source_read,
 	.mask = CLOCKSOURCE_MASK(32),
 	.flags = CLOCK_SOURCE_IS_CONTINUOUS | CLOCK_SOURCE_SUSPEND_NONSTOP,
+	.archdata       = { .vclock_mode = VCLOCK_STM },
 };
 
 #ifdef CONFIG_ARM
