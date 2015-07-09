@@ -116,6 +116,17 @@ static struct file *oct_open_gadget(char *gadget_name);
 
 /* power management section */
 
+void disable_otc_irq(void) {
+	/* disable timer interrupt, will be re-enabled if ext mem is empty */
+	SET_OCT_OCT_CNF_ENABLE_TRIG_CYCLE_INT(oct_trform,
+			OCT_CNF_ENABLE_TRIG_CYCLE_INT_DISABLED);
+}
+void enable_otc_irq(void) {
+	/* disable timer interrupt, will be re-enabled if ext mem is empty */
+	SET_OCT_OCT_CNF_ENABLE_TRIG_CYCLE_INT(oct_trform,
+			OCT_CNF_ENABLE_TRIG_CYCLE_INT_ENABLED);
+}
+
 static int pm_suspend_fct(struct device *dev)
 {
 	int irq;
@@ -128,6 +139,7 @@ static int pm_suspend_fct(struct device *dev)
 
 	irq = GET_OCT_OCT_MASTER_RXIRQ_STAT(oct_trform);
 	/* reset the interrupts */
+	disable_otc_irq();
 	SET_OCT_OCT_MASTER_RXIRQ_CON(oct_trform, irq);
 	SET_OCT_OCT_MASTER_RXIRQ_CON(oct_trform, 0);
 	/* trace_debug_oct_dma_off(); */
@@ -141,6 +153,7 @@ static int pm_resume_fct(struct device *dev)
 	/* reset & enable CYCLE interrupt */
 	SET_OCT_OCT_MASTER_TRIG_CYCLE_DMA_TRIG_CYCLE(oct_trform,
 							current_timeout);
+	enable_otc_irq();
 	return 0;
 }
 
