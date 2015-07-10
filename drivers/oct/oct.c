@@ -133,12 +133,9 @@ static int pm_suspend_fct(struct device *dev)
 	/* steps to move subsystem to system suspend safe state */
 	OCT_DBG("suspend");
 
-	/* adjust sleep TIMEOUT */
-	SET_OCT_OCT_MASTER_TRIG_CYCLE_DMA_TRIG_CYCLE(oct_trform,
-							OCT_TRIG_CYCLE_SLEEP);
-
 	irq = GET_OCT_OCT_MASTER_RXIRQ_STAT(oct_trform);
 	/* reset the interrupts */
+	SET_OCT_OCT_MASTER_RXCON_EN_CH(oct_trform, 0);
 	disable_otc_irq();
 	SET_OCT_OCT_MASTER_RXIRQ_CON(oct_trform, irq);
 	SET_OCT_OCT_MASTER_RXIRQ_CON(oct_trform, 0);
@@ -151,8 +148,7 @@ static int pm_resume_fct(struct device *dev)
 	/* steps to resume from suspend */
 	OCT_DBG("resume");
 	/* reset & enable CYCLE interrupt */
-	SET_OCT_OCT_MASTER_TRIG_CYCLE_DMA_TRIG_CYCLE(oct_trform,
-							current_timeout);
+	SET_OCT_OCT_MASTER_RXCON_EN_CH(oct_trform, 1);
 	enable_otc_irq();
 	return 0;
 }
