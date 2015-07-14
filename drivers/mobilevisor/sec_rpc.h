@@ -27,6 +27,7 @@ struct t_rpc_send_info {
 #define IBFS_OK 0
 #define IBFS_TRC_BUF_LGT  40
 
+/* Remember to set access LvL in secure_vm -> sec_rpc.c */
 enum t_rpc_if_grp {
 	RPC_IF_SEC      = 0x00000000,
 	RPC_IF_FUS,
@@ -39,6 +40,8 @@ enum t_rpc_if_grp {
 	RPC_ATA_SEC     = 0x00001000,
 	RPC_ATA_CEU,
 	RPC_TST_SEC     = 0x00002000,
+	RPC_IF_VOUCHER  = 0x00003000,
+	RPC_TST_TEE     = 1080,
 	RPC_IF_GRP_END  = 0x7FFFFFFF
 };
 
