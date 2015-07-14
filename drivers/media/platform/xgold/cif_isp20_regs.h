@@ -372,6 +372,7 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_MIPI_CTRL_ERR_SOT_SYNC_HS_SKIP   (1<<17)
 #define CIF_MIPI_CTRL_DPHY_SELECT_PRIMARY    (0<<20)
 #define CIF_MIPI_CTRL_DPHY_SELECT_SECONDARY  (1<<20)
+#define CIF_MIPI_CTRL_FORCE_EARLY_ENABLE     (1<<24)
 
 /* MIPI_DATA_SEL */
 #define CIF_MIPI_DATA_SEL_VC(a)              ((a)<<6)

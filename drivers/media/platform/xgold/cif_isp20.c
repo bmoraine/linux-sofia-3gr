@@ -27,10 +27,6 @@
 #include "cif_isp20_regs.h"
 #include "cif_isp20.h"
 
-/*
-#define MEASURE_VERTICAL_BLANKING
-*/
-
 static int marvin_mipi_isr(
 	void *cntxt);
 static int marvin_isp_isr(
@@ -1309,6 +1305,20 @@ static void cif_isp20_config_ism(struct cif_isp20_device *dev, bool async)
 	const struct cif_isp20_ism_config *pconfig =
 		&(dev->config.isp_config.ism_config);
 
+	/* some cropping settings cause the MI to hang */
+	if ((dev->sp_stream.state >= CIF_ISP20_STATE_READY) &&
+		(pconfig->ism_params.h_size <
+			dev->config.mi_config.sp.output.width) &&
+		((dev->config.mi_config.sp.output.width -
+			pconfig->ism_params.h_size) < 80))
+		return;
+	if ((dev->mp_stream.state >= CIF_ISP20_STATE_READY) &&
+		(pconfig->ism_params.h_size <
+			dev->config.mi_config.mp.output.width) &&
+		((dev->config.mi_config.mp.output.width -
+			pconfig->ism_params.h_size) < 80))
+		return;
+
 	if (pconfig->ism_en) {
 		cif_isp20_pltfrm_pr_dbg(dev->dev, "%dx%d -> %dx%d@(%d,%d)\n",
 			dev->isp_dev.input_width,
@@ -1859,7 +1869,8 @@ static int cif_isp20_config_mipi(
 		CIF_MIPI_CTRL_ERR_SOT_SYNC_HS_SKIP |
 		CIF_MIPI_CTRL_SHUTDOWNLANES(shutdown_lanes) |
 		CIF_MIPI_CTRL_ERR_SOT_SYNC_HS_ENA |
-		CIF_MIPI_CTRL_ERR_SOT_HS_ENA;
+		CIF_MIPI_CTRL_ERR_SOT_HS_ENA |
+		CIF_MIPI_CTRL_FORCE_EARLY_ENABLE;
 
 	if (dev->config.mipi_config.input_sel == 0) {
 		/* mipi_dphy */
@@ -3325,7 +3336,7 @@ static void cif_isp20_init_stream(
 		dev->config.mp_config.rsz_config.ycflt_adjust = false;
 		dev->config.mp_config.rsz_config.ism_adjust = false;
 		dev->config.mi_config.mp.busy = false;
-		dev->config.mi_config.sp.output.pix_fmt = CIF_UNKNOWN_FORMAT;
+		dev->config.mi_config.mp.output.pix_fmt = CIF_UNKNOWN_FORMAT;
 		break;
 	case CIF_ISP20_STREAM_DMA:
 		stream = &dev->dma_stream;
@@ -4127,6 +4138,17 @@ static void cif_isp20_requeue_bufs(
 	stream->next_buf = NULL;
 	stream->curr_buf = NULL;
 	dev->requeue_bufs(stream->id);
+	if (stream->id == CIF_ISP20_STREAM_SP) {
+		dev->config.mi_config.sp.next_buff_addr =
+			CIF_ISP20_INVALID_BUFF_ADDR;
+		dev->config.mi_config.sp.curr_buff_addr =
+			CIF_ISP20_INVALID_BUFF_ADDR;
+	} else {
+		dev->config.mi_config.mp.next_buff_addr =
+			CIF_ISP20_INVALID_BUFF_ADDR;
+		dev->config.mi_config.mp.curr_buff_addr =
+			CIF_ISP20_INVALID_BUFF_ADDR;
+	}
 }
 
 static void cif_isp20_stop_sp(
@@ -4682,14 +4704,35 @@ static int cif_isp20_mi_isr(void *cntxt)
 	return 0;
 }
 
+static int cif_isp20_isr(void *cntxt)
+{
+	struct cif_isp20_device *dev = cntxt;
+
+	spin_lock(&dev->irq_lock);
+
+	if ((dev->config.input_sel < CIF_ISP20_INP_CPI) &&
+		cif_ioread32(dev->config.base_addr + CIF_MIPI_MIS))
+		(void)marvin_mipi_isr(cntxt);
+	if (cif_ioread32(dev->config.base_addr + CIF_ISP_MIS))
+		(void)marvin_isp_isr(cntxt);
+	if (cif_ioread32(dev->config.base_addr + CIF_MI_MIS))
+		(void)cif_isp20_mi_isr(cntxt);
+
+	spin_unlock(&dev->irq_lock);
+
+	return 0;
+}
+
 static int cif_isp20_register_isrs(struct cif_isp20_device *dev)
 {
 	int ret = 0;
 
+	spin_lock_init(&dev->irq_lock);
+
 	cif_isp20_pltfrm_irq_register_isr(
 		dev->dev,
 		CIF_ISP20_IRQ_ISP,
-		marvin_isp_isr,
+		cif_isp20_isr,
 		dev);
 	if (IS_ERR_VALUE(ret))
 		cif_isp20_pltfrm_pr_warn(dev->dev,
@@ -4698,7 +4741,7 @@ static int cif_isp20_register_isrs(struct cif_isp20_device *dev)
 	cif_isp20_pltfrm_irq_register_isr(
 		dev->dev,
 		CIF_ISP20_IRQ_MIPI,
-		marvin_mipi_isr,
+		cif_isp20_isr,
 		dev);
 	if (IS_ERR_VALUE(ret))
 		cif_isp20_pltfrm_pr_warn(dev->dev,
@@ -4707,7 +4750,7 @@ static int cif_isp20_register_isrs(struct cif_isp20_device *dev)
 	ret = cif_isp20_pltfrm_irq_register_isr(
 		dev->dev,
 		CIF_ISP20_IRQ_MI,
-		cif_isp20_mi_isr,
+		cif_isp20_isr,
 		dev);
 	if (IS_ERR_VALUE(ret)) {
 		cif_isp20_pltfrm_pr_err(dev->dev,
@@ -4716,7 +4759,6 @@ static int cif_isp20_register_isrs(struct cif_isp20_device *dev)
 	}
 
 	return 0;
-
 err:
 	cif_isp20_pltfrm_pr_err(dev->dev, "failed with error %d", ret);
 	return ret;
@@ -5772,37 +5814,10 @@ int marvin_isp_isr(void *cntxt)
 	isp_mis = cif_ioread32(dev->config.base_addr + CIF_ISP_MIS);
 
 	cif_isp20_pltfrm_rtrace_printf(dev->dev,
-		"ISP_MIS %08x, ISP_RIS %08x, ISP_IMSC %08x\n",
+		"ISP_MIS 0x%08x, ISP_RIS 0x%08x, ISP_IMSC 0x%08x\n",
 		isp_mis,
 		cif_ioread32(dev->config.base_addr + CIF_ISP_RIS),
 		cif_ioread32(dev->config.base_addr + CIF_ISP_IMSC));
-
-	if (isp_mis & CIF_ISP_V_START) {
-		do_gettimeofday(&dev->curr_frame_time);
-		dev->b_isp_frame_in = false;
-		dev->b_mi_frame_end = false;
-		cifisp_v_start(&dev->isp_dev, &dev->curr_frame_time);
-		cif_iowrite32(CIF_ISP_V_START,
-		      dev->config.base_addr + CIF_ISP_ICR);
-		if (!dev->config.mi_config.async_updt) {
-			cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
-				dev->config.base_addr + CIF_ISP_CTRL);
-			cif_isp20_pltfrm_pr_dbg(NULL,
-				"CIF_ISP_CTRL_ISP_GEN_CFG_UPD\n");
-		}
-		if (dev->sof_event)
-			dev->sof_event(dev->isp_dev.frame_id >> 1);
-	}
-
-#ifdef MEASURE_VERTICAL_BLANKING
-	if (isp_mis & CIF_ISP_V_START)
-		pr_info("ISP_INT:VS\n");
-	if (isp_mis & CIF_ISP_FRAME_IN) {
-		pr_info("ISP_INT:FI\n");
-		cif_iowrite32(CIF_ISP_FRAME_IN,
-			      dev->config.base_addr + CIF_ISP_ICR);
-	}
-#endif
 
 	if ((isp_mis & (CIF_ISP_DATA_LOSS | CIF_ISP_PIC_SIZE_ERROR))) {
 		dev->sp_stream.stall = true;
@@ -5834,7 +5849,6 @@ int marvin_isp_isr(void *cntxt)
 				      dev->config.base_addr +
 				      CIF_ISP_ICR);
 		}
-
 		/* Stop ISP */
 		cif_iowrite32AND(~CIF_ISP_CTRL_ISP_INFORM_ENABLE &
 				~CIF_ISP_CTRL_ISP_ENABLE,
@@ -5845,7 +5859,33 @@ int marvin_isp_isr(void *cntxt)
 		marvin_hw_restart(dev);
 	}
 
+	if (isp_mis & CIF_ISP_V_START) {
+		do_gettimeofday(&dev->curr_frame_time);
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"ISR:VS\n");
+		dev->b_isp_frame_in = false;
+		dev->b_mi_frame_end = false;
+		cifisp_v_start(&dev->isp_dev, &dev->curr_frame_time);
+		cif_iowrite32(~0,
+		      dev->config.base_addr + CIF_ISP_ICR);
+		cif_iowrite32(~0,
+		      dev->config.base_addr + CIF_MI_ICR);
+		cif_iowrite32AND(~(CIF_MI_SP_FRAME | CIF_MI_MP_FRAME),
+		      dev->config.base_addr + CIF_MI_IMSC);
+		if (!dev->config.mi_config.async_updt) {
+			cif_iowrite32OR(CIF_ISP_CTRL_ISP_GEN_CFG_UPD,
+				dev->config.base_addr + CIF_ISP_CTRL);
+			cif_isp20_pltfrm_pr_dbg(NULL,
+				"CIF_ISP_CTRL_ISP_GEN_CFG_UPD\n");
+		}
+		if (dev->sof_event)
+			dev->sof_event(dev->isp_dev.frame_id >> 1);
+		isp_mis = 0;
+	}
+
 	if (isp_mis & CIF_ISP_FRAME_IN) {
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"ISR:FI\n");
 		if (dev->b_mi_frame_end)
 			cif_isp20_update_ism_ycflt_rsz(dev);
 		cif_iowrite32(CIF_ISP_FRAME_IN,
@@ -5854,11 +5894,14 @@ int marvin_isp_isr(void *cntxt)
 	}
 
 	if (isp_mis & CIF_ISP_FRAME) {
-
+		cif_isp20_pltfrm_pr_dbg(dev->dev,
+			"ISR:FO\n");
 		/* Clear Frame In (ISP) */
 		cif_iowrite32(CIF_ISP_FRAME,
 			dev->config.base_addr + CIF_ISP_ICR);
 
+		cif_iowrite32OR(CIF_MI_SP_FRAME | CIF_MI_MP_FRAME,
+				dev->config.base_addr + CIF_MI_IMSC);
 		/* restart MI if CIF has run out of buffers */
 		if ((dev->config.input_sel < CIF_ISP20_INP_DMA) &&
 			!CIF_ISP20_MI_IS_BUSY(dev) &&

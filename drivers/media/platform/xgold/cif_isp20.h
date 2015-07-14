@@ -514,6 +514,7 @@ struct cif_isp20_device {
 	enum cif_isp20_img_src_state img_src_state;
 
 	spinlock_t vbq_lock;	/* spinlock for videobuf queues */
+	spinlock_t irq_lock;	/* spinlock for interrupt handlers */
 
 	struct cif_isp20_img_src *img_src;
 	struct cif_isp20_img_src *img_src_array[CIF_ISP20_NUM_CSI_INPUTS];
