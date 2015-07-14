@@ -1200,7 +1200,8 @@ static int spcu_thermal_probe(struct platform_device *pdev)
 
 	if (thermal_device->device_type == SPCU_TDEV_OVERHEAT) {
 		err = spcu_thermal_overheat_init(pdev, pdata);
-		return err;
+		if (err)
+			return err;
 	}
 
 	INIT_DELAYED_WORK(&thermal_device->isr_work,
