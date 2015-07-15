@@ -1524,6 +1524,9 @@ static int rga_drv_remove(struct platform_device *pdev)
 {
 	struct rga_drvdata *data = platform_get_drvdata(pdev);
 
+	if (!data)
+		return -EINVAL;
+
 	wake_lock_destroy(&data->wake_lock);
 	misc_deregister(&data->miscdev);
 	free_irq(data->irq, &data->miscdev);
