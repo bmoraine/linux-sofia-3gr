@@ -445,8 +445,15 @@ static int rockchip_prase_timing_dt(struct device_node *np,
 	}
 
 	dt = display_timings_get(disp_timing, disp_timing->native_mode);
+	if (!dt)
+		goto fail;
+
 	rockchip_fb_videomode_from_timing(dt, screen);
 	return 0;
+
+fail:
+	return -EINVAL;
+
 }
 
 static int rockchip_screen_probe(struct platform_device *pdev)
