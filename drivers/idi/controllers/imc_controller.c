@@ -3617,7 +3617,7 @@ int imc_add_controller(struct imc_controller *imc_idi)
 	dev_info(imc_idi->dev, ": SRB Multiple Source: 0x%08x\n",
 		ioread32(IMC_IDI_SRB_MSCONF_ID(ctrl)));
 	dev_info(imc_idi->dev, ": SRB Error Config: 0x%08x\n",
-		ioread32(IMC_IDI_SRB_MSCONF_ID(ctrl)));
+		ioread32(IMC_IDI_SRB_ERRCONF_ID(ctrl)));
 
 	return 0;
 
