@@ -630,8 +630,14 @@ static int rockchip_vop_set_hwc_lut(struct rockchip_vop_driver *dev_drv,
 	int len = 256 * 4;
 	struct vop_device *vop_dev =
 	    container_of(dev_drv, struct vop_device, driver);
-	if (dev_drv->hwc_lut == NULL)
+	if (dev_drv->hwc_lut == NULL) {
 		dev_drv->hwc_lut = devm_kzalloc(vop_dev->dev, len, GFP_KERNEL);
+		if (!dev_drv->hwc_lut) {
+			dev_warn(vop_dev->dev,
+				 "Can't allocate hwc_lut!\n");
+			return -ENOMEM;
+		}
+	}
 
 	spin_lock(&vop_dev->reg_lock);
 	vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_HWC_LUT_EN, V_HWC_LUT_EN(0));
@@ -664,9 +670,12 @@ static int rockchip_vop_set_lut(struct rockchip_vop_driver *dev_drv,
 	if (!dsp_lut)
 		return 0;
 
-	if (mode == 1 && !dev_drv->cur_screen->dsp_lut)
+	if (mode == 1 && !dev_drv->cur_screen->dsp_lut) {
 		dev_drv->cur_screen->dsp_lut =
 			devm_kzalloc(vop_dev->dev, len, GFP_KERNEL);
+		if (!dev_drv->cur_screen->dsp_lut)
+			return -ENOMEM;
+	}
 
 	spin_lock(&vop_dev->reg_lock);
 	vop_msk_reg(vop_dev, VOP_SYS_CTRL, M_DSP_LUT_EN, V_DSP_LUT_EN(0));
@@ -1431,12 +1440,11 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 {
 	struct vop_device *vop_dev =
 	    container_of(dev_drv, struct vop_device, driver);
-	struct rockchip_screen *screen = dev_drv->cur_screen;
 
 	if (!dev_drv->suspend_flag)
 		return 0;
 
-	rockchip_disp_pwr_enable(screen);
+	rockchip_disp_pwr_enable(dev_drv->cur_screen);
 
 	if (vop_dev->atv_layer_cnt) {
 		rockchip_vop_clk_enable(vop_dev);
@@ -1473,8 +1481,10 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 
 	dev_drv->suspend_flag = false;
 
-	if (screen->index >= 0 &&
-	    dev_drv->trsm_ops && dev_drv->trsm_ops->enable)
+	if (dev_drv->cur_screen &&
+			dev_drv->cur_screen->index >= 0 &&
+			dev_drv->trsm_ops &&
+			dev_drv->trsm_ops->enable)
 		dev_drv->trsm_ops->enable();
 
 	/* VOP leave standby mode after DSI enable */
@@ -2070,7 +2080,7 @@ static int rockchip_vop_probe(struct platform_device *pdev)
 	struct rockchip_vop_driver *dev_drv;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int ret;
+	int ret = -EINVAL;
 
 	vop_dev = devm_kzalloc(dev, sizeof(struct vop_device), GFP_KERNEL);
 	if (!vop_dev) {
@@ -2085,6 +2095,11 @@ static int rockchip_vop_probe(struct platform_device *pdev)
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_err(vop_dev->dev,
+				"rockchip vop get mem resource failed!\n");
+		goto err_parse_dt;
+	}
 	vop_dev->reg_phy_base = res->start;
 	vop_dev->len = resource_size(res);
 	vop_dev->regs = devm_ioremap_resource(dev, res);
