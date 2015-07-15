@@ -372,12 +372,13 @@ bool rockchip_fb_poll_wait_frame_complete(void)
 	if (likely(dev_drv)) {
 		if (dev_drv->ops->set_irq_to_cpu)
 			dev_drv->ops->set_irq_to_cpu(dev_drv, 0);
-	}
 
-	if (rockchip_fb_poll_prmry_screen_vblank() == SFA_LF_STATUS_NC) {
-		if (dev_drv->ops->set_irq_to_cpu)
-			dev_drv->ops->set_irq_to_cpu(dev_drv, 1);
-		return false;
+		if (rockchip_fb_poll_prmry_screen_vblank()
+				== SFA_LF_STATUS_NC) {
+			if (dev_drv->ops->set_irq_to_cpu)
+				dev_drv->ops->set_irq_to_cpu(dev_drv, 1);
+			return false;
+		}
 	}
 
 	while (!(rockchip_fb_poll_prmry_screen_vblank() == SFA_LF_STATUS_FR) &&
@@ -473,6 +474,17 @@ int rockchip_fb_sysmmu_fault_handler(struct device *dev,
 
 	if ((page_fault_cnt++) >= 10)
 		return 0;
+
+	if (!dev_drv) {
+		pr_err("vop dev not initialized.\n");
+		return -EINVAL;
+	}
+
+	if (!dev_drv->ops) {
+		pr_err("vop dev ops not initialized.\n");
+		return -EINVAL;
+	}
+
 	pr_err
 	    ("PAGE FAULT at 0x%lx (Page table base: 0x%lx),status=%d\n",
 	     fault_addr, pgtable_base, status);
@@ -581,7 +593,9 @@ static int rockchip_fb_set_win_par(struct fb_info *info,
 	u8 ppixel_a = 0, global_a = 0;
 	int i = 0;
 	int buff_len;
+#ifdef CONFIG_ROCKCHIP_IOMMU
 	int vaddr;
+#endif
 
 	vop_win->id = win_par->win_id;
 	vop_win->z_order = win_par->z_order;
@@ -1116,6 +1130,11 @@ static int rockchip_fb_update_win_config(struct fb_info *info,
 	retire_sync_pt =
 	    sw_sync_pt_create(dev_drv->timeline, dev_drv->timeline_max);
 	retire_fence = sync_fence_create("ret_fence", retire_sync_pt);
+	if (retire_fence == NULL) {
+		pr_info("ret_fence pointer is NULL\n");
+		ret = -EFAULT;
+		goto err_out;
+	}
 	sync_fence_install(retire_fence, win_data->ret_fence_fd);
 #else
 	for (i = 0; i < SFA_MAX_BUF_NUM; i++)
@@ -1941,7 +1960,7 @@ int rockchip_fb_switch_screen(struct rockchip_screen *screen,
 	char name[6] = { 0 };
 
 	hdmi_switch_complete = false;
-	sprintf(name, "vop%d", vop_id);
+	snprintf(name, 6, "vop%d", vop_id);
 	if (sfb_info->disp_mode != DUAL)
 		dev_drv = sfb_info->vop_dev_drv[0];
 	else
@@ -1994,7 +2013,7 @@ int rockchip_fb_disp_scale(u8 scale_x, u8 scale_y, u8 vop_id)
 	u16 xsize, ysize;
 	char name[6];
 
-	sprintf(name, "vop%d", vop_id);
+	snprintf(name, 6, "vop%d", vop_id);
 
 	if (sfb_info->disp_mode == DUAL) {
 		dev_drv = get_vop_drv(name);
@@ -2064,7 +2083,7 @@ static int rockchip_fb_alloc_buffer_by_ion(struct fb_info *fbi,
 				ION_HEAP_TYPE_DMA_MASK, 0);
 	}
 
-	if (IS_ERR(handle)) {
+	if (IS_ERR_OR_NULL(handle)) {
 		dev_err(fbi->dev, "failed to ion_alloc:%ld\n", PTR_ERR(handle));
 		return -ENOMEM;
 	}
@@ -2241,7 +2260,7 @@ static int init_vop_device_driver(struct rockchip_vop_driver *dev_drv,
 	dev_drv->screen0 = screen;
 	dev_drv->cur_screen = screen;
 
-	sprintf(dev_drv->name, "vop%d", dev_drv->id);
+	snprintf(dev_drv->name, 6, "vop%d", dev_drv->id);
 	init_vop_win(dev_drv, def_win);
 	init_completion(&dev_drv->frame_done);
 	spin_lock_init(&dev_drv->cpl_lock);
@@ -2313,6 +2332,10 @@ static int rockchip_fb_show_copy_from_loader(struct fb_info *info)
 	if (offset > 0)
 		nr_pages += 1;
 	pages = kcalloc(nr_pages, sizeof(*pages), GFP_KERNEL);
+	if (!pages) {
+		pr_err("failed to alloc %d pages\n", nr_pages);
+		return -ENOMEM;
+	}
 	while (i < nr_pages) {
 		pages[i] = phys_to_page(src);
 		src += PAGE_SIZE;
@@ -2385,7 +2408,7 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 		if (!fbi) {
 			dev_err(&fb_pdev->dev, ">> fb framebuffer_alloc fail!");
 			fbi = NULL;
-			ret = -ENOMEM;
+			return -ENOMEM;
 		}
 		fb_par =
 		    devm_kzalloc(&fb_pdev->dev, sizeof(struct rockchip_fb_par),
@@ -2393,6 +2416,7 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 		if (!fb_par) {
 			dev_err(&fb_pdev->dev, "malloc fb_par for fb%d fail!",
 				sfb_info->num_fb);
+			framebuffer_release(fbi);
 			return -ENOMEM;
 		}
 		fb_par->id = sfb_info->num_fb;
@@ -2522,14 +2546,17 @@ int rockchip_fb_unregister(struct rockchip_vop_driver *dev_drv)
 {
 	struct rockchip_fb *sfb_info = platform_get_drvdata(fb_pdev);
 	struct fb_info *fbi;
-	int fb_index_base = dev_drv->fb_index_base;
-	int fb_num = dev_drv->num_win;
+	int fb_index_base;
+	int fb_num;
 	int i = 0;
 
 	if (NULL == dev_drv) {
 		pr_err("no need to unregister null vop device driver!\n");
 		return -ENOENT;
 	}
+
+	fb_index_base = dev_drv->fb_index_base;
+	fb_num = dev_drv->num_win;
 
 	if (sfb_info->vop_dev_drv[i]->vsync_info.thread) {
 		sfb_info->vop_dev_drv[i]->vsync_info.irq_stop = 1;

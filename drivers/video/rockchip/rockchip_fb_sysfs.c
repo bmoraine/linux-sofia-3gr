@@ -94,6 +94,11 @@ static int dump_win(struct rockchip_fb *sfb_info,
 		start = area_data->smem_start;
 		nr_pages = width * height * 3 / 2 / PAGE_SIZE;
 		pages = kzalloc(sizeof(struct page) * nr_pages, GFP_KERNEL);
+		if (pages == NULL) {
+			pr_err("failed to alloc %d pages struct\n",
+					nr_pages);
+			return -ENOMEM;
+		}
 		while (i < nr_pages) {
 			pages[i] = phys_to_page(start);
 			start += PAGE_SIZE;
@@ -104,6 +109,7 @@ static int dump_win(struct rockchip_fb *sfb_info,
 		if (!vaddr) {
 			pr_err("failed to vmap phy addr %lx\n",
 			       area_data->smem_start);
+			kfree(pages);
 			return -1;
 		}
 	} else {
