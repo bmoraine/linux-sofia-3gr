@@ -642,8 +642,7 @@ static void gt9xx_wakeup(struct gt9xx_ts *ts)
 	if (ret)
 		dev_err(dev, "error while setting the pm state");
 
-	gpiod_direction_output(ts->gpiod_int, 1);
-	msleep(10);
+	gt9xx_reset(ts);
 
 	ret = gt9xx_i2c_test(ts->client);
 	if (ret) {
