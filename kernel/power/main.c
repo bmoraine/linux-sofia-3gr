@@ -638,6 +638,8 @@ int register_power_hal_suspend_device(struct device *dev)
 	if (!power_hal_kobj || !dev)
 		return -ENODEV;
 
+	kobject_uevent(&dev->kobj, KOBJ_CHANGE);
+
 	return sysfs_create_link(power_hal_kobj, &dev->kobj,
 			dev_name(dev));
 }
