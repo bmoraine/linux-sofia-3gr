@@ -390,6 +390,14 @@ static struct smarvin_hw_errors marvin_hw_errors[] = {
 	 }
 };
 
+static const struct {
+	u32 input_width;
+	u32 output_width;
+} accetable_crop_widths[] = {
+	{1280, 1220},
+	{640, 592},
+};
+
 
 /**Defines********************************************************************/
 
@@ -1298,6 +1306,25 @@ static int cif_isp20_enable_yc_flt(
 }
 #endif
 
+/* it might be possible that certain values between
+output_width - 80 and output_width are not causing any problem.
+Create a look up table including only those exact setting
+which won't cause problem.  */
+static bool cif_isp20_crop_width_acceptable(
+	struct cif_isp20_device *dev,
+	u32 input,
+	u32 output)
+{
+	u32 i = 0;
+	for (i = 0; i < ARRAY_SIZE(accetable_crop_widths); i++) {
+		if (input == accetable_crop_widths[i].input_width
+			&& output == accetable_crop_widths[i].output_width)
+			return true;
+	}
+
+	return false;
+}
+
 /* This should only be called when configuring CIF
 	or at the frame end interrupt */
 static void cif_isp20_config_ism(struct cif_isp20_device *dev, bool async)
@@ -1310,14 +1337,34 @@ static void cif_isp20_config_ism(struct cif_isp20_device *dev, bool async)
 		(pconfig->ism_params.h_size <
 			dev->config.mi_config.sp.output.width) &&
 		((dev->config.mi_config.sp.output.width -
-			pconfig->ism_params.h_size) < 80))
-		return;
+			pconfig->ism_params.h_size) < 80) &&
+		!cif_isp20_crop_width_acceptable(dev,
+			dev->config.mi_config.sp.output.width,
+			(u32)pconfig->ism_params.h_size)) {
+			cif_isp20_pltfrm_pr_dbg(dev->dev,
+				"SP: Skipping problematic crop settings %dx%d->%dx%d\n",
+				dev->config.mi_config.sp.output.width,
+				dev->config.mi_config.sp.output.height,
+				pconfig->ism_params.h_size,
+				pconfig->ism_params.v_size);
+			return;
+		}
 	if ((dev->mp_stream.state >= CIF_ISP20_STATE_READY) &&
 		(pconfig->ism_params.h_size <
 			dev->config.mi_config.mp.output.width) &&
 		((dev->config.mi_config.mp.output.width -
-			pconfig->ism_params.h_size) < 80))
-		return;
+			pconfig->ism_params.h_size) < 80) &&
+		!cif_isp20_crop_width_acceptable(dev,
+			dev->config.mi_config.mp.output.width,
+			(u32)pconfig->ism_params.h_size)) {
+			cif_isp20_pltfrm_pr_dbg(dev->dev,
+				"MP: Skipping problematic crop settings %dx%d->%dx%d\n",
+				dev->config.mi_config.mp.output.width,
+				dev->config.mi_config.mp.output.height,
+				pconfig->ism_params.h_size,
+				pconfig->ism_params.v_size);
+			return;
+		}
 
 	if (pconfig->ism_en) {
 		cif_isp20_pltfrm_pr_dbg(dev->dev, "%dx%d -> %dx%d@(%d,%d)\n",
