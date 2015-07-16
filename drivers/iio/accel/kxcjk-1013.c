@@ -986,7 +986,7 @@ static irqreturn_t kxcjk1013_trigger_handler(int irq, void *p)
 		goto err;
 
 	iio_push_to_buffers_with_timestamp(indio_dev, data->buffer,
-					   data->timestamp);
+					   pf->timestamp);
 err:
 	iio_trigger_notify_done(indio_dev->trig);
 
