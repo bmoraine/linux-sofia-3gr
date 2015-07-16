@@ -967,6 +967,18 @@ config TOUCHSCREEN_ZFORCE
 	  To compile this driver as a module, choose M here: the
 	  module will be called zforce_ts.
 
+config TOUCHSCREEN_ZET62XX
+	tristate "Zeitec touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a Zeitec zet62xx series
+	  touchscreen chip.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called zet62xx.
+
 config TOUCHSCREEN_FOCALTECH_FT5X06
 	tristate "FOCALTECH FT5X06 touchscreen"
 	depends on I2C
