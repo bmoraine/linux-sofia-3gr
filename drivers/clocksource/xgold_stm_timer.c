@@ -259,7 +259,7 @@ static void __init xgold_stm_init(void)
 /**************************************
   Clock source declaration
 **************************************/
-cycle_t xgold_stm_clock_source_read(struct clocksource *cs)
+cycle_t notrace xgold_stm_clock_source_read(struct clocksource *cs)
 {
 	return (cycle_t) ioread32(stm_hw_base + REG_STM_TIM0_OFFSET);
 }
