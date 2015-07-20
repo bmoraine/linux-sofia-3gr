@@ -1489,12 +1489,15 @@ static int _set_memory_array(unsigned long *addr, int addrinarray,
 			goto out_free;
 	}
 
-	ret = change_page_attr_set(addr, addrinarray,
+	if (!cpu_has_ss && (new_type == _PAGE_CACHE_WC)) {
+		ret = change_page_attr_set(addr, addrinarray,
 				    __pgprot(_PAGE_CACHE_UC_MINUS), 1);
+		if (ret)
+			goto out_free;
+	}
 
-	if (!ret && new_type == _PAGE_CACHE_WC)
-		ret = change_page_attr_set_clr(addr, addrinarray,
-					       __pgprot(_PAGE_CACHE_WC),
+	ret = change_page_attr_set_clr(addr, addrinarray,
+					       __pgprot(new_type),
 					       __pgprot(_PAGE_CACHE_MASK),
 					       0, CPA_ARRAY, NULL);
 	if (ret)
@@ -1526,14 +1529,17 @@ int _set_memory_wc(unsigned long addr, int numpages)
 	int ret;
 	unsigned long addr_copy = addr;
 
-	ret = change_page_attr_set(&addr, numpages,
+	if (!cpu_has_ss) {
+		ret = change_page_attr_set(&addr, numpages,
 				    __pgprot(_PAGE_CACHE_UC_MINUS), 0);
-	if (!ret) {
-		ret = change_page_attr_set_clr(&addr_copy, numpages,
+		if (ret)
+			return ret;
+	}
+
+	ret = change_page_attr_set_clr(&addr_copy, numpages,
 					       __pgprot(_PAGE_CACHE_WC),
 					       __pgprot(_PAGE_CACHE_MASK),
 					       0, 0, NULL);
-	}
 	return ret;
 }
 
@@ -1673,11 +1679,15 @@ static int _set_pages_array(struct page **pages, int addrinarray,
 			goto err_out;
 	}
 
-	ret = cpa_set_pages_array(pages, addrinarray,
-			__pgprot(_PAGE_CACHE_UC_MINUS));
-	if (!ret && new_type == _PAGE_CACHE_WC)
-		ret = change_page_attr_set_clr(NULL, addrinarray,
-					       __pgprot(_PAGE_CACHE_WC),
+	if (!cpu_has_ss && (new_type == _PAGE_CACHE_WC)) {
+		ret = cpa_set_pages_array(pages, addrinarray,
+				__pgprot(_PAGE_CACHE_UC_MINUS));
+		if (ret)
+			goto err_out;
+	}
+
+	ret = change_page_attr_set_clr(NULL, addrinarray,
+					       __pgprot(new_type),
 					       __pgprot(_PAGE_CACHE_MASK),
 					       0, CPA_PAGES_ARRAY, pages);
 	if (ret)
