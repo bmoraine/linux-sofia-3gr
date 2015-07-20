@@ -676,11 +676,13 @@ static void bat_drv_hal_check_battery_status_update(bool new_presence_state)
 	const bool presence_changed =
 	(bat_drv_hal_instance.last_reported_presence_state !=
 	new_presence_state);
-
+	/*define a static variable to make battery status
+	update once only when starting up*/
+	static int bat_status = 0;
 	BAT_DRV_HAL_DEBUG_PARAM(BAT_DRV_HAL_DEBUG_CHECK_STATUS_UPDATE,
 				new_presence_state);
-
-	new_presence_state = true;
+	if(bat_status == 1)
+		return;
 	if (new_presence_state) {
 		/* Send an update even if the last detected presence state was
 		fitted.
@@ -690,13 +692,14 @@ static void bat_drv_hal_check_battery_status_update(bool new_presence_state)
 		2) when the battery was temporarily disconnected, for example if
 			the phone was dropped. */
 		/* Signal the presence of the default battery. */
+		pr_info("battery is fitted\n");
 		bat_type = get_bat_type(&bat_drv_hal_instance, 0);
-
 		battery_prop_changed(POWER_SUPPLY_BATTERY_INSERTED,
 				&bat_type->profile);
 	} else {
 		/* The battery is not fitted. Send update only if the presence
 		state has changed or this is the first notification report */
+		pr_err("no battery, PSU is worked\n");
 		if (presence_changed || !bat_drv_hal_instance.presence_stm.
 						client_initial_update_done) {
 
@@ -706,6 +709,7 @@ static void bat_drv_hal_check_battery_status_update(bool new_presence_state)
 	}
 	bat_drv_hal_instance.presence_stm.client_initial_update_done = true;
 	bat_drv_hal_instance.last_reported_presence_state = new_presence_state;
+	bat_status = 1;
 }
 
 /**
