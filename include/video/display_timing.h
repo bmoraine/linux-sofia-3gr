@@ -75,11 +75,15 @@ struct display_timing {
 	struct timing_entry vsync_len;		/* ver. sync len */
 
 	enum display_flags flags;		/* display flags */
+#ifdef CONFIG_FB_ROCKCHIP
 	u16 screen_type;			/* screen type */
 	u16 lvds_format;			/* lvds data format */
 	u16 face;				/* display output format */
 	u16 color_mode;				/* input color mode */
+	u16 width;
+	u16 height;
 	u32 *dsp_lut;
+#endif
 };
 
 /*

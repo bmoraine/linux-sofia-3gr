@@ -36,6 +36,7 @@ static ssize_t show_screen_info(struct device *dev,
 	struct rockchip_vop_driver *dev_drv = fb_par->vop_drv;
 	struct rockchip_screen *screen = dev_drv->cur_screen;
 	int fps = 0;
+
 	u32 x = screen->mode.left_margin + screen->mode.right_margin +
 	    screen->mode.xres + screen->mode.hsync_len;
 	u32 y = screen->mode.upper_margin + screen->mode.lower_margin +
@@ -44,8 +45,10 @@ static ssize_t show_screen_info(struct device *dev,
 
 	if (ft > 0)
 		fps = div64_u64(1000000000000llu, ft);
-	return snprintf(buf, PAGE_SIZE, "xres:%d\nyres:%d\nfps:%d\n",
-			screen->mode.xres, screen->mode.yres, fps);
+	return snprintf(buf, PAGE_SIZE,
+			"xres:%d\nyres:%d\nfps:%d\nwidth:%dmm\nheight:%dmm\n",
+			screen->mode.xres, screen->mode.yres, fps,
+			screen->width, screen->height);
 }
 
 static ssize_t show_disp_info(struct device *dev,

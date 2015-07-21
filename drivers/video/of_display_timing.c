@@ -64,8 +64,10 @@ static int of_parse_display_timing(const struct device_node *np,
 {
 	u32 val = 0;
 	int ret = 0;
+#ifdef CONFIG_FB_ROCKCHIP
 	struct property *prop;
 	int length;
+#endif
 
 	memset(dt, 0, sizeof(*dt));
 
@@ -100,6 +102,7 @@ static int of_parse_display_timing(const struct device_node *np,
 	if (of_property_read_bool(np, "doubleclk"))
 		dt->flags |= DISPLAY_FLAGS_DOUBLECLK;
 
+#ifdef CONFIG_FB_ROCKCHIP
 	if (!of_property_read_u32(np, "swap-rg", &val))
 		dt->flags |= val ? DISPLAY_FLAGS_SWAP_RG : 0;
 	if (!of_property_read_u32(np, "swap-gb", &val))
@@ -114,6 +117,10 @@ static int of_parse_display_timing(const struct device_node *np,
 		dt->face = val;
 	if (!of_property_read_u32(np, "color-mode", &val))
 		dt->color_mode = val;
+	if (!of_property_read_u32(np, "width", &val))
+		dt->width = val;
+	if (!of_property_read_u32(np, "height", &val))
+		dt->height = val;
 	prop = of_find_property(np, "dsp-lut", &length);
 	if (prop) {
 		dt->dsp_lut = kzalloc(length, GFP_KERNEL);
@@ -121,6 +128,7 @@ static int of_parse_display_timing(const struct device_node *np,
 			ret = of_property_read_u32_array(np,
 				"dsp-lut", dt->dsp_lut, length >> 2);
 	}
+#endif
 
 	if (ret) {
 		pr_err("%s: error reading timing properties\n",
