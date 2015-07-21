@@ -375,6 +375,16 @@ void mv_vm_start(uint32_t vm_id);
  */
 void mv_vm_stop(uint32_t vm_id);
 
+/** @brief Get cpu mapping
+ *
+ *  @param vcpu_map (out)
+ *  @param shared_cpu_map (out)
+ *  @param apic_map (out)
+ *  @param num_of_cpus (out)
+ */
+void mv_get_cpu_map(uint32_t *vcpu_map, uint32_t *shared_cpu_map,
+			uint32_t *apic_map, uint32_t *num_of_cpus);
+
 uint32_t mv_platform_service(uint32_t service_type, uint32_t arg2,
 			     uint32_t arg3, uint32_t arg4,
 			     uint32_t *ret0, uint32_t *ret1,

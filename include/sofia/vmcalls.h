@@ -52,6 +52,7 @@ enum vmcall_opcode {
 	VMCALL_MBOX_POST,
 	VMCALL_VM_START,
 	VMCALL_VM_STOP,
+	VMCALL_GET_CPU_MAP,
 	/* Add vmcalls after existing ones above this line */
 	VMCALL_PLATFORM_SERVICE = 999
 };

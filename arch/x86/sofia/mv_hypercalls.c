@@ -298,6 +298,15 @@ void mv_vm_stop(uint32_t vm_id)
 	mv_call(VMCALL_VM_STOP, vm_id, UNUSED_ARG, UNUSED_ARG, UNUSED_ARG);
 }
 
+
+void mv_get_cpu_map(uint32_t *vcpu_map, uint32_t *shared_cpu_map, uint32_t
+		*apic_map, uint32_t *num_of_cpus)
+{
+	mv_call_5(VMCALL_GET_CPU_MAP, UNUSED_ARG, UNUSED_ARG,
+			UNUSED_ARG, UNUSED_ARG, UNUSED_ARG,
+			vcpu_map, shared_cpu_map, apic_map, num_of_cpus);
+}
+
 uint32_t mv_platform_service(uint32_t service_type, uint32_t arg2,
 			     uint32_t arg3, uint32_t arg4,
 			     uint32_t *ret0, uint32_t *ret1,
