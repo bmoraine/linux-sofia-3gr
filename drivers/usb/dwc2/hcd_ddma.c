@@ -540,6 +540,9 @@ static void dwc2_fill_host_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 	dma_desc->status = qh->n_bytes[idx] << HOST_DMA_ISOC_NBYTES_SHIFT &
 			   HOST_DMA_ISOC_NBYTES_MASK;
 
+	/* Set active bit */
+	dma_desc->status |= HOST_DMA_A;
+
 	qh->ntd++;
 	qtd->isoc_frame_index_last++;
 
@@ -580,15 +583,6 @@ static void dwc2_init_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 	list_for_each_entry(qtd, &qh->qtd_list, qtd_list_entry) {
 		while (qh->ntd < ntd_max && qtd->isoc_frame_index_last <
 						qtd->urb->packet_count) {
-			if (n_desc > 1) {
-				qh->desc_list[n_desc - 1].status |= HOST_DMA_A;
-				dma_sync_single_for_device(hsotg->dev,
-					qh->desc_list_dma +
-					((n_desc - 1) *
-					sizeof(struct dwc2_hcd_dma_desc)),
-					sizeof(struct dwc2_hcd_dma_desc),
-					DMA_TO_DEVICE);
-			}
 			dwc2_fill_host_isoc_dma_desc(hsotg, qtd, qh,
 						     max_xfer_size, idx);
 			idx = dwc2_desclist_idx_inc(idx, inc, qh->dev_speed);
@@ -646,22 +640,6 @@ static void dwc2_init_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 	}
 #endif
 
-	if (n_desc) {
-		qh->desc_list[n_desc - 1].status |= HOST_DMA_A;
-		dma_sync_single_for_device(hsotg->dev,
-				qh->desc_list_dma +
-				((n_desc - 1) *
-				sizeof(struct dwc2_hcd_dma_desc)),
-				sizeof(struct dwc2_hcd_dma_desc),
-				DMA_TO_DEVICE);
-		if (n_desc > 1) {
-			qh->desc_list[0].status |= HOST_DMA_A;
-			dma_sync_single_for_device(hsotg->dev,
-					qh->desc_list_dma,
-					sizeof(struct dwc2_hcd_dma_desc),
-					DMA_TO_DEVICE);
-		}
-	}
 }
 
 static void dwc2_fill_host_dma_desc(struct dwc2_hsotg *hsotg,
