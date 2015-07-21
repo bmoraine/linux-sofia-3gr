@@ -2241,11 +2241,6 @@ void dwc2_host_complete(struct dwc2_hsotg *hsotg, struct dwc2_qtd *qtd,
 			 usb_pipein(urb->pipe) ? "IN" : "OUT", status,
 			 urb->actual_length);
 
-	if (usb_pipetype(urb->pipe) == PIPE_ISOCHRONOUS && dbg_perio()) {
-		for (i = 0; i < urb->number_of_packets; i++)
-			dev_vdbg(hsotg->dev, " ISO Desc %d status %d\n",
-				 i, urb->iso_frame_desc[i].status);
-	}
 
 	if (usb_pipetype(urb->pipe) == PIPE_ISOCHRONOUS) {
 		urb->error_count = dwc2_hcd_urb_get_error_count(qtd->urb);
@@ -2256,6 +2251,12 @@ void dwc2_host_complete(struct dwc2_hsotg *hsotg, struct dwc2_qtd *qtd,
 			urb->iso_frame_desc[i].status =
 				dwc2_hcd_urb_get_iso_desc_status(qtd->urb, i);
 		}
+	}
+
+	if (usb_pipetype(urb->pipe) == PIPE_ISOCHRONOUS && dbg_perio()) {
+		for (i = 0; i < urb->number_of_packets; i++)
+			dev_vdbg(hsotg->dev, " ISO Desc %d status %d\n",
+				 i, urb->iso_frame_desc[i].status);
 	}
 
 	urb->status = status;
