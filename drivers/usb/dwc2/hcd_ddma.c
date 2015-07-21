@@ -946,6 +946,9 @@ static void dwc2_complete_isoc_xfer_ddma(struct dwc2_hsotg *hsotg,
 	int rc;
 
 	qh = chan->qh;
+	if (!qh)
+		return;
+
 	idx = qh->td_first;
 
 	if (chan->halt_status == DWC2_HC_XFER_URB_DEQUEUE) {
