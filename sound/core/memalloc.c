@@ -107,6 +107,36 @@ static void snd_free_dev_pages(struct device *dev, size_t size, void *ptr,
 	dma_free_coherent(dev, PAGE_SIZE << pg, ptr, dma);
 }
 
+/* allocate the writecombine DMA pages */
+static void *snd_malloc_dev_writecombine_pages(struct device *dev, size_t size,
+		dma_addr_t *dma)
+{
+	int pg;
+	gfp_t gfp_flags;
+
+	if (WARN_ON(!dma))
+		return NULL;
+	pg = get_order(size);
+	gfp_flags = GFP_KERNEL
+		| __GFP_COMP	/* compound page lets parts be mapped */
+		| __GFP_NORETRY /* don't trigger OOM-killer */
+		| __GFP_NOWARN; /* no stack trace print -
+				   this call is non-critical */
+	return dma_alloc_writecombine(dev, PAGE_SIZE << pg, dma, gfp_flags);
+}
+
+/* free the writecombine DMA pages */
+static void snd_free_dev_writecombine_pages(struct device *dev, size_t size,
+		void *ptr, dma_addr_t dma)
+{
+	int pg;
+
+	if (ptr == NULL)
+		return;
+	pg = get_order(size);
+	dma_free_writecombine(dev, PAGE_SIZE << pg, ptr, dma);
+}
+
 #ifdef CONFIG_GENERIC_ALLOCATOR
 /**
  * snd_malloc_dev_iram - allocate memory from on-chip internal ram
@@ -206,6 +236,10 @@ int snd_dma_alloc_pages(int type, struct device *device, size_t size,
 		snd_malloc_sgbuf_pages(device, size, dmab, NULL);
 		break;
 #endif
+	case SNDRV_DMA_TYPE_DEV_WC:
+		dmab->area = snd_malloc_dev_writecombine_pages(device, size,
+				&dmab->addr);
+		break;
 	default:
 		printk(KERN_ERR "snd-malloc: invalid device type %d\n", type);
 		dmab->area = NULL;
@@ -283,6 +317,10 @@ void snd_dma_free_pages(struct snd_dma_buffer *dmab)
 		snd_free_sgbuf_pages(dmab);
 		break;
 #endif
+	case SNDRV_DMA_TYPE_DEV_WC:
+		snd_free_dev_writecombine_pages(dmab->dev.dev, dmab->bytes,
+				dmab->area, dmab->addr);
+		break;
 	default:
 		printk(KERN_ERR "snd-malloc: invalid device type %d\n", dmab->dev.type);
 	}

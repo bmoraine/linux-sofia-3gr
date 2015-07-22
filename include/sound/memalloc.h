@@ -57,6 +57,8 @@ struct snd_dma_device {
 #else
 #define SNDRV_DMA_TYPE_DEV_IRAM	SNDRV_DMA_TYPE_DEV
 #endif
+#define SNDRV_DMA_TYPE_DEV_WC		5	/* generic device writecombine
+						 buffer */
 
 /*
  * info for buffer allocation
