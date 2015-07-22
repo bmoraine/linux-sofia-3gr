@@ -1581,7 +1581,7 @@ static int xgold_pcm_new(struct snd_soc_pcm_runtime *rtd)
 
 		ret = snd_pcm_lib_preallocate_pages_for_all(
 				rtd->pcm,
-				SNDRV_DMA_TYPE_DEV,
+				SNDRV_DMA_TYPE_DEV_WC,
 				rtd->dev,
 				XGOLD_MAX_RING_SIZE,
 				XGOLD_MAX_RING_SIZE);
