@@ -86,6 +86,7 @@ enum xgold_i2c_drv_state {
 /******************************************************************************
  * FUNCTION PROTOTYPE
  *****************************************************************************/
+static void xgold_i2c_hw_init(struct xgold_i2c_algo_data *data);
 
 
 /******************************************************************************
@@ -783,6 +784,11 @@ static irqreturn_t xgold_i2c_err_handler(void *dev)
 	reg_write(I2C_ICR_LSREQ_INT_CLR_INT | I2C_ICR_SREQ_INT_CLR_INT |
 			I2C_ICR_LBREQ_INT_CLR_INT | I2C_ICR_BREQ_INT_CLR_INT,
 			data->regs + I2C_ICR_OFFSET);
+
+	/* reset the controller, and stop current transfer */
+	data->state = XGOLD_I2C_CONFIGURE;
+	xgold_i2c_hw_init(data);
+	complete(&data->cmd_complete);
 
 	return IRQ_HANDLED;
 }
