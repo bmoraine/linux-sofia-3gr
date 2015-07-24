@@ -137,10 +137,15 @@ again:
 	/* CMA can be used only in the context which permits sleeping */
 	if (flag & __GFP_WAIT)
 #ifdef CONFIG_CMA_EXPLICIT_USE
-		if (dma_get_attr(DMA_ATTR_CMA, attrs))
+		if (dma_get_attr(DMA_ATTR_CMA, attrs)) {
 #endif
 			page = dma_alloc_from_contiguous(dev,
 						count, get_order(size));
+#ifdef CONFIG_CMA_EXPLICIT_USE
+			if (!page)
+				return NULL;
+		}
+#endif
 
 	/* fallback */
 	if (!page)
