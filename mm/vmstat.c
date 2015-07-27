@@ -661,6 +661,7 @@ static char * const migratetype_names[MIGRATE_TYPES] = {
 	"Reserve",
 #ifdef CONFIG_CMA
 	"CMA",
+	"CMA isolated",
 #endif
 #ifdef CONFIG_MEMORY_ISOLATION
 	"Isolate",

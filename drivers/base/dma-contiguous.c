@@ -39,6 +39,7 @@ struct cma {
 	unsigned long	base_pfn;
 	unsigned long	count;
 	unsigned long	*bitmap;
+	int		isolate;
 };
 
 struct cma *dma_contiguous_default_area;
@@ -133,7 +134,7 @@ void __init dma_contiguous_reserve(phys_addr_t limit, phys_addr_t size)
 			 (unsigned long)selected_size / SZ_1M);
 
 		dma_contiguous_reserve_area(selected_size, 0, limit,
-					    &dma_contiguous_default_area);
+					    &dma_contiguous_default_area, 0);
 	}
 };
 
@@ -168,7 +169,8 @@ static int __init cma_activate_area(struct cma *cma)
 			if (page_zone(pfn_to_page(pfn)) != zone)
 				goto err;
 		}
-		init_cma_reserved_pageblock(pfn_to_page(base_pfn));
+		init_cma_reserved_pageblock(pfn_to_page(base_pfn),
+				cma->isolate);
 	} while (--i);
 
 	return 0;
@@ -201,6 +203,7 @@ core_initcall(cma_init_reserved_areas);
  * @base: Base address of the reserved area optional, use 0 for any
  * @limit: End address of the reserved memory (optional, 0 for any).
  * @res_cma: Pointer to store the created cma region.
+ * @isolate: if set, movable pages won't be migrated in this cma region.
  *
  * This function reserves memory from early allocator. It should be
  * called by arch specific code once the early allocator (memblock or bootmem)
@@ -209,15 +212,16 @@ core_initcall(cma_init_reserved_areas);
  * devices.
  */
 int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t base,
-				       phys_addr_t limit, struct cma **res_cma)
+				       phys_addr_t limit, struct cma **res_cma,
+				       int isolate)
 {
 	struct cma *cma = &cma_areas[cma_area_count];
 	phys_addr_t alignment;
 	int ret = 0;
 
-	pr_debug("%s(size %lx, base %08lx, limit %08lx)\n", __func__,
+	pr_debug("%s(size %lx, base %08lx, limit %08lx, %s)\n", __func__,
 		 (unsigned long)size, (unsigned long)base,
-		 (unsigned long)limit);
+		 (unsigned long)limit, isolate?"isolated":"shared");
 
 	/* Sanity checks */
 	if (cma_area_count == ARRAY_SIZE(cma_areas)) {
@@ -261,6 +265,7 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t base,
 	 */
 	cma->base_pfn = PFN_DOWN(base);
 	cma->count = size >> PAGE_SHIFT;
+	cma->isolate = isolate;
 	*res_cma = cma;
 	cma_area_count++;
 
@@ -317,7 +322,12 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 			break;
 
 		pfn = cma->base_pfn + pageno;
-		ret = alloc_contig_range(pfn, pfn + count, MIGRATE_CMA);
+		if(cma->isolate)
+			ret = alloc_contig_range(pfn, pfn + count,
+					MIGRATE_CMA_ISOLATE);
+		else
+			ret = alloc_contig_range(pfn, pfn + count,
+					MIGRATE_CMA);
 		if (ret == 0) {
 			bitmap_set(cma->bitmap, pageno, count);
 			page = pfn_to_page(pfn);

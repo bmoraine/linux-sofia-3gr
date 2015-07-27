@@ -56,6 +56,7 @@ enum {
 	 * a single pageblock.
 	 */
 	MIGRATE_CMA,
+	MIGRATE_CMA_ISOLATE,
 #endif
 #ifdef CONFIG_MEMORY_ISOLATION
 	MIGRATE_ISOLATE,	/* can't allocate from here */
@@ -64,7 +65,10 @@ enum {
 };
 
 #ifdef CONFIG_CMA
-#  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
+#  define is_migrate_cma(migratetype) \
+	(unlikely((migratetype) == MIGRATE_CMA) || \
+	 unlikely((migratetype) == MIGRATE_CMA_ISOLATE))
+
 #else
 #  define is_migrate_cma(migratetype) false
 #endif

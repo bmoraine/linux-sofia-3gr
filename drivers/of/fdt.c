@@ -456,6 +456,7 @@ static int __init __reserved_mem_reserve_reg(unsigned long node,
 	unsigned long len;
 	__be32 *prop;
 	int nomap, cma, first = 1;
+	int isolate = 0;
 
 	prop = of_get_flat_dt_prop(node, "reg", &len);
 	if (!prop)
@@ -469,6 +470,7 @@ static int __init __reserved_mem_reserve_reg(unsigned long node,
 
 	nomap = of_get_flat_dt_prop(node, "no-map", NULL) != NULL;
 	cma = of_get_flat_dt_prop(node, "linux,cma", NULL) != NULL;
+	isolate = of_get_flat_dt_prop(node, "isolate", NULL) != NULL;
 
 	while (len >= t_len) {
 		base = dt_mem_next_cell(dt_root_addr_cells, &prop);
@@ -484,7 +486,7 @@ static int __init __reserved_mem_reserve_reg(unsigned long node,
 					uname, &base,
 					(unsigned long)size / SZ_1M);
 				dma_contiguous_reserve_area(
-						size, base, 0, &cma_area);
+						size, base, 0, &cma_area, isolate);
 			}
 		} else
 			pr_info("Reserved memory: failed to reserve memory for node '%s': base %pa, size %ld MiB\n",
