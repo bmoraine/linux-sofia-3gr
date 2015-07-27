@@ -1392,6 +1392,7 @@ static void fan54x_chgint_cb_work_func(struct work_struct *work)
 
 	if (chrgr->state.bat_ovp) {
 		pr_debug("Battery Over-Voltage!");
+		chrgr->state.health = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 		CHARGER_DEBUG_REL(chrgr_dbg, CHG_DBG_VBAT_OVP, 0, 0);
 	}
 
