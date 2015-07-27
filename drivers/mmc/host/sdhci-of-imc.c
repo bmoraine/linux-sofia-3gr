@@ -443,6 +443,8 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 
 	if (mmc_pdata->fixup & XGOLD_DEFAULT_REGS_FIXUP)
 		xgold_default_regs_fixup(host);
+
+	host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
 }
 
 static struct sdhci_ops xgold_sdhci_ops = {
