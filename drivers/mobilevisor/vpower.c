@@ -153,8 +153,7 @@ ePRH_RETURN_T vpower_call_prh(uint32_t user_id,
    if (size >= 20)
 		return PRH_ERR_INV_MODE_INFO;
 */
-	if (mutex_lock_interruptible(&call_mutex))
-		return PRH_ERR_PER_IN_USE;
+	mutex_lock(&call_mutex);
 
 	vpower = &get_cpu_var(percpu_vpower);
 
