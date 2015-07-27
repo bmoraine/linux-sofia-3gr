@@ -94,6 +94,18 @@ static const u8 hs_ofs_conv[AFE_NOF_HSOSC_TRIM_VALUES] = {
 /* Container for offset calibration values for step1*/
 static struct channels  hs_ofs_cal_val_step1[AFE_NVM_NOF_HSOSC];
 
+struct hsosc_ctl {
+	u16 num_gains;
+	u16 length;
+	char data[0];
+};
+
+struct hsosc_data {
+	u16 num_gains;
+	u16 length;
+	u16 *p_data;
+};
+
 /* It is observed that offset values obtained through calibration always show
    a fixed deviation from the actual measured values. This array contains the
    calculated deviation which has to be added/subtracted accordingly
@@ -108,7 +120,8 @@ static struct channels hs_ofs_delta[AUD_ANALOG_GAIN_END+1] = {
 	{3,  4},     /*  6 dB  */
 	{0,  0}      /*  Invalid */
 };
-static const u32 afe_hal_hs_gain[AFE_NOF_EPHSLS_HW_GAIN_VALUES] = {
+
+static u16 afe_hal_hs_gain[AFE_NOF_EPHSLS_HW_GAIN_VALUES] = {
 	AFE_GAIN_OUT_HSGAIN_HS_M9_1DB, /* Max-18 dB -9.1 dB */
 	AFE_GAIN_OUT_HSGAIN_HS_M9_1DB, /* Max-15 dB      -9.1 dB(In target) */
 	AFE_GAIN_OUT_HSGAIN_HS_M6_0DB, /* Max-12 dB      -6   dB(In target) */
@@ -567,6 +580,48 @@ static int agold_afe_set_trigger_calibration(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *uinfo)
 {
 	int ret;
+	int i;
+	struct hsosc_ctl *hs_ofs_control;
+	struct hsosc_data hs_ofs_data;
+	/* If the first byte is non zero get the gains to be calibrated
+	   from user space else use the default gain table.
+	TODO: Get the gains to be calibrated always from user space. Remove the
+			default gain table.*/
+	if (uinfo->value.bytes.data[0] != 0) {
+		hs_ofs_control = (struct hsosc_ctl *)uinfo->value.bytes.data;
+		hs_ofs_data.num_gains = hs_ofs_control->num_gains;
+		hs_ofs_data.p_data = (u16 *)hs_ofs_control->data;
+		afe_debug("%s: num_gains =  %d\n",
+					__func__,
+					hs_ofs_data.num_gains);
+		memcpy((void *)afe_hal_hs_gain, hs_ofs_data.p_data,
+			(hs_ofs_data.num_gains*2));
+		for (i = 0; i < hs_ofs_data.num_gains; i++) {
+			if (20 < afe_hal_hs_gain[i]) {
+				hs_ofs_delta[i].left = 3;
+				hs_ofs_delta[i].right = 4;
+			} else if (20 >= afe_hal_hs_gain[i]
+					&& 11 <= afe_hal_hs_gain[i]) {
+				hs_ofs_delta[i].left = 5;
+				hs_ofs_delta[i].right = 6;
+			} else if (10 > afe_hal_hs_gain[i]
+					&& 6 <= afe_hal_hs_gain[i]) {
+				hs_ofs_delta[i].left = 5;
+				hs_ofs_delta[i].right = 11;
+			} else if (6 > afe_hal_hs_gain[i]
+					&& 3 <= afe_hal_hs_gain[i]) {
+				hs_ofs_delta[i].left = 6;
+				hs_ofs_delta[i].right = 15;
+			} else if (3 > afe_hal_hs_gain[i]) {
+				hs_ofs_delta[i].left = 6;
+				hs_ofs_delta[i].right = 18;
+			}
+			afe_debug("%s: hs_ofs_delta[%d] = {%d, %d}\n", __func__,
+				i, hs_ofs_delta[i].left, hs_ofs_delta[i].right);
+			afe_debug("%s: afe_hal_hs_gain[%d] = %d\n", __func__,
+				i, afe_hal_hs_gain[i]);
+		}
+	}
 	ret = agold_afe_perform_hsosc();
 	return ret;
 }
@@ -694,7 +749,8 @@ static int agold_afe_hs_call_set_value(struct snd_soc_codec *codec, u32 value)
 
 static int agold_afe_calibrate_hsosc_channel(
 	u8 *p_index, /* start index for calibration */
-	u8 channel)  /* channel to be calibrated */
+	u8 channel,  /* channel to be calibrated */
+	u8 gain_index) /* index of the gain table to be calibrated */
 {
 	bool found = false; /* Flag to store the result */
 	u8 index = *p_index; /* index to be used for starting calibration */
@@ -706,6 +762,7 @@ static int agold_afe_calibrate_hsosc_channel(
 	struct snd_soc_codec *codec = agold_afe->codec;
 	reg = snd_soc_read(codec, AGOLD_AFE_AUDOUTCTRL1);
 	reg |= 1 << AFE_AUDOUTCTRL1_HSOCSOC_OFFSET;
+
 	snd_soc_write(codec, AGOLD_AFE_AUDOUTCTRL1, reg);
 	while (true != found && index < AFE_NOF_HSOSC_TRIM_VALUES) {
 		if (RIGHT_CHANNEL == channel) {
@@ -720,6 +777,11 @@ static int agold_afe_calibrate_hsosc_channel(
 			hssoccalr = 0;
 			agold_afe_hs_calibration_event_handler(codec,
 						AGOLD_AFE_CALIBRATE_LEFT_CH);
+			/* It has been observed that the for the first
+			calibration the HSOSC needs around 20ms to settle
+			before calibration can start.*/
+			if (0 == gain_index)
+				mdelay(20);
 		}
 		agold_afe_hs_calr_set_value(codec, hssoccalr);
 		agold_afe_hs_call_set_value(codec, hssoccall);
@@ -783,7 +845,6 @@ static int agold_afe_calibrate_hsosc_channel(
 			hs_cal_result.hs_ofs_cal_val[afe_hal_ana_gain].right =
 				0x10;
 	}
-
 	/* Reset the trim values to zero at the end of calibration */
 	hssoccall = 0;
 	hssoccalr = 0;
@@ -852,7 +913,7 @@ static int agold_afe_perform_hsosc(void)
 			time_before_cal_us =
 				1000000 * time_us.tv_sec + time_us.tv_usec;
 			result = agold_afe_calibrate_hsosc_channel(&start_index,
-				LEFT_CHANNEL);
+				LEFT_CHANNEL, gain_index);
 			do_gettimeofday(&time_us);
 			time_after_cal_us =
 				(1000000 * time_us.tv_sec + time_us.tv_usec);
@@ -871,7 +932,7 @@ static int agold_afe_perform_hsosc(void)
 			time_before_cal_us =
 				1000000 * time_us.tv_sec + time_us.tv_usec;
 			result = agold_afe_calibrate_hsosc_channel(&start_index,
-					RIGHT_CHANNEL);
+					RIGHT_CHANNEL, gain_index);
 			do_gettimeofday(&time_us);
 			time_after_cal_us =
 				(1000000 * time_us.tv_sec + time_us.tv_usec);
