@@ -107,6 +107,8 @@ void vdump_set_linux_config(void)
 		}
 		msleep(2000);
 	}
+	if (i == 0)
+		VD_LOG("vdump config not exist\n");
 }
 
 void vdump_open_coredump(void)
@@ -197,13 +199,13 @@ static bool vdump_get_config(char *cfg_path)
 	int file_len = 0;
 	bool valid = false;
 
-	VD_LOG("vdump_get_config\n");
+	/* VD_LOG("vdump_get_config\n"); */
 
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
 	fp_cfg = filp_open(cfg_path, O_RDONLY, 0);
-	VD_LOG("fp_cfg:%p\n", (void *)fp_cfg);
+	/* VD_LOG("fp_cfg:%p\n", (void *)fp_cfg); */
 
 	if (!IS_ERR_OR_NULL(fp_cfg)) {
 		file_len = fp_cfg->f_op->llseek(fp_cfg, 0, SEEK_END);
@@ -248,7 +250,7 @@ static bool vdump_get_config(char *cfg_path)
 		fp_cfg = NULL;
 		valid = true;
 	} else {
-		VD_LOG("vdump config not exist\n");
+		/* VD_LOG("vdump config not exist\n"); */
 		valid = false;
 	}
 	set_fs(old_fs);
@@ -395,7 +397,8 @@ static void vdump_detect(char *gadget_name)
 			msleep(2000);
 			continue;
 		} else if (IS_ERR(fp)) {
-			VD_LOG("Gadget fp=%x open failed!\n", (unsigned int)fp);
+			/* VD_LOG("Gadget fp=%x open failed!\n",
+			(unsigned int)fp); */
 			retry--;
 			msleep(2000);
 			continue;

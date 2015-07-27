@@ -16,6 +16,9 @@
 *
 */
 #include <linux/module.h>
+#include <linux/io.h>
+#include <linux/dma-mapping.h>
+
 
 #include <stddef.h>
 #include <stdarg.h>
@@ -60,6 +63,16 @@ enum MT_TRAP {
 	/**< TRAP_MSG with arm_regs_t structure (string "TXCP")*/
 	MT_TRAP_REG       = 0x54584350,
 } MT_TRAP;
+
+struct cd_oct_buffer {
+	int in_use;
+	void *start_ptr;
+	void *start_ptr_phy;
+	void *readpos_ptr;
+	void *writepos_ptr;
+	unsigned int size;
+	unsigned int bytesInBuf;
+};
 
 /* 11.10.2010 AJH: The following defines are for DTM for
 	ISTP/STP coredump and are compatible with DTMv2. */
@@ -112,6 +125,7 @@ static const unsigned char fcs_tab[256] = {
 	0xB4, 0x25, 0x57, 0xC6, 0xB3, 0x22, 0x50, 0xC1, 0xBA, 0x2B, 0x59, 0xC8,
 	0xBD, 0x2C, 0x5E, 0xCF
 };
+struct cd_oct_buffer cd_oct_info;
 
 /*============================================================================
 LOCAL FUNCTION PROTOTYPES
@@ -169,14 +183,17 @@ static void VD_Stp_dump_info(
 	struct cd_ram *area_ptr,
 	struct x86_cpu_regs *regs_ptr,
 	struct sys_trap *trap_ptr,
-	struct sys_vm_dump *vm_dump_ptr);
+	struct sys_vm_dump *vm_dump_ptr,
+	struct cd_oct_buffer *oct_ptr);
+/*
 static void VD_Stp_send_dtm_frame(
 	int frameId,
 	const char *pStart,
 	int length, int nullHeadLen,
 	unsigned char counter);
-static void VD_Stp_set_CID(unsigned int ccid);
-static void VD_Stp_MA_text_info(const char *pStr, int reset_counter);
+*/
+/* static void VD_Stp_set_CID(unsigned int ccid); */
+/* static void VD_Stp_MA_text_info(const char *pStr, int reset_counter); */
 static unsigned int VD_Stp_build_cd_header(
 	unsigned char *pBuffer,
 	unsigned int wBuffersize,
@@ -188,9 +205,9 @@ static void VD_Stp_send_trap_frame(
 	unsigned char *pData,
 	unsigned int length);
 
-/* static void VD_Istp_dump_pre_mortem_buffer(cd_oct_buffer_t *pOct_buff); */
-/* static unsigned int VD_Istp_check_oct_pointers
-	(cd_oct_buffer_t *pOct_buff); */
+static void VD_Istp_dump_pre_mortem_buffer(struct cd_oct_buffer *pOct_buff);
+static unsigned int VD_Istp_check_oct_pointers
+	(struct cd_oct_buffer *pOct_buff);
 
 /*============================================================================
 EXTERNAL VARIABLES
@@ -203,6 +220,12 @@ EXTERNAL VARIABLES
 /*============================================================================
 EXTERNAL FUNCTIONS
 ============================================================================*/
+extern int oct_get_buffer_info(
+	void **start_address,
+	void **start_address_phy,
+	unsigned int *size,
+	void **read_ptr,
+	void **write_ptr);
 
 
 /*============================================================================
@@ -230,8 +253,6 @@ FUNCTIONS
  * Return:  None
  *
  *****************************************************************************/
-
-
 void VD_stp_start(struct cd_sharemem *cd_info)
 {
 	/* This function is called only from the trap handler,
@@ -244,13 +265,15 @@ void VD_stp_start(struct cd_sharemem *cd_info)
 	struct sys_trap *trap_ptr = &cd_info->trap_ptr;
 	struct x86_cpu_regs *regs_ptr = NULL;
 	struct sys_vm_dump *vm_dump_ptr = &cd_info->vm_dump;
+#if 1
+	struct cd_oct_buffer cd_oct_info_dbg;
+#endif
 
 	vdump_open_coredump();
 
 	TracePort = VD_TRACE_PORT_USIF;
 	Protocol = VD_COREDUMP_PROTOCOL_ISTP;
 	VD_Istp_init(VD_STP_CHID_CORE_DUMP);
-
 
 	/*	TRAP frames have to be sent before
 			dumping the OCT buffer, because:
@@ -268,49 +291,35 @@ void VD_stp_start(struct cd_sharemem *cd_info)
 	}
 
 	/* dump out the ISTP pre-mortem traces */
-/*
-	if(Protocol == VD_COREDUMP_PROTOCOL_ISTP)
-	{
+	if (Protocol == VD_COREDUMP_PROTOCOL_ISTP) {
 
-			 cd_info->oct_buf_info.in_use =
-				tad_oct_get_buffer_info(
-				&cd_info->oct_buf_info.start_ptr,
-				&cd_info->oct_buf_info.size,
-				&cd_info->oct_buf_info.readpos_ptr,
-				&cd_info->oct_buf_info.writepos_ptr,
-				&cd_info->oct_buf_info.bytesInBuf);
-		if (cd_info->oct_buf_info.in_use)
-		{
-			struct cd_ram oct_buffer;
-			vd_debug_printf(
-				"VD: %s oct buffer: bytes in buffer 0x%x",
-				__func__,
-				cd_info->oct_buf_info.bytesInBuf);
-			oct_buffer.physical_start =
-				(uint32_t)cd_info->oct_buf_info.start_ptr;
-			oct_buffer.logical_start =
-				(uint32_t)cd_info->oct_buf_info.start_ptr;
-			oct_buffer.length = cd_info->oct_buf_info.size;
-			pal_cd_add_region(&oct_buffer);
-
-			VD_Istp_dump_pre_mortem_buffer(&cd_info->oct_buf_info);
+		cd_oct_info.in_use =
+			oct_get_buffer_info(
+				&cd_oct_info.start_ptr,
+				&cd_oct_info.start_ptr_phy,
+				&cd_oct_info.size,
+				&cd_oct_info.readpos_ptr,
+				&cd_oct_info.writepos_ptr);
+		if (cd_oct_info.in_use) {
+			VD_Istp_dump_pre_mortem_buffer(&cd_oct_info);
+		} else {
+			vd_debug_printf("VD: %s oct buffer: %s", __func__,
+			(cd_oct_info.in_use) ?
+			"no data in buffer" :
+			"not in use");
 		}
-		else
-			vd_debug_printf( "VD: %s oct buffer: %s", __func__,
-			(cd_info->oct_buf_info.in_use) ?
-			"no data in buffer" : "not in use"	);
 	}
-*/
 
-	/* send coredump start notification */
-	VD_Stp_MA_text_info("VD: COREDUMP - Start", 0);
 	vd_debug_printf("VD: COREDUMP - Start\n");
 
 	/* count available frames for coredump header frame */
-	if (area_ptr)
+	if (area_ptr) {
 		/* 2 as we always send an info message
 			with each memory dump region */
 		tNumFrames += (cd_info->number_of_ranges * 2);
+		if (cd_oct_info.in_use)
+			tNumFrames += 2;
+	}
 
 	if (trap_ptr)
 		tNumFrames++;
@@ -334,7 +343,7 @@ void VD_stp_start(struct cd_sharemem *cd_info)
 	VD_Stp_dump_info(vd_stp_buffer, sizeof(vd_stp_buffer),
 		tFrameCount++, tNumFrames,
 		cd_info->number_of_ranges, area_ptr,
-		regs_ptr, trap_ptr, vm_dump_ptr);
+		regs_ptr, trap_ptr, vm_dump_ptr, &cd_oct_info);
 	if (trap_ptr) {
 		/* dump trap info */
 		BfrPos = 0;
@@ -404,7 +413,6 @@ void VD_stp_start(struct cd_sharemem *cd_info)
 			sizeof(vd_stp_buffer), vm_dump_ptr,
 			tFrameCount++);
 
-
 	if (area_ptr) {
 		unsigned int i;
 		struct cd_ram *a_ptr = area_ptr;
@@ -427,9 +435,15 @@ void VD_stp_start(struct cd_sharemem *cd_info)
 				tFrameCount++);
 			BfrPos = 0;
 
+			a_ptr->logical_start =
+				(uint32_t)ioremap_cache(
+				a_ptr->physical_start,
+				a_ptr->length);
+
 			vd_debug_printf(
-				"VD: Dumping Memory Region 0x%x StartAddress=0x%x Size=0x%x\n",
-				i, a_ptr->physical_start, a_ptr->length);
+				"VD: Dumping Memory Region 0x%x physical_start=0x%x logical_start=0x%x Size=0x%x\n",
+				i, a_ptr->physical_start,
+				a_ptr->logical_start, a_ptr->length);
 
 			/* dump memory area */
 			VD_Stp_dump_frame(VD_STP_HDR_MSG_TYPE_DATA,
@@ -437,15 +451,67 @@ void VD_stp_start(struct cd_sharemem *cd_info)
 				(unsigned char *)a_ptr->logical_start,
 				a_ptr->length, tFrameCount++);
 
+			iounmap((void *)a_ptr->logical_start);
+			a_ptr->logical_start = 0;
+
 			a_ptr++;
 		}
 	}
 
+	if (cd_oct_info.in_use) {
+		struct cd_ram *a_ptr;
+		struct cd_ram oct_buffer;
+
+		BfrPos = 0;
+
+		oct_buffer.physical_start = (uint32_t)cd_oct_info.start_ptr_phy;
+		oct_buffer.logical_start = (uint32_t)cd_oct_info.start_ptr;
+		oct_buffer.length = cd_oct_info.size;
+		a_ptr = &oct_buffer;
+
+		BfrPos += snprintf(&vd_stp_buffer[BfrPos],
+			sizeof(vd_stp_buffer) - BfrPos,
+			"VD Info, frame %d for data message frame %d, containing Memory region starting at address 0x%08x, logical address 0x%08x, length 0x%08x\n",
+			tFrameCount, tFrameCount + 1,
+			(unsigned int)a_ptr->physical_start,
+			(unsigned int)a_ptr->physical_start,
+			a_ptr->length);
+
+		VD_Stp_dump_frame(VD_STP_HDR_MSG_TYPE_INFO, 0,
+			(unsigned char *)vd_stp_buffer,
+			BfrPos + sizeof(vd_stp_buffer[0]),
+			tFrameCount++);
+
+		dma_sync_single_for_cpu(
+			NULL, (dma_addr_t)a_ptr->physical_start,
+			a_ptr->length, DMA_FROM_DEVICE);
+
+		vd_debug_printf(
+			"VD: Dumping OCT Region physical_start=0x%x logical_start=0x%x Size=0x%x\n",
+			a_ptr->physical_start,
+			a_ptr->logical_start,
+			a_ptr->length);
+		/* check for current OCT pointer again */
+		oct_get_buffer_info(
+			&cd_oct_info_dbg.start_ptr,
+			&cd_oct_info_dbg.start_ptr_phy,
+			&cd_oct_info_dbg.size,
+			&cd_oct_info_dbg.readpos_ptr,
+			&cd_oct_info_dbg.writepos_ptr);
+
+		VD_Stp_dump_frame(VD_STP_HDR_MSG_TYPE_DATA,
+			(unsigned char *)a_ptr->physical_start,
+			(unsigned char *)a_ptr->logical_start,
+			a_ptr->length, tFrameCount++);
+
+	}
+
 	VD_Stp_send_coredump_terminator(tFrameCount);
 
-	VD_Stp_MA_text_info("VD: COREDUMP - End", 0);
-
 	VD_Stp_deinit();
+
+	/* Close the file */
+	vdump_close_coredump();
 
 	vd_debug_printf("VD: COREDUMP - End\n");
 }
@@ -484,7 +550,8 @@ static void VD_Stp_dump_info(
 	struct cd_ram		 *area_ptr,
 	struct x86_cpu_regs *regs_ptr,
 	struct sys_trap		*trap_ptr,
-	struct sys_vm_dump *vm_dump_ptr)
+	struct sys_vm_dump *vm_dump_ptr,
+	struct cd_oct_buffer *oct_ptr)
 {
 	int		BfrPos = 0;
 	unsigned int tFrameCount = 1;
@@ -528,6 +595,30 @@ static void VD_Stp_dump_info(
 				VD_ISTP_TRACE_MESSAGE_SIZE) + 1);
 			a_ptr++;
 		}
+	}
+
+	if (oct_ptr) {
+		struct cd_ram *a_ptr;
+		struct cd_ram oct_buffer;
+
+		oct_buffer.physical_start = (uint32_t)oct_ptr->start_ptr;
+		oct_buffer.logical_start = (uint32_t)oct_ptr->start_ptr;
+		oct_buffer.length = oct_ptr->size;
+		a_ptr = &oct_buffer;
+
+		BfrPos += snprintf(pBuffer + BfrPos, BfrLength - BfrPos,
+			"Frame %d, data type - info, text info on following data frame.\n",
+			tFrameCount++);
+
+		BfrPos += snprintf(pBuffer + BfrPos, BfrLength - BfrPos,
+			"Frame %d, data type - Data, physical location 0x%08x, logical location 0x%08x, length %d, num segments = %d\n",
+			tFrameCount++,
+			(unsigned int)a_ptr->physical_start,
+			(unsigned int)a_ptr->physical_start,
+			a_ptr->length,
+			((a_ptr->length - 1)/
+			VD_ISTP_TRACE_MESSAGE_SIZE) + 1);
+
 	}
 
 	BfrPos += snprintf(pBuffer + BfrPos,
@@ -1084,6 +1175,7 @@ static void VD_Stp_tx_data(const unsigned char *start,
  * Return:     None
  *
  *****************************************************************************/
+#if 0
 static void VD_Stp_MA_text_info(const char *pStr, int reset_counter)
 {
 	static unsigned char counter;
@@ -1102,6 +1194,7 @@ static void VD_Stp_MA_text_info(const char *pStr, int reset_counter)
 	/* change channel back to CD */
 	VD_Stp_set_CID(VD_STP_CHID_CORE_DUMP);
 }
+#endif
 
 /*****************************************************************************
  * Function:     VD_Stp_set_CID
@@ -1116,11 +1209,13 @@ static void VD_Stp_MA_text_info(const char *pStr, int reset_counter)
  * Return:     None
  *
  *****************************************************************************/
+#if 0
 static void VD_Stp_set_CID(unsigned int ccid)
 {
 	if (Protocol == VD_COREDUMP_PROTOCOL_ISTP)
 		VD_Istp_setCID(ccid);
 }
+#endif
 
 
 /*****************************************************************************
@@ -1140,6 +1235,7 @@ static void VD_Stp_set_CID(unsigned int ccid)
  * Return:  None
  *
  *****************************************************************************/
+#if 0
 static void VD_Stp_send_dtm_frame(int frameId,
 	const char *pStart, int length, int nullHeadLen, unsigned char counter)
 {
@@ -1197,6 +1293,7 @@ static void VD_Stp_send_dtm_frame(int frameId,
 	if (Protocol == VD_COREDUMP_PROTOCOL_STP)
 		MsgTypeBBTP = TmpMsgTypeBBTP;
 }
+#endif
 
 /*****************************************************************************
  * Function:     VD_Stp_send_trap_frame
@@ -1314,8 +1411,7 @@ static void VD_Stp_send_bbtp_header(int MessageType)
  * Return:        1 if error, 0 if checks are ok
  *
  *****************************************************************************/
-#if 0
-static unsigned int VD_Istp_check_oct_pointers(cd_oct_buffer_t *pOct_buff)
+static unsigned int VD_Istp_check_oct_pointers(struct cd_oct_buffer *pOct_buff)
 {
 	unsigned int nStart	 = (unsigned int)pOct_buff->start_ptr;
 	unsigned int nRead		= (unsigned int)pOct_buff->readpos_ptr;
@@ -1356,14 +1452,15 @@ static unsigned int VD_Istp_check_oct_pointers(cd_oct_buffer_t *pOct_buff)
 	/* pWrite	= pRead. This shouldn't happen,
 		since we have been told that the
 		buffer isn't empty. => sth wrong. */
+	/*
 	if (nWrite == nRead) {
 		vd_debug_printf("VD: %s Failed. Trace buffer empty.", __func__);
 		return 1;
 	}
+	*/
 
 	return 0; /* valid pointers */
 }
-#endif
 
 /*****************************************************************************
  * Function:      VD_Istp_dump_pre_mortem_buffer
@@ -1377,20 +1474,22 @@ static unsigned int VD_Istp_check_oct_pointers(cd_oct_buffer_t *pOct_buff)
  * Return:        None
  *
  *****************************************************************************/
-#if 0
-static void VD_Istp_dump_pre_mortem_buffer(cd_oct_buffer_t *pOct_buff)
+static void VD_Istp_dump_pre_mortem_buffer(struct cd_oct_buffer *pOct_buff)
 {
 	int	bytes	 = 0;
 	char *pStart = (char *)pOct_buff->start_ptr;
+	char *pStart_phy = (char *)pOct_buff->start_ptr_phy;
 	char *pRead	= (char *)pOct_buff->readpos_ptr;
 	char *pWrite = (char *)pOct_buff->writepos_ptr;
 	int	BufSize = pOct_buff->size;
 
-
 	vd_debug_printf(
-		"VD: %s pStart=0x%x,pRead=0x%x,pWrite=0x%x,size=%d,bytesInBuf=%d.",
-		__func__, pStart, pRead, pWrite,
-		BufSize, pOct_buff->bytesInBuf);
+		"VD: %s pStart=0x%x,pRead=0x%x,pWrite=0x%x,size=%d.\n",
+		__func__,
+		(unsigned int)pStart,
+		(unsigned int)pRead,
+		(unsigned int)pWrite,
+		(unsigned int)BufSize);
 
 	if (VD_Istp_check_oct_pointers(pOct_buff)) {
 		vd_debug_printf(
@@ -1399,30 +1498,25 @@ static void VD_Istp_dump_pre_mortem_buffer(cd_oct_buffer_t *pOct_buff)
 		return;
 	}
 
-	if (pRead < pWrite) {
-		bytes = pWrite - pRead;
-		vd_debug_printf(
-			"VD: %s Dumping pre-mortem buffer. Addr=0x%x, bytes=%d",
-			__func__, pRead, bytes);
-		cd_stream_write(VD_STREAM_COREDUMP, pRead, bytes);
-	} else if (pRead > pWrite) {
-		/* wrap case */
-		bytes = (pStart + BufSize) - pRead;
-		vd_debug_printf(
-			"VD: %s Dumping pre-mortem buffer.(1) Addr=0x%x, bytes=%d",
-			__func__, pRead, bytes);
-		cd_stream_write(VD_STREAM_COREDUMP, pRead, bytes);
-		bytes = pWrite - pStart; /* bytes can be 0 if pWrite = pStart */
+	dma_sync_single_for_cpu(
+		NULL, (dma_addr_t)pStart_phy, BufSize, DMA_FROM_DEVICE);
 
-		if (bytes) {
-			vd_debug_printf(
-				"VD: %s Dumping pre-mortem buffer.(2) Addr=0x%x, bytes=%d",
-				__func__, pStart, bytes);
-			cd_stream_write(VD_STREAM_COREDUMP, pStart, bytes);
-		}
+	/* wrap case */
+	bytes = (pStart + BufSize) - pWrite;
+	vd_debug_printf(
+		"VD: oct dump: address:0x%x, size=0x%x\n",
+		(unsigned int)pWrite,
+		(unsigned int)bytes);
+	vdump_save_coredump(pWrite, bytes);
+	bytes = pWrite - pStart; /* bytes can be 0 if pWrite = pStart */
+	if (bytes) {
+		vd_debug_printf
+			("VD: oct dump: address:0x%x, size=0x%x\n",
+			(unsigned int)pStart,
+			(unsigned int)bytes);
+		vdump_save_coredump(pStart, bytes);
 	}
 }
-#endif
 
 /*****************************************************************************
  * Function:      VD_Stp_dump_log_buffer

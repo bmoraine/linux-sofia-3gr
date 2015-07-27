@@ -340,9 +340,6 @@ void VD_Istp_deinit(void)
 	/* set to invalid handles */
 	Istp_enc_data.cmid = INVALID_MID;
 	Istp_enc_data.ccid = INVALID_CID;
-
-	/* Close the file */
-	vdump_close_coredump();
 }
 
 /*****************************************************************************

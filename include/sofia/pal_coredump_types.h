@@ -50,4 +50,5 @@ struct cd_sharemem {
 	struct sys_vm_dump vm_dump;
 };
 
+
 #endif /* _PAL_COREDUMP_TYPES_H*/

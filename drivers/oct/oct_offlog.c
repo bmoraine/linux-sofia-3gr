@@ -21,6 +21,8 @@ loff_t pos = 0;
 #define OFFLOG_CONFIG_TAG_PATH  "offlog_path"
 #define OFFLOG_CONFIG_TAG_SIZE  "offlog_size"
 #define OFFLOG_CONFIG_TAG_NUM   "offlog_number"
+#define OFFLOG_CONFIG_TAG_RUN   "offlog_run"
+
 
 #define OFFLOG_CONFIG_MAX_VALUE_LENGTH 50
 
@@ -34,6 +36,7 @@ static char oct_offlog_path[OFFLOG_PATH_LEN+1] = {0}; /* /data/logs/bplog */
 static unsigned int oct_offlog_onoff = 1;
 static unsigned int oct_offlog_size = DEFAULT_OCT_OFFLOG_SIZE;
 static unsigned int oct_offlog_number = DEFAULT_OCT_OFFLOG_NUMBER;
+static unsigned int oct_offlog_run = 0;
 
 static void oct_detect_off_flag(char *gadget_name)
 {
@@ -117,6 +120,7 @@ static bool oct_offlog_get_config(char *cfg_path)
 	char value_path[OFFLOG_CONFIG_MAX_VALUE_LENGTH+1] = {0};
 	char value_size[OFFLOG_CONFIG_MAX_VALUE_LENGTH+1] = {0};
 	char value_num[OFFLOG_CONFIG_MAX_VALUE_LENGTH+1] = {0};
+	char value_run[OFFLOG_CONFIG_MAX_VALUE_LENGTH+1] = {0};
 	struct file *fp_cfg;
 	loff_t pos_cfg = 0;
 	/* loff_t pos_dir = 0; */
@@ -142,6 +146,8 @@ static bool oct_offlog_get_config(char *cfg_path)
 				value_size, OFFLOG_CONFIG_MAX_VALUE_LENGTH);
 			get_value_by_tag(cfg_context, OFFLOG_CONFIG_TAG_NUM,
 				value_num, OFFLOG_CONFIG_MAX_VALUE_LENGTH);
+			get_value_by_tag(cfg_context, OFFLOG_CONFIG_TAG_RUN,
+				value_run, OFFLOG_CONFIG_MAX_VALUE_LENGTH);
 		}
 		filp_close(fp_cfg, NULL);
 		fp_cfg = NULL;
@@ -152,6 +158,9 @@ static bool oct_offlog_get_config(char *cfg_path)
 	/* config onoff */
 	oct_offlog_onoff = (value_onoff == NULL || strlen(value_onoff) == 0) ?
 		0 : str2int(value_onoff);
+	/* config run */
+	oct_offlog_run = (value_run == NULL || strlen(value_run) == 0) ?
+		0 : str2int(value_run);
 	/* config path */
 	memset(oct_offlog_path, 0, OFFLOG_PATH_LEN + 1);
 	if (value_path == NULL || strlen(value_path) == 0)
@@ -168,9 +177,10 @@ static bool oct_offlog_get_config(char *cfg_path)
 	oct_offlog_number = str2int(value_num);
 	if (oct_offlog_number == 0)
 		oct_offlog_number = DEFAULT_OCT_OFFLOG_NUMBER;
-	OCT_LOG("oct_offlog_get_conf, onoff: %d, path: %s, size:%d, number:%d",
+	OCT_LOG("oct_offlog_get_conf, onoff: %d, path: %s, size:%d, number:%d run:%d",
 		oct_offlog_onoff, oct_offlog_path,
-		oct_offlog_size, oct_offlog_number);
+		oct_offlog_size, oct_offlog_number,
+		oct_offlog_run);
 	return true;
 }
 
@@ -300,6 +310,11 @@ void oct_write_data_to_file(void *ptr, int num_bytes)
 	int verify_fp = 2;
 	static int total_written_bytes;
 
+	if (!oct_offlog_onoff && oct_offlog_run) {
+		written_bytes = num_bytes;
+		goto update_ptr;
+	}
+
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 	if (total_written_bytes >= oct_offlog_size) {
@@ -350,6 +365,7 @@ void oct_write_data_to_file(void *ptr, int num_bytes)
 	}
 	set_fs(old_fs);
 
+update_ptr:
 	/* increment the read ptr anyhow to re-start timeout */
 	oct_read_ptr += written_bytes;
 	/* check if result is consistent */
@@ -387,18 +403,20 @@ void oct_offlog_config(struct device_node *np)
 
 	if (oct_out_path == OCT_PATH_FILE) {
 		oct_offlog_get_config(OFFLOG_CONFIG_FILE);
-		if (oct_offlog_onoff == 0)
+		if (!oct_offlog_onoff && !oct_offlog_run)
 			oct_out_path = DEFAULT_OCT_PATH;
 	}
 	OCT_DBG("oct_detect_off_flag oct_out_path: %d", oct_out_path);
 	OCT_DBG("oct_out_path %d", oct_out_path);
 
 	if (oct_out_path == OCT_PATH_FILE) {
-		oct_offlog_check_mk_dirs();
-		if (oct_offlog_if_rotate())
-			oct_offlog_rotate_files();
-		oct_offlog_send_init_at(np);
-		fp = oct_open_gadget(oct_offlog_path);
+		if (oct_offlog_onoff) {
+			oct_offlog_check_mk_dirs();
+			if (oct_offlog_if_rotate())
+				oct_offlog_rotate_files();
+			oct_offlog_send_init_at(np);
+			fp = oct_open_gadget(oct_offlog_path);
+		}
 	}
 }
 

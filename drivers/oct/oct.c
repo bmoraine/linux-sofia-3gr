@@ -181,6 +181,62 @@ static int pm_runtime_idle_fct(struct device *dev)
 	return 0;
 }
 
+int oct_get_buffer_info(
+	void **start_address,
+	void **start_address_phy,
+	unsigned int *size,
+	void **read_ptr,
+	void **write_ptr)
+{
+	void *ring_buf_start = NULL;
+	unsigned int ring_buf_size = 0;
+	unsigned int ring_read_ptr = 0;
+	unsigned int ring_write_ptr = 0;
+
+	int oct_enabled = 0;
+
+	/* Check if OCT is enabled */
+	if (0 != (GET_OCT_CLC(oct_trform) && 0x0000FF00)) {
+		oct_enabled = 1;
+		ring_buf_start =
+			(void *)(GET_OCT_OCT_MASTER_RXCH0_BASE(oct_trform));
+		ring_buf_size =
+			GET_OCT_OCT_MASTER_RXCH0_SIZE(oct_trform);
+		ring_read_ptr =
+			GET_OCT_OCT_SW_RPTR(oct_trform) & 0xFFFFFFFC;
+		ring_write_ptr =
+			GET_OCT_OCT_MASTER_WPTR(oct_trform) & 0xFFFFFFFC;
+	}
+
+	if (start_address)
+		*start_address = oct_ext_rbuff_ptr;
+
+	if (start_address_phy)
+		*start_address_phy = (void *)phy_base_addr;
+
+	if (size)
+		*size = ring_buf_size;
+
+	if (read_ptr)
+		*read_ptr = oct_ext_rbuff_ptr + ring_read_ptr;
+
+	if (write_ptr)
+		*write_ptr = oct_ext_rbuff_ptr + ring_write_ptr;
+
+	OCT_LOG(
+		"start=0x%x, start_phy=0x%x, size=0x%x, read=0x%x write=0x%x\n",
+		(unsigned int)*start_address,
+		(unsigned int)*start_address_phy,
+		(unsigned int)*size,
+		(unsigned int)*read_ptr,
+		(unsigned int)*write_ptr);
+
+	return oct_enabled;
+}
+
+
+
+
 static const struct dev_pm_ops my_pm_ops = {
 	/* For system suspend/resume */
 	.suspend = pm_suspend_fct,

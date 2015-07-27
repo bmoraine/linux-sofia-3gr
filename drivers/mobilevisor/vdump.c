@@ -249,29 +249,7 @@ static int vdump_thread(void *param)
 		vdump_events = 0;
 
 		if (vdump_data.cd_info.status) {
-			int i;
-			/* map the coredump memory regions */
-			for (i = 0;
-				i < vdump_data.cd_info.number_of_ranges; i++) {
-				vdump_data.cd_info.
-					memory_range[i].logical_start =
-					(uint32_t)ioremap_cache(
-						vdump_data.cd_info.
-						memory_range[i].physical_start,
-						vdump_data.
-						cd_info.memory_range[i].
-						length);
-			}
 			VD_stp_start(&vdump_data.cd_info);
-			/* unmap the coredump memory regions */
-			for (i = 0;
-				i < vdump_data.cd_info.number_of_ranges;
-				i++) {
-				iounmap((void *)vdump_data.cd_info
-					.memory_range[i].logical_start);
-				vdump_data.cd_info.memory_range[i]
-					.logical_start = 0;
-			}
 			vdump_data.cd_info.status = 0;
 			msleep(10000);
 			schedule_vmodem_workqueue();
