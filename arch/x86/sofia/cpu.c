@@ -215,3 +215,68 @@ static int __init sofia_cpu_steal_init(void)
 }
 
 arch_initcall(sofia_cpu_steal_init);
+
+static struct cpumask _cpumask_shared = { CPU_BITS_NONE };
+static struct cpumask *cpumask_shared = &_cpumask_shared;
+static unsigned vcpu_map, shared_cpu_map, apic_map, num_of_cpus;
+static unsigned apic_vcpu_map[CONFIG_NR_CPUS];
+
+bool sofia_is_cpu_shared(unsigned cpu)
+{
+	if (cpumask_test_cpu(cpu, cpumask_shared))
+		return true;
+	else
+		return false;
+}
+EXPORT_SYMBOL(sofia_is_cpu_shared);
+
+bool sofia_is_cpu_exclusive(unsigned cpu)
+{
+	if (cpumask_test_cpu(cpu, cpumask_shared))
+		return false;
+	else
+		return true;
+}
+EXPORT_SYMBOL(sofia_is_cpu_exclusive);
+
+unsigned sofia_cpu_get_apicid(unsigned cpu)
+{
+	return apic_vcpu_map[cpu];
+}
+EXPORT_SYMBOL(sofia_cpu_get_apicid);
+
+unsigned sofia_get_nr_vcpus(void)
+{
+	return num_of_cpus;
+}
+EXPORT_SYMBOL(sofia_get_nr_vcpus);
+
+int sofia_cpu_mapping_init(void)
+{
+	unsigned vcpu;
+
+	cpumask_clear(cpumask_shared);
+	mv_get_cpu_map(&vcpu_map, &shared_cpu_map, &apic_map, &num_of_cpus);
+
+	for (vcpu = 0; vcpu < num_of_cpus; vcpu++) {
+		unsigned phys_cpu;
+		bool shared;
+		phys_cpu = (vcpu_map >> (vcpu * 4)) & 0xF;
+
+		if (shared_cpu_map & BIT(phys_cpu))
+			shared = true;
+		else
+			shared = false;
+
+		apic_vcpu_map[vcpu] = (apic_map >> (phys_cpu * 4)) & 0xF;
+
+		pr_info("vcpu mapping: shared:%s, vcpu:%x, phys:%x, apicid:%x\n",
+				shared ? "yes" : "no", vcpu,
+				phys_cpu, apic_vcpu_map[vcpu]);
+		if (shared)
+			cpumask_set_cpu(vcpu, cpumask_shared);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(sofia_cpu_mapping_init);

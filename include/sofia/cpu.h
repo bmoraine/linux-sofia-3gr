@@ -36,6 +36,16 @@ u32 sofia_get_cpu_freq_table(int *freq_table, const int nb_freq);
 
 u32 sofia_get_cpu_nb_freq(void);
 
+bool sofia_is_cpu_shared(unsigned);
+
+bool sofia_is_cpu_exclusive(unsigned);
+
+unsigned sofia_get_nr_vcpus(void);
+
+int sofia_cpu_mapping_init(void);
+
+unsigned sofia_cpu_get_apicid(unsigned);
+
 static inline u64 paravirt_steal_clock(int cpu)
 {
 	u64 active_steal, timetotal, idle_steal;
