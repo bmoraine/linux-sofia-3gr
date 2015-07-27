@@ -37,6 +37,9 @@
 #include <asm/pci_x86.h>
 #include <asm/setup.h>
 
+#ifdef CONFIG_X86_INTEL_SOFIA
+#include <sofia/cpu.h>
+#endif
 __initdata u64 initial_dtb;
 char __initdata cmd_line[COMMAND_LINE_SIZE];
 
@@ -128,9 +131,30 @@ void x86_of_pci_init(void)
 #ifdef CONFIG_X86_LOCAL_APIC
 static void __init dtb_setup_cpus(void)
 {
+#ifdef CONFIG_X86_INTEL_SOFIA
+	unsigned nr_vcpus, vcpu;
+#else
 	struct device_node *cpu, *cpus;
+#endif
 	unsigned apic_id;
 
+	smp_found_config = 0;
+	num_processors = 0;
+#ifdef CONFIG_X86_INTEL_SOFIA
+	if (sofia_cpu_mapping_init())
+		panic("Unable to retrieve vcpu mapping");
+
+	nr_vcpus = sofia_get_nr_vcpus();
+	if (nr_vcpus == 0)
+		panic("Number of vcpus can't be null");
+
+	for (vcpu = 0; vcpu < nr_vcpus; vcpu++) {
+		apic_id = sofia_cpu_get_apicid(vcpu);
+		generic_processor_info(apic_id,
+			       GET_APIC_VERSION(apic_read(APIC_LVR)));
+	}
+
+#else
 	cpus = of_find_node_by_path("/cpus");
 
 	if (!cpus) {
@@ -138,9 +162,6 @@ static void __init dtb_setup_cpus(void)
 			       GET_APIC_VERSION(apic_read(APIC_LVR)));
 		return;
 	}
-
-	smp_found_config = 0;
-	num_processors = 0;
 
 	for_each_child_of_node(cpus, cpu) {
 		if (of_node_cmp(cpu->type, "cpu"))
@@ -156,7 +177,7 @@ static void __init dtb_setup_cpus(void)
 			       GET_APIC_VERSION(apic_read(APIC_LVR)));
 
 	}
-
+#endif
 	if (num_processors > 1)
 		smp_found_config = 1;
 }
