@@ -113,6 +113,12 @@ static struct power_supply_throttle fan54x_dummy_throttle_states[] = {
 	{
 		.throttle_action = PSY_THROTTLE_CC_LIMIT,
 	},
+	{
+		.throttle_action = PSY_THROTTLE_CC_LIMIT,
+	},
+	{
+		.throttle_action = PSY_THROTTLE_DISABLE_CHARGING,
+	},
 };
 
 static char *fan54x_supplied_to[] = {
