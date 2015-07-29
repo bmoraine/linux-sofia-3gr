@@ -72,7 +72,7 @@
 #define RGA_INFO_BUS_ERROR 1
 
 #define PRE_SCALE_BUF_SIZE  (1024*1024*4)
-#define USE_CMA_FOR_PRE_SCALE
+/* #define USE_CMA_FOR_PRE_SCALE */
 
 #define RGA_POWER_OFF_DELAY	(4*HZ)	/* 4s */
 #define RGA_TIMEOUT_DELAY	(1*HZ)	/* 1s */
