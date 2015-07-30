@@ -195,7 +195,7 @@ unsigned long arch_scale_freq_power(struct sched_domain *sd, int cpu)
 
 	/* FIXME: Get the vcpu shared with another vm from bitmask */
 	if (static_key_false((&paravirt_steal_power_enabled))
-			&& (cpu != 0)) {
+			&& (sofia_is_cpu_shared(cpu))) {
 		load = sofia_cpu_get_steal_load();
 		return (100 - load) * SCHED_POWER_SCALE / 100;
 	} else
