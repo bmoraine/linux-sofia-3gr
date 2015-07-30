@@ -296,15 +296,16 @@ static int32_t xgold_on_button_resume(struct platform_device *pdev)
 	mutex_unlock(&input_dev->mutex);
 
 	disable_interrupts_on_button(data);
-	if (data->pending_event_0) {
-		_on_button_0_isr(data);
-		data->pending_event_0 = false;
-	}
 
 	if (data->pending_event_1) {
 		_on_button_1_isr(data);
 		data->pending_event_1 = false;
 	}
+	if (data->pending_event_0) {
+		_on_button_0_isr(data);
+		data->pending_event_0 = false;
+	}
+
 	enable_interrupts_on_button(data);
 
 	return 0;
