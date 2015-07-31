@@ -116,6 +116,7 @@ static int dwc2_desc_list_alloc(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 				DMA_FROM_DEVICE);
 		kfree(qh->desc_list);
 		qh->desc_list = NULL;
+		qh->desc_list_dma = (dma_addr_t)NULL;
 		return -ENOMEM;
 	}
 
@@ -132,6 +133,7 @@ static void dwc2_desc_list_free(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 				qh->desc_list_sz, DMA_FROM_DEVICE);
 		kfree(qh->desc_list);
 		qh->desc_list = NULL;
+		qh->desc_list_dma = (dma_addr_t)NULL;
 	}
 
 	kfree(qh->n_bytes);
@@ -140,16 +142,26 @@ static void dwc2_desc_list_free(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 
 static int dwc2_frame_list_alloc(struct dwc2_hsotg *hsotg, gfp_t mem_flags)
 {
-	if (hsotg->frame_list)
+	unsigned long flags;
+
+	spin_lock_irqsave(&hsotg->lock, flags);
+
+	if (hsotg->frame_list) {
+		spin_unlock_irqrestore(&hsotg->lock, flags);
 		return 0;
+	}
 
 	hsotg->frame_list_sz = 4 * FRLISTEN_64_SIZE;
 	hsotg->frame_list = kzalloc(hsotg->frame_list_sz, GFP_ATOMIC | GFP_DMA);
-	if (!hsotg->frame_list)
+	if (!hsotg->frame_list) {
+		spin_unlock_irqrestore(&hsotg->lock, flags);
 		return -ENOMEM;
+	}
 
 	hsotg->frame_list_dma = dma_map_single(hsotg->dev, hsotg->frame_list,
 			hsotg->frame_list_sz, DMA_TO_DEVICE);
+
+	spin_unlock_irqrestore(&hsotg->lock, flags);
 
 	return 0;
 }
@@ -170,6 +182,7 @@ static void dwc2_frame_list_free(struct dwc2_hsotg *hsotg)
 
 	kfree(hsotg->frame_list);
 	hsotg->frame_list = NULL;
+	hsotg->frame_list_dma = (dma_addr_t)NULL;
 
 	spin_unlock_irqrestore(&hsotg->lock, flags);
 
