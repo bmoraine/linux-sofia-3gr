@@ -1755,6 +1755,10 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 
 	data = devm_kzalloc(dev, sizeof(struct vpu_subdev_data),
 			    GFP_KERNEL);
+	if (NULL == data) {
+		pr_err("failed to alloc memory in vcodec_subdev_probe \n");
+		return -ENOMEM;
+	}
 
 	pr_info("probe device %s\n", dev_name(dev));
 
@@ -1989,6 +1993,10 @@ static int vcodec_probe(struct platform_device *pdev)
 
 	pservice = devm_kzalloc(dev, sizeof(struct vpu_service_info),
 				GFP_KERNEL);
+	if (pservice == NULL) {
+		pr_err("failed to alloc memory during probe device %s\n", dev_name(dev));
+		return -ENOMEM;
+	}
 
 	pr_info("probe device %s\n", dev_name(dev));
 	of_property_read_u32(np, "subcnt", &pservice->subcnt);
@@ -2012,6 +2020,10 @@ static int vcodec_probe(struct platform_device *pdev)
 	mdelay(1);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (NULL == res) {
+		dev_err(dev, "Error when get platform resource\n");
+		goto err;
+	}
 
 	res->flags &= ~IORESOURCE_CACHEABLE;
 
@@ -2029,6 +2041,7 @@ static int vcodec_probe(struct platform_device *pdev)
 
 		sub_np = of_parse_phandle(np, "intel,sub", i);
 		sub_pdev = of_find_device_by_node(sub_np);
+		if (NULL == sub_pdev) continue;
 
 		vcodec_subdev_probe(sub_pdev, pservice);
 	}
@@ -2064,7 +2077,9 @@ static int vcodec_remove(struct platform_device *pdev)
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	devm_release_mem_region(&pdev->dev, res->start, resource_size(res));
+	if (NULL != res) {
+		devm_release_mem_region(&pdev->dev, res->start, resource_size(res));
+	}
 	wake_lock_destroy(&pservice->wake_lock);
 
 	return 0;
