@@ -32,6 +32,7 @@
  * internal data
  */
 static struct task_struct *rk_ion_task;
+static struct ion_device *rk_ion_device;
 static struct ion_client *rk_ion_client;
 static struct file *rk_ion_vbpipe_filep;
 
@@ -54,6 +55,7 @@ int rk_ion_handler_init(struct device_node *node, struct ion_device *idev,
 {
 	int i;
 
+	rk_ion_device = idev;
 	/*
 	 * determine heap and size to be used:
 	 * - defaults to ION_HEAP_TYPE_DMA_MASK
@@ -77,10 +79,11 @@ int rk_ion_handler_init(struct device_node *node, struct ion_device *idev,
 
 			/* secure heap is present; use this one */
 			if (heap_data->type == ION_HEAP_TYPE_DMA &&
-				heap_data->id == ION_HEAP_TYPE_DMA) {
+				heap_data->id == ION_HEAP_TYPE_SECURE2) {
 
 				rk_ion_heap_capacity = heap_data->size;
-
+				rk_ion_heap_type_mask =
+					ION_HEAP_TYPE_SECURE2_MASK;
 				pr_info("rk_ion VPU uses %s size %u\n",
 					heap_data->name,
 					rk_ion_heap_capacity);
@@ -382,7 +385,10 @@ static int rk_ion_handle_command(uint32_t cmd[], int cmd_len)
 		if (len == -1) {
 
 			if (rk_ion_heap_capacity != 0) {
-				len = (ssize_t) rk_ion_heap_capacity;
+				len = (ssize_t) rk_ion_heap_capacity -
+					ion_device_heap_total(rk_ion_device,
+							ION_HEAP_TYPE_SECURE2,
+					(1<<CONFIG_CMA_ALIGNMENT) * PAGE_SIZE);
 				pr_err("rk_ion req len = -1 adjust to %d\n",
 					len);
 			} else
