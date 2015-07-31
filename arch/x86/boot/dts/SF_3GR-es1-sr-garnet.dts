@@ -34,13 +34,13 @@
 
 		/* global autoconfigured region for contiguous allocations */
 		cma_default_region: region@0 {
-			size = <0x07c00000>;
-			limit = <0x0fc00000>;
+			size = <0x03000000>;
+			limit = <0x10000000>;
 			linux,cma-default;
 		};
 		/* special region for secured processing devices */
-		secured_region: region@fc00000 {
-			reg = <0x0fc00000 0x01400000>;
+		secured_region: region@10000000 {
+			reg = <0x10000000 0x06000000>;
 			no-map;
 			linux,cma;
 		};
