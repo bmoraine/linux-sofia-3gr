@@ -1923,6 +1923,32 @@ void ion_device_destroy(struct ion_device *dev)
 	kfree(dev);
 }
 
+size_t ion_device_heap_total(struct ion_device *dev,
+			unsigned int heap_id,
+			unsigned int align)
+{
+	struct rb_node *n;
+	size_t total_size = 0;
+	size_t total_orphaned_size = 0;
+
+	mutex_lock(&dev->buffer_lock);
+	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
+		struct ion_buffer *buffer = rb_entry(n, struct ion_buffer,
+						     node);
+		if (buffer->heap->id != heap_id)
+			continue;
+		total_size += buffer->size;
+		if (align > 0)
+			total_size = ALIGN(total_size, align);
+		if (!buffer->handle_count)
+			total_orphaned_size += buffer->size;
+	}
+	mutex_unlock(&dev->buffer_lock);
+
+	pr_err("device heap has %u bytes used\n", total_size);
+	return total_size;
+}
+
 void __init ion_reserve(struct ion_platform_data *data)
 {
 	int i;

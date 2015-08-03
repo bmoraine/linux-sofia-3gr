@@ -246,6 +246,15 @@ void ion_device_destroy(struct ion_device *dev);
 void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap);
 
 /**
+ * ion_device_heap_total - get device heap size has been used
+ * @dev:		the device
+ * @heap_id:		the heap id to check
+ * @align:		the buffer alignment in bitmap
+ */
+size_t ion_device_heap_total(struct ion_device *dev, unsigned int heap_id,
+			unsigned int align);
+
+/**
  * some helpers for common operations on buffers using the sg_table
  * and vaddr fields
  */
