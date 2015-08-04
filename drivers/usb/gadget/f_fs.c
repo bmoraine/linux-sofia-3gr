@@ -676,9 +676,13 @@ static ssize_t ffs_epfile_io(struct file *file,
 		if (unlikely(ret < 0)) {
 			/* nop */
 		} else if (unlikely(wait_for_completion_interruptible(&done))) {
+			/* Wait for another 100ms to avoid data lost */
+			if (wait_for_completion_timeout(&done, HZ / 10))
+				goto done;
 			ret = -EINTR;
 			usb_ep_dequeue(ep->ep, req);
 		} else {
+done:
 			/*
 			 * XXX We may end up silently droping data here.
 			 * Since data_len (i.e. req->length) may be bigger
