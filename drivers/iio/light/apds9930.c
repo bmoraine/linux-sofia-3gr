@@ -1,6 +1,6 @@
 /*
  * This is a driver for Avago APDS 9930 ALS sensor chip. It
- * is inspired from drivers/iio/misc/apds990x.c to use IIO.
+ * is inspired from drivers/iio/misc/apds9930.c to use IIO.
  * The datasheet for this device can be found at:
  *	http://www.avagotech.com/docs/AV02-3190EN
  *
@@ -1055,6 +1055,38 @@ static int apds9930_remove(struct i2c_client *client)
 	return ret;
 }
 
+static int apds9930_suspend(struct device *dev)
+{
+	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
+	struct apds9930_data *data = iio_priv(indio_dev);
+	int ret = 0;
+
+        dev_dbg(dev, "%s: suspend\n", APDS9930_DRIVER_NAME);
+	if(data->client->irq > 0) {
+		disable_irq_nosync(data->client->irq);
+	}
+
+	ret = apds9930_disable_all(data);
+
+        return ret;
+}
+
+static int apds9930_resume(struct device *dev)
+{
+	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
+	struct apds9930_data *data = iio_priv(indio_dev);
+        int ret = 0;
+
+        dev_dbg(dev, "%s: resume\n", APDS9930_DRIVER_NAME);
+
+	ret = apds9930_enable_all(data);
+	if(data->client->irq > 0) {
+		enable_irq(data->client->irq);
+	}
+
+        return ret;
+}
+
 static const struct acpi_device_id apds9930_acpi_table[] = {
 	{"APDS9930", 0},
 	{}
@@ -1067,11 +1099,16 @@ static const struct i2c_device_id apds9930_ids_table[] = {
 };
 MODULE_DEVICE_TABLE(i2c, apds9930_ids_table);
 
+static const struct dev_pm_ops apds9930_pm = {
+        SET_SYSTEM_SLEEP_PM_OPS(apds9930_suspend, apds9930_resume)
+};
+
 static struct i2c_driver apds9930_iio_driver = {
 	.driver	= {
 		.name			= APDS9930_DRIVER_NAME,
 		.acpi_match_table	= ACPI_PTR(apds9930_acpi_table),
 		.owner			= THIS_MODULE,
+		.pm			= &apds9930_pm,
 	},
 	.probe		= apds9930_probe,
 	.remove		= apds9930_remove,
