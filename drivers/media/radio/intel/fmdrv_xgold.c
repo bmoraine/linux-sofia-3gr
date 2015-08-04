@@ -232,12 +232,6 @@ static int xgold_fmdrv_set_routing_mode(struct xgold_fmdev *fmdev,
 {
 	int rc = 0;
 
-	/* check whether FMR device is active */
-	if (FMTRX_HW_STATE_RX_ACTIVE != fmtrx_get_hw_state()) {
-		rc = -EBUSY;
-		goto xgold_fmdrv_set_routing_mode_err;
-	}
-
 	switch (aud_route) {
 	case FMR_AUD_PATH_DSP:
 		fmdrv_err("Selecting DSP mode");

@@ -1847,11 +1847,6 @@ static int fmrx_seek(struct fmrx_msgbox_buff *p_msg)
 	}
 	break;
 
-	case FMRX_EVENT_SET_ROUTE: {
-		rx_state.cfg->aud_path = p_msg->params.aud_routing;
-	}
-	break;
-
 	case FMRX_EVENT_SWITCH_ANT: {
 		/* update only when different */
 		if (rx_state.cfg->antenna != p_msg->params.ant_type) {
@@ -1915,6 +1910,101 @@ static int fmrx_seek(struct fmrx_msgbox_buff *p_msg)
 
 	case FMRX_EVENT_REG_WRITE: {
 		rc = fmtrx_write_reg(p_msg->params.p_write_reg);
+	}
+	break;
+
+	case FMRX_EVENT_SET_VOLUME: {
+	/* Set volume according channel selected */
+	switch (p_msg->params.set_ch_vol.channel) {
+		case FMRX_AUD_CHN_RIGHT: {
+			rx_state.cfg->vol_cfg.right =
+				p_msg->params.set_ch_vol.volume;
+		}
+		break;
+
+		case FMRX_AUD_CHN_LEFT: {
+			rx_state.cfg->vol_cfg.left =
+				p_msg->params.set_ch_vol.volume;
+		}
+		break;
+
+		case FMRX_AUD_CHN_ALL: {
+			rx_state.cfg->vol_cfg.right =
+				p_msg->params.set_ch_vol.volume;
+			rx_state.cfg->vol_cfg.left =
+				p_msg->params.set_ch_vol.volume;
+		}
+		break;
+
+		default: {
+			rc = -EINVAL;
+			goto fmrx_seek_err;
+		}
+		break;
+		}
+
+		fmrx_set_aud_volume_dac(
+			fmr_host_to_fmr_volume(rx_state.cfg->vol_cfg.left),
+			fmr_host_to_fmr_volume(rx_state.cfg->vol_cfg.right));
+
+		fmrx_set_aud_volume_src(
+			fmr_host_to_fmr_volume(rx_state.cfg->vol_cfg.left),
+			fmr_host_to_fmr_volume(rx_state.cfg->vol_cfg.right));
+		}
+		break;
+
+	case FMRX_EVENT_SET_ROUTE: {
+		if (FMR_AUD_PATH_OFF ==
+			(enum fmrx_aud_route)p_msg->params.aud_routing) {
+			fmr_mute_wait();
+			fmtrx_set_idi_xfr(true, false);
+			fmdrv_info("Audio routing off requested\n");
+		} else {
+			rx_state.cfg->aud_path = p_msg->params.aud_routing;
+
+			/* mute audio before changing routing */
+			fmr_mute_wait();
+			fmrx_set_output(
+				(enum fmtrx_lld_aud_routing)(
+				(FMR_AUD_PATH_DAC == rx_state.cfg->aud_path) ?
+				LLD_FMR_AUD_ROUTING_DAC :
+				LLD_FMR_AUD_ROUTING_DSP));
+
+			/* change the deemphasis accordingly */
+			if (FMR_AUD_PATH_DAC == rx_state.cfg->aud_path) {
+				if (FMR_50US == rx_state.cfg->band.deem)
+					fmrx_set_deemphasis(LLD_DEEM_50us_DAC);
+				else
+					fmrx_set_deemphasis(LLD_DEEM_75us_DAC);
+			} else {
+				if (FMR_50US == rx_state.cfg->band.deem)
+					fmrx_set_deemphasis(LLD_DEEM_50us_SRC);
+				else
+					fmrx_set_deemphasis(LLD_DEEM_75us_SRC);
+			}
+
+			/* Restore mute state */
+			fmrx_audio_mute(rx_state.cfg->mute);
+			fmrx_audio_processing_enable(!rx_state.cfg->mute);
+
+			/* Callback for audio path switching done */
+			if (NULL !=
+				misc_cfg.fmrx_cbs->p_aud_route_changed_cb)
+				misc_cfg.fmrx_cbs->p_aud_route_changed_cb(
+					rx_state.cfg->aud_path);
+		}
+	}
+	break;
+
+	case FMRX_EVENT_SET_IDI_HANDSHAKE: {
+		rx_state.idi_hs_ctrl =
+			p_msg->params.set_idi_hs_flag.enable;
+		fmtrx_set_idi_xfr(true, rx_state.idi_hs_ctrl);
+
+		if (rx_state.idi_hs_ctrl)
+			fmdrv_info("Handshake bit is enabled\n");
+		else
+			fmdrv_info("Handshake bit is disabled\n");
 	}
 	break;
 
