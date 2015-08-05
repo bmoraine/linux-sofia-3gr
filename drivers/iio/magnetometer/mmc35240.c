@@ -494,7 +494,7 @@ static irqreturn_t mmc35240_trigger_handler(int irq, void *p)
 	}
 	mutex_unlock(&data->mutex);
 
-	iio_push_to_buffers_with_timestamp(indio_dev, buf, iio_get_time_ns());
+	iio_push_to_buffers_with_timestamp(indio_dev, buf, pf->timestamp);
 done:
 	iio_trigger_notify_done(indio_dev->trig);
 
@@ -698,7 +698,8 @@ static int mmc35240_probe(struct i2c_client *client,
 		return ret;
 	}
 
-	ret = iio_triggered_buffer_setup(indio_dev, NULL,
+	ret = iio_triggered_buffer_setup(indio_dev,
+					 &iio_pollfunc_store_time,
 					 mmc35240_trigger_handler, NULL);
 	if (ret < 0)
 		return ret;
