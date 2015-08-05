@@ -27,7 +27,7 @@
 
 #include "dsi_display.h"
 #include "dsi_hwregs.h"
-
+#include "dsi_device.h"
 /* #define USE_DSI_ACKNOWLEDGE */
 
 static int dbg_thresd;
@@ -140,9 +140,10 @@ module_param(dbg_thresd, int, S_IRUGO | S_IWUSR);
 /**
  * Common TX functions
  */
-static void dsi_mipidsi_send_short_packet(struct dsi_display *display,
-					  struct display_msg *msg,
-					  unsigned int dsicfg)
+static void dsi_mipidsi_send_short_packet(
+	struct xgold_mipi_dsi_device *mipi_dsi,
+	struct display_msg *msg,
+	unsigned int dsicfg)
 {
 	unsigned char *data_msg = msg->datas;
 	unsigned int dsihead =
@@ -155,23 +156,24 @@ static void dsi_mipidsi_send_short_packet(struct dsi_display *display,
 	DSI_DBG2("dsi short pkt: (head:0x%08x cfg:0x%08x)\n",
 		 dsihead, dsicfg);
 
-	dsi_write_field(display, EXR_DSI_VID3,
+	dsi_write_field(mipi_dsi, EXR_DSI_VID3,
 			BITFLDS(EXR_DSI_VID3_PIXEL_PACKETS, 1));
 
-	dsi_write_field(display, EXR_DSI_HEAD, dsihead);
-	dsi_write_field(display, EXR_DSI_CFG,
+	dsi_write_field(mipi_dsi, EXR_DSI_HEAD, dsihead);
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG,
 			dsicfg | BITFLDS(EXR_DSI_CFG_HEAD_LAT, 1));
-	dsi_write_field(display, EXR_DSI_CFG, dsicfg);
-	dsi_write_field(display, EXR_DSI_CFG,
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG, dsicfg);
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG,
 			dsicfg | BITFLDS(EXR_DSI_CFG_TX, 1) |
 			BITFLDS(EXR_DSI_CFG_CFG_LAT, 1));
-	dsi_write_field(display, EXR_DSI_CFG,
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG,
 			dsicfg | BITFLDS(EXR_DSI_CFG_TX, 1));
 }
 
-static void dsi_mipidsi_send_long_packet_dma(struct dsi_display *display,
-					     struct display_msg *msg,
-					     unsigned int dsicfg)
+static void dsi_mipidsi_send_long_packet_dma(
+	struct xgold_mipi_dsi_device *mipi_dsi,
+	struct display_msg *msg,
+	unsigned int dsicfg)
 {
 	unsigned char *data_msg = msg->datas;
 	unsigned int length = msg->length;
@@ -188,11 +190,11 @@ static void dsi_mipidsi_send_long_packet_dma(struct dsi_display *display,
 	DSI_DBG2("dsi long dma pkt: wcnt:0x%04x (head:0x%08x cfg:0x%08x)\n",
 		 msg->length, dsihead, dsicfg);
 
-	dsi_write_field(display, EXR_DSI_VID3,
+	dsi_write_field(mipi_dsi, EXR_DSI_VID3,
 			BITFLDS(EXR_DSI_VID3_PIXEL_PACKETS, 1));
-	dsi_write_field(display, EXR_DSI_VID6,
+	dsi_write_field(mipi_dsi, EXR_DSI_VID6,
 			BITFLDS(EXR_DSI_VID6_LAST_PIXEL, length));
-	dsi_write_field(display, EXR_DSI_TPS_CTRL,
+	dsi_write_field(mipi_dsi, EXR_DSI_TPS_CTRL,
 			BITFLDS(EXR_DSI_TPS_CTRL_TPS, length));
 
 	while (length > 0) {
@@ -204,22 +206,24 @@ static void dsi_mipidsi_send_long_packet_dma(struct dsi_display *display,
 			reg |= ((uint8_t) *data_msg++)<<(j*8);
 		}
 
-		dsi_write_field(display, EXR_DSI_TXD, reg);
+		dsi_write_field(mipi_dsi, EXR_DSI_TXD, reg);
 		DSI_DBG2("payload 0x%08x\n", reg);
 	}
 
-	dsi_write_field(display, EXR_DSI_HEAD, dsihead);
-	dsi_write_field(display, EXR_DSI_CFG,
+	dsi_write_field(mipi_dsi, EXR_DSI_HEAD, dsihead);
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG,
 			dsicfg | BITFLDS(EXR_DSI_CFG_HEAD_LAT, 1));
-	dsi_write_field(display, EXR_DSI_CFG, dsicfg);
-	dsi_write_field(display, EXR_DSI_CFG,
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG, dsicfg);
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG,
 			dsicfg | BITFLDS(EXR_DSI_CFG_TX, 1) |
 			BITFLDS(EXR_DSI_CFG_CFG_LAT, 1));
-	dsi_write_field(display, EXR_DSI_CFG, dsicfg |
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG, dsicfg |
 			BITFLDS(EXR_DSI_CFG_TX, 1));
 }
 
-static void dsi_send_cmd(struct dsi_display *display, struct display_msg *msg)
+static void dsi_send_cmd(
+	 struct xgold_mipi_dsi_device *mipi_dsi,
+	 struct display_msg *msg)
 {
 	int ret = 0;
 	unsigned int dsicfg;
@@ -227,19 +231,20 @@ static void dsi_send_cmd(struct dsi_display *display, struct display_msg *msg)
 	if (msg->flags & LCD_MSG_LP)
 		dsicfg = DSI_CFG_TX_LP_DATA(1);
 	else
-		dsicfg = DSI_CFG_TX_HS_DATA(display->dif.dsi.nblanes);
+		dsicfg = DSI_CFG_TX_HS_DATA(
+				mipi_dsi->cur_display->dif.dsi.nblanes);
 
 	if (msg->length <= 2)
-		dsi_mipidsi_send_short_packet(display, msg, dsicfg);
+		dsi_mipidsi_send_short_packet(mipi_dsi, msg, dsicfg);
 	else
-		dsi_mipidsi_send_long_packet_dma(display, msg, dsicfg);
+		dsi_mipidsi_send_long_packet_dma(mipi_dsi, msg, dsicfg);
 
 	DSI_DBG2("wait for eoc\n");
-	ret = dsi_completion_timeout_ms(&display->sync.dsifin,
-					display->sync.dsifin_to);
+	ret = dsi_completion_timeout_ms(&mipi_dsi->sync.dsifin,
+					mipi_dsi->sync.dsifin_to);
 	if (!ret) {
 		DSI_DBG2("dsifin interrupt timedout %dms\n",
-			 display->sync.dsifin_to);
+			 mipi_dsi->sync.dsifin_to);
 	} else {
 		DSI_DBG2("eoc received\n");
 #ifdef USE_DSI_ACKNOWLEDGE
@@ -251,7 +256,7 @@ static void dsi_send_cmd(struct dsi_display *display, struct display_msg *msg)
 	mdelay(msg->delay);
 }
 
-int dsi_read_cmd(struct dsi_display *display, u32 type, u8 *cmd,
+int dsi_read_cmd(struct xgold_mipi_dsi_device *mipi_dsi, u32 type, u8 *cmd,
 		 unsigned int cmd_len, u8 *data, unsigned int data_len)
 {
 	struct display_msg msg;
@@ -272,11 +277,11 @@ int dsi_read_cmd(struct dsi_display *display, u32 type, u8 *cmd,
 	msg.type = MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE;
 	msg.datas = mrps_data;
 	msg.length = 2;
-	dsi_mipidsi_send_short_packet(display, &msg, dsicfg);
-	if (!dsi_completion_timeout_ms(&display->sync.dsifin,
-		display->sync.dsifin_to)) {
+	dsi_mipidsi_send_short_packet(mipi_dsi, &msg, dsicfg);
+	if (!dsi_completion_timeout_ms(&mipi_dsi->sync.dsifin,
+		mipi_dsi->sync.dsifin_to)) {
 		DSI_ERR("dsifin interrupt timedout %dms\n",
-			display->sync.dsifin_to);
+			mipi_dsi->sync.dsifin_to);
 		return -EBUSY;
 	}
 
@@ -284,27 +289,27 @@ int dsi_read_cmd(struct dsi_display *display, u32 type, u8 *cmd,
 	msg.datas = cmd;
 	msg.length = cmd_len;
 	if (msg.length <= 2)
-		dsi_mipidsi_send_short_packet(display, &msg, dsicfg);
+		dsi_mipidsi_send_short_packet(mipi_dsi, &msg, dsicfg);
 	else
-		dsi_mipidsi_send_long_packet_dma(display, &msg, dsicfg);
+		dsi_mipidsi_send_long_packet_dma(mipi_dsi, &msg, dsicfg);
 
-	if (!dsi_completion_timeout_ms(&display->sync.dsifin,
-		display->sync.dsifin_to)) {
+	if (!dsi_completion_timeout_ms(&mipi_dsi->sync.dsifin,
+		mipi_dsi->sync.dsifin_to)) {
 		DSI_ERR("dsifin interrupt timedout %dms\n",
-			display->sync.dsifin_to);
+			mipi_dsi->sync.dsifin_to);
 		return -EBUSY;
 	}
 
 	dsicfg |= BITFLDS(EXR_DSI_CFG_TURN, 1);
-	dsi_write_field(display, EXR_DSI_CFG, dsicfg |
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG, dsicfg |
 			BITFLDS(EXR_DSI_CFG_TX, 1) |
 			BITFLDS(EXR_DSI_CFG_CFG_LAT, 1));
-	dsi_write_field(display, EXR_DSI_CFG, dsicfg |
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG, dsicfg |
 			BITFLDS(EXR_DSI_CFG_TX, 1));
-	dsi_wait_status(display, EXR_DSI_STAT_DSI_DIR, DSI_DIR_RX, 1, 0, 1000);
-	dsi_wait_status(display, EXR_DSI_STAT_DSI_DIR, DSI_DIR_TX, 1, 0, 1000);
-	nwords = dsi_read_field(display, EXR_DSI_FIFO_STAT_RXFFS);
-	nbytes = dsi_read_field(display, EXR_DSI_RPS_STAT);
+	dsi_wait_status(mipi_dsi, EXR_DSI_STAT_DSI_DIR, DSI_DIR_RX, 1, 0, 1000);
+	dsi_wait_status(mipi_dsi, EXR_DSI_STAT_DSI_DIR, DSI_DIR_TX, 1, 0, 1000);
+	nwords = dsi_read_field(mipi_dsi, EXR_DSI_FIFO_STAT_RXFFS);
+	nbytes = dsi_read_field(mipi_dsi, EXR_DSI_RPS_STAT);
 
 	DSI_DBG3("EXR_DSI_FIFO_STAT_RXFFS = %#x\n", nwords);
 	DSI_DBG3("EXR_DSI_RPS_STAT = %#x\n", nbytes);
@@ -312,7 +317,7 @@ int dsi_read_cmd(struct dsi_display *display, u32 type, u8 *cmd,
 	if (!nwords)
 		return 0;
 
-	*((u32 *)rxdata) = dsi_read_field(display, EXR_DSI_RXD);
+	*((u32 *)rxdata) = dsi_read_field(mipi_dsi, EXR_DSI_RXD);
 
 	DSI_DBG3("RX DATA = %#x\n", *((u32 *)rxdata));
 
@@ -337,7 +342,7 @@ int dsi_read_cmd(struct dsi_display *display, u32 type, u8 *cmd,
 
 		data[0] = rxdata[1];
 		data[1] = rxdata[2];
-		i = 1;
+		i = 2;
 	} else if (rcv_type == MIPI_DSI_RX_GENERIC_LONG_READ_RESPONSE ||
 		rcv_type == MIPI_DSI_RX_DCS_LONG_READ_RESPONSE) {
 		int rx_i;
@@ -346,7 +351,7 @@ int dsi_read_cmd(struct dsi_display *display, u32 type, u8 *cmd,
 			rx_i = i % 4;
 			if (!rx_i && --nwords) {
 				*((u32 *)rxdata) =
-					dsi_read_field(display, EXR_DSI_RXD);
+					dsi_read_field(mipi_dsi, EXR_DSI_RXD);
 
 				DSI_DBG3("RX DATA = %#x\n", *((u32 *)rxdata));
 			}
@@ -357,14 +362,9 @@ int dsi_read_cmd(struct dsi_display *display, u32 type, u8 *cmd,
 
 	/* Empty RX FIFO */
 	while (--nwords)
-		dsi_read_field(display, EXR_DSI_RXD);
+		dsi_read_field(mipi_dsi, EXR_DSI_RXD);
 
-	return i + 1;
-}
-
-static int dsi_get_rate(struct dsi_display *display)
-{
-	return DSI_RATE(display->dif.dsi.n, display->dif.dsi.m);
+	return i;
 }
 
 static int dsi_get_bllp(struct dsi_display *display,
@@ -377,18 +377,16 @@ static int dsi_get_bllp(struct dsi_display *display,
 	/* maximum framerate */
 	unsigned int maxfrate = bitrate * nlanes / bitpframe;
 	/* shortest line time */
-	unsigned int slt = NSEC_PER_SEC / maxfrate / nlines;
+	unsigned int slt = NSEC_PER_SEC / (maxfrate * nlines);
 	/* target line time */
-	unsigned int tlt = NSEC_PER_SEC / (fps + 1) / nlines;
+	unsigned int tlt = NSEC_PER_SEC / (fps * nlines);
 	/* clock cycle duration in ps */
-	unsigned int clk_time = 1000000 / (clk/1000000);
-
-	if (display->dif.dsi.video_mode == DSI_BURST)
-		*bllp_time = ((tlt - slt) * 1000) / clk_time;
-	else
-		*bllp_time = 0;
+	unsigned int clk_time = 1000000000 / (clk / 1000);
 
 	*line_time = tlt * 1000 / clk_time;
+	*bllp_time = *line_time - DIV_ROUND_UP(slt * 1000, clk_time);
+	if (display->dif.dsi.video_mode != DSI_BURST || *bllp_time < 0)
+		*bllp_time = 0;
 
 	DSI_DBG2("%d bytes / %d lines\n", bytes, nlines);
 	DSI_DBG2("bits / frame = %d bits\n", bitpframe);
@@ -399,244 +397,246 @@ static int dsi_get_bllp(struct dsi_display *display,
 	DSI_DBG2("bllp_time 0x%08x(%d)\n", *bllp_time, *bllp_time);
 	DSI_DBG2("line_time 0x%08x(%d)\n", *line_time, *line_time);
 
-	if (fps >= maxfrate) {
-		DSI_ERR("target framerate(%d) cannot be reached, max %d\n",
-				fps, maxfrate);
-		*bllp_time = 0;
-		return 0;
-	}
-
 	return 0;
 }
 
-static int dsi_configure_video_mode(struct dsi_display *display,
+static int dsi_configure_video_mode(struct xgold_mipi_dsi_device *mipi_dsi,
 				    int stride, int nlines)
 {
 	unsigned int vid0, vid1, vid2, vid3, vid4, vid5, vid6;
-	struct dsi_display_if_mipi_dsi *dif = &display->dif.dsi;
+	struct dsi_display_if_mipi_dsi *dif = &mipi_dsi->cur_display->dif.dsi;
 
-	if (display->dif.dsi.mode != DSI_VIDEO) {
+	if (mipi_dsi->cur_display->dif.dsi.mode != DSI_VIDEO) {
 		DSI_DBG2("%s: not video mode\n", __func__);
 		return -EINVAL;
 	}
 
-	dsi_get_bllp(display,
-		     nlines + dif->vfp + dif->vbp + dif->vsa,
-		     stride + dif->hfp + dif->hbp + dif->hsa,
-		     dif->dc_clk_rate,
-		     display->fps,
-		     dsi_get_rate(display),
-		     dif->nblanes, &dif->bllp_time, &dif->line_time);
+	vid0 = BITFLDS(EXR_DSI_VID0_HFP, !!dif->hfp)|
+	       BITFLDS(EXR_DSI_VID0_HBP, !!dif->hbp)|
+	       BITFLDS(EXR_DSI_VID0_HSA, !!dif->hsa)|
+	       BITFLDS(EXR_DSI_VID0_HFP_LP, dif->hfp_lp)|
+	       BITFLDS(EXR_DSI_VID0_HBP_LP, dif->hbp_lp)|
+	       BITFLDS(EXR_DSI_VID0_HSA_LP, dif->hsa_lp)|
+	       BITFLDS(EXR_DSI_VID0_HFP_BYTES, dif->hfp)|
+	       BITFLDS(EXR_DSI_VID0_HBP_BYTES, dif->hbp)|
+	       BITFLDS(EXR_DSI_VID0_HSA_BYTES, dif->hsa);
 
-	vid0 =	BITFLDS(EXR_DSI_VID0_HFP, (!!display->dif.dsi.hfp))|
-		BITFLDS(EXR_DSI_VID0_HBP, (!!display->dif.dsi.hbp))|
-		BITFLDS(EXR_DSI_VID0_HSA, (!!display->dif.dsi.hsa))|
-		BITFLDS(EXR_DSI_VID0_HFP_LP, dif->hfp_lp)|
-		BITFLDS(EXR_DSI_VID0_HBP_LP, dif->hbp_lp)|
-		BITFLDS(EXR_DSI_VID0_HSA_LP, dif->hsa_lp)|
-		BITFLDS(EXR_DSI_VID0_HFP_BYTES, dif->hfp)|
-		BITFLDS(EXR_DSI_VID0_HBP_BYTES, dif->hbp)|
-		BITFLDS(EXR_DSI_VID0_HSA_BYTES, dif->hsa);
+	vid1 = BITFLDS(EXR_DSI_VID1_VACT_LINES, nlines)|
+	       BITFLDS(EXR_DSI_VID1_MODE, dif->video_mode)|
+	       BITFLDS(EXR_DSI_VID1_ID, dif->id)|
+	       BITFLDS(EXR_DSI_VID1_PIXEL, dif->video_pixel)|
+	       BITFLDS(EXR_DSI_VID1_FILL_BUFFER_TO, 0xFF);
 
-	vid1 =	BITFLDS(EXR_DSI_VID1_VACT_LINES, nlines)|
-		BITFLDS(EXR_DSI_VID1_MODE, dif->video_mode)|
-		BITFLDS(EXR_DSI_VID1_ID, dif->id)|
-		BITFLDS(EXR_DSI_VID1_PIXEL, dif->video_pixel)|
-		BITFLDS(EXR_DSI_VID1_FILL_BUFFER_TO, 0xFF);
+	vid2 = BITFLDS(EXR_DSI_VID2_VFP, dif->vfp)|
+	       BITFLDS(EXR_DSI_VID2_VBP, dif->vbp)|
+	       BITFLDS(EXR_DSI_VID2_VSA, dif->vsa);
 
-	vid2 =	BITFLDS(EXR_DSI_VID2_VFP, dif->vfp)|
-		BITFLDS(EXR_DSI_VID2_VBP, dif->vbp)|
-		BITFLDS(EXR_DSI_VID2_VSA, dif->vsa);
+	vid3 = BITFLDS(EXR_DSI_VID3_PIXEL_BYTES, stride)|
+	       BITFLDS(EXR_DSI_VID3_PIXEL_PACKETS, 1);
 
-	vid3 =	BITFLDS(EXR_DSI_VID3_PIXEL_BYTES, stride)|
-		BITFLDS(EXR_DSI_VID3_PIXEL_PACKETS, 1);
+	vid4 = BITFLDS(EXR_DSI_VID4_BLANK_BYTES, 0)|
+	       BITFLDS(EXR_DSI_VID4_BLANK_PACKETS, 0);
 
-	vid4 =	BITFLDS(EXR_DSI_VID4_BLANK_BYTES, 0)|
-		BITFLDS(EXR_DSI_VID4_BLANK_PACKETS, 0);
+	vid5 = BITFLDS(EXR_DSI_VID5_LINE_TIME, dif->line_time)|
+	       BITFLDS(EXR_DSI_VID5_BLLP_TIME, dif->bllp_time);
 
-	vid5 =	BITFLDS(EXR_DSI_VID5_LINE_TIME, dif->line_time)|
-		BITFLDS(EXR_DSI_VID5_BLLP_TIME, dif->bllp_time);
-
-	vid6 =	BITFLDS(EXR_DSI_VID6_LAST_BLANK, stride)|
-		BITFLDS(EXR_DSI_VID6_LAST_PIXEL, stride);
+	vid6 = BITFLDS(EXR_DSI_VID6_LAST_BLANK, stride)|
+	       BITFLDS(EXR_DSI_VID6_LAST_PIXEL, stride);
 
 	DSI_DBG2(
 		"MIPI-DSI video:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x)\n",
 		vid0, vid1, vid2, vid3, vid4, vid5, vid6);
 
-	dsi_write_field(display, EXR_DSI_VID0, vid0);
-	dsi_write_field(display, EXR_DSI_VID1, vid1);
-	dsi_write_field(display, EXR_DSI_VID2, vid2);
-	dsi_write_field(display, EXR_DSI_VID3, vid3);
-	dsi_write_field(display, EXR_DSI_VID4, vid4);
-	dsi_write_field(display, EXR_DSI_VID5, vid5);
-	dsi_write_field(display, EXR_DSI_VID6, vid6);
+	dsi_write_field(mipi_dsi, EXR_DSI_VID0, vid0);
+	dsi_write_field(mipi_dsi, EXR_DSI_VID1, vid1);
+	dsi_write_field(mipi_dsi, EXR_DSI_VID2, vid2);
+	dsi_write_field(mipi_dsi, EXR_DSI_VID3, vid3);
+	dsi_write_field(mipi_dsi, EXR_DSI_VID4, vid4);
+	dsi_write_field(mipi_dsi, EXR_DSI_VID5, vid5);
+	dsi_write_field(mipi_dsi, EXR_DSI_VID6, vid6);
 
 	return 0;
 }
 
-static void dsi_set_phy(struct dsi_display *display, int on)
+/**
+ * Callbacks
+ */
+static void dsi_set_phy(struct xgold_mipi_dsi_device *mipi_dsi, int on)
 {
 	unsigned int phy0 = 0, phy1 = 0, phy2 = 0, phy3 = 0;
 
 	if (!on) {
 		phy0 = BITFLDS(EXR_DSI_PHY0_SHARE, 0x0) |
-			BITFLDS(EXR_DSI_PHY0_M, 0) |
-			BITFLDS(EXR_DSI_PHY0_N, 0xFF) |
-			BITFLDS(EXR_DSI_PHY0_POWERUP, display->dif.dsi.pwup) |
-			BITFLDS(EXR_DSI_PHY0_CALIB, display->dif.dsi.calib) |
-			BITFLDS(EXR_DSI_PHY0_TO_LP_HS_REQ,
-				display->dif.dsi.to_lp_hs_req);
+		       BITFLDS(EXR_DSI_PHY0_M, 0) |
+		       BITFLDS(EXR_DSI_PHY0_N, 0xFF) |
+		       BITFLDS(EXR_DSI_PHY0_POWERUP,
+			       mipi_dsi->cur_display->dif.dsi.pwup) |
+		       BITFLDS(EXR_DSI_PHY0_CALIB,
+			       mipi_dsi->cur_display->dif.dsi.calib) |
+		       BITFLDS(EXR_DSI_PHY0_TO_LP_HS_REQ,
+			       mipi_dsi->cur_display->dif.dsi.to_lp_hs_req);
 	} else {
 		phy0 = BITFLDS(EXR_DSI_PHY0_SHARE, 0x0) |
-			BITFLDS(EXR_DSI_PHY0_M, display->dif.dsi.m) |
-			BITFLDS(EXR_DSI_PHY0_N, display->dif.dsi.n) |
-			BITFLDS(EXR_DSI_PHY0_POWERUP, display->dif.dsi.pwup) |
-			BITFLDS(EXR_DSI_PHY0_CALIB, display->dif.dsi.calib) |
-			BITFLDS(EXR_DSI_PHY0_TO_LP_HS_REQ,
-				display->dif.dsi.to_lp_hs_req);
+		       BITFLDS(EXR_DSI_PHY0_M,
+			       mipi_dsi->cur_display->dif.dsi.m) |
+		       BITFLDS(EXR_DSI_PHY0_N,
+			       mipi_dsi->cur_display->dif.dsi.n) |
+		       BITFLDS(EXR_DSI_PHY0_POWERUP,
+			       mipi_dsi->cur_display->dif.dsi.pwup) |
+		       BITFLDS(EXR_DSI_PHY0_CALIB,
+			       mipi_dsi->cur_display->dif.dsi.calib) |
+		       BITFLDS(EXR_DSI_PHY0_TO_LP_HS_REQ,
+			       mipi_dsi->cur_display->dif.dsi.to_lp_hs_req);
 	}
 
-	phy1 =	BITFLDS(EXR_DSI_PHY1_TO_LP_HS_DIS,
-			display->dif.dsi.to_lp_hs_dis) |
-		BITFLDS(EXR_DSI_PHY1_TO_LP_EOT,
-			display->dif.dsi.to_lp_hs_eot) |
-		BITFLDS(EXR_DSI_PHY1_TO_HS_ZERO,
-			display->dif.dsi.to_hs_zero) |
-		BITFLDS(EXR_DSI_PHY1_TO_HS_FLIP,
-			display->dif.dsi.to_hs_flip) |
-		BITFLDS(EXR_DSI_PHY1_LP_CLK_DIV,
-			display->dif.dsi.lp_clk_div);
+	phy1 = BITFLDS(EXR_DSI_PHY1_TO_LP_HS_DIS,
+		       mipi_dsi->cur_display->dif.dsi.to_lp_hs_dis) |
+	       BITFLDS(EXR_DSI_PHY1_TO_LP_EOT,
+		       mipi_dsi->cur_display->dif.dsi.to_lp_hs_eot) |
+	       BITFLDS(EXR_DSI_PHY1_TO_HS_ZERO,
+		       mipi_dsi->cur_display->dif.dsi.to_hs_zero) |
+	       BITFLDS(EXR_DSI_PHY1_TO_HS_FLIP,
+		       mipi_dsi->cur_display->dif.dsi.to_hs_flip) |
+	       BITFLDS(EXR_DSI_PHY1_LP_CLK_DIV,
+		       mipi_dsi->cur_display->dif.dsi.lp_clk_div);
 
-	phy2 =	BITFLDS(EXR_DSI_PHY2_HS_CLK_PRE,
-			display->dif.dsi.to_hs_clk_pre) |
-		BITFLDS(EXR_DSI_PHY2_HS_CLK_POST,
-			display->dif.dsi.to_hs_clk_post) |
-		BITFLDS(EXR_DSI_PHY2_DAT_DELAY,
-			display->dif.dsi.data_delay) |
-		BITFLDS(EXR_DSI_PHY2_CLK_DELAY,
-			display->dif.dsi.clock_delay) |
-		BITFLDS(EXR_DSI_PHY2_LPTX_TFALL,
-			display->dif.dsi.lp_tx_tfall);
+	phy2 = BITFLDS(EXR_DSI_PHY2_HS_CLK_PRE,
+		       mipi_dsi->cur_display->dif.dsi.to_hs_clk_pre) |
+	       BITFLDS(EXR_DSI_PHY2_HS_CLK_POST,
+		       mipi_dsi->cur_display->dif.dsi.to_hs_clk_post) |
+	       BITFLDS(EXR_DSI_PHY2_DAT_DELAY,
+		       mipi_dsi->cur_display->dif.dsi.data_delay) |
+	       BITFLDS(EXR_DSI_PHY2_CLK_DELAY,
+		       mipi_dsi->cur_display->dif.dsi.clock_delay) |
+	       BITFLDS(EXR_DSI_PHY2_LPTX_TFALL,
+		       mipi_dsi->cur_display->dif.dsi.lp_tx_tfall);
 
-	phy3 =	BITFLDS(EXR_DSI_PHY3_EN, 0x1) |
-		BITFLDS(EXR_DSI_PHY3_LPTX_TRISE,
-			display->dif.dsi.lp_tx_trise) |
-		BITFLDS(EXR_DSI_PHY3_LPTX_VREF,
-			display->dif.dsi.lp_tx_vref);
+	phy3 = BITFLDS(EXR_DSI_PHY3_EN, 0x1) |
+	       BITFLDS(EXR_DSI_PHY3_LPTX_TRISE,
+		       mipi_dsi->cur_display->dif.dsi.lp_tx_trise) |
+	       BITFLDS(EXR_DSI_PHY3_LPTX_VREF,
+		       mipi_dsi->cur_display->dif.dsi.lp_tx_vref);
 
 	DSI_DBG2("MIPI-DSI @%d bps (%d,%d): 0x%08x 0x%08x 0x%08x 0x%08x)\n",
-		 dsi_get_rate(display),
-		 display->dif.dsi.n, display->dif.dsi.m,
+		 mipi_dsi->cur_display->dif.dsi.bitrate,
+		 mipi_dsi->cur_display->dif.dsi.n,
+		 mipi_dsi->cur_display->dif.dsi.m,
 		 phy0, phy1, phy2, phy3);
 
-	dsi_write_field(display, EXR_DSI_PHY0, phy0);
-	dsi_write_field(display, EXR_DSI_PHY1, phy1);
-	dsi_write_field(display, EXR_DSI_PHY2, phy2);
-	dsi_write_field(display, EXR_DSI_PHY3, phy3);
+	dsi_write_field(mipi_dsi, EXR_DSI_PHY0, phy0);
+	dsi_write_field(mipi_dsi, EXR_DSI_PHY1, phy1);
+	dsi_write_field(mipi_dsi, EXR_DSI_PHY2, phy2);
+	dsi_write_field(mipi_dsi, EXR_DSI_PHY3, phy3);
 
 	if (on) {
 		/* wait for PLL lock */
-		dsi_wait_status(display, EXR_DSI_STAT_DSI_LOCK, 1, 1, 0, 1000);
+		dsi_wait_status(mipi_dsi, EXR_DSI_STAT_DSI_LOCK, 1, 1, 0, 1000);
 	}
 }
 
-static void dsi_send_msglist(struct dsi_display *display,
+static void dsi_send_msglist(struct xgold_mipi_dsi_device *mipi_dsi,
 			     struct display_msg *msgs)
 {
 	struct display_msg *msg;
 
 	list_for_each_entry(msg, &msgs->list, list) {
-		mdelay(1);
 		DSI_DBG2("Sending command 0x%02x of length %d\n",
 			 msg->type, msg->length);
-		dsi_send_cmd(display, msg);
+		dsi_send_cmd(mipi_dsi, msg);
 	}
 }
 
-static int dsi_panel_init(struct dsi_display *display)
+static int dsi_panel_init(struct xgold_mipi_dsi_device *mipi_dsi)
 {
-	struct display_msg *msgs = display->msgs_init;
+	struct display_msg *msgs = mipi_dsi->cur_display->msgs_init;
 
 	if (msgs != NULL)
-		dsi_send_msglist(display, msgs);
+		dsi_send_msglist(mipi_dsi, msgs);
 
 	return 0;
 }
 
-int dsi_stop(struct dsi_display *display)
+int dsi_stop(struct xgold_mipi_dsi_device *mipi_dsi)
 {
+
 	/* Reset and re-init for entering ULPS*/
-	dsi_init(display);
-	dsi_config(display, DIF_TX_DATA);
+	dsi_init(mipi_dsi);
+	dsi_config(mipi_dsi, DIF_TX_DATA);
 
 	/* Enter ULPS */
-	dsi_write_field(display, EXR_DSI_CFG_ULPS, 1);
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG_ULPS, 1);
 
 	/* Swicth off PLL */
-	dsi_set_phy(display, 0);
+	dsi_set_phy(mipi_dsi, 0);
 
 	/* Switch off phy */
-	dsi_write_field(display, EXR_DSI_PHY3, BITFLDS(EXR_DSI_PHY3_EN, 0x0));
+	dsi_write_field(mipi_dsi, EXR_DSI_PHY3, BITFLDS(EXR_DSI_PHY3_EN, 0x0));
 
 	return 0;
 }
 
-int dsi_init(struct dsi_display *display)
+int dsi_init(struct xgold_mipi_dsi_device *mipi_dsi)
 {
 	unsigned int clcstat;
 
-	if (display->dsi_reset) {
-		reset_control_assert(display->dsi_reset);
+	if (mipi_dsi->dsi_reset) {
+		reset_control_assert(mipi_dsi->dsi_reset);
 		udelay(10);
-		reset_control_deassert(display->dsi_reset);
+		reset_control_deassert(mipi_dsi->dsi_reset);
 		usleep_range(8000, 8001);
 	}
 
-	dsi_write_field(display, EXR_DSI_CLC,
+	dsi_write_field(mipi_dsi, EXR_DSI_CLC,
+
 			BITFLDS(EXR_DSI_CLC_RUN, DSI_MODE_RUN));
 	clcstat = BITFLDS(EXR_DSI_CLC_STAT_RUN, 1) |
 		BITFLDS(EXR_DSI_CLC_STAT_MODEN, 1) |
 		BITFLDS(EXR_DSI_CLC_STAT_KID, 1);
-	dsi_wait_status(display, EXR_DSI_CLC_STAT, clcstat, clcstat, 0, 1000);
-	dsi_write_field(display, EXR_DSI_CLK, 0x000F000F);
-	dsi_write_field(display, EXR_DSI_TO0, 0);
-	dsi_write_field(display, EXR_DSI_TO1, 0);
-	dsi_write_field(display, EXR_DSI_CFG, DSI_CFG_RX_LP_STP(1));
-	dsi_interrupt_setup(display);
+
+	dsi_wait_status(mipi_dsi, EXR_DSI_CLC_STAT, clcstat, clcstat, 0, 1000);
+	dsi_write_field(mipi_dsi, EXR_DSI_CLK, 0x000F000F);
+	dsi_write_field(mipi_dsi, EXR_DSI_TO0, 0);
+	dsi_write_field(mipi_dsi, EXR_DSI_TO1, 0);
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG, DSI_CFG_RX_LP_STP(1));
+	dsi_interrupt_setup(mipi_dsi);
 
 	return 0;
 }
 
 static void
-dsi_set_gpiolist(struct dsi_display *display, struct display_gpio *gpios)
+dsi_set_gpiolist(
+	struct xgold_mipi_dsi_device *mipi_dsi,
+	struct display_gpio *gpios)
 {
 	struct display_gpio *gpio;
 
 	list_for_each_entry(gpio, &gpios->list, list) {
 		switch (gpio->type) {
 		case DSI_GPIO_VHIGH:
-			if (!display->gpio_vhigh)
+			if (!mipi_dsi->gpio_vhigh)
 				break;
 
-			gpio_request(display->gpio_vhigh, "disp_vhigh");
-			gpio_direction_output(display->gpio_vhigh, gpio->value);
+			gpio_request(mipi_dsi->gpio_vhigh, "disp_vhigh");
+			gpio_direction_output(
+					mipi_dsi->gpio_vhigh, gpio->value);
 			break;
 
 		case DSI_GPIO_VLOW:
-			if (!display->gpio_vlow)
+			if (!mipi_dsi->gpio_vlow)
 				break;
 
-			gpio_request(display->gpio_vlow, "disp_vlow");
-			gpio_direction_output(display->gpio_vlow, gpio->value);
+			gpio_request(mipi_dsi->gpio_vlow, "disp_vlow");
+			gpio_direction_output(
+					mipi_dsi->gpio_vlow, gpio->value);
 			break;
 
 		case DSI_GPIO_RESET:
-			if (!display->gpio_reset)
+			if (!mipi_dsi->gpio_reset)
 				break;
 
-			gpio_request(display->gpio_reset, "disp_rst");
-			gpio_direction_output(display->gpio_reset, gpio->value);
+			gpio_request(mipi_dsi->gpio_reset, "disp_rst");
+			gpio_direction_output(
+					mipi_dsi->gpio_reset, gpio->value);
 			break;
 		}
 
@@ -645,61 +645,65 @@ dsi_set_gpiolist(struct dsi_display *display, struct display_gpio *gpios)
 	}
 }
 
-static void dsi_panel_power_on(struct dsi_display *display)
+static void dsi_panel_power_on(struct xgold_mipi_dsi_device *mipi_dsi)
 {
-	if (display->gpios_power_on)
-		dsi_set_gpiolist(display, display->gpios_power_on);
+	if (mipi_dsi->cur_display->gpios_power_on)
+		dsi_set_gpiolist(
+			mipi_dsi, mipi_dsi->cur_display->gpios_power_on);
 }
 
-static void dsi_panel_power_off(struct dsi_display *display)
+static void dsi_panel_power_off(struct xgold_mipi_dsi_device *mipi_dsi)
 {
-	if (display->gpios_power_off)
-		dsi_set_gpiolist(display, display->gpios_power_off);
+	if (mipi_dsi->cur_display->gpios_power_off)
+		dsi_set_gpiolist(
+			mipi_dsi, mipi_dsi->cur_display->gpios_power_off);
 }
 
-static int dsi_panel_sleep_in(struct dsi_display *display)
+static int dsi_panel_sleep_in(struct xgold_mipi_dsi_device *mipi_dsi)
 {
-	struct display_msg *msgs = display->msgs_sleep_in;
+	struct display_msg *msgs = mipi_dsi->cur_display->msgs_sleep_in;
 
 	if (msgs != NULL)
-		dsi_send_msglist(display, msgs);
+		dsi_send_msglist(mipi_dsi, msgs);
 
 	return 0;
 }
 
-static int dsi_panel_sleep_out(struct dsi_display *display)
+static int dsi_panel_sleep_out(struct xgold_mipi_dsi_device *mipi_dsi)
 {
-	struct display_msg *msgs = display->msgs_sleep_out;
+	struct display_msg *msgs = mipi_dsi->cur_display->msgs_sleep_out;
 
 	if (msgs != NULL)
-		dsi_send_msglist(display, msgs);
+		dsi_send_msglist(mipi_dsi, msgs);
 
 	return 0;
 }
 
-void dsi_config(struct dsi_display *display, int type)
+void dsi_config(struct xgold_mipi_dsi_device *mipi_dsi, int type)
 {
 	unsigned int dsicfg;
 
 	if (type == DIF_TX_DATA) {
-		dsi_write_field(display, EXR_DSI_CFG, DSI_CFG_OFF(DSI_CMD));
-		dsi_write_field(display, EXR_DSI_IMSC, DSI_IRQ_ERR_MASK);
-		dsi_set_phy(display, 1);
-		dsi_write_field(display, EXR_DSI_CFG,
-				DSI_CFG_INIT(display->dif.dsi.nblanes));
+		dsi_write_field(mipi_dsi, EXR_DSI_CFG, DSI_CFG_OFF(DSI_CMD));
+		dsi_write_field(mipi_dsi, EXR_DSI_IMSC, DSI_IRQ_ERR_MASK);
+		dsi_set_phy(mipi_dsi, 1);
+		dsi_write_field(mipi_dsi, EXR_DSI_CFG,
+				DSI_CFG_INIT(
+				mipi_dsi->cur_display->dif.dsi.nblanes));
 		return;
 	}
 
-	dsi_write_field(display, EXR_DSI_CFG, DSI_CFG_OFF(DSI_VIDEO));
-	dsi_write_field(display, EXR_DSI_IMSC,
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG, DSI_CFG_OFF(DSI_VIDEO));
+	dsi_write_field(mipi_dsi, EXR_DSI_IMSC,
 			DSI_IRQ_ERR_MASK & (~DSI_IRQ_ERR_DSIFIN));
-	dsi_configure_video_mode(display,
-			PIXELS_TO_BYTES(display->xres, display->bpp),
-			display->yres);
-	dsi_set_phy(display, 1);
-	dsicfg = DSI_CFG_TX_HS_PIXEL(display->dif.dsi.nblanes,
-					display->dif.dsi.mode);
-	dsi_write_field(display, EXR_DSI_CFG, dsicfg);
+	dsi_configure_video_mode(mipi_dsi,
+			PIXELS_TO_BYTES(mipi_dsi->cur_display->xres,
+			mipi_dsi->cur_display->bpp),
+			mipi_dsi->cur_display->yres);
+	dsi_set_phy(mipi_dsi, 1);
+	dsicfg = DSI_CFG_TX_HS_PIXEL(mipi_dsi->cur_display->dif.dsi.nblanes,
+					mipi_dsi->cur_display->dif.dsi.mode);
+	dsi_write_field(mipi_dsi, EXR_DSI_CFG, dsicfg);
 }
 
 static void dsi_dphy_calculation(struct dsi_display *display)
@@ -804,19 +808,34 @@ static void dsi_rate_calculation(struct dsi_display *display)
 			}
 		}
 	}
+
+	display->dif.dsi.bitrate = DSI_RATE(display->dif.dsi.n,
+					    display->dif.dsi.m);
 }
 
-int dsi_probe(struct dsi_display *display)
+int dsi_probe(struct xgold_mipi_dsi_device *mipi_dsi)
 {
-	display->panel_init = dsi_panel_init;
-	display->sleep_in = dsi_panel_sleep_in;
-	display->sleep_out = dsi_panel_sleep_out;
-	display->power_on = dsi_panel_power_on;
-	display->power_off = dsi_panel_power_off;
-	init_completion(&display->sync.dsifin);
-	display->sync.dsifin_to = 200;
-	dsi_rate_calculation(display);
-	dsi_dphy_calculation(display);
+	struct dsi_display *display;
+
+	mipi_dsi->panel_init = dsi_panel_init;
+	mipi_dsi->sleep_in = dsi_panel_sleep_in;
+	mipi_dsi->sleep_out = dsi_panel_sleep_out;
+	mipi_dsi->power_on = dsi_panel_power_on;
+	mipi_dsi->power_off = dsi_panel_power_off;
+	init_completion(&mipi_dsi->sync.dsifin);
+	mipi_dsi->sync.dsifin_to = 200;
+
+	list_for_each_entry(display, &(mipi_dsi)->display_list, list) {
+		struct dsi_display_if_mipi_dsi *dif = &display->dif.dsi;
+
+		dsi_rate_calculation(display);
+		dsi_dphy_calculation(display);
+		dsi_get_bllp(display, display->yres + dif->vfp + dif->vbp +
+			     dif->vsa, PIXELS_TO_BYTES(display->xres,
+			     display->bpp) + dif->hfp + dif->hbp + dif->hsa,
+			     dif->dc_clk_rate, display->fps, dif->bitrate,
+			     dif->nblanes, &dif->bllp_time, &dif->line_time);
+	}
 
 	return 0;
 }

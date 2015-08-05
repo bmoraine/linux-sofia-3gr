@@ -23,8 +23,8 @@
 #define __DSI_DISPLAY_H__
 
 #include <linux/jiffies.h>
-#include <linux/completion.h>
 
+#include "dsi_device.h"
 #define DSI_ERR(x...)	pr_err("[dsi] "x)
 
 #define BYTES_TO_PIXELS(bytes, bpp) (DIV_ROUND_CLOSEST(bytes * 8, bpp))
@@ -62,6 +62,12 @@ enum dsi_video_mode_t {
 	DSI_BURST = 3,
 };
 
+enum panel_id_detect_method {
+	DETECT_METHOD_GPIO = 0,
+	DETECT_METHOD_MIPI = 1,
+	DETECT_METHOD_UNKNOWN = -1,
+};
+
 struct display_msg {
 	struct list_head list;
 	const char *name;
@@ -80,19 +86,7 @@ struct display_gpio {
 	int delay;		/*in ms */
 };
 
-struct dsi_irq {
-	int rx;
-	int tx;
-	int err;
-	int rx_breq;
-};
 
-struct dsi_sync_obj_s {
-	struct completion dsifin;
-	int dsifin_to;
-	struct completion dsitr1;
-	int dsitr1_to;
-};
 
 struct dsi_display_if_mipi_dsi {
 	unsigned int dc_clk_rate;
@@ -149,6 +143,15 @@ struct dsi_display_if {
 	struct dsi_display_if_mipi_dsi dsi;
 };
 
+struct dsi_panel_id_detect {
+	int method;
+	unsigned char cmd_type;
+	unsigned char *cmd_datas;
+	int cmd_length;
+	unsigned char *id_verification;
+	int id_length;
+};
+
 struct dsi_display {
 	int fps;	/* framerate */
 	int xres;	/* pixel width */
@@ -156,40 +159,18 @@ struct dsi_display {
 	int bpp;
 	int xdpi;	/* pixel density per inch in x direction */
 	int ydpi;	/* pixel density per inch in y direction */
-	int gpio_vhigh;
-	int gpio_vlow;
-	int gpio_reset;
+	struct dsi_panel_id_detect *id_detect;
 	struct display_gpio *gpios_power_on;
 	struct display_gpio *gpios_power_off;
 	struct display_msg *msgs_sleep_in;
 	struct display_msg *msgs_sleep_out;
 	struct display_msg *msgs_init;
 	struct display_msg *msgs_update;
-	int (*panel_init)(struct dsi_display *display);
-	void (*power_on)(struct dsi_display *display);
-	int (*sleep_in)(struct dsi_display *display);
-	int (*sleep_out)(struct dsi_display *display);
-	void (*power_off)(struct dsi_display *display);
 	struct dsi_display_if dif;
-	void __iomem *regbase;
-	struct dsi_sync_obj_s sync;
-	struct dsi_irq irq;
-	struct reset_control *dsi_reset;
+	struct list_head list;
 };
 
-static inline int dsi_completion_timeout_ms(struct completion *comp, int to)
-{
-	long jiffies = msecs_to_jiffies(to);
 
-	return wait_for_completion_timeout(comp, jiffies);
-}
 
-void dsi_start_video(struct dsi_display *display);
-void dsi_interrupt_setup(struct dsi_display *display);
-int dsi_probe(struct dsi_display *display);
-int dsi_irq_probe(struct dsi_display *display);
-int dsi_irq_remove(struct dsi_display *display);
-int dsi_init(struct dsi_display *display);
-void dsi_config(struct dsi_display *display, int type);
-int dsi_stop(struct dsi_display *display);
+
 #endif

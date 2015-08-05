@@ -263,7 +263,7 @@ struct dsi_command dsi_regs[] = {
 	EXTREG(EXR_DSI_RXD, DSI_RXD, 0xFFFFFFFF, 0),
 };
 
-int dsi_wait_status(struct dsi_display *display, unsigned int reg,
+int dsi_wait_status(struct xgold_mipi_dsi_device *mipi_dsi, unsigned int reg,
 		     unsigned int value, unsigned int mask, unsigned int delay,
 		     unsigned int count)
 {
@@ -271,7 +271,7 @@ int dsi_wait_status(struct dsi_display *display, unsigned int reg,
 	int found = 0;
 
 	do {
-		read_value = dsi_read_field(display, reg);
+		read_value = dsi_read_field(mipi_dsi, reg);
 		if ((read_value & mask) == value) {
 			found = 1;
 			break;
@@ -294,31 +294,33 @@ int dsi_wait_status(struct dsi_display *display, unsigned int reg,
 /**
  * Read DSI register
  */
-unsigned int dsi_read_field(struct dsi_display *display, unsigned int id)
+unsigned int dsi_read_field(struct xgold_mipi_dsi_device *mipi_dsi,
+			    unsigned int id)
 {
 	struct dsi_command *cmd = &dsi_regs[id];
 
-	return (ioread32(display->regbase + cmd->addr) >> cmd->shift) &
+	return (ioread32(mipi_dsi->regbase + cmd->addr) >> cmd->shift) &
 		cmd->mask;
 }
 
 /**
  * Write DSI register
  */
-void dsi_write_field(struct dsi_display *display, unsigned int id, u32 val)
+void dsi_write_field(struct xgold_mipi_dsi_device *mipi_dsi,
+		     unsigned int id, u32 val)
 {
 	u32 regval = 0;
 	struct dsi_command *cmd = &dsi_regs[id];
 
 	if (id == EXR_DSI_CFG)
-		val |= display->dif.dsi.dsi_cfg_reg;
+		val |= mipi_dsi->cur_display->dif.dsi.dsi_cfg_reg;
 
 	if (cmd->mask == 0xFFFFFFFF) {
-		iowrite32(val, display->regbase + cmd->addr);
+		iowrite32(val, mipi_dsi->regbase + cmd->addr);
 	} else {
 		val = (val << cmd->shift) & (cmd->mask << cmd->shift);
-		regval = ioread32(display->regbase + cmd->addr) &
+		regval = ioread32(mipi_dsi->regbase + cmd->addr) &
 			~(cmd->mask << cmd->shift);
-		iowrite32(val | regval, display->regbase + cmd->addr);
+		iowrite32(val | regval, mipi_dsi->regbase + cmd->addr);
 	}
 }

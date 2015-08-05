@@ -26,6 +26,8 @@
 #include <linux/of_address.h>
 #include <linux/rockchip_fb.h>
 #include <linux/reset.h>
+#include <video/display_timing.h>
+#include <video/of_display_timing.h>
 
 #include "dsi_device.h"
 #include "dsi_hwregs.h"
@@ -47,6 +49,13 @@
 #define PROP_DISPLAY_GPIORST    "intel,display-gpio-reset"
 #define PROP_DISPLAY_GPIOVH     "intel,display-gpio-vhigh"
 #define PROP_DISPLAY_GPIOVL     "intel,display-gpio-vlow"
+#define PROP_DISPLAY_GPIOID0    "intel,display-gpio-id0"
+#define PROP_DISPLAY_GPIOID1    "intel,display-gpio-id1"
+
+#define PANEL_DETECT_NODE       "panel-detect"
+
+#define PROP_DETECT_METHOD      "intel,id-detect-method"
+#define PROP_ID_VERIFICATION    "intel,id-verification"
 
 #define GPIO_LIST_POWER_ON      "gpio-power-on"
 #define GPIO_LIST_POWER_OFF     "gpio-power-off"
@@ -63,6 +72,8 @@
 #define PROP_DISPLAY_CMDDATA    "intel,cmd-data"
 #define PROP_DISPLAY_CMDDELAY   "intel,cmd-delay"
 #define PROP_DISPLAY_CMDLP      "intel,cmd-lp"
+
+#define DISPLAY_TIMINGS_NODE    "display-timings"
 
 #define PORCH_SYNC_MAX 0xFF
 
@@ -230,10 +241,12 @@ static int dsi_of_parse_display_gpiolist(struct platform_device *pdev,
 }
 
 static int dsi_of_parse_gpio(struct platform_device *pdev,
-			     struct dsi_display *display)
+			     struct xgold_mipi_dsi_device *mipi_dsi)
 {
 	struct device_node *screen_dev_n;
 	enum of_gpio_flags gpio_flags;
+	unsigned long flags;
+	int ret;
 
 	screen_dev_n = of_find_matching_node(NULL, screen_of_match);
 	if (!screen_dev_n) {
@@ -241,37 +254,77 @@ static int dsi_of_parse_gpio(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	display->gpio_vhigh = of_get_named_gpio_flags(screen_dev_n,
+	mipi_dsi->gpio_vhigh = of_get_named_gpio_flags(screen_dev_n,
 		PROP_DISPLAY_GPIOVH, 0, &gpio_flags);
-	if (!gpio_is_valid(display->gpio_vhigh))
-		display->gpio_vhigh = 0;
+	if (!gpio_is_valid(mipi_dsi->gpio_vhigh))
+		mipi_dsi->gpio_vhigh = 0;
 
-	display->gpio_vlow = of_get_named_gpio_flags(screen_dev_n,
-		PROP_DISPLAY_GPIOVL, 0, &gpio_flags);
-	if (!gpio_is_valid(display->gpio_vlow))
-		display->gpio_vlow = 0;
+	mipi_dsi->gpio_vlow = of_get_named_gpio_flags(screen_dev_n,
+			PROP_DISPLAY_GPIOVL, 0, &gpio_flags);
+	if (!gpio_is_valid(mipi_dsi->gpio_vlow))
+		mipi_dsi->gpio_vlow = 0;
 
-	display->gpio_reset = of_get_named_gpio_flags(screen_dev_n,
-		PROP_DISPLAY_GPIORST, 0, &gpio_flags);
-	if (!gpio_is_valid(display->gpio_reset))
-		display->gpio_reset = 0;
+	mipi_dsi->gpio_reset = of_get_named_gpio_flags(screen_dev_n,
+			PROP_DISPLAY_GPIORST, 0, &gpio_flags);
+	if (!gpio_is_valid(mipi_dsi->gpio_reset))
+		mipi_dsi->gpio_reset = 0;
+
+	mipi_dsi->gpio_id0 = of_get_named_gpio_flags(screen_dev_n,
+			PROP_DISPLAY_GPIOID0, 0, &gpio_flags);
+	if (gpio_is_valid(mipi_dsi->gpio_id0)) {
+		flags = GPIOF_IN;
+		ret = gpio_request_one(mipi_dsi->gpio_id0, flags, "disp_id0");
+
+		if (ret) {
+			pr_err("%s: request display id0 gpio fail: %d\n",
+			       __func__, ret);
+			mipi_dsi->gpio_id0 = 0;
+		}
+	} else {
+		mipi_dsi->gpio_id0 = 0;
+	}
+
+	mipi_dsi->gpio_id1 = of_get_named_gpio_flags(screen_dev_n,
+			PROP_DISPLAY_GPIOID1, 0, &gpio_flags);
+	if (gpio_is_valid(mipi_dsi->gpio_id1)) {
+		flags = GPIOF_IN;
+		ret = gpio_request_one(mipi_dsi->gpio_id1, flags, "disp_id1");
+
+		if (ret) {
+			pr_err("%s: request display id1 gpio fail: %d\n",
+			       __func__, ret);
+			mipi_dsi->gpio_id1 = 0;
+		}
+	} else {
+		mipi_dsi->gpio_id1 = 0;
+	}
 
 	return 0;
 }
 
-static void
-dsi_of_parse_display_timing(struct xgold_mipi_dsi_device *mipi_dsi)
+static int
+dsi_of_parse_display_timing(struct dsi_display *display,
+			    struct device_node *display_dev_n)
 {
-	struct rockchip_screen *screen = &mipi_dsi->screen;
-	struct dsi_display *display = &mipi_dsi->display;
+	struct display_timings *disp_timing;
+	struct display_timing *dt;
 
-	rockchip_get_prmry_screen(screen);
-	display->xres = screen->mode.xres;
-	display->yres = screen->mode.yres;
-	if (screen->face == OUT_P565) {
+	disp_timing = of_get_display_timings(display_dev_n);
+	if (!disp_timing) {
+		pr_err("parse display timing err\n");
+		return -EINVAL;
+	}
+	dt = display_timings_get(disp_timing, disp_timing->native_mode);
+	if (IS_ERR_OR_NULL(dt)) {
+		pr_err("%s: Can't alloc display\n", __func__);
+		return -ENOMEM;
+	}
+	display->xres = dt->hactive.typ;
+	display->yres = dt->vactive.typ;
+	if (dt->face == OUT_P565) {
 		display->bpp = 16;
 		display->dif.dsi.video_pixel = DSI_PIX_BIT16P;
-	} else if (screen->face == OUT_P666) {
+	} else if (dt->face == OUT_P666) {
 		display->bpp = 18;
 		display->dif.dsi.video_pixel = DSI_PIX_BIT18P;
 	} else {
@@ -279,57 +332,147 @@ dsi_of_parse_display_timing(struct xgold_mipi_dsi_device *mipi_dsi)
 		display->dif.dsi.video_pixel = DSI_PIX_BIT24P;
 	}
 
-	display->dif.dsi.hfp = PIXELS_TO_BYTES(screen->mode.right_margin,
+	display->dif.dsi.hfp = PIXELS_TO_BYTES(dt->hfront_porch.typ,
 					       display->bpp);
 	if (display->dif.dsi.hfp > PORCH_SYNC_MAX) {
 		pr_info("%s: Warning! HFP = %d, MAX HFP is %d\n", __func__,
-			screen->mode.right_margin,
+			dt->hfront_porch.typ,
 			BYTES_TO_PIXELS(PORCH_SYNC_MAX, display->bpp));
 		display->dif.dsi.hfp = PORCH_SYNC_MAX;
 	}
 
-	display->dif.dsi.hbp = PIXELS_TO_BYTES(screen->mode.left_margin,
+	display->dif.dsi.hbp = PIXELS_TO_BYTES(dt->hback_porch.typ,
 					       display->bpp);
 	if (display->dif.dsi.hbp > PORCH_SYNC_MAX) {
 		pr_info("%s: Warning! HBP = %d, MAX HBP is %d\n", __func__,
-			screen->mode.left_margin,
+			dt->hback_porch.typ,
 			BYTES_TO_PIXELS(PORCH_SYNC_MAX, display->bpp));
 		display->dif.dsi.hbp = PORCH_SYNC_MAX;
 	}
 
-	display->dif.dsi.hsa = PIXELS_TO_BYTES(screen->mode.hsync_len,
+	display->dif.dsi.hsa = PIXELS_TO_BYTES(dt->hsync_len.typ,
 					       display->bpp);
 	if (display->dif.dsi.hsa > PORCH_SYNC_MAX) {
 		pr_info("%s: Warning! HSA = %d, MAX HSA is %d\n", __func__,
-			screen->mode.hsync_len,
+			dt->hsync_len.typ,
 			BYTES_TO_PIXELS(PORCH_SYNC_MAX, display->bpp));
 		display->dif.dsi.hsa = PORCH_SYNC_MAX;
 	}
 
-	display->dif.dsi.vfp = screen->mode.lower_margin;
+	display->dif.dsi.vfp = dt->vfront_porch.typ;
 	if (display->dif.dsi.vfp > PORCH_SYNC_MAX) {
 		pr_info("%s: Warning! VFP = %d, MAX VFP is %d\n", __func__,
-			screen->mode.lower_margin, PORCH_SYNC_MAX);
+			dt->vfront_porch.typ, PORCH_SYNC_MAX);
 		display->dif.dsi.vfp = PORCH_SYNC_MAX;
 	}
 
-	display->dif.dsi.vbp = screen->mode.upper_margin;
+	display->dif.dsi.vbp = dt->vback_porch.typ;
 	if (display->dif.dsi.vbp > PORCH_SYNC_MAX) {
 		pr_info("%s: Warning! VBP = %d, MAX VBP is %d\n", __func__,
-			screen->mode.upper_margin, PORCH_SYNC_MAX);
+			dt->vback_porch.typ, PORCH_SYNC_MAX);
 		display->dif.dsi.vbp = PORCH_SYNC_MAX;
 	}
 
-	display->dif.dsi.vsa = screen->mode.vsync_len;
+	display->dif.dsi.vsa = dt->vsync_len.typ;
 	if (display->dif.dsi.vsa > PORCH_SYNC_MAX) {
 		pr_info("%s: Warning! VSA = %d, MAX VSA is %d\n", __func__,
-			screen->mode.vsync_len, PORCH_SYNC_MAX);
+			dt->vsync_len.typ, PORCH_SYNC_MAX);
 		display->dif.dsi.vsa = PORCH_SYNC_MAX;
 	}
-
 	display->dif.dsi.hfp_lp = 0;
 	display->dif.dsi.hbp_lp = 0;
 	display->dif.dsi.hsa_lp = 0;
+	kfree(disp_timing);
+	return 0;
+}
+
+static int dsi_of_parse_panel_detect_node(struct platform_device *pdev,
+					  struct device_node *n,
+					  struct dsi_panel_id_detect **det)
+{
+	int ret, i;
+	const char *string;
+	u32 val;
+	const __be32 *p;
+	struct property *prop;
+	struct dsi_panel_id_detect *id_det;
+
+	id_det = (struct dsi_panel_id_detect *) devm_kzalloc(&pdev->dev,
+			sizeof(struct dsi_panel_id_detect), GFP_KERNEL);
+	if (!id_det) {
+		pr_err("%s: Can't alloc panel id struct\n", __func__);
+		return -ENOMEM;
+	}
+	*det = id_det;
+
+	ret = of_property_read_string(n, PROP_DETECT_METHOD, &string);
+	if (ret) {
+		pr_err("%s: Get %s failed\n", __func__, PROP_DETECT_METHOD);
+		id_det->method = DETECT_METHOD_UNKNOWN;
+	} else if (!strcmp("gpio", string)) {
+		id_det->method = DETECT_METHOD_GPIO;
+	} else if (!strcmp("mipi", string)) {
+		id_det->method = DETECT_METHOD_MIPI;
+	} else {
+		pr_err("%s: Get unknown method %s\n", __func__, string);
+		id_det->method = DETECT_METHOD_UNKNOWN;
+	}
+
+	id_det->cmd_length = 0;
+	of_property_for_each_u32(n, PROP_DISPLAY_CMDDATA, prop, p, val) {
+		id_det->cmd_length++;
+	};
+
+	/* allocate data array if needed */
+	if (id_det->cmd_length > 0) {
+		id_det->cmd_datas = devm_kzalloc(&pdev->dev,
+				id_det->cmd_length*sizeof(u8), GFP_KERNEL);
+		if (!id_det->cmd_datas) {
+			pr_err("%s: Can't alloc array for %s length %dbytes\n",
+			       __func__, n->name, id_det->cmd_length);
+			return -ENOMEM;
+		}
+	}
+
+	/* populate header+data */
+	i = 0;
+	of_property_for_each_u32(n, PROP_DISPLAY_CMDDATA, prop, p, val) {
+		if (id_det->cmd_datas)
+			id_det->cmd_datas[i] = val;
+		i++;
+	}
+
+	ret = of_property_read_u32(n, PROP_DISPLAY_CMDTYPE, &val);
+	if (ret)
+		id_det->cmd_type = 0;
+	else
+		id_det->cmd_type = val;
+
+	id_det->id_length = 0;
+	of_property_for_each_u32(n, PROP_ID_VERIFICATION, prop, p, val) {
+		id_det->id_length++;
+	};
+
+	/* allocate data array if needed */
+	if (id_det->id_length > 0) {
+		id_det->id_verification = devm_kzalloc(&pdev->dev,
+				id_det->id_length*sizeof(u8), GFP_KERNEL);
+		if (!id_det->id_verification) {
+			pr_err("%s: Can't alloc array for %s length %dbytes\n",
+			       __func__, n->name, id_det->id_length);
+			return -ENOMEM;
+		}
+	}
+
+	/* populate header+data */
+	i = 0;
+	of_property_for_each_u32(n, PROP_ID_VERIFICATION, prop, p, val) {
+		if (id_det->id_verification)
+			id_det->id_verification[i] = val;
+		i++;
+	}
+
+	return 0;
 }
 
 int dsi_of_parse_display(struct platform_device *pdev,
@@ -338,120 +481,143 @@ int dsi_of_parse_display(struct platform_device *pdev,
 	int value, ret = 0;
 	const char *string;
 	struct device_node *display_dev_n, *child;
-	struct dsi_display *display = &mipi_dsi->display;
+	struct dsi_display *display;
+	struct dsi_display *display_curr;
 	int index = 0;
-
-	dsi_of_parse_gpio(pdev, display);
-	dsi_of_parse_display_timing(mipi_dsi);
-	display->dsi_reset = devm_reset_control_get(&pdev->dev, "dsi");
-	if (IS_ERR(display->dsi_reset)) {
+	dsi_of_parse_gpio(pdev, mipi_dsi);
+	mipi_dsi->dsi_reset = devm_reset_control_get(&pdev->dev, "dsi");
+	if (IS_ERR(mipi_dsi->dsi_reset)) {
 		pr_err("%s: get dsi reset control failed\n", __func__);
-		display->dsi_reset = NULL;
+		mipi_dsi->dsi_reset = NULL;
 	}
+	INIT_LIST_HEAD(&(mipi_dsi)->display_list);
 
 	for_each_matching_node(display_dev_n, display_of_match) {
-		if (mipi_dsi->screen.index < 0 ||
-		    mipi_dsi->screen.index == index++)
-			break;
-	}
-
-	if (!display_dev_n) {
-		pr_err("%s: Can't find display matching node\n", __func__);
-		return -EINVAL;
-	}
-
-	if (of_property_read_u32(display_dev_n, PROP_DISPLAY_DCCLK,
-		&display->dif.dsi.dc_clk_rate)) {
-		pr_err("%s: Can't get DC clock rate\n", __func__);
-		return -EINVAL;
-	}
-
-	/* DSI_CFG default value */
-	display->dif.dsi.dsi_cfg_reg = BITFLDS(EXR_DSI_CFG_VSYNC, 1) |
-		BITFLDS(EXR_DSI_CFG_PSYNC, 1);
-
-	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_RAMLESS, &value);
-	if (ret || value)
-		display->dif.dsi.mode = DSI_VIDEO;
-	else
-		display->dif.dsi.mode = DSI_CMD;
-
-	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_FPS,
-				   &display->fps);
-	if (ret)
-		display->fps = 60;
-
-	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_LANES,
-				   &display->dif.dsi.nblanes);
-	if (ret)
-		display->dif.dsi.nblanes = 4;
-
-	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_EOT, &value);
-	if (ret || value)
-		display->dif.dsi.dsi_cfg_reg |= BITFLDS(EXR_DSI_CFG_EOT, 1);
-
-	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_GATE, &value);
-	if (ret || value)
-		display->dif.dsi.dsi_cfg_reg |= BITFLDS(EXR_DSI_CFG_GATE, 1);
-
-	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_PREINIT,
-				   &display->dif.dsi.display_preinit);
-	if (ret)
-		display->dif.dsi.display_preinit = 0;
-
-	ret = of_property_read_string(display_dev_n, PROP_DISPLAY_VIDEOMODE,
-				      &string);
-	if (ret) {
-		display->dif.dsi.video_mode = DSI_BURST;
-	} else if (!strcmp("active", string)) {
-		display->dif.dsi.video_mode = DSI_ACTIVE;
-	} else if (!strcmp("pulses", string)) {
-		display->dif.dsi.video_mode = DSI_PULSES;
-	} else if (!strcmp("events", string)) {
-		display->dif.dsi.video_mode = DSI_EVENTS;
-	} else if (!strcmp("burst", string)) {
-		display->dif.dsi.video_mode = DSI_BURST;
-	} else {
-		display->dif.dsi.video_mode = DSI_BURST;
-		pr_info("%s: Unknown dsi video mode type %s\n", __func__,
-			string);
-	}
-
-	ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_VIDEOID,
-				   &display->dif.dsi.id);
-	if (ret)
-		display->dif.dsi.id = 0;
-
-	for_each_child_of_node(display_dev_n, child) {
-		if (!strcmp(child->name, CMD_LIST_INIT)) {
-			ret = dsi_of_parse_display_msglist(pdev, child,
-				&display->msgs_init);
-		} else if (!strcmp(child->name, CMD_LIST_UPDATE)) {
-			ret = dsi_of_parse_display_msglist(pdev, child,
-				&display->msgs_update);
-		} else if (!strcmp(child->name, GPIO_LIST_POWER_ON)) {
-			ret = dsi_of_parse_display_gpiolist(pdev, child,
-				&display->gpios_power_on);
-		} else if (!strcmp(child->name, GPIO_LIST_POWER_OFF)) {
-			ret = dsi_of_parse_display_gpiolist(pdev, child,
-				&display->gpios_power_off);
-		} else if (!strcmp(child->name, CMD_LIST_SLEEP_IN)) {
-			ret = dsi_of_parse_display_msglist(pdev, child,
-				&display->msgs_sleep_in);
-		} else if (!strcmp(child->name, CMD_LIST_SLEEP_OUT)) {
-			ret = dsi_of_parse_display_msglist(pdev, child,
-				&display->msgs_sleep_out);
-		} else {
-			pr_info("%s: In node %s, unexpected child %s !\n",
-				__func__, display_dev_n->name, child->name);
+		if (!display_dev_n) {
+			pr_err(
+			       "%s: Can't find display matching node\n",
+			       __func__);
+			return -EINVAL;
 		}
-
+		display = (struct dsi_display *) devm_kzalloc(
+				&pdev->dev, sizeof(struct dsi_display),
+				GFP_KERNEL);
+		if (IS_ERR_OR_NULL(display)) {
+			pr_err("%s: Can't alloc display\n", __func__);
+			list_for_each_entry(display,
+					&(mipi_dsi)->display_list, list) {
+				devm_kfree(&pdev->dev, display);
+			}
+			return -ENOMEM;
+		}
+		dsi_of_parse_display_timing(display, display_dev_n);
+		if (of_property_read_u32(display_dev_n, PROP_DISPLAY_DCCLK,
+			&display->dif.dsi.dc_clk_rate)) {
+			pr_err("%s: Can't get DC clock rate\n", __func__);
+			return -EINVAL;
+		}
+		/* DSI_CFG default value */
+		display->dif.dsi.dsi_cfg_reg = BITFLDS(EXR_DSI_CFG_VSYNC, 1) |
+					       BITFLDS(EXR_DSI_CFG_PSYNC, 1);
+		ret = of_property_read_u32(
+					   display_dev_n, PROP_DISPLAY_RAMLESS,
+					   &value);
+		if (ret || value)
+			display->dif.dsi.mode = DSI_VIDEO;
+		else
+			display->dif.dsi.mode = DSI_CMD;
+		ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_FPS,
+					   &display->fps);
+		if (ret)
+			display->fps = 60;
+		ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_LANES,
+					   &display->dif.dsi.nblanes);
+		if (ret)
+			display->dif.dsi.nblanes = 4;
+		ret = of_property_read_u32(
+					   display_dev_n, PROP_DISPLAY_EOT,
+					   &value);
+		if (ret || value)
+			display->dif.dsi.dsi_cfg_reg |=
+				BITFLDS(EXR_DSI_CFG_EOT, 1);
+		ret = of_property_read_u32(
+					   display_dev_n,
+					   PROP_DISPLAY_GATE, &value);
+		if (ret || value)
+			display->dif.dsi.dsi_cfg_reg |=
+				BITFLDS(EXR_DSI_CFG_GATE, 1);
+		ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_PREINIT,
+					   &display->dif.dsi.display_preinit);
+		if (ret)
+			display->dif.dsi.display_preinit = 0;
+			ret = of_property_read_string(
+						      display_dev_n,
+						      PROP_DISPLAY_VIDEOMODE,
+						      &string);
 		if (ret) {
-			pr_info("%s: Node %s parsing failed %d\n", __func__,
-				child->name, ret);
+			display->dif.dsi.video_mode = DSI_BURST;
+		} else if (!strcmp("active", string)) {
+			display->dif.dsi.video_mode = DSI_ACTIVE;
+		} else if (!strcmp("pulses", string)) {
+			display->dif.dsi.video_mode = DSI_PULSES;
+		} else if (!strcmp("events", string)) {
+			display->dif.dsi.video_mode = DSI_EVENTS;
+		} else if (!strcmp("burst", string)) {
+			display->dif.dsi.video_mode = DSI_BURST;
+		} else {
+			display->dif.dsi.video_mode = DSI_BURST;
+			pr_info("%s: Unknown dsi video mode type %s\n",
+				__func__, string);
 		}
-	};
+		ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_VIDEOID,
+					   &display->dif.dsi.id);
+		if (ret)
+			display->dif.dsi.id = 0;
+		for_each_child_of_node(display_dev_n, child) {
+			if (!strcmp(child->name, CMD_LIST_INIT)) {
+				ret = dsi_of_parse_display_msglist(pdev, child,
+					&display->msgs_init);
+			} else if (!strcmp(child->name, CMD_LIST_UPDATE)) {
+				ret = dsi_of_parse_display_msglist(pdev, child,
+					&display->msgs_update);
+			} else if (!strcmp(child->name, GPIO_LIST_POWER_ON)) {
+				ret = dsi_of_parse_display_gpiolist(pdev, child,
+					&display->gpios_power_on);
+			} else if (!strcmp(child->name, GPIO_LIST_POWER_OFF)) {
+				ret = dsi_of_parse_display_gpiolist(pdev, child,
+					&display->gpios_power_off);
+			} else if (!strcmp(child->name, CMD_LIST_SLEEP_IN)) {
+				ret = dsi_of_parse_display_msglist(pdev, child,
+					&display->msgs_sleep_in);
+			} else if (!strcmp(child->name, CMD_LIST_SLEEP_OUT)) {
+				ret = dsi_of_parse_display_msglist(pdev, child,
+					&display->msgs_sleep_out);
+			} else if (!strcmp(child->name, PANEL_DETECT_NODE)) {
+				ret = dsi_of_parse_panel_detect_node(pdev,
+					child, &display->id_detect);
+			} else if (!strcmp(child->name, DISPLAY_TIMINGS_NODE)) {
+				continue;
+			} else {
+				pr_info("%s: In node %s, unexpected child %s !\n",
+					__func__, display_dev_n->name,
+					child->name);
+			}
+			if (ret) {
+				pr_info("%s: Node %s parsing failed %d\n",
+				 __func__, child->name, ret);
+			}
+		};
+		list_add_tail(&display->list, &(mipi_dsi)->display_list);
+	}
 
+
+	list_for_each_entry(display_curr, &(mipi_dsi)->display_list, list) {
+		if (mipi_dsi->screen.index < 0 ||
+		    mipi_dsi->screen.index == index++) {
+			mipi_dsi->cur_display = display_curr;
+			break;
+		}
+	}
 	return 0;
 }
 

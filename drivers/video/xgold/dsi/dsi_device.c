@@ -26,6 +26,7 @@
 #include <linux/delay.h>
 #include <linux/rockchip_fb.h>
 #include <linux/reset.h>
+#include <linux/gpio.h>
 
 #include "dsi_device.h"
 #include "dsi_hwregs.h"
@@ -36,23 +37,22 @@ static struct xgold_mipi_dsi_device *xgold_mipi_dsi;
 static int xgold_mipi_dsi_enable(void)
 {
 	struct xgold_mipi_dsi_device *mipi_dsi = xgold_mipi_dsi;
-	struct dsi_display *display = &mipi_dsi->display;
 
 	if (unlikely(!mipi_dsi) || mipi_dsi->sys_state)
 		return 0;
 
-	dsi_init(display);
-	if (display->power_on)
-		display->power_on(display);
+	dsi_init(mipi_dsi);
+	if (mipi_dsi->power_on)
+		mipi_dsi->power_on(mipi_dsi);
 
-	dsi_config(display, DIF_TX_DATA);
-	if (display->panel_init)
-		display->panel_init(display);
+	dsi_config(mipi_dsi, DIF_TX_DATA);
+	if (mipi_dsi->panel_init)
+		mipi_dsi->panel_init(mipi_dsi);
 
-	if (display->sleep_out)
-		display->sleep_out(display);
+	if (mipi_dsi->sleep_out)
+		mipi_dsi->sleep_out(mipi_dsi);
 
-	dsi_config(display, DIF_TX_PIXELS);
+	dsi_config(mipi_dsi, DIF_TX_PIXELS);
 	mipi_dsi->sys_state = true;
 
 	return 0;
@@ -61,27 +61,102 @@ static int xgold_mipi_dsi_enable(void)
 static int xgold_mipi_dsi_disable(void)
 {
 	struct xgold_mipi_dsi_device *mipi_dsi = xgold_mipi_dsi;
-	struct dsi_display *display = &mipi_dsi->display;
 
 	if (unlikely(!mipi_dsi) || !mipi_dsi->sys_state)
 		return 0;
 
-	dsi_config(display, DIF_TX_DATA);
-	if (display->sleep_in)
-		display->sleep_in(display);
+	dsi_config(mipi_dsi, DIF_TX_DATA);
+	if (mipi_dsi->sleep_in)
+		mipi_dsi->sleep_in(mipi_dsi);
 
-	dsi_stop(display);
-	if (display->power_off)
-		display->power_off(display);
+	dsi_stop(mipi_dsi);
+	if (mipi_dsi->power_off)
+		mipi_dsi->power_off(mipi_dsi);
+
 
 	mipi_dsi->sys_state = false;
 
 	return 0;
 }
 
+static int xgold_mipi_dsi_detect_panel(void)
+{
+	struct xgold_mipi_dsi_device *mipi_dsi = xgold_mipi_dsi;
+	int panel_id = -1, temp_id = -1;
+	struct dsi_display *display;
+	unsigned char *id = NULL;
+	int ret = 0;
+
+	list_for_each_entry(display, &(mipi_dsi)->display_list, list) {
+		temp_id++;
+		mipi_dsi->cur_display = display;
+
+		if (!display->id_detect ||
+		    display->id_detect->method == DETECT_METHOD_UNKNOWN ||
+		    !display->id_detect->id_verification) {
+			panel_id = temp_id;
+			dev_err(mipi_dsi->dev,
+				"not found panel detection/method/id\n");
+			break;
+		}
+
+		id = (unsigned char *)devm_kzalloc(mipi_dsi->dev,
+				  display->id_detect->id_length * sizeof(u8),
+				  GFP_KERNEL);
+
+		if (!id) {
+			dev_err(mipi_dsi->dev, "kzalloc id failed\n");
+			break;
+		}
+
+		if (mipi_dsi->power_on)
+			mipi_dsi->power_on(mipi_dsi);
+
+		if (display->id_detect->method == DETECT_METHOD_GPIO) {
+			if (mipi_dsi->gpio_id0) {
+				gpio_direction_input(mipi_dsi->gpio_id0);
+				id[0] = gpio_get_value(mipi_dsi->gpio_id0);
+			}
+			if (mipi_dsi->gpio_id1) {
+				gpio_direction_input(mipi_dsi->gpio_id1);
+				id[1] = gpio_get_value(mipi_dsi->gpio_id1);
+			}
+		} else if (display->id_detect->method == DETECT_METHOD_MIPI) {
+			dsi_init(mipi_dsi);
+			dsi_config(mipi_dsi, DIF_TX_DATA);
+			ret = dsi_read_cmd(mipi_dsi,
+					   display->id_detect->cmd_type,
+					   display->id_detect->cmd_datas,
+					   display->id_detect->cmd_length,
+					   id, display->id_detect->id_length);
+			dsi_stop(mipi_dsi);
+			if (ret != display->id_detect->id_length)
+				dev_err(mipi_dsi->dev,
+					"expect id len %d but get %d bytes\n",
+					display->id_detect->id_length, ret);
+		}
+
+		if (mipi_dsi->power_off)
+			mipi_dsi->power_off(mipi_dsi);
+
+		if (!memcmp(id, display->id_detect->id_verification,
+			    display->id_detect->id_length)) {
+			devm_kfree(mipi_dsi->dev, id);
+			panel_id = temp_id;
+			dev_info(mipi_dsi->dev, "use panel source %d\n",
+				 panel_id);
+			break;
+		}
+		devm_kfree(mipi_dsi->dev, id);
+	}
+
+	return panel_id;
+}
+
 static struct rockchip_fb_trsm_ops trsm_mipi_dsi_ops = {
 	.enable = xgold_mipi_dsi_enable,
 	.disable = xgold_mipi_dsi_disable,
+	.detect_panel = xgold_mipi_dsi_detect_panel,
 };
 
 static int xgold_mipi_dsi_probe(struct platform_device *pdev)
@@ -117,16 +192,16 @@ static int xgold_mipi_dsi_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					   "mipi_dsi_phy");
-	mipi_dsi->display.regbase = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(mipi_dsi->display.regbase)) {
+	mipi_dsi->regbase = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(mipi_dsi->regbase)) {
 		dev_err(&pdev->dev, "ioremap xgold mipi_dsi_phy reg failed\n");
-		return PTR_ERR(mipi_dsi->display.regbase);
+		return PTR_ERR(mipi_dsi->regbase);
 	}
 
-	mipi_dsi->display.irq.err = platform_get_irq(pdev, 0);
-	if (mipi_dsi->display.irq.err < 0) {
+	mipi_dsi->irq.err = platform_get_irq(pdev, 0);
+	if (mipi_dsi->irq.err < 0) {
 		dev_err(&pdev->dev, "Cannot find ERR IRQ for XGold MIPI DSI\n");
-		return mipi_dsi->display.irq.err;
+		return mipi_dsi->irq.err;
 	}
 
 	xgold_mipi_dsi = mipi_dsi;
@@ -136,16 +211,23 @@ static int xgold_mipi_dsi_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "XGold MIPI DSI driver probe success\n");
 	dsi_of_parse_display(pdev, mipi_dsi);
-	dsi_probe(&mipi_dsi->display);
-	dsi_irq_probe(&mipi_dsi->display);
+	dsi_probe(mipi_dsi);
+	dsi_irq_probe(mipi_dsi);
 
 	return 0;
 }
 
 static int xgold_mipi_dsi_remove(struct platform_device *pdev)
 {
-	dsi_irq_remove(&xgold_mipi_dsi->display);
+	struct dsi_display *display_curr;
+
+	list_for_each_entry(display_curr,
+			    &(xgold_mipi_dsi)->display_list, list) {
+		devm_kfree(&pdev->dev, display_curr);
+	}
+	dsi_irq_remove(xgold_mipi_dsi);
 	devm_kfree(&pdev->dev, xgold_mipi_dsi);
+
 	xgold_mipi_dsi = NULL;
 
 	return 0;
