@@ -687,7 +687,7 @@ static ssize_t bq24261_dbg_regs_write(struct file *fp,	const char __user *buf,
 {
 	u8 data, reg;
 	int ret;
-	char str[DBGFS_REG_LEN];
+	char str[DBGFS_REG_LEN + 1];
 	struct reg_debug_data *pdbgdata;
 	struct bq24261_data *pdata;
 
