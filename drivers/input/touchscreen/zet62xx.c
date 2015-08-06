@@ -1038,8 +1038,12 @@ static  int zet62xx_ts_probe(struct i2c_client *client,
 
 	ret = zet622x_downloader(client);
 	if (ret < 0) {
-		dev_err(&client->dev, "firmware download failed\n");
-		return ret;
+		dev_err(&client->dev, "firmware download failed...retrying\n");
+		ret = zet622x_downloader(client);
+		if (ret < 0) {
+		dev_err(&client->dev, "firmware download retry failed\n");
+			return ret;
+		}
 	}
 
 	zet62xx_ts_wakeup(data);
