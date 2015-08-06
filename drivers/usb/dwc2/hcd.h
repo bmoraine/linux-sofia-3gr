@@ -539,6 +539,18 @@ static inline bool dbg_perio(void) { return false; }
 #define dwc2_max_packet(wmaxpacketsize) ((wmaxpacketsize) & 0x07ff)
 
 /*
+ * Returns true if frame1 index is greater than frame2 index. The comparison
+ * is done modulo FRLISTEN_64_SIZE. This accounts for the rollover of the
+ * frame number when the max index frame number is reached.
+ */
+static inline u16 dwc2_frame_idx_num_gt(u16 fr_idx1, u16 fr_idx2)
+{
+	return (fr_idx1 != fr_idx2) && ((fr_idx1 - fr_idx2)
+		 & (FRLISTEN_64_SIZE - 1)) <
+		 ((FRLISTEN_64_SIZE - 1) >> 1);
+}
+
+/*
  * Returns true if frame1 is less than or equal to frame2. The comparison is
  * done modulo HFNUM_MAX_FRNUM. This accounts for the rollover of the
  * frame number when the max frame number is reached.
