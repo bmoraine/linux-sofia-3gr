@@ -48,6 +48,8 @@ static void next_mode_transition(enum boot_mode *next_mode, char *reason)
 		*next_mode = ENUM_BOOT_MODE_RECOVERY_CLEAR;
 	else if (strcmp(reason, "fastboot") == 0)
 		*next_mode = ENUM_BOOT_MODE_FASTBOOT;
+	else if (strcmp(reason, "bootloader") == 0)
+                *next_mode = ENUM_BOOT_MODE_FASTBOOT;
 	else if (strcmp(reason, "ptest") == 0)
 		*next_mode = ENUM_BOOT_MODE_PTEST;
 	else if (strcmp(reason, "ptest_clear") == 0)
