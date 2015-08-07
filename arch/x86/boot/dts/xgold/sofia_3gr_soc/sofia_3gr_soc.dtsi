@@ -780,6 +780,7 @@
 						intel,stm,cpumask = <0x3>;
 						intel,stm,evt,rating = <50>;
 						intel,stm,rate = <26000000>;
+						intel,stm,is_suspended;
 						intel,evt,min-ns = <1000000>;
 						intel,evt,max-ns = <1000000000>;
 					};

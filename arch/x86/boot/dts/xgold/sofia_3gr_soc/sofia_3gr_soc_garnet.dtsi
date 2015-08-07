@@ -818,6 +818,7 @@
 						interrupts = < STM_INT0 IRQ_TYPE_DEFAULT >,
 								< STM_INT1 IRQ_TYPE_DEFAULT >;
 						intel,faf = <0x319>;
+						intel,stm,is_suspended;
 						intel,stm,cpumask = <0x3>;
 						intel,stm,evt,rating = <50>;
 						intel,stm,rate = <26000000>;
