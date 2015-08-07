@@ -430,6 +430,13 @@ static void __init xgold_of_timer_map(struct device_node *np)
 		iowrite32(faf, stm_hw_base + 0x70);
 	}
 
+	ret = of_property_read_bool(np, "intel,stm,is_suspended");
+	if (ret) {
+		pr_info("%s:Clocksource is not persistent in suspend\n",
+				__func__);
+		xgold_stm_clocksource.flags &= ~CLOCK_SOURCE_SUSPEND_NONSTOP;
+	}
+
 	ret = of_property_read_u32(np, "intel,stm,evt,rating", &evt_rating);
 	if (!ret) {
 		pr_info("%s:Clock event device rating set to %#x\n",
