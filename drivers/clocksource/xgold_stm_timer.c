@@ -279,7 +279,7 @@ static void xgold_stm_evt_resume(struct clock_event_device *evt)
 
 static struct clock_event_device xgold_stm_clockevent = {
 	.name = "xgold_stm_clockevent",
-	.features = CLOCK_EVT_FEAT_ONESHOT | CLOCK_EVT_MODE_PERIODIC,
+	.features = CLOCK_EVT_FEAT_ONESHOT | CLOCK_EVT_FEAT_PERIODIC,
 	.shift = 32,		/*FIXME : Refine this choice */
 	.rating = 10,
 	.set_next_event = xgold_stm_tick_set_next_event,
