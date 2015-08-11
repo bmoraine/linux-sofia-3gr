@@ -252,6 +252,11 @@ static int __init xgold_pm_of_init(void)
 		of_property_read_string(np, CLASS_NAME_PROP, &class->name);
 		class->num_states =
 			of_property_count_strings(np, STATES_NAMES_PROP);
+		if (class->num_states <= 0) {
+			pr_err("%s: Property '%s's length is not correct\n",
+				__func__, STATES_NAMES_PROP);
+			goto free_them_all;
+		}
 		class->states = kzalloc(class->num_states *
 				sizeof(struct device_state_pm_state),
 				GFP_KERNEL);
