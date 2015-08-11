@@ -139,6 +139,8 @@ int32_t rga_gen_two_pro(struct rga_req *msg, struct rga_req *msg1)
 		daw = msg->src.act_w;
 	}
 	pl = (RGA_pixel_width_init(msg->src.format));
+	if (!pl)
+		return -EINVAL;
 	stride = (pl * daw + 3) & (~3);
 	msg->dst.act_w = daw;
 	msg->dst.vir_w = stride / pl;
