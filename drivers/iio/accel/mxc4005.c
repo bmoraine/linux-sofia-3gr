@@ -36,6 +36,14 @@
 #define MXC4005_REG_ZOUT_UPPER		0x07
 #define MXC4005_REG_ZOUT_LOWER		0x08
 
+#define MXC4005_REG_TEMP		0x09
+
+#define MXC4005_REG_AOZ_UNLOCK		0x0E
+#define MXC4005_REG_AOZ1		0x23
+#define MXC4005_REG_AOZ2		0x24
+#define MXC4005_REG_AOZ3		0x25
+#define MXC4005_REG_AOZ4		0x26
+
 #define MXC4005_REG_INT_MASK1		0x0B
 #define MXC4005_REG_INT_MASK1_BIT_DRDYE	0x01
 
@@ -67,6 +75,7 @@ struct mxc4005_data {
 	struct iio_trigger *dready_trig;
 	__be16 buffer[8];
 	bool trigger_enabled;
+	u16 aoz, agz;
 };
 
 /*
@@ -89,8 +98,139 @@ static const struct {
 
 static IIO_CONST_ATTR(in_accel_scale_available, "0.009582 0.019164 0.038329");
 
+static ssize_t mxc4005_calib_show_agz(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	struct mxc4005_data *data = iio_priv(dev_to_iio_dev(dev));
+	unsigned int val;
+	int ret;
+
+	ret = regmap_write(data->regmap, MXC4005_REG_AOZ_UNLOCK, 0x93);
+	if (ret)
+		dev_err(data->dev, "unable to unlock aoz\n");
+
+	ret = regmap_read(data->regmap, MXC4005_REG_AOZ3, &val);
+	if (ret)
+		dev_err(data->dev, "unable to read aoz3\n");
+	data->agz = (val & 0xe0) >> 5;
+
+	ret = regmap_read(data->regmap, MXC4005_REG_AOZ4, &val);
+	if (ret)
+		dev_err(data->dev, "unable to read aoz4\n");
+	data->agz |= (val & 0x03) << 3;
+
+	return sprintf(buf, "%d\n", data->agz);
+}
+
+static ssize_t mxc4005_calib_store_agz(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t len)
+{
+	return -EINVAL;
+}
+
+static ssize_t mxc4005_calib_show_aoz(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	struct mxc4005_data *data = iio_priv(dev_to_iio_dev(dev));
+	unsigned int val;
+	int ret;
+
+	ret = regmap_write(data->regmap, MXC4005_REG_AOZ_UNLOCK, 0x93);
+	if (ret)
+		dev_err(data->dev, "unable to unlock aoz\n");
+
+	ret = regmap_read(data->regmap, MXC4005_REG_AOZ1, &val);
+	if (ret)
+		dev_err(data->dev, "unable to read aoz1\n");
+	data->aoz = (val & 0xFC) >> 2;
+
+	ret = regmap_read(data->regmap, MXC4005_REG_AOZ2, &val);
+	if (ret)
+		dev_err(data->dev, "unable to read aoz2\n");
+	data->aoz |= (val & 0x07) << 6;
+
+	return sprintf(buf, "%d\n", data->aoz);
+}
+
+static ssize_t mxc4005_calib_store_aoz(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t len)
+{
+	struct mxc4005_data *data = iio_priv(dev_to_iio_dev(dev));
+	unsigned long val;
+	unsigned int tmp;
+	int ret;
+
+	ret = kstrtoul((const char *) buf, 10, &val);
+	dev_info(data->dev, "%ld\n", val);
+	if (ret || val > 0x1FF)
+		return -EINVAL;
+
+	dev_info(data->dev, "%ld\n", val);
+
+	ret = regmap_write(data->regmap, MXC4005_REG_AOZ_UNLOCK, 0x93);
+	if (ret)
+		dev_err(data->dev, "unable to unlock aoz\n");
+
+	ret = regmap_read(data->regmap, MXC4005_REG_AOZ1, &tmp);
+	if (ret)
+		dev_err(data->dev, "unable to read aoz1\n");
+	dev_info(data->dev, "aoz1 %x\n", tmp);
+	tmp = (val & 0x3F) << 2 | (tmp & 0x03);
+	dev_info(data->dev, "aoz1 %x\n", tmp);
+	ret = regmap_write(data->regmap, MXC4005_REG_AOZ1, tmp);
+	if (ret)
+		dev_err(data->dev, "unable to write aoz1\n");
+
+	ret = regmap_read(data->regmap, MXC4005_REG_AOZ2, &tmp);
+	if (ret)
+		dev_err(data->dev, "unable to read aoz2\n");
+	tmp = (val & 0x1C0) >> 6 | (tmp & 0xF8);
+	ret = regmap_write(data->regmap, MXC4005_REG_AOZ2, tmp);
+	if (ret)
+		dev_err(data->dev, "unable to write aoz1\n");
+
+	return len;
+}
+
+static ssize_t temp_show(struct device *dev,
+				  struct device_attribute *attr,
+				  char *buf)
+{
+	struct mxc4005_data *data = iio_priv(dev_to_iio_dev(dev));
+	unsigned int val;
+	int ret;
+
+	ret = regmap_read(data->regmap, MXC4005_REG_TEMP, &val);
+	if (ret)
+		dev_err(data->dev, "unable to read temp\n");
+
+
+	return sprintf(buf, "temp=%d\n", val);
+}
+
+static ssize_t temp_store(struct device *dev,
+			  struct device_attribute *attr,
+			  const char *buf, size_t len)
+{
+	return -EINVAL;
+}
+
+static IIO_DEVICE_ATTR(calib_aoz, S_IRUGO | S_IWUSR, mxc4005_calib_show_aoz,
+		       mxc4005_calib_store_aoz, 0);
+static IIO_DEVICE_ATTR(calib_agz, S_IRUGO | S_IWUSR, mxc4005_calib_show_agz,
+		       mxc4005_calib_store_agz, 0);
+static IIO_DEVICE_ATTR(temp, S_IRUGO | S_IWUSR, temp_show,
+		       temp_store, 0);
+
 static struct attribute *mxc4005_attributes[] = {
 	&iio_const_attr_in_accel_scale_available.dev_attr.attr,
+	&iio_dev_attr_calib_aoz.dev_attr.attr,
+	&iio_dev_attr_calib_agz.dev_attr.attr,
+	&iio_dev_attr_temp.dev_attr.attr,
 	NULL,
 };
 
@@ -109,6 +249,11 @@ static bool mxc4005_is_readable_reg(struct device *dev, unsigned int reg)
 	case MXC4005_REG_ZOUT_LOWER:
 	case MXC4005_REG_DEVICE_ID:
 	case MXC4005_REG_CONTROL:
+	case MXC4005_REG_TEMP:
+	case MXC4005_REG_AOZ1:
+	case MXC4005_REG_AOZ2:
+	case MXC4005_REG_AOZ3:
+	case MXC4005_REG_AOZ4:
 		return true;
 	default:
 		return false;
@@ -121,6 +266,9 @@ static bool mxc4005_is_writeable_reg(struct device *dev, unsigned int reg)
 	case MXC4005_REG_INT_CLR1:
 	case MXC4005_REG_INT_MASK1:
 	case MXC4005_REG_CONTROL:
+	case MXC4005_REG_AOZ_UNLOCK:
+	case MXC4005_REG_AOZ1:
+	case MXC4005_REG_AOZ2:
 		return true;
 	default:
 		return false;
@@ -133,7 +281,7 @@ static const struct regmap_config mxc4005_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 
-	.max_register = MXC4005_REG_DEVICE_ID,
+	.max_register = MXC4005_REG_AOZ4,
 
 	.readable_reg = mxc4005_is_readable_reg,
 	.writeable_reg = mxc4005_is_writeable_reg,
