@@ -172,51 +172,12 @@ static const struct iio_chan_spec us5182d_channels[] = {
 	}
 };
 
-static int us5182d_read(struct i2c_client *client, u8 reg, int len, u8 *val)
-{
-	struct i2c_msg msg[2] = {
-		{
-			/* Write - use repeated start */
-			.addr = client->addr,
-			.flags = I2C_M_NOSTART,
-			.len = 1,
-			.buf = &reg
-		},
-		{
-			.addr = client->addr,
-			.flags = I2C_M_RD,
-			.len = len,
-			.buf = val
-		}
-	};
-
-	return i2c_transfer(client->adapter, msg, 2);
-}
-
-static int us5182d_read_byte_data(struct i2c_client *client, u8 reg)
-{
-	u8 val[1];
-	int ret;
-
-	ret = us5182d_read(client, reg, READ_BYTE, val);
-	return (ret < 0) ? ret : val[0];
-}
-
-static int us5182d_read_word_data(struct i2c_client *client, u8 reg)
-{
-	u8 val[2];
-	int ret;
-
-	ret = us5182d_read(client, reg, READ_WORD, val);
-	return (ret < 0) ? ret : (val[0] | (val[1] << 8));
-}
-
 static int us5182d_get_als(struct us5182d_data *data)
 {
 	int ret;
 	unsigned long result;
 
-	ret = us5182d_read_word_data(data->client,
+	ret = i2c_smbus_read_word_data(data->client,
 				     US5182D_REG_ADL);
 	if (ret < 0)
 		return ret;
@@ -232,7 +193,7 @@ static int us5182d_set_opmode(struct us5182d_data *data, u8 mode)
 {
 	int ret;
 
-	ret = us5182d_read_byte_data(data->client, US5182D_REG_CFG0);
+	ret = i2c_smbus_read_byte_data(data->client, US5182D_REG_CFG0);
 	if (ret < 0)
 		return ret;
 
@@ -288,7 +249,7 @@ static int us5182d_read_raw(struct iio_dev *indio_dev,
 			if (ret < 0)
 				goto out_err;
 
-			ret = us5182d_read_word_data(data->client,
+			ret = i2c_smbus_read_word_data(data->client,
 						     US5182D_REG_PDL);
 			if (ret < 0)
 				goto out_err;
@@ -301,7 +262,7 @@ static int us5182d_read_raw(struct iio_dev *indio_dev,
 		}
 
 	case IIO_CHAN_INFO_SCALE:
-		ret = us5182d_read_byte_data(data->client, US5182D_REG_CFG1);
+		ret = i2c_smbus_read_byte_data(data->client, US5182D_REG_CFG1);
 		if (ret < 0)
 			return ret;
 		*val = 0;
@@ -338,7 +299,7 @@ static int us5182d_apply_scale(struct us5182d_data *data, int index)
 {
 	int ret;
 
-	ret = us5182d_read_byte_data(data->client, US5182D_REG_CFG1);
+	ret = i2c_smbus_read_byte_data(data->client, US5182D_REG_CFG1);
 	if (ret < 0)
 		return ret;
 
@@ -490,7 +451,7 @@ static int us5182d_probe(struct i2c_client *client,
 	indio_dev->num_channels = ARRAY_SIZE(us5182d_channels);
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = us5182d_read_byte_data(data->client, US5182D_REG_CHIPID);
+	ret = i2c_smbus_read_byte_data(data->client, US5182D_REG_CHIPID);
 	if (ret != US5182D_CHIPID)
 		dev_err(&data->client->dev,
 			"Failed to detect US5182 light chip\n");
