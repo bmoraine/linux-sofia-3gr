@@ -997,7 +997,11 @@ static int fallbacks[MIGRATE_TYPES][4] = {
 	[MIGRATE_UNMOVABLE]   = { MIGRATE_RECLAIMABLE, MIGRATE_MOVABLE,     MIGRATE_RESERVE },
 	[MIGRATE_RECLAIMABLE] = { MIGRATE_UNMOVABLE,   MIGRATE_MOVABLE,     MIGRATE_RESERVE },
 #ifdef CONFIG_CMA
-	[MIGRATE_MOVABLE]     = { MIGRATE_CMA,         MIGRATE_RECLAIMABLE, MIGRATE_UNMOVABLE, MIGRATE_RESERVE },
+#ifndef CONFIG_USE_CMA_FALLBACK
+	[MIGRATE_MOVABLE]     = { MIGRATE_RECLAIMABLE, MIGRATE_UNMOVABLE, MIGRATE_RESERVE },
+#else
+	[MIGRATE_MOVABLE]     = { MIGRATE_CMA, MIGRATE_RECLAIMABLE, MIGRATE_UNMOVABLE, MIGRATE_RESERVE },
+#endif
 	[MIGRATE_CMA]         = { MIGRATE_RESERVE }, /* Never used */
 	[MIGRATE_CMA_ISOLATE] = { MIGRATE_RESERVE }, /* Never used */
 #else
@@ -1429,6 +1433,18 @@ void free_hot_cold_page(struct page *page, bool cold)
 	set_freepage_migratetype(page, migratetype);
 	local_irq_save(flags);
 	__count_vm_event(PGFREE);
+
+#ifndef CONFIG_USE_CMA_FALLBACK
+	/*
+	 * Feng: Have to call it in irq_disable env, otherwise, there will
+	 * be spinlock deadlock
+	 */
+	if (migratetype == MIGRATE_CMA) {
+		free_one_page(zone, page, pfn, 0, MIGRATE_CMA);
+		local_irq_restore(flags);
+		return;
+	}
+#endif
 
 	/*
 	 * We only track unmovable, reclaimable and movable on pcp lists.
