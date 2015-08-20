@@ -107,6 +107,9 @@ struct rockchip_screen {
 	struct display_pwr_gpio *gpios_power_off;
 
 	struct rockchip_screen *ext_screen;
+
+	struct list_head panel_list;
+
 	/* Operation function */
 	int (*init)(void);
 	int (*standby)(u8 enable);

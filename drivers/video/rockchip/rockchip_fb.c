@@ -2272,7 +2272,6 @@ static int init_vop_device_driver(struct rockchip_vop_driver *dev_drv,
 	dev_drv->first_frame = 1;
 
 	if (dev_drv->prop == PRMRY) {
-		rockchip_set_prmry_screen(screen);
 		rockchip_get_prmry_screen(screen);
 	}
 	dev_drv->trsm_ops = rockchip_fb_trsm_ops_get(screen->type);

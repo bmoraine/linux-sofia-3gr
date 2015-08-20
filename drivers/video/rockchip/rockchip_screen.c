@@ -37,12 +37,8 @@
 #define PROP_DISPLAY_GPIOTYPE   "intel,gpio-type"
 #define PROP_DISPLAY_GPIOVALUE  "intel,gpio-value-delay"
 
-static struct of_device_id display_of_match[] = {
-	{ .compatible = PROP_DISPLAY, },
-	{ },
-};
-
-static struct rockchip_screen *sfa_screen;
+static LIST_HEAD(screen_list);
+static struct rockchip_screen *cur_screen;
 static int panel_source;
 
 size_t get_fb_size(void)
@@ -51,11 +47,11 @@ size_t get_fb_size(void)
 	u32 xres = 0;
 	u32 yres = 0;
 
-	if (unlikely(!sfa_screen))
+	if (unlikely(!cur_screen))
 		return 0;
 
-	xres = sfa_screen->mode.xres;
-	yres = sfa_screen->mode.yres;
+	xres = cur_screen->mode.xres;
+	yres = cur_screen->mode.yres;
 
 	xres = ALIGN_N_TIMES(xres, 32);
 
@@ -66,20 +62,32 @@ size_t get_fb_size(void)
 
 int rockchip_get_prmry_screen(struct rockchip_screen *screen)
 {
-	if (unlikely(!sfa_screen) || unlikely(!screen))
+	if (unlikely(!cur_screen) || unlikely(!screen))
 		return -1;
 
-	memcpy(screen, sfa_screen, sizeof(struct rockchip_screen));
+	memcpy(screen, cur_screen, sizeof(struct rockchip_screen));
 	return 0;
 }
 
 int rockchip_set_prmry_screen(struct rockchip_screen *screen)
 {
-	if (unlikely(!sfa_screen) || unlikely(!screen))
-		return -1;
+	struct rockchip_screen *s_screen;
 
-	sfa_screen->vop_id = screen->vop_id;
-	sfa_screen->screen_id = screen->screen_id;
+	if (unlikely(!screen))
+		return -ENODEV;
+
+	if (screen->index < 0)
+		return -EINVAL;
+
+	list_for_each_entry(s_screen, &screen_list, panel_list) {
+		if (s_screen->index == screen->index)
+			cur_screen = s_screen;
+	}
+
+	if (cur_screen) {
+		cur_screen->vop_id = screen->vop_id;
+		cur_screen->screen_id = screen->screen_id;
+	}
 	return 0;
 }
 
@@ -289,29 +297,12 @@ static int rockchip_disp_pwr_ctr_parse_dt(struct device_node *np,
 					  struct rockchip_screen *screen)
 {
 	int ret = 0;
-	struct device_node *panel_np;
 	struct device_node *child;
-
-#ifdef CONFIG_PLATFORM_DEVICE_PM
-	screen->pm_platdata = of_device_state_pm_setup(np);
-	if (IS_ERR(screen->pm_platdata)) {
-		dev_err(screen->dev, "Error during device state pm init.\n");
-		screen->pm_platdata = NULL;
-		return -EINVAL;
-	}
-#endif
 
 	if (screen->type != SCREEN_MIPI) {
 		rockchip_screen_parse_gpio(screen);
 
-		panel_np  = of_get_child_by_name(np, NODE_DISPLAY_PANEL);
-		if (!panel_np) {
-			pr_err("%s: Can't find display-panel0 matching node\n",
-			       __func__);
-			return -EINVAL;
-		}
-
-		for_each_child_of_node(panel_np, child) {
+		for_each_child_of_node(np, child) {
 			if (!strcmp(child->name, GPIO_LIST_POWER_ON)) {
 				ret = rockchip_screen_parse_display_gpiolist(
 						screen, child,
@@ -423,73 +414,91 @@ static int rockchip_fb_videomode_from_timing(const struct display_timing *dt,
 	return 0;
 }
 
-static int rockchip_prase_timing_dt(struct device_node *np,
-				 struct rockchip_screen *screen)
+static struct rockchip_screen *
+rockchip_prase_screen_dt(struct device_node *np,
+			 struct platform_device *pdev)
+
 {
 	struct display_timings *disp_timing;
 	struct display_timing *dt;
-	struct device_node *display_dev_n;
-	int index = 0;
+	struct rockchip_screen *screen = NULL;
 
-	screen->index = panel_source;
-
-	for_each_matching_node(display_dev_n, display_of_match) {
-		if (screen->index < 0 || screen->index == index++)
-			break;
-	}
-
-	disp_timing = of_get_display_timings(display_dev_n);
+	disp_timing = of_get_display_timings(np);
 	if (!disp_timing) {
 		pr_err("parse display timing err\n");
-		return -EINVAL;
+		return NULL;
 	}
 
 	dt = display_timings_get(disp_timing, disp_timing->native_mode);
 	if (!dt)
-		goto fail;
+		return NULL;
 
+	screen = devm_kzalloc(&pdev->dev,
+			sizeof(struct rockchip_screen), GFP_KERNEL);
+	if (!screen) {
+		dev_err(&pdev->dev, "kmalloc for rockchip screen fail!\n");
+		return NULL;
+	}
+	screen->dev = &pdev->dev;
 	rockchip_fb_videomode_from_timing(dt, screen);
-	return 0;
+	rockchip_disp_pwr_ctr_parse_dt(np, screen);
 
-fail:
-	return -EINVAL;
-
+	return screen;
 }
 
 static int rockchip_screen_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	int ret;
+	struct device_node *display_np;
+	struct rockchip_screen *screen;
+	int ret = 0;
+	int index = 0;
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+	struct device_pm_platdata *pm_platdata;
+#endif
 
 	if (!np) {
 		dev_err(&pdev->dev, "Missing device tree node.\n");
 		return -EINVAL;
 	}
-	sfa_screen = devm_kzalloc(&pdev->dev,
-				  sizeof(struct rockchip_screen), GFP_KERNEL);
-	if (!sfa_screen) {
-		dev_err(&pdev->dev, "kmalloc for rockchip screen fail!\n");
-		return -ENOMEM;
-	}
-
-	sfa_screen->dev =  &pdev->dev;
-	ret = rockchip_prase_timing_dt(np, sfa_screen);
-	rockchip_disp_pwr_ctr_parse_dt(np, sfa_screen);
-
-	sfa_screen->power_on = rockchip_screen_power_on;
-	sfa_screen->power_off = rockchip_screen_power_off;
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
-	if (sfa_screen->pm_platdata) {
+	pm_platdata = of_device_state_pm_setup(np);
+	if (IS_ERR(pm_platdata)) {
+		dev_err(&pdev->dev, "Error during device state pm init.\n");
+		pm_platdata = NULL;
+		return -EINVAL;
+	}
+
+	if (pm_platdata) {
 		ret = device_state_pm_set_class(&pdev->dev,
-				sfa_screen->pm_platdata->pm_user_name);
+					pm_platdata->pm_user_name);
 		if (ret < 0) {
-			dev_err(&pdev->dev, "ERROR while LVDS initialize its PM state!\n");
-			kfree(sfa_screen->pm_platdata);
-			sfa_screen->pm_platdata = NULL;
+			dev_err(&pdev->dev, "Fail to init PM state!\n");
+			kfree(pm_platdata);
+			pm_platdata = NULL;
+			return -EINVAL;
 		}
 	}
 #endif
+
+
+	for_each_compatible_node(display_np, NULL, PROP_DISPLAY) {
+		screen = rockchip_prase_screen_dt(display_np, pdev);
+		if (screen) {
+			screen->index = index;
+			screen->power_on = rockchip_screen_power_on;
+			screen->power_off = rockchip_screen_power_off;
+			screen->pm_platdata = pm_platdata;
+			list_add_tail(&screen->panel_list, &screen_list);
+
+			if (panel_source < 0 && screen->index == 0)
+				screen->index = panel_source;
+			if (screen->index == panel_source)
+				cur_screen = screen;
+		}
+		index++;
+	}
 
 	dev_info(&pdev->dev, "rockchip screen probe %s\n",
 		 ret ? "failed" : "success");

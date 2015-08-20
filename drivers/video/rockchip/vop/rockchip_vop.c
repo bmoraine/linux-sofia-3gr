@@ -1100,6 +1100,17 @@ static int rockchip_vop_open(struct rockchip_vop_driver *dev_drv, int win_id,
 			rockchip_vop_enable_irq(dev_drv);
 		} else {
 			rockchip_vop_mmu_en(dev_drv, open);
+			if (dev_drv->trsm_ops &&
+			    dev_drv->trsm_ops->detect_panel) {
+				dev_drv->cur_screen->index =
+					dev_drv->trsm_ops->detect_panel();
+				if (dev_drv->cur_screen->index >= 0) {
+					rockchip_set_prmry_screen(
+							dev_drv->cur_screen);
+					rockchip_get_prmry_screen(
+							dev_drv->cur_screen);
+				}
+			}
 			rockchip_vop_load_screen(dev_drv, 1);
 		}
 

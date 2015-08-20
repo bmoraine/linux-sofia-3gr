@@ -334,6 +334,7 @@ struct rockchip_fb_reg_data {
 struct rockchip_fb_trsm_ops {
 	int (*enable)(void);
 	int (*disable)(void);
+	int (*detect_panel)(void);
 };
 
 struct rockchip_vop_driver;
