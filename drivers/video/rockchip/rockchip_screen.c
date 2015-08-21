@@ -442,6 +442,7 @@ rockchip_prase_screen_dt(struct device_node *np,
 	screen->dev = &pdev->dev;
 	rockchip_fb_videomode_from_timing(dt, screen);
 	rockchip_disp_pwr_ctr_parse_dt(np, screen);
+	display_timings_release(disp_timing);
 
 	return screen;
 }

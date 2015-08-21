@@ -1074,8 +1074,10 @@ static int rockchip_fb_update_win_config(struct fb_info *info,
 		}
 
 		ret = rockchip_fb_set_win_buffer(info, win_par, vop_win);
-		if (ret < 0)
+		if (ret < 0) {
+			kfree(regs);
 			return -ENOMEM;
+		}
 
 		ret = rockchip_fb_set_win_par(info, win_par, vop_win);
 		if (ret < 0) {
@@ -1093,7 +1095,7 @@ static int rockchip_fb_update_win_config(struct fb_info *info,
 	mutex_lock(&dev_drv->cfg_lock);
 	if (!(dev_drv->suspend_flag == 0)) {
 		rockchip_fb_free_update_reg(dev_drv, regs);
-		pr_err("%s: error update frame when suspend!!!\n", __func__);
+		pr_info("%s: error update frame when suspend!!!\n", __func__);
 		goto err_out;
 	}
 
