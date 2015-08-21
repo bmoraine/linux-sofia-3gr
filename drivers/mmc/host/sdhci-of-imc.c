@@ -447,7 +447,37 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 	host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
 }
 
+static bool xgold_sdhci_of_paranoia(struct sdhci_host *host)
+{
+	if ((host->recovery = (pm_runtime_enabled(host->mmc->parent) &&
+			       pm_runtime_suspended(host->mmc->parent))))
+		pr_err("%s: trying to write while runtime suspended\n",
+			 mmc_hostname(host->mmc));
+	return host->recovery;
+}
+
+static void xgold_sdhci_of_writel(struct sdhci_host *host, u32 val, int reg)
+{
+	xgold_sdhci_of_paranoia(host);
+	writel(val, host->ioaddr + reg);
+}
+
+static void xgold_sdhci_of_writew(struct sdhci_host *host, u16 val, int reg)
+{
+	xgold_sdhci_of_paranoia(host);
+	writew(val, host->ioaddr + reg);
+}
+
+static void xgold_sdhci_of_writeb(struct sdhci_host *host, u8 val, int reg)
+{
+	xgold_sdhci_of_paranoia(host);
+	writeb(val, host->ioaddr + reg);
+}
+
 static struct sdhci_ops xgold_sdhci_ops = {
+	.write_l = xgold_sdhci_of_writel,
+	.write_w = xgold_sdhci_of_writew,
+	.write_b = xgold_sdhci_of_writeb,
 	.set_clock = xgold_sdhci_of_set_clock,
 	.get_max_clock = xgold_sdhci_of_get_max_clock,
 	.get_min_clock = xgold_sdhci_of_get_min_clock,

@@ -78,6 +78,7 @@ config MMC_XGOLD
 	select MMC_SDHCI_XGOLD
 	select MMC_SDHCI
 	select MMC_SDHCI_PLTFM
+	select MMC_SDHCI_IO_ACCESSORS
 
 	help
 	  This selects the Intel XGOLD Multimedia Card Interface support.

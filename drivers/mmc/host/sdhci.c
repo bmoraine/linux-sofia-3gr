@@ -2291,12 +2291,27 @@ static void sdhci_timeout_timer(unsigned long data)
 			host->data->error = -ETIMEDOUT;
 			sdhci_finish_data(host);
 		} else {
+			struct device *dev = host->mmc->parent;
+
 			if (host->cmd)
 				host->cmd->error = -ETIMEDOUT;
 			else
 				host->mrq->cmd->error = -ETIMEDOUT;
 
 			tasklet_schedule(&host->finish_tasklet);
+
+			/* Something happen, try to recover */
+			if (host->recovery)
+				pr_err("%s :recovery due to illegal access\n",
+				       mmc_hostname(host->mmc));
+
+			if (pm_runtime_enabled(host->mmc->parent) &&
+			    pm_runtime_suspended(host->mmc->parent)) {
+				sdhci_runtime_pm_get(host);
+				pr_err("%s : runtime usage (%d)\n",
+				       mmc_hostname(host->mmc),
+				       atomic_read(&dev->power.usage_count));
+			}
 		}
 	}
 

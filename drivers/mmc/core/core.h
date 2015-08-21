@@ -13,7 +13,7 @@
 
 #include <linux/delay.h>
 
-#define MMC_CMD_RETRIES        3
+#define MMC_CMD_RETRIES        2
 
 struct mmc_bus_ops {
 	void (*remove)(struct mmc_host *);
