@@ -53,6 +53,26 @@ config VIDEO_GC2155
 	  The supported max resolution is 1600x1200.
 	  It is a SOC Camera Sensor.
 
+config VIDEO_GC2355
+	tristate "GC2355"
+	depends on VIDEO_V4L2 && VIDEO_XGOLD && I2C
+	default n
+	help
+	  Say Y here to enable GC2355.
+	  GC2355 is a 2MP Camera Sensor.
+	  The supported max resolution is 1600x1200.
+	  It is a RAW Camera Sensor.
+
+config VIDEO_XGOLD_GC2355
+	tristate "GC2355"
+	depends on I2C && VIDEO_V4L2
+	default n
+	help
+	  Say Y here to enable GC2355.
+	  GC2355 is a 2MP Camera Sensor.
+	  The supported max resolution is 1600x1200.
+	  It is a RAW Camera Sensor.
+
 config VIDEO_GC0310
 	tristate "GC0310"
 	depends on I2C && VIDEO_V4L2

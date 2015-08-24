@@ -819,9 +819,17 @@ int gc_camera_module_g_ctrl(struct v4l2_subdev *sd,
 			ctrl->value);
 		break;
 	case V4L2_CID_HFLIP:
+		ctrl->value = cam_mod->hflip ? 1 : 0;
+		pltfrm_camera_module_pr_debug(&cam_mod->sd,
+			"V4L2_CID_HFLIP %d\n",
+			ctrl->value);
+		break;
 	case V4L2_CID_VFLIP:
-		/* TBD */
-		/* fallthrough */
+		ctrl->value = cam_mod->vflip ? 1 : 0;
+		pltfrm_camera_module_pr_debug(&cam_mod->sd,
+			"V4L2_CID_VFLIP %d\n",
+			ctrl->value);
+		break;
 	default:
 		pltfrm_camera_module_pr_debug(&cam_mod->sd,
 			"failed, unknown ctrl %d\n", ctrl->id);
@@ -958,9 +966,16 @@ int gc_camera_module_s_ext_ctrls(
 			ctrl->value);
 			break;
 		case V4L2_CID_HFLIP:
+			if (ctrl->value)
+				cam_mod->hflip = true;
+			else
+				cam_mod->hflip = false;
+			break;
 		case V4L2_CID_VFLIP:
-			/* TBD */
-			/* fallthrough */
+			if (ctrl->value)
+				cam_mod->vflip = true;
+			else
+				cam_mod->vflip = false;
 			break;
 		default:
 			pltfrm_camera_module_pr_warn(&cam_mod->sd,
@@ -1047,7 +1062,11 @@ long gc_camera_module_ioctl(struct v4l2_subdev *sd,
 		struct isp_supplemental_sensor_mode_data *timings =
 		(struct isp_supplemental_sensor_mode_data *) arg;
 
-		ret = cam_mod->custom.g_timings(cam_mod, &gc_timings);
+		if (cam_mod->custom.g_timings) {
+			ret = cam_mod->custom.g_timings(cam_mod, &gc_timings);
+		} else {
+			ret = -EPERM;
+		}
 
 		if (IS_ERR_VALUE(ret)) {
 			pltfrm_camera_module_pr_err(&cam_mod->sd,
