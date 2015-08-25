@@ -1959,7 +1959,7 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 	 * There is enough inactive page cache, do not reclaim
 	 * anything from the anonymous working set right now.
 	 */
-	if (!inactive_file_is_low(lruvec)) {
+	if (!inactive_file_is_low(lruvec) && !(vmscan_swappiness(sc) > 100)) {
 		scan_balance = SCAN_FILE;
 		goto out;
 	}
