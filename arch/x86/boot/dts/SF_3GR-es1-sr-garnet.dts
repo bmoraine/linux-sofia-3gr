@@ -39,11 +39,16 @@
 			linux,cma-default;
 		};
 		/* special region for secured processing devices */
-		secured_region: region@10000000 {
-			reg = <0x10000000 0x06000000>;
+		secured_rga_region: region@10000000 {
+			reg = <0x10000000 0x01000000>;
 			no-map;
 			linux,cma;
 			isolate;
+		};
+		secured_region: region@11000000 {
+			reg = <0x11000000 0x05000000>;
+			no-map;
+			linux,cma;
 		};
 	};
 
@@ -64,6 +69,10 @@
 		};
 		system-heap {
 			rockchip,ion_heap = < 0 >;
+		};
+		secured-rga-heap {
+			memory-region = <&secured_rga_region>;
+			rockchip,ion_heap = < 5 >;
 		};
 		secured-heap {
 			memory-region = <&secured_region>;
