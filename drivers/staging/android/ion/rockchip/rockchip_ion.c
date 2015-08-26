@@ -66,6 +66,10 @@ static struct ion_heap_desc ion_heap_meta[] = {
 		.type	= ION_HEAP_TYPE_DMA,
 		.name	= "cma-heap",
 	}, {
+		.id	= ION_HEAP_TYPE_SECURE,
+		.type	= ION_HEAP_TYPE_DMA,
+		.name	= "secured-rga-heap",
+	}, {
 		.id	= ION_HEAP_TYPE_SECURE2,
 		/*.type	= ION_HEAP_TYPE_SECURE,*/
 		.type	= ION_HEAP_TYPE_DMA,

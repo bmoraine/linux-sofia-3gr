@@ -385,10 +385,7 @@ static int rk_ion_handle_command(uint32_t cmd[], int cmd_len)
 		if (len == -1) {
 
 			if (rk_ion_heap_capacity != 0) {
-				len = (ssize_t) rk_ion_heap_capacity -
-					ion_device_heap_total(rk_ion_device,
-							ION_HEAP_TYPE_SECURE2,
-					(1<<CONFIG_CMA_ALIGNMENT) * PAGE_SIZE);
+				len = (ssize_t) rk_ion_heap_capacity;
 				pr_err("rk_ion req len = -1 adjust to %d\n",
 					len);
 			} else
@@ -427,7 +424,7 @@ static int rk_ion_handle_command(uint32_t cmd[], int cmd_len)
 	case VVPU_CMD_ION_FREE:
 		i_handle = (struct ion_handle *)cmd[5];
 
-		pr_debug("rk_ion free handle 0x%p\n", i_handle);
+		pr_err("rk_ion free handle 0x%p\n", i_handle);
 
 		ion_free(rk_ion_client, i_handle);
 		i_handle = 0;
