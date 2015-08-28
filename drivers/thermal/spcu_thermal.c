@@ -1052,26 +1052,6 @@ static ssize_t show_hw_oh_reset_en(struct device *dev,
 	return desc;
 }
 
-static ssize_t store_hw_oh_reset_en(struct device *dev,
-			   struct device_attribute *attr,
-			   const char *buf, size_t size)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct spcu_thermal_device *info = platform_get_drvdata(pdev);
-	int ret;
-	int hw_oh_en;
-
-	ret = sscanf(buf, "%u", &hw_oh_en);
-	if (ret != 1)
-		return -EINVAL;
-
-	ret = enable_hw_overheat_reset(info, hw_oh_en);
-	if (ret)
-		return -EINVAL;
-
-	return size;
-}
-
 static ssize_t show_hw_oh_reset_thres(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
@@ -1092,31 +1072,11 @@ static ssize_t show_hw_oh_reset_thres(struct device *dev,
 	return desc;
 }
 
-static ssize_t store_hw_oh_reset_thres(struct device *dev,
-			   struct device_attribute *attr,
-			   const char *buf, size_t size)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct spcu_thermal_device *info = platform_get_drvdata(pdev);
-	int ret;
-	int hw_oh_threshold;
-
-	ret = sscanf(buf, "%d", &hw_oh_threshold);
-	if (ret != 1)
-		return -EINVAL;
-
-	ret = set_hw_overheat_thres(info, hw_oh_threshold);
-	if (ret)
-		return -EINVAL;
-
-	return size;
-}
-
 static DEVICE_ATTR(debug_oh, S_IRUGO, show_debug_oh, NULL);
-static DEVICE_ATTR(hw_oh_reset_en, S_IRUGO | S_IWUSR, show_hw_oh_reset_en,
-						store_hw_oh_reset_en);
-static DEVICE_ATTR(hw_oh_reset_thres, S_IRUGO | S_IWUSR, show_hw_oh_reset_thres,
-						store_hw_oh_reset_thres);
+static DEVICE_ATTR(hw_oh_reset_en, S_IRUGO, show_hw_oh_reset_en,
+						NULL);
+static DEVICE_ATTR(hw_oh_reset_thres, S_IRUGO, show_hw_oh_reset_thres,
+					NULL);
 
 static struct device_attribute *thermal_oh_attributes[] = {
 	&dev_attr_debug_oh,
