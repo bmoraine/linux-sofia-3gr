@@ -3065,6 +3065,10 @@ int sdhci_add_host(struct sdhci_host *host)
 		DBG("%s: Auto-CMD23 unavailable\n", mmc_hostname(mmc));
 	}
 
+	if (host->quirks2 & SDHCI_QUIRK2_HOST_BROKEN_AUTO_CMD23) {
+		host->flags &= ~SDHCI_AUTO_CMD23;
+		pr_info("%s: Auto-CMD23 is disabled\n", mmc_hostname(mmc));
+	}
 	/*
 	 * A controller may support 8-bit width, but the board itself
 	 * might not have the pins brought out.  Boards that support
