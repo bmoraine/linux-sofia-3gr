@@ -72,7 +72,7 @@
 #define RGA_INFO_BUS_ERROR 1
 
 #define PRE_SCALE_BUF_SIZE  (1024*1024*4)
-/* #define USE_CMA_FOR_PRE_SCALE */
+#define USE_CMA_FOR_PRE_SCALE
 
 #define RGA_POWER_OFF_DELAY	(4*HZ)	/* 4s */
 #define RGA_TIMEOUT_DELAY	(1*HZ)	/* 1s */
@@ -1440,7 +1440,7 @@ static int rga_drv_probe(struct platform_device *pdev)
 
 #ifdef USE_CMA_FOR_PRE_SCALE
 	data->handle = ion_alloc(data->ion_client, (size_t)PRE_SCALE_BUF_SIZE,
-				0, ION_HEAP_TYPE_SECURE2_MASK, 0);
+				0, ION_HEAP_TYPE_SECURE_MASK, 0);
 	if (IS_ERR(data->handle)) {
 		dev_err(&pdev->dev, "failed to ion_alloc:%ld\n",
 				PTR_ERR(data->handle));
@@ -1463,7 +1463,7 @@ static int rga_drv_probe(struct platform_device *pdev)
 
 #ifdef USE_CMA_FOR_PRE_SCALE
 	data->handle = ion_alloc(data->ion_client, (size_t)RGA_MMU_BUF_SIZE,
-				0, ION_HEAP_TYPE_SECURE2_MASK, 0);
+				0, ION_HEAP_TYPE_SECURE_MASK, 0);
 	if (IS_ERR(data->handle)) {
 		dev_err(&pdev->dev, "failed to ion_alloc:%ld\n",
 				PTR_ERR(data->handle));
