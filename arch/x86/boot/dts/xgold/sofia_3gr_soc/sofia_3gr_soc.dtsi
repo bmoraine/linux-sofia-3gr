@@ -401,7 +401,8 @@
 						intel,corecfg_val = < 0xFF1ADA60 0x00074056 0x00000000 0x00010001 0x00010000 0x00000000 0x00010000 >;
 						intel,fixup = <0x1>;
 						/* QUIRK_CAP_CLOCK_BASE_BROKEN: bit 25 + QUIRKS2_HOST_PRESET_VALUE_BROKEN: bit 3 + LED_BROKEN: bit 14*/
-						intel,quirks = < 0x2000000 0x4008 >;
+						/* QUIRK2_HOST_BROKEN_AUTO_CMD23: bit24 */
+						intel,quirks = < 0x2000000 0x1004008 >;
 						bus-width = < 8 >;
 						non-removable;
 						intel,io-access-guest;
