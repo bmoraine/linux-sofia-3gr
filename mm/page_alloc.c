@@ -732,8 +732,11 @@ static void free_pcppages_bulk(struct zone *zone, int count,
 			trace_mm_page_pcpu_drain(page, 0, mt);
 			if (likely(!is_migrate_isolate_page(page))) {
 				__mod_zone_page_state(zone, NR_FREE_PAGES, 1);
-				if (is_migrate_cma(mt))
+				if (mt == MIGRATE_CMA)
 					__mod_zone_page_state(zone, NR_FREE_CMA_PAGES, 1);
+				else if (mt == MIGRATE_CMA_ISOLATE)
+					__mod_zone_page_state(zone,
+						NR_FREE_CMA_ISOLATE_PAGES, 1);
 			}
 		} while (--to_free && --batch_free && !list_empty(list));
 	}
@@ -1243,6 +1246,8 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 	spin_lock(&zone->lock);
 	for (i = 0; i < count; ++i) {
 		struct page *page = __rmqueue(zone, order, migratetype);
+		int mt;
+
 		if (unlikely(page == NULL))
 			break;
 
@@ -1260,9 +1265,14 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 		else
 			list_add_tail(&page->lru, list);
 		list = &page->lru;
-		if (is_migrate_cma(get_freepage_migratetype(page)))
+
+		mt = get_pageblock_migratetype(page);
+		if (mt == MIGRATE_CMA)
 			__mod_zone_page_state(zone, NR_FREE_CMA_PAGES,
-					      -(1 << order));
+						-(1 << order));
+		else if (mt == MIGRATE_CMA_ISOLATE)
+			__mod_zone_page_state(zone, NR_FREE_CMA_ISOLATE_PAGES,
+						-(1 << order));
 	}
 	__mod_zone_page_state(zone, NR_FREE_PAGES, -(i << order));
 	spin_unlock(&zone->lock);
@@ -3232,7 +3242,7 @@ void show_free_areas(unsigned int filter)
 		" dirty:%lu writeback:%lu unstable:%lu\n"
 		" free:%lu slab_reclaimable:%lu slab_unreclaimable:%lu\n"
 		" mapped:%lu shmem:%lu pagetables:%lu bounce:%lu\n"
-		" free_cma:%lu\n",
+		" free_cma:%lu free_cma_isolate:%lu\n",
 		global_page_state(NR_ACTIVE_ANON),
 		global_page_state(NR_INACTIVE_ANON),
 		global_page_state(NR_ISOLATED_ANON),
@@ -3250,7 +3260,8 @@ void show_free_areas(unsigned int filter)
 		global_page_state(NR_SHMEM),
 		global_page_state(NR_PAGETABLE),
 		global_page_state(NR_BOUNCE),
-		global_page_state(NR_FREE_CMA_PAGES));
+		global_page_state(NR_FREE_CMA_PAGES),
+		global_page_state(NR_FREE_CMA_ISOLATE_PAGES));
 
 	for_each_populated_zone(zone) {
 		int i;
@@ -3284,6 +3295,7 @@ void show_free_areas(unsigned int filter)
 			" unstable:%lukB"
 			" bounce:%lukB"
 			" free_cma:%lukB"
+			" free_cma_isolate:%lukB"
 			" writeback_tmp:%lukB"
 			" pages_scanned:%lu"
 			" all_unreclaimable? %s"
@@ -3315,6 +3327,7 @@ void show_free_areas(unsigned int filter)
 			K(zone_page_state(zone, NR_UNSTABLE_NFS)),
 			K(zone_page_state(zone, NR_BOUNCE)),
 			K(zone_page_state(zone, NR_FREE_CMA_PAGES)),
+			K(zone_page_state(zone, NR_FREE_CMA_ISOLATE_PAGES)),
 			K(zone_page_state(zone, NR_WRITEBACK_TEMP)),
 			K(zone_page_state(zone, NR_PAGES_SCANNED)),
 			(!zone_reclaimable(zone) ? "yes" : "no")
