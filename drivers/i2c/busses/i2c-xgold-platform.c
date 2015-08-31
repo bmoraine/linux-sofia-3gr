@@ -36,6 +36,10 @@
 #include <linux/i2c.h>
 #include <linux/platform_data/i2c-xgold.h>
 
+#ifdef CONFIG_PM_RUNTIME
+#include <linux/pm_runtime.h>
+#endif
+
 #include "i2c-xgold.h"
 
 
@@ -50,6 +54,7 @@ int xgold_platform_i2c_probe(struct platform_device *pdev)
 	struct xgold_i2c_platdata *platdata;
 	struct xgold_i2c_algo_data *algo_data;
 	struct resource *res;
+	int ret = 0;
 
 	i2c_dev = xgold_i2c_init_driver(&pdev->dev);
 	if (IS_ERR(i2c_dev))
@@ -77,11 +82,39 @@ int xgold_platform_i2c_probe(struct platform_device *pdev)
 	/* request DMA channel */
 	algo_data->dmach = dma_request_slave_channel(&pdev->dev, "rxtx");
 
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_enable(&pdev->dev);
+	/* 1sec delay */
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+#else
+	ret = device_state_pm_set_state_by_name(&pdev->dev,
+			platdata->pm_platdata->pm_state_D0_name);
+#endif
+
+	if (ret) {
+		dev_err(&pdev->dev, "Set state return %d\n", ret);
+		goto err_pm;
+	}
+
 	/* i2c core probe */
 	if (i2c_dev->core_ops->probe)
-		return i2c_dev->core_ops->probe(&pdev->dev);
+		ret = i2c_dev->core_ops->probe(&pdev->dev);
 
-	return -EINVAL;
+	if (ret)
+		goto err_probe;
+
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_use_autosuspend(&pdev->dev);
+#endif
+
+	return 0;
+
+err_probe:
+	/* TODO free runtime pm ... */
+	device_state_pm_set_state_by_name(&pdev->dev,
+			platdata->pm_platdata->pm_state_D3_name);
+err_pm:
+	return ret;
 }
 
 static int xgold_platform_i2c_remove(struct platform_device *pdev)
@@ -100,6 +133,9 @@ static int xgold_platform_i2c_suspend(struct device *dev)
 	struct xgold_i2c_platdata *platdata = dev_get_platdata(dev);
 	int ret = 0;
 
+	if (atomic_cmpxchg(&i2c_dev->is_suspended, 0, 1))
+		return 0;
+
 	if (i2c_dev->pm_ops && i2c_dev->pm_ops->suspend)
 		ret = i2c_dev->pm_ops->suspend(dev);
 
@@ -109,9 +145,11 @@ static int xgold_platform_i2c_suspend(struct device *dev)
 	ret = device_state_pm_set_state_by_name(dev,
 			platdata->pm_platdata->pm_state_D3_name);
 
-	if (ret)
+	if (ret) {
 		dev_err(dev, "Error during state transition %s\n",
 				platdata->pm_platdata->pm_state_D3_name);
+		atomic_set(&i2c_dev->is_suspended, 0);
+	}
 
 	return ret;
 }
@@ -122,18 +160,21 @@ static int xgold_platform_i2c_resume(struct device *dev)
 	struct xgold_i2c_platdata *platdata = dev_get_platdata(dev);
 	int ret = 0;
 
-	if (i2c_dev->pm_ops && i2c_dev->pm_ops->resume)
-		ret = i2c_dev->pm_ops->resume(dev);
-
-	if (ret)
-		return ret;
+	if (!atomic_cmpxchg(&i2c_dev->is_suspended, 1, 0))
+		return 0;
 
 	ret = device_state_pm_set_state_by_name(dev,
 			platdata->pm_platdata->pm_state_D0_name);
 
-	if (ret)
+	if (ret) {
 		dev_err(dev, "Error during state transition %s\n",
 				platdata->pm_platdata->pm_state_D0_name);
+		atomic_set(&i2c_dev->is_suspended, 1);
+		return ret;
+	}
+
+	if (i2c_dev->pm_ops && i2c_dev->pm_ops->resume)
+		return i2c_dev->pm_ops->resume(dev);
 
 	return 0;
 }
@@ -141,6 +182,10 @@ static int xgold_platform_i2c_resume(struct device *dev)
 static const struct dev_pm_ops xgold_platform_i2c_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(xgold_platform_i2c_suspend,
 			xgold_platform_i2c_resume)
+#ifdef CONFIG_PM_RUNTIME
+	SET_RUNTIME_PM_OPS(xgold_platform_i2c_suspend,
+			xgold_platform_i2c_resume, NULL)
+#endif
 };
 
 #define XGOLD_PLAT_I2C_PM_OPS (&xgold_platform_i2c_pm_ops)

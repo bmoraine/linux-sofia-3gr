@@ -17,6 +17,9 @@
 #define i2c_err(fmt, arg...) \
 	pr_err("I2C: " fmt, ##arg);
 
+/* Usefull flags */
+#define XGOLD_I2C_ALLOW_DEBUG			BIT(0)
+
 /* FIXME hardcoded FDIV values */
 #define XGOLD_I2C_FDIV_B100		0x20020
 #define XGOLD_I2C_FDIV_B400		0x20008
@@ -110,7 +113,6 @@ struct xgold_i2c_algo_data {
 	unsigned int current_baud;
 	spinlock_t lock;
 	struct xgold_i2c_dev *i2c_dev;
-	struct platform_device *platform_dev;
 	/* local parameters */
 	u8 *buf;
 	int buf_len;
@@ -133,6 +135,7 @@ struct xgold_i2c_dev {
 	struct xgold_i2c_algo_data algo_data;
 	struct xgold_i2c_ops *core_ops;
 	const struct dev_pm_ops *pm_ops;
+	atomic_t is_suspended;
 };
 
 struct xgold_i2c_dev *xgold_i2c_init_driver(struct device *);

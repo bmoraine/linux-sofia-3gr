@@ -31,12 +31,15 @@
 #include <linux/reset.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
-#include <linux/platform_device.h>
 #include <linux/completion.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
 #include <linux/i2c.h>
 #include <linux/platform_data/i2c-xgold.h>
+
+#ifdef CONFIG_PM_RUNTIME
+#include <linux/pm_runtime.h>
+#endif
 
 #include "i2c-xgold.h"
 
@@ -46,9 +49,6 @@
 #define XGOLD_I2C_TIMEOUT			50
 #define XGOLD_I2C_SLAVE_ADDR_7_BIT_MASK		0x7f
 #define XGOLD_I2C_SLAVE_ADDR_10_BIT_MASK	0x3ff
-
-#define XGOLD_I2C_ALLOW_DEBUG			BIT(0)
-
 
 #define I2C_MSG_WR(_flag_) \
 	(0 == (_flag_ & I2C_M_RD))
@@ -124,7 +124,7 @@ static int xgold_i2c_set_pm_state(struct device *dev,
 	int id = device_state_pm_get_state_id(dev, state->name);
 	int ret;
 
-	dev_debug(dev, "%s: pm state %s\n", __func__, state->name);
+	dev_dbg(dev, "%s: pm state %s\n", __func__, state->name);
 	switch (id) {
 	case XGOLD_I2C_D0:
 		clk_prepare_enable(platdata->clk_bus);
@@ -1193,9 +1193,17 @@ static int xgold_i2c_xfer(struct i2c_adapter *adap,
 		struct i2c_msg msgs[], int num)
 {
 	struct xgold_i2c_algo_data *data = i2c_get_adapdata(adap);
+	struct xgold_i2c_dev *i2c_dev = data->i2c_dev;
 	unsigned long flag;
 	int ret = 0;
 	int i;
+
+#ifdef CONFIG_PM_RUNTIME
+	ret = pm_runtime_get_sync(i2c_dev->dev);
+
+	if (IS_ERR_VALUE(ret))
+		return ret;
+#endif
 
 	spin_lock_irqsave(&data->lock, flag);
 	if (data->state != XGOLD_I2C_LISTEN) {
@@ -1239,6 +1247,11 @@ static int xgold_i2c_xfer(struct i2c_adapter *adap,
 	/* turning OFF I2C */
 	reg_write(I2C_RUN_CTRL_RUN_DIS, data->regs + I2C_RUN_CTRL_OFFSET);
 	spin_unlock_irqrestore(&data->lock, flag);
+
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_mark_last_busy(i2c_dev->dev);
+	pm_runtime_put_autosuspend(i2c_dev->dev);
+#endif
 
 	return ret;
 }
@@ -1390,27 +1403,18 @@ static int xgold_i2c_core_probe(struct device *dev)
 	adap->nr = platdata->id;
 	adap->dev.of_node = dev->of_node;
 
+#ifndef CONFIG_PM_RUNTIME
 	/* Initialize I2C controller */
 	if (platdata->rst)
 		reset_control_reset(platdata->rst);
 
-	ret = device_state_pm_set_class(dev,
-			platdata->pm_platdata->pm_user_name);
-	if (ret) {
-		dev_err(dev, "Error while setting the pm class\n");
-		goto err_pm_class;
-	}
-
-	ret = device_state_pm_set_state_by_name(dev,
-			platdata->pm_platdata->pm_state_D0_name);
-
-	if (ret)
-		dev_err(dev, "Set state return %d\n", ret);
-
 	/* pcl */
 	xgold_i2c_set_pinctrl_state(dev, platdata->pins_default);
-
 	xgold_i2c_hw_init(algo_data);
+	atomic_set(&i2c_dev->is_suspended, 0);
+#else
+	atomic_set(&i2c_dev->is_suspended, 1);
+#endif
 
 	/* Request irq */
 	for (i = 0; i < platdata->irq_num; i++) {
@@ -1442,15 +1446,11 @@ free_irqs:
 		i--;
 	}
 
-	ret = device_state_pm_set_state_by_name(dev,
-			platdata->pm_platdata->pm_state_D3_name);
-
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	clk_put(platdata->clk_kernel);
 	clk_put(platdata->clk_bus);
 #endif
 
-err_pm_class:
 	return ret;
 }
 
@@ -1480,9 +1480,6 @@ static int xgold_i2c_core_remove(struct device *dev)
 	i2c_del_adapter(&i2c_dev->adapter);
 	xgold_i2c_hw_stop(data);
 
-	device_state_pm_set_state_by_name(dev,
-			platdata->pm_platdata->pm_state_D3_name);
-
 #ifndef CONFIG_PLATFORM_DEVICE_PM_VIRT
 	clk_put(platdata->clk_kernel);
 	clk_put(platdata->clk_bus);
@@ -1496,7 +1493,6 @@ static int xgold_i2c_core_remove(struct device *dev)
 	iounmap((void __iomem *)data->regs);
 	return 0;
 }
-
 
 static struct xgold_i2c_ops xgold_i2c_core_ops = {
 	.probe = xgold_i2c_core_probe,
@@ -1518,7 +1514,6 @@ static int xgold_i2c_core_suspend(struct device *dev)
 	i2c_debug(data, "suspend %s\n", dev->init_name);
 
 	xgold_i2c_hw_stop(data);
-
 	xgold_i2c_set_pinctrl_state(dev, platdata->pins_sleep);
 
 	return ret;
@@ -1533,21 +1528,13 @@ static int xgold_i2c_core_resume(struct device *dev)
 	struct xgold_i2c_dev *i2c_dev = dev_get_drvdata(dev);
 	struct xgold_i2c_algo_data *data = i2c_get_adapdata(&i2c_dev->adapter);
 	struct xgold_i2c_platdata *platdata = dev_get_platdata(dev);
-	int ret;
 
 	i2c_debug(data, "resume %s\n", dev->init_name);
 
-	ret = device_state_pm_set_state_by_name(dev,
-			platdata->pm_platdata->pm_state_D0_name);
-
-	if (ret) {
-		i2c_err("Error during state transition %s\n",
-				platdata->pm_platdata->pm_state_D0_name);
-		return ret;
-	}
+	if (platdata->rst)
+		reset_control_reset(platdata->rst);
 
 	xgold_i2c_set_pinctrl_state(dev, platdata->pins_default);
-
 	xgold_i2c_hw_init(data);
 
 	return 0;
@@ -1563,6 +1550,7 @@ struct xgold_i2c_dev *xgold_i2c_init_driver(struct device *dev)
 {
 	struct xgold_i2c_dev *i2c_dev;
 	struct xgold_i2c_platdata *platdata;
+	int ret;
 
 	i2c_dev = devm_kzalloc(dev, sizeof(struct xgold_i2c_dev), GFP_KERNEL);
 	if (i2c_dev == NULL)
@@ -1591,6 +1579,13 @@ struct xgold_i2c_dev *xgold_i2c_init_driver(struct device *dev)
 		return ERR_PTR(-EINVAL);
 	}
 #endif
+
+	ret = device_state_pm_set_class(dev,
+			platdata->pm_platdata->pm_user_name);
+	if (ret) {
+		dev_err(dev, "Error while setting the pm class\n");
+		return ERR_PTR(ret);
+	}
 
 	return i2c_dev;
 }
