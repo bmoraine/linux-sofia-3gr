@@ -27,6 +27,10 @@
 #include <linux/input/mt.h>
 #include <linux/pm.h>
 #include <linux/of_gpio.h>
+#ifdef CONFIG_PM
+#include <linux/power_hal_sysfs.h>
+#include <linux/device_pm_data.h>
+#endif
 
 #define PRESSURE_CONST			1
 #define FINGER_NUMBER			5
@@ -294,6 +298,36 @@ static void zet62xx_ts_wakeup(struct zet62xx_ts_data *data)
 	gpiod_set_value_cansleep(data->gpio_reset, 1);
 	mdelay(TS_WAKEUP_HIGH_PERIOD);
 }
+
+#ifdef CONFIG_PM
+static void zet62xx_ts_sleep(struct device *dev)
+{
+	int ret = 0;
+	struct i2C_client *this_client = to_i2c_client(dev);
+	ret = i2c_smbus_write_byte(this_client, 0xb1);
+	return;
+}
+
+static ssize_t zet62xx_power_hal_suspend_store(struct device *dev,
+					     struct device_attribute *attr,
+					     const char *buf, size_t count)
+{
+	struct input_dev *input = to_input_dev(dev);
+	struct zet62xx_ts_data *ts = input_get_drvdata(input);
+	static DEFINE_MUTEX(mutex);
+
+	mutex_lock(&mutex);
+	if (!strncmp(buf, POWER_HAL_SUSPEND_ON, POWER_HAL_SUSPEND_STATUS_LEN))
+		zet62xx_ts_sleep(dev);
+	else
+		zet62xx_ts_wakeup(ts);
+	mutex_unlock(&mutex);
+
+	return count;
+}
+static DEVICE_POWER_HAL_SUSPEND_ATTR(zet62xx_power_hal_suspend_store);
+#endif
+
 
 static void zet62xx_ts_reset(struct zet62xx_ts_data *data)
 {
@@ -925,16 +959,35 @@ exit_fw_download:
 
 	msleep(20);
 
+#ifdef CONFIG_PM
+	ret = device_create_file(&client->dev, &dev_attr_power_HAL_suspend);
+	if (ret < 0) {
+		dev_err(&client->dev, "unable to create suspend entry");
+		goto out;
+	}
+
+	ret = register_power_hal_suspend_device(&client->dev);
+	if (ret < 0)
+		dev_err(&client->dev, "unable to register for power hal");
+out:
+#endif
+
+
 	return ret;
 }
 
-static int zet62xx_ts_remove(struct i2c_client *dev)
+static int zet62xx_ts_remove(struct i2c_client *client)
 {
-	struct zet62xx_ts_data *data = i2c_get_clientdata(dev);
+	struct zet62xx_ts_data *data = i2c_get_clientdata(client);
+
+#ifdef CONFIG_PM
+	device_remove_file(&client->dev, &dev_attr_power_HAL_suspend);
+	unregister_power_hal_suspend_device(&client->dev);
+#endif
 
 	pr_crit("[ZET] : ==zet62xx_ts_remove=\n");
 	input_unregister_device(data->input_dev);
-	i2c_set_clientdata(dev, NULL);
+	i2c_set_clientdata(client, NULL);
 	return 0;
 }
 
