@@ -2362,14 +2362,7 @@ static int xgold_fmdrv_suspend(struct device *dev)
 			goto xgold_fmdrv_suspend_err;
 		}
 
-		/* close the device, if FMR audio routing is in DSP mode */
-		if (FMR_AUD_PATH_DAC != rx_state.aud_path) {
-			rc = xgold_fmdrv_close_fmdev(fmdev);
-			if (rc != 0)
-				fmdrv_err("unable to close the device\n");
-			else
-				fmdrv_dbg("device is suspended\n");
-		} else {
+		if (FMR_AUD_PATH_DAC == rx_state.aud_path) {
 			fmr_sys_power_enable(true, false);
 
 			/* delete the rds disable timer */
@@ -2388,24 +2381,15 @@ xgold_fmdrv_suspend_err:
 
 static int xgold_fmdrv_resume(struct device *dev)
 {
-	struct xgold_fmdev *fmdev = (struct xgold_fmdev *)dev_get_drvdata(dev);
-	struct fmrx_cfg rx_state;
-	int rc = 0;
 
 	/* check whether FMR device is active */
 	if (FMTRX_HW_STATE_RX_ACTIVE == fmtrx_get_hw_state()) {
 		fmr_sys_power_enable(true, true);
-		rc = fmrx_get_rx_data_state(&rx_state);
-
-		if (0 == rc) {
-			if (FMR_AUD_PATH_DSP == rx_state.aud_path)
-				xgold_fmdrv_idi_channel_setup(fmdev);
-		}
 
 		fmdrv_dbg("device resumed\n");
 	}
 
-	return rc;
+	return 0;
 }
 
 static const struct dev_pm_ops xgold_fmdrv_pm_ops = {
