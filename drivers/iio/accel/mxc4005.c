@@ -36,9 +36,6 @@
 #define MXC4005_REG_ZOUT_UPPER		0x07
 #define MXC4005_REG_ZOUT_LOWER		0x08
 
-#define MXC4005_REG_INT_SRC1		0x01
-#define MXC4005_REG_INT_SRC2_BIT_DRDY	0x01
-
 #define MXC4005_REG_INT_MASK1		0x0B
 #define MXC4005_REG_INT_MASK1_BIT_DRDYE	0x01
 
@@ -50,8 +47,6 @@
 #define MXC4005_CONTROL_FSR_SHIFT	5
 
 #define MXC4005_REG_DEVICE_ID		0x0E
-
-#define MXC4005_AXIS_TO_REG(axis)	(MXC4005_REG_XOUT_UPPER + (axis * 2))
 
 enum mxc4005_axis {
 	AXIS_X,
@@ -66,12 +61,11 @@ enum mxc4005_range {
 };
 
 struct mxc4005_data {
-	struct i2c_client *client;
+	struct device *dev;
 	struct mutex mutex;
 	struct regmap *regmap;
 	struct iio_trigger *dready_trig;
-	int64_t timestamp;
-	s16 buffer[8];
+	__be16 buffer[8];
 	bool trigger_enabled;
 };
 
@@ -85,7 +79,7 @@ struct mxc4005_data {
  */
 static const struct {
 	u8 range;
-	u16 scale;
+	int scale;
 } mxc4005_scale_table[] = {
 	{MXC4005_RANGE_2G, 9582},
 	{MXC4005_RANGE_4G, 19164},
@@ -114,7 +108,6 @@ static bool mxc4005_is_readable_reg(struct device *dev, unsigned int reg)
 	case MXC4005_REG_ZOUT_UPPER:
 	case MXC4005_REG_ZOUT_LOWER:
 	case MXC4005_REG_DEVICE_ID:
-	case MXC4005_REG_INT_SRC1:
 	case MXC4005_REG_CONTROL:
 		return true;
 	default:
@@ -135,13 +128,12 @@ static bool mxc4005_is_writeable_reg(struct device *dev, unsigned int reg)
 }
 
 static const struct regmap_config mxc4005_regmap_config = {
-	.name = MXC4005_DRV_NAME,
+	.name = MXC4005_REGMAP_NAME,
 
 	.reg_bits = 8,
 	.val_bits = 8,
 
 	.max_register = MXC4005_REG_DEVICE_ID,
-	.cache_type = REGCACHE_NONE,
 
 	.readable_reg = mxc4005_is_readable_reg,
 	.writeable_reg = mxc4005_is_writeable_reg,
@@ -154,7 +146,7 @@ static int mxc4005_read_xyz(struct mxc4005_data *data)
 	ret = regmap_bulk_read(data->regmap, MXC4005_REG_XOUT_UPPER,
 			       (u8 *) data->buffer, sizeof(data->buffer));
 	if (ret < 0) {
-		dev_err(&data->client->dev, "failed to read axes\n");
+		dev_err(data->dev, "failed to read axes\n");
 		return ret;
 	}
 
@@ -162,19 +154,18 @@ static int mxc4005_read_xyz(struct mxc4005_data *data)
 }
 
 static int mxc4005_read_axis(struct mxc4005_data *data,
-			     int axis)
+			     unsigned int addr)
 {
-	u16 reg;
+	__be16 reg;
 	int ret;
 
-	ret = regmap_bulk_read(data->regmap, MXC4005_AXIS_TO_REG(axis),
-			       (u8 *) &reg, 2);
+	ret = regmap_bulk_read(data->regmap, addr, (u8 *) &reg, sizeof(reg));
 	if (ret < 0) {
-		dev_err(&data->client->dev, "failed to read axis %d\n", axis);
+		dev_err(data->dev, "failed to read reg %02x\n", addr);
 		return ret;
 	}
 
-	return reg;
+	return be16_to_cpu(reg);
 }
 
 static int mxc4005_read_scale(struct mxc4005_data *data)
@@ -185,7 +176,7 @@ static int mxc4005_read_scale(struct mxc4005_data *data)
 
 	ret = regmap_read(data->regmap, MXC4005_REG_CONTROL, &reg);
 	if (ret < 0) {
-		dev_err(&data->client->dev, "failed to read reg_control");
+		dev_err(data->dev, "failed to read reg_control\n");
 		return ret;
 	}
 
@@ -199,21 +190,20 @@ static int mxc4005_read_scale(struct mxc4005_data *data)
 
 static int mxc4005_set_scale(struct mxc4005_data *data, int val)
 {
+	unsigned int reg;
 	int i;
 	int ret;
-	int scale;
 
 	for (i = 0; i < ARRAY_SIZE(mxc4005_scale_table); i++) {
 		if (mxc4005_scale_table[i].scale == val) {
-			scale = i << MXC4005_CONTROL_FSR_SHIFT;
+			reg = i << MXC4005_CONTROL_FSR_SHIFT;
 			ret = regmap_update_bits(data->regmap,
 						 MXC4005_REG_CONTROL,
 						 MXC4005_REG_CONTROL_MASK_FSR,
-						 scale);
+						 reg);
 			if (ret < 0)
-				dev_err(&data->client->dev,
-					"failed to write reg_control %d\n",
-					ret);
+				dev_err(data->dev,
+					"failed to write reg_control\n");
 			return ret;
 		}
 	}
@@ -226,7 +216,6 @@ static int mxc4005_read_raw(struct iio_dev *indio_dev,
 			    int *val, int *val2, long mask)
 {
 	struct mxc4005_data *data = iio_priv(indio_dev);
-	int axis = chan->scan_index;
 	int ret;
 
 	switch (mask) {
@@ -236,12 +225,9 @@ static int mxc4005_read_raw(struct iio_dev *indio_dev,
 			if (iio_buffer_enabled(indio_dev))
 				return -EBUSY;
 
-			mutex_lock(&data->mutex);
-			ret = mxc4005_read_axis(data, axis);
-			mutex_unlock(&data->mutex);
+			ret = mxc4005_read_axis(data, chan->address);
 			if (ret < 0)
 				return ret;
-			ret = be16_to_cpu(ret);
 			*val = sign_extend32(ret >> chan->scan_type.shift,
 					     chan->scan_type.realbits - 1);
 			return IIO_VAL_INT;
@@ -249,13 +235,11 @@ static int mxc4005_read_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 	case IIO_CHAN_INFO_SCALE:
-		*val = 0;
-		mutex_lock(&data->mutex);
 		ret = mxc4005_read_scale(data);
-		mutex_unlock(&data->mutex);
 		if (ret < 0)
 			return ret;
 
+		*val = 0;
 		*val2 = ret;
 		return IIO_VAL_INT_PLUS_MICRO;
 	default:
@@ -268,22 +252,16 @@ static int mxc4005_write_raw(struct iio_dev *indio_dev,
 			     int val, int val2, long mask)
 {
 	struct mxc4005_data *data = iio_priv(indio_dev);
-	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
 		if (val != 0)
 			return -EINVAL;
 
-		mutex_lock(&data->mutex);
-		ret = mxc4005_set_scale(data, val2);
-		mutex_unlock(&data->mutex);
-		break;
+		return mxc4005_set_scale(data, val2);
 	default:
-		ret = -EINVAL;
+		return -EINVAL;
 	}
-
-	return ret;
 }
 
 static const struct iio_info mxc4005_info = {
@@ -293,10 +271,16 @@ static const struct iio_info mxc4005_info = {
 	.attrs		= &mxc4005_attrs_group,
 };
 
-#define MXC4005_CHANNEL(_axis) {				\
+static const unsigned long mxc4005_scan_masks[] = {
+	BIT(AXIS_X) | BIT(AXIS_Y) | BIT(AXIS_Z),
+	0
+};
+
+#define MXC4005_CHANNEL(_axis, _addr) {				\
 	.type = IIO_ACCEL,					\
 	.modified = 1,						\
 	.channel2 = IIO_MOD_##_axis,				\
+	.address = _addr,					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
 	.scan_index = AXIS_##_axis,				\
@@ -310,9 +294,9 @@ static const struct iio_info mxc4005_info = {
 }
 
 static const struct iio_chan_spec mxc4005_channels[] = {
-	MXC4005_CHANNEL(X),
-	MXC4005_CHANNEL(Y),
-	MXC4005_CHANNEL(Z),
+	MXC4005_CHANNEL(X, MXC4005_REG_XOUT_UPPER),
+	MXC4005_CHANNEL(Y, MXC4005_REG_YOUT_UPPER),
+	MXC4005_CHANNEL(Z, MXC4005_REG_ZOUT_UPPER),
 	IIO_CHAN_SOFT_TIMESTAMP(3),
 };
 
@@ -323,19 +307,32 @@ static irqreturn_t mxc4005_trigger_handler(int irq, void *private)
 	struct mxc4005_data *data = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&data->mutex);
 	ret = mxc4005_read_xyz(data);
-	mutex_unlock(&data->mutex);
 	if (ret < 0)
 		goto err;
 
 	iio_push_to_buffers_with_timestamp(indio_dev, data->buffer,
-					   data->timestamp);
+					   pf->timestamp);
 
 err:
 	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
+}
+
+static int mxc4005_clr_intr(struct mxc4005_data *data)
+{
+	int ret;
+
+	/* clear interrupt */
+	ret = regmap_write(data->regmap, MXC4005_REG_INT_CLR1,
+			   MXC4005_REG_INT_CLR1_BIT_DRDYC);
+	if (ret < 0) {
+		dev_err(data->dev, "failed to write to reg_int_clr1\n");
+		return ret;
+	}
+
+	return 0;
 }
 
 static int mxc4005_set_trigger_state(struct iio_trigger *trig,
@@ -345,7 +342,6 @@ static int mxc4005_set_trigger_state(struct iio_trigger *trig,
 	struct mxc4005_data *data = iio_priv(indio_dev);
 	int ret;
 
-
 	mutex_lock(&data->mutex);
 	if (state) {
 		ret = regmap_write(data->regmap, MXC4005_REG_INT_MASK1,
@@ -354,64 +350,35 @@ static int mxc4005_set_trigger_state(struct iio_trigger *trig,
 		ret = regmap_write(data->regmap, MXC4005_REG_INT_MASK1,
 				   ~MXC4005_REG_INT_MASK1_BIT_DRDYE);
 	}
-	mutex_unlock(&data->mutex);
 
 	if (ret < 0) {
-		dev_err(&data->client->dev,
-			"failed to update reg_int_mask1");
+		mutex_unlock(&data->mutex);
+		dev_err(data->dev, "failed to update reg_int_mask1");
 		return ret;
 	}
 
 	data->trigger_enabled = state;
+	mutex_unlock(&data->mutex);
 
 	return 0;
 }
 
+static int mxc4005_trigger_try_reen(struct iio_trigger *trig)
+{
+	struct iio_dev *indio_dev = iio_trigger_get_drvdata(trig);
+	struct mxc4005_data *data = iio_priv(indio_dev);
+
+	if (!data->dready_trig)
+		return 0;
+
+	return mxc4005_clr_intr(data);
+}
+
 static const struct iio_trigger_ops mxc4005_trigger_ops = {
 	.set_trigger_state = mxc4005_set_trigger_state,
+	.try_reenable = mxc4005_trigger_try_reen,
 	.owner = THIS_MODULE,
 };
-
-static irqreturn_t mxc4005_irq_thrd_handler(int irq, void *private)
-{
-	struct iio_dev *indio_dev = private;
-	struct mxc4005_data *data = iio_priv(indio_dev);
-	unsigned int reg;
-	int ret;
-
-	mutex_lock(&data->mutex);
-	ret = regmap_read(data->regmap, MXC4005_REG_INT_SRC1, &reg);
-	if (ret < 0) {
-		dev_err(&data->client->dev, "failed to read reg_int_src1\n");
-		goto exit;
-	}
-
-	/* clear interrupt */
-	ret = regmap_write(data->regmap, MXC4005_REG_INT_CLR1,
-			   MXC4005_REG_INT_CLR1_BIT_DRDYC);
-	if (ret < 0) {
-		dev_err(&data->client->dev, "failed to write to reg_int_clr1\n");
-		goto exit;
-	}
-
-exit:
-	mutex_unlock(&data->mutex);
-
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t mxc4005_irq_handler(int irq, void *private)
-{
-	struct iio_dev *indio_dev = private;
-	struct mxc4005_data *data = iio_priv(indio_dev);
-
-	data->timestamp = iio_get_time_ns();
-
-	if (data->trigger_enabled)
-		iio_trigger_poll(data->dready_trig, 0);
-
-	return IRQ_WAKE_THREAD;
-}
 
 static int mxc4005_gpio_probe(struct i2c_client *client,
 			      struct mxc4005_data *data)
@@ -449,11 +416,11 @@ static int mxc4005_chip_init(struct mxc4005_data *data)
 
 	ret = regmap_read(data->regmap, MXC4005_REG_DEVICE_ID, &reg);
 	if (ret < 0) {
-		dev_err(&data->client->dev, "failed to read chip id\n");
+		dev_err(data->dev, "failed to read chip id\n");
 		return ret;
 	}
 
-	dev_dbg(&data->client->dev, "MXC4005 chip id %d\n", reg);
+	dev_dbg(data->dev, "MXC4005 chip id %02x\n", reg);
 
 	return 0;
 }
@@ -478,12 +445,12 @@ static int mxc4005_probe(struct i2c_client *client,
 
 	data = iio_priv(indio_dev);
 	i2c_set_clientdata(client, indio_dev);
-	data->client = client;
+	data->dev = &client->dev;
 	data->regmap = regmap;
 
 	ret = mxc4005_chip_init(data);
 	if (ret < 0) {
-		dev_err(&client->dev, "failed to init chip\n");
+		dev_err(&client->dev, "failed to initialize chip\n");
 		return ret;
 	}
 
@@ -492,12 +459,13 @@ static int mxc4005_probe(struct i2c_client *client,
 	indio_dev->dev.parent = &client->dev;
 	indio_dev->channels = mxc4005_channels;
 	indio_dev->num_channels = ARRAY_SIZE(mxc4005_channels);
+	indio_dev->available_scan_masks = mxc4005_scan_masks;
 	indio_dev->name = MXC4005_DRV_NAME;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &mxc4005_info;
 
 	ret = iio_triggered_buffer_setup(indio_dev,
-					 &iio_pollfunc_store_time,
+					 iio_pollfunc_store_time,
 					 mxc4005_trigger_handler,
 					 NULL);
 	if (ret < 0) {
@@ -509,26 +477,26 @@ static int mxc4005_probe(struct i2c_client *client,
 	if (client->irq < 0)
 		client->irq = mxc4005_gpio_probe(client, data);
 
-	if (client->irq >= 0) {
-		ret = devm_request_threaded_irq(&client->dev, client->irq,
-						mxc4005_irq_handler,
-						mxc4005_irq_thrd_handler,
-						IRQF_TRIGGER_FALLING |
-						IRQF_ONESHOT,
-						MXC4005_IRQ_NAME,
-						indio_dev);
-		if (ret) {
-			dev_err(&client->dev,
-				"failed to init threaded irq\n");
-			goto err_buffer_cleanup;
-		}
-
+	if (client->irq > 0) {
 		data->dready_trig = devm_iio_trigger_alloc(&client->dev,
 							   "%s-dev%d",
 							   indio_dev->name,
 							   indio_dev->id);
 		if (!data->dready_trig)
 			return -ENOMEM;
+
+		ret = devm_request_threaded_irq(&client->dev, client->irq,
+						iio_trigger_generic_data_rdy_poll,
+						NULL,
+						IRQF_TRIGGER_FALLING |
+						IRQF_ONESHOT,
+						MXC4005_IRQ_NAME,
+						data->dready_trig);
+		if (ret) {
+			dev_err(&client->dev,
+				"failed to init threaded irq\n");
+			goto err_buffer_cleanup;
+		}
 
 		data->dready_trig->dev.parent = &client->dev;
 		data->dready_trig->ops = &mxc4005_trigger_ops;
@@ -568,9 +536,8 @@ static int mxc4005_remove(struct i2c_client *client)
 	iio_device_unregister(indio_dev);
 
 	iio_triggered_buffer_cleanup(indio_dev);
-	if (data->dready_trig) {
+	if (data->dready_trig)
 		iio_trigger_unregister(data->dready_trig);
-	}
 
 	return 0;
 }
@@ -585,7 +552,6 @@ static const struct i2c_device_id mxc4005_id[] = {
 	{"mxc4005",	0},
 	{ },
 };
-
 MODULE_DEVICE_TABLE(i2c, mxc4005_id);
 
 static struct i2c_driver mxc4005_driver = {
