@@ -361,18 +361,6 @@ static int mmc35240_take_measurement(struct mmc35240_data *data)
 	return 0;
 }
 
-static int mmc35240_read_measurement(struct mmc35240_data *data, __le16 buf[3])
-{
-	int ret;
-
-	ret = mmc35240_take_measurement(data);
-	if (ret < 0)
-		return ret;
-
-	return regmap_bulk_read(data->regmap, MMC35240_REG_XOUT_L, (u8 *)buf,
-				3 * sizeof(__le16));
-}
-
 static int mmc34160_raw_to_mgauss(int raw[3], int sens[3], int nfo,
 				  int index, int *val)
 {
@@ -474,11 +462,22 @@ static irqreturn_t mmc35240_trigger_handler(int irq, void *p)
 	__le16 mag_buf[3];
 	int bit, ret, i = 0;
 	s32 buf[6]; /* 3*s32 = 12 bytes axis + 2*s32 = 8 bytes timestamp */
+	s64 measurement_start_ts, measurement_end_ts;
 
 	memset(buf, 0, sizeof(buf));
 
 	mutex_lock(&data->mutex);
-	ret = mmc35240_read_measurement(data, mag_buf);
+
+	measurement_start_ts = iio_get_time_ns();
+	ret = mmc35240_take_measurement(data);
+	if (ret < 0) {
+		mutex_unlock(&data->mutex);
+		goto done;
+	}
+	measurement_end_ts = iio_get_time_ns();
+
+	ret = regmap_bulk_read(data->regmap, MMC35240_REG_XOUT_L, (u8 *)mag_buf,
+			3 * sizeof(__le16));
 	if (ret < 0) {
 		mutex_unlock(&data->mutex);
 		goto done;
@@ -494,7 +493,8 @@ static irqreturn_t mmc35240_trigger_handler(int irq, void *p)
 	}
 	mutex_unlock(&data->mutex);
 
-	iio_push_to_buffers_with_timestamp(indio_dev, buf, pf->timestamp);
+	iio_push_to_buffers_with_timestamp(indio_dev, buf,
+			pf->timestamp + (measurement_end_ts - measurement_start_ts));
 done:
 	iio_trigger_notify_done(indio_dev->trig);
 
@@ -512,7 +512,13 @@ static int mmc35240_read_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		mutex_lock(&data->mutex);
-		ret = mmc35240_read_measurement(data, buf);
+		ret = mmc35240_take_measurement(data);
+		if (ret < 0) {
+			mutex_unlock(&data->mutex);
+			return ret;
+		}
+		ret = regmap_bulk_read(data->regmap, MMC35240_REG_XOUT_L, (u8 *)buf,
+				3 * sizeof(__le16));
 		mutex_unlock(&data->mutex);
 		if (ret < 0)
 			return ret;
