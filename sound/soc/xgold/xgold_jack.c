@@ -29,7 +29,6 @@
 #include <linux/iio/consumer.h>
 #include <linux/iio/driver.h>
 #include <sound/soc.h>
-#include <linux/wakelock.h>
 
 #ifdef CONFIG_X86_INTEL_SOFIA
 #include <sofia/pal_shared_data.h>
@@ -56,12 +55,16 @@
 /* this variable to overcome the mute after slow removal of jack */
 #define JACK_CHECK_PROSS_START 1
 #define JACK_CHECK_PROSS_END   0
+
+#define TIME_TO_NOTIFY_JACK	500 /* msec to ignore spurious interrupt */
+
 /**
  * Different VBIAS settings
 **/
 enum xgold_vbias {
 	XGOLD_VBIAS_ENABLE,
 	XGOLD_VBIAS_ULP_ON,
+	XGOLD_VBIAS_DISABLE
 };
 
 enum xgold_headset_type {
@@ -86,6 +89,8 @@ struct hs_key_cfg {
 	int pressed;
 };
 
+static struct timer_list jack_detect_timer;
+
 /* AFE register values */
 #define XGOLD_DETECT_INSERTION \
 	0x800B /* ACD1: insertion; ACD2: disabled; DEBT: 1msc */
@@ -95,6 +100,16 @@ struct hs_key_cfg {
 	0xCA03 /* ACD1: headset removal; ACD2: hook key press; DEBT: 1msc  */
 #define XGOLD_DETECT_HOOK_RELEASE \
 	0xC203 /* ACD1: removal; ACD2: hook key release; DEBT: 1msc  */
+
+#define XGOLD_DETECT_INSERTION_WITH_EINT \
+	0x0008 /* ACD1: insertion detection disabled; ACD2: disabled */
+#define XGOLD_DETECT_REMOVAL_HEADSET_WITH_EINT \
+	0x0008 /* ACD1: removal detection disabled; ACD2: headset insertion */
+#define XGOLD_DETECT_REMOVAL_HOOK_WITH_EINT \
+	0x4A08 /* ACD1: headset removal disabled; ACD2: hook key press */
+#define XGOLD_DETECT_HOOK_RELEASE_WITH_EINT \
+	0x4208 /* ACD1: removal detection disabled; ACD2: hook key release */
+
 
 /* PMIC register offset */
 /* IRQ registers offsets */
@@ -107,6 +122,8 @@ struct hs_key_cfg {
 #define IRQMULT_ACCDETAUX_M		0x04
 #define IRQMULT_ACCDETALL_M \
 	(IRQMULT_ACCDET1_M | IRQMULT_ACCDET2_M | IRQMULT_ACCDETAUX_M)
+#define IRQMULT_ACCDET_EINT_M \
+	(IRQMULT_ACCDET2_M | IRQMULT_ACCDETAUX_M)
 
 /* PMIC registers offsets */
 #define ACC_DET_LOW_REG			0x21
@@ -114,13 +131,13 @@ struct hs_key_cfg {
 #define ACC_DET_AUX_REG			0x23
 
 #define VBIAS_SETTLING_TIME_MS		20
-#define JACK_DET_RETRY_TIMES		4
 
 /* Headset keymap */
 struct hs_key_cfg xgold_hs_keymap[] = {
-	{0, 50, SND_JACK_BTN_0 , KEY_MEDIA, 0},
-	{100, 150, SND_JACK_BTN_1, KEY_VOLUMEUP, 0},
-	{275, 325, SND_JACK_BTN_2, KEY_VOLUMEDOWN, 0},
+	{0, 65, SND_JACK_BTN_0 , KEY_MEDIA, 0},
+	{130, 220, SND_JACK_BTN_1, KEY_VOLUMEUP, 0},
+	{225, 450, SND_JACK_BTN_2, KEY_VOLUMEDOWN, 0},
+	{70, 125, SND_JACK_BTN_3 , KEY_VOICECOMMAND, 0},
 };
 
 /* Headset Typemap */
@@ -137,6 +154,24 @@ static int jack_write(struct xgold_jack *jack, unsigned val)
 	return 0;
 #endif
 }
+
+static inline int jack_set_pinctrl_state(struct xgold_jack *jack,
+		struct pinctrl_state *state)
+{
+	int ret = 0;
+
+	if (!IS_ERR_OR_NULL(jack->pinctrl)) {
+		if (!IS_ERR_OR_NULL(state)) {
+			ret = pinctrl_select_state(
+					jack->pinctrl,
+					state);
+			if (ret)
+				xgold_err("%s: cannot set pins\n", __func__);
+		}
+	}
+	return ret;
+}
+
 
 /* PMIC reg accesses */
 static int xgold_jack_pmic_reg_read(u32 dev_addr, u32 reg_addr,
@@ -168,8 +203,9 @@ static void configure_vbias(struct xgold_jack *jack, enum xgold_vbias state)
 	struct afe_acc_det acc_det_par;
 	int ret;
 
-	xgold_debug("--> %s: %s\n", __func__, (state == XGOLD_VBIAS_ENABLE) ?
-			"XGOLD_VBIAS_ENABLE" : "XGOLD_VBIAS_ULP_ON");
+	xgold_debug("--> %s: %s\n", __func__, state ?
+		((state == XGOLD_VBIAS_DISABLE) ? "XGOLD_VBIAS_DISABLE" :
+		"XGOLD_VBIAS_ULP_ON") : "XGOLD_VBIAS_ENABLE");
 
 	acc_det_par.vumic_conf.vmode = AFE_VUMIC_MODE_ULP;
 	acc_det_par.vumic_conf.hzmic = AFE_HZVUMIC_NORMAL_POWER_DOWN;
@@ -183,6 +219,12 @@ static void configure_vbias(struct xgold_jack *jack, enum xgold_vbias state)
 	case XGOLD_VBIAS_ULP_ON:
 		acc_det_par.vumic_conf.vmicsel = AFE_VMICSEL_1_9_V;
 		acc_det_par.micldo_mode = AFE_MICLDO_MODE_LOW_POWER;
+		acc_det_par.xb_mode = AFE_XB_OFF;
+		break;
+	case XGOLD_VBIAS_DISABLE:
+		acc_det_par.vumic_conf.vmode = AFE_VUMIC_MODE_POWER_DOWN;
+		acc_det_par.vumic_conf.vmicsel = AFE_VMICSEL_1_9_V;
+		acc_det_par.micldo_mode = AFE_MICLDO_MODE_OFF;
 		acc_det_par.xb_mode = AFE_XB_OFF;
 		break;
 	default:
@@ -256,12 +298,8 @@ static void xgold_jack_check(struct xgold_jack *jack)
 {
 	u32 state, old_state;
 	u32 detect;
-	int status = 0;
+	int status = 0, retry = 10;
 	enum xgold_vbias vbias;
-	int i;
-
-	wake_lock_timeout(&jack->suspend_lock,
-			(JACK_DET_RETRY_TIMES/2 + 2) * HZ);
 
 	/*  set the flag for button thread to wait until release it.*/
 	configure_vbias(jack, XGOLD_VBIAS_ENABLE);
@@ -270,15 +308,34 @@ static void xgold_jack_check(struct xgold_jack *jack)
 	   Headset insertion takes a bit of time(~> 500ms),
 	   so make sure that two consecutive reads agree.
 	*/
-	state = XGOLD_ERROR;
-	for (i = 0; (i < JACK_DET_RETRY_TIMES) && (XGOLD_ERROR == state); i++) {
-		xgold_debug("Jack detect - try %d times\n", i);
+	if (jack->use_acd1_for_jack_det) {
+		msleep(400);
 		do {
-			msleep(250);
+			msleep(50);
 			old_state = read_state(jack);
-			msleep(250);
+			msleep(50);
 			state = read_state(jack);
-		} while (state != old_state);
+			retry--;
+		} while ((state != old_state) ||
+			 ((state == XGOLD_ERROR) && (retry)));
+	} else {
+		/* In gpio detect mechanism Bias voltage stablisation will
+		 * take ~> 150ms at after full insertion.So read the state after
+		 * 150ms during normal mode and deep sleep mode will
+		 * take ~>200ms to get stable.So this retry mechanism will help
+		 * to get stable state while system wake up from sleep. */
+		if (!jack->hs_plug_detect) {
+			msleep(100);
+			do {
+				msleep(50);
+				old_state = read_state(jack);
+				msleep(50);
+				state = read_state(jack);
+				retry--;
+			} while ((state != old_state) ||
+			 ((state == XGOLD_ERROR) && (retry)));
+		} else
+			state = XGOLD_HEADSET_REMOVED;
 	}
 
 	if (XGOLD_ERROR == state) {
@@ -290,21 +347,38 @@ static void xgold_jack_check(struct xgold_jack *jack)
 	case XGOLD_HEADPHONE:
 		xgold_debug("Headphone inserted\n");
 		vbias = XGOLD_VBIAS_ENABLE;
-		detect = XGOLD_DETECT_REMOVAL_HEADSET;
+		if (!jack->use_acd1_for_jack_det) {
+			detect = XGOLD_DETECT_REMOVAL_HEADSET_WITH_EINT;
+			irq_set_irq_type(jack->jack_irq, IRQ_TYPE_EDGE_RISING);
+			jack->hs_plug_detect = true;
+			vbias = XGOLD_VBIAS_DISABLE;
+		} else
+			detect = XGOLD_DETECT_REMOVAL_HEADSET;
 		status = SND_JACK_HEADPHONE;
 		jack->buttons_enabled = false;
 		break;
 	case XGOLD_HEADSET:
 		xgold_debug("Headset inserted\n");
 		vbias = XGOLD_VBIAS_ENABLE;
-		detect = XGOLD_DETECT_REMOVAL_HOOK;
+		if (!jack->use_acd1_for_jack_det) {
+			detect = XGOLD_DETECT_REMOVAL_HOOK_WITH_EINT;
+			irq_set_irq_type(jack->jack_irq, IRQ_TYPE_EDGE_RISING);
+			jack->hs_plug_detect = true;
+		} else
+			detect = XGOLD_DETECT_REMOVAL_HOOK;
 		status = SND_JACK_HEADSET;
 		jack->buttons_enabled = true;
 		break;
 	case XGOLD_HEADSET_REMOVED:
 		xgold_debug("Headphone/headset removed\n");
 		vbias = XGOLD_VBIAS_ULP_ON;
-		detect = XGOLD_DETECT_INSERTION;
+		if (!jack->use_acd1_for_jack_det) {
+			detect = XGOLD_DETECT_INSERTION_WITH_EINT;
+			irq_set_irq_type(jack->jack_irq, IRQ_TYPE_EDGE_FALLING);
+			jack->hs_plug_detect = false;
+			vbias = XGOLD_VBIAS_DISABLE;
+		} else
+			detect = XGOLD_DETECT_INSERTION;
 		jack->buttons_enabled = false;
 		break;
 	default:
@@ -328,13 +402,29 @@ static irqreturn_t xgold_jack_detection(int irq, void *data)
 
 	xgold_debug("%s\n", __func__);
 
-	if (jack->flags & XGOLD_JACK_PMIC)
-		xgold_jack_pmic_reg_write(jack->pmic_irq_addr,
-				IRQMULT_REG, IRQMULT_ACCDET1_M);
+	if (jack->use_acd1_for_jack_det && (jack->flags & XGOLD_JACK_PMIC)) {
+			xgold_jack_pmic_reg_write(jack->pmic_irq_addr,
+					IRQMULT_REG, IRQMULT_ACCDET1_M);
+	}
 
 	/* set the flag for button thread to wait until release it.*/
 	if (jack->jack_check_in_progress)
 		return IRQ_HANDLED;
+
+	/* timer to ignore the spurious interrupt which comes within 500ms
+	 * to the prevous jack detection interrupt.*/
+	if (!jack->use_acd1_for_jack_det) {
+		if (timer_pending(&jack_detect_timer)) {
+			return IRQ_HANDLED;
+		} else {
+			jack_detect_timer.expires =
+				jiffies + msecs_to_jiffies(TIME_TO_NOTIFY_JACK);
+			add_timer(&jack_detect_timer);
+		}
+	}
+	/* get the wake lock to aviod the system enter into sleep
+	 * during ADC measurement */
+	wake_lock(&jack->wlock);
 
 	jack->jack_check_in_progress = JACK_CHECK_PROSS_START;
 
@@ -342,6 +432,9 @@ static irqreturn_t xgold_jack_detection(int irq, void *data)
 
 	/* release the flag for button thread to continue.*/
 	jack->jack_check_in_progress = JACK_CHECK_PROSS_END;
+
+	/* release the wake lock*/
+	wake_unlock(&jack->wlock);
 
 	return IRQ_HANDLED;
 }
@@ -413,6 +506,9 @@ static irqreturn_t xgold_button_detection(int irq, void *data)
 		xgold_jack_pmic_reg_write(jack->pmic_irq_addr,
 				IRQMULT_REG, IRQMULT_ACCDET2_M);
 
+	if (!jack->use_acd1_for_jack_det && !jack->hs_plug_detect)
+		return IRQ_HANDLED;
+
 	if ((jack->hs_jack->status & SND_JACK_HEADSET) != SND_JACK_HEADSET) {
 		/* this interrupt may occurs in case of slow jack insertion */
 		xgold_debug("button detection while no headset\n");
@@ -421,7 +517,12 @@ static irqreturn_t xgold_button_detection(int irq, void *data)
 
 	if (jack->buttons_enabled)
 		xgold_button_check(jack);
+
 	return IRQ_HANDLED;
+}
+
+static void xgold_jack_notify_cb(unsigned long data)
+{
 }
 
 int xgold_jack_setup(struct snd_soc_codec *codec, struct snd_soc_jack *hs_jack)
@@ -476,7 +577,6 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 	jack->jack_irq = jack->button_irq = -1;
 	jack->hs_jack = hs_jack;
 	jack->jack_check_in_progress = JACK_CHECK_PROSS_END;
-	wake_lock_init(&jack->suspend_lock, WAKE_LOCK_SUSPEND, "jack_wakelock");
 
 	if (of_device_is_compatible(np, "intel,headset,pmic"))
 		jack->flags |= XGOLD_JACK_PMIC;
@@ -531,6 +631,32 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 		goto out;
 	}
 
+	/* pinctrl */
+	jack->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(jack->pinctrl)) {
+		xgold_err("no pinctrl !\n");
+		jack->pinctrl = NULL;
+		goto skip_pinctrl;
+	}
+
+	jack->pins_default = pinctrl_lookup_state(jack->pinctrl,
+						 PINCTRL_STATE_DEFAULT);
+	if (IS_ERR(jack->pins_default))
+		xgold_err("could not get default pinstate\n");
+
+	jack->pins_sleep = pinctrl_lookup_state(jack->pinctrl,
+					       PINCTRL_STATE_SLEEP);
+	if (IS_ERR(jack->pins_sleep))
+		xgold_err("could not get sleep pinstate\n");
+
+	jack->pins_inactive =
+		pinctrl_lookup_state(jack->pinctrl,
+					       "inactive");
+	if (IS_ERR(jack->pins_inactive))
+		xgold_err("could not get inactive pinstate\n");
+
+skip_pinctrl:
+
 	res = devm_kzalloc(&pdev->dev, sizeof(*res) * num_irq, GFP_KERNEL);
 	if (!res) {
 		ret = -ENOMEM;
@@ -539,8 +665,17 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 
 	of_irq_to_resource_table(np, res, num_irq);
 	for (i = 0; i < num_irq; i++)
-		if (strcmp(res[i].name, "acd1") == 0)
+		if (strncmp(res[i].name, "acd1", sizeof("acd1")) == 0) {
 			jack->jack_irq = res[i].start;
+			jack->use_acd1_for_jack_det = true;
+		} else if (strncmp(res[i].name, "jack_det_eint",
+			sizeof("jack_det_eint")) == 0) {
+			jack->jack_irq = res[i].start;
+			jack->use_acd1_for_jack_det = false;
+		}
+
+	xgold_debug("%s: use %s interrupt\n", __func__,
+			(jack->use_acd1_for_jack_det) ? "ACD" : "EINT");
 
 	jack->iio_client = iio_channel_get(NULL, "ACCID_SENSOR");
 	if (IS_ERR(jack->iio_client)) {
@@ -549,14 +684,37 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 		goto out;
 	}
 
-	/* Configure the Accessory settings to detect Insertion */
-	xgold_jack_acc_det_write(jack, XGOLD_DETECT_INSERTION);
+	wake_lock_init(&jack->wlock, WAKE_LOCK_SUSPEND, "intel_acc");
 
-	ret = devm_request_threaded_irq(&(pdev->dev), jack->jack_irq,
-			NULL,
-			xgold_jack_detection,
-			IRQF_SHARED | IRQF_ONESHOT | IRQF_NO_SUSPEND,
-			"jack_irq", jack);
+	/* Configure the Accessory settings to detect Insertion */
+	if (!jack->use_acd1_for_jack_det) {
+
+		jack->hs_plug_detect = false;
+
+		init_timer(&jack_detect_timer);
+		jack_detect_timer.function = xgold_jack_notify_cb;
+
+		ret = jack_set_pinctrl_state(jack, jack->pins_default);
+		if (ret) {
+			xgold_err("setup of default pinctrl state failed!\n");
+			goto out;
+		}
+
+		ret = devm_request_threaded_irq(&(pdev->dev), jack->jack_irq,
+				NULL,
+				xgold_jack_detection,
+				IRQF_SHARED | IRQF_ONESHOT | IRQF_NO_SUSPEND |
+				IRQ_TYPE_LEVEL_LOW, "jack_irq", jack);
+	} else {
+		xgold_jack_acc_det_write(jack, XGOLD_DETECT_INSERTION);
+
+		ret = devm_request_threaded_irq(&(pdev->dev), jack->jack_irq,
+				NULL,
+				xgold_jack_detection,
+				IRQF_SHARED | IRQF_ONESHOT | IRQF_NO_SUSPEND,
+				"jack_irq", jack);
+	}
+
 	if (ret) {
 		xgold_err("setup of jack irq failed!\n");
 		ret = -EINVAL;
@@ -582,6 +740,8 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 	if (jack->flags & XGOLD_JACK_PMIC) {
 		int tries;
 		char val;
+		u8 mask = (jack->use_acd1_for_jack_det) ?
+			IRQMULT_ACCDETALL_M : IRQMULT_ACCDET_EINT_M;
 
 		/* Unmask IRQMULT interrupt */
 		xgold_err("%s: Warning! may apply changes to MIRQMULT register\n",
@@ -590,10 +750,10 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 		xgold_jack_pmic_reg_read(jack->pmic_irq_addr,
 				MIRQMULT_REG, &val);
 		tries = 0;
-		while ((val & IRQMULT_ACCDETALL_M) && tries++ < 20) {
+		while ((val & mask) && tries++ < 20) {
 			xgold_jack_pmic_reg_write(jack->pmic_irq_addr,
 					MIRQMULT_REG,
-					val & ~IRQMULT_ACCDETALL_M);
+					val & ~mask);
 
 			/* read again to ensure Mask is correctly configured */
 			xgold_jack_pmic_reg_read(jack->pmic_irq_addr,
@@ -642,8 +802,16 @@ out:
 
 void xgold_jack_remove(struct xgold_jack *jack)
 {
-	if (jack && !IS_ERR(jack->iio_client))
-		iio_channel_release(jack->iio_client);
-	if (jack)
-		wake_lock_destroy(&jack->suspend_lock);
+	if (jack) {
+		if (!IS_ERR(jack->iio_client))
+			iio_channel_release(jack->iio_client);
+
+		disable_irq(jack->jack_irq);
+		wake_lock_destroy(&jack->wlock);
+
+		if (!jack->use_acd1_for_jack_det) {
+			jack_set_pinctrl_state(jack, jack->pins_inactive);
+			del_timer_sync(&jack_detect_timer);
+		}
+	}
 }

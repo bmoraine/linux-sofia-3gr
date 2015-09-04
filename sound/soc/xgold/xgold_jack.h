@@ -26,17 +26,24 @@
 struct xgold_jack {
 	struct snd_soc_jack *hs_jack;
 	struct iio_channel *iio_client;
+	struct device *dev;
 	unsigned int jack_irq;
 	unsigned int button_irq;
 	void __iomem *mmio_base;
 	unsigned base_phys;
 	int buttons_enabled;
-	struct wake_lock suspend_lock;
 	unsigned long flags;
 	/* PMIC only */
 	char pmic_addr;
 	char pmic_irq_addr; /* FIXME: controlled by vmm */
 	char jack_check_in_progress;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pins_default;
+	struct pinctrl_state *pins_sleep;
+	struct pinctrl_state *pins_inactive;
+	struct wake_lock wlock;
+	bool use_acd1_for_jack_det;
+	bool hs_plug_detect;
 };
 
 #define XGOLD_JACK_PMIC		BIT(0)
