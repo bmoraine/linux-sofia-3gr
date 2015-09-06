@@ -466,6 +466,9 @@ static bool too_many_isolated(struct zone *zone)
 	return isolated > (inactive + active) / 2;
 }
 
+/* for CMA compaction/isolation previous 32 pages are too small */
+#define COMPACTION_CLUSTER_MAX	128
+
 /**
  * isolate_migratepages_range() - isolate all migrate-able pages in range.
  * @zone:	Zone pages are in.
@@ -524,7 +527,7 @@ isolate_migratepages_range(struct zone *zone, struct compact_control *cc,
 	/* Time to isolate some pages for migration */
 	for (; low_pfn < end_pfn; low_pfn++) {
 		/* give a chance to irqs before checking need_resched() */
-		if (locked && !(low_pfn % SWAP_CLUSTER_MAX)) {
+		if (locked && !((low_pfn) % COMPACTION_CLUSTER_MAX)) {
 			if (should_release_lock(&zone->lru_lock)) {
 				spin_unlock_irqrestore(&zone->lru_lock, flags);
 				locked = false;
