@@ -518,12 +518,9 @@ static int cif_isp20_v4l2_do_streamoff(
 	err = cif_isp20_streamoff(dev, stream_ids);
 	if (IS_ERR_VALUE(err))
 		ret = -EFAULT;
-	err = videobuf_streamoff(queue);
-	if (IS_ERR_VALUE(err)) {
-		cif_isp20_pltfrm_pr_err(dev->dev,
-			"videobuf_streamoff failed with error %d\n", err);
-		ret = -EFAULT;
-	}
+
+	videobuf_stop(queue);
+
 	err = videobuf_mmap_free(queue);
 	if (IS_ERR_VALUE(err)) {
 		cif_isp20_pltfrm_pr_err(dev->dev,
@@ -749,6 +746,11 @@ static int cif_isp20_v4l2_reqbufs(
 		if (node->owner && (node->owner != fh))
 			return -EBUSY;
 		node->owner = fh;
+	}
+
+	if (req->count == 0) {
+		cif_isp20_v4l2_do_streamoff(file);
+		return 0;
 	}
 
 	ret = videobuf_reqbufs(queue, req);
