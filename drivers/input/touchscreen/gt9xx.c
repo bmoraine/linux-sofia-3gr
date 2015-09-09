@@ -80,7 +80,8 @@
 
 #define GT9XX_BOOTCTL_B0_SRAM		0x02
 
-#define GT9XX_BUTTONS_PROPERTY	"goodix,buttons"
+#define GT9XX_BUTTONS_PROPERTY		"goodix,buttons"
+#define GT9XX_FIRMWARE_UPDATE_PROPERTY	"goodix,firmware-update"
 
 enum gt9xx_status_bits {
 	/* bits 0 .. GT9XX_MAX_TOUCHES - 1 are use to track touches */
@@ -634,6 +635,7 @@ static int gt9xx_fw_checksum(struct gt9xx_ts *ts)
 static int gt9xx_fw_download_enabled(struct gt9xx_ts *ts)
 {
 	unsigned long long load_firmware = 0;
+	struct device_node *of_np = ts->client->dev.of_node;
 #ifdef CONFIG_ACPI
 	acpi_handle handle;
 	acpi_status status;
@@ -645,6 +647,13 @@ static int gt9xx_fw_download_enabled(struct gt9xx_ts *ts)
 	status = acpi_evaluate_integer(handle, "_FRM", NULL, &load_firmware);
 	if (ACPI_SUCCESS(status))
 		dev_info(&ts->client->dev, "_FRM=%llu\n", load_firmware);
+#endif
+
+#ifdef CONFIG_OF
+	if (of_get_property(of_np, GT9XX_FIRMWARE_UPDATE_PROPERTY, NULL)) {
+		dev_info(&ts->client->dev, "of firmware-udpate enabled\n");
+		load_firmware = 1;
+	}
 #endif
 
 	return load_firmware;
