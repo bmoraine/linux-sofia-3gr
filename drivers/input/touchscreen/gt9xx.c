@@ -41,7 +41,7 @@
 #define GT9XX_REG_CONFIG_DATA		0x8047
 #define GT9XX_CONFIG_LENGTH		186
 #define GT9XX_MAX_NUM_BUTTONS		8
-#define GT9XX_FW_FILE_NAME		"gt9xx_firmware.bin"
+#define GT9XX_FW_FILE_NAME		"gt9xx_firmware.fw"
 #define GT9XX_FW_HEAD_LEN		14
 
 #define GT9XX_SS51_BLOCK_ADDR		0xc000
@@ -783,6 +783,8 @@ static int gt9xx_fw_download(struct gt9xx_ts *ts)
 		dev_warn(&ts->client->dev, "gt9xx fw download not needed\n");
 		return 0;
 	}
+
+	dev_warn(&ts->client->dev, "firmware name %s\n", ts->fw_name);
 
 	ret = request_firmware(&ts->fw, ts->fw_name, &ts->client->dev);
 	if (ret < 0) {
