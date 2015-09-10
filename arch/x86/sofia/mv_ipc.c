@@ -92,22 +92,6 @@ struct mbox_instance_dir_entry
 	return NULL;
 }
 
-void mbox_get_shmem_for_all_instances(char *name,
-		uint32_t *vaddr,
-		uint32_t *size)
-{
-	int i;
-	for (i = 0; i < mbox_dir->num_of_entries; i++) {
-		struct mbox_dir_entry *entry = &mbox_dir->entry[i];
-		if (!strncmp(entry->name, name, MAX_MBOX_NAME_SIZE)) {
-			*vaddr = (uint32_t) mv_gal_ptov((vmm_paddr_t)
-			    (entry->addr_of_shmem_for_all_instances));
-			*size = entry->size_of_shmem_for_all_instances;
-			return;
-		}
-	}
-}
-
 uint32_t mbox_lookup_id_by_name(char *name,
 				char *instance_name,
 				uint32_t *mbox_id, uint32_t *instance_number)
