@@ -16,6 +16,7 @@
 #include <linux/ioport.h>
 #include <linux/reboot.h>
 #include <linux/notifier.h>
+#include <linux/delay.h>
 
 #include <linux/io.h>
 #include <asm/reboot.h>
@@ -104,6 +105,7 @@ static int reboot(struct notifier_block *notifier,
 		running_guest = mv_get_running_guests();
 		if (running_guest == (1 << share_data->os_id))
 			break;
+		msleep(10);
 	}
 	TRACE("all other guest os reboot successfully!\n");
 	return NOTIFY_OK;
