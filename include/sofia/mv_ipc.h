@@ -114,6 +114,12 @@ struct mbox_dir_entry {
 	/** mailbox id */
 	uint32_t id;
 
+	/** address of shared memory for all instances belonging to this mbox */
+	void *addr_of_shmem_for_all_instances;
+
+	/** size of shared memory for all instances belonging to this mbox */
+	uint32_t size_of_shmem_for_all_instances;
+
 	/** point to mbox instance dir */
 	uint32_t p_instance_dir;
 };
@@ -218,6 +224,16 @@ struct mbox_ops {
  *  @return 0 on success, 1 on error
  */
 uint32_t mv_ipc_init(void);
+
+/** @brief get all instance shared memory by mbox name
+ *
+ *  @param name mailbox name
+ *  @param vaddr return virtual address of start shared memory
+ *  @param size return size of shared memory
+ *  This shared memory is commonly used by all instances
+ */
+void mbox_get_shmem_for_all_instances(char *name,
+		uint32_t *vaddr, uint32_t *size);
 
 /** @brief initialize mailbox entry
  *
