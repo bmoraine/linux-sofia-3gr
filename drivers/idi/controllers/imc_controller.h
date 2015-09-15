@@ -14,7 +14,7 @@
 #ifndef _IMC_CONTROLLER_H
 #define _IMC_CONTROLLER_H
 
-#ifdef CONFIG_HAS_WAKELOCK
+#ifdef CONFIG_WAKELOCK
 #include <linux/wakelock.h>
 #endif
 
@@ -196,7 +196,7 @@ struct imc_controller {
 	u32 brk_us_delay;
 	wait_queue_head_t ip_resumed;
 
-#ifdef CONFIG_HAS_WAKELOCK
+#ifdef CONFIG_WAKELOCK
 	/* Android PM support */
 	struct wake_lock stay_awake;
 #endif
