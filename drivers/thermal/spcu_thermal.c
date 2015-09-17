@@ -563,9 +563,9 @@ static int bisect_calc_temp_val(struct spcu_thermal_device *dev,
 static void update_thresholds(struct spcu_thermal_device *dev, int cur_temp_val)
 {
 	SPCU_THERMAL_TRACE(&dev->pdev->dev, "setting low to %d\n",
-				cur_temp_val - ACCURACY*5);
+				cur_temp_val - ACCURACY*2);
 	set_trigger_val(&dev->threshold[THRESHOLD_LOW],
-				cur_temp_val - ACCURACY*5);
+				cur_temp_val - ACCURACY*2);
 	SPCU_THERMAL_TRACE(&dev->pdev->dev, "setting high to %d\n",
 				cur_temp_val + ACCURACY);
 	set_trigger_val(&dev->threshold[THRESHOLD_HIGH],
