@@ -11,6 +11,7 @@
 #ifndef __MALI_SESSION_H__
 #define __MALI_SESSION_H__
 
+#include <linux/sched.h>
 #include "mali_mmu_page_directory.h"
 #include "mali_kernel_descriptor_mapping.h"
 #include "mali_osk.h"
@@ -48,7 +49,7 @@ struct mali_session_data {
 	mali_bool is_aborting; /**< MALI_TRUE if the session is aborting, MALI_FALSE if not. */
 	mali_bool use_high_priority_job_queue; /**< If MALI_TRUE, jobs added from this session will use the high priority job queues. */
 	u32 pid;
-	char *comm;
+	char comm[TASK_COMM_LEN];
 	size_t mali_mem_array[MALI_MEM_TYPE_MAX]; /**< The array to record all mali mem types' usage for this session. */
 	size_t max_mali_mem_allocated; /**< The past max mali memory usage for this session. */
 };

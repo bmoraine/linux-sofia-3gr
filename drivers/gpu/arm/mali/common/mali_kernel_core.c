@@ -1141,7 +1141,7 @@ _mali_osk_errcode_t _mali_ukk_open(void **context)
 	}
 
 	session->pid = _mali_osk_get_pid();
-	session->comm = _mali_osk_get_comm();
+	memcpy(session->comm, current->comm, TASK_COMM_LEN);
 	session->max_mali_mem_allocated = 0;
 	_mali_osk_memset(session->mali_mem_array, 0, sizeof(size_t) * MALI_MEM_TYPE_MAX);
 	*context = (void *)session;
