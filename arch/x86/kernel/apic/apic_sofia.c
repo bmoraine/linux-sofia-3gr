@@ -70,23 +70,14 @@ static int sofia_wakeup_secondary_cpu(int apicid, unsigned long start_ip)
 #else
 	unsigned long hack_start_ip = (unsigned long)__pa(secondary_startup_64);
 #endif
-	mv_vcpu_start(apicid, hack_start_ip);
+	unsigned cpu;
+
+	for_each_possible_cpu(cpu) {
+		if (per_cpu(x86_cpu_to_apicid, cpu) == apicid)
+			mv_vcpu_start(cpu, hack_start_ip);
+	}
+
 	return 0;
-}
-
-static int sofia_cpu_present_to_apicid(int cpu)
-{
-	return cpu;
-}
-
-static int sofia_check_phys_apicid_present(int apicid)
-{
-	return true;
-}
-
-static int sofia_apic_id_valid(int apicid)
-{
-	return true;
 }
 
 static int sofia_apic_suspend(void)
@@ -122,13 +113,6 @@ static int sofia_apic_probe(void)
 	register_syscore_ops(&sofia_apic_syscore_ops);
 
 	return 1;
-}
-
-static unsigned sofia_default_get_apic_id(unsigned long x)
-{
-	unsigned apic_id = mv_vcpu_id();
-
-	return apic_id;
 }
 
 static u32 sofia_apic_mem_read(u32 reg)
@@ -210,7 +194,7 @@ static struct apic apic_sofia = {
 	.name				= "sofia",
 	.probe				= sofia_apic_probe,
 	.acpi_madt_oem_check		= NULL,
-	.apic_id_valid			= sofia_apic_id_valid,
+	.apic_id_valid			= default_apic_id_valid,
 	.apic_id_registered		= sofia_apic_id_registered,
 
 	.irq_delivery_mode		= 0,
@@ -228,15 +212,15 @@ static struct apic apic_sofia = {
 	.ioapic_phys_id_map		= NULL,
 	.setup_apic_routing		= NULL,
 	.multi_timer_check		= NULL,
-	.cpu_present_to_apicid		= sofia_cpu_present_to_apicid,
+	.cpu_present_to_apicid		= default_cpu_present_to_apicid,
 	.apicid_to_cpu_present		= NULL,
 	.setup_portio_remap		= NULL,
-	.check_phys_apicid_present	= sofia_check_phys_apicid_present,
+	.check_phys_apicid_present	= default_check_phys_apicid_present,
 	.enable_apic_mode		= NULL,
 	.phys_pkg_id			= default_phys_pkg_id,
 	.mps_oem_check			= NULL,
 
-	.get_apic_id			= sofia_default_get_apic_id,
+	.get_apic_id			= default_get_apic_id,
 	.set_apic_id			= NULL,
 	.apic_id_mask			= 0x0F << 24,
 
