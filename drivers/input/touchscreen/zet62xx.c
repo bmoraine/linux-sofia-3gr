@@ -959,20 +959,6 @@ exit_fw_download:
 
 	msleep(20);
 
-#ifdef CONFIG_PM
-	ret = device_create_file(&client->dev, &dev_attr_power_HAL_suspend);
-	if (ret < 0) {
-		dev_err(&client->dev, "unable to create suspend entry");
-		goto out;
-	}
-
-	ret = register_power_hal_suspend_device(&client->dev);
-	if (ret < 0)
-		dev_err(&client->dev, "unable to register for power hal");
-out:
-#endif
-
-
 	return ret;
 }
 
@@ -1149,6 +1135,19 @@ static  int zet62xx_ts_probe(struct i2c_client *client,
 		dev_err(&client->dev, "IRQ request failed %d\n", ret);
 		return ret;
 	}
+
+#ifdef CONFIG_PM
+	ret = device_create_file(&client->dev, &dev_attr_power_HAL_suspend);
+	if (ret < 0) {
+		dev_err(&client->dev, "unable to create suspend entry");
+		goto out;
+	}
+
+	ret = register_power_hal_suspend_device(&client->dev);
+	if (ret < 0)
+		dev_err(&client->dev, "unable to register for power hal");
+out:
+#endif
 
 	pr_crit("[ZET] : zet62xx probe ok........");
 
