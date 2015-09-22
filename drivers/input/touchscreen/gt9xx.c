@@ -82,6 +82,7 @@
 
 #define GT9XX_BUTTONS_PROPERTY		"goodix,buttons"
 #define GT9XX_FIRMWARE_UPDATE_PROPERTY	"goodix,firmware-update"
+#define GT9XX_FW_NAME_PROPERTY		"goodix,firmware-name"
 
 enum gt9xx_status_bits {
 	/* bits 0 .. GT9XX_MAX_TOUCHES - 1 are use to track touches */
@@ -882,6 +883,10 @@ static int gt9xx_set_device_data(struct gt9xx_ts *ts)
 				return ret;
 			}
 		}
+		if (!of_property_read_string(of_np, GT9XX_FW_NAME_PROPERTY,
+				    &ts->fw_name))
+			dev_info(&ts->client->dev, "found new firmware %s\n",
+				 ts->fw_name);
 	}
 
 	pinctrl = devm_pinctrl_get(dev);
@@ -1090,11 +1095,12 @@ static int gt9xx_ts_probe(struct i2c_client *client,
 	ts->input->dev.parent = dev;
 	input_set_drvdata(ts->input, ts);
 
+	ts->fw_name = GT9XX_FW_FILE_NAME;
+
 	ret = gt9xx_set_device_data(ts);
 	if (ret)
 		return ret;
 
-	ts->fw_name = GT9XX_FW_FILE_NAME;
 	ret = gt9xx_fw_download(ts);
 	if (ret)
 		return ret;
