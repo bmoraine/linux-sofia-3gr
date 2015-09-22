@@ -83,6 +83,7 @@
 #define GT9XX_BUTTONS_PROPERTY		"goodix,buttons"
 #define GT9XX_FIRMWARE_UPDATE_PROPERTY	"goodix,firmware-update"
 #define GT9XX_FW_NAME_PROPERTY		"goodix,firmware-name"
+#define GT9XX_COMPAT_MODE_PROPERTY	"goodix,compat-mode"
 
 enum gt9xx_status_bits {
 	/* bits 0 .. GT9XX_MAX_TOUCHES - 1 are use to track touches */
@@ -108,6 +109,7 @@ struct gt9xx_ts {
 	struct gpio_desc *gpiod_int;
 	struct gpio_desc *gpiod_rst;
 	int irq_type;
+	int compat_mode;
 
 	u16 max_x;
 	u16 max_y;
@@ -747,6 +749,9 @@ static int gt9xx_fw_start(struct gt9xx_ts *ts)
 	int ret;
 	u8 val;
 
+	if (!ts->compat_mode)
+		return 0;
+
 	/* init sw WDT */
 	ret = gt9xx_i2c_write_u8(client, GT9XX_SW_WDT_ADDR,
 				 GT9XX_SW_WDT_DEF_VAL);
@@ -887,6 +892,11 @@ static int gt9xx_set_device_data(struct gt9xx_ts *ts)
 				    &ts->fw_name))
 			dev_info(&ts->client->dev, "found new firmware %s\n",
 				 ts->fw_name);
+		if (of_get_property(of_np, GT9XX_COMPAT_MODE_PROPERTY,
+				    NULL)) {
+			dev_info(&ts->client->dev, "of compatibility mode enabled\n");
+			ts->compat_mode = 1;
+		}
 	}
 
 	pinctrl = devm_pinctrl_get(dev);
