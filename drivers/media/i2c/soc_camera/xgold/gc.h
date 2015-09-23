@@ -184,6 +184,8 @@ enum gc_setting_enum {
 	GC_SETTING_SCENE_MODE,
 	GC_SETTING_COLOR_EFFECT,
 	GC_SETTING_AWB_MODE,
+	GC_SETTING_AWB_LOCK,
+	GC_SETTING_AE_LOCK,
 
 	GC_NUM_SETTINGS,
 };
@@ -251,10 +253,7 @@ struct gc_device {
 	int run_mode;
 	int vt_pix_clk_freq_mhz;
 	int fps_index;
-	u32 focus;
-	u16 coarse_itg;
-	u16 fine_itg;
-	u16 gain;
+	int need_extra_delay;
 	u16 pixels_per_line;
 	u16 lines_per_frame;
 	u8 fps;
@@ -266,6 +265,9 @@ struct gc_device {
 	struct v4l2_ctrl_handler ctrl_handler;
 
 	struct gc_product_info *product_info;
+
+	bool (*get_lock_awb)(struct v4l2_subdev *sd);
+	bool (*get_lock_ae)(struct v4l2_subdev *sd);
 };
 
 #define to_gc_sensor(x) container_of(x, struct gc_device, sd)

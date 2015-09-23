@@ -259,6 +259,32 @@ static const struct v4l2_subdev_ops gc_ops = {
 	.sensor = &gc_sensor_ops,
 };
 
+static bool get_gc2155_lock_awb(struct v4l2_subdev *sd)
+{
+	int value;
+	bool status;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	gc_read_reg(client, GC_8BIT, GC2155_AWB_LOCK_REG, &value);
+
+	/* set bit to 0 when set awb lock on */
+	status = !(value & GC2155_AWB_LOCK_BITS) ? true : false;
+	return status;
+}
+
+static bool get_gc2155_lock_ae(struct v4l2_subdev *sd)
+{
+	int value;
+	bool status;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	gc_read_reg(client, GC_8BIT, GC2155_AE_LOCK_REG, &value);
+
+	/* set bit to 0 when set ae lock on */
+	status = !(value & GC2155_AE_LOCK_BITS) ? true : false;
+	return status;
+}
+
 static int gc_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -292,6 +318,10 @@ static int gc_probe(struct i2c_client *client,
 
 	dev->streaming = 0;
 	dev->power = 0;
+	dev->need_extra_delay = 1;
+
+	dev->get_lock_awb =  get_gc2155_lock_awb;
+	dev->get_lock_ae  =  get_gc2155_lock_ae;
 
 	v4l2_i2c_subdev_init(&(dev->sd), client, &gc_ops);
 

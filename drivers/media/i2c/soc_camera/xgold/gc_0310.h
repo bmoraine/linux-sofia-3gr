@@ -26,6 +26,11 @@
 #define GC0310_REG_BLOCK_ENABLE	0x42
 #define GC0310_REG_COL_CODE	0x48
 
+#define GC0310_AWB_LOCK_REG  0x42
+#define GC0310_AE_LOCK_REG   0x4f
+#define GC0310_AWB_LOCK_BITS 0x2
+#define GC0310_AE_LOCK_BITS  0x1
+
 /*
  * focal length bits definition:
  * bits 31-16: numerator, bits 15-0: denominator
@@ -103,7 +108,7 @@ static struct gc_register  gc0310_exposure_neg1[] = {
 
 static struct gc_register  gc0310_exposure_zero[] = {
 	{GC_8BIT, 0xfe, 0x01},
-	{GC_8BIT, 0x13, 0x35},
+	{GC_8BIT, 0x13, 0x33},
 	{GC_8BIT, 0xfe, 0x00},
 	{GC_8BIT, 0xd5, 0x00},
 	{GC_8BIT, 0xfe, 0x00},
@@ -281,7 +286,7 @@ static struct gc_register const gc0310_init_settings[] = {
 	{ GC_8BIT, 0x82, 0x14 },
 	{ GC_8BIT, 0x83, 0x0b },
 	{ GC_8BIT, 0x89, 0xf0 },
-
+/*
 	{ GC_8BIT, 0x8f, 0xaa },
 	{ GC_8BIT, 0x90, 0x8c },
 	{ GC_8BIT, 0x91, 0x90 },
@@ -289,6 +294,15 @@ static struct gc_register const gc0310_init_settings[] = {
 	{ GC_8BIT, 0x93, 0x03 },
 	{ GC_8BIT, 0x94, 0x05 },
 	{ GC_8BIT, 0x95, 0x65 },
+	{ GC_8BIT, 0x96, 0xf0 },
+*/
+	{ GC_8BIT, 0x8f, 0x66 },
+	{ GC_8BIT, 0x90, 0x08 },
+	{ GC_8BIT, 0x91, 0x10 },
+	{ GC_8BIT, 0x92, 0x48 },
+	{ GC_8BIT, 0x93, 0x06 },
+	{ GC_8BIT, 0x94, 0x4a },
+	{ GC_8BIT, 0x95, 0x44 },
 	{ GC_8BIT, 0x96, 0xf0 },
 
 	{ GC_8BIT, 0xfe, 0x00 },
@@ -323,8 +337,8 @@ static struct gc_register const gc0310_init_settings[] = {
 	{ GC_8BIT, 0xcf, 0xff },
 
 	{ GC_8BIT, 0xd0, 0x40 },
-	{ GC_8BIT, 0xd1, 0x25 },
-	{ GC_8BIT, 0xd2, 0x25 },
+	{ GC_8BIT, 0xd1, 0x23 },
+	{ GC_8BIT, 0xd2, 0x23 },
 	{ GC_8BIT, 0xd3, 0x44 },
 	{ GC_8BIT, 0xd6, 0xf2 },
 	{ GC_8BIT, 0xd7, 0x1b },
@@ -333,8 +347,6 @@ static struct gc_register const gc0310_init_settings[] = {
 
 	{ GC_8BIT, 0xde, 0xe5 },
 	{ GC_8BIT, 0xfe, 0x01 },
-	/*{ GC_8BIT, 0x1e, 0x41 },*/
-	/*{ GC_8BIT, 0x58, 0x04 },*/
 	{ GC_8BIT, 0x05, 0x30 },
 	{ GC_8BIT, 0x06, 0x75 },
 	{ GC_8BIT, 0x07, 0x40 },
@@ -343,10 +355,10 @@ static struct gc_register const gc0310_init_settings[] = {
 	{ GC_8BIT, 0x0b, 0x11 },
 	{ GC_8BIT, 0x0c, 0x00 },
 	{ GC_8BIT, 0x12, 0x52 },
-	{ GC_8BIT, 0x13, 0x35 },
+	{ GC_8BIT, 0x13, 0x33 },
 	{ GC_8BIT, 0x18, 0x95 },
 	{ GC_8BIT, 0x19, 0x96 },
-	{ GC_8BIT, 0x1f, 0x20 },
+	{ GC_8BIT, 0x1f, 0x30 },
 	{ GC_8BIT, 0x20, 0xc0 },
 	{ GC_8BIT, 0x3e, 0x40 },
 	{ GC_8BIT, 0x3f, 0x57 },
@@ -371,8 +383,8 @@ static struct gc_register const gc0310_init_settings[] = {
 	{ GC_8BIT, 0x6b, 0x01 },
 	{ GC_8BIT, 0x6c, 0x00 },
 	{ GC_8BIT, 0x6d, 0x02 },
-	{ GC_8BIT, 0x6e, 0xf0 },
-	{ GC_8BIT, 0x6f, 0x50 },
+	{ GC_8BIT, 0x6e, 0xd0 },
+	{ GC_8BIT, 0x6f, 0x30 },
 	{ GC_8BIT, 0x76, 0x80 },
 	{ GC_8BIT, 0x78, 0xef },
 	{ GC_8BIT, 0x79, 0x75 },
@@ -441,12 +453,12 @@ static struct gc_register const gc0310_init_settings[] = {
 	{ GC_8BIT, 0xd3, 0x05 },
 	{ GC_8BIT, 0xd4, 0x5f },
 	{ GC_8BIT, 0xd5, 0xf0 },/* ee */
-	{ GC_8BIT, 0xd6, 0x40 },
+	{ GC_8BIT, 0xd6, 0x44 },
 	{ GC_8BIT, 0xd7, 0xf0 },
 	{ GC_8BIT, 0xd8, 0xf8 },
 	{ GC_8BIT, 0xd9, 0xf8 },
 	{ GC_8BIT, 0xda, 0x46 },
-	{ GC_8BIT, 0xdb, 0xe8 },
+	{ GC_8BIT, 0xdb, 0xe4 },
 
 	{ GC_8BIT, 0xfe, 0x01 },
 	{ GC_8BIT, 0xc1, 0x3c },
@@ -497,13 +509,13 @@ static struct gc_register const gc0310_init_settings[] = {
 
 	{ GC_8BIT, 0x27, 0x01 },/* 30fps */
 	{ GC_8BIT, 0x28, 0xdd },
-	{ GC_8BIT, 0x29, 0x02 },/* 20fps */
-	{ GC_8BIT, 0x2a, 0x7c },
-	{ GC_8BIT, 0x2b, 0x03 },/* 10fps */
-	{ GC_8BIT, 0x2c, 0x1b },
+	{ GC_8BIT, 0x29, 0x03 },
+	{ GC_8BIT, 0x2a, 0x1b },
+	{ GC_8BIT, 0x2b, 0x06 },
+	{ GC_8BIT, 0x2c, 0x36 },
 	{ GC_8BIT, 0x2d, 0x09 },/* 6.25fps */
 	{ GC_8BIT, 0x2e, 0xf0 },
-	{ GC_8BIT, 0x3c, 0x00 },
+	{ GC_8BIT, 0x3c, 0x20 },
 	{ GC_8BIT, 0xfe, 0x00 },
 
 	{ GC_TOK_TERM, 0, 0}
@@ -699,14 +711,14 @@ static struct gc_table_map gc0310_hflip_tables[] = {
 
 /* GC0310 scene mode settings */
 static struct gc_register gc0310_night_mode_on_table[] = {
-	{GC_8BIT, 0xfe, 0x01},
+	{GC_8BIT, 0xfe, 0x00},
 	{GC_8BIT, GC0310_REG_MAX_AEC, 0x60},
 	{GC_TOK_TERM, 0, 0},
 };
 
 /* Normal scene mode */
 static struct gc_register gc0310_night_mode_off_table[] = {
-	{GC_8BIT, 0xfe, 0x01},
+	{GC_8BIT, 0xfe, 0x00},
 	{GC_8BIT, GC0310_REG_MAX_AEC, 0x40},
 	{GC_TOK_TERM, 0, 0},
 };
@@ -810,7 +822,7 @@ static struct gc_register gc0310_awb_mode_fluorescent_table[] = {
 	{GC_8BIT, 0xfe, 0x00},
 	{GC_8BIT, 0x77, 0x72},
 	{GC_8BIT, 0x78, 0x40},
-	{GC_8BIT, 0x79, 0x5b},
+	{GC_8BIT, 0x79, 0x70},
 	{GC_TOK_TERM, 0, 0},
 };
 
@@ -826,7 +838,7 @@ static struct gc_register gc0310_awb_mode_daylight_table[] = {
 static struct gc_register gc0310_awb_mode_cloudy_table[] = {
 	{GC_8BIT_RMW_AND, GC0310_REG_BLOCK_ENABLE, 0xfd},
 	{GC_8BIT, 0xfe, 0x00},
-	{GC_8BIT, 0x77, 0x58},
+	{GC_8BIT, 0x77, 0x70},
 	{GC_8BIT, 0x78, 0x40},
 	{GC_8BIT, 0x79, 0x50},
 	{GC_TOK_TERM, 0, 0},
@@ -841,6 +853,40 @@ static struct gc_table_map gc0310_awb_mode_tables[] = {
 	{ AWB_MODE_CLOUDY, gc0310_awb_mode_cloudy_table },
 };
 
+/* disable AWB */
+static struct gc_register gc0310_awb_lock_off_table[] = {
+	{ GC_8BIT, 0xfe, 0x00 },
+	{ GC_8BIT, 0x42, 0xfd },
+	{GC_TOK_TERM, 0, 0},
+};
+/* enable AWB */
+static struct gc_register gc0310_awb_lock_on_table[] = {
+	{ GC_8BIT, 0xfe, 0x00 },
+	{ GC_8BIT, 0x42, 0xff },
+	{GC_TOK_TERM, 0, 0},
+};
+
+static struct gc_table_map gc0310_awb_lock_tables[] = {
+	{0x0, gc0310_awb_lock_on_table },
+	{0x1, gc0310_awb_lock_off_table  },
+};
+/* disable AEC */
+static struct gc_register gc0310_ae_lock_off_table[] = {
+	{ GC_8BIT, 0xfe, 0x00 },
+	{ GC_8BIT, 0x4f, 0xfe },
+	{GC_TOK_TERM, 0, 0},
+};
+/* enable AEC */
+static struct gc_register gc0310_ae_lock_on_table[] = {
+	{ GC_8BIT, 0xfe, 0x00 },
+	{ GC_8BIT, 0x4f, 0xff },
+	{GC_TOK_TERM, 0, 0},
+};
+
+static struct gc_table_map gc0310_ae_lock_tables[] = {
+	{0x0, gc0310_ae_lock_on_table },
+	{0x1, gc0310_ae_lock_off_table  },
+};
 
 struct gc_product_info gc0310_product_info = {
 	.name = "gc0310",
@@ -883,9 +929,14 @@ struct gc_product_info gc0310_product_info = {
 			gc0310_color_effect_tables),
 		GC_ADD_SETTINGS_TABLES(GC_SETTING_AWB_MODE,
 			gc0310_awb_mode_tables),
+		GC_ADD_SETTINGS_TABLES(GC_SETTING_AWB_LOCK,
+			gc0310_awb_lock_tables),
+		GC_ADD_SETTINGS_TABLES(GC_SETTING_AE_LOCK,
+			gc0310_ae_lock_tables),
 	},
 
 };
 
 
 #endif /* __GC_0310_H__ */
+

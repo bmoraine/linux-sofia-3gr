@@ -314,6 +314,56 @@ int __gc_set_scene_mode(struct v4l2_subdev *sd, s32 value)
 	return __gc_program_ctrl_table(sd, GC_SETTING_SCENE_MODE, value);
 }
 
+int __gc_g_3a_lock(struct v4l2_subdev *sd, s32 *value)
+{
+	int status = 0;
+	struct gc_device *dev = to_gc_sensor(sd);
+
+	if (dev->get_lock_awb) {
+		status = dev->get_lock_awb(sd) ? V4L2_LOCK_WHITE_BALANCE : 0;
+	} else {
+		pltfrm_camera_module_pr_err(sd,
+				"get_lock_awb is null\n");
+	}
+
+	if (dev->get_lock_ae) {
+		status |= dev->get_lock_ae(sd) ? V4L2_LOCK_EXPOSURE : 0;
+	} else {
+		pltfrm_camera_module_pr_err(sd,
+				"get_lock_ae is null\n");
+		return -EINVAL;
+	}
+
+	*value = status;
+
+	return 0;
+}
+
+int __gc_set_3a_lock(struct v4l2_subdev *sd, s32 value)
+{
+	s8 val;
+	s32 status;
+
+	status = (value & V4L2_LOCK_WHITE_BALANCE) ? 1 : 0;
+	val = __gc_program_ctrl_table(sd,
+			GC_SETTING_AWB_LOCK, status);
+	if (val < 0) {
+		pltfrm_camera_module_pr_err(sd,
+				"setting table is null\n");
+	}
+
+	status = (value & V4L2_LOCK_EXPOSURE) ? 1 : 0;
+	val = __gc_program_ctrl_table(sd,
+			GC_SETTING_AE_LOCK, status);
+	if (val < 0) {
+		pltfrm_camera_module_pr_err(sd,
+				"setting table is null\n");
+		return val;
+	}
+
+	return 0;
+}
+
 int __gc_set_color(struct v4l2_subdev *sd, s32 value)
 {
 	return __gc_program_ctrl_table(sd, GC_SETTING_COLOR_EFFECT, value);
@@ -718,6 +768,8 @@ static struct gc_ctrl_config __gc_default_ctrls[] = {
 			.step = 0, /* set it to 0 always */
 			.def = 0,
 		},
+		.s_ctrl = __gc_set_3a_lock,
+		.g_ctrl = __gc_g_3a_lock,
 	},
 	{
 		.config = {
@@ -888,6 +940,7 @@ int gc_set_streaming(struct v4l2_subdev *sd, int enable)
 	}
 
 	if (enable) {
+		msleep(100);
 		if (0 == dev->streaming) {
 			pltfrm_camera_module_pr_debug(sd,
 				"Started writing stream-on regs.\n");
@@ -903,6 +956,7 @@ int gc_set_streaming(struct v4l2_subdev *sd, int enable)
 		if (0 == dev->streaming) {
 			ret = 0;
 		} else {
+			s32 extra_delay = 20, exposure_time = 0;
 			pltfrm_camera_module_pr_debug(sd,
 				"Started writing stream-off regs.\n");
 			ret = __gc_program_ctrl_table(sd, GC_SETTING_STREAM, 0);
@@ -915,6 +969,21 @@ int gc_set_streaming(struct v4l2_subdev *sd, int enable)
 				mdelay(1000 /
 				dev->curr_res_table[dev->fmt_idx].fps + 1);
 
+			/* Need extra longer delay due to low fps, which is
+			   determined by the lightness, to avoid MIPI ERROR
+			   because of unclear HW limitations. */
+			if (__gc_g_exposure(sd, &exposure_time) == 0 &&
+				exposure_time > extra_delay) {
+				extra_delay = exposure_time;
+			}
+
+			if (dev->need_extra_delay) {
+				mdelay(extra_delay);
+				pltfrm_camera_module_pr_debug(sd,
+					"extra delay %d ms\n", extra_delay);
+			}
+
+			msleep(50);
 			pltfrm_camera_module_pr_debug(sd,
 				"Writing stream-off regs done.\n");
 		}
@@ -1059,6 +1128,9 @@ int gc_s_mbus_fmt(struct v4l2_subdev *sd,
 	pltfrm_camera_module_pr_debug(sd, "Started writing res regs.\n");
 	ret = gc_write_reg_array(client, gc_mode_reg_table);
 	pltfrm_camera_module_pr_debug(sd, "Writing res regs done.\n");
+
+	/* need delay after profiling the new settings */
+	mdelay(15);
 
 	if (ret)
 		goto out;
