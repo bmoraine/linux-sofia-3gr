@@ -641,10 +641,19 @@ int gc_camera_module_s_power(struct v4l2_subdev *sd, int on)
 			ret |= pltfrm_camera_module_set_pin_state(&cam_mod->sd,
 				PLTFRM_CAMERA_MODULE_PIN_PD,
 				PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
+
+			ret |= pltfrm_camera_module_set_pin_state(&cam_mod->sd,
+				"intel,rst-gpio",
+				PLTFRM_CAMERA_MODULE_PIN_STATE_ACTIVE);
+
 			mdelay(5);
 
 			ret |= pltfrm_camera_module_set_pin_state(&cam_mod->sd,
 				PLTFRM_CAMERA_MODULE_PIN_PD,
+				PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE);
+
+			ret |= pltfrm_camera_module_set_pin_state(&cam_mod->sd,
+				"intel,rst-gpio",
 				PLTFRM_CAMERA_MODULE_PIN_STATE_INACTIVE);
 
 			if (!IS_ERR_VALUE(ret)) {
