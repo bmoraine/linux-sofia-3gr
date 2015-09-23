@@ -323,16 +323,18 @@ static void audio_send(struct audio_dev *audio)
 	struct snd_pcm_runtime *runtime;
 	struct usb_request *req;
 	int length, length1, length2, ret;
+	unsigned long flags;
 	s64 msecs;
 	s64 frames;
 	ktime_t now;
 
+	spin_lock_irqsave(&audio->lock, flags);
 	/* audio->substream will be null if we have been closed */
 	if (!audio->substream)
-		return;
+		goto done;
 	/* audio->buffer_pos will be null if we have been stopped */
 	if (!audio->buffer_pos)
-		return;
+		goto done;
 
 	runtime = audio->substream->runtime;
 
@@ -357,8 +359,10 @@ static void audio_send(struct audio_dev *audio)
 		frames = FRAMES_PER_MSEC;
 
 	while (frames > 0) {
+		spin_unlock_irqrestore(&audio->lock, flags);
 		req = audio_req_get(audio);
-		if (!req)
+		spin_lock_irqsave(&audio->lock, flags);
+		if (!req || !audio->buffer_start)
 			break;
 
 		length = frames_to_bytes(runtime, frames);
@@ -388,13 +392,17 @@ static void audio_send(struct audio_dev *audio)
 		ret = usb_ep_queue(audio->in_ep, req, GFP_ATOMIC);
 		if (ret < 0) {
 			pr_err("usb_ep_queue failed ret: %d\n", ret);
+			spin_unlock_irqrestore(&audio->lock, flags);
 			audio_req_put(audio, req);
+			spin_lock_irqsave(&audio->lock, flags);
 			break;
 		}
 
 		frames -= bytes_to_frames(runtime, length);
 		audio->frames_sent += bytes_to_frames(runtime, length);
 	}
+done:
+	spin_unlock_irqrestore(&audio->lock, flags);
 }
 
 static void audio_control_complete(struct usb_ep *ep, struct usb_request *req)
@@ -405,20 +413,27 @@ static void audio_control_complete(struct usb_ep *ep, struct usb_request *req)
 static void audio_data_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct audio_dev *audio = req->context;
+	unsigned long flags;
 
 	pr_debug("audio_data_complete req->status %d req->actual %d\n",
 		req->status, req->actual);
 
 	audio_req_put(audio, req);
 
-	if (!audio->buffer_start || req->status)
+	spin_lock_irqsave(&audio->lock, flags);
+	if (!audio->buffer_start || req->status) {
+		spin_unlock_irqrestore(&audio->lock, flags);
 		return;
+	}
 
 	audio->period_offset += req->actual;
 	if (audio->period_offset >= audio->period) {
+		spin_unlock_irqrestore(&audio->lock, flags);
 		snd_pcm_period_elapsed(audio->substream);
+		spin_lock_irqsave(&audio->lock, flags);
 		audio->period_offset = 0;
 	}
+	spin_unlock_irqrestore(&audio->lock, flags);
 	audio_send(audio);
 }
 
