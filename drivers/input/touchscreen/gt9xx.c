@@ -59,10 +59,43 @@
 #define GT9XX_BOOT_CTL_ADDR		0x5094
 #define GT9XX_DSP_CLK_ADDR		0x4010
 
+#define GT9X5_SS51_BLOCK_ADDR1		0xc000
+#define GT9X5_SS51_BLOCK_ADDR2		0xe000
+#define GT9X5_DSP_BLOCK_ADDR		0x9000
+#define GT9X5_DSP_ISP_BLOCK_ADDR	0xc000
+#define GT9X5_BOOT_BLOCK_ADDR		0x9000
+#define GT9X5_BOOT_ISP_BLOCK_ADDR	0x9000
+#define GT9X5_GFWLINK_BLOCK_ADDR	0x9000
+#define GT9X5_GWAKE_BLOCK_ADDR		0x9000
+#define GT9X5_DSP_ISP_BLOCK_ADDR	0xc000
+
 #define GT9XX_SS51_SECTION_LEN		0x2000 /* total 4 sections */
 #define GT9XX_DSP_SECTION_LEN		0x1000
 
+#define GT9X5_SS51_SECTION_LEN		0x2000 /* total 4 sections */
+#define GT9X5_DSP_SECTION_LEN		0x1000
+#define GT9X5_DSP_ISP_SECTION_LEN	0x1000
+#define GT9X5_BOOT_SECTION_LEN		0x800
+#define GT9X5_BOOT_ISP_SECTION_LEN	0x800
+#define GT9X5_GFWLINK_SECTION_LEN	0x2000
+#define GT9X5_GFWLINK_LEN		0x3000
+#define GT9X5_GWAKE_SECTION_LEN		0x2000 /* total 4 section */
+#define GT9X5_GWAKE_LEN			(GT9X5_GWAKE_SECTION_LEN * 4)
+
+#define GT9XX_SS51_START_INDEX		(0)
 #define GT9XX_DSP_START_INDEX		(GT9XX_SS51_SECTION_LEN * 4)
+
+#define GT9X5_SS51_START_INDEX		(0)
+#define GT9X5_DSP_START_INDEX		(GT9XX_SS51_SECTION_LEN * 4)
+#define GT9X5_BOOT_START_INDEX		(GT9XX_DSP_START_INDEX + \
+					 GT9XX_DSP_SECTION_LEN)
+#define GT9X5_BOOT_ISP_START_INDEX	(GT9X5_BOOT_START_INDEX + \
+					 GT9X5_BOOT_SECTION_LEN)
+#define GT9X5_GFWLINK_START_INDEX	(GT9X5_BOOT_ISP_START_INDEX + \
+					 GT9X5_BOOT_ISP_SECTION_LEN)
+#define GT9X5_GWAKE_START_INDEX		(GT9X5_GFWLINK_START_INDEX + \
+					 GT9X5_GFWLINK_LEN)
+#define GT9X5_DSP_ISP_START_INDEX	(GT9X5_DSP_ISP_SECTION_LEN)
 
 #define GT9XX_SS51_BANK_INDEX0		0
 #define GT9XX_SS51_BANK_INDEX1		1
@@ -77,6 +110,12 @@
 
 #define GT9XX_SW_WDT_DEF_VAL		0xaa
 #define GT9XX_SWRST_B0_DEF_VAL		0x0c
+#define GT9XX_SWRST_B0_REL_SS51_DSP	0x04
+
+#define GT9X5_SWRST_REL_DSP_HOLD_SS51	0x04
+#define GT9X5_SWRST_REL_SS51_HOLD_DSP	0x08
+
+#define GT9X5_FLASH_PACK_LEN		256
 
 #define GT9XX_BOOTCTL_B0_SRAM		0x02
 
@@ -588,6 +627,638 @@ static int gt9xx_fw_flash_verify(struct i2c_client *client, u8 bank, u16 addr,
 	return gt9xx_fw_check_and_repair(client, addr, data, len);
 }
 
+static int gt9x5_flash_and_check(struct i2c_client *client,
+				u16 addr, u8 *data, u32 tot_len)
+{
+	u16 cur_addr = addr;
+	u32 cur_len = 0, pack_len = 0;
+	int ret = 0, retry;
+	u8 *cur_data = data;
+	u8 rd_buf[GT9X5_FLASH_PACK_LEN];
+
+	dev_dbg(&client->dev,
+		"Begin flash %dk data to addr 0x%x\n", (tot_len/1024),
+		cur_addr);
+	while (cur_len < tot_len) {
+		pack_len = tot_len - cur_len;
+		dev_dbg(&client->dev, "B/T:%04d/%04d\n", cur_len, tot_len);
+		if (pack_len > GT9X5_FLASH_PACK_LEN)
+			pack_len = GT9X5_FLASH_PACK_LEN;
+		for (retry = 0; retry < 5; retry++) {
+			ret = gt9xx_i2c_write(client, cur_addr, cur_data,
+					      pack_len);
+			if (ret <= 0) {
+				dev_err(&client->dev,
+					"write packet data i2c err\n");
+				continue;
+			}
+			ret = gt9xx_i2c_read(client, cur_addr, rd_buf,
+					     pack_len);
+			if (ret <= 0) {
+				dev_err(&client->dev,
+					"read packet data i2c err\n");
+				continue;
+			}
+			if (memcmp(cur_data, rd_buf, pack_len)) {
+				dev_err(&client->dev,
+					"check pack data failed, not equal");
+				continue;
+			} else
+				break;
+		}
+		if (retry >= 5) {
+			dev_err(&client->dev, "flash data time out, exit\n");
+			return -EINVAL;
+		}
+		cur_len += pack_len;
+		cur_addr += pack_len;
+		cur_data += pack_len;
+	}
+
+	return 1;
+}
+
+static int gt9x5_fw_flash_ss51_section(struct i2c_client *client, u8 bank,
+				       u16 addr, u8 *data, u32 len)
+{
+	int ret, val = 0, retry = 0;
+
+	dev_dbg(&client->dev,
+		"ss51 fw flash section bank:%d addr:%04x len:%d\n",
+		bank, addr, len);
+
+	/* select and hold ss51 & dsp */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9XX_SWRST_B0_DEF_VAL);
+	if (ret <= 0)
+		return ret;
+
+	/* set scramble */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_OPT_B0_ADDR, 0);
+	if (ret <= 0)
+		return ret;
+
+	/* select bank */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SRAM_BANK_ADDR,
+				 (bank >> 4) & 0x0f);
+	if (ret <= 0)
+		return ret;
+
+	/* enable accessing mode */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_MEM_CD_EN_ADDR, 1);
+	if (ret <= 0)
+		return ret;
+
+	/* write the data */
+	ret = gt9x5_flash_and_check(client, addr, data, len);
+	if (ret <= 0)
+		return ret;
+
+	/* release dsp & hold ss51 */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9X5_SWRST_REL_DSP_HOLD_SS51);
+	if (ret <= 0)
+		return ret;
+
+	/* must sleep for a millisecond */
+	usleep_range(1000, 2000);
+
+	/* send burn command to move data to flash from sram */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_CTL_ADDR, bank & 0x0f);
+	if (ret <= 0)
+		return ret;
+
+	/* wait for flash burn to complete */
+	do {
+		ret = gt9xx_i2c_read(client, GT9XX_BOOT_CTL_ADDR, &val, 1);
+		if (ret <= 0)
+			return ret;
+		/* wait for 10 ms, value based on reference driver*/
+		usleep_range(10000, 11000);
+	} while (val && retry++ < len);
+
+	dev_dbg(&client->dev,
+		"ss51 section burn command complete val:%d retry:%d len:%d\n",
+		 val, retry, len);
+
+	/* select bank */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SRAM_BANK_ADDR,
+				 (bank >> 4) & 0x0f);
+	if (ret <= 0)
+		return ret;
+
+	/* enable accessing mode */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_MEM_CD_EN_ADDR, 1);
+	if (ret <= 0)
+		return ret;
+
+	ret = gt9xx_fw_check_and_repair(client, addr, data, len);
+	if (ret <= 0)
+		return ret;
+
+	/* disable accessing mode */
+	return gt9xx_i2c_write_u8(client, GT9XX_MEM_CD_EN_ADDR, 0);
+}
+
+static int gt9x5_fw_flash_block_ss51(struct gt9xx_ts *ts)
+{
+	struct i2c_client *client = ts->client;
+	int ret;
+	const u8 *data;
+	u8 *temp_data;
+
+	temp_data = kmalloc((GT9XX_SS51_SECTION_LEN + 1), GFP_KERNEL);
+
+	/* move head to section 1 address*/
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + GT9XX_SS51_START_INDEX];
+
+	memset(temp_data, 0xff, GT9XX_SS51_SECTION_LEN);
+
+	/* clear control flag */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_CTL_ADDR, 0);
+	if (ret <= 0)
+		return ret;
+
+	/* flash ss51 firmware section 1*/
+	ret =  gt9x5_fw_flash_ss51_section(client, 1, GT9X5_SS51_BLOCK_ADDR1,
+					   (u8 *)temp_data,
+					   GT9XX_SS51_SECTION_LEN);
+	kfree(temp_data);
+	if (ret <= 0)
+		return ret;
+
+	/* move head to section 2 address */
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + GT9XX_SS51_SECTION_LEN];
+
+	/* flash ss51 firmware section 2*/
+	ret =  gt9x5_fw_flash_ss51_section(client, 2, GT9X5_SS51_BLOCK_ADDR2,
+					   (u8 *)data, GT9XX_SS51_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	/* move head to section 3 address */
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + 2 * GT9XX_SS51_SECTION_LEN];
+
+	/* flash ss51 firmware section 3*/
+	ret =  gt9x5_fw_flash_ss51_section(client, 0x13, GT9X5_SS51_BLOCK_ADDR1,
+					   (u8 *)data, GT9XX_SS51_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	/* move head to section 4 address */
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + 3 * GT9XX_SS51_SECTION_LEN];
+
+	/* flash ss51 firmware section 4*/
+	ret =  gt9x5_fw_flash_ss51_section(client, 0x14, GT9X5_SS51_BLOCK_ADDR2,
+					   (u8 *)data, GT9XX_SS51_SECTION_LEN);
+
+	dev_info(&ts->client->dev, "ss51 fw flash sucess\n");
+
+	return ret;
+}
+
+static int gt9x5_fw_flash_block_dsp(struct gt9xx_ts *ts)
+{
+	struct i2c_client *client = ts->client;
+	const u8 *data;
+	int val = 0, ret, retry = 0;
+
+	/* move head to dsp section 1 address*/
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + GT9XX_DSP_START_INDEX];
+
+	/* select bank 3*/
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SRAM_BANK_ADDR, 0x03);
+	if (ret <= 0)
+		return ret;
+
+	/* select and hold ss51 & dsp */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9XX_SWRST_B0_DEF_VAL);
+	if (ret <= 0)
+		return ret;
+
+	/* set scramble */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_OPT_B0_ADDR, 0);
+	if (ret <= 0)
+		return ret;
+
+	/* hold ss51 & release dsp */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9X5_SWRST_REL_DSP_HOLD_SS51);
+	if (ret <= 0)
+		return ret;
+
+	/* must sleep for a millisecond */
+	usleep_range(1000, 2000);
+
+	/* write the data & verify */
+	ret = gt9x5_flash_and_check(client, GT9X5_DSP_BLOCK_ADDR, (u8 *)data,
+			      GT9XX_DSP_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	/* send burn command to move data to flash from sram */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_CTL_ADDR, 0x05);
+	if (ret <= 0)
+		return ret;
+
+	/* wait for flash burn to complete */
+	do {
+		ret = gt9xx_i2c_read(client, GT9XX_BOOT_CTL_ADDR, &val, 1);
+		if (ret <= 0)
+			return ret;
+		/* wait for 10 ms, value based on reference driver*/
+		usleep_range(10000, 11000);
+	} while (val && retry++ < GT9XX_DSP_SECTION_LEN);
+
+	dev_dbg(&client->dev,
+		"dsp section flash send burn command done %d %d %d\n",
+		val, retry, GT9XX_DSP_SECTION_LEN);
+
+	ret = gt9xx_fw_check_and_repair(client, GT9X5_DSP_BLOCK_ADDR,
+					(u8 *)data, GT9XX_DSP_SECTION_LEN);
+
+	dev_info(&ts->client->dev, "dsp fw flash sucess\n");
+
+	return ret;
+}
+
+static int gt9x5_fw_flash_block_boot(struct gt9xx_ts *ts)
+{
+	struct i2c_client *client = ts->client;
+	int ret, val = 0, retry = 0;
+	const u8 *data;
+
+	/* move head to boot section 1 address*/
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + GT9X5_BOOT_START_INDEX];
+
+	/* select and hold ss51 & dsp */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9XX_SWRST_B0_DEF_VAL);
+	if (ret <= 0)
+		return ret;
+
+	/* set scramble */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_OPT_B0_ADDR, 0);
+	if (ret <= 0)
+		return ret;
+
+	/* release ss51 & release dsp */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9XX_SWRST_B0_REL_SS51_DSP);
+	if (ret <= 0)
+		return ret;
+
+	/* must sleep for a millisecond */
+	usleep_range(1000, 2000);
+
+	/* select bank 3*/
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SRAM_BANK_ADDR, 0x03);
+	if (ret <= 0)
+		return ret;
+
+	/* write the data & verify */
+	ret = gt9x5_flash_and_check(client, GT9X5_BOOT_BLOCK_ADDR, (u8 *)data,
+			      GT9X5_BOOT_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	/* send burn command to move data to flash from sram */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_CTL_ADDR, 0x06);
+	if (ret <= 0)
+		return ret;
+
+	/* wait for flash burn to complete */
+	do {
+		ret = gt9xx_i2c_read(client, GT9XX_BOOT_CTL_ADDR, &val, 1);
+		if (ret <= 0)
+			return ret;
+		/* wait for 10 ms, value based on reference driver*/
+		usleep_range(10000, 11000);
+	} while (val && retry++ < GT9X5_BOOT_SECTION_LEN);
+	dev_dbg(&client->dev,
+		"boot section flash send burn cmd complete %d %d %d\n",
+		val, retry, GT9X5_BOOT_SECTION_LEN);
+
+	ret = gt9xx_fw_check_and_repair(client, GT9X5_BOOT_BLOCK_ADDR,
+					(u8 *)data, GT9X5_BOOT_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	dev_info(&ts->client->dev, "boot fw flash sucess\n");
+
+	return ret;
+}
+
+static int gt9x5_fw_flash_block_boot_isp(struct gt9xx_ts *ts)
+{
+	struct i2c_client *client = ts->client;
+	int ret, val = 0, retry = 0;
+	const u8 *data;
+
+	/* move head to boot section 1 address*/
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + GT9X5_BOOT_ISP_START_INDEX];
+
+	/* select and hold ss51 & dsp */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9XX_SWRST_B0_DEF_VAL);
+	if (ret <= 0)
+		return ret;
+
+	/* set scramble */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_OPT_B0_ADDR, 0);
+	if (ret <= 0)
+		return ret;
+
+	/* release ss51 & release dsp */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9XX_SWRST_B0_REL_SS51_DSP);
+	if (ret <= 0)
+		return ret;
+
+	/* must sleep for a millisecond */
+	usleep_range(1000, 2000);
+
+	/* select bank 3*/
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SRAM_BANK_ADDR, 0x03);
+	if (ret <= 0)
+		return ret;
+
+	/* write the data & verify */
+	ret = gt9x5_flash_and_check(client, GT9X5_BOOT_ISP_BLOCK_ADDR,
+				    (u8 *)data, GT9X5_BOOT_ISP_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	/* send burn command to move data to flash from sram */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_CTL_ADDR, 0x07);
+	if (ret <= 0)
+		return ret;
+
+	/* wait for flash burn to complete */
+	do {
+		ret = gt9xx_i2c_read(client, GT9XX_BOOT_CTL_ADDR, &val, 1);
+		if (ret <= 0)
+			return ret;
+		/* wait for 10 ms, value based on reference driver*/
+		usleep_range(10000, 11000);
+	} while (val && retry++ < GT9X5_BOOT_ISP_SECTION_LEN);
+	dev_dbg(&client->dev,
+		"boot isp section flash send burn cmd complete %d %d %d\n",
+		val, retry, GT9X5_BOOT_ISP_SECTION_LEN);
+
+	ret = gt9xx_fw_check_and_repair(client, GT9X5_BOOT_ISP_BLOCK_ADDR,
+					(u8 *)data, GT9X5_BOOT_ISP_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	dev_info(&ts->client->dev, "boot isp fw flash sucess\n");
+
+	return ret;
+}
+
+static int gt9x5_fw_flash_g_section(struct i2c_client *client, u8 bank,
+				       u16 addr, u8 *data, u32 len)
+{
+	int ret, val = 0, retry = 0;
+
+	dev_dbg(&client->dev,
+		"fw flash g section bank:%d addr:%04x len:%d\n",
+		bank, addr, len);
+
+	/* select and hold ss51 & dsp */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9XX_SWRST_B0_DEF_VAL);
+	if (ret <= 0)
+		return ret;
+
+	/* set scramble */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_OPT_B0_ADDR, 0);
+	if (ret <= 0)
+		return ret;
+
+	/* release dsp & hold ss51 */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9X5_SWRST_REL_DSP_HOLD_SS51);
+	if (ret <= 0)
+		return ret;
+
+	/* must sleep for a millisecond */
+	usleep_range(1000, 2000);
+
+	/* select bank */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SRAM_BANK_ADDR,
+				 (bank >> 4) & 0x0f);
+	if (ret <= 0)
+		return ret;
+
+	/* write the data */
+	ret = gt9x5_flash_and_check(client, addr, data, len);
+	if (ret <= 0)
+		return ret;
+
+	/* send burn command to move data to flash from sram */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_CTL_ADDR, bank & 0x0f);
+	if (ret <= 0)
+		return ret;
+
+	/* wait for flash burn to complete */
+	do {
+		ret = gt9xx_i2c_read(client, GT9XX_BOOT_CTL_ADDR, &val, 1);
+		if (ret <= 0)
+			return ret;
+		/* wait for 10 ms, value based on reference driver*/
+		usleep_range(10000, 11000);
+	} while (val && retry++ < len);
+
+	dev_dbg(&client->dev,
+		"g section burn command complete val:%d retry:%d len:%d\n",
+		val, retry, len);
+
+	ret = gt9xx_fw_check_and_repair(client, addr, data, len);
+
+	return ret;
+}
+
+
+static int gt9x5_fw_flash_block_gfwlink(struct gt9xx_ts *ts)
+{
+	struct i2c_client *client = ts->client;
+	int ret, newlen;
+	const u8 *data;
+
+	/* move head to g section 1 address*/
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + GT9X5_GFWLINK_START_INDEX];
+
+	/* flash g firmware section 1*/
+	ret =  gt9x5_fw_flash_g_section(client, 0x38, GT9X5_GFWLINK_BLOCK_ADDR,
+					   (u8 *)data,
+					   GT9X5_GFWLINK_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	/* move head to g section 2 address */
+	data = data + GT9X5_GFWLINK_SECTION_LEN;
+
+	newlen = GT9X5_GFWLINK_LEN - GT9X5_GFWLINK_SECTION_LEN;
+
+	/* flash firmware g section 2*/
+	ret =  gt9x5_fw_flash_g_section(client, 0x39, GT9X5_GFWLINK_BLOCK_ADDR,
+					   (u8 *)data, newlen);
+	if (ret <= 0)
+		return ret;
+
+	dev_info(&ts->client->dev, "gfwlink flash sucess\n");
+
+	return ret;
+}
+
+static int gt9x5_fw_flash_block_gwake(struct gt9xx_ts *ts)
+{
+	struct i2c_client *client = ts->client;
+	int ret;
+	const u8 *data;
+
+	/* move head to g section 1 address*/
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + GT9X5_GWAKE_START_INDEX];
+
+	/* flash g firmware section 1*/
+	ret =  gt9x5_fw_flash_g_section(client, 0x3a, GT9X5_GWAKE_BLOCK_ADDR,
+					   (u8 *)data, GT9X5_GWAKE_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	/* move head to g section 2 address */
+	data = data + GT9X5_GWAKE_SECTION_LEN;
+
+	/* flash firmware g section 2*/
+	ret =  gt9x5_fw_flash_g_section(client, 0x3b, GT9X5_GWAKE_BLOCK_ADDR,
+					   (u8 *)data, GT9X5_GWAKE_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	/* move head to g section 3 address */
+	data = data + GT9X5_GWAKE_SECTION_LEN;
+
+	/* flash firmware g section 3*/
+	ret =  gt9x5_fw_flash_g_section(client, 0x3c, GT9X5_GWAKE_BLOCK_ADDR,
+					   (u8 *)data, GT9X5_GWAKE_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	/* move head to g section 4 address */
+	data = data + GT9X5_GWAKE_SECTION_LEN;
+
+	/* flash firmware g section 4*/
+	ret =  gt9x5_fw_flash_g_section(client, 0x3d, GT9X5_GWAKE_BLOCK_ADDR,
+					   (u8 *)data, GT9X5_GWAKE_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	dev_info(&ts->client->dev, "gwake flash sucess\n");
+
+	return ret;
+}
+
+static int gt9x5_fw_flash_block_dsp_isp(struct gt9xx_ts *ts)
+{
+	struct i2c_client *client = ts->client;
+	int ret;
+	const u8 *data;
+
+	/* move head to dsp isp address*/
+	data = &ts->fw->data[ts->fw->size - GT9X5_DSP_ISP_START_INDEX];
+
+	/* disable wdt */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_TMR0_EN_ADDR, 0);
+	if (ret <= 0)
+		return ret;
+
+	/* clear cache */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_CACHE_EN_ADDR, 0);
+	if (ret <= 0)
+		return ret;
+
+	/* select and hold ss51 & dsp */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9XX_SWRST_B0_DEF_VAL);
+	if (ret <= 0)
+		return ret;
+
+	/* set boot from SRAM */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOTCTL_B0_ADDR,
+				 GT9XX_BOOTCTL_B0_SRAM);
+	if (ret <= 0)
+		return ret;
+
+	/* software reset */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_CPU_SWRST_PULSE_ADDR, 1);
+	if (ret <= 0)
+		return ret;
+
+	/* select bank 2*/
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SRAM_BANK_ADDR, 0x02);
+	if (ret <= 0)
+		return ret;
+
+	/* enable accessing mode */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_MEM_CD_EN_ADDR, 1);
+	if (ret <= 0)
+		return ret;
+
+	/* write the data & verify */
+	ret = gt9x5_flash_and_check(client, GT9X5_DSP_ISP_BLOCK_ADDR,
+				    (u8 *)data, GT9X5_DSP_ISP_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	ret = gt9xx_fw_check_and_repair(client, GT9X5_DSP_ISP_BLOCK_ADDR,
+					(u8 *)data, GT9X5_DSP_ISP_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	/* set scramble */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_OPT_B0_ADDR, 0);
+
+	dev_info(&ts->client->dev, "dsp isp fw flash sucess\n");
+
+	return ret;
+}
+
+static int gt9x5_fw_flash_finish(struct gt9xx_ts *ts)
+{
+	struct i2c_client *client = ts->client;
+	int ret;
+	const u8 *data;
+
+	/* move head to section 1 address*/
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + GT9XX_SS51_START_INDEX];
+
+	/* clear control flag */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_CTL_ADDR, 0);
+	if (ret <= 0)
+		return ret;
+
+	/* flash ss51 firmware section 1*/
+	ret =  gt9x5_fw_flash_ss51_section(client, 1, GT9X5_SS51_BLOCK_ADDR1,
+					   (u8 *)data,
+					   GT9XX_SS51_SECTION_LEN);
+	if (ret <= 0)
+		return ret;
+
+	/* enable download DSP code */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_CTL_ADDR, 0x99);
+	if (ret <= 0)
+		return ret;
+
+	/* release ss51 & hold dsp */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+				 GT9X5_SWRST_REL_SS51_HOLD_DSP);
+
+	dev_info(&ts->client->dev, "dsp fw flash finish sucess\n");
+
+	return ret;
+}
 
 static int gt9xx_fw_flash_block_dsp(struct gt9xx_ts *ts)
 {
@@ -607,7 +1278,7 @@ static int gt9xx_fw_flash_block_ss51(struct gt9xx_ts *ts)
 	int ret;
 	const u8 *data;
 
-	data = &ts->fw->data[GT9XX_FW_HEAD_LEN];
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + GT9XX_SS51_START_INDEX];
 
 	/* flash first sections */
 	ret = gt9xx_fw_flash_verify(client, GT9XX_SS51_BANK_INDEX0,
@@ -669,6 +1340,52 @@ static int gt9xx_fw_download_enabled(struct gt9xx_ts *ts)
 	return load_firmware;
 }
 
+static int gt9x5_enter_fw_burn_mode(struct gt9xx_ts *ts)
+{
+	int retry = 0, ret;
+	struct i2c_client *client = ts->client;
+	u8 val;
+
+	/* Step1: RST output low last at least 2ms */
+	gpiod_direction_output(ts->gpiod_rst, 0);
+	gpiod_set_value(ts->gpiod_rst, 0);
+	usleep_range(2000, 2200);
+
+	/* Step2: select I2C slave addr,INT:0--0xBA;1--0x28 */
+	gpiod_direction_output(ts->gpiod_int, (ts->client->addr == 0x14));
+	gpiod_set_value(ts->gpiod_rst, (ts->client->addr == 0x14));
+	usleep_range(2000, 2200);
+
+	/* Step3: RST output high reset guitar */
+	gpiod_direction_output(ts->gpiod_rst, 1);
+	gpiod_set_value(ts->gpiod_rst, 1);
+	usleep_range(6000, 6200);
+
+	/* select and hold ss51 & dsp */
+	while (retry++ < GT9XX_FW_HOLD_RETRY) {
+
+		ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+					 GT9XX_SWRST_B0_DEF_VAL);
+		if (ret <= 0)
+			continue;
+
+		ret = gt9xx_i2c_read(client, GT9XX_SWRST_B0_ADDR, &val, 1);
+		if (ret <= 0)
+			continue;
+
+		if (val == GT9XX_SWRST_B0_DEF_VAL)
+			break;
+	}
+
+	if (retry >= GT9XX_FW_HOLD_RETRY)
+		return -ENODEV;
+
+	/* dsp clock power on*/
+	ret = gt9xx_i2c_write_u8(client, GT9XX_DSP_CLK_ADDR, 0);
+
+	return ret;
+}
+
 static int gt9xx_enter_fw_burn_mode(struct gt9xx_ts *ts)
 {
 	int retry = 0, ret;
@@ -693,7 +1410,7 @@ static int gt9xx_enter_fw_burn_mode(struct gt9xx_ts *ts)
 		ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
 					 GT9XX_SWRST_B0_DEF_VAL);
 		if (ret <= 0)
-			return ret;
+			continue;
 
 		ret = gt9xx_i2c_read(client, GT9XX_SWRST_B0_ADDR, &val, 1);
 		if (ret <= 0)
@@ -786,9 +1503,116 @@ static int gt9xx_fw_start(struct gt9xx_ts *ts)
 	return ret;
 }
 
-static int gt9xx_fw_download(struct gt9xx_ts *ts)
+static int gt9xx_flash_fw(struct gt9xx_ts *ts)
 {
 	int ret, retry = 0;
+
+	gt9xx_irq_disable(ts, false);
+
+	ret = gt9xx_enter_fw_burn_mode(ts);
+	if (ret <= 0) {
+		dev_err(&ts->client->dev, "gt9xx fw burn mode set failed\n");
+		return ret;
+	}
+
+	while (retry++ < GT9XX_FW_DOWNLOAD_RETRY) {
+		ret = gt9xx_fw_flash_block_ss51(ts);
+		if (ret <= 0)
+			continue;
+
+		ret = gt9xx_fw_flash_block_dsp(ts);
+		if (ret <= 0)
+			continue;
+		break;
+	}
+
+	if (retry >= GT9XX_FW_DOWNLOAD_RETRY)
+		dev_info(&ts->client->dev, "gt9xx exceeds max retry count\n");
+
+	return ret;
+}
+
+static int gt9x5_flash_fw(struct gt9xx_ts *ts)
+{
+	int ret, retry = 0;
+
+	gt9xx_irq_disable(ts, true);
+
+	ret = gt9x5_enter_fw_burn_mode(ts);
+	if (ret <= 0) {
+		dev_err(&ts->client->dev, "gt9xx fw burn mode set failed\n");
+		return ret;
+	}
+
+	while (retry++ < GT9XX_FW_DOWNLOAD_RETRY) {
+		ret = gt9x5_fw_flash_block_dsp_isp(ts);
+		if (ret <= 0) {
+			dev_info(&ts->client->dev,
+				 "dsp isp fw flash failed, retry:%d\n", retry);
+			continue;
+		}
+
+		ret = gt9x5_fw_flash_block_ss51(ts);
+		if (ret <= 0) {
+			dev_info(&ts->client->dev,
+				 "ss51 fw flash failed, retry:%d\n", retry);
+			continue;
+		}
+
+		ret = gt9x5_fw_flash_block_dsp(ts);
+		if (ret <= 0) {
+			dev_info(&ts->client->dev,
+				 "dsp fw flash failed, retry:%d\n", retry);
+			continue;
+		}
+
+		ret = gt9x5_fw_flash_block_boot(ts);
+		if (ret <= 0) {
+			dev_info(&ts->client->dev,
+				 "boot fw flash failed, retry:%d\n", retry);
+			continue;
+		}
+
+		ret = gt9x5_fw_flash_block_boot_isp(ts);
+		if (ret <= 0) {
+			dev_info(&ts->client->dev,
+				 "boot isp fw flash failed, retry:%d\n", retry);
+			continue;
+		}
+
+		ret = gt9x5_fw_flash_block_gfwlink(ts);
+		if (ret <= 0) {
+			dev_info(&ts->client->dev,
+				 "gfwlink fw flash failed, retry:%d\n", retry);
+			continue;
+		}
+
+		ret = gt9x5_fw_flash_block_gwake(ts);
+		if (ret <= 0) {
+			dev_info(&ts->client->dev,
+				 "gwake fw flash failed, retry:%d\n", retry);
+			continue;
+		}
+
+		ret = gt9x5_fw_flash_finish(ts);
+		if (ret <= 0) {
+			dev_info(&ts->client->dev,
+				 "fw finish flash failed, retry:%d\n", retry);
+			continue;
+		}
+
+		break;
+	}
+
+	if (retry >= GT9XX_FW_DOWNLOAD_RETRY)
+		dev_info(&ts->client->dev, "gt9xx exceeds max retry count\n");
+
+	return ret;
+}
+
+static int gt9xx_fw_download(struct gt9xx_ts *ts)
+{
+	int ret;
 
 	if (!gt9xx_fw_download_enabled(ts)) {
 		dev_warn(&ts->client->dev, "gt9xx fw download not needed\n");
@@ -814,26 +1638,19 @@ static int gt9xx_fw_download(struct gt9xx_ts *ts)
 		goto fw_err;
 	}
 
-	gt9xx_irq_disable(ts, false);
-	ret = gt9xx_enter_fw_burn_mode(ts);
-	if (ret < 0) {
-		dev_err(&ts->client->dev, "gt9xx fw burn mode set failed\n");
-		goto fw_err;
+	if (ts->compat_mode) {
+		ret = gt9xx_flash_fw(ts);
+		if (ret < 0) {
+			dev_err(&ts->client->dev, "gt9xx fw flash failed\n");
+			goto fw_err;
+		}
+	} else {
+		ret = gt9x5_flash_fw(ts);
+		if (ret < 0) {
+			dev_err(&ts->client->dev, "gt9x5 fw flash failed\n");
+			goto fw_err;
+		}
 	}
-
-	while (retry++ < GT9XX_FW_DOWNLOAD_RETRY) {
-		ret = gt9xx_fw_flash_block_ss51(ts);
-		if (ret < 0)
-			continue;
-
-		ret = gt9xx_fw_flash_block_dsp(ts);
-		if (ret < 0)
-			continue;
-		break;
-	}
-
-	if (retry >= GT9XX_FW_DOWNLOAD_RETRY)
-		dev_info(&ts->client->dev, "gt9xx exceeds max retry count\n");
 
 	dev_info(&ts->client->dev, "gt9xx download fw sucessfull\n");
 
