@@ -157,8 +157,10 @@ static int gt9xx_i2c_read(struct i2c_client *client, u16 addr,
 		dev_err(&client->dev, "I2C read @0x%04X (%d) failed: %d", addr,
 			len, ret);
 		return ret;
-	} else
-		return 0;
+	}
+
+	return ret;
+
 }
 
 static int gt9xx_i2c_write(struct i2c_client *client, u16 addr, void *buf,
@@ -191,7 +193,7 @@ static int gt9xx_i2c_write(struct i2c_client *client, u16 addr, void *buf,
 		return ret;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int gt9xx_i2c_write_u8(struct i2c_client *client, u16 addr, u8 value)
@@ -255,7 +257,7 @@ again:
 
 	/* Let the firmware reconfigure itself, so sleep for 10ms */
 	usleep_range(10000, 11000);
-	return 0;
+	return ret;
 }
 
 #define GT9XX_STATUS_REG_MASK_TOUCHES		0x0F
@@ -280,7 +282,7 @@ static irqreturn_t gt9xx_thread_handler(int irq, void *arg)
 
 	while (--retries) {
 		ret = gt9xx_i2c_read(ts->client, GT9XX_REG_STATUS, &status, 1);
-		if (ret)
+		if (ret <= 0)
 			goto out;
 
 		if (status & GT9XX_STATUS_REG_MASK_VALID)
@@ -314,7 +316,7 @@ static irqreturn_t gt9xx_thread_handler(int irq, void *arg)
 		int len = touches * sizeof(struct gt9xx_touch_data);
 
 		ret = gt9xx_i2c_read(ts->client, GT9XX_REG_DATA, data, len);
-		if (ret < 0)
+		if (ret <= 0)
 			goto out;
 	}
 
@@ -325,7 +327,7 @@ static irqreturn_t gt9xx_thread_handler(int irq, void *arg)
 		int i;
 		ret = gt9xx_i2c_read(ts->client, offset,
 					&key_values, sizeof(key_values));
-		if (ret < 0)
+		if (ret <= 0)
 			goto out;
 
 		for (i = 0; i < ts->num_buttons; i++) {
@@ -409,7 +411,7 @@ static int gt9xx_get_info(struct gt9xx_ts *ts)
 	int ret;
 
 	ret = gt9xx_i2c_read(ts->client, GT9XX_REG_ID, &id, sizeof(id));
-	if (ret) {
+	if (ret <= 0) {
 		dev_err(&ts->client->dev, "read id failed");
 		return ret;
 	}
@@ -424,7 +426,7 @@ static int gt9xx_get_info(struct gt9xx_ts *ts)
 		 ts->input->id.version);
 
 	ret = gt9xx_i2c_read(ts->client, GT9XX_REG_CONFIG, &cfg, sizeof(cfg));
-	if (ret)
+	if (ret <= 0)
 		return ret;
 
 	ts->max_x = le16_to_cpu(cfg.max_x);
@@ -434,7 +436,7 @@ static int gt9xx_get_info(struct gt9xx_ts *ts)
 	dev_info(&ts->client->dev, "max_x = %d, max_y = %d, irq_type = 0x%02x",
 		 ts->max_x, ts->max_y, ts->irq_type);
 
-	return 0;
+	return ret;
 }
 
 static void gt9xx_int_sync(struct gt9xx_ts *ts)
@@ -494,6 +496,9 @@ static int gt9xx_get_and_send_cfg(struct gt9xx_ts *ts)
 	}
 
 	ret = gt9xx_send_cfg(ts, out->buffer.pointer, out->buffer.length);
+	if (ret > 0)
+		ret = 0;
+
 	kfree(out);
 
 	return ret;
@@ -517,6 +522,8 @@ static inline int gt9xx_get_and_send_cfg(struct gt9xx_ts *ts)
 	}
 
 	ret = gt9xx_send_cfg(ts, config, GT9XX_CONFIG_LENGTH);
+	if (ret > 0)
+		ret = 0;
 
 out:
 	kfree(config);
@@ -527,7 +534,7 @@ out:
 static int gt9xx_fw_check_and_repair(struct i2c_client *client, u16 start_addr,
 				     u8 *comp_buf, u32 len)
 {
-	int i = 0, ret, retry = 0, comp_len, index = 0;
+	int i = 0, ret = 0, retry = 0, comp_len, index = 0;
 	u8 *buf;
 	bool check_failed = false;
 
@@ -538,7 +545,7 @@ static int gt9xx_fw_check_and_repair(struct i2c_client *client, u16 start_addr,
 				GT9XX_FW_CHK_SIZE;
 
 		ret = gt9xx_i2c_read(client, start_addr + index, buf, comp_len);
-		if (ret < 0)
+		if (ret <= 0)
 			break;
 
 		for (i = 0; i < comp_len; i++) {
@@ -562,7 +569,7 @@ static int gt9xx_fw_check_and_repair(struct i2c_client *client, u16 start_addr,
 	if ((len - index) > 0)
 		return -EIO;
 
-	return 0;
+	return ret;
 }
 
 static int gt9xx_fw_flash_verify(struct i2c_client *client, u8 bank, u16 addr,
@@ -571,11 +578,11 @@ static int gt9xx_fw_flash_verify(struct i2c_client *client, u8 bank, u16 addr,
 	int ret;
 
 	ret = gt9xx_i2c_write_u8(client, GT9XX_SRAM_BANK_ADDR, bank);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	ret = gt9xx_i2c_write(client, addr, data, len);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	return gt9xx_fw_check_and_repair(client, addr, data, len);
@@ -606,7 +613,7 @@ static int gt9xx_fw_flash_block_ss51(struct gt9xx_ts *ts)
 	ret = gt9xx_fw_flash_verify(client, GT9XX_SS51_BANK_INDEX0,
 				    GT9XX_SS51_BLOCK_ADDR, (u8 *)data,
 				    GT9XX_SS51_SECTION_LEN * 2);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + 2 * GT9XX_SS51_SECTION_LEN];
@@ -645,7 +652,7 @@ static int gt9xx_fw_download_enabled(struct gt9xx_ts *ts)
 
 	handle = ACPI_HANDLE(&ts->client->dev);
 	if (!handle)
-		return -ENODEV;
+		return load_firmware;
 
 	status = acpi_evaluate_integer(handle, "_FRM", NULL, &load_firmware);
 	if (ACPI_SUCCESS(status))
@@ -685,11 +692,11 @@ static int gt9xx_enter_fw_burn_mode(struct gt9xx_ts *ts)
 
 		ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
 					 GT9XX_SWRST_B0_DEF_VAL);
-		if (ret < 0)
+		if (ret <= 0)
 			return ret;
 
 		ret = gt9xx_i2c_read(client, GT9XX_SWRST_B0_ADDR, &val, 1);
-		if (ret < 0)
+		if (ret <= 0)
 			continue;
 
 		if (val == GT9XX_SWRST_B0_DEF_VAL)
@@ -701,46 +708,44 @@ static int gt9xx_enter_fw_burn_mode(struct gt9xx_ts *ts)
 
 	/* dsp clock power on*/
 	ret = gt9xx_i2c_write_u8(client, GT9XX_DSP_CLK_ADDR, 0);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	/* disable wdt */
 	ret = gt9xx_i2c_write_u8(client, GT9XX_TMR0_EN_ADDR, 0);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	/* clear cache */
 	ret = gt9xx_i2c_write_u8(client, GT9XX_CACHE_EN_ADDR, 0);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	/* set boot from SRAM */
 	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOTCTL_B0_ADDR,
 				 GT9XX_BOOTCTL_B0_SRAM);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	/* software reset */
 	ret = gt9xx_i2c_write_u8(client, GT9XX_CPU_SWRST_PULSE_ADDR, 1);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	/* clear control flag */
 	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_CTL_ADDR, 0);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	/* set scramble */
 	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_OPT_B0_ADDR, 0);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	/* enable accessing mode */
 	ret = gt9xx_i2c_write_u8(client, GT9XX_MEM_CD_EN_ADDR, 1);
-	if (ret < 0)
-		return ret;
 
-	return 0;
+	return ret;
 }
 
 static int gt9xx_fw_start(struct gt9xx_ts *ts)
@@ -750,24 +755,24 @@ static int gt9xx_fw_start(struct gt9xx_ts *ts)
 	u8 val;
 
 	if (!ts->compat_mode)
-		return 0;
+		return 1;
 
 	/* init sw WDT */
 	ret = gt9xx_i2c_write_u8(client, GT9XX_SW_WDT_ADDR,
 				 GT9XX_SW_WDT_DEF_VAL);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	/* release SS51 & DSP */
 	ret = gt9xx_i2c_write_u8(client, GT9XX_FW_REL_ADDR, 0x00);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	gt9xx_int_sync(ts);
 
 	/* Check fw run status by verifying WDT default */
 	ret = gt9xx_i2c_read(client, GT9XX_SW_WDT_ADDR, &val, sizeof(u8));
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	if (val == GT9XX_SW_WDT_DEF_VAL) {
@@ -778,7 +783,7 @@ static int gt9xx_fw_start(struct gt9xx_ts *ts)
 	/* on success init sw WDT again*/
 	ret = gt9xx_i2c_write_u8(client, GT9XX_SW_WDT_ADDR,
 				 GT9XX_SW_WDT_DEF_VAL);
-	return 0;
+	return ret;
 }
 
 static int gt9xx_fw_download(struct gt9xx_ts *ts)
@@ -787,7 +792,7 @@ static int gt9xx_fw_download(struct gt9xx_ts *ts)
 
 	if (!gt9xx_fw_download_enabled(ts)) {
 		dev_warn(&ts->client->dev, "gt9xx fw download not needed\n");
-		return 0;
+		return -ENODEV;
 	}
 
 	dev_warn(&ts->client->dev, "firmware name %s\n", ts->fw_name);
@@ -1003,7 +1008,7 @@ static void gt9xx_sleep(struct gt9xx_ts *ts)
 	msleep(5);
 
 	ret = gt9xx_i2c_write_u8(ts->client, GT9XX_REG_CMD, 5);
-	if (ret) {
+	if (ret <= 0) {
 		dev_err(dev, "sleep cmd failed");
 		test_and_clear_bit(GT9XX_STATUS_SLEEP_BIT, ts->status);
 		gpiod_direction_input(ts->gpiod_int);
@@ -1035,7 +1040,7 @@ static void gt9xx_wakeup(struct gt9xx_ts *ts)
 	gt9xx_reset(ts);
 
 	ret = gt9xx_i2c_test(ts->client);
-	if (ret) {
+	if (ret <= 0) {
 		test_and_set_bit(GT9XX_STATUS_SLEEP_BIT, ts->status);
 		dev_err(dev, "wakeup failed");
 		return;
@@ -1112,11 +1117,11 @@ static int gt9xx_ts_probe(struct i2c_client *client,
 		return ret;
 
 	ret = gt9xx_fw_download(ts);
-	if (ret)
+	if (ret <= 0)
 		return ret;
 
 	ret = gt9xx_get_info(ts);
-	if (ret)
+	if (ret <= 0)
 		return ret;
 
 	for (i = 0; i < ts->num_buttons; i++)
