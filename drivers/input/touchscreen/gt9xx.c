@@ -597,10 +597,10 @@ static int gt9xx_fw_check_and_repair(struct i2c_client *client, u16 start_addr,
 				break;
 			}
 		}
-		if (!check_failed) {
+		if (!check_failed)
 			index += comp_len;
-			check_failed = false;
-		}
+
+		check_failed = false;
 	}
 
 	kfree(buf);
