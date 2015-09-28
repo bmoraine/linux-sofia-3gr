@@ -3,7 +3,6 @@ pcm_music:pcm_music {
 	intel,dsp = < &dsp_audio >;
 	intel,pcm,dma_en;
 	intel,pcm,bt_init_en;
-	intel,pcm,burst_mode_en_pcm2;
 };
 
 pcm_voice:pcm_voice {
