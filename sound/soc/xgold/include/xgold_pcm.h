@@ -40,11 +40,6 @@ struct xgold_pcm_hw_probe_status {
 	unsigned int hw_probe_sel;
 };
 
-enum xgold_pcm_playback_mode {
-	NORMAL = 0,	/* NORMAL is supported in both DMA/Interrupt mode */
-	BURST,		/* BURST is supported in DMA mode only */
-};
-
 enum xgold_pcm_buffer_type {
 	NORMAL_MODE = 0,
 	BURST_MODE = 2,
@@ -70,10 +65,9 @@ struct xgold_pcm {
 	struct pinctrl_state *pins_inactive;
 	struct device_pm_platdata *pm_platdata;
 	unsigned int path_select;
-	unsigned short playback_mode[2];
-	unsigned short buffer_mode[2];
-	unsigned short dma_req_interval_time[2];
-	unsigned short buffer_size[2];
+	unsigned short buffer_mode;
+	unsigned short dma_req_interval_time;
+	unsigned short buffer_size;
 	/* DMA DUMP */
 	int dma_dump;
 	struct work_struct dma_dump_work;
