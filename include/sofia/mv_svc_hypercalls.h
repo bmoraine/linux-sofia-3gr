@@ -665,6 +665,7 @@ void mv_svc_sysprof_perf_count_enable(uint32_t cnt_config);
 				  platform shared data structure
 **/
 struct pal_shared_data *mv_svc_get_shared_data(void);
+struct pal_shared_data *mv_svc_get_system_shared_data(void);
 
 /**
  @brief  MobileVisor platform 32bit register access service

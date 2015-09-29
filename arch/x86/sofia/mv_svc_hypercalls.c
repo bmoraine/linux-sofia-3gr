@@ -448,6 +448,13 @@ struct pal_shared_data *mv_svc_get_shared_data(void)
 	return (struct pal_shared_data *)(shared_mem->pal_shared_mem_data);
 }
 
+struct pal_shared_data *mv_svc_get_system_shared_data(void)
+{
+	struct vmm_shared_data *shared_mem = mv_gal_get_system_shared_data();
+	return (struct pal_shared_data *)(shared_mem->pal_shared_mem_data);
+}
+
+
 int32_t mv_svc_reg_read(uint32_t address, uint32_t *p_reg_val, uint32_t mask)
 {
 	return mv_platform_service(VMM_REG_RD_SERVICE, address, mask,

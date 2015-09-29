@@ -179,7 +179,7 @@ EXPORT_SYMBOL(sofia_thermal_set_cpu_policy);
 
 void sofia_get_cpu_frequency(struct sofia_cpu_freq_t *sh_freqs)
 {
-	struct pal_shared_data *mv_shm = mv_svc_get_shared_data();
+	struct pal_shared_data *mv_shm = mv_svc_get_system_shared_data();
 
 	sh_freqs->curfreq = mv_shm->pm_control_shared_data.cpu_clk;
 	sh_freqs->minfreq = mv_shm->pm_control_shared_data.vcpu_c0[0];
