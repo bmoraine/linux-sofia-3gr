@@ -33,8 +33,8 @@
 #endif
 
 #define PRESSURE_CONST			1
-#define FINGER_NUMBER			5
-#define MT_FINGER_NUMBER		5
+#define FINGER_NUMBER			10
+#define MT_FINGER_NUMBER		10
 #define KEY_NUMBER                      0
 #define DEBOUNCE_NUMBER			1
 #define TS_WAKEUP_LOW_PERIOD		10
@@ -262,9 +262,9 @@ struct zet62xx_chip_config chip_config [] = {
 		.chip_id = ZET6251,
 		.x_max = 1024,
 		.y_max = 600,
-		.max_finger = 0x05,
+		.max_finger = 0x0A,
 		.max_key = 0,
-		.packet_len = 23,
+		.packet_len = 43,
 		.rom_type = ZET62XX_ROM_TYPE_SRAM,
 		.pcode = {
 				0x3DF1, 0x3DF4,
