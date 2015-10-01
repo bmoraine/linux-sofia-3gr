@@ -1,6 +1,7 @@
 /* ----------------------------------------------------------------------------
+ *  Copyright (C) 2015 Intel Deutschland GmbH
  *  Copyright (C) 2014 Intel Mobile Communications GmbH
-
+ *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License Version 2
  *  as published by the Free Software Foundation.
@@ -130,8 +131,8 @@ inline uint32_t get_read_buf_size(struct mvpipe_ring *r)
 
 #define set_pipe_status(dev, s) (dev->p_event->mvpipe_status[dev->writer_id] \
 					= s)
-#define get_pipe_status(dev)    (dev->p_event->mvpipe_status[dev->writer_id])
-#define get_peer_status(dev)    (dev->p_event->mvpipe_status[!dev->writer_id])
+#define get_pipe_status(dev)	(dev->p_event->mvpipe_status[dev->writer_id])
+#define get_peer_status(dev)	(dev->p_event->mvpipe_status[!dev->writer_id])
 
 struct mvpipe_event {
 	volatile uint32_t handshake;
@@ -302,6 +303,9 @@ int mvpipe_dev_release(struct inode *inode, struct file *filp)
 	return ret;
 }
 
+ssize_t mvpipe_dev_write(struct file *filp, const char __user *buf,
+			 size_t count, loff_t *f_pos);
+
 ssize_t mvpipe_dev_read(struct file *filp, char __user *buf, size_t count,
 			loff_t *f_pos)
 {
@@ -309,6 +313,7 @@ ssize_t mvpipe_dev_read(struct file *filp, char __user *buf, size_t count,
 	struct mvpipe_instance *dev = filp->private_data;
 	uint32_t buffer_size, read_size;
 	struct mvpipe_ring *ring;
+	int wait;
 
 	if (get_pipe_status(dev) != MVPIPE_OPEN ||
 	    dev->mbox_status != MBOX_CONNECTED) {
@@ -355,15 +360,52 @@ ssize_t mvpipe_dev_read(struct file *filp, char __user *buf, size_t count,
 							 ring->ring_event);
 				}
 				mvpipe_info("read wait...\n");
-				if (wait_event_interruptible(dev->read_wait,
-							     !is_buffer_empty
-							     (ring)
-							     ||
-							     get_pipe_status
-							     (dev)
-							     != MVPIPE_OPEN)) {
-					up(&dev->read_sem);
-					return -ERESTARTSYS;
+				if (!strncmp(dev->name, "rga", 3)) {
+					wait = wait_event_interruptible_timeout(
+						dev->read_wait,
+						!is_buffer_empty(ring)
+						||
+						get_pipe_status(dev)
+						!= MVPIPE_OPEN, HZ);
+					if (wait == -ERESTARTSYS) {
+						pr_err("%s failed piperead\n",
+						       dev->name);
+						up(&dev->read_sem);
+						return -ERESTARTSYS;
+					}
+					if (wait == 0) {
+						pr_err("%s timeout piperead\n",
+						       dev->name);
+						mvpipe_dev_write(filp, NULL, 0,
+							NULL);
+						wait =
+						wait_event_interruptible_timeout
+							(dev->read_wait,
+							!is_buffer_empty(ring)
+							||
+							get_pipe_status(dev)
+							!= MVPIPE_OPEN, HZ);
+					}
+					if (wait == 0 ||
+						wait == -ERESTARTSYS) {
+						pr_err(
+						"%s failed read again\n",
+						dev->name);
+						up(&dev->read_sem);
+						return -ERESTARTSYS;
+					}
+				} else {
+					if (wait_event_interruptible(
+							dev->read_wait,
+							!is_buffer_empty
+							(ring)
+							||
+							get_pipe_status
+							(dev)
+							!= MVPIPE_OPEN)) {
+						up(&dev->read_sem);
+						return -ERESTARTSYS;
+					}
 				}
 				mvpipe_info("read awake...\n");
 				if (get_pipe_status(dev) != MVPIPE_OPEN) {
@@ -688,11 +730,11 @@ void on_mvpipe_instance(char *instance_name, uint32_t instance_index,
 		 * |------------------| <- ring 0 start
 		 * | ring 0 structure |
 		 * |------------------| <- ring 0 buf start
-		 * | ring 0 buf       |  <-- mvpipe->ring_size
+		 * | ring 0 buf	      |	 <-- mvpipe->ring_size
 		 * |------------------| <- ring 1 start
 		 * | ring 1 structure |
 		 * |------------------| <- ring 1 buf start
-		 * | ring 1 buf       |  <-- mvpipe->ring_size
+		 * | ring 1 buf	      |	 <-- mvpipe->ring_size
 		 * |------------------| <- share mem end
 		 */
 
@@ -711,8 +753,8 @@ void on_mvpipe_instance(char *instance_name, uint32_t instance_index,
 
 		/*
 		 * 2 x Ring Size = Total Size - mvpipe event size
-		 *                                 - ring0 structure size
-		 *                                 - ring1 structure size
+		 *				   - ring0 structure size
+		 *				   - ring1 structure size
 		 */
 		mvpipe->ring_size = (shared_mem_size -
 				     sizeof(struct mvpipe_event) -
