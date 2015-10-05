@@ -81,7 +81,7 @@ static void led_write32(struct xgold_led_data *led,
 {
 	int32_t ret = 0;
 	if (led->flags & XGOLD_LED_USE_SECURE_IO_ACCESS) {
-		ret = mv_svc_reg_write_only(led->physio + offset, val,
+		ret = mv_svc_reg_write(led->physio + offset, val,
 						0xFFFFFFFF);
 		WARN_ON(ret);
 	} else {
