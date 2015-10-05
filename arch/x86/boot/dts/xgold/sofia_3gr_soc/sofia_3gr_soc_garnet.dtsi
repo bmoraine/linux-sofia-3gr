@@ -1,3 +1,4 @@
+#define SOFIA_SECURED_VMM_ACCESS
 #include <dt-bindings/pwm/pwm.h>
 
 	cpus {
@@ -41,6 +42,9 @@
 		interrupt-parent = <&pic>;
 		intel,scu-phys = < &scu >;
 		intel,chipid = <0x60 0x8 0x8>;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+		intel,vmm-secured-access;
+#endif
 		intel,rev = <0x60 0x0 0x8>;
 		intel,machine = "sofia_3gr_soc-es1-svb";
 
@@ -704,6 +708,9 @@
 						intel,trim-value = < 0x538352 0x538352 >;
 						intel,power_budget = < 500 >;
 						intel,usbid-gpio = < &xgold_pmx_gpio 58 0 >;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+						intel,vmm-secured-access;
+#endif
 						resets = < &dbb_rst2 0x3 >, < &dbb_rst2 0x4 >;
 						reset-names = "usb", "bus";
 					};
@@ -846,6 +853,9 @@
 						pinctrl-single,register-width = <32>;
 						pinctrl-single,first-pin-offset = <0x200>;
 						pinctrl-single,function-mask = <0xfffff>;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+						intel,vmm-secured-access;
+#endif
 						range: gpio-range {
 							#pinctrl-single,gpio-range-cells = <3>;
 						};
@@ -864,6 +874,9 @@
 						intel,gpiochip-id = <0>;
 						intel,gpiochip-num = <106>;
 						intel,lvds-ttl-as-gpio;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+						intel,vmm-secured-access;
+#endif
 					};
 					cgu:cgu{
 						compatible = "intel,cgu";
@@ -947,7 +960,11 @@
 						intel,reset-wo = <0>;
 						intel,reset-wc = <4>;
 						intel,reset-ro = <8>;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+						intel,vmm-secured-access;
+#else
 						intel,io-access-guest;
+#endif
 					};
 					dbb_rst2:reset-controller2 {
 						compatible = "intel,xgold-reset";
@@ -956,7 +973,11 @@
 						intel,reset-wo = <0>;
 						intel,reset-wc = <4>;
 						intel,reset-ro = <8>;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+						intel,vmm-secured-access;
+#else
 						intel,io-access-guest;
+#endif
 					};
 					keypad:keypad {
 						compatible = "intel,keypad";
