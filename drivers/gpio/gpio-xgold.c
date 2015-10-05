@@ -84,6 +84,22 @@ static inline u32 pcl_read(struct gpio_chip *chip, unsigned offset)
 		return readl_relaxed(xgold_gpio->gpio_base + offset);
 }
 
+static inline u32 pcl_read_pin(struct gpio_chip *chip, unsigned offset)
+{
+	struct xgold_pcl_gpio *xgold_gpio = to_xgold_pcl_gpio(chip);
+#ifdef CONFIG_X86_INTEL_SOFIA
+	phys_addr_t read_addr = xgold_gpio->gpio_base_phys + offset;
+	uint32_t tmp = 0;
+	if (xgold_gpio->io_master == PCL_IO_ACCESS_BY_VMM) {
+		if (mv_svc_pinctrl_service(PINCTRL_GET_PIN, read_addr, 0,
+					(uint32_t *)&tmp))
+			gpio_err("%s: mv_svc_pinctrl_service(PINCTRL_GET_PIN) failed at 0x%pa\n",
+					__func__, &read_addr);
+		return tmp;
+	} else
+#endif
+		return readl_relaxed(xgold_gpio->gpio_base + offset);
+}
 static inline void pcl_write(struct gpio_chip *chip, unsigned offset, u32 value)
 {
 	struct xgold_pcl_gpio *xgold_gpio = to_xgold_pcl_gpio(chip);
@@ -145,7 +161,7 @@ static int xgold_gpio_get(struct gpio_chip *chip, unsigned offset)
 {
 	u32 reg;
 	struct xgold_pcl_gpio *xgold_gpio = to_xgold_pcl_gpio(chip);
-	reg = pcl_read(chip, xgold_gpio->in_base + (offset * sizeof(u32)));
+	reg = pcl_read_pin(chip, xgold_gpio->in_base + (offset * sizeof(u32)));
 	return field_get_val(&xgold_gpio->in_field, reg);
 }
 
