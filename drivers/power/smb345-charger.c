@@ -692,8 +692,9 @@ static int __maybe_unused smb345_charger_get_property(struct power_supply *psy,
 					union power_supply_propval *val)
 {
 	struct smb345_charger *chrgr = &chrgr_data;
-	down(&chrgr->prop_lock);
+	int ret = 0;
 
+	down(&chrgr->prop_lock);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PRESENT:
 	if (psy->type == POWER_SUPPLY_TYPE_USB)
@@ -721,12 +722,13 @@ static int __maybe_unused smb345_charger_get_property(struct power_supply *psy,
 		break;
 
 	default:
+		ret =  -EINVAL;
 		break;
 	};
 
 	up(&chrgr->prop_lock);
 
-	return 0;
+	return ret;
 }
 
 static void smb345_set_boost(struct work_struct *work)
