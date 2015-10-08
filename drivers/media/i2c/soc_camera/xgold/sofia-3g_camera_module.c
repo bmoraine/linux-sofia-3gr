@@ -49,6 +49,9 @@ const char *PLTFRM_CAMERA_MODULE_PIN_RESET = OF_OV_GPIO_RESET;
 #define I2C_M_WR 0
 #define I2C_MSG_MAX 300
 #define I2C_DATA_MAX (I2C_MSG_MAX * 3)
+#define I2C_MSG_LEN_8BIT 0x01
+#define I2C_MSG_LEN_16BIT 0x02
+#define I2C_MSG_LEN_32BIT 0x04
 
 struct pltfrm_camera_module_gpio {
 	int pltfrm_gpio;
@@ -611,8 +614,8 @@ int pltfrm_camera_module_read_reg(
 	u32 *val)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret = 0;
-	struct i2c_msg msg[1];
+	int ret;
+	struct i2c_msg msg[2];
 	unsigned char data[4] = { 0, 0, 0, 0 };
 
 	if (!client->adapter) {
@@ -620,37 +623,51 @@ int pltfrm_camera_module_read_reg(
 		return -ENODEV;
 	}
 
-	msg->addr = client->addr;
-	msg->flags = I2C_M_WR;
-	msg->len = 2;
-	msg->buf = data;
+	if (data_length != I2C_MSG_LEN_8BIT &&
+	    data_length != I2C_MSG_LEN_16BIT &&
+	    data_length != I2C_MSG_LEN_32BIT) {
+		pltfrm_camera_module_pr_err(sd,
+			"%s error, invalid data length\n", __func__);
+		return -EINVAL;
+	}
+
+	msg[0].addr = client->addr;
+	msg[0].flags = I2C_M_WR;
+	msg[0].len = 2;
+	msg[0].buf = data;
 
 	/* High byte goes out first */
 	data[0] = (u8) (reg >> 8);
 	data[1] = (u8) (reg & 0xff);
 
-	ret = i2c_transfer(client->adapter, msg, 1);
-	if (ret >= 0) {
-		mdelay(3);
-		msg->flags = I2C_M_RD;
-		msg->len = data_length;
-		i2c_transfer(client->adapter, msg, 1);
+	msg[1].addr = client->addr;
+	msg[1].flags = I2C_M_RD;
+	msg[1].len = data_length;
+	msg[1].buf = data;
+
+	ret = i2c_transfer(client->adapter, msg, 2);
+	if (ret != 2) {
+		if (ret >= 0)
+			ret = -EIO;
+
+		pltfrm_camera_module_pr_err(sd,
+			"i2c read from offset 0x%08x failed with error %d\n",
+			reg, ret);
+
+		return ret;
 	}
-	if (ret >= 0) {
-		*val = 0;
-		/* High byte comes first */
-		if (data_length == 1)
-			*val = data[0];
-		else if (data_length == 2)
-			*val = data[1] + (data[0] << 8);
-		else
-			*val = data[3] + (data[2] << 8) +
-			    (data[1] << 16) + (data[0] << 24);
-		return 0;
-	}
-	pltfrm_camera_module_pr_err(sd,
-		"i2c read from offset 0x%08x failed with error %d\n", reg, ret);
-	return ret;
+
+	*val = 0;
+	/* High byte comes first */
+	if (data_length == I2C_MSG_LEN_8BIT)
+		*val = data[0];
+	else if (data_length == I2C_MSG_LEN_16BIT)
+		*val = data[1] + (data[0] << 8);
+	else
+		*val = data[3] + (data[2] << 8) +
+		    (data[1] << 16) + (data[0] << 24);
+
+	return 0;
 }
 
 /* ======================================================================== */
@@ -660,42 +677,35 @@ int pltfrm_camera_module_write_reg(
 	u16 reg, u8 val)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret = 0;
+	int ret;
 	struct i2c_msg msg[1];
 	unsigned char data[3];
-	int retries;
 
 	if (!client->adapter) {
 		pltfrm_camera_module_pr_err(sd, "client->adapter NULL\n");
 		return -ENODEV;
 	}
 
-	for (retries = 0; retries < 5; retries++) {
-		msg->addr = client->addr;
-		msg->flags = I2C_M_WR;
-		msg->len = 3;
-		msg->buf = data;
+	msg->addr = client->addr;
+	msg->flags = I2C_M_WR;
+	msg->len = 3;
+	msg->buf = data;
 
-		/* high byte goes out first */
-		data[0] = (u8) (reg >> 8);
-		data[1] = (u8) (reg & 0xff);
-		data[2] = val;
+	/* high byte goes out first */
+	data[0] = (u8) (reg >> 8);
+	data[1] = (u8) (reg & 0xff);
+	data[2] = val;
 
-		ret = i2c_transfer(client->adapter, msg, 1);
-		udelay(50);
+	ret = i2c_transfer(client->adapter, msg, 1);
 
-		if (ret == 1)
-			return 0;
-
-		pltfrm_camera_module_pr_debug(sd,
-			"retrying I2C... %d\n", retries);
-		retries++;
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(msecs_to_jiffies(20));
+	if (ret != 1) {
+		pltfrm_camera_module_pr_err(sd,
+			"i2c write to offset 0x%08x failed with error %d\n",
+			reg, ret);
+		return ret;
 	}
-	pltfrm_camera_module_pr_err(sd,
-		"i2c write to offset 0x%08x failed with error %d\n", reg, ret);
-	return ret;
+
+	return 0;
 }
 
 /* ======================================================================== */
