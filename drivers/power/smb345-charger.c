@@ -422,10 +422,7 @@ static char *smb345_supplied_to[] = {
 static enum power_supply_property smb345_power_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
-	POWER_SUPPLY_PROP_TYPE,
-	POWER_SUPPLY_PROP_INLMT,
-	POWER_SUPPLY_PROP_MODEL_NAME,
-	POWER_SUPPLY_PROP_MANUFACTURER
+	POWER_SUPPLY_PROP_TYPE
 };
 
 static struct smb345_charger *smb345_dev;
