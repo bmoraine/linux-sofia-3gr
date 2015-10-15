@@ -1,0 +1,5 @@
+config SLDRIVER
+	tristate "Silentlake driver"
+	default y if (x86)
+	help
+	  Silentlake Trusted Execution Environment Driver

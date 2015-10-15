@@ -182,4 +182,6 @@ source "drivers/oct/Kconfig"
 
 source "drivers/gator/Kconfig"
 
+source "drivers/sldriver/Kconfig"
+
 endmenu
