@@ -516,3 +516,12 @@ uint32_t mv_svc_timestamp_counter_size(void)
 EXPORT_SYMBOL(mv_svc_timestamp_counter_size);
 #endif
 
+uint32_t mv_svc_silentlake_op(uint32_t op_leaf, uint32_t param_a, uint32_t param_b)
+{
+	return mv_platform_service(VMM_SILENTLAKE_SERVICES, op_leaf,
+				param_a, param_b, 0, 0, 0, 0, 0);
+}
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_silentlake_op);
+#endif
+

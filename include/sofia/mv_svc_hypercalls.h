@@ -71,7 +71,13 @@ enum mv_service_type {
 	VMM_SECURITY_MEM_CLEANUP_DONE_SERVICE,
 	VMM_SECURITY_GETVM_LOADINFO_SERVICE,
 	VMM_SECURITY_SECURE_BUFFER_REQUEST_SERVICE,
-	VMM_TIMESTAMP_COUNTER_INFO_SERVICE
+	VMM_TIMESTAMP_COUNTER_INFO_SERVICE,
+	/* Any platform service to be allowed from non Ring0 should have
+	* value begining from VMM_NON_RING0_SERVICE_START_ID
+	*/
+	VMM_NON_RING0_SERVICE_START_ID = 1000,
+	/* Add IDs for non_ring0 platform services below this line */
+	VMM_SILENTLAKE_SERVICES = VMM_NON_RING0_SERVICE_START_ID,
 };
 
 
@@ -726,5 +732,10 @@ uint32_t mv_svc_timestamp_counter_frequency(void);
 **/
 uint32_t mv_svc_timestamp_counter_size(void);
 
+/**
+ @brief  Request Silent Lake service operation
+ @return 0 on success, error code other wise.
+**/
+uint32_t mv_svc_silentlake_op(uint32_t op_leaf, uint32_t param_a, uint32_t param_b);
 
 #endif /* _MV_SVC_HYPERCALLS_H */
