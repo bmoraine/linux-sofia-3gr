@@ -444,7 +444,7 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 	if (mmc_pdata->fixup & XGOLD_DEFAULT_REGS_FIXUP)
 		xgold_default_regs_fixup(host);
 
-	host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
+	host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL | MMC_CAP2_POLL_R1B_BUSY;
 }
 
 static bool xgold_sdhci_of_paranoia(struct sdhci_host *host)
