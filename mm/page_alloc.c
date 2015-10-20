@@ -1771,8 +1771,10 @@ static bool __zone_watermark_ok(struct zone *z, unsigned int order,
 		min -= min / 4;
 #ifdef CONFIG_CMA
 	/* If allocation can't use CMA areas don't use free CMA pages */
-	if (!(alloc_flags & ALLOC_CMA))
+	if (!(alloc_flags & ALLOC_CMA)) {
 		free_cma = zone_page_state(z, NR_FREE_CMA_PAGES);
+		free_cma += zone_page_state(z, NR_FREE_CMA_ISOLATE_PAGES);
+	}
 #endif
 
 	if (free_pages - free_cma <= min + z->lowmem_reserve[classzone_idx])
