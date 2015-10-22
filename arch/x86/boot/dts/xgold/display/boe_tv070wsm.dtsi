@@ -21,6 +21,8 @@ boe_tv070wsm {
 			screen-type = <SCREEN_MIPI>;
 			out-face    = <OUT_P888>;
 			color-mode = <COLOR_RGB>;
+			width = <89>;
+			height = <152>;
 			clock-frequency = <42432000>;
 			hactive = <600>;
 			vactive = <1024>;
