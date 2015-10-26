@@ -38,6 +38,7 @@
 #include <linux/usb/f_mtp.h>
 #include <linux/configfs.h>
 #include <linux/usb/composite.h>
+#include <linux/pm_qos.h>
 
 #include "configfs.h"
 
@@ -73,6 +74,8 @@
 #define MTP_RESPONSE_OK             0x2001
 #define MTP_RESPONSE_DEVICE_BUSY    0x2019
 #define DRIVER_NAME "mtp"
+
+#define MTP_EXIT_LATENCY 20
 
 static const char mtp_shortname[] = DRIVER_NAME "_usb";
 
@@ -114,6 +117,7 @@ struct mtp_dev {
 	uint16_t xfer_command;
 	uint32_t xfer_transaction_id;
 	int xfer_result;
+	struct pm_qos_request *qos;
 };
 
 static struct usb_interface_descriptor mtp_interface_desc = {
@@ -430,6 +434,13 @@ static struct usb_request
 		list_del(&req->list);
 	}
 	spin_unlock_irqrestore(&dev->lock, flags);
+
+	if (&dev->tx_idle == head) {
+		if (!req)
+			pm_qos_update_request(dev->qos, MTP_EXIT_LATENCY);
+		else
+			pm_qos_update_request(dev->qos, PM_QOS_DEFAULT_VALUE);
+	}
 	return req;
 }
 
@@ -1154,6 +1165,7 @@ static int mtp_release(struct inode *ip, struct file *fp)
 {
 	printk(KERN_INFO "mtp_release\n");
 
+	pm_qos_update_request(_mtp_dev->qos, PM_QOS_DEFAULT_VALUE);
 	mtp_unlock(&_mtp_dev->open_excl);
 	return 0;
 }
@@ -1445,6 +1457,12 @@ static int __mtp_setup(struct mtp_instance *fi_mtp)
 	if (!dev)
 		return -ENOMEM;
 
+	dev->qos = kzalloc(sizeof(struct pm_qos_request), GFP_KERNEL);
+	if (!dev->qos) {
+		ret = -ENOMEM;
+		goto err1;
+	}
+
 	spin_lock_init(&dev->lock);
 	init_waitqueue_head(&dev->read_wq);
 	init_waitqueue_head(&dev->write_wq);
@@ -1461,6 +1479,8 @@ static int __mtp_setup(struct mtp_instance *fi_mtp)
 	}
 	INIT_WORK(&dev->send_file_work, send_file_work);
 	INIT_WORK(&dev->receive_file_work, receive_file_work);
+	pm_qos_add_request(dev->qos, PM_QOS_CPU_DMA_LATENCY,
+			PM_QOS_DEFAULT_VALUE);
 
 	_mtp_dev = dev;
 
@@ -1471,9 +1491,12 @@ static int __mtp_setup(struct mtp_instance *fi_mtp)
 	return 0;
 
 err2:
+	pm_qos_remove_request(dev->qos);
 	destroy_workqueue(dev->wq);
 err1:
 	_mtp_dev = NULL;
+	if (dev->qos)
+		kfree(dev->qos);
 	kfree(dev);
 	printk(KERN_ERR "mtp gadget driver failed to initialize\n");
 	return ret;
@@ -1499,6 +1522,8 @@ static void mtp_cleanup(void)
 
 	misc_deregister(&mtp_device);
 	destroy_workqueue(dev->wq);
+	pm_qos_remove_request(dev->qos);
+	kfree(dev->qos);
 	_mtp_dev = NULL;
 	kfree(dev);
 }
