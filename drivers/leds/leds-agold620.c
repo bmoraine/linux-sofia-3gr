@@ -109,7 +109,6 @@ static inline void agold620_led_on(struct device *dev)
 
 	if (generation_mode == 0x01)
 		freerun_mode = 1;
-	led_write32(led, LED_CTRL, SCU_LED_DOWN);
 	pr_debug("%s -->\n", __func__);
 	if (freerun_mode) {
 		int32_t val = (TOTAL_CLK_20K_IN_26M * intensity)/100;
@@ -321,7 +320,12 @@ static int32_t agold620_led_probe(struct platform_device *pdev)
 
 int32_t agold620_led_remove(struct platform_device *pdev)
 {
-		return xgold_led_remove(pdev);
+	return xgold_led_remove(pdev);
+}
+
+static void agold620_led_shutdown(struct platform_device *pdev)
+{
+	agold620_led_off(&pdev->dev);
 }
 
 static const struct of_device_id agold620_led_of_match[] = {
@@ -340,6 +344,7 @@ static struct platform_driver agold620_led_driver = {
 	},
 	.probe = agold620_led_probe,
 	.remove = agold620_led_remove,
+	.shutdown = agold620_led_shutdown,
 };
 
 static int32_t __init agold620_led_init(void)
