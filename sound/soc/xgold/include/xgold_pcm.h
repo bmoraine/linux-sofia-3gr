@@ -35,6 +35,19 @@ enum xgold_pcm_stream_type {
 	NR_STREAM
 };
 
+enum dma_shm_sample_index {
+	DMA_SHM_SAMPLE_INDEX_8K = 0,
+	DMA_SHM_SAMPLE_INDEX_11K,
+	DMA_SHM_SAMPLE_INDEX_12K,
+	DMA_SHM_SAMPLE_INDEX_16K,
+	DMA_SHM_SAMPLE_INDEX_22K,
+	DMA_SHM_SAMPLE_INDEX_24K,
+	DMA_SHM_SAMPLE_INDEX_32K,
+	DMA_SHM_SAMPLE_INDEX_44K,
+	DMA_SHM_SAMPLE_INDEX_48K,
+	DMA_SHM_SAMPLE_INDEX_END,
+};
+
 struct xgold_pcm_hw_probe_status {
 	bool active;
 	unsigned int hw_probe_sel;
@@ -98,7 +111,8 @@ struct xgold_runtime_data {
 	unsigned int periods;
 	unsigned int period_size_bytes;
 	/* DMA stream */
-	unsigned int dma_sgl_count;
+	unsigned short dma_bytes;
+	unsigned short dma_sgl_count;
 	struct scatterlist *dma_sgl;
 	struct dma_chan *dmach;
 	dma_cookie_t dma_cookie;

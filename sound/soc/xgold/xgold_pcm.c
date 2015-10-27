@@ -62,7 +62,6 @@
 #define XGOLD_IN_FORMAT SNDRV_PCM_FMTBIT_S16_LE
 
 #define XGOLD_MAX_RING_SIZE		(380 * 1024)
-#define XGOLD_MAX_SG_LIST		4
 #define DMA_BURST_SIZE			256
 
 #define PROP_PCM_DMA_EN_NAME		"intel,pcm,dma_en"
@@ -156,6 +155,9 @@ const unsigned xg642_hw_probe_valid[] = {
 
 const unsigned hw_probe_valid[] = {
 	1, 2, 3, 4, 9, 10, 11, 12, 13, 14};
+
+static const u16 dma_shm_samples[] = {
+	40, 55, 60, 80, 110, 120, 160, 220, 240};
 
 static void xgold_pcm_dma_play_submit(struct xgold_runtime_data *, dma_addr_t);
 static void xgold_pcm_dma_rec_submit(struct xgold_runtime_data *, dma_addr_t);
@@ -622,8 +624,7 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 
 	if (xgold_pcm->dma_dump == 1) {
 		if (xgold_pcm->dump_dma_buffer) {
-			int nToWrite =
-				xrtd->period_size_bytes * XGOLD_MAX_SG_LIST;
+			int nToWrite = xrtd->period_size_bytes;
 			dma_addr = xrtd->stream->runtime->dma_addr +
 				xrtd->period_size_bytes * xrtd->hwptr_done;
 			dma_addr = (dma_addr_t)phys_to_virt(dma_addr);
@@ -653,13 +654,8 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 		}
 	}
 
-	if (xrtd->stream_type == STREAM_PLAY) {
-		xrtd->hwptr_done += xrtd->dma_sgl_count;
-		xrtd->periods += xrtd->dma_sgl_count;
-	} else {
-		xrtd->hwptr_done++;
-		xrtd->periods++;
-	}
+	xrtd->hwptr_done++;
+	xrtd->periods++;
 	xrtd->periods %= xrtd->stream->runtime->periods;
 	xrtd->hwptr_done %= xrtd->stream->runtime->periods;
 
@@ -706,20 +702,16 @@ void xgold_dsp_pcm_dma_rec_handler(void *dev)
 		xgold_debug("%s: dma channel is NULL\n", __func__);
 		return;
 	}
-	xgold_debug("<-- %s hwptr_done %d periods %d, runtime periods %d total_nof_bytes_read %d\n",
+	xgold_debug("<-- %s hwptr_done %d periods %d, runtime periods %d\n",
 			__func__,
 			xrtd->hwptr_done,
 			xrtd->periods,
-			xrtd->stream->runtime->periods,
-			xrtd->total_nof_bytes_read);
+			xrtd->stream->runtime->periods);
 
 	/* trigger data save for record dump */
 	if (xgold_pcm->record_dump == 1) {
 		if (xgold_pcm->dump_record_buffer) {
-			int nToWrite =
-				(xrtd->have_harmonics) ?
-				xrtd->period_size_bytes :
-				xrtd->period_size_bytes * XGOLD_MAX_SG_LIST;
+			int nToWrite = xrtd->period_size_bytes;
 			dma_addr = xrtd->stream->runtime->dma_addr +
 				xrtd->period_size_bytes * xrtd->hwptr_done;
 			dma_addr = (dma_addr_t)phys_to_virt(dma_addr);
@@ -749,20 +741,14 @@ void xgold_dsp_pcm_dma_rec_handler(void *dev)
 		}
 	}
 
-	if (xrtd->total_nof_bytes_read >= xrtd->period_size_bytes) {
-		xrtd->total_nof_bytes_read = 0;
-		xrtd->hwptr_done += (xrtd->have_harmonics) ?
-			1 : xrtd->dma_sgl_count;
-		xrtd->periods += (xrtd->have_harmonics) ?
-			1 : xrtd->dma_sgl_count;
-		xrtd->periods %= xrtd->stream->runtime->periods;
-		xrtd->hwptr_done %= xrtd->stream->runtime->periods;
-		snd_pcm_period_elapsed(xrtd->stream);
-	}
+	xrtd->hwptr_done++;
+	xrtd->periods++;
+	xrtd->periods %= xrtd->stream->runtime->periods;
+	xrtd->hwptr_done %= xrtd->stream->runtime->periods;
 
+	snd_pcm_period_elapsed(xrtd->stream);
 
 	dma_addr = xrtd->stream->runtime->dma_addr +
-		xrtd->total_nof_bytes_read +
 		xrtd->period_size_bytes * xrtd->hwptr_done;
 
 	/* Reload scatter list and submit DMA request */
@@ -781,9 +767,9 @@ static void xgold_pcm_dma_play_submit(struct xgold_runtime_data *xrtd,
 	struct dma_async_tx_descriptor *desc;
 	dma_cookie_t dma_cookie_tx;
 	int i = 0;
+	unsigned int dma_bytes;
 
-	unsigned int dma_bytes = SM_AUDIO_BUFFER_DL_SAMPLES * 4;
-
+	dma_bytes = xrtd->dma_bytes;
 	xrtd->period_size_bytes =
 		frames_to_bytes(xrtd->stream->runtime,
 				xrtd->stream->runtime->period_size);
@@ -836,18 +822,10 @@ static void xgold_pcm_dma_rec_submit(struct xgold_runtime_data *xrtd,
 	int i = 0;
 	unsigned int dma_bytes;
 
-	dma_bytes = xrtd->stream->runtime->period_size*
-		xrtd->stream->runtime->channels*2;
-	if (xrtd->have_harmonics) {
-		/* for 44.1kHz sampling rate, and dividers */
-		dma_bytes = (dma_bytes >> 4);
-		dma_bytes = (dma_bytes << 4) / xrtd->dma_sgl_count;
-	}
+	dma_bytes = xrtd->dma_bytes;
 	xrtd->period_size_bytes =
 		frames_to_bytes(xrtd->stream->runtime,
 				xrtd->stream->runtime->period_size);
-	xrtd->total_nof_bytes_read += xrtd->stream->runtime->period_size *
-		xrtd->stream->runtime->channels*2;
 
 	xgold_debug(" %s ,period_size_bytes %d channels %d dma_bytes %d dma_sgl_count%d\n",
 			__func__,
@@ -856,25 +834,25 @@ static void xgold_pcm_dma_rec_submit(struct xgold_runtime_data *xrtd,
 			dma_bytes,
 			xrtd->dma_sgl_count);
 
-	/* Prepare the scatter list */
-	while (i < xrtd->dma_sgl_count) {
-		int cur_dma_bytes;
-		if (xrtd->have_harmonics)
-			cur_dma_bytes = (i == (xrtd->dma_sgl_count - 1)) ?
-				dma_bytes + 2 *
-					xrtd->stream->runtime->channels :
-				dma_bytes;
-		else
-			cur_dma_bytes = dma_bytes;
-
-		xgold_debug(" %d - period_size_bytes %d\n", i, cur_dma_bytes);
-
+	/* Prepare the scatter list, except the last one */
+	while (i < (xrtd->dma_sgl_count-1)) {
+		xgold_debug(" %d - dma_bytes %d\n", i, dma_bytes);
 		sg_set_buf(xrtd->dma_sgl + i,
 			(void *)phys_to_virt(dma_addr),
-			cur_dma_bytes);
+			dma_bytes);
 		i++;
-		dma_addr += cur_dma_bytes;
+		dma_addr += dma_bytes;
 	}
+
+	/* Prepare the last scatter list, compensate */
+	/* dma_bytes for harmonic sample */
+	if (xrtd->have_harmonics)
+		dma_bytes += (xrtd->stream->runtime->channels*2);
+
+	xgold_debug(" %d - dma_bytes %d\n", i, dma_bytes);
+	sg_set_buf(xrtd->dma_sgl + i,
+			(void *)phys_to_virt(dma_addr),
+			dma_bytes);
 
 	dma_map_sg(xgold_pcm->dev, xrtd->dma_sgl, xrtd->dma_sgl_count,
 			DMA_FROM_DEVICE);
@@ -1086,13 +1064,14 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 			DSP_LISR_CB_HW_PROBE_B,
 			NULL,
 			NULL);
-	else if (xrtd->stream_type == STREAM_REC && !xgold_pcm->rec_dma_mode) {
-		register_dsp_audio_lisr_cb(
-			DSP_LISR_CB_PCM_RECORDER,
-			NULL,
-			NULL);
+	else if (xrtd->stream_type == STREAM_REC) {
+		if (!xgold_pcm->rec_dma_mode) {
+			register_dsp_audio_lisr_cb(
+				DSP_LISR_CB_PCM_RECORDER,
+				NULL,
+				NULL);
 		}
-	else {
+	} else {
 		xgold_err("Unsupported stream type %d\n", xrtd->stream_type);
 		ret = -EINVAL;
 	}
@@ -1181,17 +1160,13 @@ static int xgold_pcm_play_dma_prepare(struct snd_pcm_substream *substream)
 	struct xgold_pcm *xgold_pcm = xrtd->pcm;
 	struct dma_slave_config pcm_dma_config;
 	dma_addr_t shm_base, dma_addr;
+	unsigned short index, shm_samples;
 	int ret = 0;
 #ifndef CONFIG_OF
 	dma_cap_mask_t tx_mask;
 #endif
-	unsigned short shm_samples = SM_AUDIO_BUFFER_DL_SAMPLES;
-
-	if ((runtime->period_size % shm_samples) != 0) {
-		xgold_err("%s: invalid period_size = %d\n", __func__,
+	xgold_debug("%s period_size = %d\n", __func__,
 			(int)runtime->period_size);
-		return -EINVAL;
-	}
 
 #ifdef CONFIG_OF
 	xrtd->dmach = xgold_of_dsp_get_dmach(xgold_pcm->dsp, xrtd->stream_type);
@@ -1234,6 +1209,47 @@ static int xgold_pcm_play_dma_prepare(struct snd_pcm_substream *substream)
 
 	dma_addr = runtime->dma_addr;
 
+	switch (runtime->rate) {
+	case 8000:
+		index = DMA_SHM_SAMPLE_INDEX_8K;
+		break;
+	case 11025:
+		index = DMA_SHM_SAMPLE_INDEX_11K;
+		break;
+	case 12000:
+		index = DMA_SHM_SAMPLE_INDEX_12K;
+		break;
+	case 16000:
+		index = DMA_SHM_SAMPLE_INDEX_16K;
+		break;
+	case 22050:
+		index = DMA_SHM_SAMPLE_INDEX_22K;
+		break;
+	case 24000:
+		index = DMA_SHM_SAMPLE_INDEX_24K;
+		break;
+	case 32000:
+		index = DMA_SHM_SAMPLE_INDEX_32K;
+		break;
+	case 44100:
+		index = DMA_SHM_SAMPLE_INDEX_44K;
+		break;
+	case 48000:
+		index = DMA_SHM_SAMPLE_INDEX_48K;
+		break;
+	default:
+		xgold_err("%s: Invalid sample rate = %d\n", __func__,
+			(int)runtime->rate);
+		return -EINVAL;
+	}
+
+	shm_samples = dma_shm_samples[index];
+	xrtd->dma_bytes = shm_samples * runtime->channels * 2;
+	xrtd->dma_sgl_count = runtime->period_size / shm_samples;
+
+	xgold_debug("%s(): stream_type:%d dma_bytes:%d dma_sgl_count:%d\n",
+	__func__, xrtd->stream_type, xrtd->dma_bytes, xrtd->dma_sgl_count);
+
 	xrtd->dma_sgl = kzalloc(sizeof(struct scatterlist) *
 			xrtd->dma_sgl_count, GFP_KERNEL);
 
@@ -1255,6 +1271,7 @@ static int xgold_pcm_rec_dma_prepare(struct snd_pcm_substream *substream)
 	struct xgold_pcm *xgold_pcm = xrtd->pcm;
 	struct dma_slave_config pcm_dma_config;
 	dma_addr_t shm_base, dma_addr;
+	unsigned short index, shm_samples;
 	int ret = 0;
 #ifndef CONFIG_OF
 	dma_cap_mask_t tx_mask;
@@ -1281,8 +1298,9 @@ static int xgold_pcm_rec_dma_prepare(struct snd_pcm_substream *substream)
 	xrtd->dma_stop = false;
 	init_completion(&xrtd->dma_complete);
 
-	if (xrtd->stream->runtime->period_size % 2)
-		/* for 44.1kHz sampling rate, and dividers */
+	xrtd->have_harmonics = false;
+	/* for 44.1kHz sampling rate, and dividers */
+	if (runtime->period_size % 2)
 		xrtd->have_harmonics = true;
 
 	shm_base = dsp_get_audio_shmem_base_addr(xgold_pcm->dsp) +
@@ -1292,7 +1310,7 @@ static int xgold_pcm_rec_dma_prepare(struct snd_pcm_substream *substream)
 	pcm_dma_config.direction = DMA_FROM_DEVICE;
 	pcm_dma_config.src_addr = shm_base;
 	pcm_dma_config.src_addr_width =
-		(xrtd->have_harmonics && xrtd->stream->runtime->channels == 1) ?
+		(xrtd->have_harmonics && runtime->channels == 1) ?
 		DMA_SLAVE_BUSWIDTH_2_BYTES : DMA_SLAVE_BUSWIDTH_4_BYTES;
 	pcm_dma_config.src_maxburst = DMA_BURST_SIZE;
 	pcm_dma_config.device_fc = false;
@@ -1305,23 +1323,46 @@ static int xgold_pcm_rec_dma_prepare(struct snd_pcm_substream *substream)
 	}
 
 	dma_addr = runtime->dma_addr;
-	if (!xrtd->have_harmonics)
-		xrtd->dma_sgl_count = XGOLD_MAX_SG_LIST;
-	else {
-		switch (substream->runtime->rate) {
-		case 44100:
-			xrtd->dma_sgl_count = 2;
-			break;
-		case 22050:
-			xrtd->dma_sgl_count = 4;
-			break;
-		case 11025:
-			xrtd->dma_sgl_count = 8;
-			break;
-		default:
-			return -EINVAL;
-		}
-	}
+	switch (runtime->rate) {
+	case 8000:
+		index = DMA_SHM_SAMPLE_INDEX_8K;
+		break;
+	case 11025:
+		index = DMA_SHM_SAMPLE_INDEX_11K;
+		break;
+	case 12000:
+		index = DMA_SHM_SAMPLE_INDEX_12K;
+		break;
+	case 16000:
+		index = DMA_SHM_SAMPLE_INDEX_16K;
+		break;
+	case 22050:
+		index = DMA_SHM_SAMPLE_INDEX_22K;
+		break;
+	case 24000:
+		index = DMA_SHM_SAMPLE_INDEX_24K;
+		break;
+	case 32000:
+		index = DMA_SHM_SAMPLE_INDEX_32K;
+		break;
+	case 44100:
+		index = DMA_SHM_SAMPLE_INDEX_44K;
+		break;
+	case 48000:
+		index = DMA_SHM_SAMPLE_INDEX_48K;
+		break;
+	default:
+		xgold_err("%s: Invalid sample rate = %d\n", __func__,
+			(int)runtime->rate);
+		return -EINVAL;
+ 	}
+ 
+	shm_samples = dma_shm_samples[index];
+	xrtd->dma_bytes = shm_samples * runtime->channels * 2;
+	xrtd->dma_sgl_count = runtime->period_size / shm_samples;
+
+	xgold_debug("%s(): stream_type:%d dma_bytes:%d dma_sgl_count:%d\n",
+	__func__, xrtd->stream_type, xrtd->dma_bytes, xrtd->dma_sgl_count);
 
 	xrtd->dma_sgl = kzalloc(sizeof(struct scatterlist) *
 			xrtd->dma_sgl_count, GFP_KERNEL);
@@ -1341,7 +1382,6 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 {
 	struct xgold_runtime_data *xrtd = substream->runtime->private_data;
 	struct xgold_pcm *xgold_pcm = xrtd->pcm;
-	unsigned short shm_samples = SM_AUDIO_BUFFER_DL_SAMPLES;
 	int ret = 0;
 
 	xgold_debug("%s\n", __func__);
@@ -1350,7 +1390,6 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 	xrtd->periods = 0;
 	xrtd->stream = substream;
 
-	xrtd->dma_sgl_count = substream->runtime->period_size / shm_samples;
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Normal mode      - ALSA Ring buffer size =
 					psize * pcnt = 5ms*8  - 40ms */
@@ -1374,7 +1413,6 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 					xgold_pcm->dma_req_interval_time[0] =
 							NORMAL_DMA_INTERVAL;
 				}
-				xrtd->dma_sgl_count *= XGOLD_MAX_SG_LIST;
 			} else {
 				/* Burst mode */
 				if (BURST == xgold_pcm->playback_mode[1]) {
