@@ -31,6 +31,7 @@
 #include <linux/input/mt.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <linux/firmware.h>
 #ifdef CONFIG_PM
 #include <linux/power_hal_sysfs.h>
 #include <linux/device_pm_data.h>
@@ -40,6 +41,44 @@
 #define GT9XX_REG_CONFIG_DATA		0x8047
 #define GT9XX_CONFIG_LENGTH		186
 #define GT9XX_MAX_NUM_BUTTONS		8
+#define GT9XX_FW_FILE_NAME		"gt9xx_firmware.bin"
+#define GT9XX_FW_HEAD_LEN		14
+
+#define GT9XX_SS51_BLOCK_ADDR		0xc000
+#define GT9XX_DSP_BLOCK_ADDR		0xc000
+#define GT9XX_SRAM_BANK_ADDR		0x4048
+#define GT9XX_SW_WDT_ADDR		0x8041
+#define GT9XX_MEM_CD_EN_ADDR		0x4049
+#define GT9XX_CACHE_EN_ADDR		0x404B
+#define GT9XX_TMR0_EN_ADDR		0x40B0
+#define GT9XX_SWRST_B0_ADDR		0x4180
+#define GT9XX_CPU_SWRST_PULSE_ADDR	0x4184
+#define GT9XX_FW_REL_ADDR		0x4180
+#define GT9XX_BOOTCTL_B0_ADDR		0x4190
+#define GT9XX_BOOT_OPT_B0_ADDR		0x4218
+#define GT9XX_BOOT_CTL_ADDR		0x5094
+#define GT9XX_DSP_CLK_ADDR		0x4010
+
+#define GT9XX_SS51_SECTION_LEN		0x2000 /* total 4 sections */
+#define GT9XX_DSP_SECTION_LEN		0x1000
+
+#define GT9XX_DSP_START_INDEX		(GT9XX_SS51_SECTION_LEN * 4)
+
+#define GT9XX_SS51_BANK_INDEX0		0
+#define GT9XX_SS51_BANK_INDEX1		1
+#define GT9XX_DSP_BANK_INDEX0		2
+
+#define GT9XX_FW_CHK_SIZE		1024
+#define GT9XX_FW_CHK_RETRY		40
+#define GT9XX_FW_DOWNLOAD_RETRY		5
+#define GT9XX_FW_HOLD_RETRY		200
+
+#define GT9XX_CFG_DN_RETRY		3
+
+#define GT9XX_SW_WDT_DEF_VAL		0xaa
+#define GT9XX_SWRST_B0_DEF_VAL		0x0c
+
+#define GT9XX_BOOTCTL_B0_SRAM		0x02
 
 #define GT9XX_BUTTONS_PROPERTY	"goodix,buttons"
 
@@ -47,6 +86,12 @@ enum gt9xx_status_bits {
 	/* bits 0 .. GT9XX_MAX_TOUCHES - 1 are use to track touches */
 	GT9XX_STATUS_SLEEP_BIT = GT9XX_MAX_TOUCHES,
 	GT9XX_STATUS_BITS,
+};
+
+struct gt9xx_fw_head {
+	u8 hw_info[4]; /* hardware info */
+	u8 pid[8]; /* product id */
+	u16 vid; /* vendor id */
 };
 
 struct gt9xx_ts {
@@ -65,6 +110,9 @@ struct gt9xx_ts {
 	u16 max_x;
 	u16 max_y;
 
+	const char *fw_name;
+	const struct firmware *fw;
+	struct gt9xx_fw_head fw_head;
 	int num_buttons;
 	unsigned int button_codes[GT9XX_MAX_NUM_BUTTONS];
 
@@ -101,11 +149,12 @@ static int gt9xx_i2c_read(struct i2c_client *client, u16 addr,
 	msgs[1].len = len;
 
 	ret = i2c_transfer(client->adapter, msgs, 2);
-	if (ret != 2)
+	if (ret != 2) {
 		dev_err(&client->dev, "I2C read @0x%04X (%d) failed: %d", addr,
 			len, ret);
-
-	return 0;
+		return ret;
+	} else
+		return 0;
 }
 
 static int gt9xx_i2c_write(struct i2c_client *client, u16 addr, void *buf,
@@ -115,7 +164,7 @@ static int gt9xx_i2c_write(struct i2c_client *client, u16 addr, void *buf,
 	struct i2c_msg msg;
 	int ret;
 
-	addr_buf = (u8 *) kmalloc(len + 2, GFP_KERNEL);
+	addr_buf = kmalloc(len + 2, GFP_KERNEL);
 	if (!addr_buf)
 		return -ENOMEM;
 
@@ -130,11 +179,13 @@ static int gt9xx_i2c_write(struct i2c_client *client, u16 addr, void *buf,
 	msg.len = len + 2;
 
 	ret = i2c_transfer(client->adapter, &msg, 1);
-	if (ret != 1)
+	kfree(addr_buf);
+
+	if (ret != 1) {
 		dev_err(&client->dev, "I2C write @0x%04X (%d) failed: %d", addr,
 			len, ret);
-
-	kfree(addr_buf);
+		return ret;
+	}
 
 	return 0;
 }
@@ -161,7 +212,7 @@ static void gt9xx_irq_enable(struct gt9xx_ts *ts)
 
 static int gt9xx_send_cfg(struct gt9xx_ts *ts, u8 *cfg_data, size_t cfg_size)
 {
-	int ret, i;
+	int ret, i, retry = 0;
 	size_t raw_cfg_len;
 	u8 check_sum = 0;
 
@@ -184,9 +235,15 @@ static int gt9xx_send_cfg(struct gt9xx_ts *ts, u8 *cfg_data, size_t cfg_size)
 		return -EINVAL;
 	}
 
+again:
 	ret = gt9xx_i2c_write(ts->client, GT9XX_REG_CONFIG_DATA,
 				cfg_data, GT9XX_CONFIG_LENGTH);
-	if (ret) {
+	if ((ret < 0) && (retry++ < GT9XX_CFG_DN_RETRY)) {
+		dev_err(&ts->client->dev, "Config send failed, retry %d",
+				retry);
+		goto again;
+	}
+	if (retry >= GT9XX_CFG_DN_RETRY) {
 		dev_err(&ts->client->dev, "Config send failed, err: %d", ret);
 		return ret;
 	}
@@ -463,6 +520,317 @@ out:
 }
 #endif
 
+static int gt9xx_fw_check_and_repair(struct i2c_client *client, u16 start_addr,
+				     u8 *comp_buf, u32 len)
+{
+	int i = 0, ret, retry = 0, comp_len, index = 0;
+	u8 *buf;
+	bool check_failed = false;
+
+	buf = kmalloc(GT9XX_FW_CHK_SIZE, GFP_KERNEL);
+
+	while (index < len && retry < GT9XX_FW_CHK_RETRY) {
+		comp_len = ((len - index) < GT9XX_FW_CHK_SIZE) ? (len - index) :
+				GT9XX_FW_CHK_SIZE;
+
+		ret = gt9xx_i2c_read(client, start_addr + index, buf, comp_len);
+		if (ret < 0)
+			break;
+
+		for (i = 0; i < comp_len; i++) {
+			if (buf[i] != comp_buf[index + i]) {
+				gt9xx_i2c_write(client, start_addr + index + i,
+						&comp_buf[index + i],
+						comp_len - i);
+				retry++;
+				check_failed = true;
+				break;
+			}
+		}
+		if (!check_failed) {
+			index += comp_len;
+			check_failed = false;
+		}
+	}
+
+	kfree(buf);
+
+	if ((len - index) > 0)
+		return -EIO;
+
+	return 0;
+}
+
+static int gt9xx_fw_flash_verify(struct i2c_client *client, u8 bank, u16 addr,
+				 u8 *data, u32 len)
+{
+	int ret;
+
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SRAM_BANK_ADDR, bank);
+	if (ret < 0)
+		return ret;
+
+	ret = gt9xx_i2c_write(client, addr, data, len);
+	if (ret < 0)
+		return ret;
+
+	return gt9xx_fw_check_and_repair(client, addr, data, len);
+}
+
+
+static int gt9xx_fw_flash_block_dsp(struct gt9xx_ts *ts)
+{
+	struct i2c_client *client = ts->client;
+	const u8 *data;
+
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + GT9XX_DSP_START_INDEX];
+
+	return gt9xx_fw_flash_verify(client, GT9XX_DSP_BANK_INDEX0,
+				     GT9XX_DSP_BLOCK_ADDR, (u8 *)data,
+				     GT9XX_DSP_SECTION_LEN);
+}
+
+static int gt9xx_fw_flash_block_ss51(struct gt9xx_ts *ts)
+{
+	struct i2c_client *client = ts->client;
+	int ret;
+	const u8 *data;
+
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN];
+
+	/* flash first sections */
+	ret = gt9xx_fw_flash_verify(client, GT9XX_SS51_BANK_INDEX0,
+				    GT9XX_SS51_BLOCK_ADDR, (u8 *)data,
+				    GT9XX_SS51_SECTION_LEN * 2);
+	if (ret < 0)
+		return ret;
+
+	data = &ts->fw->data[GT9XX_FW_HEAD_LEN + 2 * GT9XX_SS51_SECTION_LEN];
+
+	/* flash next 2 sections */
+	return gt9xx_fw_flash_verify(client, GT9XX_SS51_BANK_INDEX1,
+				     GT9XX_SS51_BLOCK_ADDR, (u8 *)data,
+				     GT9XX_SS51_SECTION_LEN * 2);
+}
+
+static int gt9xx_fw_checksum(struct gt9xx_ts *ts)
+{
+	int i, checksum = 0;
+
+	/* perform checksum calculation */
+	memcpy(&ts->fw_head, ts->fw->data, GT9XX_FW_HEAD_LEN);
+
+	ts->fw_head.vid = (u16)be16_to_cpu(ts->fw_head.vid);
+
+	for (i = GT9XX_FW_HEAD_LEN; i < ts->fw->size; i += 2)
+		checksum += (ts->fw->data[i] << 8) + ts->fw->data[i+1];
+
+	if (checksum & 0xffff)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int gt9xx_fw_download_enabled(struct gt9xx_ts *ts)
+{
+	unsigned long long load_firmware = 0;
+#ifdef CONFIG_ACPI
+	acpi_handle handle;
+	acpi_status status;
+
+	handle = ACPI_HANDLE(&ts->client->dev);
+	if (!handle)
+		return -ENODEV;
+
+	status = acpi_evaluate_integer(handle, "_FRM", NULL, &load_firmware);
+	if (ACPI_SUCCESS(status))
+		dev_info(&ts->client->dev, "_FRM=%llu\n", load_firmware);
+#endif
+
+	return load_firmware;
+}
+
+static int gt9xx_enter_fw_burn_mode(struct gt9xx_ts *ts)
+{
+	int retry = 0, ret;
+	struct i2c_client *client = ts->client;
+	u8 val;
+
+	/* Step1: RST output low last at least 2ms */
+	gpiod_direction_output(ts->gpiod_rst, 0);
+	usleep_range(2000, 2200);
+
+	/* Step2: select I2C slave addr,INT:0--0xBA;1--0x28 */
+	gpiod_direction_output(ts->gpiod_int, ts->client->addr == 0x14);
+	usleep_range(2000, 2200);
+
+	/* Step3: RST output high reset guitar */
+	gpiod_direction_output(ts->gpiod_rst, 1);
+	usleep_range(6000, 6200);
+
+	/* select and hold ss51 & dsp */
+	while (retry++ < GT9XX_FW_HOLD_RETRY) {
+
+		ret = gt9xx_i2c_write_u8(client, GT9XX_SWRST_B0_ADDR,
+					 GT9XX_SWRST_B0_DEF_VAL);
+		if (ret < 0)
+			return ret;
+
+		ret = gt9xx_i2c_read(client, GT9XX_SWRST_B0_ADDR, &val, 1);
+		if (ret < 0)
+			continue;
+
+		if (val == GT9XX_SWRST_B0_DEF_VAL)
+			break;
+	}
+
+	if (retry >= GT9XX_FW_HOLD_RETRY)
+		return -ENODEV;
+
+	/* dsp clock power on*/
+	ret = gt9xx_i2c_write_u8(client, GT9XX_DSP_CLK_ADDR, 0);
+	if (ret < 0)
+		return ret;
+
+	/* disable wdt */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_TMR0_EN_ADDR, 0);
+	if (ret < 0)
+		return ret;
+
+	/* clear cache */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_CACHE_EN_ADDR, 0);
+	if (ret < 0)
+		return ret;
+
+	/* set boot from SRAM */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOTCTL_B0_ADDR,
+				 GT9XX_BOOTCTL_B0_SRAM);
+	if (ret < 0)
+		return ret;
+
+	/* software reset */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_CPU_SWRST_PULSE_ADDR, 1);
+	if (ret < 0)
+		return ret;
+
+	/* clear control flag */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_CTL_ADDR, 0);
+	if (ret < 0)
+		return ret;
+
+	/* set scramble */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_BOOT_OPT_B0_ADDR, 0);
+	if (ret < 0)
+		return ret;
+
+	/* enable accessing mode */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_MEM_CD_EN_ADDR, 1);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int gt9xx_fw_start(struct gt9xx_ts *ts)
+{
+	struct i2c_client *client = ts->client;
+	int ret;
+	u8 val;
+
+	/* init sw WDT */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SW_WDT_ADDR,
+				 GT9XX_SW_WDT_DEF_VAL);
+	if (ret < 0)
+		return ret;
+
+	/* release SS51 & DSP */
+	ret = gt9xx_i2c_write_u8(client, GT9XX_FW_REL_ADDR, 0x00);
+	if (ret < 0)
+		return ret;
+
+	gt9xx_int_sync(ts);
+
+	/* Check fw run status by verifying WDT default */
+	ret = gt9xx_i2c_read(client, GT9XX_SW_WDT_ADDR, &val, sizeof(u8));
+	if (ret < 0)
+		return ret;
+
+	if (val == GT9XX_SW_WDT_DEF_VAL) {
+		dev_err(&client->dev, "fw_start failed\n");
+		return -ENODEV;
+	}
+
+	/* on success init sw WDT again*/
+	ret = gt9xx_i2c_write_u8(client, GT9XX_SW_WDT_ADDR,
+				 GT9XX_SW_WDT_DEF_VAL);
+	return 0;
+}
+
+static int gt9xx_fw_download(struct gt9xx_ts *ts)
+{
+	int ret, retry = 0;
+
+	if (!gt9xx_fw_download_enabled(ts)) {
+		dev_warn(&ts->client->dev, "gt9xx fw download not needed\n");
+		return 0;
+	}
+
+	ret = request_firmware(&ts->fw, ts->fw_name, &ts->client->dev);
+	if (ret < 0) {
+		dev_err(&ts->client->dev, "gt9xx request firmware failed\n");
+		return ret;
+	}
+
+	if (!ts->fw) {
+		dev_err(&ts->client->dev, "gt9xx invalid firmware\n");
+		return -EINVAL;
+	}
+
+	ret = gt9xx_fw_checksum(ts);
+	if (ret < 0) {
+		dev_err(&ts->client->dev, "gt9xx fw checksum failed\n");
+		goto fw_err;
+	}
+
+	gt9xx_irq_disable(ts, false);
+	ret = gt9xx_enter_fw_burn_mode(ts);
+	if (ret < 0) {
+		dev_err(&ts->client->dev, "gt9xx fw burn mode set failed\n");
+		goto fw_err;
+	}
+
+	while (retry++ < GT9XX_FW_DOWNLOAD_RETRY) {
+		ret = gt9xx_fw_flash_block_ss51(ts);
+		if (ret < 0)
+			continue;
+
+		ret = gt9xx_fw_flash_block_dsp(ts);
+		if (ret < 0)
+			continue;
+		break;
+	}
+
+	if (retry >= GT9XX_FW_DOWNLOAD_RETRY)
+		dev_info(&ts->client->dev, "gt9xx exceeds max retry count\n");
+
+	dev_info(&ts->client->dev, "gt9xx download fw sucessfull\n");
+
+fw_err:
+	release_firmware(ts->fw);
+	gt9xx_fw_start(ts);
+	/* reset the controller */
+	gt9xx_reset(ts);
+	/* send the _DSM ts configuration to the firmware */
+#ifdef CONFIG_ACPI
+	gt9xx_send_cfg(ts);
+#else
+	gt9xx_get_and_send_cfg(ts);
+#endif
+	gt9xx_int_sync(ts);
+	gt9xx_irq_enable(ts);
+	return ret;
+}
+
 static int gt9xx_set_device_data(struct gt9xx_ts *ts)
 {
 	struct device *dev = &ts->client->dev;
@@ -584,7 +952,7 @@ static int gt9xx_set_device_data(struct gt9xx_ts *ts)
 		}
 	}
 #endif
-	/* reset the controller */
+    /* reset the controller */
 	gt9xx_reset(ts);
 
 	return  gt9xx_get_and_send_cfg(ts);
@@ -715,6 +1083,11 @@ static int gt9xx_ts_probe(struct i2c_client *client,
 	if (ret)
 		return ret;
 
+	ts->fw_name = GT9XX_FW_FILE_NAME;
+	ret = gt9xx_fw_download(ts);
+	if (ret)
+		return ret;
+
 	ret = gt9xx_get_info(ts);
 	if (ret)
 		return ret;
@@ -772,14 +1145,17 @@ static int gt9xx_ts_remove(struct i2c_client *client)
 
 static const struct i2c_device_id gt9xx_ts_id[] = {
 	{ "GODX0911", 0 },
+	{ "GODX0912", 0 },
 	{ "GOOD9271", 0 },
 	{ "GOOD9157", 0 },
 	{ },
 };
+MODULE_DEVICE_TABLE(i2c, gt9xx_ts_id);
 
 #ifdef CONFIG_ACPI
 static struct acpi_device_id gt9xx_acpi_match[] = {
 	{ "GODX0911", 0 },
+	{ "GODX0912", 0 },
 	{ "GOOD9271", 0 },
 	{ "GOOD9157", 0 },
 	{ },
@@ -802,4 +1178,4 @@ module_i2c_driver(gt9xx_ts_driver);
 
 MODULE_DESCRIPTION("Goodix GT911 Touchscreen Driver");
 MODULE_AUTHOR("Octavian Purdila <octavian.purdila@intel.com>");
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");
