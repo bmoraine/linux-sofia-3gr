@@ -227,7 +227,7 @@ static int fmdev_mutex_lock(bool blocking)
 	if (blocking)
 		mutex_lock(&(fmdev_info.fmdev_mutex));
 	else
-		status = mutex_trylock(&(fmdev_info.fmdev_mutex));
+		status = !mutex_trylock(&(fmdev_info.fmdev_mutex));
 
 	return status;
 }
