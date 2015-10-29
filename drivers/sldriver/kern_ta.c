@@ -338,9 +338,9 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				pr_err
 				    ("%s %d Add page hypercall failed. Retval:%x \
 					 view_handle is %x param_addr is %x\n",
-						__func__, __LINE__, retVal,
-						c_param->view_handle,
-						(uint32_t) vidt_param);
+				     __func__, __LINE__, retVal,
+				     c_param->view_handle, (uint32_t)
+				     vidt_param);
 				kfree(c_param);
 				return retVal;
 			}
@@ -600,7 +600,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return -EFAULT;
 			}
 			view_list_addr =
-				(const void __user *) (uintptr_t)c_param->view_list;
+			    (const void __user *)(uintptr_t) c_param->view_list;
 
 			param_addr = virt_to_phys(c_param);
 			num_entries = c_param->num_entries;
@@ -614,8 +614,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 			}
 			retVal =
 			    copy_from_user(view_list,
-				   view_list_addr,
-				   view_list_size);
+					   view_list_addr, view_list_size);
 			if (retVal != 0) {
 				pr_err
 				    ("%s %d Failed to read param from ubuf:%p\n",
@@ -695,7 +694,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 			}
 
 			view_list_addr =
-				(const void __user *)(uintptr_t)c_param->view_list;
+			    (const void __user *)(uintptr_t) c_param->view_list;
 			param_addr = virt_to_phys(c_param);
 			num_entries = c_param->num_entries;
 			view_list_size = num_entries * sizeof(v_node);
@@ -708,8 +707,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 			}
 			retVal =
 			    copy_from_user(view_list,
-					    view_list_addr,
-					    view_list_size);
+					   view_list_addr, view_list_size);
 			if (retVal != 0) {
 				pr_err("Failed to read param from ubuf:%p\n",
 				       view_list_addr);
@@ -872,7 +870,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 			}
 
 			c_param->vmm_view =
-				*(uint64_t *) phys_to_virt(param_addr);
+			    *(uint64_t *) phys_to_virt(param_addr);
 			retVal =
 			    copy_to_user(ubuf, c_param,
 					 sizeof(vmm_view_info_t));
@@ -1044,6 +1042,56 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				       ubuf);
 				return retVal;
 			}
+			return 0;
+		}
+
+	case VIDT_ACTIVATE_KEEPALIVE_VIEW:{
+			struct view_prop_t *c_param;
+			uint32_t size = _IOC_SIZE(vidt_command);
+			uint32_t retVal = 0;
+			uint64_t param_addr = 0;
+			void __user *ubuf = (void __user *)vidt_param;
+			if (size != sizeof(struct vmm_keepalive_info)) {
+				pr_err("[%s:%d] Invalid command passed:%u\n",
+				       __func__, __LINE__, vidt_command);
+				return -EFAULT;
+			}
+			c_param = kmalloc(size, GFP_KERNEL);
+			if (c_param == NULL) {
+				pr_err("[%s:%d] Failed to allocate c_param\n",
+				       __func__, __LINE__);
+				return -EFAULT;
+			}
+			retVal =
+			    copy_from_user(c_param, ubuf,
+					   sizeof(struct vmm_keepalive_info));
+			if (retVal != 0) {
+				pr_err("Failed to read param from ubuf\n");
+				kfree(c_param);
+				return -EFAULT;
+			}
+			param_addr = virt_to_phys(c_param);
+#ifdef __x86_64__
+			retVal =
+			    request_sl_service
+			    (SL_CMD_HSEC_ACTIVATE_KEEPALIVE_VIEW, param_addr,
+			     sizeof(struct vmm_keepalive_info), 0, 0);
+#else
+			retVal =
+			    request_sl_service
+			    (SL_CMD_HSEC_ACTIVATE_KEEPALIVE_VIEW,
+			     (uint32_t) param_addr,
+			     sizeof(struct vmm_keepalive_info), 0, 0);
+#endif
+
+			if (retVal != 0) {
+				pr_err
+				    ("%s %d ACTIVATE_KEEPALIVE failed %x",
+				     __func__, __LINE__, retVal);
+				kfree(c_param);
+				return retVal;
+			}
+			kfree(c_param);
 			return 0;
 		}
 

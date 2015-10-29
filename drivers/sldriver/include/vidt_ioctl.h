@@ -146,6 +146,11 @@ typedef struct vIDT_sign {
 	uint32_t sign_size;
 } __packed vIDT_sign_t;
 
+struct vmm_keepalive_info {
+	uint32_t view_id;
+	uint32_t ta_state;
+};
+
 #define VIDT_MAGIC_NUMBER   255
 
 #define VIDT_PID_VIEW_MAP       _IOW(VIDT_MAGIC_NUMBER, 0, struct entry_pid_viewid)
@@ -167,5 +172,7 @@ typedef struct vIDT_sign {
 #define VIDT_GET_TA_TYPE        _IOW(VIDT_MAGIC_NUMBER, 16, struct vmm_view_type)
 #define VIDT_VERIFY             _IOW(VIDT_MAGIC_NUMBER, 17, struct vIDT_sign)
 #define VIDT_GET_SL_AFFINITY    _IOW(VIDT_MAGIC_NUMBER, 18, uint32_t)
+#define VIDT_ACTIVATE_KEEPALIVE_VIEW _IOW(VIDT_MAGIC_NUMBER, 19, \
+					  struct vmm_keepalive_info)
 
 #endif
