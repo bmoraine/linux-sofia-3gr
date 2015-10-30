@@ -555,17 +555,24 @@ static inline void smb345_setup_fake_vbus_sysfs_attr(
 static int smb345_i2c_read_reg(struct i2c_client *client, u8 reg, u8 *val)
 {
 	int ret;
+	int retry_count = I2C_RETRY_COUNT;
 	struct smb345_charger *chrgr  = i2c_get_clientdata(client);
 
-	ret = i2c_smbus_read_byte_data(chrgr->client, reg);
-	if (ret < 0) {
-		dev_warn(&chrgr->client->dev,
+	do {
+		ret = i2c_smbus_read_byte_data(chrgr->client, reg);
+		if (ret < 0) {
+			retry_count--;
+			dev_warn(&chrgr->client->dev,
 				"i2c read fail: can't read reg 0x%02X: %d\n",
-				reg, ret);
+					reg, ret);
+			msleep(I2C_RETRY_DELAY);
+		}
+	} while (ret < 0 && retry_count > 0);
+
+	if (ret < 0)
 		return ret;
-	} else {
+	else
 		*val = ret;
-	}
 
 	return 0;
 }
@@ -574,16 +581,21 @@ static int smb345_i2c_write_reg(struct i2c_client *client,
 		u8 reg, u8 val)
 {
 	int ret;
+	int retry_count = I2C_RETRY_COUNT;
 	struct smb345_charger *chrgr = i2c_get_clientdata(client);
 
-	ret = i2c_smbus_write_byte_data(chrgr->client, reg, val);
-	if (ret < 0) {
-		dev_err(&chrgr->client->dev,
-				"i2c write fail: can't write %02X to %02X: %d\n",
-				val, reg, ret);
-		return ret;
-	}
-	return 0;
+	do {
+		ret = i2c_smbus_write_byte_data(chrgr->client, reg, val);
+		if (ret < 0) {
+			retry_count--;
+			dev_err(&chrgr->client->dev,
+			"i2c write fail: can't write %02X to %02X: %d\n",
+					val, reg, ret);
+			msleep(I2C_RETRY_DELAY);
+		}
+	} while (ret < 0 && retry_count > 0);
+
+	return ret;
 }
 
 static int smb345_masked_write(struct i2c_client *client, int reg,
