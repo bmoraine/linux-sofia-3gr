@@ -106,7 +106,6 @@
 		intel,led-down = <0x200>;
 		intel,led-safe = <0x811>;
 		intel,bl-gpio-enable = <&xgold_pmx_gpio 71 0>;
-		intel,vmm-secured-access;
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&led_agold_default_pins>;
 		pinctrl-1 = <&led_agold_sleep_pins>;
@@ -184,7 +183,6 @@
 			<&xgold_pmx_gpio 48 0>;
 		intel,gpio-lcm-id =
 			<&xgold_pmx_gpio 59 0>;
-		intel,vmm-secured-access;
 	};
 };
 

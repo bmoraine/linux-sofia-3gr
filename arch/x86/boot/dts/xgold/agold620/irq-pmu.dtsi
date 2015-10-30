@@ -36,6 +36,7 @@ ag620_pmu:pmu-interrupt-controller {
 		< ABB_PMU_INT1 XGOLD_IRQ_TYPE_NONE >; /* CCCL */
 	reg = <0xe6500000 0x3000>;
 	reg-names = "pmu-regs";
+/*	intel,io-access-guest; */
 	intel,globalmask = < GLOBAL_MASK_OFFSET 1 1 >; /* PMU_C1 */
 	/* C1_IRQSC_Register */
 	intel,ack,0 = < ACK_OFFSET 0 1 >; /* FOV */

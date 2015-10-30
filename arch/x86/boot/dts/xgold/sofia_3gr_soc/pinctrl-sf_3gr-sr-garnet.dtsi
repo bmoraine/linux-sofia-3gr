@@ -342,6 +342,7 @@ emmc_default_pins:emmc_default_pins {
 		0x25c 0x33011	/* emmc_dat2 */
 		0x260 0x33011	/* emmc_dat3 */
 		0x264 0x31011	/* emmc_clk */
+		0x268 0x11010	/* emmc_reset */
 		0x26c 0x33011	/* emmc_dat4 */
 		0x270 0x33011	/* emmc_dat5 */
 		0x274 0x33011	/* emmc_dat6 */
@@ -356,6 +357,7 @@ emmc_inactive_pins:emmc_inactive_pins {
 		0x25c 0x2100	/* emmc_dat2 */
 		0x260 0x2100	/* emmc_dat3 */
 		0x264 0x2100	/* emmc_clk */
+		0x268 0x2100	/* emmc_reset */
 		0x26c 0x2100	/* emmc_dat4 */
 		0x270 0x2100	/* emmc_dat5 */
 		0x274 0x2100	/* emmc_dat6 */
@@ -370,6 +372,7 @@ emmc_sleep_pins:emmc_sleep_pins {
 		0x25c 0x33011	/* emmc_dat2 */
 		0x260 0x33011	/* emmc_dat3 */
 		0x264 0x31011	/* emmc_clk */
+		0x268 0x11010	/* emmc_reset */
 		0x26c 0x33011	/* emmc_dat4 */
 		0x270 0x33011	/* emmc_dat5 */
 		0x274 0x33011	/* emmc_dat6 */
