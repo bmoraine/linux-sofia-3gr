@@ -27,6 +27,11 @@
 #include <linux/unistd.h>
 #include <linux/proc_fs.h>
 
+#ifdef CONFIG_PM
+#include <linux/power_hal_sysfs.h>
+#endif
+
+
 //#if defined(CONFIG_Z170CG) || defined(CONFIG_Z170C)
 static unsigned char CTPM_FW[] = {
 #include "ASUS_Z170_3427_BOE_0x01_0x06_20150305.h"
@@ -1731,6 +1736,35 @@ static ssize_t touch_irq_show(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+#ifdef CONFIG_PM
+static ssize_t ftxxxx_sys_power_hal_suspend_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	ftxxxx_enable(!!strncmp(buf, POWER_HAL_SUSPEND_ON, POWER_HAL_SUSPEND_STATUS_LEN));
+	return count;
+}
+
+static DEVICE_POWER_HAL_SUSPEND_ATTR(ftxxxx_sys_power_hal_suspend_store);
+
+static int ftxxxx_sys_power_hal_suspend_init(struct device *dev)
+{
+	int ret = 0;
+
+	ret = device_create_file(dev, &dev_attr_power_HAL_suspend);
+	if (ret)
+		return ret;
+
+	return register_power_hal_suspend_device(dev);
+}
+
+static void ftxxxx_sys_power_hal_suspend_destroy(struct device *dev)
+{
+	device_remove_file(dev, &dev_attr_power_HAL_suspend);
+	unregister_power_hal_suspend_device(dev);
+}
+#endif
+
 static ssize_t touch_enable(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	int tmp = 0;
@@ -1846,12 +1880,19 @@ int ftxxxx_create_sysfs(struct i2c_client * client)
 	} else {
 		dev_dbg(&client->dev, "[Focal][Touch] %s() - sysfs_create_group() succeeded. \n", __FUNCTION__);
 	}
+#ifdef CONFIG_PM
+	if (ftxxxx_sys_power_hal_suspend_init(&client->dev) < 0)
+		dev_err(&client->dev, "[Focal][Touch] %s() - unable to register for power hal\n", __FUNCTION__);
+#endif
 	HidI2c_To_StdI2c(client);
 	return err;
 }
 
 int ftxxxx_remove_sysfs(struct i2c_client * client)
 {
+#ifdef CONFIG_PM
+	ftxxxx_sys_power_hal_suspend_destroy(&client->dev);
+#endif
 	sysfs_remove_group(&client->dev.kobj, &ftxxxx_attribute_group);
 	return 0;
 }
