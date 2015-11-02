@@ -1197,7 +1197,7 @@ static void fan54x_boost_worker(struct work_struct *work)
 	int ret;
 	u8 val;
 	struct fan54x_charger *chrgr =
-		container_of(work, struct fan54x_charger, boost_work.work);
+		container_of(work, struct fan54x_charger, boost_bh.work);
 
 	down(&chrgr->prop_lock);
 
@@ -1205,11 +1205,24 @@ static void fan54x_boost_worker(struct work_struct *work)
 
 	if ((!ret) && val && chrgr->state.boost_enabled) {
 		fan54x_trigger_wtd(chrgr);
-		schedule_delayed_work(&chrgr->boost_work, BOOST_WORK_DELAY);
+
+		alarm_start_relative(&chrgr->boost_alarm,
+				ktime_set(BOOST_ALARM_DELAY, 0));
 	}
 
 	up(&chrgr->prop_lock);
 	return;
+}
+
+static enum alarmtimer_restart fan54x_boost_alarm(struct alarm *alarm,
+		ktime_t t)
+{
+	struct fan54x_charger *chrgr =
+		container_of(alarm, struct fan54x_charger, boost_alarm);
+
+	unfreezable_bh_schedule(&chrgr->boost_bh);
+
+	return ALARMTIMER_NORESTART;
 }
 
 static void fan54x_set_boost(struct work_struct *work)
@@ -1255,13 +1268,10 @@ static void fan54x_set_boost(struct work_struct *work)
 		/* Enable boost mode flag */
 		chrgr->state.boost_enabled = 1;
 
-		wake_lock(&chrgr->suspend_lock);
-		schedule_delayed_work(&chrgr->boost_work, BOOST_WORK_DELAY);
+		alarm_start_relative(&chrgr->boost_alarm,
+				ktime_set(BOOST_ALARM_DELAY, 0));
 	} else {
-		cancel_delayed_work(&chrgr->boost_work);
-
-		/* Release Wake Lock */
-		wake_unlock(&chrgr->suspend_lock);
+		alarm_cancel(&chrgr->boost_alarm);
 
 		/* Disable boost mode flag */
 		chrgr->state.boost_enabled = 0;
@@ -2034,7 +2044,16 @@ static int fan54x_i2c_probe(struct i2c_client *client,
 
 
 	INIT_DELAYED_WORK(&chrgr->charging_work, fan54x_charging_worker);
-	INIT_DELAYED_WORK(&chrgr->boost_work, fan54x_boost_worker);
+
+	alarm_init(&chrgr->boost_alarm, ALARM_REALTIME, fan54x_boost_alarm);
+
+	ret = unfreezable_bh_create(&chrgr->boost_bh, "boost_wq",
+			"fan54x_boost", fan54x_boost_worker);
+	if (ret) {
+		ret = -ENOMEM;
+		goto pre_fail;
+	}
+
 	INIT_DELAYED_WORK(&chrgr->chgdet_work, fan54x_chgdet_worker);
 
 	sema_init(&chrgr->prop_lock, 1);

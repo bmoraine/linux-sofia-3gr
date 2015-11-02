@@ -36,6 +36,7 @@
 
 #include <linux/time.h>
 #include <linux/wakelock.h>
+#include <linux/alarmtimer.h>
 
 #include <linux/power/charger_debug.h>
 
@@ -227,9 +228,10 @@ struct fan54x_charger {
 
 	struct unfreezable_bh_struct chgint_bh;
 	struct unfreezable_bh_struct boost_op_bh;
+	struct unfreezable_bh_struct boost_bh;
 
 	struct delayed_work charging_work;
-	struct delayed_work boost_work;
+	struct alarm boost_alarm;
 	struct delayed_work chgdet_work;
 	struct resource *ctrl_io_res;
 	struct usb_phy *otg_handle;
@@ -274,7 +276,7 @@ struct fan54x_charger {
 
 #define MAX_NR_OF_I2C_RETRIES 1
 #define CHRGR_WORK_DELAY (10*HZ)
-#define BOOST_WORK_DELAY (10*HZ)
+#define BOOST_ALARM_DELAY (10) /* sec */
 #define EVT_WAKELOCK_TIMEOUT (2*HZ)
 #define EVENTS_LOG_FILENAME "events_log"
 #define DBG_REGS_FILENAME "charger_regs"
