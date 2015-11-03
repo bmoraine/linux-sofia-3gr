@@ -385,7 +385,12 @@ static int intel_otg_suspend(struct intel_usbphy *iphy)
 		enable_irq_wake(iphy->id_irq);
 
 	atomic_set(&iphy->in_lpm, 1);
+	/*
+	 * Unlock only required in case of B-dev. However, its ok to unlock
+	 * even if its not locked.
+	 */
 	wake_unlock(&iphy->wlock);
+
 	dev_dbg(phy->dev, "USB in low power mode\n");
 	return 0;
 }
@@ -400,10 +405,10 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 	if (!atomic_read(&iphy->in_lpm))
 		return 0;
 
+	if (test_bit(ID, &iphy->inputs))
+		wake_lock(&iphy->wlock);
 
 	if (atomic_read(&iphy->bus_suspended)) {
-		if (iphy->host_bus_suspend)
-			wake_lock(&iphy->wlock);
 		ret = device_state_pm_set_state(iphy->dev,
 				iphy->pm_states[USB_PMS_ENABLE_ISO]);
 		if (ret)
@@ -421,8 +426,6 @@ static int intel_otg_resume(struct intel_usbphy *iphy)
 
 		return 0;
 	}
-
-	wake_lock(&iphy->wlock);
 
 	/* reset USB core and PHY */
 	usb_enable_reset(iphy, true, "usb");
