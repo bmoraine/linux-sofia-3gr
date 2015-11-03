@@ -380,7 +380,6 @@ struct rga_service_info {
 	atomic_t cmd_num;
 	atomic_t rga_working;
 	bool enable;
-	atomic_t already_queue;
 	short src_fence_fd;
 	short src_fence_flag;
 	short dst_fence_fd;

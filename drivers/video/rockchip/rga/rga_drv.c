@@ -76,7 +76,7 @@
 
 #define RGA_POWER_OFF_DELAY	(4*HZ)	/* 4s */
 #define RGA_TIMEOUT_DELAY	(1*HZ)	/* 1s */
-#define RGA_FENCE_TIMEOUT_DELAY	msecs_to_jiffies(220) 	/* 220ms */
+#define RGA_FENCE_TIMEOUT_DELAY	msecs_to_jiffies(400) 	/* 400ms */
 
 #define RGA_MAJOR		255
 
@@ -203,10 +203,19 @@ static void rga_soft_reset(void)
 	u32 i;
 	u32 reg;
 
+#if !defined(RGA_SECURE_ACCESS)
 	rga_write(1, RGA_SYS_CTRL);
+#else
+	mv_svc_reg_write(RGA_BASE + RGA_SYS_CTRL, 0x1, BIT(1));
+#endif
 
 	for (i = 0; i < RGA_RESET_TIMEOUT; i++) {
+#if !defined(RGA_SECURE_ACCESS)
 		reg = rga_read(RGA_SYS_CTRL) & 1;
+#else
+		mv_svc_reg_read(RGA_BASE + RGA_SYS_CTRL, &reg, BIT(1));
+		reg &= 1;
+#endif
 		if (reg == 0)
 			break;
 		udelay(1);
@@ -816,14 +825,6 @@ static void rga_del_running_list_timeout(struct work_struct *work)
 
 		rga_soft_reset();
 
-		device_state_pm_set_state_by_name(drvdata->dev,
-			drvdata->pm_platdata->
-			pm_state_D3_name);
-		udelay(10);
-		device_state_pm_set_state_by_name(drvdata->dev,
-			drvdata->pm_platdata->
-			pm_state_D0_name);
-
 		if (list_empty(&reg->session->waiting)) {
 			atomic_set(&reg->session->done, 1);
 			wake_up(&reg->session->wait);
@@ -1079,16 +1080,6 @@ static int rga_blit(struct rga_session *session, struct rga_req *req)
 		mutex_lock(&rga_service.lock);
 		atomic_add(num, &rga_service.total_running);
 		rga_try_set_reg();
-		/*already_queue =
-			atomic_read(&rga_service.already_queue);
-		if (list_empty(&rga_service.running) &&
-			(already_queue == 0)) {
-		    queue_kthread_work(
-				&session->update_regs_worker,
-				&session->update_regs_work);
-			atomic_set(&rga_service.already_queue, 1);
-		}
-		*/
 		mutex_unlock(&rga_service.lock);
 
 		return 0;
@@ -1306,7 +1297,6 @@ static irqreturn_t rga_irq_thread(int irq, void *dev_id)
 	if (rga_service.enable) {
 		rga_del_running_list();
 		rga_try_set_reg();
-		atomic_set(&rga_service.already_queue, 0);
 	}
 	mutex_unlock(&rga_service.lock);
 
