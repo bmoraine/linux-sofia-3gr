@@ -1406,6 +1406,271 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		break;
 	}
 
+	/* v10 functions */
+
+	/*===================================================================*/
+	case VOEMC_IOCTL_QUERYKEYCONTROL:
+	/*===================================================================*/
+	{
+		struct voemc_querykeycontrol_t *req =
+			(struct voemc_querykeycontrol_t *)data;
+		uint8_t *keyid = NULL;
+		uint8_t *kcb = NULL;
+		size_t kcb_len;
+		uint8_t __user *u_keyid = NULL;
+		uint8_t __user *u_kcb = NULL;
+		size_t __user *u_kcb_len = NULL;
+
+		/* Allocate contiguous memory */
+		keyid = kmalloc(req->key_id_length, GFP_KERNEL);
+		if (keyid == NULL)
+			return -EAGAIN;
+
+		copy_from_user(keyid, req->key_id, req->key_id_length);
+		copy_from_user(&kcb_len, req->key_control_block_length, sizeof(size_t));
+
+		if (kcb_len != 0) {
+			kcb = kmalloc(kcb_len, GFP_KERNEL);
+			if (kcb == NULL) {
+				kfree(keyid);
+				return -EAGAIN;
+			}
+		}
+
+		/* Backup virtual address from user space */
+		u_keyid = (uint8_t *)req->key_id;
+		u_kcb = req->key_control_block;
+		u_kcb_len = req->key_control_block_length;
+
+		/* Translate and store physical address in shared memory */
+		req->key_id = (uint8_t *)voemc_get_pa(keyid);
+		if (kcb != NULL)
+			req->key_control_block = (uint8_t *)voemc_get_pa(kcb);
+		req->key_control_block_length =
+			(size_t *)voemc_get_pa((uint8_t *)&kcb_len);
+
+		req->cmd = VOEMCRYPTO_CMD_QUERYKEYCONTROL;
+		/* Execute RPC command */
+		ret_size = voemcrypto_call_ext(voemcrypto_data,
+			sizeof(struct voemc_querykeycontrol_t));
+
+		/* Copy updated values from allocated memory to user space */
+		if (kcb != NULL)
+			copy_to_user(u_kcb, kcb, kcb_len);
+		copy_to_user(u_kcb_len, &kcb_len, sizeof(size_t));
+
+		/* Restore to virtual address from user space */
+		req->key_id = u_keyid;
+		req->key_control_block = u_kcb;
+		req->key_control_block_length = u_kcb_len;
+
+		kfree(keyid);
+		kfree(kcb);
+
+		break;
+	}
+
+	/*===================================================================*/
+	case VOEMC_IOCTL_COPYBUFFER:
+	/*===================================================================*/
+	{
+		struct voemc_copybuffer_t *req =
+			(struct voemc_copybuffer_t *)data;
+
+		uint8_t *outbuf = NULL;
+
+		/* Allocate contiguous memory */
+		outbuf = kmalloc(sizeof(struct voemc_dest_buffer_desc_t),
+				GFP_KERNEL);
+		if (outbuf == NULL) {
+			return -EAGAIN;
+		}
+
+		copy_from_user(outbuf, (uint8_t *)req->out_buffer,
+				sizeof(struct voemc_dest_buffer_desc_t));
+
+		/* Update shared pointer with physical address reference */
+		req->out_buffer = (struct voemc_dest_buffer_desc_t *)
+				voemc_get_pa(outbuf);
+
+		req->cmd = VOEMCRYPTO_CMD_COPYBUFFER;
+		/* Execute RPC command */
+		ret_size = voemcrypto_call_ext(voemcrypto_data,
+			sizeof(struct voemc_copybuffer_t));
+
+		kfree(outbuf);
+		break;
+	}
+
+	/*===================================================================*/
+	case VOEMC_IOCTL_LOADTESTKEYBOX:
+	/*===================================================================*/
+	{
+		struct voemc_loadtestkeybox_t *req =
+			(struct voemc_loadtestkeybox_t *)data;
+
+		req->cmd = VOEMCRYPTO_CMD_LOADTESTKEYBOX;
+		/* Execute RPC command */
+		ret_size = voemcrypto_call_ext(voemcrypto_data,
+			sizeof(struct voemc_loadtestkeybox_t));
+
+		break;
+	}
+
+	/*===================================================================*/
+	case VOEMC_IOCTL_GETHDCPCAPABILITY:
+	/*===================================================================*/
+	{
+		struct voemc_gethdcpcapability_t *req =
+			(struct voemc_gethdcpcapability_t *)data;
+
+		enum OEMCrypto_HDCP_Capability k_current;
+		enum OEMCrypto_HDCP_Capability k_maximum;
+		enum OEMCrypto_HDCP_Capability __user *u_current;
+		enum OEMCrypto_HDCP_Capability __user *u_maximum;
+
+		/* Backup virtual address from user space */
+		u_current =  req->current_v;
+		u_maximum = req->maximum;
+
+		req->current_v = (enum OEMCrypto_HDCP_Capability *)
+				voemc_get_pa((uint8_t *)&k_current);
+		req->maximum = (enum OEMCrypto_HDCP_Capability *)
+				voemc_get_pa((uint8_t *)&k_maximum);
+
+		req->cmd = VOEMCRYPTO_CMD_GETHDCPCAPABILITY;
+		/* Execute RPC command */
+		ret_size = voemcrypto_call_ext(voemcrypto_data,
+			sizeof(struct voemc_gethdcpcapability_t));
+
+		/* Copy updated values from allocated memory to user space */
+		copy_to_user(u_current, &k_current,
+				sizeof(enum OEMCrypto_HDCP_Capability));
+		copy_to_user(u_maximum, &k_maximum,
+				sizeof(enum OEMCrypto_HDCP_Capability));
+
+		/* Restore to virtual address from user space */
+		req->current_v = u_current;
+		req->maximum = u_maximum;
+
+		break;
+	}
+
+	/*===================================================================*/
+	case VOEMC_IOCTL_ISANTIROLLBACKHWPRESENT:
+	/*===================================================================*/
+	{
+		struct voemc_isantirollbackhwpresent_t *req =
+			(struct voemc_isantirollbackhwpresent_t *)data;
+
+		bool k_is_present;
+		bool __user *u_is_present;
+
+		/* Backup virtual address from user space */
+		u_is_present = req->is_present;
+
+		req->is_present = (bool *)voemc_get_pa
+				((uint8_t *)&k_is_present);
+
+		req->cmd = VOEMCRYPTO_CMD_ISANTIROLLBACKHWPRESENT;
+		/* Execute RPC command */
+		ret_size = voemcrypto_call_ext(voemcrypto_data,
+			sizeof(struct voemc_isantirollbackhwpresent_t));
+
+		/* Copy updated values from allocated memory to user space */
+		copy_to_user(u_is_present, &k_is_present, sizeof(bool));
+
+		/* Restore to virtual address from user space */
+		req->is_present = u_is_present;
+
+		break;
+	}
+
+	/*===================================================================*/
+	case VOEMC_IOCTL_GETNUMBEROFOPENSESSIONS:
+	/*===================================================================*/
+	{
+		struct voemc_getnumberofopensessions_t *req =
+			(struct voemc_getnumberofopensessions_t *)data;
+
+		size_t k_count;
+		size_t __user *u_count;
+
+		/* Backup virtual address from user space */
+		u_count = req->count;
+
+		req->count = (size_t *)voemc_get_pa((uint8_t *)&k_count);
+
+		req->cmd = VOEMCRYPTO_CMD_GETNUMBEROFOPENSESSIONS;
+		/* Execute RPC command */
+		ret_size = voemcrypto_call_ext(voemcrypto_data,
+			sizeof(struct voemc_getnumberofopensessions_t));
+
+		/* Copy updated values from allocated memory to user space */
+		copy_to_user(u_count, &k_count, sizeof(size_t));
+
+		/* Restore to virtual address from user space */
+		req->count = u_count;
+
+		break;
+	}
+
+	/*===================================================================*/
+	case VOEMC_IOCTL_GETMAXNUMBEROFSESSIONS:
+	/*===================================================================*/
+	{
+		struct voemc_getmaxnumberofsessions_t *req =
+			(struct voemc_getmaxnumberofsessions_t *)data;
+
+		size_t k_max;
+		size_t __user *u_max;
+
+		/* Backup virtual address from user space */
+		u_max = req->max;
+
+		req->max = (size_t *)voemc_get_pa((uint8_t *)&k_max);
+
+		req->cmd = VOEMCRYPTO_CMD_GETMAXNUMBEROFSESSIONS;
+		/* Execute RPC command */
+		ret_size = voemcrypto_call_ext(voemcrypto_data,
+			sizeof(struct voemc_getmaxnumberofsessions_t));
+
+		/* Copy updated values from allocated memory to user space */
+		copy_to_user(u_max, &k_max, sizeof(size_t));
+
+		/* Restore to virtual address from user space */
+		req->max = u_max;
+
+		break;
+	}
+
+	/*===================================================================*/
+	case VOEMC_IOCTL_FORCEDELETEUSAGEENTRY:
+	/*===================================================================*/
+	{
+		struct voemc_forcedeleteusageentry_t *req =
+			(struct voemc_forcedeleteusageentry_t *)data;
+
+		uint8_t *pst;
+
+		/* Allocate contiguous memory */
+		pst = kmalloc(req->pst_length, GFP_KERNEL);
+		if (pst == NULL)
+			return -EAGAIN;
+
+		/* Translate and store physical address in shared memory */
+		req->pst = (uint8_t *)voemc_get_pa(pst);
+
+		req->cmd = VOEMCRYPTO_CMD_FORCEDELETEUSAGEENTRY;
+		/* Execute RPC command */
+		ret_size = voemcrypto_call_ext(voemcrypto_data,
+			sizeof(struct voemc_forcedeleteusageentry_t));
+
+		kfree(pst);
+
+		break;
+	}
+
 	/*===================================================================*/
 	case VOEMC_IOCTL_WVC_SET_ENTITLEMENT_KEY:
 	/*===================================================================*/

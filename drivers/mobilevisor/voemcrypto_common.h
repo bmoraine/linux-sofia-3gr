@@ -71,6 +71,16 @@ enum voemcrypto_cmd_t {
 	VOEMCRYPTO_CMD_REPORTUSAGE = 30,
 	VOEMCRYPTO_CMD_DELETEUSAGEENTRY = 31,
 	VOEMCRYPTO_CMD_DELETEUSAGETABLE = 32,
+	/* API v10 */
+	VOEMCRYPTO_CMD_QUERYKEYCONTROL = 33,
+	VOEMCRYPTO_CMD_COPYBUFFER = 34,
+	VOEMCRYPTO_CMD_LOADTESTKEYBOX = 35,
+	VOEMCRYPTO_CMD_GETHDCPCAPABILITY = 36,
+	VOEMCRYPTO_CMD_ISANTIROLLBACKHWPRESENT = 37,
+	VOEMCRYPTO_CMD_GETNUMBEROFOPENSESSIONS = 38,
+	VOEMCRYPTO_CMD_GETMAXNUMBEROFSESSIONS = 39,
+	VOEMCRYPTO_CMD_FORCEDELETEUSAGEENTRY = 40,
+	/* Classic */
 	VOEMCRYPTO_CMD_WVC_DECRYPT_VIDEO = 50, /* Widevine classic */
 	VOEMCRYPTO_CMD_WVC_DECRYPT_AUDIO = 51, /* Widevine classic */
 	VOEMCRYPTO_CMD_WVC_SET_ENTITLEMENT_KEY = 52, /* Widevine classic */
@@ -146,6 +156,24 @@ enum voemcrypto_cmd_t {
 	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_DELETEUSAGEENTRY, uint32_t)
 #define VOEMC_IOCTL_DELETEUSAGETABLE \
 	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_DELETEUSAGETABLE, uint32_t)
+/* API v10 */
+#define VOEMC_IOCTL_QUERYKEYCONTROL \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_QUERYKEYCONTROL, uint32_t)
+#define VOEMC_IOCTL_COPYBUFFER \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_COPYBUFFER, uint32_t)
+#define VOEMC_IOCTL_LOADTESTKEYBOX \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_LOADTESTKEYBOX, uint32_t)
+#define VOEMC_IOCTL_GETHDCPCAPABILITY \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GETHDCPCAPABILITY, uint32_t)
+#define VOEMC_IOCTL_ISANTIROLLBACKHWPRESENT \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_ISANTIROLLBACKHWPRESENT, uint32_t)
+#define VOEMC_IOCTL_GETNUMBEROFOPENSESSIONS \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GETNUMBEROFOPENSESSIONS, uint32_t)
+#define VOEMC_IOCTL_GETMAXNUMBEROFSESSIONS \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_GETMAXNUMBEROFSESSIONS, uint32_t)
+#define VOEMC_IOCTL_FORCEDELETEUSAGEENTRY \
+	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_FORCEDELETEUSAGEENTRY, uint32_t)
+/* Classic */
 #define VOEMC_IOCTL_WVC_DECRYPT_VIDEO \
 	_IOR(MAGIC_NUM, VOEMCRYPTO_CMD_WVC_DECRYPT_VIDEO, uint32_t)
 #define VOEMC_IOCTL_WVC_DECRYPT_AUDIO \
@@ -595,6 +623,74 @@ struct voem_wvc_derive_control_word_t {
 	uint32_t length;
 	uint32_t *flags;
 	uint8_t align64[64 - sizeof(uint32_t)*4 - sizeof(uint8_t)];
+};
+
+/*****************************************************************************/
+/* Widevine API Level 10 additions                                           */
+/*****************************************************************************/
+enum OEMCrypto_HDCP_Capability {
+	HDCP_NONE = 0, /* No HDCP supported, no secure data path. */
+	HDCP_V1 = 1, /* HDCP version 1.0 */
+	HDCP_V2 = 2, /* HDCP version 2.0 */
+	HDCP_V2_1 = 3, /* HDCP version 2.1 */
+	HDCP_V2_2 = 4, /* HDCP version 2.2 */
+	HDCP_NO_DIGITAL_OUTPUT = 0xff /* No digital output. */
+};
+
+struct voemc_gethdcpcapability_t {
+	uint32_t cmd;
+	uint32_t result;
+	enum OEMCrypto_HDCP_Capability *current_v;
+	enum OEMCrypto_HDCP_Capability *maximum;
+};
+
+struct voemc_querykeycontrol_t {
+	uint32_t cmd;
+	uint32_t result;
+	uint32_t session;
+	const uint8_t *key_id;
+	uint32_t key_id_length;
+	uint8_t *key_control_block;
+	size_t *key_control_block_length;
+};
+
+struct voemc_copybuffer_t {
+	uint32_t cmd;
+	uint32_t result;
+	const uint8_t *data_addr;
+	size_t data_length;
+	struct voemc_dest_buffer_desc_t *out_buffer;
+	uint8_t subsample_flags;
+};
+
+struct voemc_loadtestkeybox_t {
+	uint32_t cmd;
+	uint32_t result;
+};
+
+struct voemc_isantirollbackhwpresent_t {
+	uint32_t cmd;
+	uint32_t result;
+	bool *is_present;
+};
+
+struct voemc_getnumberofopensessions_t {
+	uint32_t cmd;
+	uint32_t result;
+	size_t *count;
+};
+
+struct voemc_getmaxnumberofsessions_t {
+	uint32_t cmd;
+	uint32_t result;
+	size_t *max;
+};
+
+struct voemc_forcedeleteusageentry_t {
+	uint32_t cmd;
+	uint32_t result;
+	const uint8_t *pst;
+	size_t pst_length;
 };
 
 /*****************************************************************************/
