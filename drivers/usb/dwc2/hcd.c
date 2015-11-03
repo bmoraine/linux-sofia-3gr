@@ -2408,14 +2408,20 @@ static int _dwc2_hcd_suspend(struct usb_hcd *hcd)
 		goto skip_power_saving;
 
 	/*
-	 * Drive USB suspend and disable port Power
-	 * if usb bus is not suspended.
+	 * Drive usb suspend and disable port power if usb bus is not suspended
+	 * and no device are connected. Otherwise, suspend the bus.
 	 */
 	if (!hsotg->bus_suspended) {
-		hprt0 = dwc2_read_hprt0(hsotg);
-		hprt0 |= HPRT0_SUSP;
-		hprt0 &= ~HPRT0_PWR;
-		writel(hprt0, hsotg->regs + HPRT0);
+		if (hsotg->flags.b.port_connect_status) {
+			spin_unlock_irqrestore(&hsotg->lock, flags);
+			dwc2_port_suspend(hsotg, 1);
+			spin_lock_irqsave(&hsotg->lock, flags);
+		} else {
+			hprt0 = dwc2_read_hprt0(hsotg);
+			hprt0 |= HPRT0_SUSP;
+			hprt0 &= ~HPRT0_PWR;
+			writel(hprt0, hsotg->regs + HPRT0);
+		}
 	}
 
 	/* Enter hibernation */
