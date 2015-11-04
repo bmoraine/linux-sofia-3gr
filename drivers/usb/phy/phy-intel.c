@@ -1865,7 +1865,7 @@ static int intel_otg_pm_resume(struct device *dev)
 
 #ifdef CONFIG_PM
 static const struct dev_pm_ops intel_usb2phy_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(intel_otg_pm_suspend, intel_otg_pm_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(intel_otg_pm_suspend, intel_otg_pm_resume)
 	SET_RUNTIME_PM_OPS(intel_otg_runtime_suspend, intel_otg_runtime_resume,
 				intel_otg_runtime_idle)
 };
