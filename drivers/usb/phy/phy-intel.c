@@ -539,8 +539,10 @@ static int intel_usb2phy_set_suspend(struct usb_phy *phy, int suspend)
 		case OTG_STATE_A_HOST:
 			dev_dbg(phy->dev, "host bus suspend\n");
 			clear_bit(A_BUS_REQ, &iphy->inputs);
-			if (!atomic_read(&iphy->in_lpm))
-				schedule_work(&iphy->sm_work);
+			if (!atomic_read(&iphy->in_lpm)) {
+				phy->state = OTG_STATE_A_SUSPEND;
+				pm_runtime_put(phy->dev);
+			}
 			break;
 		default:
 			break;
