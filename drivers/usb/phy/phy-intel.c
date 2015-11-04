@@ -1821,10 +1821,16 @@ static int intel_otg_pm_suspend(struct device *dev)
 	dev_dbg(dev, "OTG PM suspend\n");
 
 	atomic_set(&iphy->pm_suspended, 1);
-	ret = intel_otg_suspend(iphy);
-	if (ret)
-		atomic_set(&iphy->pm_suspended, 0);
-
+	if (!pm_runtime_status_suspended(dev)) {
+		dev_dbg(dev, "not runtime suspended\n");
+		ret = pm_generic_runtime_suspend(dev);
+		if (ret) {
+			dev_err(dev, "suspend failed with error=%d\n", ret);
+			atomic_set(&iphy->pm_suspended, 0);
+		} else {
+			pm_runtime_set_suspended(dev);
+		}
+	}
 	return ret;
 }
 
