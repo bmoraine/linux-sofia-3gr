@@ -230,6 +230,12 @@ static int vvpu_vbpipe_call(struct device *dev,
 	int done;
 	int done_total;
 
+	/*
+	 * Adding variable loops_count to prevent dead cycle
+	 * when vbpipe always can't be read
+	 */
+	int loops_count;
+
 	int ret = 0;
 
 	/* Acquire mutex; on failure return immediately */
@@ -258,6 +264,7 @@ static int vvpu_vbpipe_call(struct device *dev,
 		datap	   = buf;
 		must	   = len;
 		done_total = 0;
+		loops_count= 0;
 
 		while (must > 0) {
 			done = 0;
@@ -274,10 +281,12 @@ static int vvpu_vbpipe_call(struct device *dev,
 
 			if (done < 0) {
 				dev_err(dev, "error %d writing vbpipe", done);
-				if (done == -ERESTARTSYS)
+				if ((done == -ERESTARTSYS) && (loops_count++ < 2))
 					continue;
 
 				break;
+			} else {
+				loops_count = 0;
 			}
 
 			datap	   += done;
@@ -289,6 +298,7 @@ static int vvpu_vbpipe_call(struct device *dev,
 		datap	   = buf;
 		must	   = len;
 		done_total = 0;
+		loops_count = 0;
 
 		while (must > 0) {
 			done = 0;
@@ -305,10 +315,12 @@ static int vvpu_vbpipe_call(struct device *dev,
 
 			if (done < 0) {
 				dev_err(dev, "error %d reading vbpipe", done);
-				if (done == -ERESTARTSYS)
+				if ((done == -ERESTARTSYS) && (loops_count++ < 2))
 					continue;
 
 				break;
+			} else {
+				loops_count = 0;
 			}
 
 			datap	   += done;

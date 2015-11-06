@@ -370,10 +370,21 @@ ssize_t mvpipe_dev_read(struct file *filp, char __user *buf, size_t count,
 						get_pipe_status(dev)
 						!= MVPIPE_OPEN, HZ);
 					if (wait == -ERESTARTSYS) {
-						pr_err("%s failed piperead\n",
-						       dev->name);
-						up(&dev->read_sem);
-						return -ERESTARTSYS;
+					/* print sig info */
+					struct sigqueue *q;
+					struct sigpending *queue;
+					queue = &current->pending;
+					sigemptyset(&queue->signal);
+					while (!list_empty(&queue->list)) {
+						q = list_entry(queue->list.next,
+							struct sigqueue , list);
+						pr_warn("pending sigs are %d\n",
+							q->info.si_signo);
+					}
+					pr_err("%s failed piperead\n",
+					       dev->name);
+					up(&dev->read_sem);
+					return -ERESTARTSYS;
 					}
 					if (wait == 0) {
 						pr_err("%s timeout piperead\n",
