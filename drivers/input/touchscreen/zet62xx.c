@@ -918,7 +918,10 @@ static int zet622x_downloader( struct i2c_client *client)
 			goto exit_fw_download;
 	}
 
-	zet62xx_load_fw(client);
+	ret = zet62xx_load_fw(client);
+    if (ret < 0)
+        goto exit_fw_download;
+
 	flash_rest_len = data->flash_tot_len;
 
 	while(flash_rest_len > 0)
