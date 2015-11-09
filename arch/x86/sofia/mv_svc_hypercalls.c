@@ -67,84 +67,25 @@ uint32_t mv_svc_pinctrl_service(
 				uint32_t arg2,
 				uint32_t *arg3)
 {
-	struct pal_shared_data *pal_shared_data_ptr;
-	uint32_t result = 0;
-
+	int ret = 0;
 	switch (opcode) {
 	case PINCTRL_OPEN:
 	case PINCTRL_SET:
 	case PINCTRL_CONFIG_FUNC:
 	case PINCTRL_CLOSE:
-	case PINCTRL_SET_CONTROL:
-		return mv_platform_service(PINCTRL_SERVICE,
-					   opcode,
-					   arg1, arg2, 0, 0, 0, 0, 0);
+		ret = mv_platform_service(PINCTRL_SERVICE, opcode,
+					arg1, arg2, 0, 0, 0, 0, 0);
 		break;
 
 	case PINCTRL_GET:
-	case PINCTRL_GET_CONTROL:
-	case PINCTRL_GET_PIN:
-		return mv_platform_service(PINCTRL_SERVICE, opcode,
-					arg1,
+		ret = mv_platform_service(PINCTRL_SERVICE, opcode, arg1,
 					0, 0, 0, 0, 0, arg3);
-		break;
-
-	case PINCTRL_SET_GROUP:
-			pal_shared_data_ptr = (struct pal_shared_data *)
-				mv_svc_get_shared_data();
-			if (arg2 == 0)
-				return 0xFFFFFFFF;
-
-			/* check is required to
-			 * avoid memory corruption
-			*/
-			if (arg2 > MAX_NUMBER_OF_PADS_IN_PINCTRL_GROUP)
-				arg2 =
-				MAX_NUMBER_OF_PADS_IN_PINCTRL_GROUP;
-
-			memcpy((struct pinctrl_group_info *)
-				&pal_shared_data_ptr->
-				pincontrol_group_shared_data,
-				(void *)arg1,
-				(sizeof(struct pinctrl_group_info) * arg2));
-			return mv_platform_service(PINCTRL_SERVICE,
-				opcode, 0,
-				arg2, 0, 0, 0, 0, 0);
-		break;
-
-	case PINCTRL_GET_GROUP:
-			pal_shared_data_ptr = (struct pal_shared_data *)
-				mv_svc_get_shared_data();
-			if (arg2 == 0)
-				return 0xFFFFFFFF;
-
-			/* check is required to avoid
-			 * memory corruption
-			*/
-
-			if (arg2 > MAX_NUMBER_OF_PADS_IN_PINCTRL_GROUP)
-				arg2 =
-				MAX_NUMBER_OF_PADS_IN_PINCTRL_GROUP;
-			memcpy((struct pinctrl_group_info *)
-				&pal_shared_data_ptr->
-				pincontrol_group_shared_data,
-				(void *)arg1,
-				(sizeof(struct pinctrl_group_info)
-				*arg2));
-			result = mv_platform_service(PINCTRL_SERVICE,
-				     opcode, 0,
-				     arg2, 0, 0, 0, 0, 0);
-			memcpy((void *)arg1,
-			(struct pinctrl_group_info *)
-			&pal_shared_data_ptr->
-			pincontrol_group_shared_data,
-			(sizeof(struct pinctrl_group_info) * arg2));
 		break;
 
 	default:
 		break;
 	}
-	return result;
+	return ret;
 }
 
 uint32_t mv_svc_pm_control(uint32_t pm_opcode,

@@ -92,21 +92,10 @@ struct rtc_datetime_shared_data {
 	uint16_t   m_msecond;
 };
 
-#define MAX_NUMBER_OF_PADS_IN_PINCTRL_GROUP 64
-/**
-  @brief pinctrl group information
-**/
-struct pinctrl_group_info {
-	uint32_t pinctrl_pad; /*!< PCL pad index */
-	uint32_t pinctrl_pad_value; /*!< pad value */
-};
-
 struct pal_shared_data {
 	struct pm_control_shared_data pm_control_shared_data;
 	struct pmic_access_shared_data pmic_access_shared_data;
 	struct rtc_datetime_shared_data rtc_shared_data;
-	struct pinctrl_group_info
-	    pincontrol_group_shared_data[MAX_NUMBER_OF_PADS_IN_PINCTRL_GROUP];
 };
 
 enum VMM_POWER_STATE_E {

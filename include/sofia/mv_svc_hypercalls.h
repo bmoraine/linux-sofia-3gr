@@ -90,12 +90,35 @@ enum pinctrl_service_op_code {
 	PINCTRL_GET,
 	PINCTRL_SET,
 	PINCTRL_CONFIG_FUNC,
-	PINCTRL_CLOSE,
-	PINCTRL_SET_CONTROL,
-	PINCTRL_GET_CONTROL,
-	PINCTRL_GET_PIN,
-	PINCTRL_GET_GROUP,
-	PINCTRL_SET_GROUP
+	PINCTRL_CLOSE
+};
+
+/**
+  @typedef pinctrl_oper
+  @brief   enumeration containing port configuration
+**/
+enum pinctrl_oper {
+	PINCTRL_OPER_ACTIVE		= 0,
+	PINCTRL_OPER_SLEEP		= 1,
+	PINCTRL_OPER_DEAVTIVE	= 2
+};
+
+/**
+  @typedef pinctrl_funcs
+  @brief	 enumeration containing function ID
+  **/
+enum pinctrl_funcs {
+	PINCTRL_EMMC	= 0x80000000,
+	PINCTRL_SDMMC,
+	PINCTRL_NAND,
+	PINCTRL_KEYPAD,
+	PINCTRL_I2C1,
+	PINCTRL_I2C2,
+	PINCTRL_USIF1,
+	PINCTRL_USIF2,
+	PINCTRL_CC1,
+	PINCTRL_CC2,
+	PINCTRL_LAST	= 0x8FFFFFFF
 };
 
 /**
