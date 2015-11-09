@@ -607,9 +607,20 @@ static int intel_usb2phy_set_suspend(struct usb_phy *phy, int suspend)
 	return 0;
 }
 
+#define INTEL_USB_DEVICE_ENUM_WAIT (2*HZ)
+
 static irqreturn_t intel_usb2phy_resume(int irq, void *dev)
 {
 	struct intel_usbphy *iphy = (struct intel_usbphy *) dev;
+
+	/*
+	 * Take a wakelock in host mode to prevent immediate suspend. Not doing
+	 * this in intel_usb2phy_set_suspend() as wakelock should not be taken
+	 * when phy is resumed for other reasons.
+	 */
+	if (iphy->phy.state == OTG_STATE_A_SUSPEND)
+		wake_lock_timeout(&iphy->wlock, INTEL_USB_DEVICE_ENUM_WAIT);
+
 	intel_usb2phy_set_suspend(&iphy->phy, 0);
 	return IRQ_HANDLED;
 }
@@ -746,6 +757,8 @@ static void intel_otg_start_host(struct usb_otg *otg, int on)
 
 	if (on) {
 		dev_dbg(iphy->dev, "host on\n");
+		/* Allow time for device to be enumerated */
+		wake_lock_timeout(&iphy->wlock, INTEL_USB_DEVICE_ENUM_WAIT);
 		hcd->driver->start(hcd);
 
 	} else {
