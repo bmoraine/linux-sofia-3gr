@@ -1642,13 +1642,15 @@ static int gt9xx_fw_download(struct gt9xx_ts *ts)
 		ret = gt9xx_flash_fw(ts);
 		if (ret < 0) {
 			dev_err(&ts->client->dev, "gt9xx fw flash failed\n");
-			goto fw_err;
+			release_firmware(ts->fw);
+			return -EPROBE_DEFER;
 		}
 	} else {
 		ret = gt9x5_flash_fw(ts);
 		if (ret < 0) {
 			dev_err(&ts->client->dev, "gt9x5 fw flash failed\n");
-			goto fw_err;
+			release_firmware(ts->fw);
+			return -EPROBE_DEFER;
 		}
 	}
 
