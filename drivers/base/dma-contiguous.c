@@ -413,3 +413,18 @@ struct cma *cma_area_lookup(phys_addr_t size, phys_addr_t base)
 
 	return NULL;
 }
+
+/**
+ * cma_area_get_count() - retrieve cma area ount
+ * @cma: area pointer.
+ *
+ * This function retrieve cma area count value
+ * It returns cma->count, or 0 if area is invalid.
+ */
+unsigned long cma_area_get_count(struct cma *cma)
+{
+	if (cma)
+		return cma->count;
+	else
+		return 0;
+}

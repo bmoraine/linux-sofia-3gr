@@ -58,6 +58,10 @@ struct cma;
 struct page;
 struct device;
 
+#ifdef CONFIG_ION
+extern int unused_ion_cma;	/* In bytes */
+#endif
+
 #ifdef CONFIG_DMA_CMA
 
 /*
@@ -123,7 +127,7 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 				       unsigned int order);
 bool dma_release_from_contiguous(struct device *dev, struct page *pages,
 				 int count);
-
+unsigned long cma_area_get_count(struct cma *cma);
 #else
 
 #define MAX_CMA_AREAS	(0)

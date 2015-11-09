@@ -26,6 +26,8 @@
 #include <linux/rockchip_iovmm.h>
 #endif
 
+#include <linux/dma-contiguous.h>
+
 #include "ion.h"
 #include "ion_priv.h"
 
@@ -46,6 +48,19 @@ struct ion_cma_buffer_info {
 };
 
 DEFINE_SEMAPHORE(ion_cma_sem);
+
+/*
+ * Three global variables to save the ion cma statitics, all in bytes
+ *
+ *	total_ion_cma:		total size of all cma heaps
+ *	allocated_ion_cma:	total size of allocated cma buffers
+ *	unused_ion_cma:		un-allocated cma buffers
+ */
+static int total_ion_cma;
+static int allocated_ion_cma;
+int unused_ion_cma;
+
+DEFINE_SPINLOCK(ion_cma_lock);
 
 /*
  * Create scatter-list for the already allocated DMA buffer.
@@ -74,6 +89,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
 	struct device *dev = cma_heap->dev;
 	struct ion_cma_buffer_info *info;
+	unsigned long irqflags;
 
 	dev_dbg(dev, "Request buffer allocation len %ld\n", len);
 
@@ -108,6 +124,11 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 		goto err;
 	}
 
+	spin_lock_irqsave(&ion_cma_lock, irqflags);
+	allocated_ion_cma  += len;
+	unused_ion_cma -= len;
+	spin_unlock_irqrestore(&ion_cma_lock, irqflags);
+
 	info->table = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
 	if (!info->table) {
 		dev_err(dev, "Fail to allocate sg table\n");
@@ -140,6 +161,7 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	struct ion_cma_heap *cma_heap = to_cma_heap(buffer->heap);
 	struct device *dev = cma_heap->dev;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
+	unsigned long flags;
 
 	dev_dbg(dev, "Release buffer %p\n", buffer);
 	/* set cma_area */
@@ -152,6 +174,12 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
 #endif
 	up(&ion_cma_sem);
+
+	spin_lock_irqsave(&ion_cma_lock, flags);
+	allocated_ion_cma  -= buffer->size;
+	unused_ion_cma  += buffer->size;
+	spin_unlock_irqrestore(&ion_cma_lock, flags);
+
 	/* release sg table */
 	sg_free_table(info->table);
 	kfree(info->table);
@@ -302,12 +330,31 @@ struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 	cma_heap->cma_area = data->priv2;
 
 	cma_heap->heap.type = ION_HEAP_TYPE_DMA;
+
+	if (cma_heap->cma_area) {
+		unsigned long count, flags;
+		spin_lock_irqsave(&ion_cma_lock, flags);
+		count = cma_area_get_count(cma_heap->cma_area);
+		total_ion_cma += count << PAGE_SHIFT;
+		unused_ion_cma += count << PAGE_SHIFT;
+		spin_unlock_irqrestore(&ion_cma_lock, flags);
+	}
+
 	return &cma_heap->heap;
 }
 
 void ion_cma_heap_destroy(struct ion_heap *heap)
 {
 	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
+
+	if (cma_heap->cma_area) {
+		unsigned long count, flags;
+		spin_lock_irqsave(&ion_cma_lock, flags);
+		count = cma_area_get_count(cma_heap->cma_area);
+		total_ion_cma -= count << PAGE_SHIFT;
+		unused_ion_cma -= count << PAGE_SHIFT;
+		spin_unlock_irqrestore(&ion_cma_lock, flags);
+	}
 
 	kfree(cma_heap);
 }
