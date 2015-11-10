@@ -2572,7 +2572,7 @@ irq_retry:
 	if (gintsts & GINTSTS_GOUTNAKEFF) {
 		dev_info(hsotg->dev, "GOUTNakEff triggered\n");
 
-		writel(DCTL_CGOUTNAK, hsotg->regs + DCTL);
+		__orr32(hsotg->regs + DCTL, DCTL_CGOUTNAK);
 
 		s3c_hsotg_dump(hsotg);
 	}
@@ -2580,7 +2580,7 @@ irq_retry:
 	if (gintsts & GINTSTS_GINNAKEFF) {
 		dev_info(hsotg->dev, "GINNakEff triggered\n");
 
-		writel(DCTL_CGNPINNAK, hsotg->regs + DCTL);
+		__orr32(hsotg->regs + DCTL, DCTL_CGNPINNAK);
 
 		s3c_hsotg_dump(hsotg);
 	}
