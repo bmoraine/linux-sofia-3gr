@@ -41,6 +41,8 @@
 #include <linux/rcupdate.h>
 #include <linux/notifier.h>
 
+#include <linux/dma-contiguous.h>
+
 static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[6] = {
 	0,
@@ -93,6 +95,14 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 				+ global_page_state(NR_FREE_CMA_ISOLATE_PAGES);
 
 		other_free -= cma_free;
+
+#ifdef CONFIG_ION
+	/*
+	 * other_file contains the pages which comes from ion cma memory,
+	 * which cannot fulfil normal use after reclaiming, so remove it
+	 */
+	other_file -= (unused_ion_cma >> PAGE_SHIFT) - cma_free;
+#endif
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
