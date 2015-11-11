@@ -117,7 +117,12 @@ struct dsp_audio_device {
 };
 
 struct dsp_platform_control_data {
-	int dsp_keep_powered;
+	bool pcm_audio_playback;
+	bool reserved1;
+	bool reserved2;
+	bool dsp_keep_powered;
+	void *p_swm_control;
+
 };
 
 /* TODO  add device instances for SBA/FBA */
