@@ -48,12 +48,10 @@
 #define	xgold_debug(fmt, arg...) \
 		pr_debug("snd: jack: "fmt, ##arg)
 
+/* define the type index for headset typemap */
+#define HEADPHONE_INDEX 0
+#define HEADSET_INDEX 1
 
-#define AHJ_TYPE_MIN_MV 475
-#define AHJ_TYPE_MAX_MV 1700
-
-#define HEADPHONE_MIN_MV 0
-#define HEADPHONE_MAX_MV 50
 /* this variable to overcome the mute after slow removal of jack */
 #define JACK_CHECK_PROSS_START 1
 #define JACK_CHECK_PROSS_END   0
@@ -73,11 +71,11 @@ enum xgold_headset_type {
 	XGOLD_ERROR
 };
 
-/*struct hs_cfg {
+struct hs_cfg {
 	int min_mv;
 	int max_mv;
 	enum xgold_headset_type type;
-};*/
+};
 
 struct hs_key_cfg {
 	int min_mv;
@@ -123,6 +121,11 @@ struct hs_key_cfg xgold_hs_keymap[] = {
 	{275, 325, SND_JACK_BTN_2, KEY_VOLUMEDOWN, 0},
 };
 
+/* Headset Typemap */
+struct hs_cfg xgold_hs_typemap[] = {
+	{0, 50, XGOLD_HEADPHONE},
+	{475, 1700, XGOLD_HEADSET},
+};
 static int jack_write(struct xgold_jack *jack, unsigned val)
 {
 #ifdef CONFIG_X86_INTEL_SOFIA
@@ -207,11 +210,13 @@ static u32 read_state(struct xgold_jack *jack)
 
 	xgold_debug("%s: measured voltage %d\n", __func__, volt);
 
-	if (volt >= AHJ_TYPE_MIN_MV && volt <= AHJ_TYPE_MAX_MV)
+	if (volt >= xgold_hs_typemap[HEADSET_INDEX].min_mv &&
+			volt <= xgold_hs_typemap[HEADSET_INDEX].max_mv)
 		return XGOLD_HEADSET;
-	else if (volt >= HEADPHONE_MIN_MV && volt <= HEADPHONE_MAX_MV)
+	else if (volt >= xgold_hs_typemap[HEADPHONE_INDEX].min_mv &&
+			volt <= xgold_hs_typemap[HEADPHONE_INDEX].max_mv)
 		return XGOLD_HEADPHONE;
-	else if (volt > AHJ_TYPE_MAX_MV)
+	else if (volt > xgold_hs_typemap[HEADSET_INDEX].max_mv)
 		return XGOLD_HEADSET_REMOVED;
 	else
 		return XGOLD_INVALID;
@@ -446,6 +451,10 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 	struct resource *res;
 	int num_irq, i, ret;
 	unsigned value;
+	unsigned num_button_val = ARRAY_SIZE(xgold_hs_keymap)*2;
+	unsigned button_array[num_button_val];
+	unsigned num_hs_type_val = ARRAY_SIZE(xgold_hs_typemap)*2;
+	unsigned hs_type_array[num_hs_type_val];
 
 	jack = devm_kzalloc(&pdev->dev, sizeof(*jack), GFP_ATOMIC);
 	if (!jack) {
@@ -589,6 +598,30 @@ struct xgold_jack *of_xgold_jack_probe(struct platform_device *pdev,
 		xgold_err("%s MIRQLVL1 is 0x%02X\n", __func__, val);
 	}
 	/* end of FIXME */
+
+	ret = of_property_read_u32_array(pdev->dev.of_node,
+			"intel,hs-button-levels", button_array, num_button_val);
+	if (ret) {
+		pr_debug("intel,hs-button-levels not found,use default values.\n");
+	} else {
+		value = 0;
+		for (i = 0; i < (num_button_val/2); i++) {
+			xgold_hs_keymap[i].min_mv = button_array[value++];
+			xgold_hs_keymap[i].max_mv = button_array[value++];
+		}
+	}
+
+	ret = of_property_read_u32_array(pdev->dev.of_node,
+			"intel,hs-type-levels", hs_type_array, num_hs_type_val);
+	if (ret) {
+		pr_debug("intel,hs-type-levels not found,use default values.\n");
+	} else {
+		value = 0;
+		for (i = 0; i < (num_hs_type_val/2); i++) {
+			xgold_hs_typemap[i].min_mv = hs_type_array[value++];
+			xgold_hs_typemap[i].max_mv = hs_type_array[value++];
+		}
+	}
 
 	return jack;
 
