@@ -284,6 +284,15 @@
 						pm,user-name = "usif2";
 						pm,state-D0 = "enable_104M_hperf";
 						pm,state-D3 = "disable";
+
+						/*
+						 * To enable /dev/spidev0.0 device node
+						 */
+						spidev@0{
+							compatible = "spidev";
+							spi-max-frequency = <50000000>;
+							reg = <0>;
+						};
 					};
 
 					/*
