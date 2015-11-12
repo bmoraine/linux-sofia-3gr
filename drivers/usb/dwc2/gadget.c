@@ -3271,8 +3271,14 @@ static int s3c_hsotg_pullup(struct usb_gadget *gadget, int is_on)
 		return 0;
 	}
 
+	if (!IS_ERR_OR_NULL(hsotg->uphy))
+		pm_runtime_get_sync(hsotg->uphy->dev);
+
 	mutex_lock(&hsotg->init_mutex);
 	spin_lock_irqsave(&hsotg->lock, flags);
+	if (hsotg->lx_state == DWC2_L2)
+		dwc2_exit_hibernation(hsotg, true, true);
+
 	if (is_on) {
 		clk_enable(hsotg->clk);
 		hsotg->enabled = 1;
@@ -3288,6 +3294,9 @@ static int s3c_hsotg_pullup(struct usb_gadget *gadget, int is_on)
 	hsotg->gadget.speed = USB_SPEED_UNKNOWN;
 	spin_unlock_irqrestore(&hsotg->lock, flags);
 	mutex_unlock(&hsotg->init_mutex);
+
+	if (!IS_ERR_OR_NULL(hsotg->uphy))
+		pm_runtime_put(hsotg->uphy->dev);
 
 	return 0;
 }
