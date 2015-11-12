@@ -828,6 +828,19 @@ pio_skip_tx:
 
 pio_skip_rx:
 	xgold_spi_set_configuration_mode(ctl_drv);
+
+	/* FIX: kernel panic at spi-xgold.c : spi_irq_handler : BUG()
+	 *
+	 * As documented in SoFIA_3G_R_SoC_V1.0_BBHW_UM.pdf
+	 * 4.19.3.6 Interrupt and DMA Registers
+	 * Page: 2591
+	 *
+	 * Before enabling a source in the IMSC it is good practice to always first
+	 * clear the corresponding bit in the RIS via ICR before enabling a source in the
+	 * IMSC.
+	 */
+	iowrite32(USIF_RIS_TX_FIN_MASK, USIF_ICR(ctl_drv->base));
+
 	/* enable request */
 	imsc |= USIF_MASK_ISR_STA | USIF_MASK_ISR_ERR;
 	iowrite32(imsc, USIF_IMSC(ctl_drv->base));
