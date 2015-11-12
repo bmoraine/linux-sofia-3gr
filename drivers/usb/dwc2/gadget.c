@@ -2470,7 +2470,7 @@ irq_retry:
 
 		/* This event must be used only if controller is suspended */
 		if (hsotg->lx_state == DWC2_L2) {
-			dwc2_exit_hibernation(hsotg, true);
+			dwc2_exit_hibernation(hsotg, true, false);
 			hsotg->lx_state = DWC2_L0;
 		}
 	}
@@ -3307,7 +3307,7 @@ static int s3c_hsotg_vbus_session(struct usb_gadget *gadget, int is_active)
 		 * before being initialized
 		 */
 		if (hsotg->lx_state == DWC2_L2)
-			dwc2_exit_hibernation(hsotg, false);
+			dwc2_exit_hibernation(hsotg, false, false);
 
 		s3c_hsotg_core_init_disconnected(hsotg, false);
 		if (hsotg->enabled)
@@ -3318,7 +3318,7 @@ static int s3c_hsotg_vbus_session(struct usb_gadget *gadget, int is_active)
 		 * before being de-initialized
 		 */
 		if (hsotg->lx_state == DWC2_L2)
-			dwc2_exit_hibernation(hsotg, false);
+			dwc2_exit_hibernation(hsotg, false, false);
 
 		s3c_hsotg_core_disconnect(hsotg);
 		s3c_hsotg_disconnect(hsotg);

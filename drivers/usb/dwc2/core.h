@@ -852,7 +852,8 @@ enum dwc2_halt_status {
  */
 extern void dwc2_core_host_init(struct dwc2_hsotg *hsotg);
 extern int dwc2_enter_hibernation(struct dwc2_hsotg *hsotg);
-extern int dwc2_exit_hibernation(struct dwc2_hsotg *hsotg, bool restore);
+extern int dwc2_exit_hibernation(struct dwc2_hsotg *hsotg, bool restore,
+				bool remote_wakeup);
 
 /*
  * Host core Functions.

@@ -189,7 +189,8 @@ static int dwc2_backup_device_registers(struct dwc2_hsotg *hsotg)
  *
  * @hsotg: Programming view of the DWC_otg controller
  */
-static int dwc2_restore_device_registers(struct dwc2_hsotg *hsotg)
+static int dwc2_restore_device_registers(struct dwc2_hsotg *hsotg,
+		bool remote_wakeup)
 {
 	struct dwc2_dregs_backup *dr;
 	u32 dctl;
@@ -207,7 +208,15 @@ static int dwc2_restore_device_registers(struct dwc2_hsotg *hsotg)
 	dr->valid = false;
 
 	writel(dr->dcfg, hsotg->regs + DCFG);
-	writel(dr->dctl, hsotg->regs + DCTL);
+
+	if (remote_wakeup) {
+		writel(dr->dctl | DCTL_RMTWKUPSIG, hsotg->regs + DCTL);
+		/* Wait for at least 1 millisecond of remote wakeup time */
+		mdelay(2);
+		writel(0xffffffff, hsotg->regs + GINTSTS);
+	} else
+		writel(dr->dctl, hsotg->regs + DCTL);
+
 	writel(dr->daintmsk, hsotg->regs + DAINTMSK);
 	writel(dr->diepmsk, hsotg->regs + DIEPMSK);
 	writel(dr->doepmsk, hsotg->regs + DOEPMSK);
@@ -224,9 +233,14 @@ static int dwc2_restore_device_registers(struct dwc2_hsotg *hsotg)
 		writel(dr->doepdma[i], hsotg->regs + DOEPDMA(i));
 	}
 
+	if (remote_wakeup)
+		/* Wait for remote wakeup time (1-15ms) */
+		mdelay(15);
+
 	/* Set the Power-On Programming done bit */
 	dctl = readl(hsotg->regs + DCTL);
 	dctl |= DCTL_PWRONPRGDONE;
+	dctl &= ~DCTL_RMTWKUPSIG;
 	writel(dctl, hsotg->regs + DCTL);
 
 	return 0;
@@ -235,7 +249,8 @@ static int dwc2_restore_device_registers(struct dwc2_hsotg *hsotg)
 static inline int dwc2_backup_device_registers(struct dwc2_hsotg *hsotg)
 { return 0; }
 
-static inline int dwc2_restore_device_registers(struct dwc2_hsotg *hsotg)
+static inline int dwc2_restore_device_registers(struct dwc2_hsotg *hsotg,
+			bool remote_wakeup)
 { return 0; }
 #endif
 
@@ -313,7 +328,8 @@ static int dwc2_restore_global_registers(struct dwc2_hsotg *hsotg)
  * @hsotg: Programming view of the DWC_otg controller
  * @restore: Controller registers need to be restored
  */
-int dwc2_exit_hibernation(struct dwc2_hsotg *hsotg, bool restore)
+int dwc2_exit_hibernation(struct dwc2_hsotg *hsotg, bool restore,
+	bool remote_wakeup)
 {
 	u32 pcgcctl;
 	int ret = 0;
@@ -323,6 +339,8 @@ int dwc2_exit_hibernation(struct dwc2_hsotg *hsotg, bool restore)
 
 	pcgcctl = readl(hsotg->regs + PCGCTL);
 	pcgcctl &= ~PCGCTL_STOPPCLK;
+	if (remote_wakeup && dwc2_is_device_mode(hsotg))
+		pcgcctl &= ~PCGCTL_GATEHCLK;
 	writel(pcgcctl, hsotg->regs + PCGCTL);
 
 	pcgcctl = readl(hsotg->regs + PCGCTL);
@@ -349,7 +367,7 @@ int dwc2_exit_hibernation(struct dwc2_hsotg *hsotg, bool restore)
 				return ret;
 			}
 		} else {
-			ret = dwc2_restore_device_registers(hsotg);
+			ret = dwc2_restore_device_registers(hsotg, remote_wakeup);
 			if (ret) {
 				dev_err(hsotg->dev, "%s: failed to restore device registers\n",
 						__func__);

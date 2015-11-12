@@ -2481,7 +2481,7 @@ static int _dwc2_hcd_resume(struct usb_hcd *hcd)
 	spin_lock_irqsave(&hsotg->lock, flags);
 
 	/* Exit hibernation */
-	ret = dwc2_exit_hibernation(hsotg, true);
+	ret = dwc2_exit_hibernation(hsotg, true, false);
 	if (ret && (ret != -ENOTSUPP))
 		dev_err(hsotg->dev, "exit hibernation failed\n");
 

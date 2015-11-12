@@ -346,7 +346,7 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2_hsotg *hsotg)
 			/* Clear Remote Wakeup Signaling */
 			dctl &= ~DCTL_RMTWKUPSIG;
 			writel(dctl, hsotg->regs + DCTL);
-			ret = dwc2_exit_hibernation(hsotg, true);
+			ret = dwc2_exit_hibernation(hsotg, true, false);
 			if (ret && (ret != -ENOTSUPP))
 				dev_err(hsotg->dev, "exit hibernation failed\n");
 
