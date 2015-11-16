@@ -178,10 +178,10 @@ fail:
 	put_cpu_var(percpu_vpower);
 	if ((retval == 0) && (pm_opcode == PM_PRH_SET_PER_MODE_ASYNC)) {
 		retval = wait_for_completion_timeout(&prh_sync_complete,
-				msecs_to_jiffies(500));
+				msecs_to_jiffies(3000));
 		if (retval == 0) {
-			WARN((retval == 0), "Timeout waiting for PRH async interrupt\n");
-			retval = PRH_ERR_INTERNAL;
+			pr_err("%s: Timeout waiting for PRH async interrupt\n", __func__);
+			BUG();
 		} else {
 			retval = (ePRH_RETURN_T) vpower->shared_data
 			->pm_control_shared_data.prh_request_return_value;
