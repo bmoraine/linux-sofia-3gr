@@ -1222,8 +1222,12 @@ static int rockchip_fb_close(struct fb_info *info, int user)
 
 		info->var.xres = dev_drv->screen0->mode.xres;
 		info->var.yres = dev_drv->screen0->mode.yres;
+#if 0 /*Wayland supports only grayscale as 0*/
 		info->var.grayscale |=
 		    (info->var.xres << 8) + (info->var.yres << 20);
+#else
+		info->var.grayscale = 0;
+#endif
 		info->var.bits_per_pixel = 32;
 		info->var.xres_virtual = ALIGN_N_TIMES(info->var.xres, 32);
 		info->var.yres_virtual = info->var.yres;
@@ -1885,11 +1889,12 @@ static struct fb_ops fb_ops = {
 	.fb_imageblit = cfb_imageblit,
 };
 
+/*Wayland supports only ARGB or RGBA formats*/
 static struct fb_var_screeninfo def_var = {
-	.red = {0, 8, 0},
+	.red = {16, 8, 0},
 	.green = {8, 8, 0},
-	.blue = {16, 8, 0},
-	.transp = {24, 0, 0},
+	.blue = {0, 8, 0},
+	.transp = {24, 8, 0},
 	.nonstd = HAL_PIXEL_FORMAT_RGBX_8888,
 	.grayscale = 0,
 	.activate = FB_ACTIVATE_NOW,
@@ -2008,9 +2013,13 @@ int rockchip_fb_switch_screen(struct rockchip_screen *screen,
 	info = sfb_info->fb[dev_drv->fb_index_base];
 	fb_var = &info->var;
 
+#if 0 /*Wayland supports only grayscale as 0*/
 	fb_var->grayscale &= 0xff;
 	fb_var->grayscale |= (dev_drv->cur_screen->mode.xres << 8) +
 	    (dev_drv->cur_screen->mode.yres << 20);
+#else
+	fb_var->grayscale = 0;
+#endif
 
 	info->fbops->fb_open(info, 1);
 	dev_drv->ops->load_screen(dev_drv, 1);
@@ -2068,9 +2077,12 @@ int rockchip_fb_disp_scale(u8 scale_x, u8 scale_y, u8 vop_id)
 	/* update android disp info */
 	var->nonstd &= 0xff;
 	var->nonstd |= (xpos << 8) + (ypos << 20);
+#if 0 /*Wayland supports only grayscale as 0*/
 	var->grayscale &= 0xff;
 	var->grayscale |= (xsize << 8) + (ysize << 20);
-
+#else
+	var->grayscale = 0;
+#endif
 	info->fbops->fb_set_par(info);
 	info->fbops->fb_ioctl(info, SFA_FBIOSET_CONFIG_DONE, 0);
 	return 0;
@@ -2451,8 +2463,12 @@ int rockchip_fb_register(struct rockchip_vop_driver *dev_drv,
 		fbi->fix = def_fix;
 		sprintf(fbi->fix.id, "fb%d", sfb_info->num_fb);
 		fb_videomode_to_var(&fbi->var, &dev_drv->cur_screen->mode);
+#if 0 /*Wayland supports only grayscale as 0*/
 		fbi->var.grayscale |=
 		    (fbi->var.xres << 8) + (fbi->var.yres << 20);
+#else
+		fbi->var.grayscale = 0;
+#endif
 		fbi->var.bits_per_pixel = 32;
 		fbi->var.xres_virtual = ALIGN_N_TIMES(fbi->var.xres, 32);
 		fbi->fix.line_length =
