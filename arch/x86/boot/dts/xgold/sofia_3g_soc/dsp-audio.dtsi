@@ -74,7 +74,7 @@ dsp_audio:dsp_audio {
 
        /* Usecases built into XGold audio driver*/
        /* Alsa control with the same name will be automatically created for each entry in the below list */
-       intel,XGold-usecase = "PCM Audio Playback";
+       intel,XGold-usecase = "PCM Audio Playback","PCM Audio Record";
 
        /* Use case Parameter. DSP command list for above use case. Property name should end with integer number */
        /* integer number should be equal to the index of the use case in the above use case list */
@@ -88,6 +88,15 @@ dsp_audio:dsp_audio {
                /bits/ 16 <0x0024 0x0002 0x0019>,
                /* Configure Switch Mixing for AFE OUT (VB_SET_SWM_AFE_OUT) */
                /bits/ 16 <0x001B 0x001A 0x0001 0x0000 0x0000 0x0000 0x0000 0x0000 0x0001 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000>;
+
+	/* Parameters for "PCM Audio Record" */
+	intel,XGold-usecase-parameter-2 = /bits/ 16 <0x0002 0x0004 0x0001 0x0003 >, /* Start DSP Scheduler(VB_HW_AFE) */
+	/* Configure Switch Mixing for PCM OUT (VB_SET_SWM_PCM_OUT) */
+	/bits/ 16 <0x0020 0x001A 0x0001 0x0001 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000>,
+	/* Configure Ramping time for the Gain module (VB_SET_GAIN_TIMECONST) */
+	/bits/ 16 <0x0024 0x0002 0x0019>,
+	/* Configure Gain Module (VB_SET_GAIN) Scal_PCM_Out*/
+	/bits/ 16 <0x0021 0x0032 0x0000 0xFFB0 0xFFB0 0xFF40 0xFF40 0xFF40 0xFF40 0xFF40 0x0000  0xFF40 0x0000 0x0000 0x0000 0xFF40 0xFF40 0xFF40 0x0000 0x0000 0xFF40 0xFF40 0x0000 0xFF40 0xFF40 0x0000 0x0000>;
 
 	intel,dsp-fw = /bits/ 16 <
 		/* X-GOLD632_AUDIO WA03 PATCH V3.1.2.0 generated on Fri Jul 17 13:49:54 2015 (local time) */
