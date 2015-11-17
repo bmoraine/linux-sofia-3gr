@@ -176,7 +176,7 @@ static ssize_t rk818_test_store(struct kobject *kobj,
 				struct kobj_attribute *attr,
 				const char *buf, size_t n)
 {
-	u32 getdata[8];
+	u32 getdata[8] = { 0 };
 	u16 regAddr;
 	u8 data;
 	int ret;
