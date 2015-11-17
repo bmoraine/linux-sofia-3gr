@@ -298,25 +298,37 @@ static int dsp_audio_use_case_set(
 	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
 	struct dsp_audio_device *dsp = xgold_pcm->dsp;
 	int ret = 0;
-	int pcm_control;
+	int control;
 
 	if (dsp) {
 		if (ucontrol->value.integer.value[0])
-			pcm_control = 1;
+			control = 1;
 		else
-			pcm_control = 0;
+			control = 0;
 
-		if (dsp->p_dsp_common_data->control_priv.pcm_audio_playback !=
-				pcm_control) {
-			xgold_debug("%s: Trying to set %d\n",
-					 __func__, pcm_control);
-			ret = dsp_audio_use_case_parse_send(kcontrol);
-			if (ret < 0)
-				xgold_err("%s: Failed to set usecase %d\n",
-					__func__, ret);
-			dsp->p_dsp_common_data->control_priv.pcm_audio_playback =
-				pcm_control;
+		if (kcontrol->private_value == PCM_AUDIO_PLAYBACK){
+			if (dsp->p_dsp_common_data->control_priv.pcm_audio_playback !=
+					control) {
+				xgold_debug("%s: Trying to set %d\n",
+						 __func__, control);
+				ret = dsp_audio_use_case_parse_send(kcontrol);
+				dsp->p_dsp_common_data->control_priv.pcm_audio_playback =
+					control;
+				}
 		}
+		else if (kcontrol->private_value == PCM_AUDIO_RECORD){
+			if (dsp->p_dsp_common_data->control_priv.pcm_audio_record !=
+					control) {
+				xgold_debug("%s: Trying to set %d\n",
+						 __func__, control);
+				ret = dsp_audio_use_case_parse_send(kcontrol);
+				dsp->p_dsp_common_data->control_priv.pcm_audio_record =
+					control;
+			}
+		}
+		if (ret < 0)
+			xgold_err("%s: Failed to set usecase %d\n",
+				__func__, ret);
 	} else
 		ret = -ENODEV;
 
@@ -333,10 +345,15 @@ static int dsp_audio_use_case_get(
 	struct dsp_audio_device *dsp = xgold_pcm->dsp;
 	int ret = 0;
 
-	if (dsp)
-		ucontrol->value.integer.value[0] =
-			dsp->p_dsp_common_data->control_priv.pcm_audio_playback;
-	else
+	if (dsp) {
+		if (kcontrol->private_value == PCM_AUDIO_PLAYBACK){
+			ucontrol->value.integer.value[0] =
+				dsp->p_dsp_common_data->control_priv.pcm_audio_playback;
+		} else if (kcontrol->private_value == PCM_AUDIO_RECORD){
+			ucontrol->value.integer.value[0] =
+				dsp->p_dsp_common_data->control_priv.pcm_audio_record;
+		}
+	} else
 		ret = -ENODEV;
 
 	return ret;

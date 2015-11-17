@@ -123,9 +123,9 @@ static const struct snd_pcm_hardware xgold_pcm_play_cfg = {
 	.rate_max = 48000,
 	.channels_min = 1,
 	.channels_max = 2,
-	.buffer_bytes_max = XGOLD_MAX_BUFFER_BYTES,
+	.buffer_bytes_max = 61440,
 	.period_bytes_min = 80,
-	.period_bytes_max = XGOLD_MAX_PERIOD_BYTES,
+	.period_bytes_max = 960,
 	.periods_min = 2,
 	.periods_max = 64,
 };
