@@ -175,6 +175,8 @@
 		intel,speech = <&speech_probe>;
 		intel,jack = <&headset>;
 		intel,spk-gpio-sd = <&xgold_pmx_gpio 44 0>;
+		intel,hs-button-levels = <0 65 130 220 225 450>;
+		intel,hs-type-levels = <0 65 475 1700>;
 	};
 #endif
 	hwid {
