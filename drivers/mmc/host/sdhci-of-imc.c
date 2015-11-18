@@ -418,18 +418,6 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 	if (mmc_pdata->cd_gpio > 0)
 		mmc_gpio_request_cd(host->mmc, mmc_pdata->cd_gpio, 0);
 
-	/* enable runtime pm support per slot */
-	if (mmc_pdata->rpm_enabled) {
-		pm_runtime_put_noidle(&pdev->dev);
-		pm_runtime_allow(&pdev->dev);
-		pm_runtime_enable(&pdev->dev);
-		pm_runtime_set_autosuspend_delay(&pdev->dev, 50);
-		pm_runtime_use_autosuspend(&pdev->dev);
-		pm_suspend_ignore_children(&pdev->dev, 1);
-		/*host->mmc->caps |= MMC_CAP_RUNTIME_RESUME |
-			MMC_CAP_AGGRESSIVE_PM;*/
-	}
-
 	/*
 	 * Timeout after 250 ms to 500 ms if SDHCI_CARD_DET_STABLE
 	 * doesn't happen
@@ -713,6 +701,19 @@ static int xgold_sdhci_probe(struct platform_device *pdev)
 							| quirktab[1];
 	sdhci_xgold_pdata.ops = sdhci_xgold_pdata_default.ops;
 	ret = sdhci_pltfm_register(pdev, &sdhci_xgold_pdata, 0);
+
+	/* If runtime pm can be enabled, set it here, right after sdhci_add_host(
+	 * sdhci_pltfm_register). That's because func sdhci_add_host accesses host
+	 * registers without getting the controller dev first, that's not safe if
+	 * rpm is enabled. */
+	/* enable runtime pm support per slot */
+	if (mmc_pdata->rpm_enabled) {
+		pm_runtime_set_active(&pdev->dev);
+		pm_runtime_set_autosuspend_delay(&pdev->dev, 50);
+		pm_runtime_use_autosuspend(&pdev->dev);
+		pm_suspend_ignore_children(&pdev->dev, 1);
+		pm_runtime_enable(&pdev->dev);
+	}
 
 err_end:
 	return ret;
