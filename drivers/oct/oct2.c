@@ -93,11 +93,12 @@ static unsigned int debug_on;
 static unsigned int debug_over_usb;
 
 static void USB_printk(const char *fmt, ...);
-#define OCT_DBG(fmt, arg...) {\
+#define OCT_DBG(fmt, arg...) do {\
 		if (debug_over_usb)\
 			USB_printk(fmt, ##arg);\
 		if (debug_on)\
-			pr_info(OCT_MODULE_NAME": " fmt"\n", ##arg); }
+			pr_info(OCT_MODULE_NAME": " fmt"\n", ##arg);\
+	} while(0)
 
 #define OCT_LOG(fmt, arg...) do {\
 	if (debug_over_usb)\

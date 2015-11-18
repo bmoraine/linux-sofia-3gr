@@ -70,9 +70,10 @@
 #define OCT_REG_SIZE sizeof(struct _soct_trform)
 
 /* useful macros */
-#define OCT_DBG(fmt, arg...) {\
-	if (debug_on) \
-		pr_info(OCT_MODULE_NAME": " fmt"\n", ##arg); }
+#define OCT_DBG(fmt, arg...) do { \
+		if (debug_on) \
+			pr_info(OCT_MODULE_NAME": " fmt"\n", ##arg); \
+	} while(0)
 
 #define OCT_LOG(fmt, arg...) \
 	pr_info(OCT_MODULE_NAME": " fmt"\n", ##arg)
