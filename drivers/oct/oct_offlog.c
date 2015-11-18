@@ -49,13 +49,13 @@ static void oct_detect_off_flag(char *gadget_name)
 		old_fs = get_fs();
 		set_fs(KERNEL_DS);
 		fp = filp_open(gadget_name, O_RDONLY, 0);
-		if (NULL == fp) {
-			OCT_LOG("NULL Gadget File Handle");
-			msleep(2000);
-			continue;
-		} else if (IS_ERR(fp)) {
-			OCT_LOG("Gadget fp=%x open failed!", (unsigned int)fp);
-			retry--;
+		if (IS_ERR_OR_NULL(fp)) {
+			if (PTR_ERR(fp) != -ENOENT) {
+				OCT_LOG("Gadget %s open failed %ld!",
+					gadget_name, PTR_ERR(fp));
+				retry--;
+			}
+			OCT_DBG("wait gadget %s ready\n", gadget_name);
 			msleep(2000);
 			continue;
 		} else {
