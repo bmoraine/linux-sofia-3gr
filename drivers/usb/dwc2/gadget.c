@@ -2407,6 +2407,7 @@ void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg,
 	/* enable, but don't activate EP0in */
 	writel(s3c_hsotg_ep0_mps(hsotg->eps_out[0]->ep.maxpacket) |
 	       DXEPCTL_USBACTEP, hsotg->regs + DIEPCTL0);
+	hsotg->eps_out[0]->enabled = 1;
 
 	s3c_hsotg_enqueue_setup(hsotg);
 
