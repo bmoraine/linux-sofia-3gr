@@ -790,6 +790,11 @@ static int s3c_hsotg_ep_queue(struct usb_ep *ep, struct usb_request *req,
 		ep->name, req, req->length, req->buf, req->no_interrupt,
 		req->zero, req->short_not_ok);
 
+	if (!hs_ep->enabled) {
+		dev_warn(hs->dev, "%s: cannot queue to disabled ep\n", __func__);
+		return -ESHUTDOWN;
+	}
+
 	/* Prevent new request submission when controller is suspended */
 	if (hs->lx_state == DWC2_L2) {
 		dev_dbg(hs->dev, "%s: don't submit request while suspended\n",
