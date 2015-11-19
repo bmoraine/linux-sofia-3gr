@@ -1827,10 +1827,6 @@ static void gt9xx_sleep(struct gt9xx_ts *ts)
 	ret = gt9xx_i2c_write_u8(ts->client, GT9XX_REG_CMD, 5);
 	if (ret <= 0) {
 		dev_err(dev, "sleep cmd failed");
-		test_and_clear_bit(GT9XX_STATUS_SLEEP_BIT, ts->status);
-		gpiod_direction_input(ts->gpiod_int);
-		gt9xx_irq_enable(ts);
-		return;
 	}
 
 	ret = device_state_pm_set_state_by_name(dev,
@@ -1858,9 +1854,7 @@ static void gt9xx_wakeup(struct gt9xx_ts *ts)
 
 	ret = gt9xx_i2c_test(ts->client);
 	if (ret <= 0) {
-		test_and_set_bit(GT9XX_STATUS_SLEEP_BIT, ts->status);
-		dev_err(dev, "wakeup failed");
-		return;
+		dev_err(dev, "i2c test after reset failed");
 	}
 
 	gt9xx_irq_enable(ts);
