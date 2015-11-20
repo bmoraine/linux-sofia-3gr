@@ -1264,13 +1264,15 @@ static int xgold_noc_parse_dts_qoslist(struct device *_dev)
 					&devqos->name);
 
 			/* test if controlled by noc driver */
-			sprintf(str, "intel,%s-qos-owner", devqos->name);
+			snprintf(str, sizeof(str),
+				 "intel,%s-qos-owner", devqos->name);
 			if (of_property_read_bool(np, str))
 				devqos->noc_owner = 1;
 			else
 				devqos->noc_owner = 0;
 
-			sprintf(str, "intel,%s-qos-settings", devqos->name);
+			snprintf(str, sizeof(str),
+				 "intel,%s-qos-settings", devqos->name);
 			ret = xgold_noc_parse_dts_qoscfg(_dev, str,
 					&devqos->config);
 			if (ret) {

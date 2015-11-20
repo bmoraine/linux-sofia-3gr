@@ -315,7 +315,7 @@ static ssize_t noc_debug_bf_read(struct file *filp, char __user *ubuf,
 		str = xgold_bitfield_read_enum(bf);
 		if (IS_ERR_OR_NULL(str))
 			str = "UNKNOWN BITFIELD VALUE";
-		r = sprintf(buf, "%s\n", str);
+		r = snprintf(buf, sizeof(buf), "%s\n", str);
 	} else {
 		r = xgold_bitfield_read(bf, &value);
 		if (r)
