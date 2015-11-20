@@ -896,6 +896,11 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return -EFAULT;
 			}
 			c_param = kmalloc(size, GFP_KERNEL);
+			if (c_param == NULL) {
+				pr_err("[%s:%d] Failed to allocate c_param:%u\n",
+				       __func__, __LINE__, vidt_command);
+				return -ENOMEM;
+			}
 			retVal =
 			    copy_from_user(c_param, ubuf, sizeof(sl_info_t));
 			if (retVal != 0) {
