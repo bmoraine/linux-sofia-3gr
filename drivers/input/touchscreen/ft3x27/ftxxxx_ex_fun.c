@@ -680,7 +680,7 @@ static int ftxxxx_ReadFirmware(char *firmware_name, unsigned char *firmware_buf)
 	mm_segment_t old_fs;
 
 	memset(filepath, 0, sizeof(filepath));
-	sprintf(filepath, "%s", firmware_name);
+	snprintf(filepath, sizeof(filepath), "%s", firmware_name);
 	if (NULL == pfile) {
 		pfile = filp_open(filepath, O_RDONLY, 0);
 	}
@@ -1402,7 +1402,7 @@ static ssize_t ftxxxx_fwupgradeapp_store(struct device *dev, struct device_attri
 	char fwname[128];
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
 	memset(fwname, 0, sizeof(fwname));
-	sprintf(fwname, "%s", buf);
+	snprintf(fwname, sizeof(fwname), "%s", buf);
 	fwname[count-1] = '\0';
 
 	wake_lock(&ftxxxx_ts->wake_lock);
@@ -1454,7 +1454,7 @@ static int ftxxxx_GetInISize(char *config_name)
 	char filepath[128];
 
 	memset(filepath, 0, sizeof(filepath));
-	sprintf(filepath, "%s%s", FTXXXX_INI_FILEPATH, config_name);
+	snprintf(filepath, sizeof(filepath), "%s%s", FTXXXX_INI_FILEPATH, config_name);
 	if (NULL == pfile)
 		pfile = filp_open(filepath, O_RDONLY, 0);
 	if (IS_ERR(pfile)) {
@@ -1479,7 +1479,7 @@ static int ftxxxx_ReadInIData(char *config_name, char *config_buf)
 	mm_segment_t old_fs;
 
 	memset(filepath, 0, sizeof(filepath));
-	sprintf(filepath, "%s%s", FTXXXX_INI_FILEPATH, config_name);
+	snprintf(filepath, sizeof(filepath), "%s%s", FTXXXX_INI_FILEPATH, config_name);
 	if (NULL == pfile)
 		pfile = filp_open(filepath, O_RDONLY, 0);
 	if (IS_ERR(pfile)) {
@@ -1659,7 +1659,7 @@ static ssize_t ftxxxx_ftsscaptest_store(struct device *dev, struct device_attrib
 	ftxxxx_irq_switch(false);
 
 	memset(cfgname, 0, sizeof(cfgname));
-	sprintf(cfgname, "%s", buf);
+	snprintf(cfgname, sizeof(cfgname), "%s", buf);
 	cfgname[count-1] = '\0';
 	/*
 	//Init_I2C_Read_Func(FTS_I2c_Read);
@@ -1928,7 +1928,7 @@ static int ftxxxx_debug_write(struct file *filp, const char __user *buff, size_t
 	switch (proc_operate_mode) {
 	case PROC_UPGRADE:
 		memset(upgrade_file_path, 0, sizeof(upgrade_file_path));
-		sprintf(upgrade_file_path, "%s", writebuf + 1);
+		snprintf(upgrade_file_path, sizeof(upgrade_file_path), "%s", writebuf + 1);
 		upgrade_file_path[buflen-1] = '\0';
 		FTS_DBG("%s\n", upgrade_file_path);
 		ftxxxx_irq_switch(false);
