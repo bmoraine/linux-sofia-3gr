@@ -298,7 +298,7 @@ int intel_i2c_pmic_probe(struct platform_device *pdev)
 
 	adap = &i2c_dev->adapter;
 	adap->owner = THIS_MODULE;
-	strcpy(adap->name, dev_name(&pdev->dev));
+	strlcpy(adap->name, dev_name(&pdev->dev), sizeof(adap->name));
 	adap->algo = &xgold_i2c_virt_algo;
 	adap->dev.parent = &pdev->dev;
 	adap->dev.of_node = pdev->dev.of_node;
