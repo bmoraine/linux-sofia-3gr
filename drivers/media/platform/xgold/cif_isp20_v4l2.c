@@ -1255,7 +1255,7 @@ static int v4l2_enum_input(struct file *file, void *priv,
 	if (IS_ERR(inp_name))
 		return -ENODEV;
 
-	strcpy(input->name, inp_name);
+	strlcpy(input->name, inp_name, sizeof(input->name));
 
 	return 0;
 }

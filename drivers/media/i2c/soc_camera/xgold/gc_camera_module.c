@@ -579,6 +579,8 @@ int gc_camera_module_s_stream(struct v4l2_subdev *sd, int enable)
 		if (IS_ERR_VALUE(ret))
 			goto err;
 
+		memset(&timings, 0, sizeof(timings));
+
 		ret = gc_camera_module_ioctl(sd,
 					INTEL_VIDIOC_SENSOR_MODE_DATA,
 					&timings);
