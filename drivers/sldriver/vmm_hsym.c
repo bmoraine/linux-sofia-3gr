@@ -52,9 +52,9 @@ inline int info_cpuid(sl_info_t *p_info)
 		      : "memory");
 	p_info->major_version = (eax >> 16);
 	p_info->minor_version = (eax & 0xffff);
-	p_info->vendor_id[0] = ebx;
-	p_info->vendor_id[1] = ecx;
-	p_info->vendor_id[2] = edx;
+	p_info->vendor_id[0] = (ebx >> 16);
+	p_info->vendor_id[1] = ((ebx >> 8) & 0xff);
+	p_info->vendor_id[2] = (ebx & 0xff);
 	return 0;
 }
 

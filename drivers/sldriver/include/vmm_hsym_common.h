@@ -27,7 +27,7 @@
 #define MAX_ENTRYS   16
 #define MAX_REGIONS  16
 
-#define MAJOR_VERSION 2
+#define MAJOR_VERSION 1
 #define MINOR_VERSION 0
 enum sl_error_t {
 	SL_SUCCESS = 0,

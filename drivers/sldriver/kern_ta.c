@@ -90,9 +90,9 @@ static int chk_hsim_version(void)
 
 	if (info->major_version != MAJOR_VERSION
 	    || info->minor_version != MINOR_VERSION
-	    || info->vendor_id[0] != 0x53696c65
-	    || info->vendor_id[1] != 0x6e742020
-	    || info->vendor_id[2] != 0x4c616b65) {
+	    || info->vendor_id[0] != 0x534c
+	    || info->vendor_id[1] != 0x01
+	    || info->vendor_id[2] != 0x20) {
 		pr_err("Error: Hsim Version mismatch\n");
 		kfree(info);
 		return SL_EVERSION_MISMATCH;
