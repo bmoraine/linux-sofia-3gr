@@ -1210,9 +1210,10 @@ static int spcu_thermal_probe(struct platform_device *pdev)
 	spcu_thermal_irq_init(thermal_device);
 
 	if (strlen(pdata->type))
-		sprintf(thermal_type, "%s", pdata->type);
+		snprintf(thermal_type, sizeof(thermal_type), "%s", pdata->type);
 	else
-		sprintf(thermal_type, "%s%d", TZDNAME, thermal_device->id);
+		snprintf(thermal_type, sizeof(thermal_type),
+			 "%s%d", TZDNAME, thermal_device->id);
 
 	thermal_device->tzd =
 		thermal_zone_device_register(thermal_type,
