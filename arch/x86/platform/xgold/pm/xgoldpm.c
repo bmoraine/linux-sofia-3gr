@@ -105,7 +105,7 @@ ssize_t devpm_read(struct file *file, char __user *buf,
 	}
 
 	for (i = 0; i < class->num_states; ++i) {
-		int l = sprintf(buffer, "%s\n", class->states[i].name);
+		int l = snprintf(buffer, sizeof(buffer), "%s\n", class->states[i].name);
 
 		if (copy_to_user(buf + len, buffer, l))
 			return -EINVAL;
