@@ -326,7 +326,7 @@ static signed vnvm_probe_devid(void)
 	p_vnvm_ctx->devid = 0xB303;
 
 	for (i = 0; i < p_vnvm_ctx->nb_part; i++)
-		snprintf(p_vnvm_ctx->devname[i], sizeof(p_vnvm_ctx->devname[i]),
+		snprintf(p_vnvm_ctx->devname[i], VNVM_DEV_NAME_LIMIT,
 			p_vnvm_ctx->part_name[i]);
 
 	if (p_vnvm_ctx->devid == 0) {
