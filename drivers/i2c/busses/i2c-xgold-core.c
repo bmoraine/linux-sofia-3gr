@@ -1378,7 +1378,7 @@ static int xgold_i2c_core_probe(struct device *dev)
 	adap = &i2c_dev->adapter;
 	i2c_set_adapdata(adap, algo_data);
 	adap->owner = THIS_MODULE;
-	strcpy(adap->name, dev_name(dev));
+	strlcpy(adap->name, dev_name(dev), sizeof(adap->name));
 	adap->algo = &xgold_i2c_algo;
 	adap->dev.parent = dev;
 	adap->nr = platdata->id;
