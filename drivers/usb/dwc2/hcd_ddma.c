@@ -87,6 +87,11 @@ static u16 dwc2_frame_incr_val(struct dwc2_qh *qh)
 static int dwc2_desc_list_alloc(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 				gfp_t flags)
 {
+	if (qh == NULL) {
+		dev_err(hsotg->dev, "%s: qh == NULL.\n", __func__);
+		return -EFAULT;
+	}
+
 	if (qh && qh->desc_list)
 		return 0;
 
