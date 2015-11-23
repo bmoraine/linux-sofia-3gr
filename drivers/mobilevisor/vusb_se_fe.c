@@ -1574,6 +1574,11 @@ static int vusb_se_fe_command_thread(void *d)
 						(VUSB_SE_FE_MVPIPE_CMD_NAME);
 
 				mutex_unlock(&vusb_se_fe_tx_lock);
+
+				/* check for the NULL pointer return. purely for klocwork.
+				 */
+				if (NULL == vusb_se_fe_command_mvpipe_fp)
+					return 0;
 			}
 
 			msleep(1000);
