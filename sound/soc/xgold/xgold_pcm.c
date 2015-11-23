@@ -74,12 +74,16 @@
 
 #define SYSFS_INPUT_VAL_LEN (1)
 
+/* SHM can store 5 ms data, it is 240*2*2 = 960 bytes for 48kHz/2ch/16-bit */
 #define SM_AUDIO_BUFFER_DL_SAMPLES 240
-/* SHM can store 5 ms data, it is 960 bytes
-   Maximum period circle is 24 * 5 = 120 ms
-   DMA circle is 120 * XGOLD_MAX_SG_LIST = 480 ms */
-#define XGOLD_MAX_PERIOD_BYTES (960 * 24) /* 24 * 5 = 120 ms */
-#define XGOLD_MAX_BUFFER_BYTES (XGOLD_MAX_PERIOD_BYTES * 16)
+#define SM_AUDIO_BUFFER_DL_BYTES   (SM_AUDIO_BUFFER_DL_SAMPLES * 4)
+
+/* periods_max = 64 */
+#define XGOLD_MAX_PERIOD_BYTES     (SM_AUDIO_BUFFER_DL_BYTES * 128) /* 640ms */
+#define XGOLD_MAX_BUFFER_BYTES	   (XGOLD_MAX_PERIOD_BYTES * 64)
+
+#define XGOLD_MAX_REC_PERIOD_BYTES (SM_AUDIO_BUFFER_DL_BYTES * 32) /* 160ms */
+#define XGOLD_MAX_REC_BUFFER_BYTES (XGOLD_MAX_REC_PERIOD_BYTES * 64)
 
 /* index of the first HW probe device in the array xgold_dai */
 #define XGOLD_HW_PROBE_DEVICE_OFSET 2
@@ -120,7 +124,7 @@ static const struct snd_pcm_hardware xgold_pcm_play_cfg = {
 	.channels_min = 1,
 	.channels_max = 2,
 	.buffer_bytes_max = XGOLD_MAX_BUFFER_BYTES,
-	.period_bytes_min = 40,
+	.period_bytes_min = 80,
 	.period_bytes_max = XGOLD_MAX_PERIOD_BYTES,
 	.periods_min = 2,
 	.periods_max = 64,
@@ -140,9 +144,9 @@ static struct snd_pcm_hardware xgold_pcm_record_cfg = {
 	.rate_max = 48000,
 	.channels_min = 1,
 	.channels_max = 2,
-	.buffer_bytes_max = 112896,
-	.period_bytes_min = 40,
-	.period_bytes_max = 1764,
+	.buffer_bytes_max = XGOLD_MAX_REC_BUFFER_BYTES,
+	.period_bytes_min = 80,
+	.period_bytes_max = XGOLD_MAX_REC_PERIOD_BYTES,
 	.periods_min = 2,
 	.periods_max = 64,
 };
