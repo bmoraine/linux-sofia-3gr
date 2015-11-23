@@ -353,6 +353,8 @@ ssize_t mvpipe_dev_read(struct file *filp, char __user *buf, size_t count,
 			if (retval)
 				break;
 			ring->reader_status = READ_BUF_EMPTY;
+			/* To avoid race issue caused by disordering */
+			smp_mb();
 			buffer_size = get_read_buf_size(ring);
 			if (buffer_size == 0) {
 				if (ring->writer_status) {
@@ -467,6 +469,8 @@ ssize_t mvpipe_dev_write(struct file *filp, const char __user *buf,
 				      write_size);
 		} else {
 			ring->writer_status = WRITE_BUF_FULL;
+			/* To avoid race issue caused by disordering */
+			smp_mb();
 			buffer_size = get_write_buf_size(ring);
 			if (buffer_size == 0) {
 				if (ring->reader_status) {
