@@ -1,0 +1,3138 @@
+/*
+ * definition at "include/dt-bindings/sofiafb/sofia_fb.h"
+ */
+
+display-panel@nt35596 {
+	compatible = "intel,display";
+	intel,display-dc-clkrate = <297000000>;
+	intel,display-preinit = <0>;
+	intel,display-ramless = <1>;
+	intel,display-fps = <60>;
+	intel,display-vid-mode = "pulses";
+	intel,display-vid-id = <0>;
+	intel,display-eot = <1>;
+	intel,display-gate = <1>;
+	intel,display-if-dts = <1>;
+	intel,display-if = <&mipi_dsi_nt35596>;
+	mipi_dsi_nt35596:mipi-dsi {
+		intel,display-if-rate = <800000000>;
+		intel,display-if-nblanes = <4>;
+		intel,display-if-phy-pwup = <6>;
+		intel,display-if-phy-calib = <3>;
+		intel,display-if-phy-to_lp_hs_req = <24>;
+		intel,display-if-phy-to_lp_hs_dis = <25>;
+		intel,display-if-phy-to_lp_hs_eot = <60>;
+		intel,display-if-phy-to_hs_zero = <8>;
+		intel,display-if-phy-to_hs_flip = <24>;
+		intel,display-if-phy-lp_clk_div = <31>;
+		intel,display-if-phy-to_hs_clk_pre = <36>;
+		intel,display-if-phy-to_hs_clk_post = <42>;
+		intel,display-if-phy-data_delay = <7>;
+		intel,display-if-phy-clock_delay = <7>;
+		intel,display-if-phy-lp_tx_tfall = <2>;
+		intel,display-if-phy-lp_tx_rise = <2>;
+		intel,display-if-phy-lp_tx_vref = <31>;
+	};
+
+	display-timings {
+		native-mode = <&nt35596_timing>;
+		nt35596_timing: nt35596_timing {
+			screen-type = <SCREEN_MIPI>;
+			out-face    = <OUT_P888>;
+			color-mode = <COLOR_RGB>;
+			width = <75>;
+			height = <132>;
+			clock-frequency = <131548800>;
+			hactive = <1080>;
+			vactive = <1920>;
+			hback-porch = <24>;
+			hfront-porch = <24>;
+			vback-porch = <4>;
+			vfront-porch = <4>;
+			hsync-len = <8>;
+			vsync-len = <2>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <0>;
+			pixelclk-active = <0>;
+			swap-rb = <0>;
+			swap-rg = <0>;
+			swap-gb = <0>;
+		};
+	};
+
+		cmd-init {
+      nt35596_cmd0 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFF 0x05>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd1 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFB 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd2 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC6 0x31>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd3 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFF 0xEE>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd4 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFB 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd5 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x24 0x4F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd6 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x38 0xC8>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd7 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x39 0x27>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd8 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1E 0x77>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd9 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1D 0x0F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd10 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7E 0x71>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd11 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7C 0x31>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd12 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFF 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd13 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFB 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd14 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd15 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x01 0x55>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd16 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x02 0x40>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd17 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x05 0x50>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd18 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x06 0x4A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd19 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x07 0x3C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd20 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x08 0x0C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd21 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0B 0x9B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd22 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0C 0x9B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd23 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0E 0xB6>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd24 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0F 0xB5>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd25 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x11 0x28>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd26 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x12 0x28>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd27 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x13 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd28 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x14 0x4A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd29 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x15 0x18>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd30 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x16 0x18>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd31 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x18 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd32 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x19 0x77>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd33 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1A 0x55>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd34 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1B 0x13>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd35 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1C 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd36 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1D 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd37 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1E 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd38 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1F 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd39 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x58 0x82>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd40 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x59 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd41 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5A 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd42 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5B 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd43 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5C 0x82>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd44 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5D 0x82>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd45 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5E 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd46 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5F 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd47 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x66 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd48 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x6D 0x66>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd49 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x72 0x31>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd50 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFF 0x05>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd51 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFB 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd52 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd53 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x01 0x0B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd54 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x02 0x0C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd55 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x03 0x09>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd56 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x04 0x0A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd57 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x05 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd58 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x06 0x0F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd59 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x07 0x10>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd60 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x08 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd61 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x09 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd62 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0A 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd63 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0B 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd64 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0C 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd65 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0D 0x13>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd66 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0E 0x15>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd67 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0F 0x17>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd68 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x10 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd69 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x11 0x0B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd70 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x12 0x0C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd71 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x13 0x09>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd72 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x14 0x0A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd73 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x15 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd74 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x16 0x0F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd75 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x17 0x10>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd76 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x18 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd77 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x19 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd78 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1A 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd79 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1B 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd80 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1C 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd81 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1D 0x13>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd82 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1E 0x15>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd83 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1F 0x17>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd84 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x20 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd85 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x21 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd86 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x22 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd87 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x23 0x40>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd88 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x24 0x40>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd89 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x25 0xED>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd90 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x29 0x58>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd91 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x2A 0x12>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd92 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x2B 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd93 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x4B 0x04>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd94 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x4C 0x12>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd95 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x4D 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd96 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x4E 0x20>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd97 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x4F 0x20>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd98 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x50 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd99 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x51 0x61>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd100 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x52 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd101 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x53 0x63>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd102 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x54 0x75>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd103 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x55 0xED>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd104 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5B 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd105 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5C 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd106 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5F 0x15>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd107 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x60 0x75>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd108 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x63 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd109 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x64 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd110 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x67 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd111 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x68 0x04>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd112 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x6C 0x40>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd113 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7A 0x80>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd114 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7B 0xA3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd115 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7C 0xD8>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd116 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7D 0x60>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd117 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7F 0x15>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd118 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x80 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd119 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x83 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd120 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x93 0x08>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd121 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x94 0x08>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd122 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8A 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd123 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9B 0x0F>;
+				intel,cmd-lp = <1>;
+			};
+/*
+      nt35596_cmd124 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFF 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd125 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFB 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd126 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x75 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd127 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x76 0x2E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd128 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x77 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd129 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x78 0x5F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd130 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x79 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd131 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7A 0x8B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd132 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7B 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd133 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7C 0xA8>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd134 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7D 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd135 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7E 0xBF>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd136 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7F 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd137 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x80 0xD3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd138 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x81 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd139 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x82 0xE3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd140 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x83 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd141 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x84 0xF2>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd142 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x85 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd143 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x86 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd144 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x87 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd145 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x88 0x2C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd146 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x89 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd147 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8A 0x4F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd148 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8B 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd149 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8C 0x86>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd150 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8D 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd151 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8E 0xB1>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd152 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8F 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd153 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x90 0xF4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd154 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x91 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd155 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x92 0x2A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd156 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x93 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd157 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x94 0x2B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd158 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x95 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd159 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x96 0x5E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd160 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x97 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd161 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x98 0x97>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd162 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x99 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd163 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9A 0xBC>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd164 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9B 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd165 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9C 0xEE>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd166 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9D 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd167 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9E 0x11>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd168 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9F 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd169 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA0 0x3E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd170 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA2 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd171 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA3 0x4B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd172 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA4 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd173 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA5 0x5A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd174 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA6 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd175 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA7 0x6A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd176 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA9 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd177 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAA 0x7C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd178 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAB 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd179 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAC 0x8F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd180 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAD 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd181 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAE 0xA3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd182 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAF 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd183 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB0 0xB4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd184 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB1 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd185 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB2 0xFF>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd186 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB3 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd187 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB4 0x2E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd188 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB5 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd189 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB6 0x5F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd190 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB7 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd191 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB8 0x8B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd192 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB9 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd193 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBA 0xA8>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd194 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBB 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd195 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBC 0xBF>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd196 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBD 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd197 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBE 0xD3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd198 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBF 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd199 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC0 0xE3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd200 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC1 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd201 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC2 0xF2>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd202 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC3 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd203 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC4 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd204 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC5 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd205 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC6 0x2C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd206 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC7 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd207 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC8 0x4F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd208 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC9 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd209 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCA 0x86>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd210 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCB 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd211 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCC 0xB1>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd212 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCD 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd213 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCE 0xF4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd214 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCF 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd215 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD0 0x2A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd216 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD1 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd217 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD2 0x2B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd218 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD3 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd219 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD4 0x5E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd220 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD5 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd221 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD6 0x97>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd222 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD7 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd223 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD8 0xBC>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd224 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD9 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd225 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDA 0xEE>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd226 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDB 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd227 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDC 0x11>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd228 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDD 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd229 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDE 0x3E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd230 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDF 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd231 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE0 0x4B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd232 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE1 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd233 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE2 0x5A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd234 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE3 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd235 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE4 0x6A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd236 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE5 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd237 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE6 0x7C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd238 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE7 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd239 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE8 0x8F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd240 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE9 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd241 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xEA 0xA3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd242 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xEB 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd243 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xEC 0xB4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd244 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xED 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd245 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xEE 0xFF>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd246 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xEF 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd247 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xF0 0x2E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd248 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xF1 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd249 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xF2 0x5F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd250 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xF3 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd251 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xF4 0x8B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd252 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xF5 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd253 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xF6 0xA8>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd254 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xF7 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd255 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xF8 0xBF>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd256 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xF9 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd257 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFA 0xD3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd258 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFF 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd259 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFB 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd260 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x00 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd261 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x01 0xE3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd262 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x02 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd263 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x03 0xF2>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd264 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x04 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd265 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x05 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd266 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x06 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd267 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x07 0x2C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd268 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x08 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd269 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x09 0x4F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd270 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0A 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd271 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0B 0x86>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd272 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0C 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd273 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0D 0xB1>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd274 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0E 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd275 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x0F 0xF4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd276 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x10 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd277 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x11 0x2A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd278 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x12 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd279 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x13 0x2B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd280 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x14 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd281 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x15 0x5E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd282 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x16 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd283 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x17 0x97>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd284 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x18 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd285 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x19 0xBC>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd286 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1A 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd287 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1B 0xEE>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd288 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1C 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd289 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1D 0x11>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd290 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1E 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd291 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x1F 0x3E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd292 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x20 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd293 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x21 0x4B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd294 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x22 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd295 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x23 0x5A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd296 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x24 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd297 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x25 0x6A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd298 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x26 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd299 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x27 0x7C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd300 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x28 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd301 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x29 0x8F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd302 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x2A 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd303 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x2B 0xA3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd304 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x2D 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd305 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x2F 0xB4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd306 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x30 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd307 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x31 0xFF>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd308 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x32 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd309 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x33 0x2E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd310 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x34 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd311 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x35 0x5F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd312 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x36 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd313 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x37 0x8B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd314 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x38 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd315 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x39 0xA8>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd316 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x3A 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd317 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x3B 0xBF>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd318 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x3D 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd319 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x3F 0xD3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd320 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x40 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd321 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x41 0xE3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd322 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x42 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd323 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x43 0xF2>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd324 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x44 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd325 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x45 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd326 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x46 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd327 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x47 0x2C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd328 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x48 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd329 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x49 0x4F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd330 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x4A 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd331 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x4B 0x86>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd332 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x4C 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd333 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x4D 0xB1>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd334 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x4E 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd335 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x4F 0xF4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd336 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x50 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd337 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x51 0x2A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd338 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x52 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd339 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x53 0x2B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd340 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x54 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd341 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x55 0x5E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd342 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x56 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd343 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x58 0x97>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd344 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x59 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd345 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5A 0xBC>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd346 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5B 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd347 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5C 0xEE>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd348 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5D 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd349 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5E 0x11>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd350 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5F 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd351 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x60 0x3E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd352 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x61 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd353 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x62 0x4B>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd354 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x63 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd355 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x64 0x5A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd356 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x65 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd357 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x66 0x6A>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd358 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x67 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd359 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x68 0x7C>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd360 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x69 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd361 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x6A 0x8F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd362 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x6B 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd363 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x6C 0xA3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd364 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x6D 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd365 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x6E 0xB4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd366 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x6F 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd367 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x70 0xFF>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd368 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x71 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd369 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x72 0x2E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd370 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x73 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd371 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x74 0x45>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd372 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x75 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd373 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x76 0x88>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd374 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x77 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd375 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x78 0xA4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd376 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x79 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd377 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7A 0xBB>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd378 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7B 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd379 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7C 0xCE>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd380 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7D 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd381 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7E 0xDE>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd382 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x7F 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd383 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x80 0xED>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd384 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x81 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd385 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x82 0xFA>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd386 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x83 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd387 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x84 0x26>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd388 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x85 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd389 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x86 0x49>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd390 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x87 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd391 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x88 0x7F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd392 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x89 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd393 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8A 0xAA>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd394 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8B 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd395 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8C 0xED>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd396 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8D 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd397 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8E 0x23>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd398 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x8F 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd399 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x90 0x25>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd400 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x91 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd401 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x92 0x57>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd402 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x93 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd403 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x94 0x8E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd404 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x95 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd405 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x96 0xB2>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd406 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x97 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd407 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x98 0xE3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd408 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x99 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd409 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9A 0x05>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd410 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9B 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd411 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9C 0x31>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd412 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9D 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd413 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9E 0x3E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd414 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x9F 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd415 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA0 0x4E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd416 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA2 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd417 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA3 0x5F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd418 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA4 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd419 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA5 0x71>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd420 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA6 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd421 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA7 0x88>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd422 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xA9 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd423 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAA 0xA4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd424 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAB 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd425 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAC 0xBA>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd426 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAD 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd427 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAE 0xFF>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd428 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xAF 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd429 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB0 0x2E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd430 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB1 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd431 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB2 0x45>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd432 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB3 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd433 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB4 0x88>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd434 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB5 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd435 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB6 0xA4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd436 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB7 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd437 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB8 0xBB>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd438 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB9 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd439 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBA 0xCE>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd440 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBB 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd441 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBC 0xDE>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd442 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBD 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd443 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBE 0xED>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd444 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xBF 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd445 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC0 0xFA>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd446 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC1 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd447 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC2 0x26>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd448 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC3 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd449 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC4 0x49>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd450 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC5 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd451 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC6 0x7F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd452 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC7 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd453 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC8 0xAA>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd454 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xC9 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd455 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCA 0xED>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd456 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCB 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd457 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCC 0x23>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd458 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCD 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd459 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCE 0x25>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd460 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xCF 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd461 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD0 0x57>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd462 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD1 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd463 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD2 0x8E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd464 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD3 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd465 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD4 0xB2>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd466 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD5 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd467 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD6 0xE3>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd468 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD7 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd469 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD8 0x05>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd470 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD9 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd471 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDA 0x31>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd472 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDB 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd473 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDC 0x3E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd474 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDD 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd475 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDE 0x4E>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd476 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xDF 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd477 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE0 0x5F>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd478 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE1 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd479 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE2 0x71>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd480 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE3 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd481 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE4 0x88>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd482 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE5 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd483 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE6 0xA4>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd484 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE7 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd485 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE8 0xBA>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd486 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xE9 0x03>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd487 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xEA 0xFF>;
+				intel,cmd-lp = <1>;
+			};
+*/
+      nt35596_cmd488 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFF 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd489 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFB 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd490 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFF 0x02>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd491 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFB 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd492 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFF 0x04>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd493 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFB 0x01>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd494 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xFF 0x00>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd495 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD3 0x06>;
+				intel,cmd-lp = <1>;
+			};
+
+      nt35596_cmd496 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xD4 0x04>;
+				intel,cmd-lp = <1>;
+			};
+			nt35596_cmd497{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x55 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			nt35596_cmd498{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x51 0xFF>;
+				intel,cmd-lp = <1>;
+			};
+			nt35596_cmd499{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5E 0x00>;
+				intel,cmd-lp = <1>;
+			};
+			nt35596_cmd500{
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x53 0x24>;
+				intel,cmd-lp = <1>;
+			};
+			sleep-out {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x11>;
+				intel,cmd-delay = <200>;
+				intel,cmd-lp = <1>;
+			};
+			display-on {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x29>;
+				intel,cmd-delay = <40>;
+				intel,cmd-lp = <1>;
+			};
+		};
+
+		gpio-power-on {
+			/*power_en {
+				intel,gpio-type = "vhigh";
+				intel,gpio-value-delay = <1 41>;
+			};*/
+			reset1 {
+				intel,gpio-type = "reset";
+				intel,gpio-value-delay = <1 10>;
+			};
+			reset2 {
+				intel,gpio-type = "reset";
+				intel,gpio-value-delay = <0 10>;
+			};
+			reset3 {
+				intel,gpio-type = "reset";
+				intel,gpio-value-delay = <1 10>;
+			};
+		};
+
+		gpio-power-off {
+			reset {
+				intel,gpio-type = "reset";
+				intel,gpio-value-delay = <0 1>;
+			};
+			/*power_en {
+				intel,gpio-type = "vhigh";
+				intel,gpio-value-delay = <0 0>;
+			};*/
+		};
+
+		cmd-sleep-in {
+			display-off {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x28>;
+				intel,cmd-lp = <1>;
+			};
+			sleep-in {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x10>;
+				intel,cmd-delay = <120>;
+				intel,cmd-lp = <1>;
+			};
+		};
+
+		cmd-sleep-out {
+			sleep-out {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x11>;
+				intel,cmd-delay = <120>;
+				intel,cmd-lp = <1>;
+			};
+			display-on {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x29>;
+				intel,cmd-delay = <40>;
+				intel,cmd-lp = <1>;
+			};
+		};
+	};
