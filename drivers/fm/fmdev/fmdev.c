@@ -418,6 +418,7 @@ int fmdev_send_vector(struct iovec *vector, const size_t count)
 		pr_crit_ratelimited("fmdev_send_vector(count: %u): Not enough space in fifo!\n",
 					count);
 		retval = -EAGAIN;
+          	goto out;
 	}
 
 	for (i = 0; !retval && i < count; i++) {
