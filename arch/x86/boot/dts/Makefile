@@ -26,6 +26,7 @@ dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_LTE-mrd6-p0.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_LTE-mrd6-p0-recovery.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_LTE-mrd6-p1.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_LTE-mrd6-p1-recovery.dtb
+dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3GR-mrd6-p2.dtb
 targets += dtbs
 targets += $(dtb-y)
 endif
