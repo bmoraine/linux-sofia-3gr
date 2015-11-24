@@ -853,7 +853,10 @@ static int oct2_thread(void *param)
 	fp = oct2_open_gadget(USB_CH_NAME);
 	fp_debug = oct2_open_gadget(USB_DEBUG_CH);
 #if OCT_DEBUG_OVER_USB_CH
-	debug_over_usb = 1;
+	if (!IS_ERR_OR_NULL(fp_debug))
+		debug_over_usb = 1;
+	else
+		OCT_LOG("debug_over_usb disabled due to open failed\n");
 #endif
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(oct2_wq, oct2_events);
