@@ -1012,7 +1012,8 @@ void rpc_handle_cmd(void *shared_mem)
 		/* If return data is available, copy specified
 		   length from transfer buffer */
 		if ((ctx->data_out != NULL) && (0 < cmd->tx_size) &&
-		    (cmd->tx_size <= ctx->max_len)) {
+		    (cmd->tx_size <= ctx->max_len) &&
+		    (RPC_SUCCESS == cmd->result)) {
 			pr_debug("[sec_rpc] rpc_handle_cmd: Transfer data (%d bytes) to 0x%p\n",
 			       cmd->tx_size, ctx->data_out);
 			memcpy(ctx->data_out, data, cmd->tx_size);
