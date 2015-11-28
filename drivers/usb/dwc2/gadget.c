@@ -3267,6 +3267,7 @@ static int s3c_hsotg_gadget_getframe(struct usb_gadget *gadget)
 static int s3c_hsotg_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct dwc2_hsotg *hsotg = to_hsotg(gadget);
+	struct usb_phy *uphy = hsotg->uphy;
 	unsigned long flags = 0;
 
 	dev_dbg(hsotg->dev, "%s: is_on: %d\n", __func__, is_on);
@@ -3277,8 +3278,20 @@ static int s3c_hsotg_pullup(struct usb_gadget *gadget, int is_on)
 		return 0;
 	}
 
-	if (!IS_ERR_OR_NULL(hsotg->uphy))
-		pm_runtime_get_sync(hsotg->uphy->dev);
+	if (!IS_ERR_OR_NULL(uphy)) {
+		/*
+		 * The phy-intel.c driver get itself in its rpm-resume function.
+		 * Here we just resume it if it has been suspended. Only get it
+		 * if is active. This is to keep get/put on the phy banlanced.
+		 *
+		 * FIXME: the rpm logical of driver phy-intel.c is too complex.
+		 * it should be improved so here sepecific code can be removed.
+		 */
+		if (pm_runtime_status_suspended(uphy->dev))
+			pm_runtime_resume(uphy->dev);
+		else
+			pm_runtime_get_noresume(uphy->dev);
+	}
 
 	mutex_lock(&hsotg->init_mutex);
 	spin_lock_irqsave(&hsotg->lock, flags);
@@ -3301,8 +3314,8 @@ static int s3c_hsotg_pullup(struct usb_gadget *gadget, int is_on)
 	spin_unlock_irqrestore(&hsotg->lock, flags);
 	mutex_unlock(&hsotg->init_mutex);
 
-	if (!IS_ERR_OR_NULL(hsotg->uphy))
-		pm_runtime_put(hsotg->uphy->dev);
+	if (!IS_ERR_OR_NULL(uphy))
+		pm_runtime_put(uphy->dev);
 
 	return 0;
 }
