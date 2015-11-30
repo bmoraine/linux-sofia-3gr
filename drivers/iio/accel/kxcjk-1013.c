@@ -92,6 +92,11 @@ enum kx_chipset {
 	KX_MAX_CHIPS /* this must be last */
 };
 
+enum kxcjk1013_mode {
+	STANDBY,
+	OPERATION,
+};
+
 struct kxcjk1013_data {
 	struct i2c_client *client;
 	struct iio_trigger *dready_trig;
@@ -106,6 +111,7 @@ struct kxcjk1013_data {
 	bool dready_trigger_on;
 	int ev_enable_state;
 	bool motion_trigger_on;
+	enum kxcjk1013_mode store_mode;
 	int64_t timestamp;
 	enum kx_chipset chipset;
 	s32 (*read_block_data)(const struct i2c_client *client, u8 command,
@@ -117,11 +123,6 @@ enum kxcjk1013_axis {
 	AXIS_Y,
 	AXIS_Z,
 	AXIS_MAX,
-};
-
-enum kxcjk1013_mode {
-	STANDBY,
-	OPERATION,
 };
 
 enum kxcjk1013_range {
@@ -1372,7 +1373,19 @@ static int kxcjk1013_suspend(struct device *dev)
 	int ret;
 
 	mutex_lock(&data->mutex);
+	ret = kxcjk1013_get_mode(data, &data->store_mode);
+	if (ret < 0)
+		dev_err(dev, "failed to get power mode\n");
+
+	if (indio_dev->trig && indio_dev->trig->ops &&
+			indio_dev->trig->ops->set_trigger_state) {
+		ret = indio_dev->trig->ops->set_trigger_state(indio_dev->trig,
+							      false);
+		if (ret < 0)
+			dev_err(dev, "failed to stop trigger\n");
+	}
 	ret = kxcjk1013_set_mode(data, STANDBY);
+
 	mutex_unlock(&data->mutex);
 
 	return ret;
@@ -1385,9 +1398,15 @@ static int kxcjk1013_resume(struct device *dev)
 	int ret = 0;
 
 	mutex_lock(&data->mutex);
+	if (indio_dev->trig && indio_dev->trig->ops &&
+			indio_dev->trig->ops->set_trigger_state) {
+		ret = indio_dev->trig->ops->set_trigger_state(indio_dev->trig,
+							      true);
+		if (ret < 0)
+			dev_err(dev, "failed to start trigger\n");
+	}
 	/* Check, if the suspend occured while active */
-	if (data->dready_trigger_on || data->motion_trigger_on ||
-							data->ev_enable_state)
+	if (data->store_mode == OPERATION)
 		ret = kxcjk1013_set_mode(data, OPERATION);
 	mutex_unlock(&data->mutex);
 
