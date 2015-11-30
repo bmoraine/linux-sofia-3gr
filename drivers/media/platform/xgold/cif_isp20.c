@@ -5457,7 +5457,6 @@ int cif_isp20_get_target_frm_size(
 	if (dev->sp_stream.state >= CIF_ISP20_STATE_READY) {
 		if (dev->mp_stream.state >= CIF_ISP20_STATE_READY) {
 			u32 mp_width, mp_height, sp_width, sp_height;
-			u32 width, height, width_ratio, height_ratio;
 			u32 input_width, input_height;
 
 			input_width = dev->config.isp_config.input->width;
@@ -5467,34 +5466,31 @@ int cif_isp20_get_target_frm_size(
 			sp_width = dev->config.mi_config.sp.output.width;
 			sp_height = dev->config.mi_config.sp.output.height;
 
-			width = (mp_width > sp_width) ?
-				mp_width : sp_width;
-			height = (mp_height > sp_height) ?
-				mp_height : sp_height;
-
-			/* When SP/MP are both active, keep MP's ratio */
-			width_ratio = ((height * mp_width) / mp_height + 1)
-					& (~1);
-			height_ratio = ((width * mp_height) / mp_width + 1)
-					& (~1);
-
-			if (width_ratio > width) {
-				if (width_ratio > input_width)
-					*target_width = input_width;
-				else
-					*target_width = width_ratio;
-			} else {
-				*target_width = width;
+			*target_height = mp_height;
+			*target_width = mp_width;
+			/* keep MP's aspect ratio and create envelope */
+			if (mp_height < sp_height) {
+				*target_height = sp_height;
+				*target_width = (*target_height * mp_width /
+					mp_height + 1) & (~1);
+			}
+			if (*target_width < sp_width) {
+				*target_width = sp_width;
+				*target_height = (*target_width * mp_height /
+					mp_width + 1) & (~1);
+			}
+			/* target size must be smaller or equal to input size */
+			if (*target_height > input_height) {
+				*target_height = input_height;
+				*target_width = (*target_height * mp_width /
+					mp_height + 1) & (~1);
+			}
+			if (*target_width > input_width) {
+				*target_width = input_width;
+				*target_height = (*target_width * mp_height /
+					mp_width + 1) & (~1);
 			}
 
-			if (height_ratio > height) {
-				if (height_ratio > input_height)
-					*target_height = input_height;
-				else
-					*target_height = height_ratio;
-			} else {
-				*target_height = height;
-			}
 			cif_isp20_pltfrm_pr_dbg(dev->dev,
 				"ISP %dx%d, MP %dx%d, SP %dx%d, target %dx%d\n",
 				input_width, input_height,
