@@ -368,12 +368,12 @@ static struct file *oct_open_gadget(char *gadget_name)
 			fp = filp_open(gadget_name, O_RDWR | O_CREAT |
 					O_TRUNC, 0666);
 		set_fs(old_fs);
-		if (IS_ERR_OR_NULL(fp)) {
-			if (PTR_ERR(fp) == -ENOENT)
-				OCT_DBG("wait gadget %s ready\n", gadget_name);
-			else
-				OCT_LOG("Gadget %s open failed %ld!",
-					gadget_name, PTR_ERR(fp));
+		if (NULL == fp) {
+			OCT_LOG("NULL Gadget File Handle");
+			msleep(2000);
+			continue;
+		} else if (IS_ERR(fp)) {
+			OCT_LOG("Gadget %s open failed.", gadget_name);
 			msleep(2000);
 			continue;
 		} else {
