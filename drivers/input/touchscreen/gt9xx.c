@@ -155,7 +155,7 @@ struct gt9xx_ts {
 
 	const char *fw_name;
 	const struct firmware *fw;
-	struct gt9xx_fw_head fw_head;
+	struct gt9xx_fw_head *fw_head;
 	int num_buttons;
 	unsigned int button_codes[GT9XX_MAX_NUM_BUTTONS];
 
@@ -494,6 +494,8 @@ static int gt9xx_get_info(struct gt9xx_ts *ts)
 	return ret;
 }
 
+
+
 static void gt9xx_int_sync(struct gt9xx_ts *ts)
 {
 	struct pinctrl *pinctrl = ts->pinctrl;
@@ -751,7 +753,7 @@ static int gt9x5_fw_flash_ss51_section(struct i2c_client *client, u8 bank,
 			return ret;
 		/* wait for 10 ms, value based on reference driver*/
 		usleep_range(10000, 11000);
-	} while(val && retry++ < len);
+	} while (val && retry++ < len);
 
 	dev_dbg(&client->dev,
 		"ss51 section burn command complete val:%d retry:%d len:%d\n",
@@ -1018,7 +1020,7 @@ static int gt9x5_fw_flash_block_boot_isp(struct gt9xx_ts *ts)
 			return ret;
 		/* wait for 10 ms, value based on reference driver*/
 		usleep_range(10000, 11000);
-	} while(val && retry++ < GT9X5_BOOT_ISP_SECTION_LEN);
+	} while (val && retry++ < GT9X5_BOOT_ISP_SECTION_LEN);
 	dev_dbg(&client->dev,
 		"boot isp section flash send burn cmd complete %d %d %d\n",
 		val, retry, GT9X5_BOOT_ISP_SECTION_LEN);
@@ -1311,14 +1313,25 @@ static int gt9xx_fw_flash_block_ss51(struct gt9xx_ts *ts)
 				     GT9XX_SS51_SECTION_LEN * 2);
 }
 
+/* If the version of current fw in tp is not older than the
+ * target updated fw, return 0, otherwise return 1.
+ */
+static int gt9xx_fw_ver_check(struct gt9xx_ts *ts)
+{
+	/* perform checksum calculation */
+	ts->fw_head = (struct gt9xx_fw_head *)ts->fw->data;
+
+	ts->fw_head->vid = (u16)be16_to_cpu(ts->fw_head->vid);
+
+	if (ts->input->id.version >= ts->fw_head->vid)
+		return 0;
+
+	return 1;
+}
+
 static int gt9xx_fw_checksum(struct gt9xx_ts *ts)
 {
 	int i, checksum = 0;
-
-	/* perform checksum calculation */
-	memcpy(&ts->fw_head, ts->fw->data, GT9XX_FW_HEAD_LEN);
-
-	ts->fw_head.vid = (u16)be16_to_cpu(ts->fw_head.vid);
 
 	for (i = GT9XX_FW_HEAD_LEN; i < ts->fw->size; i += 2)
 		checksum += (ts->fw->data[i] << 8) + ts->fw->data[i+1];
@@ -1354,6 +1367,63 @@ static int gt9xx_fw_download_enabled(struct gt9xx_ts *ts)
 #endif
 
 	return load_firmware;
+}
+
+static int gt9xx_fw_is_valid(struct gt9xx_ts *ts)
+{
+	struct {
+		u8 id[4];	/* may not be NULL terminated */
+		__le16 fw_version;
+	} __packed id;
+	char id_str[5];
+	int ret = 0;
+
+	if (!gt9xx_fw_download_enabled(ts)) {
+		dev_warn(&ts->client->dev, "gt9xx fw download not enabled\n");
+		return 0;
+	}
+
+	/* Get the current version in tp ic */
+	ret = gt9xx_i2c_read(ts->client, GT9XX_REG_ID, &id, sizeof(id));
+	if (ret <= 0) {
+		dev_err(&ts->client->dev, "[%s] read id failed", __func__);
+		return ret;
+	}
+
+	memcpy(id_str, id.id, 4);
+	id_str[4] = 0;
+	if (kstrtou16(id_str, 10, &ts->input->id.product))
+		ts->input->id.product = 0;
+	ts->input->id.version = le16_to_cpu(id.fw_version);
+
+	dev_info(&ts->client->dev, "[%s] current version: %d_%04x", __func__,
+		ts->input->id.product, ts->input->id.version);
+
+	/* Get the version info of the firmware file */
+	ret = request_firmware(&ts->fw, ts->fw_name, &ts->client->dev);
+	if (ret < 0 || !ts->fw) {
+		dev_err(&ts->client->dev, "[%s] gt9xx request firmware failed\n",
+			__func__);
+		return ret;
+	}
+
+	if (ts->fw->size < (GT9XX_SS51_SECTION_LEN * 4 +
+				GT9XX_DSP_SECTION_LEN)) {
+		dev_err(&ts->client->dev, "[%s] Invalid FW size", __func__,
+				ts->fw->size);
+		goto fw_err;
+	}
+
+	if (gt9xx_fw_checksum(ts)) {
+		dev_err(&ts->client->dev, "[%s] fw checksum error", __func__);
+		goto fw_err;
+	}
+
+	return 1;
+
+fw_err:
+	release_firmware(ts->fw);
+	return 0;
 }
 
 static int gt9x5_enter_fw_burn_mode(struct gt9xx_ts *ts)
@@ -1630,27 +1700,17 @@ static int gt9xx_fw_download(struct gt9xx_ts *ts)
 {
 	int ret;
 
-	if (!gt9xx_fw_download_enabled(ts)) {
-		dev_warn(&ts->client->dev, "gt9xx fw download not needed\n");
-		return -ENODEV;
-	}
-
 	dev_warn(&ts->client->dev, "firmware name %s\n", ts->fw_name);
-
-	ret = request_firmware(&ts->fw, ts->fw_name, &ts->client->dev);
-	if (ret < 0) {
-		dev_err(&ts->client->dev, "gt9xx request firmware failed\n");
-		return ret;
-	}
 
 	if (!ts->fw) {
 		dev_err(&ts->client->dev, "gt9xx invalid firmware\n");
 		return -EINVAL;
 	}
 
-	ret = gt9xx_fw_checksum(ts);
-	if (ret < 0) {
-		dev_err(&ts->client->dev, "gt9xx fw checksum failed\n");
+	ret = gt9xx_fw_ver_check(ts);
+	if (0 == ret) {
+		dev_warn(&ts->client->dev, "[%s] target version is not new: %04x",
+				__func__, ts->fw_head->vid);
 		goto fw_err;
 	}
 
@@ -1949,9 +2009,9 @@ static int gt9xx_ts_probe(struct i2c_client *client,
 	if (ret)
 		return ret;
 
-	ret = gt9xx_fw_download(ts);
-	if (ret <= 0)
-		return ret;
+	ret = gt9xx_fw_is_valid(ts);
+	if (ret > 0)
+		ret = gt9xx_fw_download(ts);
 
 	ret = gt9xx_get_info(ts);
 	if (ret <= 0)
