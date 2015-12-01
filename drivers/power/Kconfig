@@ -44,6 +44,12 @@ config SW_FUEL_GAUGE
 	help
 	 Say Y here to enable the software fuel gauge.
 
+config AG6X0_BROWN_OUT
+	bool "Ag6x0 Brown Out"
+	depends on IDI
+	help
+	 Say Y here to enable the ag6x0 brown out functionality.
+
 config POWER_SUPPLY_DEBUG
 	bool "Power supply debug"
 	help
