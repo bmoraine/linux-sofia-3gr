@@ -3467,7 +3467,7 @@ static void cif_isp20_mi_update_buff_addr(
 	if (strm_id == CIF_ISP20_STREAM_SP) {
 		if (dev->config.mi_config.sp.next_buff_addr ==
 			CIF_ISP20_INVALID_BUFF_ADDR) {
-			return 0;
+			return;
 		}
 		cif_iowrite32_verify(dev->config.mi_config.sp.next_buff_addr,
 			dev->config.base_addr +
@@ -3513,7 +3513,7 @@ static void cif_isp20_mi_update_buff_addr(
 	} else if (strm_id == CIF_ISP20_STREAM_MP) {
 		if (dev->config.mi_config.mp.next_buff_addr ==
 			CIF_ISP20_INVALID_BUFF_ADDR) {
-			return 0;
+			return;
 		}
 		cif_iowrite32_verify(dev->config.mi_config.mp.next_buff_addr,
 			dev->config.base_addr +

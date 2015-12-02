@@ -33,8 +33,6 @@ enum cif_isp20_pix_fmt;
 
 struct xgold_isp_dev {
 
-	struct video_device *vdev_cifisp;
-
 	int open_count;
 
 	bool bpc_en;
