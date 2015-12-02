@@ -220,6 +220,12 @@ static int vrga_fe_call(struct device *dev,
 
 	int ret = 0;
 
+	/*
+	 * Adding variable loops_count to prevent dead cycle
+	 * when vbpipe always can't be read
+	 */
+	int loops_count;
+
 	/* Acquire mutex; on failure return immediately */
 	if (mutex_lock_interruptible(&vrga_mutex))
 		return -1;
@@ -246,6 +252,7 @@ static int vrga_fe_call(struct device *dev,
 		datap	   = buf;
 		must	   = len;
 		done_total = 0;
+		loops_count= 0;
 
 		while (must > 0) {
 			done = 0;
@@ -262,7 +269,13 @@ static int vrga_fe_call(struct device *dev,
 
 			if (done < 0) {
 				dev_err(dev, "error %d writing fe", done);
+				if ((done == -ERESTARTSYS) && (loops_count++ < 2))
+					continue;
+
+				ret = -EBUSY;
 				break;
+			} else {
+				loops_count = 0;
 			}
 
 			datap	   += done;
@@ -274,6 +287,7 @@ static int vrga_fe_call(struct device *dev,
 		datap	   = buf;
 		must	   = len;
 		done_total = 0;
+		loops_count = 0;
 
 		while (must > 0) {
 			done = 0;
@@ -290,7 +304,13 @@ static int vrga_fe_call(struct device *dev,
 
 			if (done < 0) {
 				dev_err(dev, "error %d reading fe", done);
+				if ((done == -ERESTARTSYS) && (loops_count++ < 2))
+					continue;
+
+				ret = -EBUSY;
 				break;
+			} else {
+				loops_count = 0;
 			}
 
 			datap	   += done;
@@ -340,8 +360,9 @@ int vrga_call(struct device *dev, struct vrga_secvm_cmd *cmd_p)
 	tic = timespec_to_ns(&ts);
 #endif
 
-	vrga_fe_call(dev, (unsigned char *)arg, size);
-	ret = size;
+	ret = vrga_fe_call(dev, (unsigned char *)arg, size);
+	/* return the size of transferred data */
+	ret = (ret<0) ? 0 : size;
 
 #ifdef __VERBOSE_RPC__
 	ktime_get_ts(&ts);
