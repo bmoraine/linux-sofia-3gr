@@ -291,18 +291,9 @@ static void rga_power_on(void)
 /* Caller must hold rga_service.lock */
 static void rga_power_off(void)
 {
-	int total_running;
-
 	if (!rga_service.enable)
 		return;
 
-	total_running = atomic_read(&rga_service.total_running);
-	if (total_running) {
-		pr_err("power off when %d task running!!\n", total_running);
-		mdelay(50);
-		pr_err("delay 50 ms for running task\n");
-		rga_dump();
-	}
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	device_state_pm_set_state_by_name(drvdata->dev,
 					  drvdata->pm_platdata->
@@ -318,13 +309,25 @@ static void rga_power_off(void)
 
 static void rga_power_off_work(struct work_struct *work)
 {
+	int total_running;
+
 	if (mutex_trylock(&rga_service.lock)) {
-		rga_power_off();
-		mutex_unlock(&rga_service.lock);
-	} else {
-		/* Come back later if the device is busy... */
-		rga_queue_power_off_work();
+		total_running = atomic_read(&rga_service.total_running);
+
+	        if (total_running == 0) {
+			/* power off only when no task running */
+			rga_power_off();
+			mutex_unlock(&rga_service.lock);
+			return;
+		} else {
+			rga_dump();
+			mutex_unlock(&rga_service.lock);
+		}
 	}
+
+	/* Come back later if the device is busy... */
+	rga_queue_power_off_work();
+	return;
 }
 
 static int rga_flush(struct rga_session *session, unsigned long arg)
@@ -699,13 +702,10 @@ static void rga_try_set_reg(void)
 				cancel_delayed_work(&rga_service.fence_delayed_work);
 				atomic_set(&rga_service.delay_work_already_queue, 0);
 			}
-			queue_delayed_work(rga_service.fence_workqueue,
-					&rga_service.fence_delayed_work,
-					RGA_FENCE_TIMEOUT_DELAY);
-			atomic_set(&rga_service.delay_work_already_queue, 1);
-					rga_int_f_num++;
-					rga_start = ktime_get();
-					atomic_set(&rga_service.interrupt_flag, 1);
+
+			rga_int_f_num++;
+			rga_start = ktime_get();
+			atomic_set(&rga_service.interrupt_flag, 1);
  #if !defined(RGA_SECURE_ACCESS)
 			rga_write(1, RGA_CMD_CTRL);
 #else
@@ -724,6 +724,10 @@ static void rga_try_set_reg(void)
 				dev_err(drvdata->dev, "error rga registers writing");
 
 #endif
+			queue_delayed_work(rga_service.fence_workqueue,
+					&rga_service.fence_delayed_work,
+					RGA_FENCE_TIMEOUT_DELAY);
+			atomic_set(&rga_service.delay_work_already_queue, 1);
 
 /*RGA_TEST
 			{
