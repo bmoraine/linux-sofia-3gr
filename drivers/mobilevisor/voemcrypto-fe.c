@@ -1658,6 +1658,7 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		if (pst == NULL)
 			return -EAGAIN;
 
+		copy_from_user(pst, req->pst, req->pst_length);
 		/* Translate and store physical address in shared memory */
 		req->pst = (uint8_t *)voemc_get_pa(pst);
 

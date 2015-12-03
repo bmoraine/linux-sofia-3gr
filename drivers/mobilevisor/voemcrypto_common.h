@@ -689,7 +689,7 @@ struct voemc_getmaxnumberofsessions_t {
 struct voemc_forcedeleteusageentry_t {
 	uint32_t cmd;
 	uint32_t result;
-	const uint8_t *pst;
+	const void __user *pst;
 	size_t pst_length;
 };
 
