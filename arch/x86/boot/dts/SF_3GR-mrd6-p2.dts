@@ -39,22 +39,35 @@
 
 		/* global autoconfigured region for contiguous allocations */
 		cma_default_region: region@0 {
-			size = <0x08000000>;
-			limit = <0x00000000>;
+			size = <0x03000000>;
+			limit = <0x10000000>;
 			linux,cma-default;
 		};
-		#if 0
 		/* special region for secured processing devices */
-		secured_region: region@8000000 {
-			reg = <0x08000000 0x08000000>;
+		secured_rga_region: region@10000000 {
+			reg = <0x10000000 0x01000000>;
+			no-map;
+			linux,cma;
+			isolate;
+		};
+		secured_region: region@11000000 {
+			reg = <0x11000000 0x05000000>;
 			no-map;
 			linux,cma;
 		};
-		#endif
 	};
 
 	vmodem {
 		compatible = "intel,vmodem";
+		vmodem,nvm-part = < 3 >;
+		vmodem,part-names =
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022",
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID023",
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID024";
+		part-addr,part-size =
+			<0x1FA78000 0x40000>,
+			<0x1fab8000 0x40000>,
+			<0x1FAF8000 0x80000>;
 	};
 
 	ion {
@@ -71,12 +84,14 @@
 		system-heap {
 			rockchip,ion_heap = < 0 >;
 		};
-		#if 0
-		secured-heap {
-			memory-region = <&secured_region>;
+		secured-rga-heap {
+			memory-region = <&secured_rga_region>;
 			rockchip,ion_heap = < 5 >;
 		};
-		#endif
+		secured-heap {
+			memory-region = <&secured_region>;
+			rockchip,ion_heap = < 6 >;
+		};
 	};
 #ifdef SOFIA3GR_MRD6
 	pwmleds {
@@ -185,6 +200,9 @@
 		intel,gpio-hw-id =
 			<&xgold_pmx_gpio 55 0>,
 			<&xgold_pmx_gpio 48 0>;
+		intel,gpio-lcm-id =
+			<&xgold_pmx_gpio 59 0>;
+		intel,vmm-secured-access;
 	};
 #endif
 };
