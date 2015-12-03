@@ -49,6 +49,7 @@ static void ov_camera_module_reset(
 	cam_mod->auto_adjust_fps = true;
 	cam_mod->rotation = 0;
 	cam_mod->ctrl_updt = 0;
+	cam_mod->min_lines_in_vbl = 0;
 	cam_mod->state = OV_CAMERA_MODULE_POWER_OFF;
 	cam_mod->state_before_suspend = OV_CAMERA_MODULE_POWER_OFF;
 }
@@ -452,6 +453,13 @@ int ov_camera_module_s_power(struct v4l2_subdev *sd, int on)
 							sd, 0);
 						goto err;
 					}
+
+					if (!IS_ERR_OR_NULL(
+                                                cam_mod->custom.init_common)
+                                                &&
+                                                cam_mod->custom.init_common(
+                                                cam_mod))
+                                                usleep_range(1000, 1500);
 				}
 			}
 		}
@@ -968,6 +976,28 @@ int ov_camera_module_enum_frameintervals(
 	fival->discrete.denominator = cam_mod->custom.
 		configs[fival->index].frm_intrvl.interval.denominator;
 	return 0;
+}
+
+/*
+        This function requires valid value in cam_mod->active_config and
+        cam_mod->vts_min
+*/
+inline void ov_camera_module_g_min_vts_lines(
+        struct ov_camera_module *cam_mod, u32 *num_lines)
+{
+        int fps_num, fps_dem, vts_min;
+
+        /* Minimum number of lines during vertical blanking is calculated as:
+                MIN_VBL_LINES = MIN_VBL_TIME * VTS * FPS
+        */
+        fps_num = cam_mod->active_config->frm_intrvl.interval.numerator;
+        fps_dem = cam_mod->active_config->frm_intrvl.interval.denominator;
+        vts_min = cam_mod->vts_min;
+
+        *num_lines =
+                OV_CAMERA_MODULE_MIN_VBL_IN_MS*fps_dem*vts_min/fps_num/1000+1;
+
+        return;
 }
 
 /* ======================================================================== */

@@ -34,6 +34,7 @@
 #define OV_CAMERA_MODULE_CTRL_UPDT_AUTO_EXP			0x20
 #define OV_CAMERA_MODULE_CTRL_UPDT_FOCUS_ABSOLUTE	0x40
 #define OV_CAMERA_MODULE_CTRL_UPDT_PRESET_WB		0x80
+#define OV_CAMERA_MODULE_MIN_VBL_IN_MS              3
 
 
 enum ov_camera_module_state {
@@ -131,6 +132,9 @@ struct ov_camera_module_timings {
 */
 struct ov_camera_module_custom_config {
 	int (*start_streaming)(struct ov_camera_module *cam_mod);
+	int (*init_common)(struct ov_camera_module *cam_mod);
+	int (*update_otp)(struct ov_camera_module *cam_mod);
+	int (*set_flip)(struct ov_camera_module *cam_mod);
 	int (*stop_streaming)(struct ov_camera_module *cam_mod);
 	int (*check_camera_id)(struct ov_camera_module *cam_mod);
 	int (*s_ctrl)(struct ov_camera_module *cam_mod, u32 ctrl_id);
@@ -166,6 +170,7 @@ struct ov_camera_module {
 	bool hflip;
 	bool vflip;
 	u32 rotation;
+	u32 min_lines_in_vbl;
 	void *pltfm_data;
 };
 
@@ -238,6 +243,9 @@ int ov_camera_module_s_ext_ctrls(
 int ov_camera_module_enum_frameintervals(
 	struct v4l2_subdev *sd,
 	struct v4l2_frmivalenum *fival);
+
+inline void ov_camera_module_g_min_vts_lines(
+	struct ov_camera_module *cam_mod, u32 *num_lines);
 
 int ov_camera_module_init(
 	struct ov_camera_module *cam_mod,
