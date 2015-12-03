@@ -75,7 +75,13 @@
 #define FMRX_EV_TUNE 52
 #define FMTX_EV_CALIB 53
 #define FMTX_EV_TUNE 54
+
+#ifdef SOFIA3GR_MRD6
+#define USB_INT 55
+#else
 #define USB_INT 121
+#endif
+
 #define I2C_RAWIRQ 59
 #define USB_HS_RESUME 62
 #define SDMMC_DETECT 63

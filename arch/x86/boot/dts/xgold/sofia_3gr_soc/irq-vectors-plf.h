@@ -14,7 +14,6 @@
 #ifndef _IRQ_VECTORS_PLF_H
 #define _IRQ_VECTORS_PLF_H
 #define EXI4 0
-#define EXI5 0
 #define EXI7 0
 #define EXI13 0
 #define EXI15 0
@@ -23,10 +22,16 @@
 #define EXI0 56
 #define EXI1 57
 #define EXI2 58
-#define EXI6 60
 #define EXI12 61
 #define EXI8 118
-#define EXI14 55
+#define EXI14 121
 #define EXI10 122
 #define EXI3 123
+#ifdef SOFIA3GR_MRD6
+#define EXI5 60
+#define EXI6 0
+#else
+#define EXI5 0
+#define EXI6 60
+#endif
 #endif /*_IRQ_VECTORS_PLF_H */
