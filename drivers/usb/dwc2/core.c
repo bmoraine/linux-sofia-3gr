@@ -392,6 +392,11 @@ int dwc2_enter_hibernation(struct dwc2_hsotg *hsotg)
 	if (!hsotg->core_params->hibernation)
 		return -ENOTSUPP;
 
+	if (dwc2_is_low_power_mode(hsotg)) {
+		dev_WARN(hsotg->dev,"core already in lpm mode!!\n");
+		return -EINVAL;
+	}
+
 	/* Backup all registers */
 	ret = dwc2_backup_global_registers(hsotg);
 	if (ret) {
@@ -3305,6 +3310,15 @@ u16 dwc2_get_otg_version(struct dwc2_hsotg *hsotg)
 bool dwc2_is_controller_alive(struct dwc2_hsotg *hsotg)
 {
 	if (readl(hsotg->regs + GSNPSID) == 0xffffffff)
+		return false;
+	else
+		return true;
+}
+
+bool dwc2_is_low_power_mode(struct dwc2_hsotg *hsotg)
+{
+	/* in lpm mode, read GSNPSID will get value 0. */
+	if (readl(hsotg->regs + GSNPSID))
 		return false;
 	else
 		return true;

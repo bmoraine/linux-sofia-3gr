@@ -878,6 +878,7 @@ extern void dwc2_disable_host_interrupts(struct dwc2_hsotg *hsotg);
 
 extern u32 dwc2_calc_frame_interval(struct dwc2_hsotg *hsotg);
 extern bool dwc2_is_controller_alive(struct dwc2_hsotg *hsotg);
+extern bool dwc2_is_low_power_mode(struct dwc2_hsotg *hsotg);
 
 /*
  * Common core Functions.
