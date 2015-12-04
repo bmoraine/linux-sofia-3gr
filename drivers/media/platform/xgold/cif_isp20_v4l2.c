@@ -1202,8 +1202,9 @@ static long v4l2_default_ioctl(struct file *file, void *fh,
 			return ret;
 		}
 	} else
-		cif_isp20_pltfrm_pr_err(dev->dev,
-			"ignored unknown cmd 0x%x from %s\n", cmd, current->comm);
+		if (printk_ratelimit())
+			cif_isp20_pltfrm_pr_err(dev->dev,
+				"ignored unknown cmd 0x%x from %s\n", cmd, current->comm);
 
 	return ret;
 }
