@@ -1344,7 +1344,7 @@ static int console_trylock_for_printk(unsigned int cpu)
 {
 	int retval = 0, wake = 0;
 
-	if (console_trylock()) {
+	if (!in_nmi() && console_trylock()) {
 		retval = 1;
 
 		/*
@@ -1523,7 +1523,14 @@ asmlinkage int vprintk_emit(int facility, int level,
 	}
 
 	lockdep_off();
-	raw_spin_lock(&logbuf_lock);
+	if (unlikely(in_nmi())) {
+		if (!raw_spin_trylock(&logbuf_lock)) {
+			goto out_restore_lockdep_irqs;
+		}
+	} else {
+		raw_spin_lock(&logbuf_lock);
+	}
+
 	logbuf_cpu = this_cpu;
 
 	if (recursion_bug) {
@@ -1626,6 +1633,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	if (console_trylock_for_printk(this_cpu))
 		console_unlock();
 
+out_restore_lockdep_irqs:
 	lockdep_on();
 out_restore_irqs:
 	local_irq_restore(flags);
