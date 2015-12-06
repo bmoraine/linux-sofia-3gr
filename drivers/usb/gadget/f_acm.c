@@ -805,8 +805,10 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 	return 0;
 
 fail:
-	if (acm->notify_req)
+	if (acm->notify_req) {
 		gs_free_req(acm->notify, acm->notify_req);
+		acm->notify_req = NULL;
+	}
 
 	/* we might as well release our claims on endpoints */
 	if (acm->notify)
@@ -827,8 +829,10 @@ static void acm_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	acm_string_defs[0].id = 0;
 	usb_free_all_descriptors(f);
-	if (acm->notify_req)
+	if (acm->notify_req) {
 		gs_free_req(acm->notify, acm->notify_req);
+		acm->notify_req = NULL;
+	}
 }
 
 static void acm_free_func(struct usb_function *f)

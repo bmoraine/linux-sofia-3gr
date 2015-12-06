@@ -818,6 +818,7 @@ fail:
 	if (ecm->notify_req) {
 		kfree(ecm->notify_req->buf);
 		usb_ep_free_request(ecm->notify, ecm->notify_req);
+		ecm->notify_req = NULL;
 	}
 
 	/* we might as well release our claims on endpoints */
@@ -924,6 +925,7 @@ static void ecm_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	kfree(ecm->notify_req->buf);
 	usb_ep_free_request(ecm->notify, ecm->notify_req);
+	ecm->notify_req = NULL;
 }
 
 static struct usb_function *ecm_alloc(struct usb_function_instance *fi)
