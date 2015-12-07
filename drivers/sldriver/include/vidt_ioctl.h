@@ -27,6 +27,7 @@ struct enclave_create_param {
 	uint64_t base;
 	uint32_t flags;
 	uint32_t view_handle;
+	uint64_t alloc_size;
 } __packed;
 
 struct enclave_add_param {
