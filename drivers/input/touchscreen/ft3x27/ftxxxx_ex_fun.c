@@ -645,7 +645,7 @@ static int ftxxxx_GetFirmwareSize(char *firmware_name)
 	char filepath[128];
 
 	memset(filepath, 0, sizeof(filepath));
-	sprintf(filepath, "%s", firmware_name);
+	snprintf(filepath, sizeof(filepath), "%s", firmware_name);
 	if (NULL == pfile) {
 		pfile = filp_open(filepath, O_RDONLY, 0);
 	}
