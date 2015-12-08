@@ -225,22 +225,24 @@ int mvpipe_dev_open(struct inode *inode, struct file *filp)
 		}
 	}
 
-	dev->open_count++;
 	set_pipe_status(dev, MVPIPE_OPENING);
 
 	mvpipe_info("Wait until connected!\n");
 	if (wait_event_interruptible(dev->open_wait,
 				 dev->mbox_status == MBOX_CONNECTED)) {
 		ret = -ERESTARTSYS;
+		mvpipe_error("interrtupted when wait connected!\n");
 		goto wait_was_interrupted;
 	}
 	mvpipe_info("Wait until peer close properly!\n");
 	if (wait_event_interruptible(dev->open_wait,
 				 get_peer_status(dev) != MVPIPE_CLOSING)) {
 		ret = -ERESTARTSYS;
+		mvpipe_error("interrtupted when wait peer close!\n");
 		goto wait_was_interrupted;
 	}
 
+	dev->open_count++;
 	mvpipe_info("Open success!\n");
 	set_pipe_status(dev, MVPIPE_OPEN);
 
