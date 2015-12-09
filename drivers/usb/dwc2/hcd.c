@@ -1452,6 +1452,7 @@ static void dwc2_port_suspend(struct dwc2_hsotg *hsotg, u16 windex)
 	u32 hprt0;
 	u32 pcgctl;
 	u32 gotgctl;
+	int timeout;
 
 	dev_dbg(hsotg->dev, "%s()\n", __func__);
 
@@ -1466,6 +1467,7 @@ static void dwc2_port_suspend(struct dwc2_hsotg *hsotg, u16 windex)
 
 	hprt0 = dwc2_read_hprt0(hsotg);
 	hprt0 |= HPRT0_SUSP;
+	hprt0 &= ~HPRT0_ENA;
 	writel(hprt0, hsotg->regs + HPRT0);
 
 	/* Update lx_state */
@@ -1495,6 +1497,23 @@ static void dwc2_port_suspend(struct dwc2_hsotg *hsotg, u16 windex)
 	} else {
 		spin_unlock_irqrestore(&hsotg->lock, flags);
 	}
+
+	/* Wait for HPRT0.PrtSusp set */
+	for (timeout = 1000; timeout > 0; timeout--) {
+		if (dwc2_read_hprt0(hsotg) & HPRT0_SUSP) {
+			dev_dbg(hsotg->dev, "%s: port suspended remaining loop = %d\n",
+					__func__, timeout);
+			break;
+		}
+		udelay(100);
+	}
+
+	/* Wait for 10 Phy clocks */
+	if (timeout)
+		udelay(2);
+	else
+		dev_err(hsotg->dev, "%s: timeout waiting for HPRT0.PrtSusp\n",
+				__func__);
 }
 
 /* Must NOT be called with interrupt disabled or spinlock held */
