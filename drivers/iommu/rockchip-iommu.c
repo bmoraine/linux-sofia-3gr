@@ -763,7 +763,7 @@ static unsigned long *rockchip_alloc_lv2entry(unsigned long *sent,
 	if (rockchip_lv1ent_fault(sent)) {
 		unsigned long *pent;
 
-		pent = (unsigned long *)__get_free_pages(GFP_KERNEL |
+		pent = (unsigned long *)__get_free_pages(GFP_ATOMIC |
 				__GFP_ZERO, 0);
 		BUG_ON((unsigned long)pent & (LV2TABLE_SIZE - 1));
 		if (!pent)
