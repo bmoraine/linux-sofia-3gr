@@ -1375,6 +1375,7 @@ int cif_isp20_pltfrm_dev_init(
 			ret = PTR_ERR(base_addr);
 		else
 			ret = -ENODEV;
+		goto err;
 	}
 	*reg_base_addr = base_addr;
 	pdata->base_addr = base_addr;
