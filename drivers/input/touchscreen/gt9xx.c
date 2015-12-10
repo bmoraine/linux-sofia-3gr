@@ -171,12 +171,14 @@ struct gt9xx_ts {
 #define GT9XX_REG_STATUS		0x814E
 #define GT9XX_REG_DATA			0x814F
 
+static void gt9xx_reset(struct gt9xx_ts *ts);
+
 static int gt9xx_i2c_read(struct i2c_client *client, u16 addr,
 			  void *buf, unsigned len)
 {
 	u8 addr_buf[2];
 	struct i2c_msg msgs[2];
-	int ret;
+	int ret, retries = 0;
 
 	addr_buf[0] = addr >> 8;
 	addr_buf[1] = addr & 0xFF;
@@ -191,10 +193,17 @@ static int gt9xx_i2c_read(struct i2c_client *client, u16 addr,
 	msgs[1].buf = buf;
 	msgs[1].len = len;
 
-	ret = i2c_transfer(client->adapter, msgs, 2);
-	if (ret != 2) {
+	while (retries < 5) {
+		ret = i2c_transfer(client->adapter, msgs, 2);
+		if (ret == 2)
+			break;
+		retries++;
+	}
+
+	if (retries >= 5) {
 		dev_err(&client->dev, "I2C read @0x%04X (%d) failed: %d", addr,
 			len, ret);
+		gt9xx_reset(i2c_get_clientdata(client));
 		return ret;
 	}
 
@@ -207,7 +216,7 @@ static int gt9xx_i2c_write(struct i2c_client *client, u16 addr, void *buf,
 {
 	u8 *addr_buf;
 	struct i2c_msg msg;
-	int ret;
+	int ret = 0, retries = 0;
 
 	addr_buf = kmalloc(len + 2, GFP_KERNEL);
 	if (!addr_buf)
@@ -223,12 +232,19 @@ static int gt9xx_i2c_write(struct i2c_client *client, u16 addr, void *buf,
 	msg.buf = addr_buf;
 	msg.len = len + 2;
 
-	ret = i2c_transfer(client->adapter, &msg, 1);
+	while (retries < 5 ) {
+		ret = i2c_transfer(client->adapter, &msg, 1);
+		if (ret == 1)
+			break;
+		retries++;
+	}
+
 	kfree(addr_buf);
 
-	if (ret != 1) {
+	if (retries >= 5) {
 		dev_err(&client->dev, "I2C write @0x%04X (%d) failed: %d", addr,
 			len, ret);
+		gt9xx_reset(i2c_get_clientdata(client));
 		return ret;
 	}
 
@@ -283,12 +299,12 @@ static int gt9xx_send_cfg(struct gt9xx_ts *ts, u8 *cfg_data, size_t cfg_size)
 again:
 	ret = gt9xx_i2c_write(ts->client, GT9XX_REG_CONFIG_DATA,
 				cfg_data, GT9XX_CONFIG_LENGTH);
-	if ((ret < 0) && (retry++ < GT9XX_CFG_DN_RETRY)) {
+	if ((ret == -EAGAIN) && (retry++ < GT9XX_CFG_DN_RETRY)) {
 		dev_err(&ts->client->dev, "Config send failed, retry %d",
 				retry);
 		goto again;
 	}
-	if (retry >= GT9XX_CFG_DN_RETRY) {
+	if (ret <= 0) {
 		dev_err(&ts->client->dev, "Config send failed, err: %d", ret);
 		return ret;
 	}
@@ -735,7 +751,7 @@ static int gt9x5_fw_flash_ss51_section(struct i2c_client *client, u8 bank,
 			return ret;
 		/* wait for 10 ms, value based on reference driver*/
 		usleep_range(10000, 11000);
-	} while (val && retry++ < len);
+	} while(val && retry++ < len);
 
 	dev_dbg(&client->dev,
 		"ss51 section burn command complete val:%d retry:%d len:%d\n",
@@ -1002,7 +1018,7 @@ static int gt9x5_fw_flash_block_boot_isp(struct gt9xx_ts *ts)
 			return ret;
 		/* wait for 10 ms, value based on reference driver*/
 		usleep_range(10000, 11000);
-	} while (val && retry++ < GT9X5_BOOT_ISP_SECTION_LEN);
+	} while(val && retry++ < GT9X5_BOOT_ISP_SECTION_LEN);
 	dev_dbg(&client->dev,
 		"boot isp section flash send burn cmd complete %d %d %d\n",
 		val, retry, GT9X5_BOOT_ISP_SECTION_LEN);
@@ -1642,15 +1658,13 @@ static int gt9xx_fw_download(struct gt9xx_ts *ts)
 		ret = gt9xx_flash_fw(ts);
 		if (ret < 0) {
 			dev_err(&ts->client->dev, "gt9xx fw flash failed\n");
-			release_firmware(ts->fw);
-			return -EPROBE_DEFER;
+			goto fw_err;
 		}
 	} else {
 		ret = gt9x5_flash_fw(ts);
 		if (ret < 0) {
 			dev_err(&ts->client->dev, "gt9x5 fw flash failed\n");
-			release_firmware(ts->fw);
-			return -EPROBE_DEFER;
+			goto fw_err;
 		}
 	}
 
@@ -1892,6 +1906,12 @@ static int gt9xx_ts_probe(struct i2c_client *client,
 	struct gt9xx_ts *ts;
 	struct device *dev = &client->dev;
 	int i;
+	static int first_time = 0;
+
+	if(++first_time <= 1) {
+		dev_info(dev, "deferring probe gt911\n");
+		return -EPROBE_DEFER;
+	}
 
 	dev_info(dev, "probing GT911 @ 0x%02x", client->addr);
 
