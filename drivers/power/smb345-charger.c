@@ -73,6 +73,10 @@
 #define IBUS_MIN_LIMIT_MA 100
 #define IBUS_LIMIT_STEP_MA 400
 #define IBUS_MAX_LIMIT_MA 900
+#define CFG_VAR_FUNC		0x02
+#define CFG_VAR_FUNC_AICL_MASK BIT(4)
+#define CFG_VAR_FUNC_DISABLE_AICL  0x00
+#define CFG_VAR_FUNC_ENABLE_AICL  0x10
 #define FLOAT_VOLTAGE_REG        0x03
 
 #define IOCHARGE_MAX_MA 1500
@@ -1267,32 +1271,60 @@ static int smb345_enable_charging(struct smb345_charger *chrgr,
 					BIT(3) | BIT(4) | BIT(5),
 					BIT(0) | BIT(1) | BIT(5));
 
-
-		/* charger enable */
-		ret = smb345_read(chrgr, CFG_PIN);
-		if (ret < 0)
+		/*
+		 * As it may get AICL (Auto Input Current Limit) completed
+		 * with small input limit before any input current limit
+		 * configured, so needs to retrigger AICL again by disable
+		 * and re-enable AICL and charger with correct input current
+		 * limit configured.
+		 */
+		ret = smb345_masked_write(chrgr->client,
+						CFG_VAR_FUNC,
+						CFG_VAR_FUNC_AICL_MASK,
+						CFG_VAR_FUNC_DISABLE_AICL);
+		if (ret) {
+			pr_err("fail to disable auto input current limit\n");
 			goto fail;
-
-		ret &= ~CFG_PIN_EN_CTRL_MASK;
-		if (enable) {
-			/*
-			 * Set Pin active low
-			 * (ME371MG connect EN to GROUND)
-			 */
-			ret |= CFG_PIN_EN_CTRL_ACTIVE_LOW;
-		} else {
 		}
-		ret = smb345_write(chrgr, CFG_PIN, ret);
-		if (ret < 0)
+
+		/* Diable Charger, Set Pin to acitve High as EN is gounded */
+		ret = smb345_masked_write(chrgr->client,
+						CFG_PIN,
+						CFG_PIN_EN_CTRL_MASK,
+						CFG_PIN_EN_CTRL_ACTIVE_HIGH);
+		if (ret) {
+			pr_err("fail to disable charger\n");
 			goto fail;
+		}
 
-
+		/* Configure current limits */
 		if (smb345_set_current_limits(chrgr, ma, false) < 0) {
 			dev_err(&chrgr->client->dev,
 				"%s: fail to set max current limits\n",
 				__func__);
 			goto fail;
 		}
+
+		/* Re-enable AICL */
+		ret = smb345_masked_write(chrgr->client,
+						CFG_VAR_FUNC,
+						CFG_VAR_FUNC_AICL_MASK,
+						CFG_VAR_FUNC_ENABLE_AICL);
+		if (ret) {
+			pr_err("fail to disable auto input current limit\n");
+			goto fail;
+		}
+
+		/* Re-enable Charger */
+		ret = smb345_masked_write(chrgr->client,
+						CFG_PIN,
+						CFG_PIN_EN_CTRL_MASK,
+						CFG_PIN_EN_CTRL_ACTIVE_LOW);
+		if (ret) {
+			pr_err("fail to enable charger\n");
+			goto fail;
+		}
+
 
 		if (chrgr->state.cable_type ==
 				POWER_SUPPLY_CHARGER_TYPE_USB_SDP) {
