@@ -1,0 +1,2 @@
+#define RECOVERY_KERNEL
+#include "SF_3GR-ecs-th10.dts"

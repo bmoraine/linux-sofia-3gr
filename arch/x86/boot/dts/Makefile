@@ -30,6 +30,8 @@ dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3GR-mrd6-p2.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3GR-mrd6-p2-recovery.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3GR-mrd6-720.dtb
 dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3GR-mrd6-720-recovery.dtb
+dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3GR-ecs-th10.dtb
+dtb-$(CONFIG_X86_INTEL_XGOLD) += SF_3GR-ecs-th10-recovery.dtb
 targets += dtbs
 targets += $(dtb-y)
 endif
