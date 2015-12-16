@@ -98,7 +98,7 @@
 		compatible = "pwm-leds";
 		pwm_lcd {
 		        label = "lcd-backlight";
-			/*pwms = <&pwm2 0 25000 PWM_POLARITY_NORMAL>;*/
+			pwms = <&pwm2 0 25000 PWM_POLARITY_NORMAL>;
 			max-brightness = <255>;
 			min-brightness = <15>;
 			active-low = <0>;
