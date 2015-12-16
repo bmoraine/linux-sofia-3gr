@@ -146,17 +146,18 @@ dma_addr_t rockchip_iovmm_map(struct device *dev,
 
 	ret = rockchip_iommu_tlb_invalidate(dev);
 	if (ret)
-		goto err_map_map;
+		goto err_map_tlb_failure;
 
 	dev_dbg(dev->archdata.iommu, "IOVMM: Allocated VM region @ %#x/%#X bytes.\n",
 		 region->start, region->size);
 
 	return region->start;
 
-err_map_map:
+err_map_tlb_failure:
 	spin_lock(&vmm->lock);
 	list_del(&region->node);
 	spin_unlock(&vmm->lock);
+err_map_map:
 	iommu_unmap(vmm->domain, start, mapped_size);
 	gen_pool_free(vmm->vmm_pool, start, size);
 err_map_noiomem:
