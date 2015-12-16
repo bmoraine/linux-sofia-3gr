@@ -1,0 +1,132 @@
+/*
+ * definition at "include/dt-bindings/sofiafb/sofia_fb.h"
+ */
+
+display-panel@KR080ID7T {
+       compatible = "intel,display";
+       intel,display-dc-clkrate = <297000000>;
+       intel,display-preinit = <0>;
+       intel,display-ramless = <1>;
+       intel,display-fps = <60>;
+       intel,display-vid-mode = "pulses";
+/*     intel,display-vid-mode = "burst"; */
+       intel,display-vid-id = <0>;
+       intel,display-eot = <1>;
+       intel,display-gate = <1>;
+       intel,display-if-dts = <1>;
+       intel,display-if = <&mipi_dsi_KR080ID7T>;
+       mipi_dsi_KR080ID7T:mipi-dsi {
+               intel,display-if-rate = <390000000>; /* (800+80/3) X (1280+16)X 360 =385845120  */
+               intel,display-if-nblanes = <4>;
+               intel,display-if-phy-pwup = <6>;
+               intel,display-if-phy-calib = <3>;
+               intel,display-if-phy-to_lp_hs_req = <24>;
+               intel,display-if-phy-to_lp_hs_dis = <25>;
+               intel,display-if-phy-to_lp_hs_eot = <60>;
+               intel,display-if-phy-to_hs_zero = <8>;
+               intel,display-if-phy-to_hs_flip = <24>;
+               intel,display-if-phy-lp_clk_div = <31>;
+               intel,display-if-phy-to_hs_clk_pre = <36>;
+               intel,display-if-phy-to_hs_clk_post = <42>;
+               intel,display-if-phy-data_delay = <7>;
+               intel,display-if-phy-clock_delay = <7>;
+               intel,display-if-phy-lp_tx_tfall = <2>;
+               intel,display-if-phy-lp_tx_rise = <2>;
+               intel,display-if-phy-lp_tx_vref = <31>;
+       };
+       display-timings {
+               native-mode = <&KR080ID7T_timing>;
+               KR080ID7T_timing: KR080ID7T_timing {
+                       screen-type = <SCREEN_MIPI>;
+                       out-face    = <OUT_P888>;
+                       color-mode = <COLOR_RGB>;
+                       clock-frequency = <68428800>;
+                       hactive = <800>;
+                       vactive = <1280>;
+                       hback-porch = <48>;
+                       hfront-porch = <16>;
+                       vback-porch = <4>;
+                       vfront-porch = <8>;
+                       hsync-len = <16>;
+                       vsync-len = <4>;
+                       hsync-active = <0>;
+                       vsync-active = <0>;
+                       de-active = <0>;
+                       pixelclk-active = <0>;
+                       swap-rb = <0>;
+                       swap-rg = <0>;
+                       swap-gb = <0>;
+               };
+       };
+
+
+               cmd-init {
+                       CMD1 {
+                               intel,cmd-type = <0x15>;
+                               intel,cmd-data = <0xB0 0x00>;
+                               intel,cmd-lp = <1>;
+                       };
+                       CMD2 {
+                               intel,cmd-type = <0x15>;
+                               intel,cmd-data = <0xBB 0xE8>;
+                               intel,cmd-lp = <1>;
+                       };
+                       CMD3 {
+                               intel,cmd-type = <0x05>;
+                               intel,cmd-data = <0x11>;
+                               intel,cmd-delay = <220>;
+                               intel,cmd-lp = <1>;
+                       };
+                       CMD4 {
+                               intel,cmd-type = <0x05>;
+                               intel,cmd-data = <0x29>;
+                               intel,cmd-delay = <150>;
+                               intel,cmd-lp = <1>;
+                       };
+               };
+               cmd-power-on {
+                       display-on {
+                               intel,cmd-type = <0x05>;
+                               intel,cmd-data = <0x29>;
+                               intel,cmd-lp = <1>;
+                       };
+               };
+
+               cmd-power-off {
+                       display-off {
+                               intel,cmd-type = <0x05>;
+                               intel,cmd-data = <0x28>;
+                               intel,cmd-lp = <1>;
+                       };
+               };
+
+               cmd-sleep-in {
+                       display-off {
+                               intel,cmd-type = <0x05>;
+                               intel,cmd-data = <0x28>;
+                               intel,cmd-delay = <20>;
+                               intel,cmd-lp = <1>;
+                       };
+                       sleep-in {
+                               intel,cmd-type = <0x05>;
+                               intel,cmd-data = <0x10>;
+                               intel,cmd-delay = <180>;
+                               intel,cmd-lp = <1>;
+                       };
+               };
+
+               cmd-sleep-out {
+                       sleep-out {
+                               intel,cmd-type = <0x05>;
+                               intel,cmd-data = <0x11>;
+                               intel,cmd-delay = <220>;
+                               intel,cmd-lp = <1>;
+                       };
+                       display-on {
+                               intel,cmd-type = <0x05>;
+                               intel,cmd-data = <0x29>;
+                               intel,cmd-delay = <150>;
+                               intel,cmd-lp = <1>;
+                       };
+               };
+       };

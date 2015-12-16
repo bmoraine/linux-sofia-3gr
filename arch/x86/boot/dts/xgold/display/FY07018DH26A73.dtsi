@@ -1,0 +1,195 @@
+/*
+ * definition at "include/dt-bindings/sofiafb/sofia_fb.h"
+ */
+
+display-panel@FY07018DH26A73 {
+	compatible = "intel,display";
+	intel,display-dc-clkrate = <297000000>;
+	intel,display-preinit = <0>;
+	intel,display-ramless = <1>;
+	intel,display-fps = <60>;
+	intel,display-vid-mode = "pulses";
+/*	intel,display-vid-mode = "burst"; */
+	intel,display-vid-id = <0>;
+	intel,display-eot = <1>;
+	intel,display-gate = <1>;
+	intel,display-if-dts = <1>;
+	intel,display-if = <&mipi_dsi_FY07018DH26A73>;
+	mipi_dsi_FY07018DH26A73:mipi-dsi {
+		intel,display-if-rate = <320000000>;
+		intel,display-if-nblanes = <4>;
+		intel,display-if-phy-pwup = <6>;
+		intel,display-if-phy-calib = <3>;
+		intel,display-if-phy-to_lp_hs_req = <24>;
+		intel,display-if-phy-to_lp_hs_dis = <25>;
+		intel,display-if-phy-to_lp_hs_eot = <60>;
+		intel,display-if-phy-to_hs_zero = <8>;
+		intel,display-if-phy-to_hs_flip = <24>;
+		intel,display-if-phy-lp_clk_div = <31>;
+		intel,display-if-phy-to_hs_clk_pre = <36>;
+		intel,display-if-phy-to_hs_clk_post = <42>;
+		intel,display-if-phy-data_delay = <7>;
+		intel,display-if-phy-clock_delay = <7>;
+		intel,display-if-phy-lp_tx_tfall = <2>;
+		intel,display-if-phy-lp_tx_rise = <2>;
+		intel,display-if-phy-lp_tx_vref = <31>;
+	};
+	display-timings {
+		native-mode = <&FY07018DH26A73_timing>;
+		FY07018DH26A73_timing: FY07018DH26A73_timing {
+			screen-type = <SCREEN_MIPI>;
+			out-face    = <OUT_P888>;
+			color-mode = <COLOR_RGB>;
+			clock-frequency = <51668640>;
+			hactive = <1024>;
+			vactive = <600>;
+			hback-porch = <160>;
+			hfront-porch = <160>;
+			vback-porch = <23>;
+			vfront-porch = <12>;
+			hsync-len = <10>;
+			vsync-len = <1>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <0>;
+			pixelclk-active = <0>;
+			swap-rb = <0>;
+			swap-rg = <0>;
+			swap-gb = <0>;
+		};
+	};
+
+
+		cmd-init {
+			soft-reset {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x01>;
+				intel,cmd-delay = <30>;
+				intel,cmd-lp = <1>;
+			};
+
+			/* BIST mode
+			regw(0x87,0x5A);
+			regw(0x5B,0x12);
+			regw(0x87,0x55);
+			regw(0x5B,0x12);
+
+			regw(0xB1,0x08);
+			*/
+
+			/*
+			BIST1 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x87 0x5A>;
+				intel,cmd-lp = <1>;
+			};
+			BIST2 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5B 0x12>;
+				intel,cmd-lp = <1>;
+			};
+			BIST3 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x87 0x55>;
+				intel,cmd-lp = <1>;
+			};
+			BIST4 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x5B 0x12>;
+				intel,cmd-lp = <1>;
+			};
+			BIST5 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0xB1 0x08>;
+				intel,cmd-lp = <1>;
+			};*/
+
+			/*
+			regw(0x80,0x47);
+			regw(0x81,0x40);
+			regw(0x82,0x04);
+			regw(0x83,0x77);
+			regw(0x84,0x0F);
+			regw(0x85,0x70);
+			regw(0x86,0x70);
+			*/
+			GAMMA1 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x80 0x47>;
+				intel,cmd-lp = <1>;
+			};
+			GAMMA2 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x81 0x40>;
+				intel,cmd-lp = <1>;
+			};
+			GAMMA3 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x82 0x04>;
+				intel,cmd-lp = <1>;
+			};
+			GAMMA4 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x83 0x77>;
+				intel,cmd-lp = <1>;
+			};
+			GAMMA5 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x84 0x0F>;
+				intel,cmd-lp = <1>;
+			};
+			GAMMA6 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x85 0x70>;
+				intel,cmd-lp = <1>;
+			};
+			GAMMA7 {
+				intel,cmd-type = <0x15>;
+				intel,cmd-data = <0x86 0x70>;
+				intel,cmd-lp = <1>;
+			};
+		};
+		cmd-power-on {
+			display-on {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x29>;
+				intel,cmd-lp = <1>;
+			};
+		};
+
+		cmd-power-off {
+			display-off {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x28>;
+				intel,cmd-lp = <1>;
+			};
+		};
+
+		cmd-sleep-in {
+			display-off {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x28>;
+				intel,cmd-lp = <1>;
+			};
+			sleep-in {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x10>;
+				intel,cmd-delay = <200>;
+				intel,cmd-lp = <1>;
+			};
+		};
+
+		cmd-sleep-out {
+			sleep-out {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x11>;
+				intel,cmd-delay = <120>;
+				intel,cmd-lp = <1>;
+			};
+			display-on {
+				intel,cmd-type = <0x05>;
+				intel,cmd-data = <0x29>;
+				intel,cmd-lp = <1>;
+			};
+		};
+	};
