@@ -63,28 +63,28 @@ cif_isp20_pltfrm_ftrace_printf(
 
 #define cif_isp20_pltfrm_pr_dbg(dev, fmt, arg...) \
 	do { \
-		pr_debug("CIF ISP2.0 %s: " fmt, \
+		pr_debug_ratelimited("CIF ISP2.0 %s: " fmt, \
 			__func__, ## arg); \
 		cif_isp20_pltfrm_ftrace_printf(dev, "%s: " fmt, \
 			__func__, ## arg); \
 	} while (0)
 #define cif_isp20_pltfrm_pr_info(dev, fmt, arg...) \
 	do { \
-		pr_info("CIF ISP2.0 %s: " fmt, \
+		pr_info_ratelimited("CIF ISP2.0 %s: " fmt, \
 			__func__, ## arg); \
 		cif_isp20_pltfrm_ftrace_printf(dev, "%s: " fmt, \
 			__func__, ## arg); \
 	} while (0)
 #define cif_isp20_pltfrm_pr_warn(dev, fmt, arg...) \
 	do { \
-		pr_warn("CIF ISP2.0 %s WARN: " fmt, \
+		pr_warn_ratelimited("CIF ISP2.0 %s WARN: " fmt, \
 			__func__, ## arg); \
 		cif_isp20_pltfrm_ftrace_printf(dev, "%s WARN: " fmt, \
 			__func__, ## arg); \
 	} while (0)
 #define cif_isp20_pltfrm_pr_err(dev, fmt, arg...) \
 	do { \
-		pr_err("CIF ISP2.0 %s(%d) ERR: " fmt, \
+		pr_err_ratelimited("CIF ISP2.0 %s(%d) ERR: " fmt, \
 			__func__, __LINE__, ## arg); \
 		cif_isp20_pltfrm_ftrace_printf(dev, "%s(%d) ERR: " fmt, \
 			__func__, __LINE__, ## arg); \
