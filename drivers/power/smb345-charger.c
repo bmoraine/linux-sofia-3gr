@@ -1271,12 +1271,9 @@ static int smb345_enable_charging(struct smb345_charger *chrgr,
 					BIT(3) | BIT(4) | BIT(5),
 					BIT(0) | BIT(1) | BIT(5));
 
-		/*
-		 * As it may get AICL (Auto Input Current Limit) completed
-		 * with small input limit before any input current limit
-		 * configured, so needs to retrigger AICL again by disable
-		 * and re-enable AICL and charger with correct input current
-		 * limit configured.
+		/* In some cases, AICL will case the input current to be
+		 * unexpectedly small. And trigger AICL again have no effect.
+		 * So we need disable it to prevent current reduce.
 		 */
 		ret = smb345_masked_write(chrgr->client,
 						CFG_VAR_FUNC,
@@ -1302,16 +1299,6 @@ static int smb345_enable_charging(struct smb345_charger *chrgr,
 			dev_err(&chrgr->client->dev,
 				"%s: fail to set max current limits\n",
 				__func__);
-			goto fail;
-		}
-
-		/* Re-enable AICL */
-		ret = smb345_masked_write(chrgr->client,
-						CFG_VAR_FUNC,
-						CFG_VAR_FUNC_AICL_MASK,
-						CFG_VAR_FUNC_ENABLE_AICL);
-		if (ret) {
-			pr_err("fail to disable auto input current limit\n");
 			goto fail;
 		}
 
