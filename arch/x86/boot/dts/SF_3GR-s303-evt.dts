@@ -1,0 +1,25 @@
+#define SF3GR_HAS_I2C2_BUS
+#define SF3GR_S303_EVT
+#include "SF_3GR-s303.dts"
+
+/*
+ * DVT has Volume buttons swapped. We haven't verified
+ * if that applies to EVT too. Until that, keep the
+ * existing ones
+ */
+&keypad {
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&kp_default_pins>;
+	pinctrl-1 = <&kp_sleep_pins>;
+	pinctrl-2 = <&kp_inactive_pins>;
+	keypad,num-rows = <4>;
+	keypad,num-columns = <8>;
+	keypad,rows = <3>;
+	keypad,columns = <3 4>;
+	linux,keymap = <0x03030072	/* KEY_VOLUMEDOWN */
+			0x03040073>;	/* KEY_VOLUMEUP */
+	/*kp_in1 used as backup solution for power key on SF_3GR MRD6S*/
+	keypad,kp_in1 = <116>;	/*KEY_POWER*/
+	keypad,kp_in3 = <114>;	/*KEY_VOLUMEUP*/
+	keypad,kp_in4 = <115>;	/*KEY_VOLUMEDOWN*/
+};

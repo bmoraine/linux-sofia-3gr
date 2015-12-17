@@ -1,0 +1,2 @@
+#define SF3GR_HAS_I2C2_BUS
+#include "SF_3GR-s303-recovery.dts"
