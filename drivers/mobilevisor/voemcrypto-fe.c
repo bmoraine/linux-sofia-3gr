@@ -131,11 +131,7 @@ voemcrypto_call_ext(struct voemcrypto_t *p_voemcrypto, const uint32_t size0)
 	mv_ipc_mbox_post(p_voemcrypto->token, VOEC_CTL_EVENT_CALL);
 
 	/* wait for server respond */
-	if (wait_event_interruptible(p_voemcrypto->client_wait,
-			p_voemcrypto->respond == 1)) {
-		ret = 0;
-		goto exit;
-	}
+	wait_event(p_voemcrypto->client_wait, p_voemcrypto->respond == 1);
 
 	/* at this stage, vrpc_call has returned with data in pmem */
 exit:
@@ -1563,7 +1559,7 @@ static void voemcrypto_on_event(uint32_t token, uint32_t event_id, void *cookie)
 	switch (event_id) {
 	case VOEC_CTL_EVENT_CALL:
 		p_voemcrypto->respond = 1;
-		wake_up_interruptible(&p_voemcrypto->client_wait);
+		wake_up(&p_voemcrypto->client_wait);
 	break;
 	default:
 	break;
