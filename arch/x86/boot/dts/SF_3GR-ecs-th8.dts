@@ -1,0 +1,567 @@
+/dts-v1/;
+#define SOFIA3GR_MRD6
+#include "xgold/sofia_3gr_soc/irq.h"
+#include <dt-bindings/sofiafb/sofia_fb.h>
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	model = "intel,sofia_3gr_soc-es2";
+	compatible = "intel,sofia_3gr_soc-svb", "intel,xgold";
+
+	#define SOFIA_3GR_GARNET_4_LEVEL_CPUFREQ
+	#include "xgold/sofia_3gr_soc/sofia_3gr_soc_ecs_th10.dtsi"
+	#include "xgold/sofia_3gr_soc/irq.dtsi"
+	#include "xgold/mobilevisor/mobilevisor.dtsi"
+	#include "xgold/sofia_3gr_soc/clock-es1.dtsi"
+	#include "xgold/sofia_3gr_soc/regulator.dtsi"
+	#include "xgold/sofia_3gr_soc/device-pm-reg_garnet.dtsi"
+	#include "xgold/pmic/granite.dtsi"
+	#include "xgold/sofia_3gr_soc/cpufreq.dtsi"
+	chosen {
+	};
+
+	aliases {
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x800000 0x1800000>;
+	};
+
+	coho_board_type {
+		compatible = "SOFIA3GR_ECS_TH8";
+	};
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		/* global autoconfigured region for contiguous allocations */
+		cma_default_region: region@0 {
+			size = <0x0c000000>;
+			limit = <0x00000000>;
+			linux,cma-default;
+		};
+	};
+
+	vmodem {
+		compatible = "intel,vmodem";
+	};
+
+	ion {
+		compatible = "rockchip,ion";
+#ifndef RECOVERY_KERNEL
+		secvm-handler;
+#endif
+		#address-cells = < 1 >;
+		#size-cells = < 0 >;
+		cma-heap {
+			memory-region = <&cma_default_region>;
+			rockchip,ion_heap = < 4 >;
+		};
+		system-heap {
+			rockchip,ion_heap = < 0 >;
+		};
+	};
+
+	pwmleds {
+		compatible = "pwm-leds";
+		pwm_lcd {
+		        label = "lcd-backlight";
+			pwms = <&pwm2 0 25000 PWM_POLARITY_NORMAL>;
+			max-brightness = <255>;
+			min-brightness = <15>;
+			active-low = <0>;
+		};
+	};
+
+#ifndef RECOVERY_KERNEL
+	/*headset:headset {
+		compatible = "intel,headset";
+		#address-cells = < 0 >;
+		reg = <0xE6501C00 0x4>;
+		reg-names = "headset-registers";
+		interrupts = < 0 1 >;
+		interrupt-parent = < &headset>;
+		#interrupt-cells = < 1 >;
+		interrupt-map = <
+			 0 &ag620_pmu ABB_PMU_ACD1 XGOLD_IRQ_TYPE_NONE
+			 1 &ag620_pmu ABB_PMU_ACD2 XGOLD_IRQ_TYPE_NONE
+			>;
+		interrupt-names = "acd1", "acd2";
+		io-channel-names = "ACCID_ADC";
+		io-channels = < &meas 4 >;
+	};*/
+#endif
+	fb {
+		compatible = "rockchip,fb";
+		rockchip,disp-mode = <NO_DUAL>;
+		rockchip,loader-logo-on = <1>;
+		rockchip,ion-drv = "rockchip";
+	};
+	screen {
+		compatible = "rockchip,screen", "intel,screen";
+		pm,class-name = "generic_class";
+		pm,user-name = "lcd";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+		intel,display-gpio-reset = <&xgold_pmx_gpio 36 0>;
+
+		/* HX8394 is not present and is just included here so that
+		 * mrd-specific hacks which ignore the first display will find
+		 * the real display (listed second). */
+		#include "xgold/display/HX8394-3gr.dtsi"
+		#include "xgold/display/FY07018DH26A73.dtsi"
+		#include "xgold/display/KR080ID7T.dtsi"
+	};
+
+	graphics {
+		compatible = "intel,graphics";
+		intel,gpu-shared-mem = <0x20000000>;
+		intel,dcc-fbpixelformat= "RGB888";
+		intel,dcc-debug-level = <1>;
+		intel,fb-api = <1>;
+#ifdef RECOVERY_KERNEL
+		intel,dcc-mem = < 0x00800000 >;
+#else
+		intel,dcc-use-fences = <1>;
+		intel,dcc-mem = < 0x00400000 >;
+		intel,prot-mem = < 0x08000000 0x08000000>;
+#endif
+	};
+
+
+#ifndef RECOVERY_KERNEL
+	sound {
+		compatible = "intel,xgold-snd-asoc";
+		intel,audio-codec = < &afe >;
+		intel,pcm-audio = <&pcm_music>;
+		intel,pcm-voice = <&pcm_voice>;
+		intel,speech = <&speech_probe>;
+		intel,jack = <&headset>;
+		intel,spk-gpio-sd = <&xgold_pmx_gpio 44 0>;
+	};
+#endif
+};
+
+&eint {
+	/* intel,virq,x = <0>; means EINTx is owned & requested by IRQ framework */
+	intel,virq,0 = <1>; /* EINT_EXI0: */
+	intel,virq,1 = <0>; /* EINT_EXI1: SAR sensor */
+	intel,virq,2 = <0>; /* EINT_EXI2: USB ID */
+	intel,virq,3 = <1>; /* EINT_EXI3: */
+	intel,virq,4 = <1>; /* EINT_EXI4 */
+	intel,virq,5 = <0>; /* EINT_EXI5: ALS&Prox sensor*/
+	intel,virq,6 = <1>; /* EINT_EXI6: */
+	intel,virq,7 = <1>; /* EINT_EXI7 */
+	intel,virq,8 = <0>; /* EINT_EXI8: SDcard */
+	intel,virq,9 = <1>; /* EINT_EXI9 */
+	intel,virq,10 = <1>; /* EINT_EXI10 */
+	intel,virq,11 = <1>; /* EINT_EXI11 */
+	intel,virq,12 = <0>; /* EINT_EXI12: touch */
+	intel,virq,13 = <1>; /* EINT_EXI13 */
+	intel,virq,14 = <1>; /* EINT_EXI14 */
+	intel,virq,15 = <1>; /* EINT_EXI15 */
+	intel,virq,16 = <0>; /* EINT_USB_HS_RESUME */
+	intel,virq,17 = <1>; /* EINT_SDMMC_DETECT */
+	intel,virq,18 = <1>; /* EINT_SDIO_DAT3 */
+	intel,virq,19 = <1>; /* EINT_SDIO_DAT1 */
+	intel,virq,20 = <1>; /* EINT_USIF1_WK */
+	intel,virq,21 = <1>; /* EINT_USIF2_WK */
+	intel,virq,22 = <1>; /* EINT_WUP_DBB */
+	intel,virq,23 = <1>; /* EINT_U2H */
+	intel,virq,24 = <1>; /* EINT_G3FP */
+	intel,virq,25 = <1>; /* EINT_DTXS */
+	intel,virq,26 = <1>; /* EINT_DRXS */
+	intel,virq,27 = <1>; /* EINT_WDT0 */
+	intel,virq,28 = <1>; /* EINT_WDT1 */
+	intel,virq,29 = <0>; /* EINT_USB_ID, use EINT2 for USB ID*/
+
+	intel,preack,8 = <1>; /* EINT_EXI8 */
+	intel,preack,16 = <1>; /* EINT_USB_HS_RESUME*/
+	intel,preack,20 = <1>; /* EINT_USIF1_WK */
+};
+
+&idi_per {
+	#define SOFIA_3GR_GARNET_EVB
+	#include "xgold/agold620/agold620.dtsi"
+};
+
+&bat_hal {
+	#define BAT_TYPE_LC 0
+	#define POWER_SUPPLY_TECHNOLOGY_LION 2
+
+	supp_batids =  < 0 BAT_TYPE_LC >;
+
+	supp_batids-map = "standrd";
+
+	prof-standrd = < POWER_SUPPLY_TECHNOLOGY_LION /*battery_type*/
+				  3000 /*capacity*/
+				  4350 /*voltage_max*/
+				  82 /*chrg_term_ma*/
+				  2900 /*low_batt_mv*/
+				  50 /*disch_tmp_ul*/
+				  0 /*disch_tmp_ll (0)*/
+				  0 /*min_temp*/
+				  3 /*min_temp_restart*/
+				  47 /*max_temp_restart*/ >;
+
+	prof-standrd-cap_to_vbat_ocv = <
+		3454 3531 3592 3636 3666 3677 3683 3688 3692 3696
+		3699 3703 3707 3712 3717 3723 3729 3735 3739 3744
+		3749 3754 3758 3761 3764 3766 3768 3770 3772 3774
+		3775 3777 3779 3780 3782 3784 3787 3789 3791 3794
+		3797 3800 3803 3806 3810 3813 3817 3821 3825 3829
+		3834 3838 3843 3847 3852 3857 3862 3867 3872 3877
+		3883 3888 3894 3900 3906 3913 3919 3926 3933 3940
+		3947 3954 3961 3968 3975 3982 3989 3996 4003 4010
+		4018 4028 4039 4050 4060 4068 4076 4083 4092 4100
+		4110 4119 4128 4138 4147 4155 4164 4173 4182 4190
+		4197 >;
+
+	prof-standrd-ntemp_ranges = <1>;
+
+	prof-standrd-temp_range0 = < 50 /*max_temp*/
+					     4350 /*full_chrg_vol*/
+					     1450 /*full_chrg_cur*/
+					     98 /*charging_res_cap*/
+					     4350 /*maint_chrg_vol_ul*/
+					     1450 /*maint_chrg_cur*/ >;
+
+	prof-standrd-model_name = "Sof60A";
+
+	nprofiles = <1>;
+};
+
+&fuel_gauge_hal {
+	sense_resistor_mohm = <20>;
+	gain_error_1_uc_per_mc = <30>;
+	gain_error_2_uc_per_mc = <30>;
+};
+
+&usif2 {
+	pinctrl-names = "default", "sleep", "inactive", "reset";
+	pinctrl-0 = <&usif2_default_pins>;
+	pinctrl-1 = <&usif2_sleep_pins>;
+	pinctrl-2 = <&usif2_inactive_pins>;
+	pinctrl-3 = <&usif2_reset_pins>;
+};
+
+&pwm2  {
+        pinctrl-names = "default", "sleep", "inactive";
+        pinctrl-0 = <&pwm2_default_pins>;
+        pinctrl-1 = <&pwm2_sleep_pins>;
+        pinctrl-2 = <&pwm2_inactive_pins>;
+        status = "okay";
+};
+
+&i2c_1 {
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&i2c1_default_pins>;
+	pinctrl-1 = <&i2c1_sleep_pins>;
+	pinctrl-2 = <&i2c1_inactive_pins>;
+#ifndef RECOVERY_KERNEL
+	camera0: camera-module@0 {
+		compatible = "galaxycore,gc2155-v4l2-i2c-subdev";
+		reg = < 0x3c >;
+		device_type = "v4l2-i2c-subdev";
+
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&cam1_function_B_active_pins>;
+		pinctrl-1 = <&cam1_function_B_sleep_pins>;
+		pinctrl-2 = <&cam1_function_B_inactive_pins>;
+
+		intel,pd-gpio = <&xgold_pmx_gpio 14 0>;
+		intel,rst-gpio = <&xgold_pmx_gpio 65 0>;
+		intel,rst-gpio-is_active_low;
+		intel,flash-gpio = <&xgold_pmx_gpio 61 0>;
+		intel,torch-gpio = <&xgold_pmx_gpio 62 0>;
+
+		intel,shared-gpio = <&xgold_pmx_gpio 70 0>;
+
+		intel.flash-driver = "FP6773C";
+		pm,class-name = "generic_class";
+		pm,user-name = "primcam";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+
+		/* ["front","back"] */
+		intel,camera-module-facing = "back";
+		/* ["landscape","landscape-flipped","portrait","portrait-flipped"] */
+		intel,camera-module-mounting = "landscape";
+	//	intel,camera-module-flash-support = <1>;
+	//	intel,camera-module-flash-exp-time = <5000>;
+
+		intel,camera-module-csi-config-0 {
+			intel,csi-pixels-per-second = <0>;
+			intel,csi-vc = <0>;
+			intel,csi-lanes = <4>;
+			intel,csi-dphy1 = <0x600E241>;
+			intel,csi-dphy2 = <0x00>;
+			intel,csi-ana-bandgap-bias = <3>;
+		};
+
+	};
+#endif
+
+#ifndef RECOVERY_KERNEL
+	camera1: camera-module@1 {
+		compatible = "galaxycore,gc0310-v4l2-i2c-subdev";
+		reg = < 0x21 >;
+		device_type = "v4l2-i2c-subdev";
+
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&cam2_function_B_active_pins>;
+		pinctrl-1 = <&cam2_function_B_sleep_pins>;
+		pinctrl-2 = <&cam2_function_B_inactive_pins>;
+
+		intel,pd-gpio = <&xgold_pmx_gpio 15 0>;
+		intel,rst-gpio = <&xgold_pmx_gpio 66 0>;
+
+		intel,shared-gpio = <&xgold_pmx_gpio 70 0>;
+
+		pm,class-name = "generic_class";
+		pm,user-name = "seccam";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+
+		intel,camera-module-facing = "front";
+		/* ["landscape","landscape-flipped","portrait","portrait-flipped"] */
+		intel,camera-module-mounting = "landscape";
+
+		intel,camera-module-csi-config-0 {
+			intel,csi-pixels-per-second = <0>;
+			intel,csi-vc = <0>;
+			intel,csi-lanes = <1>;
+			intel,csi-dphy1 = <0x6086241>;
+			intel,csi-dphy2 = <0x00>;
+			intel,csi-ana-bandgap-bias = <3>;
+		};
+
+	};
+#endif
+};
+
+&i2c_3 {
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&i2c3_default_pins>;
+	pinctrl-1 = <&i2c3_sleep_pins>;
+	pinctrl-2 = <&i2c3_inactive_pins>;
+#ifndef RECOVERY_KERNEL
+	sarsensor {
+		compatible = "semtech,sx9500";
+		reg = < 0x28 >;
+		interrupt-parent = <&eint>;
+		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&sar_default_pins>;
+		pinctrl-1 = <&sar_sleep_pins>;
+		pinctrl-2 = <&sar_inactive_pins>;
+		intel,sar-gpio-int = <&xgold_pmx_gpio 54 0>;
+		intel,sar-gpio-reset = <&xgold_pmx_gpio 57 0>;
+		interrupt-gpios = <&xgold_pmx_gpio 54 0>;
+		reset-gpios = <&xgold_pmx_gpio 57 0>;
+		pm,class-name = "sx9500_class";
+		pm,user-name = "ext_sar_sensor";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+	};
+
+	accelerometer {
+		compatible = "mxc,mxc400x";
+		reg = < 0x15 >;
+		intel,poll_interval = < 20 >;
+		intel,min_interval  = < 10 >;
+	};
+
+	magnetometer {
+		compatible = "memsic,mmc35240";
+		reg = < 0x30 >;
+		intel,axis-map = < 0 1 2 >;
+		intel,negate = < 0 0 0 >;
+		intel,offset = < 0 0 0 >;
+		mounting-matrix = < 0 1 0 (-1) 0 0 0 0 1 >;
+		intel,poll-interval = < 100 >;
+		pm,class-name = "mmc3524x_class";
+		pm,user-name = "ext_magnetometer";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+	};
+
+	gyroscope {
+		compatible = "st,ST200GC";
+		reg = < 0x68 >;
+		interrupt-parent = <&eint>;
+		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_RISING>;
+	};
+
+        alsensor {
+		compatible = "upisemi,US5182";
+		reg = < 0x39 >;
+		intel,axis-map = < 1 0 2 >;
+		intel,negate = < 1 0 0 >;
+		intel,poll-interval = < 100 >;
+        };
+#endif
+};
+&i2c_4 {
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&i2c4_default_pins>;
+	pinctrl-1 = <&i2c4_sleep_pins>;
+	pinctrl-2 = <&i2c4_inactive_pins>;
+#ifndef RECOVERY_KERNEL
+	touchscreen {
+		compatible = "goodix,GOOD9271";
+		reg = < 0x14 >;
+		interrupt-parent = <&eint>;
+		interrupts = < EINT_EXI12 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+
+		pinctrl-names = "control", "interrupt";
+		pinctrl-0 = <&touch_control>;
+		pinctrl-1 = <&touch_interrupt>;
+
+		reset-gpios = <&xgold_pmx_gpio 19 0>;
+		irq-gpios = <&xgold_pmx_gpio 18 0>;
+
+		pm,class-name = "gt9xx_class";
+		pm,user-name = "tp";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+
+		goodix,buttons = < 580 /* KEY_APP_SWITCH */
+		                   172 /* KEY_HOMEPAGE */
+		                   158 /* KEY_BACK */
+		                 >;
+		goodix,firmware-update;
+		goodix,firmware-name = "gt9271.fw";
+		
+		goodix,config = /bits/ 8 <0x43 0x00 0x05 0x20 0x03 0x0A 0x35 0x00 0x01 0x08
+			0x1E 0x05 0x50 0x32 0x03 0x05 0x00 0x00 0x00 0x00
+			0x00 0x00 0x05 0x17 0x1A 0x1D 0x14 0x8D 0x2D 0x88
+			0x2D 0x2F 0xD3 0x08 0x00 0x00 0x00 0x02 0x03 0x1D
+			0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x07 0x00
+			0x00 0x19 0x35 0x94 0xC5 0x02 0x07 0x00 0x00 0x04
+			0xCA 0x1B 0x00 0xA2 0x1F 0x00 0x83 0x24 0x00 0x6B
+			0x2A 0x00 0x57 0x31 0x00 0x57 0x00 0x00 0x00 0x00
+			0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+			0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+			0x00 0x00 0x00 0x00 0x00 0x00 0x01 0x02 0x00 0x00
+			0x00 0x00 0x00 0x01 0x04 0x05 0x06 0x07 0x08 0x09
+			0x0C 0x0D 0x0E 0x0F 0x10 0x11 0x14 0x15 0xFF 0xFF
+			0xFF 0xFF 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+			0x00 0x00 0x27 0x26 0x25 0x24 0x23 0x22 0x21 0x20
+			0x1F 0x1E 0x1C 0x1B 0x19 0x13 0x12 0x11 0x10 0x0F
+			0x0C 0x0A 0x08 0x07 0x06 0x04 0x02 0x00 0xFF 0xFF
+			0xFF 0xFF 0xFF 0xFF 0x00 0x00 0x00 0x00 0x00 0x00
+			0x00 0x00 0x00 0x00 0x52 0x01>;
+	};
+#endif
+
+};
+
+&i2c_5 {
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&i2c5_agold_default_pins>;
+	pinctrl-1 = <&i2c5_agold_sleep_pins>;
+	pinctrl-2 = <&i2c5_agold_inactive_pins>;
+#ifdef SOFIA3GR_CATALOG_MRD6_CHARGER
+	#include "catalog/Sf_3G-catalog-Charger.dtsi"
+#else
+
+	bat:battery {
+		compatible = "intel,fan54015_charger";
+		reg = < 0x6a >;
+		interrupts = < 0 1 >;
+		interrupt-parent = < &bat>;
+		#interrupt-cells = < 1 >;
+		interrupt-map = < 0 &ag620_pmu ABB_PMU_CI XGOLD_IRQ_TYPE_NONE
+			      1  &ag620_pmu ABB_PMU_CSTAT XGOLD_IRQ_TYPE_NONE >;
+		pinctrl-names = "default", "sleep", "inactive", "active";
+		pinctrl-0 = < &chgreset_agold_default_pins >;
+		pinctrl-1 = < &chgreset_agold_sleep_pins >;
+		pinctrl-2 = < &chgreset_agold_inactive_pins >;
+		pinctrl-3 = < &chgreset_agold_active_pins >;
+		throttle-levels = < 3 >;
+		throttle-values = < 1450 550 0 >;
+	};
+#endif
+};
+
+&gnss {
+	pinctrl-names = "default", "sleep", "inactive", "default_lna", "inactive_lna", "default_fta", "inactive_fta", "gnss_default", "gnss_inactive";
+	pinctrl-0 = <&tcxo_agold_default_pins>;
+	pinctrl-1 = <&tcxo_agold_sleep_pins>;
+	pinctrl-2 = <&tcxo_agold_inactive_pins>;
+	pinctrl-3 = <&ext_agold_default_pins>;
+	pinctrl-4 = <&ext_agold_sleep_pins>;
+	pinctrl-5 = <&gnss_agold_default_pins>;
+	pinctrl-6 = <&gnss_agold_sleep_pins>;
+	pinctrl-7 = <&gnss_default_pins>;
+	pinctrl-8 = <&gnss_inactive_pins>;
+};
+
+#ifndef RECOVERY_KERNEL
+&afe {
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&dm_agold_default_pins>;
+	pinctrl-1 = <&dm_agold_sleep_pins>;
+	pinctrl-2 = <&dm_agold_inactive_pins>;
+};
+#endif
+
+&sd {
+	intel,tap_values = <0x0C41020 0x0C41020 0x0C41020 0x04f4120 0x0C41020 0x0F40F20 0x0F40F20>;
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&sdmmc_default_pins>;
+	pinctrl-1 = <&sdmmc_sleep_pins>;
+	pinctrl-2 = <&sdmmc_inactive_pins>;
+};
+
+&emmc {
+	intel,tap_values = < 0x00c41020  0x006f1020   0x00c41020  0x004e1020  0x00c41020  0x00a40f10  0x00c41020 >;
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&emmc_default_pins>;
+	pinctrl-1 = <&emmc_sleep_pins>;
+	pinctrl-2 = <&emmc_inactive_pins>;
+
+};
+
+&usb {
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&usb_default_pins>;
+	pinctrl-1 = <&usb_sleep_pins>;
+	pinctrl-2 = <&usb_inactive_pins>;
+};
+
+&keypad {
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&kp_default_pins>;
+	pinctrl-1 = <&kp_sleep_pins>;
+	pinctrl-2 = <&kp_inactive_pins>;
+	keypad,num-rows = <4>;
+	keypad,num-columns = <8>;
+	keypad,rows = <3>;
+	keypad,columns = <3 4>;
+	linux,keymap = <0x03030072	/* KEY_VOLUMEDOWN */
+			0x03040073>;	/* KEY_VOLUMEUP */
+	/*kp_in1 used as backup solution for power key on SF_3GR MRD6S*/
+	keypad,kp_in1 = <116>;	/*KEY_POWER*/
+	keypad,kp_in3 = <115>;	/*KEY_VOLUMEUP*/
+	keypad,kp_in4 = <114>;	/*KEY_VOLUMEDOWN*/
+};
+
+&vop {
+	status = "okay";
+	rockchip,fb-win-map = <FB_DEFAULT_ORDER>;
+};
+
+#ifndef RECOVERY_KERNEL
+&cif {
+	intel,camera-modules-attached = <&camera0 &camera1>;
+};
+#endif
+
+
+#include "xgold/sofia_3gr_soc/pinctrl-sf_3gr-ecs-th8.dtsi"
+#include "xgold/agold620/pinctrl-sf_3gr-ecs-th10.dtsi"
