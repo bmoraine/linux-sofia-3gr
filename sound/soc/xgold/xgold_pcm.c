@@ -67,6 +67,7 @@
 
 #define PROP_PCM_DMA_EN_NAME		"intel,pcm,dma_en"
 #define PROP_SND_SOC_BT_INIT		"intel,pcm,bt_init_en"
+#define PROP_SND_SOC_BURST_EN_NAME_PCM2		"intel,pcm,burst_mode_en_pcm2"
 
 #define ON 1
 #define OFF 0
@@ -509,6 +510,10 @@ void xgold_dsp_pcm_play_handler(void *dev)
 	unsigned short remaining_block = 0;
 	struct dsp_rw_shm_data rw_shm_data;
 	int i;
+	unsigned int buf_sm_dl_offset = 0;
+	unsigned short buffer_mode;
+	unsigned short dma_req_interval_time;
+	unsigned short buffer_size;
 
 	xgold_debug("%s\n", __func__);
 
@@ -524,12 +529,23 @@ void xgold_dsp_pcm_play_handler(void *dev)
 		return;
 	}
 
-	if (xrtd->stream_type == STREAM_PLAY)
+	if (xrtd->stream_type == STREAM_PLAY) {
 		rw_shm_data.word_offset =
 			xgold_pcm->dsp->p_dsp_common_data->pcm_offset[0];
-	else
+		buf_sm_dl_offset =
+			xgold_pcm->dsp->p_dsp_common_data->buf_sm_dl_offset;
+		buffer_mode = xgold_pcm->buffer_mode[0];
+		buffer_size = xgold_pcm->buffer_size[0];
+		dma_req_interval_time = xgold_pcm->dma_req_interval_time[0];
+	} else {
 		rw_shm_data.word_offset =
 			xgold_pcm->dsp->p_dsp_common_data->pcm_offset[1];
+		buf_sm_dl_offset =
+			xgold_pcm->dsp->p_dsp_common_data->buf_sm_dl2_offset;
+		buffer_mode = xgold_pcm->buffer_mode[1];
+		buffer_size = xgold_pcm->buffer_size[1];
+		dma_req_interval_time = xgold_pcm->dma_req_interval_time[1];
+	}
 	rw_shm_data.len_in_bytes = 2;
 	rw_shm_data.p_data = &remaining_block;
 	xgold_pcm->dsp->p_dsp_common_data->ops->set_controls(
@@ -544,12 +560,7 @@ void xgold_dsp_pcm_play_handler(void *dev)
 				xrtd->period_size_bytes * xrtd->hwptr_done);
 		length = xrtd->stream->runtime->period_size *
 			xrtd->stream->runtime->channels;
-		if (xrtd->stream_type == STREAM_PLAY)
-			rw_shm_data.word_offset =
-			xgold_pcm->dsp->p_dsp_common_data->buf_sm_dl_offset;
-		else
-			rw_shm_data.word_offset =
-			xgold_pcm->dsp->p_dsp_common_data->buf_sm_dl2_offset;
+		rw_shm_data.word_offset = buf_sm_dl_offset;
 		rw_shm_data.len_in_bytes = length * 2;
 		rw_shm_data.p_data = xrtd->hwptr;
 		xgold_pcm->dsp->p_dsp_common_data->ops->set_controls(
@@ -565,9 +576,9 @@ void xgold_dsp_pcm_play_handler(void *dev)
 		dsp_pcm_feed(xgold_pcm->dsp, xrtd->stream_type,
 				xrtd->stream->runtime->channels,
 				xrtd->stream->runtime->rate,
-				xgold_pcm->buffer_mode,
-				xgold_pcm->dma_req_interval_time,
-				xgold_pcm->buffer_size);
+				buffer_mode,
+				dma_req_interval_time,
+				buffer_size);
 	}
 	/*
 	 * Period elapsed should be called once even
@@ -1064,7 +1075,6 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 	struct xgold_runtime_data *xrtd = substream->runtime->private_data;
 	struct xgold_pcm *xgold_pcm = xrtd->pcm;
 	unsigned short shm_samples = SM_AUDIO_BUFFER_DL_SAMPLES;
-	unsigned short dma_sgl_cnt;
 
 	xgold_debug("%s\n", __func__);
 
@@ -1072,48 +1082,65 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 	xrtd->periods = 0;
 	xrtd->stream = substream;
 
-	dma_sgl_cnt = substream->runtime->period_size / shm_samples;
+	xrtd->dma_sgl_count = substream->runtime->period_size / shm_samples;
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Normal mode      - ALSA Ring buffer size =
 					psize * pcnt = 5ms*8  - 40ms */
 		/* Deep buffer mode - ALSA Ring buffer size =
 					psize * pcnt = 80ms*2 - 160ms */
+		xgold_debug("%s(): playback_mode pcm1:%d pcm2:%d\n", __func__,
+		xgold_pcm->playback_mode[0], xgold_pcm->playback_mode[1]);
 		if (xgold_pcm->dma_mode) {
 			if (xrtd->stream_type == STREAM_PLAY) {
-				xrtd->pcm->buffer_mode = NORMAL_MODE;
-				xrtd->pcm->dma_req_interval_time =
-							NORMAL_DMA_INTERVAL;
-				xrtd->pcm->buffer_size = NORMAL_BUFFER_SIZE;
-				xrtd->dma_sgl_count = dma_sgl_cnt *
-					XGOLD_MAX_SG_LIST;
-			} else {
-				int period_size_ms =
-					(substream->runtime->period_size *
-					substream->runtime->periods/2 * 1000) /
-					substream->runtime->rate;
-				if (period_size_ms >= 40) {/* Burst mode */
-					xrtd->pcm->buffer_mode = BURST_MODE;
-					xrtd->pcm->dma_req_interval_time =
+				/* Burst mode */
+				if (BURST == xgold_pcm->playback_mode[0]) {
+					xgold_pcm->buffer_mode[0] = BURST_MODE;
+					xgold_pcm->buffer_size[0] =
+							BURST_BUFFER_SIZE;
+					xgold_pcm->dma_req_interval_time[0] =
 							BURST_DMA_INTERVAL;
-					xrtd->pcm->buffer_size =
-						BURST_BUFFER_SIZE;
-					xrtd->dma_sgl_count = dma_sgl_cnt;
-				} else {		/* Normal mode */
-					xrtd->pcm->buffer_mode = NORMAL_MODE;
-					xrtd->pcm->dma_req_interval_time =
-							NORMAL_DMA_INTERVAL;
-					xrtd->pcm->buffer_size =
+				} else {	/* Normal mode */
+					xgold_pcm->buffer_mode[0] = NORMAL_MODE;
+					xgold_pcm->buffer_size[0] =
 							NORMAL_BUFFER_SIZE;
-					xrtd->dma_sgl_count = dma_sgl_cnt *
-						XGOLD_MAX_SG_LIST;
+					xgold_pcm->dma_req_interval_time[0] =
+							NORMAL_DMA_INTERVAL;
+				}
+				xrtd->dma_sgl_count *= XGOLD_MAX_SG_LIST;
+			} else {
+				/* Burst mode */
+				if (BURST == xgold_pcm->playback_mode[1]) {
+					xgold_pcm->buffer_mode[1] = BURST_MODE;
+					xgold_pcm->buffer_size[1] =
+							BURST_BUFFER_SIZE;
+					xgold_pcm->dma_req_interval_time[1] =
+							BURST_DMA_INTERVAL;
+				} else {	/* Normal mode */
+					xgold_pcm->buffer_mode[1] =
+							NORMAL_MODE;
+					xgold_pcm->buffer_size[1] =
+							NORMAL_BUFFER_SIZE;
+					xgold_pcm->dma_req_interval_time[1] =
+							NORMAL_DMA_INTERVAL;
 				}
 			}
 			xgold_pcm_play_dma_prepare(substream);
 		} else {
-			xrtd->pcm->buffer_mode = NORMAL_MODE;
-			xrtd->pcm->dma_req_interval_time = NORMAL_DMA_INTERVAL;
-			xrtd->pcm->buffer_size = NORMAL_BUFFER_SIZE;
+			/* Configure to NORMAL mode in Interrupt mode */
+			if (xrtd->stream_type == STREAM_PLAY) {
+				xgold_pcm->buffer_mode[0] = NORMAL_MODE;
+				xgold_pcm->buffer_size[0] = NORMAL_BUFFER_SIZE;
+				xgold_pcm->dma_req_interval_time[0] =
+							NORMAL_DMA_INTERVAL;
+			} else {
+				xgold_pcm->buffer_mode[1] = NORMAL_MODE;
+				xgold_pcm->buffer_size[1] = NORMAL_BUFFER_SIZE;
+				xgold_pcm->dma_req_interval_time[1] =
+							NORMAL_DMA_INTERVAL;
+			}
 		}
+		xgold_debug("%s(): buffer_mode pcm1:%d pcm2:%d\n", __func__,
+			xgold_pcm->buffer_mode[0], xgold_pcm->buffer_mode[1]);
 
 		if (audio_native_mode)
 			setup_pcm_play_path(xgold_pcm);
@@ -1151,13 +1178,23 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 				/* request DMA to start tx */
 				dma_async_issue_pending(xrtd->dmach);
 
-			dsp_pcm_play(dsp, xrtd->stream_type,
+			if (STREAM_PLAY == xrtd->stream_type) {
+				dsp_pcm_play(dsp, xrtd->stream_type,
 					substream->runtime->channels,
 					substream->runtime->rate,
 					xgold_pcm->dma_mode,
-					xgold_pcm->buffer_mode,
-					xgold_pcm->dma_req_interval_time,
-					xgold_pcm->buffer_size);
+					xgold_pcm->buffer_mode[0],
+					xgold_pcm->dma_req_interval_time[0],
+					xgold_pcm->buffer_size[0]);
+			} else {
+				dsp_pcm_play(dsp, xrtd->stream_type,
+					substream->runtime->channels,
+					substream->runtime->rate,
+					xgold_pcm->dma_mode,
+					xgold_pcm->buffer_mode[1],
+					xgold_pcm->dma_req_interval_time[1],
+					xgold_pcm->buffer_size[1]);
+			}
 		} else if (xrtd->stream_type == HW_PROBE_A) {
 			xrtd->period_size_bytes = frames_to_bytes(
 					xrtd->stream->runtime,
@@ -1367,6 +1404,52 @@ static int xgold_pcm_rec_path_sel_ctl_set(
 		(unsigned int)ucontrol->value.integer.value[0];
 	return 0;
 }
+
+/* Mixer Control to Select PCM2 - Playback mode (NORMAL/BURST) */
+static int xgold_pcm2_playback_mode_sel_ctl_info(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
+{
+	xgold_debug("%s\n", __func__);
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 1;
+	return 0;
+}
+
+/* Get function for the PCM2 playback mode select control */
+static int xgold_pcm2_playback_mode_sel_ctl_get(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
+
+	xgold_debug("%s - get value PCM2 playback_mode:%d\n", __func__,
+		(unsigned int)(xgold_pcm->buffer_mode[1] ? BURST : NORMAL));
+	ucontrol->value.integer.value[0] =
+		(unsigned int)(xgold_pcm->buffer_mode[1] ? BURST : NORMAL);
+	return 0;
+}
+
+/* Set function for the PCM2 playback mode select control */
+static int xgold_pcm2_playback_mode_sel_ctl_set(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dai *cpu_dai = snd_kcontrol_chip(kcontrol);
+	struct xgold_pcm *xgold_pcm = snd_soc_dai_get_drvdata(cpu_dai);
+
+	xgold_debug("%s - set value PCM2 playback_mode:%d\n", __func__,
+	(unsigned int)(ucontrol->value.integer.value[0] ? BURST : NORMAL));
+
+	xgold_pcm->playback_mode[1] =
+	(unsigned int)(ucontrol->value.integer.value[0] ? BURST : NORMAL);
+
+	return 0;
+}
+
 /* RECORD DUMP */
 static void record_dump_handler(struct work_struct *work)
 {
@@ -1674,6 +1757,13 @@ static const struct snd_kcontrol_new xgold_pcm_controls[] = {
 	},
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "PCM2 (Deep Buffer) Playback Burst mode",
+		.info = xgold_pcm2_playback_mode_sel_ctl_info,
+		.get = xgold_pcm2_playback_mode_sel_ctl_get,
+		.put = xgold_pcm2_playback_mode_sel_ctl_set,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name = "Start RECORD dump",
 		.info = xgold_pcm_record_dump_sel_ctl_info,
 		.get = xgold_pcm_record_dump_sel_ctl_get,
@@ -1788,6 +1878,53 @@ static int xgold_pcm_probe(struct platform_device *pdev)
 		true : false;
 	bt_init_en = (of_find_property(np, PROP_SND_SOC_BT_INIT, NULL)) ?
 		true : false;
+
+	if (pcm->dma_mode) {
+		/* Configure PCM1 to NORMAL mode by default */
+		/* Configure PCM2 in NORMAL/BURST mode */
+		pcm->playback_mode[0] = NORMAL;
+		pcm->playback_mode[1] =
+			(of_find_property(np, PROP_SND_SOC_BURST_EN_NAME_PCM2,
+			NULL)) ? BURST : NORMAL;
+
+		xgold_debug("%s(): playback_mode pcm1:%d pcm2:%d\n", __func__,
+				pcm->playback_mode[0], pcm->playback_mode[1]);
+
+		if (BURST == pcm->playback_mode[0]) {	/* Burst mode */
+			pcm->buffer_mode[0] = BURST_MODE;
+			pcm->buffer_size[0] = BURST_BUFFER_SIZE;
+			pcm->dma_req_interval_time[0] = BURST_DMA_INTERVAL;
+		} else {                        /* Normal mode */
+			pcm->buffer_mode[0] = NORMAL_MODE;
+			pcm->buffer_size[0] = NORMAL_BUFFER_SIZE;
+			pcm->dma_req_interval_time[0] = NORMAL_DMA_INTERVAL;
+		}
+
+		if (BURST == pcm->playback_mode[1]) {	/* Burst mode */
+			pcm->buffer_mode[1] = BURST_MODE;
+			pcm->buffer_size[1] = BURST_BUFFER_SIZE;
+			pcm->dma_req_interval_time[1] = BURST_DMA_INTERVAL;
+		} else {                        /* Normal mode */
+			pcm->buffer_mode[1] = NORMAL_MODE;
+			pcm->buffer_size[1] = NORMAL_BUFFER_SIZE;
+			pcm->dma_req_interval_time[1] = NORMAL_DMA_INTERVAL;
+		}
+	} else {
+		/* Configure to NORMAL mode in Interrupt mode by default */
+		pcm->playback_mode[0] = NORMAL;
+		pcm->playback_mode[1] = NORMAL;
+
+		xgold_debug("%s(): playback_mode pcm1:%d pcm2:%d\n", __func__,
+				pcm->playback_mode[0], pcm->playback_mode[1]);
+
+		pcm->buffer_mode[0] = NORMAL_MODE;
+		pcm->buffer_size[0] = NORMAL_BUFFER_SIZE;
+		pcm->dma_req_interval_time[0] = NORMAL_DMA_INTERVAL;
+
+		pcm->buffer_mode[1] = NORMAL_MODE;
+		pcm->buffer_size[1] = NORMAL_BUFFER_SIZE;
+		pcm->dma_req_interval_time[1] = NORMAL_DMA_INTERVAL;
+	}
 
 	ret = snd_soc_register_platform(&pdev->dev, &xgold_soc_platform);
 
