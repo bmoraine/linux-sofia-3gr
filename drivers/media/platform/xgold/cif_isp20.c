@@ -4198,7 +4198,7 @@ static void cif_isp20_requeue_bufs(
 			CIF_ISP20_INVALID_BUFF_ADDR;
 		dev->config.mi_config.sp.curr_buff_addr =
 			CIF_ISP20_INVALID_BUFF_ADDR;
-	} else {
+	} else if (stream->id == CIF_ISP20_STREAM_MP) {
 		dev->config.mi_config.mp.next_buff_addr =
 			CIF_ISP20_INVALID_BUFF_ADDR;
 		dev->config.mi_config.mp.curr_buff_addr =
