@@ -559,7 +559,36 @@ config SND_SOC_TPA6130A2
 #Intel
 config SND_SOC_AGOLD_AFE
 	tristate
-	select SND_SOC_AGOLD_HSOFC_SUPPORT
+
+config SND_SOC_AGOLD_AFE_REG_CONTROL
+	bool "Sound SoC Agold AFE Register Kcontrol"
+	depends on SND_SOC_AGOLD_AFE
+	help
+	  This function registers the Agold AFE Register to alsamixer
+	  for use in debugging.
+
+	  If you intend to use alsa-state, say N, because alsa-state
+	  will save these values. Upon restoring, the settings are
+	  written into the registers and will cause reboot if the
+	  values are dummy values.
+
+	  Note that if you say Y here, alsa-state should be disabled to
+	  avoid dummy values written into the register and cause reboots.
+
+	  If you don't know what to do here, say N.
 
 config SND_SOC_AGOLD_HSOFC_SUPPORT
-	tristate
+	tristate "HS Offset Calibration Support"
+	help
+	  This function allows user to enable HS offset calibration for
+	  calibration and tuning.
+
+	  If you intend to use alsa-state, say N, because alsa-state
+	  will save these values. Upon restoring, the settings are
+	  written into the registers and will cause reboot if the
+	  values are dummy values.
+
+	  Note that if you say Y here, alsa-state should be disabled to
+	  avoid dummy values written into the register and cause reboots.
+
+	  If you don't know what to do here, say N.

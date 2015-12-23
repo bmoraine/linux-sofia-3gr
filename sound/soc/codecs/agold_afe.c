@@ -1142,6 +1142,10 @@ static const struct snd_kcontrol_new agold_afe_snd_controls[] = {
 		.get = agold_afe_get_cp_frequency_val,
 		.put = agold_afe_set_cp_frequency_val,
 	},
+/* Turn on SND_SOC_AGOLD_AFE_REG_CONTROL to debug the AFE Register.
+   Alsa-state should be disabled to avoid dummy values being written
+   into register, which causes reboots. */
+#ifdef CONFIG_SND_SOC_AGOLD_AFE_REG_CONTROL
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name = "AFE REG Control",
@@ -1149,6 +1153,7 @@ static const struct snd_kcontrol_new agold_afe_snd_controls[] = {
 		.get = agold_afe_get_reg_val,
 		.put = agold_afe_set_reg_val,
 	},
+#endif
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name = "AFE SET INRATE",
@@ -1156,6 +1161,10 @@ static const struct snd_kcontrol_new agold_afe_snd_controls[] = {
 		.get = agold_afe_get_inrate_val,
 		.put = agold_afe_set_inrate_val
 	},
+/* Turn on SND_SOC_AGOLD_HSOFC_SUPPORT to allow tuning/calibration of HS
+   Offset.
+   Alsa-state should be disabled to avoid dummy values being written
+   into register, which causes reboots. */
 #ifdef CONFIG_SND_SOC_AGOLD_HSOFC_SUPPORT
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
