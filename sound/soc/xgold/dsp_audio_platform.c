@@ -373,6 +373,11 @@ static int dsp_audio_use_case_info(
 
 /* Soc platform controls */
 static const struct snd_kcontrol_new dsp_audio_controls[] = {
+/* Turn on SND_XGOLD_DSP_SEND_CMD to enable debugging/calibration options.
+   This function allows User to send commands to DSP.
+   Alsa-state should be disabled to avoid dummy values being written
+   into register, which causes reboots. */
+#ifdef CONFIG_SND_XGOLD_DSP_SEND_CMD
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name = "DSP Audio send cmd",
@@ -380,6 +385,12 @@ static const struct snd_kcontrol_new dsp_audio_controls[] = {
 		.get = dsp_audio_send_cmd_control_get,
 		.put = dsp_audio_send_cmd_control_set,
 	},
+#endif
+/* Turn on SND_XGOLD_DSP_RW_SHARED_MEM to enable debugging/calibration options.
+   This function allows user to read and write into the DSP shared memory.
+   Alsa-state should be disabled to avoid dummy values being written
+   into register, which causes reboots. */
+#ifdef CONFIG_SND_XGOLD_DSP_RW_SHARED_MEM
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name = "DSP Audio RW SHM",
@@ -387,6 +398,7 @@ static const struct snd_kcontrol_new dsp_audio_controls[] = {
 		.get = dsp_audio_rw_shm_control_get,
 		.put = dsp_audio_rw_shm_control_set,
 	},
+#endif
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name = "DSP Audio Power",
