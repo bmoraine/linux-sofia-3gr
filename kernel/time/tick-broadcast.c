@@ -642,6 +642,10 @@ void tick_broadcast_oneshot_control(unsigned long reason)
 	ktime_t now;
 	int cpu;
 
+        bc = tick_broadcast_device.evtdev;
+        if (!bc)
+                return;
+
 	/*
 	 * Periodic mode does not care about the enter/exit of power
 	 * states
@@ -660,7 +664,6 @@ void tick_broadcast_oneshot_control(unsigned long reason)
 	if (!(dev->features & CLOCK_EVT_FEAT_C3STOP))
 		return;
 
-	bc = tick_broadcast_device.evtdev;
 
 	raw_spin_lock_irqsave(&tick_broadcast_lock, flags);
 	if (reason == CLOCK_EVT_NOTIFY_BROADCAST_ENTER) {
