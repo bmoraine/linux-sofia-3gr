@@ -837,6 +837,7 @@ static int cif_isp20_v4l2_s_fmt(
 	struct cif_isp20_v4l2_fh *fh = to_fh(file);
 	struct cif_isp20_v4l2_node *node = to_node(fh);
 	struct cif_isp20_strm_fmt strm_fmt;
+	enum cif_isp20_stream_id stream_id = to_stream_id(file);
 
 	cif_isp20_pltfrm_pr_dbg(NULL,
 		"%s\n",
@@ -845,6 +846,15 @@ static int cif_isp20_v4l2_s_fmt(
 	if (likely(node) && node->owner && (node->owner != fh))
 		return -EBUSY;
 
+	if (stream_id == CIF_ISP20_STREAM_SP &&
+	    (f->fmt.pix.width > 1280 || f->fmt.pix.height > 720)) {
+		cif_isp20_pltfrm_pr_err(NULL,
+					"Unsupported size %dx%d for SP\n",
+					f->fmt.pix.width, f->fmt.pix.height);
+		ret = -EINVAL;
+		goto err;
+	}
+
 	strm_fmt.frm_fmt.pix_fmt =
 		cif_isp20_v4l2_pix_fmt2cif_isp20_pix_fmt(
 			f->fmt.pix.pixelformat);
@@ -852,7 +862,7 @@ static int cif_isp20_v4l2_s_fmt(
 	strm_fmt.frm_fmt.height = f->fmt.pix.height;
 
 	ret = cif_isp20_s_fmt(dev,
-		to_stream_id(file),
+		stream_id,
 		&strm_fmt,
 		f->fmt.pix.bytesperline);
 	if (IS_ERR_VALUE(ret))
