@@ -1547,6 +1547,7 @@ static int rockchip_vop_early_resume(struct rockchip_vop_driver *dev_drv)
 static int rockchip_vop_blank(struct rockchip_vop_driver *dev_drv,
 			      int win_id, int blank_mode)
 {
+	#if 0
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		rockchip_vop_early_resume(dev_drv);
@@ -1558,6 +1559,7 @@ static int rockchip_vop_blank(struct rockchip_vop_driver *dev_drv,
 		rockchip_vop_early_suspend(dev_drv);
 		break;
 	}
+	#endif
 
 	dev_info(dev_drv->dev, "blank mode:%d\n", blank_mode);
 
