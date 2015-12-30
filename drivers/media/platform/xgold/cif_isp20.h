@@ -291,7 +291,7 @@ enum cif_isp20_pix_fmt {
 	CIF_BAYER_SRGGB12		= 0x3000c030,
 
 	/* JPEG */
-	CIF_JPEG					= 0x40008000,
+	CIF_JPEG					= 0x40006000,
 
 	/* Data */
 	CIF_DATA					= 0x70000000,
