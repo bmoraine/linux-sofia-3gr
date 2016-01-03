@@ -1949,6 +1949,18 @@ static int dsp_audio_suspend(struct device *dev)
 
 		dsp_dev->p_dsp_common_data->rst_done = 0;
 	}
+
+	else if ((true == g_dsp_audio_dev->pb_running) ||
+		(true == g_dsp_audio_dev->rec_running)) {
+		/* Audio DSP doesn't support PM suspend/resume while
+		 * there is active audio streaming, so we return error
+		 * when there is active audio streaming if system is
+		 * asked to enter suspended mode.
+		 * Userspace application needs to close the audio before
+		 * suspend the system */
+		return -EBUSY;
+	}
+
 	if (ret < 0)
 		xgold_err("%s: Failed with error %d\n",	__func__, ret);
 
@@ -2184,6 +2196,8 @@ int dsp_pcm_play(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type,
 	dsp->p_dsp_common_data->ops->set_controls(
 			dsp, DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC, &cmd_data);
 
+	g_dsp_audio_dev->pb_running = true;
+
 	return 0;
 }
 
@@ -2209,6 +2223,8 @@ int dsp_pcm_rec(struct dsp_audio_device *dsp, unsigned int channels,
 
 	dsp->p_dsp_common_data->ops->set_controls(
 			dsp, DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC, &cmd_data);
+
+	g_dsp_audio_dev->rec_running = true;
 
 	return 0;
 }
@@ -2265,6 +2281,7 @@ int dsp_pcm_stop(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type)
 				dsp,
 				DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC,
 				&cmd_data);
+		g_dsp_audio_dev->pb_running = false;
 		break;
 
 	case STREAM_REC:
@@ -2277,6 +2294,7 @@ int dsp_pcm_stop(struct dsp_audio_device *dsp, enum xgold_pcm_stream_type type)
 				dsp,
 				DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC,
 				&cmd_data);
+		g_dsp_audio_dev->rec_running = false;
 		break;
 
 	case HW_PROBE_B:
@@ -2616,6 +2634,10 @@ static int dsp_audio_drv_probe(struct platform_device *pdev)
 				audio_native_mode)
 			dsp_start_audio_sched(dsp_dev);
 	}
+
+	/* initializaion for playback and record */
+	g_dsp_audio_dev->pb_running = false;
+	g_dsp_audio_dev->rec_running = false;
 
 	pr_info("DSP initialization done %d\n", ret);
 	register_reboot_notifier(&dsp_audio_reboot_notifier);

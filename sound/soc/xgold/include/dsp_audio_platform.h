@@ -114,6 +114,10 @@ struct dsp_audio_device {
 	struct reset_control *rst_ctl;
 	struct device_pm_platdata *pm_platdata;
 	struct list_head node;
+	bool pb_running;  /* to check whether playback is running*/
+	bool rec_running; /* to check whether record is running */
+	bool reserved2;
+	bool reserved3;
 };
 
 enum pcm_audio_usecase {
