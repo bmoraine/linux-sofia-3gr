@@ -52,6 +52,10 @@
 		#include "xgold/sofia_3gr_soc/irq-hirq.dtsi"
 		#include "xgold/sofia_3gr_soc/pm.dtsi"
 
+		watchdog:watchdog {
+			compatible = "intel,watchdog";
+		};
+
 		tadi:tadi {
 			compatible = "intel,tadi";
 			#address-cells = < 0 >;
