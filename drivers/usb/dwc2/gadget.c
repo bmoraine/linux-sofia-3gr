@@ -2963,7 +2963,7 @@ static int s3c_hsotg_ep_sethalt(struct usb_ep *ep, int value)
 	u32 epctl;
 	u32 xfertype;
 
-	dev_info(hs->dev, "%s(ep %p %s, %d)\n", __func__, ep, ep->name, value);
+	dev_dbg(hs->dev, "%s(ep %p %s, %d)\n", __func__, ep, ep->name, value);
 
 	if (index == 0) {
 		if (value)
