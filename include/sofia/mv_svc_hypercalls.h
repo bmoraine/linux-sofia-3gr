@@ -326,7 +326,8 @@ struct sep_ring_buffer_info {
 enum watchdog_op_code {
 	WATCHDOG_ENABLE = 0,
 	WATCHDOG_DISABLE,
-	WATCHDOG_PET
+	WATCHDOG_PET,
+	VMM_SCU_WATCHDOG
 };
 
 /**
@@ -570,6 +571,13 @@ uint32_t mv_svc_watchdog_pet(void);
  @return 0 if success.
 **/
 uint32_t mv_svc_watchdog_disable(void);
+
+
+/**
+ @brief enable/disable vmm scu watchdog
+ @return 0 if success.
+ **/
+uint32_t mv_svc_scu_watchdog_switch(int on);
 
 /**
  @brief  MobileVisor System Profiling service to start trace

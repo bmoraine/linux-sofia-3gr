@@ -308,20 +308,40 @@ uint32_t mv_svc_watchdog_enable(uint32_t timeout)
 				0, 0, 0, 0, 0, 0);
 	return 0;
 }
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_watchdog_enable);
+#endif
 
 uint32_t mv_svc_watchdog_pet(void)
 {
 	mv_platform_service(WATCHDOG_SERVICE, WATCHDOG_PET, 0,
-				0, 0, 0, 0, 0, 0);
+			0, 0, 0, 0, 0, 0);
 	return 0;
 }
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_watchdog_pet);
+#endif
 
 uint32_t mv_svc_watchdog_disable(void)
 {
 	mv_platform_service(WATCHDOG_SERVICE, WATCHDOG_DISABLE, 0,
-				0, 0, 0, 0, 0, 0);
+			0, 0, 0, 0, 0, 0);
 	return 0;
 }
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_watchdog_disable);
+#endif
+
+
+uint32_t mv_svc_scu_watchdog_switch(int on)
+{
+	mv_platform_service(WATCHDOG_SERVICE, VMM_SCU_WATCHDOG, on,
+			0, 0, 0, 0, 0, 0);
+	return 0;
+}
+#ifdef __KERNEL__
+EXPORT_SYMBOL(mv_svc_scu_watchdog_switch);
+#endif
 
 uint32_t mv_svc_rtc_set_datetime(pal_rtc_datetime *rtc_datetime)
 {
