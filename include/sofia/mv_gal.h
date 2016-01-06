@@ -86,6 +86,7 @@ void mv_gal_hirq_detach(void *id);
  * Get per VCPU-Mobilevisor shared data
  ********************************************************************/
 struct vmm_shared_data *mv_gal_get_shared_data(void);
+struct vmm_shared_data *mv_gal_get_system_shared_data(void);
 
 /********************************************************************
  * print to vmm log and loops

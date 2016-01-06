@@ -70,6 +70,11 @@ struct vmm_shared_data *mv_gal_get_shared_data(void)
 #endif
 }
 
+struct vmm_shared_data *mv_gal_get_system_shared_data(void)
+{
+	return vmm_shared_data[0];
+}
+
 struct hirq_handler_wrapper {
 	int irq;
 	irq_handler_t handler;
