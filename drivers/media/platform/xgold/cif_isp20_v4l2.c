@@ -835,6 +835,9 @@ static int cif_isp20_v4l2_s_fmt(
 	if (likely(node) && node->owner && (node->owner != fh))
 		return -EBUSY;
 
+	if (unlikely(fh == NULL))
+		return -ENOENT;
+
 	strm_fmt.frm_fmt.pix_fmt =
 		cif_isp20_v4l2_pix_fmt2cif_isp20_pix_fmt(
 			f->fmt.pix.pixelformat);
