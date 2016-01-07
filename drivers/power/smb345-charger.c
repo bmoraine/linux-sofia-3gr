@@ -1727,6 +1727,17 @@ static int __exit smb345_idi_remove(struct idi_peripheral_device *ididev)
 	return 0;
 }
 
+static void smb345_idi_shutdown(struct idi_peripheral_device *ididev)
+{
+	struct smb345_charger *chrgr = &chrgr_data;
+	int ret = 0;
+
+	unfreezable_bh_suspend(&chrgr->chgint_bh);
+	ret = smb345_configure_pmu_regs(chrgr);
+
+	pr_info("%s: %d\n", __func__, ret);
+}
+
 static int smb345_suspend(struct device *dev)
 {
 	struct smb345_charger *chrgr = &chrgr_data;
@@ -1799,6 +1810,7 @@ static struct idi_peripheral_driver smb345_idi_driver = {
 	.id_table = idi_ids,
 	.probe  = smb345_idi_probe,
 	.remove = smb345_idi_remove,
+	.shutdown = smb345_idi_shutdown,
 };
 
 
