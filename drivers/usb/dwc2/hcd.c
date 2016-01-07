@@ -1742,6 +1742,19 @@ static int dwc2_hcd_hub_control(struct dwc2_hsotg *hsotg, u16 typereq,
 
 		if (hsotg->core_params->dma_desc_fs_enable) {
 			/*
+			 * If new connection is not set, ensure it is not
+			 * being set due to HPRT0_ENACHG flag.
+			 */
+			if (!hsotg->new_connection) {
+				if ((hprt0 & HPRT0_ENACHG) &&
+						(hprt0 & HPRT0_ENA)) {
+					dev_info(hsotg->dev,
+						 "race between HPRT0_ENACHG and hub control\n");
+					hsotg->new_connection = true;
+				}
+			}
+
+			/*
 			 * Enable descriptor DMA if a full speed
 			 * device is connected.
 			 */
