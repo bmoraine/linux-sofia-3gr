@@ -711,6 +711,11 @@ static void dsi_dphy_calculation(struct dsi_display *display)
 	int ui_ps = 0, ths_prepare_ns, ths_trail_ns, ths_prepare_zero_ns,
 		tclk_post_ns, tclk_prepare_ns;
 
+	if (display->dif.dsi.display_if_dts) {
+		pr_info("dsi parameters in dts\n");
+		return;
+	}
+
 	if (display->dif.dsi.bitrate)
 		ui_ps = DIV_ROUND_CLOSEST(1000000000,
 					  display->dif.dsi.bitrate / 1000);
@@ -781,13 +786,15 @@ static void dsi_rate_calculation(struct dsi_display *display)
 {
 	int diff, diff_min = DSI_RATE_MAX, n = 0, m = 0;
 
-	display->dif.dsi.bitrate = DSI_RATE_OVERHEAD((display->xres +
-		BYTES_TO_PIXELS(display->dif.dsi.hfp, display->bpp) +
-		BYTES_TO_PIXELS(display->dif.dsi.hbp, display->bpp) +
-		BYTES_TO_PIXELS(display->dif.dsi.hsa, display->bpp)) *
-		(display->yres + display->dif.dsi.vfp +
-		display->dif.dsi.vbp + display->dif.dsi.vsa) *
-		display->fps / display->dif.dsi.nblanes * display->bpp);
+	if (!display->dif.dsi.display_if_dts) {
+		display->dif.dsi.bitrate = DSI_RATE_OVERHEAD((display->xres +
+			BYTES_TO_PIXELS(display->dif.dsi.hfp, display->bpp) +
+			BYTES_TO_PIXELS(display->dif.dsi.hbp, display->bpp) +
+			BYTES_TO_PIXELS(display->dif.dsi.hsa, display->bpp)) *
+			(display->yres + display->dif.dsi.vfp +
+			display->dif.dsi.vbp + display->dif.dsi.vsa) *
+			display->fps / display->dif.dsi.nblanes * display->bpp);
+	}
 
 	if (display->dif.dsi.bitrate > DSI_RATE_MAX)
 		display->dif.dsi.bitrate = DSI_RATE_MAX;

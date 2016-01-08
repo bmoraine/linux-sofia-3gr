@@ -136,6 +136,7 @@ struct dsi_display_if_mipi_dsi {
 	int line_time;
 	int display_preinit;
 	u32 dsi_cfg_reg;
+	u32 display_if_dts;
 };
 
 struct dsi_display_if {

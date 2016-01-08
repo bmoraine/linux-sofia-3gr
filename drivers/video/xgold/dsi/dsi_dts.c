@@ -45,6 +45,8 @@
 #define PROP_DISPLAY_VIDEOID    "intel,display-vid-id"
 #define PROP_DISPLAY_EOT        "intel,display-eot"
 #define PROP_DISPLAY_GATE       "intel,display-gate"
+#define PROP_DISPLAY_INTERFACE  "intel,display-if"
+#define PROP_DISPLAY_INTERFACE_DTS    "intel,display-if-dts"
 
 #define PROP_DISPLAY_GPIORST    "intel,display-gpio-reset"
 #define PROP_DISPLAY_GPIOVH     "intel,display-gpio-vhigh"
@@ -76,6 +78,14 @@
 #define DISPLAY_TIMINGS_NODE    "display-timings"
 
 #define PORCH_SYNC_MAX 0xFF
+
+#define OF_CHECK_GET_U32(_n_, _p_, _pval_, _e_) \
+        do { \
+                _e_ = of_property_read_u32(_n_, _p_, _pval_); \
+                if (_e_) \
+                        pr_err("Can't read property:%s\n", _p_); \
+        } while (0)
+
 
 static struct of_device_id display_of_match[] = {
 	{ .compatible = PROP_DISPLAY, },
@@ -483,7 +493,9 @@ int dsi_of_parse_display(struct platform_device *pdev,
 	struct device_node *display_dev_n, *child;
 	struct dsi_display *display;
 	struct dsi_display *display_curr;
+	struct device_node *nif;
 	int index = 0;
+
 	dsi_of_parse_gpio(pdev, mipi_dsi);
 	mipi_dsi->dsi_reset = devm_reset_control_get(&pdev->dev, "dsi");
 	if (IS_ERR(mipi_dsi->dsi_reset)) {
@@ -573,6 +585,67 @@ int dsi_of_parse_display(struct platform_device *pdev,
 					   &display->dif.dsi.id);
 		if (ret)
 			display->dif.dsi.id = 0;
+
+		ret = of_property_read_u32(display_dev_n, PROP_DISPLAY_INTERFACE_DTS,
+			&display->dif.dsi.display_if_dts);
+		if (ret)
+			display->dif.dsi.display_if_dts = 0;
+
+		if (display->dif.dsi.display_if_dts) {
+		        /* interface */
+		        nif = of_parse_phandle(display_dev_n, PROP_DISPLAY_INTERFACE, 0);
+		        if (!nif) {
+		                pr_err("Can't find node %s\n", PROP_DISPLAY_INTERFACE);
+		                display->dif.dsi.display_if_dts = 0;
+		                return -1;
+		        }
+
+		        pr_info("Display interface %s using dts %d\n", nif->name,
+		                display->dif.dsi.display_if_dts);
+
+		        if (strcmp(nif->name, "mipi-dsi") == 0) {
+		                OF_CHECK_GET_U32(nif, "intel,display-if-rate",
+		                                &display->dif.dsi.bitrate, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-calib",
+		                                &display->dif.dsi.calib, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-pwup",
+		                                &display->dif.dsi.pwup, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-to_lp_hs_req",
+		                                &display->dif.dsi.to_lp_hs_req, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-to_lp_hs_dis",
+		                                &display->dif.dsi.to_lp_hs_dis, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-to_lp_hs_eot",
+		                                &display->dif.dsi.to_lp_hs_eot, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-to_hs_zero",
+		                                &display->dif.dsi.to_hs_zero, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-to_hs_flip",
+		                                &display->dif.dsi.to_hs_flip, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-lp_clk_div",
+		                                &display->dif.dsi.lp_clk_div, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-to_hs_clk_pre",
+		                                &display->dif.dsi.to_hs_clk_pre, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-to_hs_clk_post",
+		                                &display->dif.dsi.to_hs_clk_post, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-data_delay",
+		                                &display->dif.dsi.data_delay, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-clock_delay",
+		                                &display->dif.dsi.clock_delay, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-lp_tx_tfall",
+		                                &display->dif.dsi.lp_tx_tfall, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-lp_tx_rise",
+		                                &display->dif.dsi.lp_tx_trise, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-phy-lp_tx_vref",
+		                                &display->dif.dsi.lp_tx_vref, ret);
+		                OF_CHECK_GET_U32(nif, "intel,display-if-nblanes",
+		                                &display->dif.dsi.nblanes, ret);
+		                }
+
+		        if (ret) {
+		                pr_err("Node %s parsing failed\n", nif->name);
+		                return -EINVAL;
+		        }
+		}
+
 		for_each_child_of_node(display_dev_n, child) {
 			if (!strcmp(child->name, CMD_LIST_INIT)) {
 				ret = dsi_of_parse_display_msglist(pdev, child,
