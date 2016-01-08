@@ -29,6 +29,8 @@
 #include <linux/mutex.h>
 #include <linux/cpu.h>
 #include <linux/types.h>
+#include <linux/mm.h>
+#include <linux/page-flags.h>
 
 #ifdef __x86_64__
 extern inline int cpuid_asm64(uint32_t leaf, uint32_t b_val, uint64_t c,
@@ -40,6 +42,8 @@ extern inline int info_cpuid(sl_info_t *info_ptr);
 extern int request_sl_service(uint32_t leaf, uint32_t param_a,
 			      uint32_t param_b, uint32_t S, uint32_t D);
 #endif
+
+#define MAX_PIN_PAGES (8)
 
 /* we choose 44 as our signal number
  * (real-time signals are in the range of 33 to 64)*/
@@ -1103,6 +1107,42 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 			kfree(c_param);
 			return retVal;
 		}
+	case VIDT_LOCK_SH_PAGES: {
+			uint32_t size = _IOC_SIZE(vidt_command);
+			void __user *ubuf = (void __user *)vidt_param;
+			struct sl_lock_sh_mem sl_lock_mem;
+			struct page *pages[MAX_PIN_PAGES];
+			int ret;
+
+			if (size != sizeof(struct sl_lock_sh_mem)) {
+				pr_err("[%s:%d] Invalid command passed:%u\n",
+					__func__, __LINE__, vidt_command);
+				return -EFAULT;
+			}
+
+			ret = copy_from_user(&sl_lock_mem, ubuf,
+					sizeof(struct sl_lock_sh_mem));
+			if (ret != 0) {
+				pr_err("Failed to read param from ubuf\n");
+				return -EFAULT;
+			}
+			if(sl_lock_mem.start_addr == 0 || sl_lock_mem.nr_pages == 0) {
+				pr_err("Invalid inputs in VIDT_LOCK_SH_PAGES\n");
+				return -EFAULT;
+			}
+			ret = 0;
+			if(sl_lock_mem.nr_pages <= MAX_PIN_PAGES
+						&& sl_lock_mem.nr_pages >= 0 ) {
+				ret = get_user_pages_fast(sl_lock_mem.start_addr,
+				sl_lock_mem.nr_pages, 1, &pages[0]);
+				if(ret <= 0) {
+					pr_err("Failed to do get_user_pages ret %x\n", ret);
+					return -EFAULT;
+				}
+			}
+		return 0;
+	}
+
 
 	default:
 		pr_err("%s %d INVALID %x\n", __func__, __LINE__, vidt_command);

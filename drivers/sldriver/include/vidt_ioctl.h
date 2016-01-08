@@ -153,6 +153,11 @@ struct vmm_keepalive_info {
 	uint32_t ta_state;
 };
 
+struct sl_lock_sh_mem {
+	uint32_t start_addr;
+	uint32_t nr_pages;
+};
+
 #define VIDT_MAGIC_NUMBER   255
 
 #define VIDT_PID_VIEW_MAP       _IOW(VIDT_MAGIC_NUMBER, 0, struct entry_pid_viewid)
@@ -176,5 +181,6 @@ struct vmm_keepalive_info {
 #define VIDT_GET_SL_AFFINITY    _IOW(VIDT_MAGIC_NUMBER, 18, uint32_t)
 #define VIDT_ACTIVATE_KEEPALIVE_VIEW _IOW(VIDT_MAGIC_NUMBER, 19, \
 					  struct vmm_keepalive_info)
+#define VIDT_LOCK_SH_PAGES	 _IOW(VIDT_MAGIC_NUMBER, 20, struct sl_lock_sh_mem)
 
 #endif
