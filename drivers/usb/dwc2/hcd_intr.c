@@ -533,6 +533,10 @@ void dwc2_hcd_save_data_toggle(struct dwc2_hsotg *hsotg,
 		else
 			chan->qh->data_toggle = DWC2_HC_PID_DATA1;
 	} else {
+		if (!qtd) {
+			dev_err(hsotg->dev, "qtd is null, return\n");
+			return;
+		}
 		if (pid == TSIZ_SC_MC_PID_DATA0)
 			qtd->data_toggle = DWC2_HC_PID_DATA0;
 		else

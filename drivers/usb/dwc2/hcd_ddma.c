@@ -1264,7 +1264,7 @@ static void dwc2_complete_non_isoc_xfer_ddma(struct dwc2_hsotg *hsotg,
 		 */
 		if (halt_status == DWC2_HC_XFER_STALL)
 			qh->data_toggle = DWC2_HC_PID_DATA0;
-		else if (qtd)
+		else
 			dwc2_hcd_save_data_toggle(hsotg, chan, chnum, qtd);
 	}
 
