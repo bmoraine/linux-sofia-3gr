@@ -130,6 +130,9 @@ struct imc_controller {
 	spinlock_t sw_lock;
 	spinlock_t hw_lock;
 
+	/* set power mutext */
+	struct mutex power_mutex;
+
 	/* Software FIFO */
 	struct list_head tx_queue[IDI_MAX_CHANNEL];
 	struct list_head rx_queue[IDI_MAX_CHANNEL];

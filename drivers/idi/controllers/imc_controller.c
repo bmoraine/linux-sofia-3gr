@@ -3055,6 +3055,7 @@ static int imc_set_power_state(struct idi_controller_device *idi,
 #endif
 
 	IDI_IMC_ENTER;
+
 	if ((idi == NULL) || (peripheral == NULL))
 		return -EINVAL;
 
@@ -3068,6 +3069,8 @@ static int imc_set_power_state(struct idi_controller_device *idi,
 	imc_idi = idi_controller_get_drvdata(idi);
 	if (imc_idi == NULL)
 		return -EINVAL;
+
+	mutex_lock(&imc_idi->power_mutex);
 
 	pdev = to_platform_device(idi->device.parent);
 
@@ -3158,11 +3161,13 @@ static int imc_set_power_state(struct idi_controller_device *idi,
 	if (err)
 		pr_err("Failed to set IDI device %d state\n",
 						peripheral->p_type);
+
 	if (idi_change_frequency == true) {
 		err = platform_device_pm_set_state(pdev,
 			imc_idi->idi_pm_state[ctrl_state_new]);
 		if (err) {
 			pr_err("Failed to set IDI controller state\n");
+			mutex_unlock(&imc_idi->power_mutex);
 			return err;
 		}
 #if defined IDI_FM_SUPPORT
@@ -3194,6 +3199,7 @@ static int imc_set_power_state(struct idi_controller_device *idi,
 #endif
 	}
 #endif
+	mutex_unlock(&imc_idi->power_mutex);
 	return err;
 }
 
@@ -3422,6 +3428,7 @@ static int imc_controller_init(struct imc_controller *imc_idi)
 
 	spin_lock_init(&imc_idi->sw_lock);
 	spin_lock_init(&imc_idi->hw_lock);
+	mutex_init(&imc_idi->power_mutex);
 
 	tasklet_init(&imc_idi->isr_tasklet, imc_isr_tasklet,
 		     (unsigned long)imc_idi);
