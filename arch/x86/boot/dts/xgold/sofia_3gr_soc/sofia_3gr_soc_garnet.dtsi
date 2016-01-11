@@ -608,7 +608,7 @@
 #ifndef RECOVERY_KERNEL
 					vpu:vpu {
 						compatible = "rockchip,vpu_service";
-						rockchip,iommu-enabled = <1>;
+						iommu_enabled = <1>;
 						interrupt-names = "irq_enc", "irq_dec";
 						interrupts = < VID_HINT_ENC IRQ_TYPE_DEFAULT >,
 							     < VID_HINT_DEC IRQ_TYPE_DEFAULT >;
@@ -617,7 +617,7 @@
 
 					hevc:hevc {
 						compatible = "rockchip,hevc_service";
-						rockchip,iommu-enabled = <1>;
+						iommu_enabled = <1>;
 						interrupt-names = "irq_dec";
 						interrupts = < HEVC_DEC_INT IRQ_TYPE_DEFAULT >;
 						devname = "hevc_service";
@@ -627,7 +627,7 @@
 						compatible = "rockchip,vpu_combo";
 						reg = < 0xE2D00000 0x1000 >;
 						subcnt = <2>;
-						rockchip,sub = <&vpu>, <&hevc>;
+						intel,sub = <&vpu>, <&hevc>;
 						pm,class-name = "vpu_dec_class";
 						pm,user-name = "vpu_dec";
 						pm,state-D3 = "disable";
