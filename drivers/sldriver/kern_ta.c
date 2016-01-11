@@ -75,6 +75,9 @@ static int chk_hsim_version(void)
 	sl_info_t *info = kmalloc(sizeof(sl_info_t), GFP_KERNEL);
 	int ret;
 
+	if (info == NULL)
+		return -ENOMEM;
+
 	memset(info, 0, sizeof(sl_info_t));
 
 #ifdef __x86_64__
@@ -170,7 +173,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 			}
 
 			kfree(c_param);
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_PID_VIEW_MAP:
@@ -220,7 +223,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return -EFAULT;
 			}
 		}
-		return 0;
+		return err;
 
 	case VIDT_CREATE_VIEW:{
 			struct enclave_create_param *c_param;
@@ -290,7 +293,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return retVal;
 			}
 			kfree(c_param);
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_ADD_PAGE:{
@@ -355,7 +358,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return retVal;
 			}
 			kfree(c_param);
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_INIT_VIEW:{
@@ -419,7 +422,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return retVal;
 			}
 			kfree(c_param);
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_GET_TA_PROPERTIES:{
@@ -482,7 +485,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return retVal;
 			}
 			kfree(c_param);
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_VERIFY_STATUS:{
@@ -659,7 +662,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 			}
 			kfree(view_list);
 			kfree(c_param);
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_CHANGE_MEM_PERM:{
@@ -751,7 +754,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 			}
 			kfree(view_list);
 			kfree(c_param);
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_UPDATE_PERM:{
@@ -818,7 +821,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return retVal;
 			}
 			kfree(c_param);
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_GET_VMM_VIEWID:{
@@ -882,7 +885,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return retVal;
 			}
 			kfree(c_param);
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_GET_INFO:{
@@ -934,7 +937,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return retVal;
 			}
 			kfree(c_param);
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_REMOVE_VIEW:{
@@ -970,7 +973,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				       ubuf);
 				return retVal;
 			}
-			return 0;
+			return retVal;
 		}
 	case VIDT_GET_SL_AFFINITY:{
 			uint32_t size = _IOC_SIZE(vidt_command);
@@ -1007,7 +1010,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				     __func__, __LINE__, ubuf);
 				return -EFAULT;
 			}
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_GET_AVAIL_HEAP:{
@@ -1048,7 +1051,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				       ubuf);
 				return retVal;
 			}
-			return 0;
+			return retVal;
 		}
 
 	case VIDT_ACTIVATE_KEEPALIVE_VIEW:{
@@ -1098,7 +1101,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return retVal;
 			}
 			kfree(c_param);
-			return 0;
+			return retVal;
 		}
 
 	default:
@@ -1106,7 +1109,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 		break;
 	}
 
-	return 0;
+	return err;
 }
 
 static int vidt_open(struct inode *inode, struct file *file)

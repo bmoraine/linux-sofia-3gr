@@ -1387,7 +1387,7 @@ int setup_vidt(void)
 		KdPrint(PRINT_DEBUG, ("==============\n"));
 
 		page_offset = (unsigned long)idtr.base & 0x00000FFF;
-		if (idtr.limit > 0x1000) {
+		if (idtr.limit + page_offset >= 0x1000) {
 			KdPrint(PRINT_ALWAYS,
 				("Cannot copy idt into vidt memory\n"));
 			goto fail_msg;
