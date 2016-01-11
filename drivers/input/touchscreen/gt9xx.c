@@ -171,8 +171,6 @@ struct gt9xx_ts {
 #define GT9XX_REG_STATUS		0x814E
 #define GT9XX_REG_DATA			0x814F
 
-static void gt9xx_reset(struct gt9xx_ts *ts);
-
 static int gt9xx_i2c_read(struct i2c_client *client, u16 addr,
 			  void *buf, unsigned len)
 {
@@ -203,7 +201,6 @@ static int gt9xx_i2c_read(struct i2c_client *client, u16 addr,
 	if (retries >= 5) {
 		dev_err(&client->dev, "I2C read @0x%04X (%d) failed: %d", addr,
 			len, ret);
-		gt9xx_reset(i2c_get_clientdata(client));
 		return ret;
 	}
 
@@ -244,7 +241,6 @@ static int gt9xx_i2c_write(struct i2c_client *client, u16 addr, void *buf,
 	if (retries >= 5) {
 		dev_err(&client->dev, "I2C write @0x%04X (%d) failed: %d", addr,
 			len, ret);
-		gt9xx_reset(i2c_get_clientdata(client));
 		return ret;
 	}
 
@@ -299,12 +295,12 @@ static int gt9xx_send_cfg(struct gt9xx_ts *ts, u8 *cfg_data, size_t cfg_size)
 again:
 	ret = gt9xx_i2c_write(ts->client, GT9XX_REG_CONFIG_DATA,
 				cfg_data, GT9XX_CONFIG_LENGTH);
-	if ((ret == -EAGAIN) && (retry++ < GT9XX_CFG_DN_RETRY)) {
+	if ((ret < 0) && (retry++ < GT9XX_CFG_DN_RETRY)) {
 		dev_err(&ts->client->dev, "Config send failed, retry %d",
 				retry);
 		goto again;
 	}
-	if (ret <= 0) {
+	if (retry >= GT9XX_CFG_DN_RETRY) {
 		dev_err(&ts->client->dev, "Config send failed, err: %d", ret);
 		return ret;
 	}
@@ -1966,12 +1962,6 @@ static int gt9xx_ts_probe(struct i2c_client *client,
 	struct gt9xx_ts *ts;
 	struct device *dev = &client->dev;
 	int i;
-	static int first_time = 0;
-
-	if(++first_time <= 1) {
-		dev_info(dev, "deferring probe gt911\n");
-		return -EPROBE_DEFER;
-	}
 
 	dev_info(dev, "probing GT911 @ 0x%02x", client->addr);
 
