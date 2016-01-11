@@ -1,4 +1,5 @@
 /dts-v1/;
+#define SOFIA3GR_MRD6
 #include "xgold/sofia_3gr_soc/irq.h"
 #include <dt-bindings/sofiafb/sofia_fb.h>
 / {
@@ -42,10 +43,31 @@
 			limit = <0x00000000>;
 			linux,cma-default;
 		};
+		/* special region for secured processing devices */
+		secured_rga_region: region@10000000 {
+			reg = <0x10000000 0x01000000>;
+			no-map;
+			linux,cma;
+			isolate;
+		};
+		secured_region: region@11000000 {
+			reg = <0x11000000 0x05000000>;
+			no-map;
+			linux,cma;
+		};
 	};
 
 	vmodem {
 		compatible = "intel,vmodem";
+		vmodem,nvm-part = < 3 >;
+		vmodem,part-names =
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID022",
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID023",
+			"/dev/block/platform/soc0/e0000000.noc/by-name/ImcPartID024";
+		part-addr,part-size =
+			<0x1FA78000 0x40000>,
+			<0x1fab8000 0x40000>,
+			<0x1FAF8000 0x80000>;
 	};
 
 	ion {
@@ -61,6 +83,14 @@
 		};
 		system-heap {
 			rockchip,ion_heap = < 0 >;
+		};
+		secured-rga-heap {
+			memory-region = <&secured_rga_region>;
+			rockchip,ion_heap = < 5 >;
+		};
+		secured-heap {
+			memory-region = <&secured_region>;
+			rockchip,ion_heap = < 6 >;
 		};
 	};
 

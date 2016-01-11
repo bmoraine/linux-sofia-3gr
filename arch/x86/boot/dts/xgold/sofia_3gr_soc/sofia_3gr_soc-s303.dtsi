@@ -1,3 +1,4 @@
+#define SOFIA_SECURED_VMM_ACCESS
 #include <dt-bindings/pwm/pwm.h>
 #include "dma.h"
 
@@ -42,6 +43,9 @@
 		interrupt-parent = <&pic>;
 		intel,scu-phys = < &scu >;
 		intel,chipid = <0x60 0x8 0x8>;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+		intel,vmm-secured-access;
+#endif
 		intel,rev = <0x60 0x0 0x8>;
 		intel,machine = "sofia_3gr_soc-es1-svb";
 
@@ -104,34 +108,63 @@
 				stat,4 = "EMIC1";
 				stat,5 = "EMIC2";
 
-				intel,qos-configs = "LCDC", "GPU", "CPU1", "CIF";
-				intel,GPU-qos-settings = <
-					0x1C88 0x0      /* prio */
-					0x1C8C 0x1      /* mode limiter */
-					0x1C90 0xFFF    /* bandwidth */
-					0x1C94 0x3FF    /* saturation */
-					0x1C98 0x5>;    /* QoSEn */
+				intel,qos-configs = "LCDC", "VPU", "VPU128R", "CPU1", "GPUGP", "GPUPP", "CIF", "RGA";
 
-				intel,LCDC-qos-settings = <
-					0x1D88 0xE      /* prio */
-					0x1D8C 0x0      /* mode fixed */
-					0x1D90 0x15E    /* bandwidth */
-					0x1D94 0x152    /* saturation */
-					0x1D98 0x5>;    /* QoSEn */
+				intel,VPU128R-qos-settings = <
+					0x88 0xE      /* prio */
+					0x8C 0x3      /* mode */
+					0x90 0x1F0    /* bandwidth */
+					0x94 0x1D0     /* saturation */
+					0x98 0x5>;    /* QoSEn */
+
+				intel,RGA-qos-settings = <
+					0x108 0x5      /* prio */
+					0x10C 0x3      /* mode */
+					0x110 0x1D0    /* bandwidth */
+					0x114 0x000    /* saturation */
+					0x118 0x5>;    /* QoSEn */
+
+				intel,CIF-qos-settings = <
+					0x188 0x4      /* prio */
+					0x18C 0x3      /* mode */
+					0x190 0x200    /* bandwidth */
+					0x194 0x10     /* saturation */
+					0x198 0x5>;    /* QoSEn */
 
 				intel,CPU1-qos-owner;
 				intel,CPU1-qos-settings = <
-					0x1E88 0xF      /* prio */
-					0x1E8C 0x0      /* mode fixed */
-					0x1E90 0xFFF    /* bandwidth */
-					0x1E94 0x0      /* saturation */
-					0x1E98 0x5>;    /* QoSEn */
+					0x208 0xF      /* prio */
+					0x20C 0x0      /* mode */
+					0x210 0xFFF    /* bandwidth */
+					0x214 0x000    /* saturation */
+					0x218 0x5>;    /* QoSEn */
 
-				intel,CIF-qos-settings = <
+				intel,GPUGP-qos-settings = <
+					0x308 0x0      /* prio */
+					0x30C 0x1      /* mode */
+					0x310 0xFFF    /* bandwidth */
+					0x314 0x3FF    /* saturation */
+					0x318 0x5>;    /* QoSEn */
+
+				intel,GPUPP-qos-settings = <
+					0x388 0x0      /* prio */
+					0x38C 0x1      /* mode */
+					0x390 0xFFF    /* bandwidth */
+					0x394 0x3FF    /* saturation */
+					0x398 0x5>;    /* QoSEn */
+
+				intel,VPU-qos-settings = <
+					0x1D08 0xE      /* prio */
+					0x1D0C 0x3      /* mode */
+					0x1D10 0x1F0    /* bandwidth */
+					0x1D14 0x1D0    /* saturation */
+					0x1D18 0x5>;    /* QoSEn */
+
+				intel,LCDC-qos-settings = <
 					0x1D88 0xE      /* prio */
-					0x1D8C 0x3      /* mode regulator */
-					0x1D90 0x400    /* bandwidth */
-					0x1D94 0x3FF     /* saturation */
+					0x1D8C 0x0      /* mode */
+					0x1D90 0x15E    /* bandwidth */
+					0x1D94 0x152    /* saturation */
 					0x1D98 0x5>;    /* QoSEn */
 
 				#include "xgold/sofia_3gr_soc/NoC.dtsi"
@@ -201,32 +234,6 @@
 					#size-cells = <1>;
 					ranges;
 					reg = <0xE1000000 0x1000000>;
-#ifdef SOFIA3GR_MRD6
-					usif2:usif2{
-						#address-cells = < 0 >;
-						compatible = "intel,usif-serial";
-						reg = <0xE1200000 0x100000>;
-						intel,serial-port = < 0 >;
-						wakeup-source;
-						interrupts = < 0 1 >;
-						interrupt-parent = <&usif2>;
-						#interrupt-cells = < 1 >;
-						interrupt-map = <
-							0 &pic USIF2_INT IRQ_TYPE_DEFAULT
-							1 &eint EINT_USIF2_WK IRQ_TYPE_DEFAULT
-						>;
-						interrupt-names = "usif-int", "wk_int";
-						clocks = <&clk_usif2>, <&clk_ahb_per1>;
-						clock-names = "kernel", "register";
-						resets = < &dbb_rst1 17 >;
-						reset-names = "usif";
-
-						pm,class-name = "usif_class";
-						pm,user-name = "usif2";
-						pm,state-D0 = "enable_104M_hperf";
-						pm,state-D3 = "disable";
-					};
-#else
 					usif1:usif1{
 						#address-cells = < 0 >;
 						compatible = "intel,usif-serial";
@@ -279,7 +286,6 @@
 						pm,state-D0 = "enable_104M_hperf";
 						pm,state-D3 = "disable";
 					};
-#endif
 					/*
 					 * WARNING:
 					 * rtc node name must be "rtc" as it used to
@@ -444,6 +450,8 @@
 						clocks = <&clk_emmc>, <&clk_ahb_per2_emmc>;
 						clock-names = "clk_core", "clk_ahb";
 						interrupts = < EMMC_INT IRQ_TYPE_DEFAULT >;
+						resets = < &dbb_rst1 12 >;
+						reset-names = "controller";
 						/* vqmmc-supply = <&lemmc>; */
 						intel,max_clock = <52000000>;
 						intel,min_clock = <203125>;
@@ -454,6 +462,7 @@
 						intel,fixup = <0x1>;
 						intel,rpm_enabled = <1>;
 						/* QUIRK_CAP_CLOCK_BASE_BROKEN: bit 25 + QUIRKS2_HOST_PRESET_VALUE_BROKEN: bit 3 + LED_BROKEN: bit 14*/
+						/* QUIRK2_HOST_BROKEN_AUTO_CMD23: bit24 */
 						intel,quirks = < 0x2000000 0x4008 >;
 						bus-width = < 8 >;
 						non-removable;
@@ -469,10 +478,9 @@
 							pm,class-name = "sdhci_class";
 							pm,user-name = "emmc";
 							pm,state-D0 = "mid_perf";
-							pm,state-D0i2 = "low_perf";
+							pm,state-D0i2 = "disable";
 							pm,state-D3 = "disable";
 						};
-
 					};
 					sd:sd{	/* SD */
 						compatible = "intel,sdhci";
@@ -487,6 +495,8 @@
 							0 &pic SDMMC_INT IRQ_TYPE_DEFAULT
 							1 &eint EINT_EXI8 XGOLD_IRQ_TYPE_EDGE_BOTH >;
 						interrupt-names = "host";
+						resets = < &dbb_rst1 14 >;
+						reset-names = "controller";
 						cd-gpios = < &xgold_pmx_gpio 43 0 >;
 						cd-inverted;
 						vmmc-supply = <&sd_ldo>;
@@ -501,8 +511,7 @@
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_DISABLE_UHS: bit17 */
 						/* QUIRK2_HOST_EXEC_TUNING_WA: bit23 */
-						/* QUIRK2_POWER_CONTROL_BUG: bit15 */
-						intel,quirks = < 0 0x80c008 >;
+						intel,quirks = < 0 0x804008 >;
 						intel,io-access-guest;
 						intel,rpm_enabled = <1>;
 						pm_ctrl{
@@ -516,7 +525,7 @@
 							pm,class-name = "sdhci_class";
 							pm,user-name = "usd";
 							pm,state-D0 = "high_perf";
-							pm,state-D0i2 = "low_perf";
+							pm,state-D0i2 = "disable";
 							pm,state-D3 = "disable";
 						};
 					};
@@ -575,6 +584,7 @@
 						dvfs_ultra_high;
 						dvfs_interval = <20>;
 						dvfs_clock_config = < 208 1000 >, < 312 2000 >, < 416 3000 >, <600 4000>;
+						intel,qos-ports = "GPUPP", "GPUGP";
 
 						clocks = <&clk_gpu>, <&clk_ahb_per2>;
 						clock-names = "clk_kernel", "clk_ahb";
@@ -628,7 +638,7 @@
 
 					hevc:hevc {
 						compatible = "rockchip,hevc_service";
-						rockchip,iommu-enabled = <1>;
+						iommu_enabled = <1>;
 						interrupt-names = "irq_dec";
 						interrupts = < HEVC_DEC_INT IRQ_TYPE_DEFAULT >;
 						devname = "hevc_service";
@@ -638,7 +648,7 @@
 						compatible = "rockchip,vpu_combo";
 						reg = < 0xE2D00000 0x1000 >;
 						subcnt = <2>;
-						rockchip,sub = <&vpu>, <&hevc>;
+						intel,sub = <&vpu>, <&hevc>;
 						pm,class-name = "vpu_dec_class";
 						pm,user-name = "vpu_dec";
 						pm,state-D3 = "disable";
@@ -723,6 +733,9 @@
 						intel,trim-value = < 0x538352 0x538352 >;
 						intel,power_budget = < 500 >;
 						intel,usbid-gpio = < &xgold_pmx_gpio 58 0 >;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+						intel,vmm-secured-access;
+#endif
 						resets = < &dbb_rst2 0x3 >, < &dbb_rst2 0x4 >;
 						reset-names = "usb", "bus";
 					};
@@ -746,6 +759,7 @@
 							0xffffffff	/* otg_ver */
 							0xffffffff	/* dma_enable */
 							0		/* dma_desc_enable */
+							1		/* dma_desc_fs_enable */
 							0xffffffff	/* speed */
 							0xffffffff	/* enable_dynamic_fifo */
 							0xffffffff	/* en_multiple_tx_fifo */
@@ -838,11 +852,10 @@
 						interrupts = < STM_INT0 IRQ_TYPE_DEFAULT >,
 								< STM_INT1 IRQ_TYPE_DEFAULT >;
 						intel,faf = <0x319>;
+						intel,stm,is_suspended;
 						intel,stm,cpumask = <0x3>;
 						intel,stm,evt,rating = <50>;
 						intel,stm,rate = <26000000>;
-						intel,evt,min-ns = <1000000>;
-						intel,evt,max-ns = <1000000000>;
                                         };
 
 					capcom1:capcom1 {
@@ -853,8 +866,6 @@
 						intel,cc,evt,rating = <50>;
 						intel,cc,cpumask = <0xc>;
 						intel,cc,rate = <26000000>;
-						intel,evt,min-ns = <1000000>;
-						intel,evt,max-ns = <1000000000>;
 					};
 
 					xgold_pmx_core: pinmux@E4600000 {
@@ -867,6 +878,9 @@
 						pinctrl-single,register-width = <32>;
 						pinctrl-single,first-pin-offset = <0x200>;
 						pinctrl-single,function-mask = <0xfffff>;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+						intel,vmm-secured-access;
+#endif
 						range: gpio-range {
 							#pinctrl-single,gpio-range-cells = <3>;
 						};
@@ -885,6 +899,9 @@
 						intel,gpiochip-id = <0>;
 						intel,gpiochip-num = <106>;
 						intel,lvds-ttl-as-gpio;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+						intel,vmm-secured-access;
+#endif
 					};
 					cgu:cgu{
 						compatible = "intel,cgu";
@@ -908,7 +925,6 @@
 						intel,config-reg = <0xb90>;
 						intel,ctrl-reg = <0xb94>;
 						intel,stat-reg = <0xbc0>;
-						intel,bind-cpu = <0>;
 					};
 					spcu_thermal1{
 						/* 2nd DTS close to cores */
@@ -922,21 +938,6 @@
 						intel,config-reg = <0xb98>;
 						intel,ctrl-reg = <0xb9c>;
 						intel,stat-reg = <0xbc4>;
-					};
-					spcu_thermal2{
-						/* 3rd DTS close to cores */
-						compatible = "intel,spcu-thermal";
-						reg = <0xE4700000 0x1000>;
-						interrupt-parent = <&hirq>;
-						interrupts = <HIRQ_SPCU_THERM2_LOW IRQ_TYPE_DEFAULT>,
-							     <HIRQ_SPCU_THERM2_HIGH IRQ_TYPE_DEFAULT>;
-						interrupt-names = "TLOW", "THIGH";
-						intel,thermal-id = <2>;
-                                                intel,dev-type = <1>;
-						intel,config-reg = <0xba0>;
-						intel,ctrl-reg = <0xba4>;
-						intel,stat-reg = <0xbc8>;
-                                                intel,ohconf-reg = <0xc64>;
 					};
 					spcu_thermal3{
 						/* 4th DTS close to cores */
@@ -984,7 +985,11 @@
 						intel,reset-wo = <0>;
 						intel,reset-wc = <4>;
 						intel,reset-ro = <8>;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+						intel,vmm-secured-access;
+#else
 						intel,io-access-guest;
+#endif
 					};
 					dbb_rst2:reset-controller2 {
 						compatible = "intel,xgold-reset";
@@ -993,7 +998,11 @@
 						intel,reset-wo = <0>;
 						intel,reset-wc = <4>;
 						intel,reset-ro = <8>;
+#if defined(SOFIA_SECURED_VMM_ACCESS)
+						intel,vmm-secured-access;
+#else
 						intel,io-access-guest;
+#endif
 					};
 					keypad:keypad {
 						compatible = "intel,keypad";
