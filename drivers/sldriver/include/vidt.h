@@ -20,10 +20,18 @@
 
 int setup_vidt(void);
 void restore_os_idt(void);
-int map_pid_viewId(void *priv_data, struct entry_pid_viewid view_new);
-int unmap_pid_viewId(void *priv_data, struct entry_pid_viewid view_entry);
+int map_pid_viewId(struct file *file, struct entry_pid_viewid view_new);
+int unmap_pid_viewId(struct file *file, struct entry_pid_viewid view_entry);
 int clean_ta_view(void *priv_data);
 void clean_view_map_list(struct file *file);
 int init_view_map_list(struct file *file);
+int get_mapped_viewid(struct file *file, uint64_t *enclave_id);
+int get_mapped_ta_type(struct file *file);
+
+enum
+{
+	TA_TYPE_MULTI_INSTANCE = 1,
+	TA_TYPE_SINGLE_INSTANCE = 2,
+};
 
 #endif

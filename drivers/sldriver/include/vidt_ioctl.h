@@ -20,6 +20,7 @@
 struct entry_pid_viewid {
 	unsigned long long int pid;
 	unsigned long long int viewid;
+	unsigned long long int ta_type;
 };
 
 struct enclave_create_param {

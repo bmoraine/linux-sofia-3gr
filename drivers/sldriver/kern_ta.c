@@ -53,6 +53,7 @@ unsigned int g_view = 0;
 
 #define VMM_PROT_ACTION 0
 #define VMM_UNPROT_ACTION 1
+#define FORCE_REMOVE_VIEW 1
 static int hspid;
 
 inline void vmfunc_emul(uint32_t a, uint32_t c, uint32_t d)
@@ -183,7 +184,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return -EFAULT;
 			}
 		}
-		return map_pid_viewId(file->private_data, param_entry);
+		return map_pid_viewId(file, param_entry);
 
 	case VIDT_PID_VIEW_UNMAP:
 		if ((struct entry_pid_viewid __user *)vidt_param != NULL) {
@@ -196,7 +197,7 @@ static long vidt_ioctl(struct file *file, unsigned int vidt_command,
 				return -EFAULT;
 			}
 		}
-		return unmap_pid_viewId(file->private_data, param_entry);
+		return unmap_pid_viewId(file, param_entry);
 
 	case VIDT_REGISTER:
 		if (!setup_vidt_done) {
@@ -1112,12 +1113,7 @@ static int vidt_open(struct inode *inode, struct file *file)
 {
 	int status = 0;
 	file->private_data = NULL;
-	status = init_view_map_list(file);
-	if (status) {
-		pr_err("view map list initialization failed\n");
-		return -1;
-	}
-	return 0;
+	return status;
 }
 
 static int vidt_close(struct inode *inode, struct file *file)
@@ -1125,9 +1121,24 @@ static int vidt_close(struct inode *inode, struct file *file)
 	struct siginfo info;
 	struct task_struct *t;
 	int ret;
+	uint64_t enclave_id;
 
-	clean_ta_view(file->private_data);
-	clean_view_map_list(file);
+	if (file->private_data == NULL)
+		return SL_SUCCESS;
+	
+	if (current->pid == hspid ||
+		get_mapped_ta_type(file) == TA_TYPE_MULTI_INSTANCE) {
+		//service crashed call remove view
+		if(get_mapped_viewid(file, &enclave_id) != SL_SUCCESS) {
+			//view id not present, nothing to do so return success
+			kfree(file->private_data);
+			return SL_SUCCESS;
+		}
+		request_sl_service(SL_CMD_HSEC_REMOVE_VIEW, FORCE_REMOVE_VIEW,
+				enclave_id, 0, 0);
+		kfree(file->private_data);
+		return SL_SUCCESS;
+	}
 
 	/* send the signal */
 	memset(&info, 0, sizeof(struct siginfo));
@@ -1147,14 +1158,17 @@ static int vidt_close(struct inode *inode, struct file *file)
 	if (t == NULL) {
 		pr_err("no such pid\n");
 		rcu_read_unlock();
+		kfree(file->private_data);
 		return -ENODEV;
 	}
 	rcu_read_unlock();
 	ret = send_sig_info(SIG_CLEAN, &info, t);	/*send the signal */
 	if (ret < 0) {
 		pr_err("error sending signal\n");
+		kfree(file->private_data);
 		return ret;
 	}
+	kfree(file->private_data);
 	return 0;
 }
 

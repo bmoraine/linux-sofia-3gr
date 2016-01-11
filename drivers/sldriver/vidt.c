@@ -203,12 +203,14 @@ struct vidt_priv_data {
 	unsigned long int pid;
 	unsigned long int viewid;
 	unsigned long int magic;
+	unsigned long int ta_type;
 };
 
 struct view_list {
 	struct vidt_priv_data view_data;
 	struct list_head list;
 };
+
 
 #define VIDT_PRIV_MAGIC ((unsigned long int)0xABCDEF12)
 
@@ -286,42 +288,69 @@ int clean_ta_view(void *priv_data)
 	return VIDT_SUCCESS;
 }
 
-int unmap_pid_viewId(void *priv_data, struct entry_pid_viewid view_entry)
+int unmap_pid_viewId(struct file *file, struct entry_pid_viewid view_entry)
 {
-	struct view_list *temp_head = NULL, *pos = NULL, *temp_node = NULL;
+	struct view_list *temp_head = NULL;
 
-	temp_head = (struct view_list *)priv_data;
+	temp_head = (struct view_list *)file->private_data;
 	if (temp_head == NULL) {
 		pr_info("nothing there to clean here unmap_pid_viewId!!\n");
 		return VIDT_FAIL;
 	}
-	list_for_each_entry_safe(pos, temp_node, &(temp_head->list), list) {
-		if ((pos->view_data.magic == VIDT_PRIV_MAGIC) &&
-			pos->view_data.viewid == view_entry.viewid &&
-			pos->view_data.pid == view_entry.pid) {
-			list_del(&pos->list);
-			kfree(pos);
-			return VIDT_SUCCESS;
-		}
+	if ((temp_head->view_data.magic == VIDT_PRIV_MAGIC) &&
+		temp_head->view_data.viewid == view_entry.viewid &&
+		temp_head->view_data.pid == view_entry.pid) {
+		kfree(temp_head);
+		file->private_data = NULL;
+	}
+	return VIDT_SUCCESS;
+}
+
+int map_pid_viewId(struct file *file, struct entry_pid_viewid view_new)
+{
+	struct view_list *temp_node = NULL;
+
+	if (view_new.ta_type != TA_TYPE_SINGLE_INSTANCE &&
+	    view_new.ta_type != TA_TYPE_MULTI_INSTANCE)
+	    return VIDT_FAIL;
+
+	temp_node = kmalloc(sizeof(struct view_list), GFP_KERNEL);
+	if (temp_node == NULL)
+		return VIDT_FAIL;
+
+	temp_node->view_data.pid = view_new.pid;
+	temp_node->view_data.viewid = view_new.viewid;
+	temp_node->view_data.magic = VIDT_PRIV_MAGIC;
+	temp_node->view_data.ta_type = view_new.ta_type;
+
+	file->private_data = temp_node;
+
+	//INIT_LIST_HEAD(&temp_node->list);
+
+	//list_add(&(temp_node->list), &(temp_head->list));
+
+	return VIDT_SUCCESS;
+}
+
+int get_mapped_viewid(struct file *file, uint64_t *enclave_id)
+{
+	struct view_list *temp_node = file->private_data;
+
+	if(file->private_data) {
+		*enclave_id = (uint64_t)temp_node->view_data.viewid;
+		return VIDT_SUCCESS;
 	}
 	return VIDT_FAIL;
 }
 
-int map_pid_viewId(void *priv_data, struct entry_pid_viewid view_new)
+int get_mapped_ta_type(struct file *file)
 {
-	struct view_list *temp_head = NULL, *temp_node = NULL;
-	temp_head = (struct view_list *)priv_data;
-	temp_node = kmalloc(sizeof(struct view_list), GFP_KERNEL);
-	if (temp_node == NULL)
-		return VIDT_FAIL;
-	temp_node->view_data.pid = view_new.pid;
-	temp_node->view_data.viewid = view_new.viewid;
-	temp_node->view_data.magic = VIDT_PRIV_MAGIC;
-	INIT_LIST_HEAD(&temp_node->list);
+	struct view_list *temp_node = file->private_data;
 
-	list_add(&(temp_node->list), &(temp_head->list));
-
-	return VIDT_SUCCESS;
+	if(file->private_data) {
+		return temp_node->view_data.ta_type;
+	}
+	return 0;
 }
 
 #if !defined(__x86_64__)
