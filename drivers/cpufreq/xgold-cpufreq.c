@@ -99,7 +99,9 @@ static int xgold_cpu_freq_notifier(struct notifier_block *nb,
 		max = (policy->max == shmem_freq.maxfreq * 1000) ? -1 :
 			(policy->max / 1000);
 		/* value 1000/1000=1 means no change in prh */
-		sofia_set_cpu_policy(min, max);
+		mutex_lock(&cpufreq_lock);
+		sofia_thermal_set_cpu_policy(min, max);
+		mutex_unlock(&cpufreq_lock);
 	}
 	return 0;
 }
