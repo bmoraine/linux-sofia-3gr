@@ -42,6 +42,12 @@
 #include <asm/xsave.h>
 #include <linux/string.h>
 
+#ifndef CONFIG_X86_64
+/* AVX routines are available only in 64b mode. */
+ #undef CONFIG_AS_AVX
+ #undef CONFIG_AS_AVX2
+#endif
+
 asmlinkage void sha256_transform_ssse3(const char *data, u32 *digest,
 				     u64 rounds);
 #ifdef CONFIG_AS_AVX

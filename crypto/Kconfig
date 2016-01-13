@@ -511,6 +511,18 @@ config CRYPTO_SHA256_SSSE3
 	  Extensions version 1 (AVX1), or Advanced Vector Extensions
 	  version 2 (AVX2) instructions, when available.
 
+config CRYPTO_SHA256_SSSE3_32B
+	tristate "SHA256 digest algorithm (SSSE3 32b)"
+	depends on X86 && !64BIT
+	select CRYPTO_SHA256
+	select CRYPTO_HASH
+	help
+	  SHA-256 secure hash standard (DFIPS 180-2) implemented
+	  using Supplemental SSE3 (SSSE3) instructions in 32b mode.
+
+	  This is an adaptation of the SHA256 SSSE3 routine in 64b mode,
+	  "emulated" in 32b mode.
+
 config CRYPTO_SHA512_SSSE3
 	tristate "SHA512 digest algorithm (SSSE3/AVX/AVX2)"
 	depends on X86 && 64BIT
