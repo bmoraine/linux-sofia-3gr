@@ -623,5 +623,9 @@
 };
 #endif
 
+&brown_out {
+	buv_no_shutdown;
+};
+
 #include "xgold/sofia_3gr_soc/pinctrl-sf_3gr-sr-garnet.dtsi"
 #include "xgold/agold620/pinctrl-sf_3gr-sr-garnet.dtsi"
