@@ -950,7 +950,7 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 		goto out;
 	}
 
-	xgold_debug("stream type %d\n", xrtd->stream_type);
+	xgold_debug("%s: stream type %d\n", __func__, xrtd->stream_type);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		snd_soc_set_runtime_hwparams(substream, &xgold_pcm_play_cfg);
@@ -1036,7 +1036,8 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 	int ret = 0;
 	bool power_state = OFF;
 
-	xgold_debug("XGOLD Closing pcm device\n");
+	xgold_debug("%s:XGOLD Closing pcm device for stream type %d\n",
+		__func__, xrtd->stream_type);
 
 	if (!xrtd) {
 		xgold_err("Runtime data is NULL.\n");
@@ -1120,12 +1121,51 @@ static int xgold_pcm_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
+
+static int xgold_pcm_force_dma_close(struct snd_pcm_substream *substream)
+{
+	struct xgold_runtime_data *xrtd = substream->runtime->private_data;
+	struct xgold_pcm *xgold_pcm;
+
+	xgold_debug("%s called for stream type = %d\n",
+		__func__, xrtd->stream_type);
+
+	if (!xrtd || !xrtd->dmach)
+		return snd_pcm_lib_free_pages(substream);
+
+	xgold_pcm = xrtd->pcm;
+
+	if ((xgold_pcm->play_dma_mode && substream->stream ==
+			SNDRV_PCM_STREAM_PLAYBACK) ||
+		(xgold_pcm->rec_dma_mode && xrtd->stream_type ==
+			STREAM_REC)) {
+		int ret = wait_for_completion_timeout(&xrtd->dma_complete,
+				msecs_to_jiffies(120));
+		if (ret == 0)
+			xgold_debug("%s: dma completion timeout\n", __func__);
+
+		/* request DMA shutdown */
+		xgold_debug("terminate all dma: %p\n", xrtd->dmach);
+		dmaengine_terminate_all(xrtd->dmach);
+
+		/* Release the DMA channel */
+		dma_release_channel(xrtd->dmach);
+		xrtd->dmach = NULL;
+
+		/* Free scatter list memory*/
+		kfree(xrtd->dma_sgl);
+	}
+
+	return 0;
+}
+
 static int xgold_pcm_hw_free(struct snd_pcm_substream *substream)
 {
 	struct xgold_runtime_data *xrtd = substream->runtime->private_data;
 	struct xgold_pcm *xgold_pcm;
 
-	xgold_debug("%s\n", __func__);
+	xgold_debug("%s called for stream type = %d\n",
+		__func__, xrtd->stream_type);
 
 	if (!xrtd || !xrtd->dmach)
 		return snd_pcm_lib_free_pages(substream);
@@ -1283,6 +1323,18 @@ static int xgold_pcm_rec_dma_prepare(struct snd_pcm_substream *substream)
 
 	xgold_debug("%s period_size = %d\n", __func__,
 			(int)runtime->period_size);
+
+	if (xrtd->dmach) {
+		xgold_debug("%s: DMA channel not closed before prepare()\n",
+			__func__);
+		if (xrtd->dma_stop == true) {
+			xgold_debug("%s: Take action to close the stopped DMA channel\n",
+				__func__);
+			complete(&xrtd->dma_complete);
+			xgold_debug("%s: DMA complete\n", __func__);
+			xgold_pcm_force_dma_close(substream);
+		}
+	}
 
 #ifdef CONFIG_OF
 	xrtd->dmach = xgold_of_dsp_get_dmach(xgold_pcm->dsp, xrtd->stream_type);
@@ -1480,7 +1532,8 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
-		xgold_debug("%s: Trigger Start\n", __func__);
+		xgold_debug("%s: Trigger Start, stream_type = %d\n",
+			__func__, xrtd->stream_type);
 		xgold_debug("period size %ld, periods %d buffer size %ld\n",
 				substream->runtime->period_size,
 				substream->runtime->periods,
@@ -1560,7 +1613,8 @@ static int xgold_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			xrtd->dma_stop = true;
 
 		dsp_pcm_stop(dsp, xrtd->stream_type);
-		xgold_debug("DSP stopped\n");
+		xgold_debug("DSP stopped for stream type %d\n",
+			xrtd->stream_type);
 
 		if (xrtd->stream_type == HW_PROBE_A)
 			xrtd->pcm->
