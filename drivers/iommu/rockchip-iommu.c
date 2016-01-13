@@ -882,11 +882,11 @@ static void rockchip_iommu_detach_device(struct iommu_domain *domain,
 		dev_dbg(dev->archdata.iommu, "%s: Detached IOMMU with pgtable %#lx\n",
 			__func__, __pa(priv->pgtable));
 		data->domain = NULL;
-		list_del_init(&data->node);
-
 	} else
 		dev_err(dev->archdata.iommu, "%s: Detaching IOMMU with pgtable %#lx delayed",
 			__func__, __pa(priv->pgtable));
+
+	list_del_init(&data->node);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 }

@@ -105,7 +105,6 @@ struct t_rpc_data_list {
 };
 
 struct t_rpc_dispatch {
-	struct task_struct *task;
 	u8 *data;
 	struct t_rpc_cmd cmd;
 };

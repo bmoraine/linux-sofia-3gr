@@ -31,11 +31,13 @@
 #include <linux/clocksource.h>
 #include <linux/of_irq.h>
 #include <linux/device_state_pm.h>
+#include <linux/debugfs.h>
 
 #include <sofia/vpower.h>
 #include <sofia/mv_hypercalls.h>
 #include <sofia/pal_shared_data.h>
 #include <sofia/mv_svc_hypercalls.h>
+#include <sofia/mv_gal.h>
 
 extern struct vmm_shared_data *vmm_shared_data[];
 static DEFINE_MUTEX(call_mutex);
@@ -193,9 +195,309 @@ fail:
 	/* return the actual prh ret value from backend */
 	return retval;
 }
+
+static char *power_id_str[] = {
+	"NOT_AVAIL",
+	"USIF1",
+	"USIF2",
+	"I2C1",
+	"I2C2",
+	"I2C3",
+	"I2C4",
+	"PWM",
+	"RGA",
+	"SDMMC1",
+	"EMMC",
+	"SDIO",
+	"CIF",
+	"DCC",
+	"KEYPAD",
+	"CEU",
+	"CEU2",
+	"USB_HS",
+	"CAPCOM0",
+	"CAPCOM1",
+	"STM",
+	"GPTU0",
+	"GPTU1",
+	"PCL",
+	"RTC",
+	"USIM",
+	"USIM2",
+	"PLL",
+	"CAM_PRIM",
+	"CAM_SEC",
+	"PRIM_DISPLAY",
+	"PRIM_DISP_BACKLIGHT",
+	"TOUCHSCREEN",
+	"TOUCH_SENSOR",
+	"PROXIMITY_SENSOR",
+	"ACCELEROMETER",
+	"MAGNETOMETER",
+	"GYROSCOPE",
+	"GSI",
+	"SHMEM",
+	"GUCIPH",
+	"ST_ARB",
+	"ST_OCT",
+	"ST_MON",
+	"ST_MTM1",
+	"ST_MTM2",
+	"DMA4_CH",
+	"DMA8_CH",
+	"PS_CPU",
+	"DSP_2G",
+	"DSP_AUDIO",
+	"3G_COMRAM_CPHY",
+	"3G_COMRAM_PHY",
+	"MACPHY",
+	"DIG_RF",
+	"ST_MON_SB_1",
+	"ST_MON_SB_2",
+	"ST_MON_SB_3",
+	"ST_MON_SB_4",
+	"ST_MON_SB_5",
+	"ST_MON_SB_6",
+	"ST_MON_SB_7",
+	"ST_MON_SB_8",
+	"ST_MON_SB_9",
+	"ST_MON_SB_10",
+	"ST_MON_SB_11",
+	"ST_MON_SB_12",
+	"NANDCTRL",
+	"CST",
+	"ETMA5",
+	"AUDIO",
+	"EMIC",
+	"USB_PLL_E_480M",
+	"GSER",
+	"IDI",
+	"OUT0",
+	"OUT1",
+	"ATCPTEST",
+	"PMU_IF",
+	"TSMU",
+	"GPU",
+	"VIDEO_DECODER",
+	"VIDEO_ENCODER",
+	"ABB_BT_IP",
+	"ABB_BT_IF",
+	"ABB_BT_AUD",
+	"ABB_FMR",
+	"ABB_AFE",
+	"ABB_IDI",
+	"ABB_RTC",
+	"ABB_PCL",
+	"ABB_VIBRATOR",
+	"ABB_BACKLIGHT",
+	"ABB_DIG_MIC",
+	"ABB_MTM",
+	"ABB_ST_ARB",
+	"ABB_ST_MON",
+	"ABB_DCDC",
+	"ABB_PMU_CHP",
+	"ABB_MS_CHP",
+	"ABB_I2C",
+	"ABB_WLAN",
+	"ABB_USIF",
+	"ABB_GNSS",
+	"ABB_AUD_SYNC",
+	"ABB_ST_MON_SB_1",
+	"ABB_ST_MON_SB_2",
+	"ABB_ST_MON_SB_3"
+};
+
+static int devices_state_show(struct seq_file *s, void *unused)
+{
+	struct vpower_data *vpower;
+	int ret;
+	unsigned int s3_count;
+	unsigned long long s3_total_res, uptime, t, time;
+	unsigned long nanosec_rem, remainder;
+	unsigned long total_sec, total_msec;
+	char *typestr = "s3               ";
+	unsigned int pal_power_sleep_disabled[4];
+	int i;
+
+	vpower = &get_cpu_var(percpu_vpower);
+
+	if ((vpower == NULL) || (vpower->shared_data == NULL))
+		goto fail;
+
+	ret = mv_svc_pm_control(PM_S3_COUNTER_UPDATE, 0, 0, 0);
+	s3_count = vpower->shared_data->pm_state_shared_data.s3_count;
+	s3_total_res = vpower->shared_data->pm_state_shared_data.s3_total_res;
+
+	memcpy(pal_power_sleep_disabled,
+	vpower->shared_data->pm_state_shared_data.pal_power_sleep_disabled,
+	4*sizeof(unsigned int));
+
+	uptime = cpu_clock(0);
+	seq_printf(s, "\t\t\ttime(secs)\tresidency(%%)\tcount\tAvg.Res(Sec)\n");
+
+	/* S3 total time */
+	nanosec_rem = do_div(s3_total_res, NSEC_PER_SEC);
+	seq_printf(s, "%s\t%5lu.%03lu\t",
+		typestr,  (unsigned long)s3_total_res, nanosec_rem / 1000000);
+
+	/* Residency(%) */
+	nanosec_rem = do_div(uptime, NSEC_PER_SEC);
+	total_sec = uptime;
+	total_msec = nanosec_rem / 1000000;
+	time = s3_total_res * 100;
+	remainder = do_div(time, uptime);
+
+	/* for getting 3 digit precision after
+	 * decimal dot */
+	t = remainder * 1000;
+	do_div(t, uptime);
+
+	seq_printf(s, "%5lu.%03lu\t",  (unsigned long)time,  (unsigned long)t);
+
+	/* Count */
+	seq_printf(s, "%d\t", s3_count);
+
+	/* Avg.Res(Sec) */
+	if (s3_count != 0) {
+		time = s3_total_res;
+		remainder = do_div(time, s3_count);
+		t = remainder * 1000;
+		do_div(t, s3_count);
+	} else {
+		time = 0;
+		t = 0;
+	}
+	seq_printf(s, "%5lu.%03lu\n",  (unsigned long)time,  (unsigned long)t);
+
+	/* Uptime */
+	seq_printf(s, "\nTotal time: %5lu.%03lu Sec\n", total_sec, total_msec);
+
+	/* Device pm enable/disable */
+	seq_puts(s, "\nDevices                        status\n");
+	for (i = 1;  i < POW_CONTROL_DEPRECATED_ID; i++)
+		seq_printf(s, "%-30s  [%s]\n",
+		power_id_str[i],
+		(pal_power_sleep_disabled[i/32] & (1 << (i%32)))?"D0":"D0i3");
+
+fail:
+	put_cpu_var(percpu_vpower);
+
+	return 0;
+}
+
+
+static int devices_state_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, devices_state_show, NULL);
+}
+
+static const struct file_operations devices_state_operations = {
+	.open		= devices_state_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static char *wakeup_id_str[] = {
+	"NOT_AVAIL",
+	"DBB_KPD",         /**< wakeup by Keypad */
+	"DBB_RES",         /**< Reserved bit */
+	"DBB_SIM1",        /**<  SIM1 */
+	"DBB_SIM2",        /**<  SIM2 */
+	"DBB_DAP",         /**<  DAP */
+	"DBB_OCT",         /**<  On-Chip Trace Module */
+	"DBB_CPM",         /**<  CAPCOMs */
+	"DBB_DSP",         /**<  DSP and FMRadio */
+	"DBB_3G",          /**<  3G */
+	"DBB_EXT0",        /**<  EXTINT 0 */
+	"DBB_EXT1",        /**<  EXTINT 1 */
+	"DBB_EXT2",        /**<  EXTINT 2 */
+	"DBB_EXT3",        /**<  EXTINT 3 */
+	"DBB_EXT4",        /**<  EXTINT 4 */
+	"DBB_EXT5",        /**<  EXTINT 5 */
+	"DBB_EXT6",        /**<  EXTINT 6 */
+	"DBB_EXT7",        /**<  EXTINT 7 */
+	"DBB_EXT8",        /**<  EXTINT 8 */
+	"DBB_EXT9",        /**<  EXTINT 9 */
+	"DBB_EXT10",       /**<  EXTINT 10 */
+	"DBB_EXT11",       /**<  EXTINT 11 */
+	"DBB_EXT12",       /**<  EXTINT 12 */
+	"DBB_EXT13",       /**<  EXTINT 13 */
+	"DBB_EXT14",       /**<  EXTINT 14 */
+	"DBB_EXT15",       /**<  EXTINT 15 */
+	"DBB_EXT16",       /**<  EXTINT 16 : USB_HS */
+	"DBB_EXT17",       /**<  EXTINT 17 : SDMMC */
+	"DBB_EXT18",       /**<  EXTINT 18 : SDIO */
+	"DBB_EXT19",       /**<  EXTINT 19 : SDIO */
+	"DBB_EXT20",       /**<  EXTINT 20 : SDIO */
+	"DBB_EXT21",       /**<  EXTINT 21 : USIF1 */
+	"DBB_EXT22",       /**<  EXTINT 22 : USIF2 */
+	"DBB_GST_WKUP",    /**<  GST_WKUP */
+	"DBB_nIRQOUT0",    /**<  nIRQOUT0 */
+	"DBB_nIRQOUT1",    /**<  nIRQOUT1 */
+	"DBB_nFIQOUT2",    /**<  nFIQOUT2 */
+	"DBB_nFIQOUT3",    /**<  nFIQOUT3 */
+	"DBB_USB_ID",      /**<  USB_ID */
+	"NOT_AVAIL",
+	"ABB_WLAN",        /**<  ABB WLAN  */
+	"ABB_DAP",         /**<  ABB DAP  */
+	"ABB_FMR",         /**<  FMR */
+	"ABB_PMU",         /**<  PMU */
+	"ABB_FSYS1",       /**<  FSYS1_EN */
+	"ABB_RTC",         /**<  ABB RTC */
+	"ABB_BT",          /**<  Bluetooth */
+	"ABB_GLDO",        /**<  GLDO */
+	"ABB_ACI_EN",      /**<  Accessory In */
+	"DBB_REF_CLK_EN",  /**<  DBB REF CLK EN */
+	"ABB_PEN_IRQ",     /**<  PEN IRQ */
+	"ABB_FSYS2",       /**<  FSYS2_EN */
+	"ABB_G2ARM",       /**<  G2ARM_EN */
+	"ABB_GWDG",        /**<  GWDG_EN */
+	"ABB_GGPIO",       /**<  GGPIO_EN */
+	"WAKEUP_NOT_SLEPT",
+};
+
+static int devices_wakeup_state_show(struct seq_file *s, void *unused)
+{
+	int i;
+	struct vmm_shared_data *data = mv_gal_get_system_shared_data();
+	struct pal_shared_data *shared_mem =
+			(struct pal_shared_data *)data->pal_shared_mem_data;
+	seq_printf(s, "last_wakeup_source:\t\t\t%s\n",
+	wakeup_id_str[shared_mem->pm_state_shared_data.last_wakeup_src]);
+
+	seq_puts(s, "\nDevices wakeup counts:\n");
+	for (i = 1;  i < SPCU_HWWUP_END-2; i++) {
+		if (shared_mem->pm_state_shared_data.wakeup_counts[i] > 0)
+			seq_printf(s, "%-30s \t\t\t[%d]\n",
+			wakeup_id_str[i],
+			shared_mem->pm_state_shared_data.wakeup_counts[i]);
+	}
+
+	return 0;
+}
+
+static int devices_wakeup_state_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, devices_wakeup_state_show, NULL);
+}
+
+static const struct file_operations devices_wakeup_state_operations = {
+	.open		= devices_wakeup_state_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 static int __init vpower_init(void)
 {
 	vpower_init_prh();
+
+	/* /sys/kernel/debug/mid_pmu_states */
+	(void) debugfs_create_file("mid_pmu_states", S_IFREG | S_IRUGO,
+				NULL, NULL, &devices_state_operations);
+	(void) debugfs_create_file("mid_wakeup_states", S_IFREG | S_IRUGO,
+				NULL, NULL, &devices_wakeup_state_operations);
 
 	return 0;
 }
