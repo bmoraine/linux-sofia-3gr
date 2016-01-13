@@ -26,6 +26,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/idi/idi_interface.h>
 #include <linux/idi/idi_device_pm.h>
 #include <linux/power/battery_id.h>
@@ -125,7 +126,12 @@ static int __init brown_out_drv_probe(struct idi_peripheral_device *ididev,
 {
 	struct resource *pmu_res;
 	u32 bat_uv_det, bat_supervision, bat_supervision_wr;
+	struct device *dev = &ididev->device;
+	struct device_node *np = dev->of_node;
+	bool buv_no_shutdown;
 	int ret;
+
+	buv_no_shutdown = of_property_read_bool(np, "buv_no_shutdown");
 
 	/* Store platform device in static instance. */
 	bnt_drv_data.p_idi_device = ididev;
@@ -182,8 +188,11 @@ static int __init brown_out_drv_probe(struct idi_peripheral_device *ididev,
 	EBUV (BUVEnable) =enable */
 	bat_uv_det = brown_out_pmu_ioread(&bnt_drv_data, BAT_UV_DET_OFFSET);
 
-	bat_uv_det |= (1 << BAT_UV_DET_EPSD_O) |
-		(1 << BAT_UV_DET_ESSD_O) | (1 << BAT_UV_DET_EBUV_O);
+	if (!buv_no_shutdown) {
+		bat_uv_det |= (1 << BAT_UV_DET_EPSD_O) |
+				(1 << BAT_UV_DET_ESSD_O);
+	}
+	bat_uv_det |= (1 << BAT_UV_DET_EBUV_O);
 
 	bat_uv_det &= ~(BAT_UV_DET_BULVL_M << BAT_UV_DET_BULVL_O);
 	bat_uv_det |= (BUV_DET_LEVEL_3050MV << BAT_UV_DET_BULVL_O);
