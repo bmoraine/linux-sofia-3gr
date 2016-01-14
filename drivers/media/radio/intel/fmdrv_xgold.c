@@ -2381,7 +2381,6 @@ xgold_fmdrv_suspend_err:
 
 static int xgold_fmdrv_resume(struct device *dev)
 {
-
 	/* check whether FMR device is active */
 	if (FMTRX_HW_STATE_RX_ACTIVE == fmtrx_get_hw_state()) {
 		fmr_sys_power_enable(true, true);
