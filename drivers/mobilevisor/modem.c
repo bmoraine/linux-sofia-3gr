@@ -63,8 +63,8 @@ static struct nvm_partition_info nvm_partition[MAX_NVM_PARTITION_NO];
 static unsigned int mex_loadaddr;
 static unsigned int mex_loadsize;
 static struct vmodem_drvdata *g_vm_data;
-static unsigned int nvm_partition_no;
-static unsigned int nvm_total_size;
+static unsigned int nvm_partition_no = 0;
+static unsigned int nvm_total_size = 0;
 
 
 static void vmodem_state_work(struct work_struct *ws)
