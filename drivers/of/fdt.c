@@ -482,9 +482,10 @@ static int __init __reserved_mem_reserve_reg(unsigned long node,
 				uname, &base, (unsigned long)size / SZ_1M);
 			if (cma) {
 				struct cma *cma_area;
-				pr_info("Reserved memory: '%s' CMA area base %pa, size %ld MiB\n",
+				pr_info("Reserved memory: '%s' CMA area base %pa, size %ld MiB %s\n",
 					uname, &base,
-					(unsigned long)size / SZ_1M);
+					(unsigned long)size / SZ_1M,
+					isolate ? "isolated" : "shared");
 				dma_contiguous_reserve_area(
 						size, base, 0, &cma_area, isolate);
 			}
