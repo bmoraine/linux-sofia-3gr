@@ -630,7 +630,6 @@ static int dsp_audio_dev_set_controls(struct dsp_audio_device *dsp_dev,
 			 cmd == DSP_AUDIO_CONTROL_SEND_CMD_ATOMIC) ||
 			(NULL == arg && cmd == DSP_AUDIO_POWER_REQ))
 		return -EINVAL;
-
 	if (cmd != DSP_AUDIO_POWER_REQ && !pm_runtime_active(dsp_dev->dev))
 		return 0;
 
@@ -2644,8 +2643,8 @@ static void dsp_audio_drv_shutdown(struct platform_device *pdev)
 {
 	struct dsp_audio_device *dsp = platform_get_drvdata(pdev);
 	struct T_AUD_DSP_CMD_VB_HW_AFE_PAR afe_hw_cmd = { 0 };
-	int power_control = 0;
 	struct dsp_aud_cmd_data cmd_data;
+	int power_control = 0;
 	cmd_data.command_id = DSP_AUDIO_CMD_VB_HW_AFE;
 	cmd_data.command_len = sizeof(struct T_AUD_DSP_CMD_VB_HW_AFE_PAR);
 	cmd_data.p_data = (u16 *)&afe_hw_cmd;
@@ -2659,7 +2658,6 @@ static void dsp_audio_drv_shutdown(struct platform_device *pdev)
 				&cmd_data);
 		}
 	}
-
 	dsp_audio_dev_set_controls(dsp, DSP_AUDIO_POWER_REQ, &power_control);
 }
 

@@ -1400,7 +1400,8 @@ static int xgold_pcm_prepare(struct snd_pcm_substream *substream)
 		/* Deep buffer mode - ALSA Ring buffer size =
 					psize * pcnt = 80ms*2 - 160ms */
 		xgold_debug("%s(): playback_mode pcm1:%d pcm2:%d\n", __func__,
-		xgold_pcm->playback_mode[0], xgold_pcm->playback_mode[1]);
+			xgold_pcm->playback_mode[0],
+			xgold_pcm->playback_mode[1]);
 		if (xgold_pcm->play_dma_mode) {
 			if (xrtd->stream_type == STREAM_PLAY) {
 				/* Burst mode */

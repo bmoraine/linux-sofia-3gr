@@ -259,9 +259,11 @@ enum dsp_err_code dsp_audio_cmd_pipe_1(
 						ARRAY_SIZE(supported_cmd_fba));
 		if (0x7fff != is_command_id_supported) {
 			is_command_valid = 1;
-			fba_err = dsp_add_audio_msg_2_dsp_cmd_pipe_1(dsp.dsp_fba,
-					command_id, command_len / 2 +
-					DSP_AUDIO_CMD_ID_LEN, p_command);
+			fba_err = dsp_add_audio_msg_2_dsp_cmd_pipe_1(
+						dsp.dsp_fba,
+						command_id, command_len / 2 +
+						DSP_AUDIO_CMD_ID_LEN,
+						p_command);
 		}
 
 		/* call the command if it is relevant for
@@ -304,9 +306,11 @@ enum dsp_err_code dsp_audio_cmd_pipe_1(
 					p_i2s_dev[XGOLD_I2S1],
 					0);
 			}
-			sba_err = dsp_add_audio_msg_2_dsp_cmd_pipe_1(dsp.dsp_sba,
-					command_id, command_len / 2 +
-					DSP_AUDIO_CMD_ID_LEN, p_command);
+			sba_err = dsp_add_audio_msg_2_dsp_cmd_pipe_1(
+						dsp.dsp_sba,
+						command_id, command_len / 2 +
+						DSP_AUDIO_CMD_ID_LEN,
+						p_command);
 		}
 		/* return error if an error occurred */
 		if (!is_command_valid) {
