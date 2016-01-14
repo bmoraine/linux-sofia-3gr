@@ -275,8 +275,8 @@ static void dwc2_update_frame_list(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 	} while (j != i);
 
 	/*
-	 * Sync frame list since controller will acces it if periodic channel is
-	 * currently enabled.
+	 * Sync frame list since controller will access it if periodic
+	 * channel is currently enabled.
 	 */
 	dma_sync_single_for_device(hsotg->dev,
 			hsotg->frame_list_dma,
