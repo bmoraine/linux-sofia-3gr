@@ -274,8 +274,8 @@ static inline void __mod_zone_freepage_state(struct zone *zone, int nr_pages,
 	if (migratetype == MIGRATE_CMA)
 		__mod_zone_page_state(zone, NR_FREE_CMA_PAGES, nr_pages);
 	else if (migratetype == MIGRATE_CMA_ISOLATE)
-		__mod_zone_page_state(zone,
-				NR_FREE_CMA_ISOLATE_PAGES, nr_pages);
+		__mod_zone_page_state(zone, NR_FREE_CMA_ISOLATE_PAGES,
+				nr_pages);
 }
 
 extern const char * const vmstat_text[];
