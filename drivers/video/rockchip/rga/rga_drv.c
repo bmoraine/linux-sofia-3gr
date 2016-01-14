@@ -698,9 +698,13 @@ static void rga_try_set_reg(void)
 					pr_info("error wait for src fence\n");
 			}
 			atomic_set(&reg->session->done, 0);
-			if (atomic_read(&rga_service.delay_work_already_queue)) {
-				cancel_delayed_work(&rga_service.fence_delayed_work);
-				atomic_set(&rga_service.delay_work_already_queue, 0);
+			if (atomic_read(
+				&rga_service.delay_work_already_queue)) {
+				cancel_delayed_work(
+					&rga_service.fence_delayed_work);
+				atomic_set(
+					&rga_service.delay_work_already_queue,
+					0);
 			}
 
 			rga_int_f_num++;
@@ -822,9 +826,12 @@ static void rga_del_running_list_timeout(struct work_struct *work)
 		rga_end_0 = ktime_sub(rga_end_0, rga_start);
 
 		/* whether is a fake Timeout */
-		//if (atomic_read(&rga_service.interrupt_flag))
-		    pr_info("RGA STATUS %.8x INT %.8x F %d B %d end %d end_0 %d\n", rga_read(0xc), rga_read(0x10),
-		    rga_int_f_num, rga_int_b_num, (int)ktime_to_us(rga_end), (int)ktime_to_us(rga_end_0));
+		/*if (atomic_read(&rga_service.interrupt_flag)) */
+		    pr_info("%.8x INT %.8x F %d B %d end %d end_0 %d\n",
+				    rga_read(0xc), rga_read(0x10),
+				    rga_int_f_num, rga_int_b_num,
+				    (int)ktime_to_us(rga_end),
+				    (int)ktime_to_us(rga_end_0));
 
 		rga_soft_reset();
 
@@ -1292,7 +1299,7 @@ static irqreturn_t rga_irq_thread(int irq, void *dev_id)
 {
 	mutex_lock(&rga_service.lock);
 	if (atomic_read(&rga_service.interrupt_timeout_flag)) {
-        pr_info("rga timeout double in\n");
+		pr_info("rga timeout double in\n");
 		mutex_unlock(&rga_service.lock);
 		return IRQ_HANDLED;
 	}
