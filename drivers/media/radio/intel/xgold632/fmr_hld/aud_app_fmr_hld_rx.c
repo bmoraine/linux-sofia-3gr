@@ -1915,32 +1915,25 @@ static int fmrx_seek(struct fmrx_msgbox_buff *p_msg)
 
 	case FMRX_EVENT_SET_VOLUME: {
 	/* Set volume according channel selected */
-	switch (p_msg->params.set_ch_vol.channel) {
-		case FMRX_AUD_CHN_RIGHT: {
+		switch (p_msg->params.set_ch_vol.channel) {
+		case FMRX_AUD_CHN_RIGHT:
 			rx_state.cfg->vol_cfg.right =
 				p_msg->params.set_ch_vol.volume;
-		}
-		break;
-
-		case FMRX_AUD_CHN_LEFT: {
+			break;
+		case FMRX_AUD_CHN_LEFT:
 			rx_state.cfg->vol_cfg.left =
 				p_msg->params.set_ch_vol.volume;
-		}
-		break;
-
-		case FMRX_AUD_CHN_ALL: {
+			break;
+		case FMRX_AUD_CHN_ALL:
 			rx_state.cfg->vol_cfg.right =
 				p_msg->params.set_ch_vol.volume;
 			rx_state.cfg->vol_cfg.left =
 				p_msg->params.set_ch_vol.volume;
-		}
-		break;
-
-		default: {
+			break;
+		default:
 			rc = -EINVAL;
 			goto fmrx_seek_err;
-		}
-		break;
+			break;
 		}
 
 		fmrx_set_aud_volume_dac(
