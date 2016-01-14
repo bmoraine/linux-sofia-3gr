@@ -53,6 +53,7 @@
 #define BAT_SUPERV_SOFFDB_O	(6)
 #define BAT_SUPERV_SOFFDB_M	(0x7)
 #define SYSOFF_DEBOUNCE_1MS	(0x4)
+#define SYSOFF_DEBOUNCE_100MS	(0x7)
 
 /* SystemOff_Level */
 #define BAT_SUPERV_SOFFLV_O	(2)
@@ -200,7 +201,7 @@ static int __init brown_out_drv_probe(struct idi_peripheral_device *ididev,
 	brown_out_pmu_iowrite(&bnt_drv_data, BAT_UV_DET_OFFSET, bat_uv_det);
 
 	/* Configuring Battery Supervision to:
-	SYSOFFDB (System Off Debounce time) =1ms
+	SYSOFFDB (System Off Debounce time) =100ms
 	SYSOFFLV (System Off Level) =2.95V
 	SYSOFFEN (System Off Enable) =enable all */
 	bat_supervision = brown_out_pmu_ioread(&bnt_drv_data,
@@ -210,7 +211,7 @@ static int __init brown_out_drv_probe(struct idi_peripheral_device *ididev,
 				BAT_SUPERV_SOFFLV_M << BAT_SUPERV_SOFFLV_O |
 				BAT_SUPERV_SOFFEN_M << BAT_SUPERV_SOFFEN_O);
 
-	bat_supervision |= (SYSOFF_DEBOUNCE_1MS << BAT_SUPERV_SOFFDB_O);
+	bat_supervision |= (SYSOFF_DEBOUNCE_100MS << BAT_SUPERV_SOFFDB_O);
 	bat_supervision |= (SYSTEMOFF_LEVEL_2900MV << BAT_SUPERV_SOFFLV_O);
 	bat_supervision |= (SYSOFF_ENABLE_ALL << BAT_SUPERV_SOFFEN_O);
 
