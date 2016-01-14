@@ -116,12 +116,15 @@ static struct file *oct_open_gadget(char *gadget_name);
 
 /* power management section */
 
-void disable_otc_irq(void) {
+void disable_otc_irq(void)
+{
 	/* disable timer interrupt, will be re-enabled if ext mem is empty */
 	SET_OCT_OCT_CNF_ENABLE_TRIG_CYCLE_INT(oct_trform,
 			OCT_CNF_ENABLE_TRIG_CYCLE_INT_DISABLED);
 }
-void enable_otc_irq(void) {
+
+void enable_otc_irq(void)
+{
 	/* disable timer interrupt, will be re-enabled if ext mem is empty */
 	SET_OCT_OCT_CNF_ENABLE_TRIG_CYCLE_INT(oct_trform,
 			OCT_CNF_ENABLE_TRIG_CYCLE_INT_ENABLED);
