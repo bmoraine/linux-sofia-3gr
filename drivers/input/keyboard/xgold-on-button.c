@@ -346,7 +346,8 @@ static int32_t xgold_on_button_probe(struct platform_device *pdev)
 	data->irq[irq_count] = platform_get_irq_byname(pdev, ON_BUTTON_0);
 	if (!IS_ERR_VALUE(data->irq[irq_count])) {
 		if (devm_request_threaded_irq(dev,
-				data->irq[irq_count], NULL, xgold_on_button_0_isr,
+				data->irq[irq_count], NULL,
+				xgold_on_button_0_isr,
 				IRQF_SHARED | IRQF_NO_SUSPEND | IRQF_ONESHOT,
 				ON_BUTTON_0, data)) {
 			dev_err(dev, "setup irq%d failed\n",
@@ -362,7 +363,8 @@ static int32_t xgold_on_button_probe(struct platform_device *pdev)
 	data->irq[irq_count] = platform_get_irq_byname(pdev, ON_BUTTON_1);
 	if (!IS_ERR_VALUE(data->irq[irq_count])) {
 		if (devm_request_threaded_irq(dev,
-				data->irq[irq_count], NULL, xgold_on_button_1_isr,
+				data->irq[irq_count], NULL,
+				xgold_on_button_1_isr,
 				IRQF_SHARED | IRQF_NO_SUSPEND | IRQF_ONESHOT,
 				ON_BUTTON_1, data)) {
 			dev_err(dev, "setup irq%d failed\n",
