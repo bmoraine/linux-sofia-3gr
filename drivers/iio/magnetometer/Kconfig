@@ -44,8 +44,9 @@ config MMC35240
 	select REGMAP_I2C
 	depends on I2C
 	help
-	  Say yes here to build support for the MEMSIC MMC35240 3-axis
-	  magnetic sensor.
+	  Say yes here to build support for the MEMSIC MMC35240 3-axis magnetic
+	  sensor. This driver also adds support for the MEMSIC MMC34160 3-axis magnetic
+	  sensor.
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called mmc35240.
