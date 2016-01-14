@@ -285,12 +285,12 @@ static struct xgold_i2c_platdata *xgold_i2c_of_get_platdata(struct device *dev)
 	platdata->sda_pin = of_get_named_gpio_flags(np, OF_I2C_PIN_SDA,
 			0, NULL);
 	if (platdata->sda_pin < 0)
-		dev_err(dev, "could not get inactive sda gpio\n");
+		dev_dbg(dev, "could not get inactive sda gpio\n");
 
 	platdata->scl_pin = of_get_named_gpio_flags(np, OF_I2C_PIN_SCL,
 			0, NULL);
 	if (platdata->scl_pin < 0)
-		dev_err(dev, "could not get inactive scl gpio\n");
+		dev_dbg(dev, "could not get inactive scl gpio\n");
 
 skip_pinctrl:
 	/* pm */
