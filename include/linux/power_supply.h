@@ -210,12 +210,6 @@ enum power_supply_charger_cable_type {
 	POWER_SUPPLY_CHARGER_TYPE_USB_FLOATING = 1 << 12,
 };
 
-struct power_supply_cable_props {
-	enum power_supply_charger_event	chrg_evt;
-	enum power_supply_charger_cable_type chrg_type;
-	unsigned int			ma;	/* input current limit */
-};
-
 #define POWER_SUPPLY_CHARGER_TYPE_USB \
 	(POWER_SUPPLY_CHARGER_TYPE_USB_SDP | \
 	POWER_SUPPLY_CHARGER_TYPE_USB_DCP | \
@@ -223,6 +217,11 @@ struct power_supply_cable_props {
 	POWER_SUPPLY_CHARGER_TYPE_USB_ACA | \
 	POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK)
 
+struct power_supply_cable_props {
+	enum power_supply_charger_event	chrg_evt;
+	enum power_supply_charger_cable_type chrg_type;
+	unsigned int			ma;	/* input current limit */
+};
 
 union power_supply_propval {
 	int intval;
@@ -241,7 +240,7 @@ enum psy_throttle_action {
 struct power_supply_throttle {
 	enum psy_throttle_action throttle_action;
 	unsigned throttle_val;
- };
+};
 
 struct device_node;
 
