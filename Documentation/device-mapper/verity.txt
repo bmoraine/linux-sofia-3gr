@@ -61,9 +61,9 @@ Construction Parameters
 
 <salt>
     The hexadecimal encoding of the salt value.
-<mode>
-    Optional. The mode of operation
 
+<mode>
+    Optional. The mode of operation.
 
     0 is the normal mode of operation where a corrupted block will result in an
       I/O error.
