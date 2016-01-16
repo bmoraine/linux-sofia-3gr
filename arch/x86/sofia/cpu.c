@@ -134,12 +134,27 @@ EXPORT_SYMBOL(sofia_set_cpu_frequency);
 void sofia_set_cpu_policy(const int freqmin, const int freqmax)
 {
 	u32 retval;
+	struct pal_shared_data *mv_shm = mv_svc_get_shared_data();
+
 	pr_debug("%s: ask vmm to change policy to min %d kHz, max %d kHz",
 			__func__, freqmin*1000, freqmax*1000);
-	retval = mv_svc_pm_control(PM_OMP_SET_POLICY, 1, freqmin, freqmax);
+	mv_shm->pm_control_shared_data.cpu_drv_param = freqmax;
+	retval = mv_svc_pm_control(PM_OMP_SET_POLICY, 1, freqmin, 0);
 
 }
 EXPORT_SYMBOL(sofia_set_cpu_policy);
+
+void sofia_thermal_set_cpu_policy(const int freqmin, const int freqmax)
+{
+	u32 retval;
+	struct pal_shared_data *mv_shm = mv_svc_get_shared_data();
+
+	pr_debug("%s: ask vmm to change policy to min %d kHz, max %d kHz",
+			__func__, freqmin*1000, freqmax*1000);
+	mv_shm->pm_control_shared_data.cpu_drv_param = freqmax;
+	retval = mv_svc_pm_control(PM_OMP_SET_POLICY, 2, freqmin, 0);
+}
+EXPORT_SYMBOL(sofia_thermal_set_cpu_policy);
 
 void sofia_get_cpu_frequency(struct sofia_cpu_freq_t *sh_freqs)
 {

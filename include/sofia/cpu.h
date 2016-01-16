@@ -28,6 +28,8 @@ void sofia_set_cpu_frequency(const int cpufreq);
 
 void sofia_set_cpu_policy(const int freqmin, const int freqmax);
 
+void sofia_thermal_set_cpu_policy(const int freqmin, const int freqmax);
+
 void sofia_get_cpu_frequency(struct sofia_cpu_freq_t *freq);
 
 static inline u64 paravirt_steal_clock(int cpu)
