@@ -1,11 +1,12 @@
 &xgold_pmx_gpio {
 #ifdef SOFIA3GR_MRD6
-		intel,gpio-to-irq-num = < 6 >;
+		intel,gpio-to-irq-num = < 7 >;
 		intel,gpio-to-irq = <
 			54 EXI1    /* sar sensor int */
 			1 EXI2    /* usb id's EINT. IOTG: remapped to GPIO pin1 */
 			2 EXI4    /* CONN_USB_PRESENT int */
 			0  EXI5    /* Als&Prox sensor int */
+			5 EXI7     /* USB_FAULT int */
 			43 EINT_EXI8		/* EINT8 SDCARD insert&remove event */
 			18 EXI12   /* touch int */  >;
 #else
@@ -33,7 +34,9 @@
 	<&range 0  1 0x2007>,/*gpio 0, als&prox int, EINT5, pull up*/
 	<&range 1  1 0x2007>,/*IOTG: gpio 1, usb_id int, EINT2 */
 	<&range 2  1 0x4007>,/*gpio 2, CONN_VBUS_PRESENT_N, EINT4, pull up*/
-	<&range 3  11 0x100>,
+	<&range 3  2  0x100>,
+	<&range 5  1 0x2007>,/*gpio 5, USB_FAULT, EINT7(F7), pull up*/
+	<&range 6  8 0x100>,
 	<&range 14 1 0x1500>,/*gpio14, cam1_pd, output, low, PP*/
 	<&range 15 1 0x1500>,/*gpio15, cam2_pd, output, low, PP*/
 	<&range 18 1 0x1500>,/*gpio18, touch_irq, output, low, PP*/
@@ -1246,18 +1249,21 @@ usb_default_pins:usb_default_pins {
 	pinctrl-single,pins = <
 		0x208 0x4007	/* USB host/client detect */
 		0x204 0x2007	/* usb_id_det,gpio58,eint2 */
+		0x214 0x2007	/* USB_FAULT */
 	>;
 };
 usb_inactive_pins:usb_inactive_pins {
 	pinctrl-single,pins = <
 		0x208 0x4007	/* USB host/client detect */
 		0x204 0x2007	/* usb_id_det */
+		0x214 0x2007	/* USB_FAULT */
 	>;
 };
 usb_sleep_pins:usb_sleep_pins {
 	pinctrl-single,pins = <
 		0x208 0x4007	/* USB host/client detect */
 		0x204 0x2007	/* usb_id_det */
+		0x214 0x2007	/* USB_FAULT */
 	>;
 };
 vhigh_default_pins:vhigh_default_pins {
