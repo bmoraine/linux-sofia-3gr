@@ -759,7 +759,7 @@
 						intel,trim = < 0x8 0 32 >;
 						intel,trim-value = < 0x538352 0x538352 >;
 						intel,power_budget = < 500 >;
-						intel,usbid-gpio = < &xgold_pmx_gpio 58 0 >;
+						intel,usbid-gpio = < &xgold_pmx_gpio 1 0 >;
 #if defined(SOFIA_SECURED_VMM_ACCESS)
 						intel,vmm-secured-access;
 #endif

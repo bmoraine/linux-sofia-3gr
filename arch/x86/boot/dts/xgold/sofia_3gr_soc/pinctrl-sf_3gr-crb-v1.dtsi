@@ -3,7 +3,7 @@
 		intel,gpio-to-irq-num = < 5 >;
 		intel,gpio-to-irq = <
 			54 EXI1    /* sar sensor int */
-			58 EXI2    /* usb id's EINT */
+			1 EXI2    /* usb id's EINT. IOTG: remapped to GPIO pin1 */
 			0  EXI5    /* Als&Prox sensor int */
 			43 EINT_EXI8		/* EINT8 SDCARD insert&remove event */
 			18 EXI12   /* touch int */  >;
@@ -30,7 +30,8 @@
 	pinctrl-single,gpio-range =
 #ifdef SOFIA3GR_MRD6
 	<&range 0  1 0x2007>,/*gpio 0, als&prox int, EINT5, pull up*/
-	<&range 1  13 0x100>,
+	<&range 1  1 0x2007>,/*IOTG: gpio 1, usb_id int, EINT2 */
+	<&range 2  12 0x100>,
 	<&range 14 1 0x1500>,/*gpio14, cam1_pd, output, low, PP*/
 	<&range 15 1 0x1500>,/*gpio15, cam2_pd, output, low, PP*/
 	<&range 18 1 0x1500>,/*gpio18, touch_irq, output, low, PP*/
@@ -44,8 +45,7 @@
 	<&range 55 1 0x1410>,/*gpio55, mux pwm2*/
 	<&range 56 1  0x100>,
 	<&range 57 1 0x1700>,/*gpio57, sar reset, output, high*/
-	<&range 58 1 0x2006>,/*gpio58, usb id, EINT2*/
-	<&range 59 2  0x100>,
+	<&range 58 3  0x100>,
 	<&range 61 1 0x1500>,/*gpio61, flash, output, low, PP*/
 	<&range 62 1 0x1500>,/*gpio62, torch, output, low, PP*/
 	<&range 65 1 0x1500>,/*gpio65, cam1_rst, output, low, PP*/
@@ -1242,17 +1242,17 @@ hp_sleep_pins:hp_sleep_pins {
 #endif
 usb_default_pins:usb_default_pins {
 	pinctrl-single,pins = <
-		0x2e8 0x2006	/* usb_id_det,gpio58,eint2 */
+		0x204 0x2007	/* usb_id_det,gpio58,eint2 */
 	>;
 };
 usb_inactive_pins:usb_inactive_pins {
 	pinctrl-single,pins = <
-		0x2e8 0x2006	/* usb_id_det */
+		0x204 0x2007	/* usb_id_det */
 	>;
 };
 usb_sleep_pins:usb_sleep_pins {
 	pinctrl-single,pins = <
-		0x2e8 0x2006	/* usb_id_det */
+		0x204 0x2007	/* usb_id_det */
 	>;
 };
 vhigh_default_pins:vhigh_default_pins {
