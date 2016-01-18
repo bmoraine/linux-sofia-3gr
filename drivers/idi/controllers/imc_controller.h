@@ -18,7 +18,26 @@
 #include <linux/wakelock.h>
 #endif
 
+#include <linux/workqueue.h>
 #include "imc_idi.h"
+
+#define MASK_PERIOD (0.5*HZ)
+
+enum idi_irq_type {
+	TP_RX = 0,
+	TP_TX,
+	TP_WAKE,
+	TP_IDLE,
+	TP_TIME,
+	TP_BREAK,
+	TP_STALL,
+	TP_TRAIL,
+	TP_MASTER,
+	TP_ADDR,
+	TP_ZERO,
+	TP_HS,
+};
+
 
 /**
  * struct imc_channel_ctx - Channel context information.
@@ -203,6 +222,7 @@ struct imc_controller {
 	/* Android PM support */
 	struct wake_lock stay_awake;
 #endif
+	struct delayed_work irq_stall_work;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dir;

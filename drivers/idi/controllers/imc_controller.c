@@ -125,6 +125,8 @@ static void imc_controller_disable_irqs_nosync(struct imc_controller *imc_idi);
 static int imc_xfer_complete(struct imc_controller *imc_idi, int channel,
 					int tx_not_rx, bool from_client);
 static void imc_fwd_tasklet(unsigned long imc);
+static int idi_imc_mask_irq(struct imc_controller *imc_idi,
+				enum idi_irq_type type, unsigned int to_mask);
 /*
  * Caller must take care of lock
  * channel: The IDI channel to mask/unmask
@@ -1267,6 +1269,7 @@ static void imc_start_rx_bounce_xfer(struct idi_transaction *trans,
 		dev_dbg(imc_idi->dev,
 			"Missed channel RX interrupt on channel %u..."
 				"forcing to trigger\n", trans->channel);
+		imc_idi_unmask_rx_irq_ch(imc_idi, trans->channel);
 		while (!(ioread32(IMC_IDI_RXIRQ_STAT(ctrl))
 					& (1 << trans->channel))) {
 			wr_pointer = ioread32(IMC_IDI_RXCH_WR_STAT(ctrl,
@@ -2498,8 +2501,14 @@ exit_irq:
 	/*
 	 * Only schedule the tasklet if we had non-slave interrupt.
 	 */
-	if (mis_status)
+	if (mis_status) {
+		if (mis_status & (1 << TP_STALL)) {
+			idi_imc_mask_irq(imc_idi, TP_STALL, true);
+			schedule_delayed_work(
+				&imc_idi->irq_stall_work, MASK_PERIOD);
+		}
 		tasklet_hi_schedule(&imc_idi->isr_tasklet);
+	}
 
 	IDI_IMC_EXIT;
 	return IRQ_HANDLED;
@@ -3405,6 +3414,41 @@ static void imc_controller_disable_irqs_nosync(struct imc_controller *imc_idi)
 	_imc_controller_disable_irqs(imc_idi, 1);
 }
 
+static int idi_imc_mask_irq(struct imc_controller *imc_idi,
+				enum idi_irq_type type, unsigned int to_mask)
+{
+	unsigned long mask = 0;
+	void __iomem *ctrl = imc_idi->ctrl_io;
+
+	switch (type) {
+	case TP_STALL:
+		mask = 1 << TP_STALL;
+		break;
+	default:
+		dev_err(imc_idi->dev, "%s: invalid irq type\n", __func__);
+		return -EINVAL;
+		break;
+	}
+	if (to_mask) {
+		iowrite32(ioread32(IMC_IDI_IMSC(ctrl)) & ~mask,
+						IMC_IDI_IMSC(ctrl));
+	} else {
+		iowrite32(ioread32(IMC_IDI_IMSC(ctrl)) | mask,
+						IMC_IDI_IMSC(ctrl));
+	}
+	return 0;
+
+}
+static void idi_stall_out_worker(struct work_struct *work)
+{
+	struct imc_controller *imc_idi =
+		container_of(work, struct imc_controller, irq_stall_work.work);
+
+	if (idi_imc_mask_irq(imc_idi, TP_STALL, false))
+		dev_err(imc_idi->dev, "fail to reenable STALL IRQ\n");
+
+	dev_dbg(imc_idi->dev, "STALL IRQ reenabled\n");
+}
 /**
  * imc_controller_init - initialise the controller structure
  * @imc_idi: IMC IDI controller reference
@@ -3434,6 +3478,7 @@ static int imc_controller_init(struct imc_controller *imc_idi)
 		     (unsigned long)imc_idi);
 	tasklet_init(&imc_idi->fwd_tasklet, imc_fwd_tasklet,
 		     (unsigned long)imc_idi);
+	INIT_DELAYED_WORK(&imc_idi->irq_stall_work, idi_stall_out_worker);
 
 	init_timer(&imc_idi->tx_idle_poll);
 	imc_idi->tx_idle_poll.data = (unsigned long)imc_idi;
@@ -3455,7 +3500,6 @@ static int imc_controller_init(struct imc_controller *imc_idi)
 	err = imc_controller_request_irqs(imc_idi);
 	if (err < 0)
 		dev_err(imc_idi->dev, "Request IRQs failed (%d)\n", err);
-
 	imc_idi->idi_usage_flag = 0;
 	imc_idi->stream_usage_flag = 0;
 
@@ -3490,6 +3534,7 @@ static void imc_controller_exit(struct imc_controller *imc_idi)
 	tasklet_kill(&imc_idi->isr_tasklet);
 	tasklet_kill(&imc_idi->fwd_tasklet);
 
+	cancel_delayed_work(&imc_idi->irq_stall_work);
 	dma_free_coherent(NULL, IDI_DUMMY_RX_BUFFER_SIZE,
 			imc_idi->rxbuf_dummy, imc_idi->rxbuf_dummy_dma);
 	dma_free_coherent(NULL, IDI_DUMMY_TX_BUFFER_SIZE,
