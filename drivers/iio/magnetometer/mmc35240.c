@@ -172,6 +172,7 @@ struct mmc35240_data {
 	struct regmap *regmap;
 	enum mmc35240_resolution res;
 	enum mmc35240_mode store_status;
+	struct device_pm_platdata *pm_platdata;
 
 	/* OTP compensation */
 	int axis_coef[3];
@@ -223,6 +224,34 @@ static struct attribute *mmc35240_attributes[] = {
 static const struct attribute_group mmc35240_attribute_group = {
 	.attrs = mmc35240_attributes,
 };
+
+static int mmc35240_power_on(struct mmc35240_data *data)
+{
+	int ret = 0;
+
+	if (data->pm_platdata && data->pm_platdata->pm_state_D0_name) {
+		ret = device_state_pm_set_state_by_name(&data->client->dev,
+				data->pm_platdata->pm_state_D0_name);
+		if (ret)
+			dev_err(&data->client->dev,
+					"error %d to power on\n", ret);
+	}
+	return ret;
+}
+
+static int mmc35240_power_off(struct mmc35240_data *data)
+{
+	int ret = 0;
+
+	if (data->pm_platdata && data->pm_platdata->pm_state_D3_name) {
+		ret = device_state_pm_set_state_by_name(&data->client->dev,
+				data->pm_platdata->pm_state_D3_name);
+		if (ret)
+			dev_err(&data->client->dev,
+					"error %d to power off\n", ret);
+	}
+	return ret;
+}
 
 static int mmc35240_get_samp_freq_index(struct mmc35240_data *data,
 					int val, int val2)
@@ -759,6 +788,9 @@ static int mmc35240_probe(struct i2c_client *client,
 	struct regmap *regmap;
 	const char *name;
 	int ret;
+#ifdef CONFIG_OF
+	struct device_node *of_np = client->dev.of_node;
+#endif
 
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
 	if (!indio_dev)
@@ -784,6 +816,32 @@ static int mmc35240_probe(struct i2c_client *client,
 						  &data->chipset);
 	} else
 		return -ENODEV;
+
+#ifdef CONFIG_OF
+	if (of_np) {
+		data->pm_platdata = of_device_state_pm_setup(of_np);
+		if (IS_ERR(data->pm_platdata)) {
+			dev_err(&client->dev, "error during device state pm init");
+			ret = PTR_ERR(data->pm_platdata);
+			return ret;
+		}
+	}
+
+	if (data->pm_platdata && data->pm_platdata->pm_user_name) {
+		ret = device_state_pm_set_class(&client->dev,
+			data->pm_platdata->pm_user_name);
+		if (ret) {
+			dev_err(&client->dev, "error while setting the pm class");
+			return ret;
+		}
+	}
+#endif
+
+	ret = mmc35240_power_on(data);
+	if (ret < 0) {
+		dev_err(&data->client->dev, "Error power on during probe.\n");
+		return ret;
+	}
 
 	mutex_init(&data->mutex);
 
@@ -812,6 +870,12 @@ static int mmc35240_probe(struct i2c_client *client,
 	if (ret < 0)
 		goto err_unreg_buffer;
 
+	ret = mmc35240_power_off(data);
+	if (ret < 0)
+		dev_err(&data->client->dev,
+			"%s Power Off failed: %d\n", __func__, ret);
+	data->store_status = DISABLED;
+
 	return 0;
 
 err_unreg_buffer:
@@ -834,9 +898,19 @@ static int mmc35240_suspend(struct device *dev)
 {
 	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
 	struct mmc35240_data *data = iio_priv(indio_dev);
+	int ret;
 
-	regcache_cache_only(data->regmap, true);
+	mutex_lock(&data->mutex);
+	if (DISABLED != data->store_status) {
+		indio_dev->setup_ops->predisable(indio_dev);
+		regcache_cache_only(data->regmap, true);
 
+		ret = mmc35240_power_off(data);
+		if (ret < 0)
+			dev_err(&data->client->dev,
+				"%s Power Off failed: %d\n", __func__, ret);
+	}
+	mutex_unlock(&data->mutex);
 	return 0;
 }
 
@@ -846,14 +920,27 @@ static int mmc35240_resume(struct device *dev)
 	struct mmc35240_data *data = iio_priv(indio_dev);
 	int ret;
 
-	regcache_mark_dirty(data->regmap);
-	ret = regcache_sync_region(data->regmap, MMC35240_REG_CTRL0,
-				   MMC35240_REG_CTRL1);
-	if (ret < 0)
-		dev_err(dev, "Failed to restore control registers\n");
+	mutex_lock(&data->mutex);
+	if (DISABLED != data->store_status) {
+		ret = mmc35240_power_on(data);
+		if (ret < 0) {
+			dev_err(dev, "%s Power On failed: %d\n", __func__, ret);
+			mutex_unlock(&data->mutex);
+			return ret;
+		}
 
-	regcache_cache_only(data->regmap, false);
+		regcache_mark_dirty(data->regmap);
+		ret = regcache_sync_region(data->regmap, MMC35240_REG_CTRL0,
+					   MMC35240_REG_CTRL1);
+		if (ret < 0)
+			dev_err(dev,
+				"%s Failed to restore control registers: %d\n",
+				__func__, ret);
 
+		regcache_cache_only(data->regmap, false);
+		indio_dev->setup_ops->postenable(indio_dev);
+	}
+	mutex_unlock(&data->mutex);
 	return 0;
 }
 #endif
