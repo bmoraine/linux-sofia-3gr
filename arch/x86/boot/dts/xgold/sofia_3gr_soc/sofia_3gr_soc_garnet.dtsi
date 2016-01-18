@@ -877,7 +877,6 @@
 						intel,gpiochip-base = <0>;
 						intel,gpiochip-id = <0>;
 						intel,gpiochip-num = <106>;
-						intel,lvds-ttl-as-gpio;
 #if defined(SOFIA_SECURED_VMM_ACCESS)
 						intel,vmm-secured-access;
 #endif
