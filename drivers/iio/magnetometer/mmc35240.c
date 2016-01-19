@@ -58,8 +58,8 @@
 		 MMC35240_CTRL1_BW1_BIT)
 #define MMC35240_CTRL1_BW_SHIFT		0
 
-#define MMC35240_WAIT_CHARGE_PUMP	50000	/* us */
-#define MMC53240_WAIT_SET_RESET		1000	/* us */
+#define MMC35240_WAIT_CHARGE_PUMP	100000	/* us */
+#define MMC53240_WAIT_SET_RESET		10000	/* us */
 
 /*
  * Memsic OTP process code piece is put here for reference:
@@ -95,11 +95,6 @@ enum mmc35240_chipset {
 	MMC_MAX_CHIPS
 };
 
-static u8 chip_ids[MMC_MAX_CHIPS] = {
-	MMC35240_CHIP_ID,
-	MMC34160_CHIP_ID,
-};
-
 enum mmc35240_resolution {
 	MMC35240_16_BITS_SLOW = 0, /* 7.92 ms */
 	MMC35240_16_BITS_FAST,     /* 4.08 ms */
@@ -114,30 +109,31 @@ enum mmc35240_axis {
 };
 
 static const struct {
-	int sens[3]; /* sensitivity per X, Y, Z axis */
-	int nfo; /* null field output */
+	int sens[3];/* Sensitivity per X, Y, Z axis */
+	int nfo;    /* Null field output */
+	int mti;    /* Minimum waiting time interval after measure request*/
 } mmc35240_props_table[MMC_MAX_CHIPS][4] = {
 	/* MMC35240 */
 	{
 		/* 16 bits, 125Hz ODR */
 		{
 			{1024, 1024, 1024},
-			32768,
+			32768, 10000,
 		},
 		/* 16 bits, 250Hz ODR */
 		{
 			{1024, 1024, 770},
-			32768,
+			32768, 5000,
 		},
 		/* 14 bits, 450Hz ODR */
 		{
 			{256, 256, 193},
-			8192,
+			8192, 3000,
 		},
 		/* 12 bits, 800Hz ODR */
 		{
 			{64, 64, 48},
-			2048,
+			2048, 1500,
 		},
 	},
 	/* MMC34160 */
@@ -145,22 +141,22 @@ static const struct {
 		/* 16 bits, 125Hz ODR */
 		{
 			{2048, 2048, 2048},
-			32768,
+			32768, 10000,
 		},
 		/* 16 bits, 250Hz ODR */
 		{
 			{2048, 2048, 2048},
-			32768,
+			32768, 5000,
 		},
 		/* 14 bits, 450Hz ODR */
 		{
 			{512, 512, 512},
-			8192,
+			8192, 3000,
 		},
 		/* 12 bits, 800Hz ODR */
 		{
 			{128, 128, 128},
-			2048,
+			2048, 1500,
 		},
 	}
 };
@@ -257,13 +253,12 @@ static int mmc35240_hw_set(struct mmc35240_data *data, bool set)
 
 	return regmap_update_bits(data->regmap, MMC35240_REG_CTRL0,
 				  coil_bit, coil_bit);
-
 }
 
-static inline bool mmc35240_needs_compensation(enum mmc35240_chipset chipset)
+static inline bool mmc35240_needs_compensation(int chip_id)
 {
-	switch (chipset) {
-	case MMC35240:
+	switch (chip_id) {
+	case MMC35240_CHIP_ID:
 		return true;
 	default:
 		return false;
@@ -274,6 +269,7 @@ static int mmc35240_init(struct mmc35240_data *data)
 {
 	int ret, y_convert, z_convert;
 	unsigned int reg_id;
+	enum mmc35240_chipset chipset;
 	u8 otp_data[6];
 
 	ret = regmap_read(data->regmap, MMC35240_REG_ID, &reg_id);
@@ -282,12 +278,27 @@ static int mmc35240_init(struct mmc35240_data *data)
 		return ret;
 	}
 
-	dev_dbg(&data->client->dev, "MMC35240 chip id %x\n", reg_id);
+	dev_warn(&data->client->dev, "MMC35240 chip id %x\n", reg_id);
 
-	if (reg_id != chip_ids[data->chipset]) {
-		dev_err(&data->client->dev, "Invalid chip %x\n", ret);
+	if (!((reg_id == MMC35240_CHIP_ID) || (reg_id == MMC34160_CHIP_ID))) {
+		dev_err(&data->client->dev, "Invalid chip id:%x\n", reg_id);
 		return -ENODEV;
 	}
+
+	/*
+	 * MMC35240 and MMC34160 should have their own DTS files respectively.
+	 * But we let them share it as they appear on the same MRD6 platform, of
+	 * two HW variants: P1.1 and P1.5.
+	 * Since the DT file was shared and the chipset hereafter got from
+	 * matching the device tree is not reliable, it has to be corrected
+	 * in accordance with the real product id from the physical sensor.
+	 */
+	chipset = ((reg_id == MMC35240_CHIP_ID) ? MMC35240 : MMC34160);
+	if (data->chipset != chipset) {
+		data->chipset = chipset;
+		dev_warn(&data->client->dev, "chipset:%d", data->chipset);
+	}
+
 	/*
 	 * make sure we restore sensor characteristics, by doing
 	 * a SET/RESET sequence, the axis polarity being naturally
@@ -309,7 +320,7 @@ static int mmc35240_init(struct mmc35240_data *data)
 	if (ret < 0)
 		return ret;
 
-	if (!mmc35240_needs_compensation(data->chipset))
+	if (!mmc35240_needs_compensation(reg_id))
 		return 0;
 
 	ret = regmap_bulk_read(data->regmap, MMC35240_OTP_START_ADDR,
@@ -334,26 +345,39 @@ static int mmc35240_init(struct mmc35240_data *data)
 
 static int mmc35240_take_measurement(struct mmc35240_data *data)
 {
-	int ret, tries = 100;
+	int ret, mti, tries = 100;
 	unsigned int reg_status;
 
 	ret = regmap_write(data->regmap, MMC35240_REG_CTRL0,
 			   MMC35240_CTRL0_TM_BIT);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&data->client->dev, "error write reg, ret:%d\n", ret);
 		return ret;
+	}
+
+	/*
+	 * Minimum wait time to complete measurement varies according
+	 * to resolution (see datasheet pg.11 'Operating Timing Diagram'
+	 * for reference).
+	 */
+	mti = mmc35240_props_table[data->chipset][data->res].mti;
+	usleep_range(mti , mti + 100);
 
 	while (tries-- > 0) {
 		ret = regmap_read(data->regmap, MMC35240_REG_STATUS,
 				  &reg_status);
-		if (ret < 0)
-			return ret;
-		if (reg_status & MMC35240_STATUS_MEAS_DONE_BIT)
+		if ((ret == 0) && (reg_status & MMC35240_STATUS_MEAS_DONE_BIT))
 			break;
-		/* minimum wait time to complete measurement is 10 ms */
-		usleep_range(10000, 11000);
+		else if (ret == -EAGAIN) {
+			dev_err(&data->client->dev, "bus conflicts,trying again\n");
+			continue;
+		} else if (ret < 0) {
+			dev_err(&data->client->dev, "error read reg:%d\n", ret);
+			return ret;
+		}
 	}
 
-	if (tries < 0) {
+	if ((tries <= 0) && (ret < 0)) {
 		dev_err(&data->client->dev, "data not ready\n");
 		return -EIO;
 	}
@@ -460,7 +484,8 @@ static irqreturn_t mmc35240_trigger_handler(int irq, void *p)
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct mmc35240_data *data = iio_priv(indio_dev);
 	__le16 mag_buf[3];
-	int bit, ret, i = 0;
+	int bit, ret, i = 0, tries = 100;
+	unsigned int reg_status;
 	s32 buf[6]; /* 3*s32 = 12 bytes axis + 2*s32 = 8 bytes timestamp */
 	s64 measurement_start_ts, measurement_end_ts;
 
@@ -472,14 +497,47 @@ static irqreturn_t mmc35240_trigger_handler(int irq, void *p)
 	ret = mmc35240_take_measurement(data);
 	if (ret < 0) {
 		mutex_unlock(&data->mutex);
+		dev_err(&data->client->dev, "error take measurement:%d\n", ret);
 		goto done;
 	}
+	while (tries-- > 0) {
+		ret = regmap_read(data->regmap, MMC35240_REG_STATUS,
+				  &reg_status);
+		if ((ret == 0) && (reg_status & MMC35240_STATUS_MEAS_DONE_BIT))
+			break;
+		else if (ret == -EAGAIN) {
+			dev_err(&data->client->dev, "bus conflicts,trying again\n");
+			continue;
+		} else if (ret < 0) {
+			mutex_unlock(&data->mutex);
+			dev_err(&data->client->dev, "error read reg:%d\n", ret);
+			return ret;
+		}
+	}
+
+	if ((tries <= 0) && (ret < 0)) {
+		mutex_unlock(&data->mutex);
+		dev_err(&data->client->dev, "data not ready\n");
+		return -EIO;
+	}
+
+
 	measurement_end_ts = iio_get_time_ns();
 
-	ret = regmap_bulk_read(data->regmap, MMC35240_REG_XOUT_L, (u8 *)mag_buf,
-			3 * sizeof(__le16));
-	if (ret < 0) {
+	tries = 20;
+	while (tries-- > 0) {
+		ret = regmap_bulk_read(data->regmap, MMC35240_REG_XOUT_L,
+				(u8 *)mag_buf, 3 * sizeof(__le16));
+		if (ret == -EAGAIN) {
+			dev_warn(&data->client->dev, "failed to read bulk data\n");
+			continue;
+		} else
+			break;
+	}
+	if ((tries <= 0) || (ret < 0)) {
 		mutex_unlock(&data->mutex);
+		dev_err(&data->client->dev, "failed to read bulk data:%d\n",
+				ret);
 		goto done;
 	}
 
@@ -488,6 +546,8 @@ static irqreturn_t mmc35240_trigger_handler(int irq, void *p)
 		ret = memsic_raw_to_mgauss(data, bit, mag_buf, &buf[i++]);
 		if (ret < 0) {
 			mutex_unlock(&data->mutex);
+			dev_err(&data->client->dev, "failed to mgauss: %d\n",
+					ret);
 			goto done;
 		}
 	}
