@@ -285,7 +285,9 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	ret = heap->ops->allocate(heap, buffer, len, align, flags);
 
 	if (ret) {
-		ion_dump_heap(heap, dev);
+		/* allocate from secure heap if cma heap allocation fail on 3gr_garnet */
+		if (heap->id != ION_HEAP_TYPE_DMA)
+			ion_dump_heap(heap, dev);
 		if (!(heap->flags & ION_HEAP_FLAG_DEFER_FREE))
 			goto err2;
 

@@ -120,7 +120,9 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 #endif
 	up(&ion_cma_sem);
 	if (!info->cpu_addr) {
-		dev_err(dev, "Fail to allocate buffer\n");
+		/* allocate from secure heap if cma heap allocation fail on 3gr_garnet */
+		if (heap->id != ION_HEAP_TYPE_DMA)
+			dev_err(dev, "Fail to allocate buffer from heap %d\n", heap->id);
 		goto err;
 	}
 
