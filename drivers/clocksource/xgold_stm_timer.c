@@ -502,7 +502,13 @@ unsigned long long notrace sched_clock(void)
 	if (unlikely(stm_disabled))
 		return (jiffies_64 - INITIAL_JIFFIES) * (NSEC_PER_SEC / HZ);
 
-	spin_lock_irqsave(&stm_shed_lock, flags);
+	if (unlikely(in_nmi())) {
+		if (!spin_trylock_irqsave(&stm_shed_lock, flags))
+			return (jiffies_64 - INITIAL_JIFFIES) * (NSEC_PER_SEC / HZ);
+	}
+	else
+		spin_lock_irqsave(&stm_shed_lock, flags);
+
 	cycle = xgold_stm_clock_source_read(NULL);
 	cycle &= xgold_stm_clocksource.mask;
 	/* Counter wrapped */
