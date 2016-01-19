@@ -459,8 +459,8 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 					(struct voemc_genderivedkeys_t *)data;
 		uint8_t *mac;
 		uint8_t *enc;
-		uint8_t __user *u_mac = NULL;
-		uint8_t __user *u_enc = NULL;
+		uint8_t __user *u_mac;
+		uint8_t __user *u_enc;
 
 		req->cmd = VOEMCRYPTO_CMD_GEN_DERIVED_KEYS;
 		u_mac = req->mac_key_context;
@@ -512,7 +512,7 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		size_t signature_length = 0;
 		uint8_t __user *virt_signature = NULL;
 		size_t __user *virt_signature_length = NULL;
-		uint8_t __user *u_msg = NULL;
+		uint8_t __user *u_msg;
 
 		req->cmd = VOEMCRYPTO_CMD_GEN_SIGN;
 		u_msg = req->message;
@@ -574,12 +574,12 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 					(struct voemc_loadkeys_t *)data;
 		uint8_t *message = NULL, *phys_message = NULL;
 		uint8_t *signature = NULL;
-		uint8_t __user *u_message = NULL;
-		uint8_t __user *u_key_array = NULL;
-		uint8_t __user *u_signature = NULL;
-		uint8_t __user *u_pst = NULL;
-		uint8_t __user *u_enc_mac_key_iv = NULL;
-		uint8_t __user *u_enc_mac_keys = NULL;
+		uint8_t __user *u_message;
+		uint8_t __user *u_key_array;
+		uint8_t __user *u_signature;
+		uint8_t __user *u_pst;
+		uint8_t __user *u_enc_mac_key_iv;
+		uint8_t __user *u_enc_mac_keys;
 		struct voemc_key_object_t *key_array = NULL;
 		uint32_t i = 0;
 
@@ -701,11 +701,9 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 					(struct voemc_refreshkeys_t *)data;
 		uint8_t *message = NULL, *phys_message = NULL;
 		uint8_t *signature = NULL;
-
-		uint8_t __user *u_message = NULL;
-		uint8_t __user *u_signature = NULL;
-		uint8_t __user *u_key_array = NULL;
-
+		uint8_t __user *u_message;
+		uint8_t __user *u_signature;
+		uint8_t __user *u_key_array;
 		struct voemc_key_refresh_object_t *key_array = NULL;
 		uint32_t i = 0;
 
@@ -828,15 +826,17 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 	/*===================================================================*/
 	{
 		struct voemc_getdevid_t *req = (struct voemc_getdevid_t *)data;
-		uint8_t *devid;
+		uint8_t *devid =  NULL;
 		uint8_t __user *u_devid;
 
 		req->cmd = VOEMCRYPTO_CMD_GET_DEV_ID;
 
 		/* Allocate contiguous memory */
-		devid = kmalloc(req->id_length, GFP_KERNEL);
-		if (devid == NULL)
-			return -EAGAIN;
+		if (req->id_length != 0) {
+			devid = kmalloc(req->id_length, GFP_KERNEL);
+			if (devid == NULL)
+				return -EAGAIN;
+		}
 
 		/* Backup virtual address from user space */
 		u_devid = req->device_id;
@@ -849,7 +849,8 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 			sizeof(struct voemc_getdevid_t));
 
 		/* Copy device ID from allocated memory to user space */
-		copy_to_user(u_devid, devid, req->id_length);
+		if (devid != NULL)
+			copy_to_user(u_devid, devid, req->id_length);
 
 		req->device_id = u_devid;
 		kfree(devid);
@@ -862,15 +863,16 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 	{
 		struct voemc_getkeydata_t *req =
 					(struct voemc_getkeydata_t *)data;
-		uint8_t *key;
+		uint8_t *key = NULL;
 		uint8_t __user *u_key;
 
 		req->cmd = VOEMCRYPTO_CMD_GET_KEYDATA;
 
-		key = kmalloc(req->key_data_length, GFP_KERNEL);
-
-		if (key == NULL)
-			return -EAGAIN;
+		if (req->key_data_length != 0) {
+			key = kmalloc(req->key_data_length, GFP_KERNEL);
+			if (key == NULL)
+				return -EAGAIN;
+		}
 
 		u_key = req->key_data;
 		/* Tell backend where to put output */
@@ -879,7 +881,8 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		ret_size = voemcrypto_call_ext(voemcrypto_data,
 					sizeof(struct voemc_getkeydata_t));
 
-		copy_to_user(u_key, key, req->key_data_length);
+		if (key != NULL)
+			copy_to_user(u_key, key, req->key_data_length);
 
 		req->key_data = u_key;
 		kfree(key);
@@ -922,9 +925,9 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		struct voemc_wrapkeybox_t *req =
 					(struct voemc_wrapkeybox_t *)data;
 		uint8_t *key = NULL, *wrapped = NULL, *transkey = NULL;
-		uint8_t __user *u_wrapped = NULL;
-		uint8_t __user *u_key = NULL;
-		uint8_t __user *u_transkey = NULL;
+		uint8_t __user *u_wrapped;
+		uint8_t __user *u_key;
+		uint8_t __user *u_transkey;
 
 		req->cmd = VOEMCRYPTO_CMD_WRAP_KEYBOX;
 		u_wrapped = req->wrapped_keybox;
@@ -932,11 +935,16 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		u_transkey = req->transport_key;
 
 		key = kmalloc(req->keybox_length, GFP_KERNEL);
-		wrapped = kmalloc(req->wrapped_keybox_length, GFP_KERNEL);
-		if (key == NULL || wrapped == NULL) {
-			kfree(key);
-			kfree(wrapped);
+		if (key == NULL)
 			return -EAGAIN;
+
+		if (req->wrapped_keybox_length != 0) {
+			wrapped = kmalloc(req->wrapped_keybox_length,
+							GFP_KERNEL);
+			if (wrapped == NULL) {
+				kfree(key);
+				return -EAGAIN;
+			}
 		}
 
 		/* Transfer to physical memory for backend to use */
@@ -966,7 +974,9 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		ret_size = voemcrypto_call_ext(voemcrypto_data,
 			sizeof(struct voemc_wrapkeybox_t));
 
-		copy_to_user(u_wrapped, wrapped, req->wrapped_keybox_length);
+		if (wrapped != NULL)
+			copy_to_user(u_wrapped, wrapped,
+						req->wrapped_keybox_length);
 
 		req->wrapped_keybox = u_wrapped;
 		req->keybox = u_key;
@@ -991,11 +1001,11 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		size_t wrapped_rsa_key_length = 0;
 		uint8_t __user *virt_wrapped_rsa_key = NULL;
 		size_t __user *virt_wrapped_rsa_key_length = 0;
-		uint8_t __user *u_message = NULL;
-		uint8_t __user *u_signature = NULL;
-		uint32_t __user *u_nonce = NULL;
-		uint8_t __user *u_enc_rsa_key = NULL;
-		uint8_t __user *u_enc_rsa_key_iv = NULL;
+		uint8_t __user *u_message;
+		uint8_t __user *u_signature;
+		uint32_t __user *u_nonce;
+		uint8_t __user *u_enc_rsa_key;
+		uint8_t __user *u_enc_rsa_key_iv;
 
 		req->cmd = VOEMCRYPTO_CMD_REWRAP_DEV_RSA_KEY;
 		u_message = req->message;
@@ -1091,7 +1101,7 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		struct voemc_loaddevrsakey_t *req =
 			(struct voemc_loaddevrsakey_t *)data;
 		uint8_t *key = NULL;
-		uint8_t __user *u_key = NULL;
+		uint8_t __user *u_key;
 
 		req->cmd = VOEMCRYPTO_CMD_LOAD_DEV_RSA_KEY;
 		u_key = req->wrapped_rsa_key;
@@ -1120,8 +1130,8 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		struct voemc_genrsasign_t *req =
 			(struct voemc_genrsasign_t *)data;
 		uint8_t *key = NULL, *sign = NULL;
-		uint8_t __user *u_key = NULL;
-		uint8_t __user *u_sig = NULL;
+		uint8_t __user *u_key;
+		uint8_t __user *u_sig;
 
 		req->cmd = VOEMCRYPTO_CMD_GEN_RSA_SIGN;
 		u_key = req->message;
@@ -1169,9 +1179,9 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		struct voemc_derkeysfrsessionkey_t *req =
 			(struct voemc_derkeysfrsessionkey_t *)data;
 		uint8_t *sessionkey = NULL, *mackey = NULL, *enckey = NULL;
-		uint8_t __user *u_sessionkey = NULL;
-		uint8_t __user *u_mackey = NULL;
-		uint8_t __user *u_enckey = NULL;
+		uint8_t __user *u_sessionkey;
+		uint8_t __user *u_mackey;
+		uint8_t __user *u_enckey;
 
 		req->cmd = VOEMCRYPTO_CMD_DERIVE_KEYS_FROM_SESSION_KEY;
 		u_sessionkey = req->enc_session_key;
@@ -1222,8 +1232,8 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		struct voemc_genencrypt_t *req =
 			(struct voemc_genencrypt_t *)data;
 		uint8_t *in = NULL, *out = NULL;
-		uint8_t __user *u_in = NULL;
-		uint8_t __user *u_out = NULL;
+		uint8_t __user *u_in;
+		uint8_t __user *u_out;
 
 		req->cmd = VOEMCRYPTO_CMD_GENERIC_ENCRYPT;
 		u_in = req->in_buffer;
@@ -1263,8 +1273,8 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		struct voemc_gendecrypt_t *req =
 			(struct voemc_gendecrypt_t *)data;
 		uint8_t *in = NULL, *out = NULL;
-		uint8_t __user *u_in = NULL;
-		uint8_t __user *u_out = NULL;
+		uint8_t __user *u_in;
+		uint8_t __user *u_out;
 
 		req->cmd = VOEMCRYPTO_CMD_GENERIC_DECRYPT;
 		u_in = req->in_buffer;
@@ -1305,20 +1315,23 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		struct voemc_genericsign_t *req =
 			(struct voemc_genericsign_t *)data;
 		uint8_t *in = NULL, *out = NULL;
-		uint8_t __user *u_in = NULL;
-		uint8_t __user *u_sig = NULL;
+		uint8_t __user *u_in;
+		uint8_t __user *u_sig;
 
 		req->cmd = VOEMCRYPTO_CMD_GENERIC_SIGN;
 		u_in = req->in_buffer;
 		u_sig = req->signature;
 
 		in = kmalloc(req->buffer_length, GFP_KERNEL);
-		out = kmalloc(req->signature_length, GFP_KERNEL);
-
-		if (in == NULL || out == NULL) {
-			kfree(in);
-			kfree(out);
+		if (in == NULL)
 			return -EAGAIN;
+
+		if (req->signature_length != 0) {
+			out = kmalloc(req->signature_length, GFP_KERNEL);
+			if (out == NULL) {
+				kfree(in);
+				return -EAGAIN;
+			}
 		}
 
 		copy_from_user(in, req->in_buffer, req->buffer_length);
@@ -1328,7 +1341,8 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		ret_size = voemcrypto_call_ext(voemcrypto_data,
 					sizeof(struct voemc_genericsign_t));
 
-		copy_to_user(u_sig, out, req->signature_length);
+		if (out != NULL)
+			copy_to_user(u_sig, out, req->signature_length);
 
 		req->in_buffer = u_in;
 		req->signature = u_sig;
@@ -1346,8 +1360,8 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		struct voemc_genverify_t *req =
 			(struct voemc_genverify_t *)data;
 		uint8_t *in = NULL, *sign = NULL;
-		uint8_t __user *u_in = NULL;
-		uint8_t __user *u_sign = NULL;
+		uint8_t __user *u_in;
+		uint8_t __user *u_sign;
 
 		req->cmd = VOEMCRYPTO_CMD_GENERIC_VERIFY;
 		u_in = req->in_buffer;
@@ -1398,7 +1412,7 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		struct voemc_deactive_usage_entry_t *req =
 			(struct voemc_deactive_usage_entry_t *)data;
 		uint8_t *pst = NULL;
-		uint8_t __user *u_pst = NULL;
+		uint8_t __user *u_pst;
 
 		req->cmd = VOEMCRYPTO_CMD_DEACTIVEUSAGEENTRY;
 		u_pst = req->pst;
@@ -1427,8 +1441,8 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 			(struct voemc_report_usage_t *)data;
 
 		uint8_t *pst = NULL, *rptbuffer = NULL;
-		uint8_t __user *u_pst = NULL;
-		uint8_t __user *u_rptbuffer = NULL;
+		uint8_t __user *u_pst;
+		uint8_t __user *u_rptbuffer;
 
 		req->cmd = VOEMCRYPTO_CMD_REPORTUSAGE;
 		u_pst = req->pst;
@@ -1439,11 +1453,12 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		if (pst == NULL)
 			return -EAGAIN;
 
-		rptbuffer = kmalloc((size_t)req->rpt_buffer_length, GFP_KERNEL);
-
-		if (rptbuffer == NULL) {
-			kfree(pst);
-			return -EAGAIN;
+		if (req->rpt_buffer_length != 0) {
+			rptbuffer = kmalloc(req->rpt_buffer_length, GFP_KERNEL);
+			if (rptbuffer == NULL) {
+				kfree(pst);
+				return -EAGAIN;
+			}
 		}
 
 		copy_from_user(pst, req->pst, req->pst_length);
@@ -1451,8 +1466,9 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		req->rpt_buffer = (uint8_t *)voemc_get_pa(rptbuffer);
 		ret_size = voemcrypto_call_ext(voemcrypto_data,
 			sizeof(struct voemc_report_usage_t));
-		copy_to_user(u_rptbuffer, rptbuffer,
-			(size_t)req->rpt_buffer_length);
+		if (rptbuffer != NULL)
+			copy_to_user(u_rptbuffer, rptbuffer,
+				(size_t)req->rpt_buffer_length);
 
 		req->pst = u_pst;
 		req->rpt_buffer = u_rptbuffer;
@@ -1470,9 +1486,9 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 			(struct voemc_delete_usage_entry_t *)data;
 		uint8_t *message = NULL, *signature = NULL;
 		uint8_t *phy_message = NULL;
-		uint8_t __user *u_message = NULL;
-		uint8_t __user *u_signature = NULL;
-		uint8_t __user *u_pst = NULL;
+		uint8_t __user *u_message;
+		uint8_t __user *u_signature;
+		uint8_t __user *u_pst;
 
 		req->cmd = VOEMCRYPTO_CMD_DELETEUSAGEENTRY;
 		u_pst = req->pst;
@@ -1599,7 +1615,7 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 	{
 		struct voemc_copybuffer_t *req =
 			(struct voemc_copybuffer_t *)data;
-		uint8_t __user *u_outbuf = NULL;
+		uint8_t __user *u_outbuf;
 		uint8_t *outbuf = NULL;
 
 		/* Allocate contiguous memory */
@@ -1653,8 +1669,8 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 
 		enum OEMCrypto_HDCP_Capability k_current;
 		enum OEMCrypto_HDCP_Capability k_maximum;
-		enum OEMCrypto_HDCP_Capability __user *u_current = NULL;
-		enum OEMCrypto_HDCP_Capability __user *u_maximum = NULL;
+		enum OEMCrypto_HDCP_Capability __user *u_current;
+		enum OEMCrypto_HDCP_Capability __user *u_maximum;
 
 		/* Backup virtual address from user space */
 		u_current =  req->current_v;
@@ -1691,7 +1707,7 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 			(struct voemc_isantirollbackhwpresent_t *)data;
 
 		bool k_is_present;
-		bool __user *u_is_present = NULL;
+		bool __user *u_is_present;
 
 		/* Backup virtual address from user space */
 		u_is_present = req->is_present;
@@ -1721,7 +1737,7 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 			(struct voemc_getnumberofopensessions_t *)data;
 
 		size_t k_count;
-		size_t __user *u_count = NULL;
+		size_t __user *u_count;
 
 		/* Backup virtual address from user space */
 		u_count = req->count;
@@ -1750,7 +1766,7 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 			(struct voemc_getmaxnumberofsessions_t *)data;
 
 		size_t k_max;
-		size_t __user *u_max = NULL;
+		size_t __user *u_max;
 
 		/* Backup virtual address from user space */
 		u_max = req->max;
@@ -1781,11 +1797,11 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		uint8_t *pst;
 		uint8_t __user *u_pst;
 
-		u_pst = req->pst;
 		/* Allocate contiguous memory */
 		pst = kmalloc(req->pst_length, GFP_KERNEL);
 		if (pst == NULL)
 			return -EAGAIN;
+		u_pst = req->pst;
 
 		copy_from_user(pst, req->pst, req->pst_length);
 		/* Translate and store physical address in shared memory */
@@ -1809,7 +1825,7 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 		struct voem_wvc_set_entitlement_key_t *req =
 			(struct voem_wvc_set_entitlement_key_t *)data;
 		uint8_t *in = NULL;
-		uint8_t __user *u_emm_key = NULL;
+		uint8_t __user *u_emm_key;
 
 		req->cmd = VOEMCRYPTO_CMD_WVC_SET_ENTITLEMENT_KEY;
 		in = kmalloc(req->emm_key_length, GFP_KERNEL);
@@ -1843,8 +1859,8 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long input)
 			(struct voem_wvc_derive_control_word_t *)data;
 		uint8_t *in = NULL;
 		uint32_t *out = NULL;
-		uint8_t __user *u_ecm = NULL;
-		uint8_t __user *u_flags = NULL;
+		uint8_t __user *u_ecm;
+		uint8_t __user *u_flags;
 
 		req->cmd = VOEMCRYPTO_CMD_WVC_DERIVE_CONTROL_WORD;
 		in = kmalloc(req->length, GFP_KERNEL);
