@@ -45,13 +45,13 @@
 		};
 		/* special region for secured processing devices */
 		secured_rga_region: region@10000000 {
-			reg = <0x10000000 0x01000000>;
+			reg = <0x10000000 0x04000000>;
 			no-map;
 			linux,cma;
 			isolate;
 		};
-		secured_region: region@11000000 {
-			reg = <0x11000000 0x05000000>;
+		secured_region: region@14000000 {
+			reg = <0x14000000 0x05000000>;
 			no-map;
 			linux,cma;
 		};
