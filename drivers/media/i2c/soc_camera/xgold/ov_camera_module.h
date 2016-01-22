@@ -22,6 +22,8 @@
 	platform dependent wrapper */
 
 #define OV_CAMERA_MODULE_REG_TYPE_DATA PLTFRM_CAMERA_MODULE_REG_TYPE_DATA
+#define OV_CAMERA_MODULE_REG_TYPE_DATA_ASYNC \
+				PLTFRM_CAMERA_MODULE_REG_TYPE_DATA_ASYNC
 #define OV_CAMERA_MODULE_REG_TYPE_TIMEOUT PLTFRM_CAMERA_MODULE_REG_TYPE_TIMEOUT
 #define ov_camera_module_csi_config
 #define ov_camera_module_reg pltfrm_camera_module_reg
