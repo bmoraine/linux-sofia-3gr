@@ -1,8 +1,7 @@
 /*
- * drivers/staging/android/ion/rockchip/rockchip_ion_handler.c
  *
- * Copyright (C) 2014 Jianqun.xu <xjq@rock-chips.com>
- * Copyright (C) 2014 ROCKCHIP, Inc.
+ * Copyright (c) 2014 Rockchip Electronics Co. Ltd.
+ * based on xgold_ion_handler.c
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -36,6 +35,7 @@ static struct task_struct *rk_ion_task;
 static struct ion_device *rk_ion_device;
 static struct ion_client *rk_ion_client;
 static struct file *rk_ion_vbpipe_filep;
+
 static unsigned int rk_ion_heap_type_mask;
 static uint32_t rk_ion_heap_capacity;
 
@@ -51,7 +51,7 @@ static int rk_ion_handle_command(uint32_t cmd[], int len);
  * initialize/start handler thread
  */
 int rk_ion_handler_init(struct device_node *node, struct ion_device *idev,
-			struct ion_platform_data *pdata)
+	struct ion_platform_data *pdata)
 {
 	int i;
 
@@ -127,12 +127,16 @@ end:
 void rk_ion_handler_exit(void)
 {
 	if (rk_ion_task != NULL) {
+		pr_info("rk_ion terminate secvm handler\n");
 		kthread_stop(rk_ion_task);
+
 		rk_ion_task = NULL;
 	}
 
 	if (rk_ion_client != NULL) {
+		pr_info("rk_ion delete ion client \"secure_vm\"\n");
 		ion_client_destroy(rk_ion_client);
+
 		rk_ion_client = NULL;
 	}
 }
@@ -251,6 +255,7 @@ static int rk_ion_handler(void *data)
 static int rk_ion_vbpipe_handler(struct file *filep)
 {
 	int ret = 0;
+
 	mm_segment_t old_fs;
 	int must;
 	int done;
@@ -274,14 +279,14 @@ static int rk_ion_vbpipe_handler(struct file *filep)
 		set_fs(old_fs);
 
 		if (done < 0) {
-			pr_err("rk_ion error %d reading vbpipe", done);
+			pr_err("xg_ion error %d reading vbpipe", done);
 			ret = -1;
 			break;
 		}
 
-		datap += done;
+		datap	   += done;
 		done_total += done;
-		must	 -= done;
+		must	   -= done;
 	}
 
 	if (ret == 0) {
@@ -292,8 +297,8 @@ static int rk_ion_vbpipe_handler(struct file *filep)
 		 */
 		rk_ion_handle_command(buf, RK_MAX_CMD_LEN);
 
-		datap = (unsigned char *)buf;
-		must = sizeof(buf);
+		datap	   = (unsigned char *)buf;
+		must	   = sizeof(buf);
 		done_total = 0;
 
 		while (must > 0) {

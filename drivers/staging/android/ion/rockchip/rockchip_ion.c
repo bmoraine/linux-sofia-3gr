@@ -77,40 +77,47 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	},
 };
 
+static u64 ion_dmamask = DMA_BIT_MASK(32);
+
+struct device rk_ion_cma_dev = {
+	.dma_mask = &ion_dmamask,
+	.init_name = "rk_ion_cma",
+};
+
 static int rk_ion_get_phys(struct ion_client *client,
-			   unsigned long arg)
+			      unsigned long arg)
 {
 	struct ion_phys_data data;
 	struct ion_handle *handle;
 	int ret;
 
-	/* TODO: add compat here */
-	if (is_compat_task())
+	if (is_compat_task()) {
+		/* TODO: add compat here */
 		return -EFAULT;
+	} else {
+		if (copy_from_user(&data, (void __user *)arg,
+				   sizeof(struct ion_phys_data)))
+			return -EFAULT;
 
-	if (copy_from_user(&data, (void __user *)arg,
-			   sizeof(struct ion_phys_data)))
-		return -EFAULT;
+		handle = ion_handle_get_by_id(client, data.handle);
+		if (IS_ERR(handle))
+			return PTR_ERR(handle);
 
-	handle = ion_handle_get_by_id(client, data.handle);
-	if (IS_ERR(handle))
-		return PTR_ERR(handle);
-
-	ret = ion_phys(client, handle, &data.phys,
-		       (size_t *)&data.size);
-	ion_handle_put(handle);
-	if (ret < 0)
-		return ret;
-	if (copy_to_user((void __user *)arg, &data,
-			 sizeof(struct ion_phys_data)))
-		return -EFAULT;
-
+		ret = ion_phys(client, handle, &data.phys,
+			       (size_t *)&data.size);
+		ion_handle_put(handle);
+		if (ret < 0)
+			return ret;
+		if (copy_to_user((void __user *)arg, &data,
+				 sizeof(struct ion_phys_data)))
+			return -EFAULT;
+	}
 	return 0;
 }
 
 static int rk_ion_secure_alloc(struct ion_client *client,
-			       unsigned int cmd,
-			       unsigned long arg)
+	unsigned int cmd,
+	unsigned long arg)
 {
 	struct ion_phys_data *data = NULL;
 	struct device *dev;
@@ -118,19 +125,21 @@ static int rk_ion_secure_alloc(struct ion_client *client,
 	int vvpu_ret;
 	int ret = 0;
 
-	/* TODO: add compat here */
-	if (is_compat_task())
-		return -EFAULT;
-
 	dev = ion_struct_device_from_client(client);
-	data = kmalloc(sizeof(*data), GFP_KERNEL);
-	if (!data)
-		return -ENOMEM;
+	if (is_compat_task()) {
+		/* TODO: add compat here */
+		return -EFAULT;
+	} else {
+		data = kmalloc(sizeof(struct ion_phys_data),
+				GFP_KERNEL);
+		if (!data)
+			return -ENOMEM;
 
-	if (copy_from_user(data, (void __user *)arg,
-			   sizeof(*data))) {
-		ret = -EFAULT;
-		goto free_data;
+		if (copy_from_user(data, (void __user *)arg,
+					sizeof(*data))) {
+			ret = -EFAULT;
+			goto free_data;
+		}
 	}
 
 	/* call into secure VM to allocate a secure video buffer */
@@ -146,21 +155,29 @@ static int rk_ion_secure_alloc(struct ion_client *client,
 	/* execute command */
 	vvpu_ret = vvpu_call(dev, &vvpu_cmd);
 
-	if (vvpu_ret == 0) {
+	if (vvpu_ret == 0)
 		dev_err(dev, "error allocating secure memory\n");
+	else {
+		data->size = (unsigned int) vvpu_cmd.payload[4];
+		data->phys = (unsigned int) vvpu_cmd.payload[5];
+
+		dev_info(dev, "ion_alloc_secure() 0x%lx / %lu, page aligned\n",
+			data->phys, data->size);
+	}
+
+	if (is_compat_task()) {
+		/* TODO: add compat here */
+		return -EFAULT;
 	} else {
-		data->size = (unsigned int)vvpu_cmd.payload[4];
-		data->phys = (unsigned int)vvpu_cmd.payload[5];
+		if (copy_to_user((void __user *) arg, data, sizeof(*data))) {
+			ret = -EFAULT;
+			goto free_data;
+		}
 
-		dev_info(dev, "ion_alloc_secure() 0x%lx / %lu\n",
-			 data->phys, data->size);
+		kfree(data);
 	}
 
-	if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
-		ret = -EFAULT;
-
-		goto free_data;
-	}
+	return 0;
 
 free_data:
 	kfree(data);
@@ -168,8 +185,8 @@ free_data:
 }
 
 static int rk_ion_secure_free(struct ion_client *client,
-			      unsigned int cmd,
-			      unsigned long arg)
+	unsigned int cmd,
+	unsigned long arg)
 {
 	struct ion_phys_data *data;
 	struct device *dev;
@@ -177,18 +194,20 @@ static int rk_ion_secure_free(struct ion_client *client,
 	int vvpu_ret;
 	int ret = 0;
 
-	/* TODO: add compat here */
-	if (is_compat_task())
-		return -EFAULT;
-
 	dev = ion_struct_device_from_client(client);
-	data = kmalloc(sizeof(*data), GFP_KERNEL);
-	if (!data)
-		return -ENOMEM;
+	if (is_compat_task()) {
+		/* TODO: add compat here */
+		return -EFAULT;
+	} else {
+		data = kmalloc(sizeof(struct ion_phys_data),
+				GFP_KERNEL);
+		if (!data)
+			return -ENOMEM;
 
-	if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
-		ret = -EFAULT;
-		goto free_data;
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			ret = -EFAULT;
+			goto free_data;
+		}
 	}
 
 	/* call into secure VM to allocate a secure video buffer */
@@ -208,21 +227,28 @@ static int rk_ion_secure_free(struct ion_client *client,
 		dev_err(dev, "error freeing secure memory\n");
 
 	/* leave data.size and data.addr alone */
-	dev_info(dev, "ion_free_secure() 0x%lx / %lu\n",
-		data->phys, data->size);
-	if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
-		ret = -EFAULT;
-		goto free_data;
+	if (is_compat_task()) {
+		/* TODO: add compat here */
+		return -EFAULT;
+	} else {
+		dev_info(dev, "ion_free_secure() 0x%lx / %lu\n",
+			data->phys, data->size);
+		if (copy_to_user((void __user *) arg, data, sizeof(*data))) {
+			ret = -EFAULT;
+			goto free_data;
+		}
+		kfree(data);
 	}
 
+	return 0;
 free_data:
 	kfree(data);
 	return ret;
 }
 
 static long rk_custom_ioctl(struct ion_client *client,
-			    unsigned int cmd,
-			    unsigned long arg)
+			       unsigned int cmd,
+			       unsigned long arg)
 {
 	int ret = 0;
 
@@ -242,57 +268,57 @@ static long rk_custom_ioctl(struct ion_client *client,
 	return ret;
 }
 
-/* Return result of step for heap array. */
 static int rk_ion_of_heap(struct ion_platform_heap *myheap,
-			  struct device_node *node)
+		struct device_node *node)
 {
-	int ret, itype;
+	int ret = 0;
+	int itype = 0;
 
-	for (itype = 0; itype < ARRAY_SIZE(ion_heap_meta); itype++) {
-		if (strcmp(ion_heap_meta[itype].name, node->name))
-			continue;
+	for (itype = 0;	itype < ARRAY_SIZE(ion_heap_meta);	itype++) {
+		if (!strcmp(ion_heap_meta[itype].name, node->name)) {
+			struct cma *cma_area;
+			phys_addr_t base = 0;
+			phys_addr_t size = 0;
 
-		struct cma *cma_area;
-		phys_addr_t base = 0;
-		phys_addr_t size = 0;
-		myheap->name = node->name;
-		myheap->align = SZ_1M;
-		myheap->id = ion_heap_meta[itype].id;
+			myheap->name = node->name;
 
-		if (!strcmp("system-heap", node->name)) {
-			myheap->type = ION_HEAP_TYPE_SYSTEM;
+			myheap->align = SZ_1M;
+			myheap->id = ion_heap_meta[itype].id;
+
+			if (!strcmp("system-heap", node->name)) {
+				myheap->type = ION_HEAP_TYPE_SYSTEM;
+				return 1;
+			}
+
+			ret = of_get_reserved_memory_region(node,
+					&size, &base, &cma_area);
+			if (ret) {
+				pr_err("rk_ion Can't find memory def! Skip %s\n",
+						node->name);
+				continue;
+			}
+
+			myheap->base = base;
+			myheap->size = size;
+
+			if (cma_area) {
+				myheap->priv2 = cma_area;
+				myheap->type = ION_HEAP_TYPE_DMA;
+			} else if (myheap->base && !cma_area)
+				myheap->type = ION_HEAP_TYPE_CARVEOUT;
+			else if (size)
+				myheap->type = ION_HEAP_TYPE_SYSTEM;
+			else {
+				pr_err("xg_ion unknow memory type! Skip %s\n",
+						node->name);
+				continue;
+			}
+
+			pr_info("rk_ion heap %s base:%pa length:0x%08x type %d\n",
+					node->name, &myheap->base,
+					myheap->size, myheap->type);
 			return 1;
 		}
-
-		ret = of_get_reserved_memory_region(
-				node,
-				&size, &base, &cma_area);
-		if (ret) {
-			pr_err("rk_ion Can't find memory def! Skip %s\n",
-			       node->name);
-			continue;
-		}
-
-		myheap->base = base;
-		myheap->size = size;
-
-		if (cma_area) {
-			myheap->priv2 = cma_area;
-			myheap->type = ION_HEAP_TYPE_DMA;
-		} else if (myheap->base && !cma_area) {
-			myheap->type = ION_HEAP_TYPE_CARVEOUT;
-		} else if (size) {
-			myheap->type = ION_HEAP_TYPE_SYSTEM;
-		} else {
-			pr_err("rk_ion unknown memory type! Skip %s\n",
-			       node->name);
-			continue;
-		}
-
-		pr_info("rk_ion heap %s base:%pa length:0x%08x type %d\n",
-			node->name, &myheap->base,
-			myheap->size, myheap->type);
-		return 1;
 	}
 	return 0;
 }
@@ -352,7 +378,6 @@ static int rk_ion_probe(struct platform_device *pdev)
 	/* create the heaps as specified in the board file */
 	for (i = 0; i < pdata->nr; i++) {
 		struct ion_platform_heap *heap_data = &pdata->heaps[i];
-
 		heap_data->priv = &pdev->dev;
 		heaps[i] = ion_heap_create(heap_data);
 		if (IS_ERR_OR_NULL(heaps[i])) {
