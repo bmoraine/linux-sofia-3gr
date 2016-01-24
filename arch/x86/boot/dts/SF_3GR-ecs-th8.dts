@@ -137,6 +137,8 @@
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
 		intel,display-gpio-reset = <&xgold_pmx_gpio 36 0>;
+		intel,display-gpio-vhigh = <&xgold_pmx_gpio 6 0>;
+		intel,display-gpio-dcvhigh = <&xgold_pmx_gpio 69 0>;
 
 		/* HX8394 is not present and is just included here so that
 		 * mrd-specific hacks which ignore the first display will find

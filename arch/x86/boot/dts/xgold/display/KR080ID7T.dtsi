@@ -130,3 +130,42 @@ display-panel@KR080ID7T {
                        };
                };
        };
+
+
+       gpio-power-on {
+              power_en {
+                     intel,gpio-type = "vhigh";
+                     intel,gpio-value-delay = <1 50>;
+              };
+              power_en1 {
+                     intel,gpio-type = "dcvhigh";
+                     intel,gpio-value-delay = <1 50>;
+              };
+              reset1 {
+                     intel,gpio-type = "reset";
+                     intel,gpio-value-delay = <1 10>;
+              };
+              reset2 {
+                     intel,gpio-type = "reset";
+                     intel,gpio-value-delay = <0 50>;
+              };
+              reset3 {
+                     intel,gpio-type = "reset";
+                     intel,gpio-value-delay = <1 10>;
+              };
+       };
+
+       gpio-power-off {
+              reset {
+                     intel,gpio-type = "reset";
+                     intel,gpio-value-delay = <0 1>;
+              };
+              power_en {
+                     intel,gpio-type = "vhigh";
+                     intel,gpio-value-delay = <0 0>;
+              };
+              power_en1 {
+                     intel,gpio-type = "dcvhigh";
+                     intel,gpio-value-delay = <0 0>;
+              };
+       };
