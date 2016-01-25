@@ -161,11 +161,17 @@ static const struct {
 	}
 };
 
+enum mmc35240_mode {
+	DISABLED,
+	ENABLED,
+};
+
 struct mmc35240_data {
 	struct i2c_client *client;
 	struct mutex mutex;
 	struct regmap *regmap;
 	enum mmc35240_resolution res;
+	enum mmc35240_mode store_status;
 
 	/* OTP compensation */
 	int axis_coef[3];
@@ -484,6 +490,31 @@ static int memsic_raw_to_mgauss(struct mmc35240_data *data, int index,
 	return 0;
 }
 
+static int mmc35240_buffer_preenable(struct iio_dev *indio_dev)
+{
+	struct mmc35240_data *data = iio_priv(indio_dev);
+	mutex_lock(&data->mutex);
+	data->store_status = ENABLED;
+	mutex_unlock(&data->mutex);
+	return 0;
+}
+
+static int mmc35240_buffer_postdisable(struct iio_dev *indio_dev)
+{
+	struct mmc35240_data *data = iio_priv(indio_dev);
+	mutex_lock(&data->mutex);
+	data->store_status = DISABLED;
+	mutex_unlock(&data->mutex);
+	return 0;
+}
+
+static const struct iio_buffer_setup_ops mmc35240_buffer_setup_ops = {
+	.preenable		= mmc35240_buffer_preenable,
+	.postenable		= iio_triggered_buffer_postenable,
+	.postdisable		= mmc35240_buffer_postdisable,
+	.predisable		= iio_triggered_buffer_predisable,
+};
+
 static irqreturn_t mmc35240_trigger_handler(int irq, void *p)
 {
 	struct iio_poll_func *pf = p;
@@ -772,7 +803,8 @@ static int mmc35240_probe(struct i2c_client *client,
 
 	ret = iio_triggered_buffer_setup(indio_dev,
 					 &iio_pollfunc_store_time,
-					 mmc35240_trigger_handler, NULL);
+					 mmc35240_trigger_handler,
+					 &mmc35240_buffer_setup_ops);
 	if (ret < 0)
 		return ret;
 
