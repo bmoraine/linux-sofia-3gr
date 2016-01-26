@@ -35,9 +35,9 @@ struct static_key paravirt_steal_rq_enabled;
 struct static_key paravirt_steal_power_enabled;
 
 int sofia_get_steal_time(uint64_t *total_time, uint64_t *active_stolen_time,
-						uint64_t *idle_stolen_time)
+					uint64_t *idle_stolen_time, int cpu)
 {
-	struct vmm_shared_data *mv_shm = mv_gal_get_shared_data();
+	struct vmm_shared_data *mv_shm = mv_gal_get_cpu_shared_data(cpu);
 	int ret = 0;
 	u32 sampling_period;
 	u64 active_stolen_again;
@@ -94,11 +94,14 @@ static int sofia_cpu_get_steal_load(void)
 	uint64_t steal_now = 0;
 	uint64_t timetotal_now = 0;
 	uint32_t load = 0, deltatimetotal, deltastolen;
+	int cur_cpu;
 
 	vcore_l = &get_cpu_var(percpu_vcore_load);
 
-
-	sofia_get_steal_time(&timetotal_now, &active_steal, &idle_steal);
+	cur_cpu = get_cpu();
+	sofia_get_steal_time(&timetotal_now, &active_steal, &idle_steal,
+			cur_cpu);
+	put_cpu();
 
 	steal_now = active_steal + idle_steal;
 	deltastolen = ((steal_now -

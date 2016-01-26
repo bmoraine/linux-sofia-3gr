@@ -22,7 +22,7 @@ struct sofia_cpu_freq_t {
 };
 
 int sofia_get_steal_time(uint64_t *total_time, uint64_t *active_stolen_time,
-						uint64_t *idle_stolen_time);
+		uint64_t *idle_stolen_time, int cpu);
 
 void sofia_set_cpu_frequency(const int cpufreq);
 
@@ -50,7 +50,7 @@ static inline u64 paravirt_steal_clock(int cpu)
 {
 	u64 active_steal, timetotal, idle_steal;
 
-	sofia_get_steal_time(&timetotal, &active_steal, &idle_steal);
+	sofia_get_steal_time(&timetotal, &active_steal, &idle_steal, cpu);
 
 	return active_steal;
 }
