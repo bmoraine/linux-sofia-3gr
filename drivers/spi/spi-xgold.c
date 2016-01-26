@@ -1125,6 +1125,9 @@ static void handle_msg(struct xgold_spi_ctl_drv *ctl_drv,
 
 		spin_unlock_irqrestore(&ctl_drv->lock, flags);
 
+		if (xfer->len % ctl_drv->packet_size)
+			payload++;
+
 		if (xfer->rx_buf != NULL)
 			iowrite32(payload, USIF_MRPS_CTRL(ctl_drv->base));
 
