@@ -1,5 +1,6 @@
 /dts-v1/;
 #define SOFIA3GR_MRD6
+#undef HAVE_CAM
 #include "xgold/sofia_3gr_soc/irq.h"
 #include <dt-bindings/sofiafb/sofia_fb.h>
 / {
@@ -359,6 +360,13 @@
 };
 
 #ifdef SOFIA3GR_MRD6
+&usif1 {
+	pinctrl-names = "default", "sleep", "inactive", "reset";
+	pinctrl-0 = <&usif1_default_pins>;
+	pinctrl-1 = <&usif1_sleep_pins>;
+	pinctrl-2 = <&usif1_inactive_pins>;
+	pinctrl-3 = <&usif1_reset_pins>;
+};
 &usif2 {
 	pinctrl-names = "default", "sleep", "inactive", "reset";
 	pinctrl-0 = <&usif2_default_pins>;
@@ -390,6 +398,7 @@
 	pinctrl-1 = <&i2c1_sleep_pins>;
 	pinctrl-2 = <&i2c1_inactive_pins>;
 #ifndef RECOVERY_KERNEL
+#ifdef HAVE_CAM
 	afc0: af-controller@0 {
 		compatible = "whitus vision,wv511-v4l2-i2c-subdev";
 		reg = < 0x0C >;
@@ -482,6 +491,7 @@
 		};
 
 	};
+#endif // HAVE_CAM
 #endif
 };
 
@@ -736,9 +746,11 @@
 };
 
 #ifndef RECOVERY_KERNEL
+#ifdef HAVE_CAM
 &cif {
 	intel,camera-modules-attached = <&camera0 &camera1>;
 };
+#endif // HAVE_CAM
 #endif
 
 

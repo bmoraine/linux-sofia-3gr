@@ -235,6 +235,43 @@
 					ranges;
 					reg = <0xE1000000 0x1000000>;
 #ifdef SOFIA3GR_MRD6
+					usif1:usif1{
+						compatible = "intel,usif-spi";
+						#address-cells = <0>;
+						reg = <0xE1100000 0x100000>;
+						reg-names = "register";
+						interrupts = <0 1>;
+						interrupt-names = "usif-int", "wk_int";
+						interrupt-parent = <&usif1>;
+						#interrupt-cells = <1>;
+						intel,spi,numcs = <1>;
+						intel,spi,hw_type = <2>;
+						intel,spi,bus_num = <0>;
+						wakeup-source;
+						interrupt-map = <
+							0 &pic USIF1_INT IRQ_TYPE_DEFAULT
+							1 &eint EINT_USIF1_WK IRQ_TYPE_DEFAULT
+						>;
+						clocks = <&clk_usif1>, <&clk_ahb_per1>;
+						clock-names = "kernel", "register";
+						resets = < &dbb_rst1 16 >;
+						reset-names = "usif";
+
+						pm,class-name = "usif_class";
+						pm,user-name = "usif1";
+						pm,state-D0 = "enable_104M_hperf";
+						pm,state-D3 = "disable";
+
+						/*
+						 * To enable /dev/spidev0.0 device node
+						 */
+						spidev@0{
+						compatible = "spidev";
+						spi-max-frequency = <50000000>;
+						reg = <0>;
+						};
+					};
+
 					usif2:usif2{
 						#address-cells = < 0 >;
 						compatible = "intel,usif-serial";
