@@ -1,6 +1,8 @@
 &abb_pmx_core {
 	pinctrl-single,gpio-range =
-		<&range_abb 0 44 0x100>;
+		<&range_abb 0 26 0x100>,
+		<&range_abb 26 1 0x34500>, /*gpio26, vbus_pwr_en pd */
+		<&range_abb 27 17 0x100>;
 
 	pinctrl-names = "default", "sleep", "deactivate"; /*"activate", "sleep", "deactivate" */
 	/* map here static pins (do not need any dynamic config) */
@@ -529,6 +531,21 @@ mipi_agold_default_pins:mipi_agold_default_pins {
 		0x268 0x1410	/* mipi_hsi_acdata_agold */
 		0x26c 0x1410	/* mipi_hsi_acflag_agold */
 		0x270 0x2001	/* mipi_hsi_caready_agold */
+	>;
+};
+vbus_pwr_agold_active_pins:vbus_pwr_agold_default_pins {
+	pinctrl-single,pins = <
+		0x274 0x34500        /* GPIO 26 VBUS_PWR_EN Pulldown */
+	>;
+};
+vbus_pwr_agold_inactive_pins:vbus_pwr_agold_inactive_pins {
+	pinctrl-single,pins = <
+		0x274 0x32700        /* GPIO 26 VBUS_PWR_EN */
+	>;
+};
+vbus_pwr_agold_sleep_pins:vbus_pwr_agold_sleep_pins {
+	pinctrl-single,pins = <
+		0x274 0x32700        /* VBUS_PWR_EN */
 	>;
 };
 mipi_agold_inactive_pins:mipi_agold_inactive_pins {
