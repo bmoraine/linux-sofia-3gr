@@ -551,7 +551,7 @@
 		reg = < 0xE >;
 		intel,acc-direction = < 1 >;
 		intel,poll-interval = < 100 >;
-		mounting-matrix = < (-1) 0 0 0 (-1) 0 0 0 1 >;
+		mounting-matrix = < 0 1 0 (-1) 0 0 0 0 1 >;
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&accel_default_pins>;
 		pinctrl-1 = <&accel_sleep_pins>;
@@ -579,6 +579,7 @@
 	gyroscope {
 		compatible = "st,l3gd20";
 		reg = < 0x6a >;
+		mounting-matrix = < (-1) 0 0 0 (-1) 0 0 0 1 >;
 		pinctrl-names = "default", "sleep", "inactive";
 		pinctrl-0 = <&gyroscope_default_pins>;
 		pinctrl-1 = <&gyroscope_sleep_pins>;
