@@ -70,6 +70,18 @@ struct vmm_shared_data *mv_gal_get_shared_data(void)
 #endif
 }
 
+struct vmm_shared_data *mv_gal_get_cpu_shared_data(int cpu)
+{
+#ifdef VM_MULTIPLE_VCPUS
+	const int num_cpus = CONFIG_MAX_VCPUS_PER_VM;
+#else
+	const int num_cpus = 1;
+#endif
+
+	BUG_ON(cpu < 0 || cpu >= num_cpus);
+	return vmm_shared_data[cpu];
+}
+
 struct vmm_shared_data *mv_gal_get_system_shared_data(void)
 {
 	return vmm_shared_data[0];
