@@ -124,6 +124,15 @@
 		intel,led-safe = <0x12>;
 		pinctrl-2 = <&led_agold_inactive_pins>;
         };
+
+	cable_detect:cable_detect {
+		compatible = "cable-detection";
+		#address-cells = < 0 >;
+		detect-gpio = <&xgold_pmx_gpio 2 0>;
+		interrupt-parent = < &eint>;
+		interrupts = < EINT_EXI4 XGOLD_IRQ_TYPE_EDGE_BOTH >;
+		wakeup-source;
+	};
 #endif
 
 #ifndef RECOVERY_KERNEL
