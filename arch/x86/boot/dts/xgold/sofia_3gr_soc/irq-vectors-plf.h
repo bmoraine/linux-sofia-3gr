@@ -13,8 +13,6 @@
 
 #ifndef _IRQ_VECTORS_PLF_H
 #define _IRQ_VECTORS_PLF_H
-#define EXI4 0
-#define EXI7 0
 #define EXI13 0
 #define EXI15 0
 #define EXI9 0
@@ -34,4 +32,6 @@
 #define EXI5 0
 #define EXI6 60
 #endif
+#define EXI4 194
+#define EXI7 195
 #endif /*_IRQ_VECTORS_PLF_H */
