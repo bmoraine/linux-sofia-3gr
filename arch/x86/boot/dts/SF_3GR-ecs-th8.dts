@@ -9,7 +9,7 @@
 	compatible = "intel,sofia_3gr_soc-svb", "intel,xgold";
 
 	#define SOFIA_3GR_GARNET_4_LEVEL_CPUFREQ
-	#include "xgold/sofia_3gr_soc/sofia_3gr_soc_ecs_th10.dtsi"
+	#include "xgold/sofia_3gr_soc/sofia_3gr_soc_ecs_th8.dtsi"
 	#include "xgold/sofia_3gr_soc/irq.dtsi"
 	#include "xgold/mobilevisor/mobilevisor.dtsi"
 	#include "xgold/sofia_3gr_soc/clock-es1.dtsi"
@@ -594,4 +594,4 @@
 
 
 #include "xgold/sofia_3gr_soc/pinctrl-sf_3gr-ecs-th8.dtsi"
-#include "xgold/agold620/pinctrl-sf_3gr-ecs-th10.dtsi"
+#include "xgold/agold620/pinctrl-sf_3gr-ecs-th8.dtsi"
