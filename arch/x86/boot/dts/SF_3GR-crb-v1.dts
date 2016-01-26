@@ -213,7 +213,7 @@
 	intel,virq,1 = <0>; /* EINT_EXI1: SAR sensor */
 	intel,virq,2 = <0>; /* EINT_EXI2: USB ID */
 	intel,virq,3 = <1>; /* EINT_EXI3: */
-	intel,virq,4 = <1>; /* EINT_EXI4 */
+	intel,virq,4 = <0>; /* EINT_EXI4: USB_PRESENT */
 	intel,virq,5 = <0>; /* EINT_EXI5: ALS&Prox sensor*/
 	intel,virq,6 = <1>; /* EINT_EXI6: */
 	intel,virq,7 = <1>; /* EINT_EXI7 */
