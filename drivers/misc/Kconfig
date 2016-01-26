@@ -540,6 +540,11 @@ config GPIO_HWID
 	help
 	  This option enables support for Generic GPIO HWID Driver.
 
+config CABLE_DETECTION
+	bool "Generic cable detection driver"
+	help
+	  This option enables support for cable detection Driver.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

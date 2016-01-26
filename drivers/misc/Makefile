@@ -65,3 +65,4 @@ obj-$(CONFIG_VIBRA_XGOLD)	+= xgold-vibra.o
 obj-$(CONFIG_VIBRA_PMIC_6832)	+= pmic6832-vibra.o
 obj-$(CONFIG_ROCKCHIP_VPU)		+= rockchip/vpu/
 obj-$(CONFIG_GPIO_HWID) += gpio-hwid.o
+obj-$(CONFIG_CABLE_DETECTION) += cable-detection.o
