@@ -45,17 +45,25 @@
 	<&range 32 1 0x1500>,/*gpio32, sd_ldo*/
 	<&range 33 3  0x100>,
 	<&range 36 1 0x1700>,/*gpio36, LCD reset, output, hight, PP*/
-	<&range 37 17 0x100>,
+	<&range 37 15 0x100>,
+	<&range 52 1 0x1500>,/*gpio52, SOFIA_GPIO52, output, low, PP*/
+	<&range 53 1 0x100>,
 	<&range 54 1 0x2002>,/*gpio54, sar int, input, pull up*/
 	<&range 55 1 0x1410>,/*gpio55, mux pwm2*/
-	<&range 56 1  0x100>,
+	<&range 56 1 0x1500>,/*gpio56, SOFIA_GPIO56, output, low, PP*/
 	<&range 57 1 0x1700>,/*gpio57, sar reset, output, high*/
 	<&range 58 3  0x100>,
 	<&range 61 1 0x1500>,/*gpio61, flash, output, low, PP*/
 	<&range 62 1 0x1500>,/*gpio62, torch, output, low, PP*/
-	<&range 65 1 0x1500>,/*gpio65, cam1_rst, output, low, PP*/
-	<&range 66 1 0x1500>,/*gpio66, cam1_rst, output, low, PP*/
-	<&range 67 38 0x100>;
+	<&range 63 1 0x1500>,/*gpio63, SOFIA_GPIO63, output, low, PP*/
+	<&range 64 1 0x1500>,/*gpio64, SOFIA_GPIO64, output, low, PP*/
+	<&range 65 1 0x1500>,/*gpio65, SOFIA_GPIO65, output, low, PP*/
+	<&range 66 1 0x1500>,/*gpio66, SOFIA_GPIO66, output, low, PP*/
+	<&range 67 1 0x1500>,/*gpio67, SOFIA_GPIO67, output, low, PP*/
+	<&range 68 4  0x100>,
+	<&range 72 1 0x1500>,/*gpio72, SOFIA_GPIO72, output, low, PP*/
+	<&range 73 1 0x1500>,/*gpio73, SOFIA_GPIO73, output, low, PP*/
+	<&range 74 31 0x100>;
 #else
 	<&range 0 14 0x100>,
 	<&range 14 1 0x1700>,/*gpio14, touch reset, output, high, PP*/
