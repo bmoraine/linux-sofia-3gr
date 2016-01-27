@@ -1597,6 +1597,7 @@ int split_free_page(struct page *page)
 	return nr_pages;
 }
 
+
 /*
  * Really, prep_compound_page() should be called from __rmqueue_bulk().  But
  * we cheat by calling it from here, in the order > 0 path.  Saves a branch
@@ -1612,7 +1613,7 @@ struct page *buffered_rmqueue(struct zone *preferred_zone,
 	bool cold = ((gfp_flags & __GFP_COLD) != 0);
 
 again:
-	if (likely(order == 0) && !(gfp_flags & GFP_PAGE_CACHE)) {
+	if (likely(order == 0) && migratetype < MIGRATE_PCPTYPES) {
 		struct per_cpu_pages *pcp;
 		struct list_head *list;
 
@@ -2821,7 +2822,7 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 	struct mem_cgroup *memcg = NULL;
 	int classzone_idx;
 
-	gfp_allowed_mask |= GFP_PAGE_CACHE;
+	gfp_allowed_mask |= GFP_PAGE_CACHE | GFP_PAGE_INODE0;
 
 	gfp_mask &= gfp_allowed_mask;
 
@@ -2833,21 +2834,15 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 		return NULL;
 
 #ifdef CONFIG_CMA
-	if (gfp_mask & GFP_PAGE_CACHE) {
+	if ((gfp_mask & GFP_PAGE_CACHE) && !(gfp_mask & GFP_PAGE_INODE0)) {
 		int nr_free = global_page_state(NR_FREE_PAGES)
 				- totalreserve_pages;
 		int free_cma = global_page_state(NR_FREE_CMA_PAGES);
 
-		/*
-		 * Use CMA memory as page cache iff system is under memory
-		 * pressure and free cma is big enough (>= 48M).  And these
-		 * value should be adjustable for different platforms with
-		 * different cma reserved memory
-		 */
-		if ((nr_free - free_cma) <= (48 * 1024 * 1024 / PAGE_SIZE)
-			&& free_cma >= (48 * 1024 * 1024 / PAGE_SIZE)) {
+		/* Use CMA memory as page cache iff system is under memory */
+		if ((nr_free - free_cma) <= (128 * 1024 * 1024 / PAGE_SIZE)
+			&& free_cma >= (1 * 1024 * 1024 / PAGE_SIZE))
 			migratetype = MIGRATE_CMA;
-		}
 	}
 #endif
 

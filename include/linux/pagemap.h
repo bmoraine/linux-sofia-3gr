@@ -227,18 +227,34 @@ static inline struct page *__page_cache_alloc(gfp_t gfp)
 
 static inline struct page *page_cache_alloc(struct address_space *x)
 {
-	return __page_cache_alloc(mapping_gfp_mask(x));
+	unsigned long extra_flag = 0;
+
+	if (x && x->host && x->host->i_ino == 0)
+		extra_flag = GFP_PAGE_INODE0;
+
+	return __page_cache_alloc(mapping_gfp_mask(x) | extra_flag);
 }
+
 
 static inline struct page *page_cache_alloc_cold(struct address_space *x)
 {
-	return __page_cache_alloc(mapping_gfp_mask(x)|__GFP_COLD);
+	unsigned long extra_flag = 0;
+
+	if (x && x->host && x->host->i_ino == 0)
+		extra_flag = GFP_PAGE_INODE0;
+
+	return __page_cache_alloc(mapping_gfp_mask(x)|__GFP_COLD | extra_flag);
 }
 
 static inline struct page *page_cache_alloc_readahead(struct address_space *x)
 {
+	unsigned long extra_flag = 0;
+
+	if (x && x->host && x->host->i_ino == 0)
+		extra_flag = GFP_PAGE_INODE0;
+
 	return __page_cache_alloc(mapping_gfp_mask(x) |
-				  __GFP_COLD | __GFP_NORETRY | __GFP_NOWARN);
+			__GFP_COLD | __GFP_NORETRY | __GFP_NOWARN | extra_flag);
 }
 
 typedef int filler_t(void *, struct page *);

@@ -919,7 +919,10 @@ struct page *pagecache_get_page(struct address_space *mapping, pgoff_t offset,
 	int fgp_flags, gfp_t gfp_mask)
 {
 	struct page *page;
+	unsigned long extra_flag = 0;
 
+	if (mapping && mapping->host && mapping->host->i_ino == 0)
+		extra_flag = GFP_PAGE_INODE0;
 repeat:
 	page = find_get_entry(mapping, offset);
 	if (radix_tree_exceptional_entry(page))
@@ -957,7 +960,7 @@ no_page:
 		if (fgp_flags & FGP_NOFS)
 			gfp_mask &= ~__GFP_FS;
 
-		page = __page_cache_alloc(gfp_mask);
+		page = __page_cache_alloc(gfp_mask | extra_flag);
 		if (!page)
 			return NULL;
 
@@ -2021,10 +2024,14 @@ static struct page *__read_cache_page(struct address_space *mapping,
 {
 	struct page *page;
 	int err;
+	unsigned long extra_flag = 0;
+
+	if (mapping && mapping->host && mapping->host->i_ino == 0)
+		extra_flag = GFP_PAGE_INODE0;
 repeat:
 	page = find_get_page(mapping, index);
 	if (!page) {
-		page = __page_cache_alloc(gfp | __GFP_COLD);
+		page = __page_cache_alloc(gfp | __GFP_COLD | extra_flag);
 		if (!page)
 			return ERR_PTR(-ENOMEM);
 		err = add_to_page_cache_lru(page, mapping, index, gfp);

@@ -37,6 +37,8 @@ struct vm_area_struct;
 #define ___GFP_OTHER_NODE	0x800000u
 #define ___GFP_WRITE		0x1000000u
 #define ___GFP_CMA_PAGE_CACHE	0x2000000u
+#define ___GFP_PAGE_INODE0	0x4000000u
+
 /* If the above are modified, __GFP_BITS_SHIFT may need updating */
 
 /*
@@ -126,6 +128,7 @@ struct vm_area_struct;
 
 /* Allocat for page cache use */
 #define GFP_PAGE_CACHE	((__force gfp_t)___GFP_CMA_PAGE_CACHE)
+#define GFP_PAGE_INODE0	((__force gfp_t)___GFP_PAGE_INODE0)
 
 /*
  * GFP_THISNODE does not perform any reclaim, you most likely want to
