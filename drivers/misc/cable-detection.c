@@ -250,11 +250,9 @@ static int cable_detection_probe(struct platform_device *pdev)
 		pr_err("%s: request gpio %d failed!\n", __func__,
 			cab_det_dev->pwr_en_pin);
 	}
-	ret = usb_register_notifier(cab_det_dev->otg_handle,
+
+	usb_register_notifier(cab_det_dev->otg_handle,
 					&cab_det_dev->otg_nb);
-	if (ret) {
-		pr_err("ERROR!: registration for OTG notifications failed\n");
-	}
 
 	if (cab_det_dev->irq) {
 		ret = request_irq(cab_det_dev->irq, cable_detect_irq_handler,
