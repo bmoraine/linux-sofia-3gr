@@ -205,14 +205,16 @@ static int cable_detection_probe(struct platform_device *pdev)
 	cab_det_dev->det_gpio = of_get_named_gpio(np, "detect-gpio", 0);
 	if (!gpio_is_valid(cab_det_dev->det_gpio)) {
 		pr_err("%s: invalid detection gpio\n", __func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_kzalloc;
 	}
 
 	pr_info("%s: detect-gpio: %d\n", __func__, cab_det_dev->det_gpio);
 	if (gpio_request(cab_det_dev->det_gpio, "detect-gpio")) {
 		dev_err(dev, "%s: request gpio %d fail!\n", __func__,
 				cab_det_dev->det_gpio);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_kzalloc;
 	}
 
 	cab_det_dev->irq_wakeup = 1;//device_property_read_bool(dev, "wakeup-source");
@@ -230,7 +232,8 @@ static int cable_detection_probe(struct platform_device *pdev)
 	otg_handle = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (otg_handle == NULL) {
 		pr_err("ERROR!: getting OTG transceiver failed\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_kzalloc;
 	}
 	cab_det_dev->otg_handle = otg_handle;
 
@@ -261,7 +264,7 @@ static int cable_detection_probe(struct platform_device *pdev)
 		if (ret != 0) {
 			pr_err("%s: Failed to register irq, ret=%d\n",
 				__func__, ret);
-			return ret;
+			goto err_kzalloc;
 		}
 	} else
 		pr_err("%s: Failed to register irq, irq=0", __func__);
@@ -271,6 +274,10 @@ static int cable_detection_probe(struct platform_device *pdev)
 	/* Perform initial detection */
 	cable_detect_work(&cab_det_dev->work.work);
 
+	return 0;
+
+err_kzalloc:
+	kfree(cab_det_dev);
 	return ret;
 }
 
