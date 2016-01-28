@@ -85,13 +85,13 @@ static ssize_t cable_detection_fake_vbus_store(struct device *dev,
 
 	down(&cab_det_device->prop_lock);
 	cab_det_device->fake_vbus = -1;
-	if (sysfs_val == 0) {
+	if (!sysfs_val) {
 		cab_det_device->fake_vbus = 0;
 		atomic_notifier_call_chain(
 				&cab_det_device->otg_handle->notifier,
 				USB_EVENT_VBUS, &cab_det_device->fake_vbus);
 		pr_info("%s:fake vbus removal sent\n", __func__);
-	} else if (sysfs_val == 1) {
+	} else {
 		cab_det_device->fake_vbus = 1;
 		atomic_notifier_call_chain(
 				&cab_det_device->otg_handle->notifier,
