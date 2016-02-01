@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/slot-gpio.h>
+#include <linux/mmc/card.h>
 #include <linux/pm_runtime.h>
 #include <linux/of_address.h>
 #include <linux/clk.h>
@@ -312,12 +313,15 @@ static void xgold_sdhci_of_resume(struct sdhci_host *host)
 	 * Timeout after 250 ms to 500 ms if SDHCI_CARD_DET_STABLE
 	 * doesn't happen.
 	 */
-	while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
+	if (host->mmc->card && mmc_card_present(host->mmc->card)
+			&& strstr(mmc_hostname(host->mmc), "mmc1")) {
+		while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
 			      SDHCI_CARD_DET_STABLE) && --timeout)
-		usleep_range(250, 500);
+			usleep_range(250, 500);
 
-	WARN(!timeout, "Timeout waiting for SDHCI_CARD_DET_STABLE: %s\n",
+		WARN(!timeout, "Timeout waiting for SDHCI_CARD_DET_STABLE: %s\n",
 			mmc_hostname(host->mmc));
+	}
 }
 
 #endif
@@ -384,12 +388,15 @@ static void xgold_sdhci_of_runtime_resume(struct sdhci_host *host)
 	 * Timeout after 250 ms to 500 ms if SDHCI_CARD_DET_STABLE
 	 * doesn't happen.
 	 */
-	while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
+	if (host->mmc->card && mmc_card_present(host->mmc->card)
+			&& strstr(mmc_hostname(host->mmc), "mmc1")) {
+		while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
 			      SDHCI_CARD_DET_STABLE) && --timeout)
-		usleep_range(250, 500);
+			usleep_range(250, 500);
 
-	WARN(!timeout, "Timeout waiting for SDHCI_CARD_DET_STABLE: %s\n",
+		WARN(!timeout, "Timeout waiting for SDHCI_CARD_DET_STABLE: %s\n",
 			mmc_hostname(host->mmc));
+	}
 }
 
 #endif
@@ -422,12 +429,15 @@ static void xgold_sdhci_of_init(struct sdhci_host *host)
 	 * Timeout after 250 ms to 500 ms if SDHCI_CARD_DET_STABLE
 	 * doesn't happen
 	 */
-	while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
+	if (host->mmc->card && mmc_card_present(host->mmc->card)
+			&& strstr(mmc_hostname(host->mmc), "mmc1")) {
+		while (!(sdhci_readl(host, SDHCI_PRESENT_STATE) &
 			      SDHCI_CARD_DET_STABLE) && --timeout)
-		usleep_range(250, 500);
+			usleep_range(250, 500);
 
-	WARN(!timeout, "Timeout waiting for SDHCI_CARD_DET_STABLE: %s\n",
+		WARN(!timeout, "Timeout waiting for SDHCI_CARD_DET_STABLE: %s\n",
 			mmc_hostname(host->mmc));
+	}
 
 	if (mmc_pdata->fixup & XGOLD_DEFAULT_REGS_FIXUP)
 		xgold_default_regs_fixup(host);
