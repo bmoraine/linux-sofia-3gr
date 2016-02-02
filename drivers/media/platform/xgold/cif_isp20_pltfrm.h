@@ -2,19 +2,16 @@
  ****************************************************************
  *
  *  Intel CIF ISP 2.0 driver - Platform interface
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
- *  Copyright (C) 2014 Intel Mobile GmbH
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License Version 2
- *  as published by the Free Software Foundation.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- *  You should have received a copy of the GNU General Public License Version 2
- *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * Note:
  *     07/07/2014: initial version.
@@ -30,6 +27,7 @@
 #include <linux/delay.h>
 #include <linux/wait.h>
 #include <linux/string.h>
+#include <linux/time.h>
 
 struct cif_isp20_strm_fmt;
 struct cif_isp20_csi_config;
@@ -44,11 +42,22 @@ enum cif_isp20_irq;
 #define CIF_ISP20_PLTFRM_EVENT wait_queue_head_t
 
 #ifdef CONFIG_CIF_ISP20_REG_TRACE
+static inline s64 cif_isp20_pltfrm_rtrace_ts(void)
+{
+	struct timespec ts;
+	getrawmonotonic(&ts);
+	return timespec_to_ns(&ts);
+}
+
 int
 cif_isp20_pltfrm_rtrace_printf(
 	struct device *dev,
 	const char *fmt,
 	...);
+
+#define cif_isp20_pltfrm_rtrace_ts_printf(dev, fmt, arg...) \
+	cif_isp20_pltfrm_rtrace_printf(dev, \
+	"[%lld] " fmt, cif_isp20_pltfrm_rtrace_ts(), ## arg);
 
 int
 cif_isp20_pltfrm_ftrace_printf(
@@ -57,34 +66,35 @@ cif_isp20_pltfrm_ftrace_printf(
 	...);
 
 #else
-#define cif_isp20_pltfrm_rtrace_printf(dev, str, ...)
-#define cif_isp20_pltfrm_ftrace_printf(dev, str, ...)
+#define cif_isp20_pltfrm_rtrace_printf(dev, fmt, ...)
+#define cif_isp20_pltfrm_rtrace_ts_printf(dev, fmt, ...)
+#define cif_isp20_pltfrm_ftrace_printf(dev, fmt, ...)
 #endif
 
 #define cif_isp20_pltfrm_pr_dbg(dev, fmt, arg...) \
 	do { \
-		pr_debug_ratelimited("CIF ISP2.0 %s: " fmt, \
+		pr_debug("CIF ISP2.0 %s: " fmt, \
 			__func__, ## arg); \
 		cif_isp20_pltfrm_ftrace_printf(dev, "%s: " fmt, \
 			__func__, ## arg); \
 	} while (0)
 #define cif_isp20_pltfrm_pr_info(dev, fmt, arg...) \
 	do { \
-		pr_info_ratelimited("CIF ISP2.0 %s: " fmt, \
+		pr_info("CIF ISP2.0 %s: " fmt, \
 			__func__, ## arg); \
 		cif_isp20_pltfrm_ftrace_printf(dev, "%s: " fmt, \
 			__func__, ## arg); \
 	} while (0)
 #define cif_isp20_pltfrm_pr_warn(dev, fmt, arg...) \
 	do { \
-		pr_warn_ratelimited("CIF ISP2.0 %s WARN: " fmt, \
+		pr_warn("CIF ISP2.0 %s WARN: " fmt, \
 			__func__, ## arg); \
 		cif_isp20_pltfrm_ftrace_printf(dev, "%s WARN: " fmt, \
 			__func__, ## arg); \
 	} while (0)
 #define cif_isp20_pltfrm_pr_err(dev, fmt, arg...) \
 	do { \
-		pr_err_ratelimited("CIF ISP2.0 %s(%d) ERR: " fmt, \
+		pr_err("CIF ISP2.0 %s(%d) ERR: " fmt, \
 			__func__, __LINE__, ## arg); \
 		cif_isp20_pltfrm_ftrace_printf(dev, "%s(%d) ERR: " fmt, \
 			__func__, __LINE__, ## arg); \
@@ -168,9 +178,17 @@ int cif_isp20_pltfrm_pm_set_state(
 	enum cif_isp20_pm_state state,
 	struct cif_isp20_strm_fmt *frm_fmt);
 
+int cif_isp20_pltfrm_read_csi_dphy_calib(
+	struct device *dev,
+	int *dphy_calib);
+
 int cif_isp20_pltfrm_write_cif_ana_bandgap_bias(
 	struct device *dev,
 	u32 val);
+
+int cif_isp20_pltfrm_check_xnrss_ism(
+	struct device *dev,
+	bool *supported);
 
 int cif_isp20_pltfrm_pinctrl_set_state(
 	struct device *dev,

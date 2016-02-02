@@ -26,6 +26,16 @@
 #include <media/videobuf-core.h>
 #include <media/xgold-isp-ioctl.h>
 
+extern int cifisp_ioc_enum_fmt(struct file *file, void *fh,
+			       struct v4l2_fmtdesc *f);
+extern int cifisp_ioc_enum_framesizes(struct file *file, void *fh,
+				      struct v4l2_frmsizeenum *fsize);
+extern int cifisp_ioc_enum_frameintervals(struct file *file, void *fh,
+					  struct v4l2_frmivalenum *fival);
+extern int cifisp_ioc_s_fmt(struct file *file, void *fh, struct v4l2_format *f);
+extern int cifisp_ioc_s_parm(struct file *file, void *fh,
+			     struct v4l2_streamparm *a);
+
 /****************************************************************************
 *                                                     ISP device struct
 ****************************************************************************/
@@ -99,6 +109,7 @@ struct xgold_isp_dev {
 
 	bool ycflt_update;
 	bool cif_ism_cropping;
+	bool xnrss_ism_supported;
 
 	/* input resolution needed for LSC param check */
 	unsigned int input_width;
@@ -131,7 +142,7 @@ void cifisp_configure_isp(
 	enum cif_isp20_pix_fmt in_pix_fmt,
 	bool capture);
 void cifisp_disable_isp(struct xgold_isp_dev *isp_dev);
-int cifisp_isp_isr(struct xgold_isp_dev *isp_dev, u32 isp_mis);
+void cifisp_isp_isr(struct xgold_isp_dev *isp_dev);
 void cifisp_ycflt_config(const struct xgold_isp_dev *isp_dev);
 void cifisp_ycflt_en(const struct xgold_isp_dev *isp_dev);
 void cifisp_ycflt_end(const struct xgold_isp_dev *isp_dev);

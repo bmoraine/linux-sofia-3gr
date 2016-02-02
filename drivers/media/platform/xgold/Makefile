@@ -1,18 +1,18 @@
 #
-#  Copyright (C) 2014 Intel Mobile GmbH
-#  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+#  Copyright (C) 2014-2015 Intel Mobile Communications GmbH
 #
-#  This program is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License Version 2
-#  as published by the Free Software Foundation.
+# This software is licensed under the terms of the GNU General Public
+# License version 2, as published by the Free Software Foundation, and
+# may be copied, distributed, and modified under those terms.
 #
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-#  You should have received a copy of the GNU General Public License Version 2
-#  along with this program. If not, see <http://www.gnu.org/licenses/>.
-#
+
+#These flags switch on driver's internal tracing to buffer
+#ccflags-y := -DCONFIG_DEBUG_FS -DCONFIG_CIF_ISP20_REG_TRACE
 
 obj-$(CONFIG_VIDEO_XGOLD) += video_xgold.o
 ifeq ($(CONFIG_PLATFORM_DEVICE_PM_VIRT),y)

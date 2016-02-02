@@ -134,9 +134,11 @@ enum cif_isp20_cid {
 	CIF_ISP20_CID_HFLIP = 14,
 	CIF_ISP20_CID_VFLIP = 15,
 	CIF_ISP20_CID_AUTO_FPS = 16,
-	CIF_ISP20_CID_VBLANKING = 17,
-	CIF_ISP20_CID_ISO_SENSITIVITY = 18,
-	CIF_ISP20_CID_3A_LOCK = 19
+	CIF_ISP20_CID_ISO_SENSITIVITY = 17,
+	CIF_ISP20_CID_3A_LOCK = 18,
+	CIF_ISP20_CID_VBLANK_LINES = 19,
+	CIF_ISP20_CID_ISO_SENSITIVITY_MODE = 20,
+	CIF_ISP20_CID_POWER_LINE_FREQUENCY = 21
 };
 
 /* correspond to bit field values */
@@ -291,7 +293,7 @@ enum cif_isp20_pix_fmt {
 	CIF_BAYER_SRGGB12		= 0x3000c030,
 
 	/* JPEG */
-	CIF_JPEG					= 0x40006000,
+	CIF_JPEG					= 0x40008000,
 
 	/* Data */
 	CIF_DATA					= 0x70000000,
@@ -395,6 +397,7 @@ struct cif_isp20_mi_path_config {
 
 struct cif_isp20_mi_config {
 	u32 async_updt;
+	bool rst;
 	struct cif_isp20_mi_path_config mp;
 	struct cif_isp20_mi_path_config sp;
 	struct cif_isp20_mi_path_config dma;
@@ -402,6 +405,7 @@ struct cif_isp20_mi_config {
 
 struct cif_isp20_mipi_config {
 	u32 input_sel;
+	int zid_calib;
 	struct cif_isp20_csi_config csi_config;
 };
 
@@ -518,6 +522,7 @@ struct cif_isp20_device {
 
 	struct cif_isp20_img_src *img_src;
 	struct cif_isp20_img_src *img_src_array[CIF_ISP20_NUM_CSI_INPUTS];
+	struct cif_isp20_strm_fmt img_src_fmt;
 	struct cif_isp20_config config;
 	struct xgold_isp_dev isp_dev;
 	struct cif_isp20_stream sp_stream;
@@ -530,8 +535,6 @@ struct cif_isp20_device {
 	case where we start MP and SP separately and needs to shortly
 	stop and start SP when start MP */
 	void (*requeue_bufs)(enum cif_isp20_stream_id stream_id);
-	bool   b_isp_frame_in;
-	bool   b_mi_frame_end;
 #ifdef SOFIA_ES1_BU_PM_NATIVE
 	struct clk *clk_kernel;
 	struct clk *clk_slave;
@@ -606,6 +609,9 @@ int cif_isp20_get_target_frm_size(
 	u32 *target_width,
 	u32 *target_height);
 
+int cif_isp20_img_src_select_strm_fmt(
+	struct cif_isp20_device *dev);
+
 int cif_isp20_calc_isp_cropping(
 	struct cif_isp20_device *dev,
 	u32 *width,
@@ -627,4 +633,13 @@ int cif_isp20_s_ctrl(
 	const enum cif_isp20_cid id,
 	int val);
 
+int cif_isp20_s_crop(
+	struct cif_isp20_device *dev,
+	s32 left,
+	s32 top,
+	u32 width,
+	u32 height);
+
+bool cif_isp20_check_for_ovs(
+	struct cif_isp20_device *dev, int line);
 #endif

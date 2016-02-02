@@ -3,18 +3,16 @@
  *
  *  Intel CIF ISP 2.0 driver - V4L2 compliant interface
  *
- *  Copyright (C) 2014 Intel Mobile GmbH
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License Version 2
- *  as published by the Free Software Foundation.
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- *  You should have received a copy of the GNU General Public License Version 2
- *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * Note:
  *     07/07/2014: initial version.
@@ -30,6 +28,7 @@
 #include <media/videobuf-dma-contig.h>
 #include "cif_isp20.h"
 #include <linux/module.h>
+#include <linux/atomisp.h>
 
 #define CIIF_ISP20_V4L2_SP_DEV_MAJOR 0
 #define CIIF_ISP20_V4L2_ISP_DEV_MAJOR 1
@@ -40,13 +39,6 @@
 #define MP_DEV 1
 #define DMA_DEV 2
 #define ISP_DEV 3
-
-enum isp_camera_port {
-	ISP_CAMERA_PORT_SECONDARY,
-	ISP_CAMERA_PORT_PRIMARY,
-	ISP_CAMERA_PORT_TERTIARY,
-	ISP_CAMERA_NR_PORTS
-};
 
 /* One structure per open file handle */
 struct cif_isp20_v4l2_fh {
@@ -66,6 +58,38 @@ struct cif_isp20_v4l2_node {
 struct cif_isp20_v4l2_device {
 	struct cif_isp20_device cif_isp20_dev;
 	struct cif_isp20_v4l2_node node[4];
+};
+
+static const struct {
+	u32 v4l2_fmt;
+	enum cif_isp20_pix_fmt cif_fmt;
+} v4l2_pix_fmt2cif_isp20_pix_fmt[] = {
+	{ V4L2_PIX_FMT_GREY, CIF_YUV400 },
+	{ V4L2_PIX_FMT_YUV420, CIF_YUV420P },
+	{ V4L2_PIX_FMT_YVU420, CIF_YVU420P },
+	{ V4L2_PIX_FMT_NV12, CIF_YUV420SP },
+	{ V4L2_PIX_FMT_NV21, CIF_YVU420SP },
+	{ V4L2_PIX_FMT_YUYV, CIF_YUV422I },
+	{ V4L2_PIX_FMT_UYVY, CIF_UYV422I },
+	{ V4L2_PIX_FMT_YUV422P, CIF_YUV422P },
+	{ V4L2_PIX_FMT_NV16, CIF_YUV422SP },
+	{ V4L2_PIX_FMT_YUV444, CIF_YUV444P },
+	{ V4L2_PIX_FMT_NV24, CIF_YUV444SP },
+	{ V4L2_PIX_FMT_RGB565, CIF_RGB565 },
+	{ V4L2_PIX_FMT_RGB24, CIF_RGB888 },
+	{ V4L2_PIX_FMT_SBGGR8, CIF_BAYER_SBGGR8 },
+	{ V4L2_PIX_FMT_SGBRG8, CIF_BAYER_SGBRG8 },
+	{ V4L2_PIX_FMT_SGRBG8, CIF_BAYER_SGRBG8 },
+	{ V4L2_PIX_FMT_SRGGB8, CIF_BAYER_SRGGB8 },
+	{ V4L2_PIX_FMT_SBGGR10, CIF_BAYER_SBGGR10 },
+	{ V4L2_PIX_FMT_SGBRG10, CIF_BAYER_SGBRG10 },
+	{ V4L2_PIX_FMT_SGRBG10, CIF_BAYER_SGRBG10 },
+	{ V4L2_PIX_FMT_SRGGB10, CIF_BAYER_SRGGB10 },
+	{ V4L2_PIX_FMT_SBGGR12, CIF_BAYER_SBGGR12 },
+	{ V4L2_PIX_FMT_SGBRG12, CIF_BAYER_SGBRG12 },
+	{ V4L2_PIX_FMT_SGRBG12, CIF_BAYER_SGRBG12 },
+	{ V4L2_PIX_FMT_SRGGB12, CIF_BAYER_SRGGB12 },
+	{ V4L2_PIX_FMT_JPEG, CIF_JPEG },
 };
 
 /* TODO: make this a dynamically allocated variable */
@@ -272,6 +296,8 @@ static enum cif_isp20_inp cif_isp20_v4l2_inp2cif_isp20_inp(
 
 static int cif_isp20_v4l2_cid2cif_isp20_cid(u32 v4l2_cid)
 {
+	char *name;
+
 	switch (v4l2_cid) {
 	case V4L2_CID_FLASH_LED_MODE:
 		return CIF_ISP20_CID_FLASH_MODE;
@@ -305,14 +331,22 @@ static int cif_isp20_v4l2_cid2cif_isp20_cid(u32 v4l2_cid)
 		return CIF_ISP20_CID_VFLIP;
 	case V4L2_CID_ISO_SENSITIVITY:
 		return CIF_ISP20_CID_ISO_SENSITIVITY;
+	case V4L2_CID_ISO_SENSITIVITY_AUTO:
+		return CIF_ISP20_CID_ISO_SENSITIVITY_MODE;
 	case V4L2_CID_3A_LOCK:
 		return CIF_ISP20_CID_3A_LOCK;
 	case INTEL_V4L2_CID_AUTO_FPS:
 		return CIF_ISP20_CID_AUTO_FPS;
+	case V4L2_CID_VBLANK:
+		return CIF_ISP20_CID_VBLANK_LINES;
+	case V4L2_CID_POWER_LINE_FREQUENCY:
+		return CIF_ISP20_CID_POWER_LINE_FREQUENCY;
 	default:
+		name = (char *)v4l2_ctrl_get_name(v4l2_cid);
+		if (!name)
+			name = "Invalid";
 		cif_isp20_pltfrm_pr_err(NULL,
-			"unknown/unsupported V4L2 CID 0x%x\n",
-			v4l2_cid);
+			"unknown/unsupported V4L2 CID %s\n", name);
 		break;
 	}
 	return -EINVAL;
@@ -346,60 +380,14 @@ static enum cif_isp20_image_effect cif_isp20_v4l2_colorfx2cif_isp20_ie(
 static enum cif_isp20_pix_fmt cif_isp20_v4l2_pix_fmt2cif_isp20_pix_fmt(
 	u32 v4l2_pix_fmt)
 {
-	switch (v4l2_pix_fmt) {
-	case V4L2_PIX_FMT_GREY:
-		return CIF_YUV400;
-	case V4L2_PIX_FMT_YUV420:
-		return CIF_YUV420P;
-	case V4L2_PIX_FMT_YVU420:
-		return CIF_YVU420P;
-	case V4L2_PIX_FMT_NV12:
-		return CIF_YUV420SP;
-	case V4L2_PIX_FMT_NV21:
-		return CIF_YVU420SP;
-	case V4L2_PIX_FMT_YUYV:
-		return CIF_YUV422I;
-	case V4L2_PIX_FMT_UYVY:
-		return CIF_UYV422I;
-	case V4L2_PIX_FMT_YUV422P:
-		return CIF_YUV422P;
-	case V4L2_PIX_FMT_NV16:
-		return CIF_YUV422SP;
-	case V4L2_PIX_FMT_YUV444:
-		return CIF_YUV444P;
-	case V4L2_PIX_FMT_NV24:
-		return CIF_YUV444SP;
-	case V4L2_PIX_FMT_RGB565:
-		return CIF_RGB565;
-	case V4L2_PIX_FMT_RGB24:
-		return CIF_RGB888;
-	case V4L2_PIX_FMT_SBGGR8:
-		return CIF_BAYER_SBGGR8;
-	case V4L2_PIX_FMT_SGBRG8:
-		return CIF_BAYER_SGBRG8;
-	case V4L2_PIX_FMT_SGRBG8:
-		return CIF_BAYER_SGRBG8;
-	case V4L2_PIX_FMT_SRGGB8:
-		return CIF_BAYER_SRGGB8;
-	case V4L2_PIX_FMT_SBGGR10:
-		return CIF_BAYER_SBGGR10;
-	case V4L2_PIX_FMT_SGBRG10:
-		return CIF_BAYER_SGBRG10;
-	case V4L2_PIX_FMT_SGRBG10:
-		return CIF_BAYER_SGRBG10;
-	case V4L2_PIX_FMT_SRGGB10:
-		return CIF_BAYER_SRGGB10;
-	case V4L2_PIX_FMT_SBGGR12:
-		return CIF_BAYER_SBGGR12;
-	case V4L2_PIX_FMT_SGBRG12:
-		return CIF_BAYER_SGBRG12;
-	case V4L2_PIX_FMT_SGRBG12:
-		return CIF_BAYER_SGRBG12;
-	case V4L2_PIX_FMT_SRGGB12:
-		return CIF_BAYER_SRGGB12;
-	case V4L2_PIX_FMT_JPEG:
-		return CIF_JPEG;
-	default:
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(v4l2_pix_fmt2cif_isp20_pix_fmt); i++) {
+		if (v4l2_pix_fmt2cif_isp20_pix_fmt[i].v4l2_fmt == v4l2_pix_fmt)
+			break;
+	}
+
+	if (i >= ARRAY_SIZE(v4l2_pix_fmt2cif_isp20_pix_fmt)) {
 		cif_isp20_pltfrm_pr_err(NULL,
 			"unknown or unsupported V4L2 pixel format %c%c%c%c\n",
 			(u8)(v4l2_pix_fmt & 0xff),
@@ -408,6 +396,28 @@ static enum cif_isp20_pix_fmt cif_isp20_v4l2_pix_fmt2cif_isp20_pix_fmt(
 			(u8)((v4l2_pix_fmt >> 24) & 0xff));
 		return CIF_UNKNOWN_FORMAT;
 	}
+
+	return v4l2_pix_fmt2cif_isp20_pix_fmt[i].cif_fmt;
+}
+
+static u32 cif_isp20_cif_isp20_pix_fmt2v4l2_pix_fmt(
+	enum cif_isp20_pix_fmt cif_pix_fmt)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(v4l2_pix_fmt2cif_isp20_pix_fmt); i++) {
+		if (v4l2_pix_fmt2cif_isp20_pix_fmt[i].cif_fmt == cif_pix_fmt)
+			break;
+	}
+
+	if (i >= ARRAY_SIZE(v4l2_pix_fmt2cif_isp20_pix_fmt)) {
+		cif_isp20_pltfrm_pr_err(NULL,
+			"unknown or unsupported CIF pixel format %i\n",
+			cif_pix_fmt);
+		return -1;
+	}
+
+	return v4l2_pix_fmt2cif_isp20_pix_fmt[i].v4l2_fmt;
 }
 
 static int cif_isp20_v4l2_register_video_device(
@@ -835,9 +845,6 @@ static int cif_isp20_v4l2_s_fmt(
 	if (likely(node) && node->owner && (node->owner != fh))
 		return -EBUSY;
 
-	if (unlikely(fh == NULL))
-		return -ENOENT;
-
 	strm_fmt.frm_fmt.pix_fmt =
 		cif_isp20_v4l2_pix_fmt2cif_isp20_pix_fmt(
 			f->fmt.pix.pixelformat);
@@ -979,10 +986,6 @@ static int cif_isp20_v4l2_open(
 	v4l2_fh_add(&fh->fh);
 
 	node = to_node(fh);
-	if (!node) {
-		ret = -ENXIO;
-		goto err_free;
-	}
 	if (likely(node)) {
 		if (++node->users > 1)
 			return 0;
@@ -1003,17 +1006,15 @@ static int cif_isp20_v4l2_open(
 
 	ret = cif_isp20_init(dev, to_stream_id(file));
 	if (IS_ERR_VALUE(ret)) {
+		v4l2_fh_del(&fh->fh);
+		v4l2_fh_exit(&fh->fh);
+		kfree(fh);
 		if (likely(node))
 			node->users--;
-		goto err_free;
+		goto err;
 	}
 
 	return 0;
-
-err_free:
-	v4l2_fh_del(&fh->fh);
-	v4l2_fh_exit(&fh->fh);
-	kfree(fh);
 err:
 	cif_isp20_pltfrm_pr_err(NULL,
 		"failed with error %d\n", ret);
@@ -1169,44 +1170,33 @@ static void cif_isp20_v4l2_requeue_bufs(
 static long v4l2_default_ioctl(struct file *file, void *fh,
 			       bool valid_prio, unsigned int cmd, void *arg)
 {
-	int ret = -EINVAL;
+	long ret = -EINVAL;
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
 
 	if (arg == NULL) {
 		cif_isp20_pltfrm_pr_err(dev->dev,
-			"NULL Pointer Violation from IOCTL arg:0x%x\n",
-			(unsigned int)arg);
+			"NULL Pointer Violation from IOCTL arg\n");
 		return ret;
 	}
 
-	if (cmd == INTEL_VIDIOC_SENSOR_MODE_DATA) {
+	ret = cif_isp20_img_src_ioctl(dev->img_src, cmd, arg);
+
+	if (!IS_ERR_VALUE(ret) &&
+		cmd == INTEL_VIDIOC_SENSOR_MODE_DATA) {
 		struct isp_supplemental_sensor_mode_data *p_mode_data =
 		(struct isp_supplemental_sensor_mode_data *)arg;
 
-		ret = (int)cif_isp20_img_src_ioctl(dev->img_src,
-			INTEL_VIDIOC_SENSOR_MODE_DATA, p_mode_data);
-
-		if (ret < 0) {
-			cif_isp20_pltfrm_pr_err(dev->dev,
-				"failed to get sensor mode data\n");
-			return ret;
-		}
-
-		ret = cif_isp20_calc_isp_cropping(dev,
+		ret = (long)cif_isp20_calc_isp_cropping(dev,
 			&p_mode_data->isp_input_width,
 			&p_mode_data->isp_input_height,
 			&p_mode_data->isp_input_horizontal_start,
 			&p_mode_data->isp_input_vertical_start);
+	}
 
-		if (ret < 0) {
-			cif_isp20_pltfrm_pr_err(dev->dev,
-				"failed to get isp input info\n");
-			return ret;
-		}
-	} else
-		cif_isp20_pltfrm_pr_dbg(dev->dev,
-			"ignored unknown cmd 0x%x from %s\n", cmd, current->comm);
+	if (IS_ERR_VALUE(ret))
+		cif_isp20_pltfrm_pr_err(dev->dev,
+			"%d failed with %ld\n", cmd, ret);
 
 	return ret;
 }
@@ -1217,20 +1207,6 @@ static int v4l2_s_parm(
 	struct v4l2_streamparm *a)
 {
 	return 0;
-}
-
-static enum isp_camera_port isp_camera_port_from_inp(enum cif_isp20_inp inp)
-{
-	switch (inp) {
-	case CIF_ISP20_INP_CSI_0:
-		return ISP_CAMERA_PORT_PRIMARY;
-	case CIF_ISP20_INP_CSI_1:
-		return ISP_CAMERA_PORT_SECONDARY;
-	default:
-		break;
-	}
-
-	return ISP_CAMERA_NR_PORTS; // Unknown
 }
 
 static int v4l2_enum_input(struct file *file, void *priv,
@@ -1249,7 +1225,7 @@ static int v4l2_enum_input(struct file *file, void *priv,
 	}
 
 	if (input->index >= CIF_ISP20_INP_CPI) {
-		cif_isp20_pltfrm_pr_err(NULL,
+		cif_isp20_pltfrm_pr_dbg(NULL,
 			"index %d out of bounds\n",
 			input->index);
 		return -EINVAL;
@@ -1260,13 +1236,17 @@ static int v4l2_enum_input(struct file *file, void *priv,
 	inp = cif_isp20_v4l2_inp2cif_isp20_inp(input->index);
 	if (IS_ERR_VALUE(inp))
 		return inp;
-	input->reserved[1] = isp_camera_port_from_inp(inp);
-
 	inp_name = cif_isp20_g_input_name(dev, inp);
 	if (IS_ERR(inp_name))
 		return -ENODEV;
 
-	strlcpy(input->name, inp_name, sizeof(input->name));
+	strcpy(input->name, inp_name);
+
+	/* Fixme
+	 * This reserved[1] value is used for consider ispPort in HAL
+	 */
+	input->reserved[1] = (input->index) ? ATOMISP_CAMERA_PORT_SECONDARY :
+		ATOMISP_CAMERA_PORT_PRIMARY;
 
 	return 0;
 }
@@ -1419,6 +1399,7 @@ static int v4l2_s_ext_ctrls(struct file *file, void *priv,
 #define CIF_FREQ 442
 #define ISP_PIX_CLK_FREQ (CIF_FREQ/2)
 #endif
+
 int cif_isp20_v4l2_cropcap(
 	struct file *file,
 	void *fh,
@@ -1471,7 +1452,7 @@ int cif_isp20_v4l2_cropcap(
 		a->bounds.top = (a->defrect.height - a->bounds.height) / 2;
 		a->bounds.left = (a->defrect.width - a->bounds.width) / 2;
 
-		a->type = V4L2_BUF_TYPE_VIDEO_OVERLAY;
+		a->type = queue->type;
 	} else if ((dev->config.input_sel == CIF_ISP20_INP_CSI_0) ||
 		(dev->config.input_sel == CIF_ISP20_INP_CSI_1)) {
 		/* calculate cropping for aspect ratio */
@@ -1549,7 +1530,7 @@ int cif_isp20_v4l2_cropcap(
 		a->bounds.top = (a->defrect.height - a->bounds.height) / 2;
 		a->bounds.left = (a->defrect.width - a->bounds.width) / 2;
 
-		a->type = V4L2_BUF_TYPE_VIDEO_OVERLAY;
+		a->type = queue->type;
 	} else {
 		cif_isp20_pltfrm_pr_err(dev->dev,
 			"cif_isp20_v4l2_cropcap: invalid input\n");
@@ -1595,66 +1576,9 @@ int cif_isp20_v4l2_s_crop(
 {
 	struct videobuf_queue *queue = to_videobuf_queue(file);
 	struct cif_isp20_device *dev = to_cif_isp20_device(queue);
-	unsigned long flags = 0;
-	struct cif_isp20_ism_params *ism_params =
-		&(dev->config.isp_config.ism_config.ism_params);
 
-	/* Return if no change*/
-	if ((ism_params->h_size == a->c.width) &&
-			(ism_params->v_size == a->c.height) &&
-			(ism_params->h_offs == a->c.left) &&
-			(ism_params->v_offs == a->c.top))
-		return 0;
-
-	local_irq_save(flags);
-
-	/* check legal range*/
-	if ((a->c.left < 0) ||
-		((a->c.left + a->c.width) > dev->isp_dev.input_width) ||
-		(a->c.top < 0) ||
-		((a->c.top + a->c.height) > dev->isp_dev.input_height)) {
-		local_irq_restore(flags);
-		cif_isp20_pltfrm_pr_err(dev->dev,
-			"Invalid cropping window %dx%d@(%d,%d)\n",
-			a->c.width,
-			a->c.height,
-			a->c.left,
-			a->c.top);
-		return -EINVAL;
-	}
-
-	dev->config.isp_config.ism_config.ism_update_needed = false;
-	ism_params->recenter = 0;
-	ism_params->displace = 0;
-	ism_params->max_dx = 0;
-	ism_params->max_dy = 0;
-
-	if ((a->c.width == dev->isp_dev.input_width) &&
-		(a->c.height == dev->isp_dev.input_height)) {
-		dev->config.isp_config.ism_config.ism_en = 0;
-		ism_params->h_size = a->c.width;
-		ism_params->v_size = a->c.height;
-		ism_params->h_offs = 0;
-		ism_params->v_offs = 0;
-	} else {
-		dev->config.isp_config.ism_config.ism_en = 1;
-		ism_params->h_size = a->c.width;
-		ism_params->v_size = a->c.height;
-		ism_params->h_offs = a->c.left;
-		ism_params->v_offs = a->c.top;
-	}
-
-	dev->config.isp_config.ism_config.ism_update_needed = true;
-
-	cif_isp20_pltfrm_pr_dbg(dev->dev,
-		"crop window= %dx%d@(%d,%d)\n",
-		ism_params->h_size,
-		ism_params->v_size,
-		ism_params->h_offs,
-		ism_params->v_offs);
-
-	local_irq_restore(flags);
-	return 0;
+	return cif_isp20_s_crop(dev, a->c.left, a->c.top,
+		a->c.width, a->c.height);
 }
 
 const struct v4l2_ioctl_ops cif_isp20_v4l2_sp_ioctlops = {
@@ -1852,6 +1776,148 @@ err:
 	cif_isp20_pltfrm_pr_err(cif_isp20_dev->dev,
 		"failed with error %d\n", ret);
 	return ret;
+}
+
+int cifisp_ioc_enum_fmt(struct file *file, void *fh,
+			struct v4l2_fmtdesc *f)
+{
+	struct xgold_isp_dev *isp = video_get_drvdata(video_devdata(file));
+	struct cif_isp20_device *dev = container_of(isp,
+					struct cif_isp20_device, isp_dev);
+	struct cif_isp20_strm_fmt_desc strm_fmt_desc;
+	__u32 fmt, lastfmt = 0;
+	int appidx, snridx;
+
+	if (f->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
+
+	for (snridx = 0, appidx = 0;; snridx++) {
+		if (IS_ERR_VALUE(cif_isp20_img_src_enum_strm_fmts(dev->img_src,
+			snridx, &strm_fmt_desc)))
+			return -EINVAL;
+		fmt = cif_isp20_cif_isp20_pix_fmt2v4l2_pix_fmt(
+							strm_fmt_desc.pix_fmt);
+		if (fmt != lastfmt) {
+			if (appidx >= f->index)
+				break;
+			lastfmt = fmt;
+			appidx++;
+		}
+	}
+
+	f->flags = 0;
+	if (fmt == V4L2_PIX_FMT_JPEG)
+		f->flags |= V4L2_FMT_FLAG_COMPRESSED;
+	strcpy(f->description, cif_isp20_v4l2_pix_fmt_string(fmt));
+	f->pixelformat = fmt;
+	return 0;
+}
+
+int cifisp_ioc_enum_framesizes(struct file *file, void *fh,
+			       struct v4l2_frmsizeenum *fsize)
+{
+	struct xgold_isp_dev *isp = video_get_drvdata(video_devdata(file));
+	struct cif_isp20_device *dev = container_of(isp,
+					struct cif_isp20_device, isp_dev);
+	struct cif_isp20_strm_fmt_desc strm_fmt_desc;
+	__u32 fmt;
+	struct v4l2_frmsize_discrete lastsize = { 0, 0 };
+	int appidx, snridx;
+
+	for (snridx = 0, appidx = 0;; snridx++) {
+		if (IS_ERR_VALUE(cif_isp20_img_src_enum_strm_fmts(dev->img_src,
+			snridx, &strm_fmt_desc)))
+			return -EINVAL;
+		if (!strm_fmt_desc.discrete_frmsize)
+			continue;		/* We don't support this */
+		fmt = cif_isp20_cif_isp20_pix_fmt2v4l2_pix_fmt(
+							strm_fmt_desc.pix_fmt);
+		if (fmt != fsize->pixel_format)
+			continue;
+		if (strm_fmt_desc.min_frmsize.width != lastsize.width ||
+		    strm_fmt_desc.min_frmsize.height != lastsize.height) {
+			if (appidx >= fsize->index)
+				break;
+			lastsize.width = strm_fmt_desc.min_frmsize.width;
+			lastsize.height = strm_fmt_desc.min_frmsize.height;
+			appidx++;
+		}
+	}
+
+	fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+	fsize->discrete.width = strm_fmt_desc.min_frmsize.width;
+	fsize->discrete.height = strm_fmt_desc.min_frmsize.height;
+	return 0;
+}
+
+int cifisp_ioc_enum_frameintervals(struct file *file, void *fh,
+				   struct v4l2_frmivalenum *fival)
+{
+	struct xgold_isp_dev *isp = video_get_drvdata(video_devdata(file));
+	struct cif_isp20_device *dev = container_of(isp,
+					struct cif_isp20_device, isp_dev);
+	struct cif_isp20_strm_fmt_desc strm_fmt_desc;
+	__u32 fmt;
+	int appidx, snridx;
+
+	for (snridx = 0, appidx = 0;; snridx++) {
+		if (IS_ERR_VALUE(cif_isp20_img_src_enum_strm_fmts(dev->img_src,
+			snridx, &strm_fmt_desc)))
+			return -EINVAL;
+		if (!strm_fmt_desc.discrete_frmsize)
+			continue;		/* We don't support this */
+		if (!strm_fmt_desc.discrete_intrvl)
+			continue;		/* We don't support this */
+		if (strm_fmt_desc.min_frmsize.width != fival->width ||
+		    strm_fmt_desc.min_frmsize.height != fival->height)
+			continue;
+		fmt = cif_isp20_cif_isp20_pix_fmt2v4l2_pix_fmt(
+							strm_fmt_desc.pix_fmt);
+		if (fmt != fival->pixel_format)
+			continue;
+		if (appidx >= fival->index)
+			break;
+		appidx++;
+	}
+
+	fival->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+	fival->discrete.numerator = strm_fmt_desc.min_intrvl.numerator;
+	fival->discrete.denominator = strm_fmt_desc.min_intrvl.denominator;
+	return 0;
+}
+
+int cifisp_ioc_s_fmt(struct file *file, void *fh, struct v4l2_format *f)
+{
+	struct xgold_isp_dev *isp = video_get_drvdata(video_devdata(file));
+	struct cif_isp20_device *dev = container_of(isp,
+					struct cif_isp20_device, isp_dev);
+
+	if (f->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
+
+	dev->img_src_fmt.frm_fmt.width   = f->fmt.pix.width;
+	dev->img_src_fmt.frm_fmt.height  = f->fmt.pix.height;
+	dev->img_src_fmt.frm_fmt.pix_fmt =
+	      cif_isp20_v4l2_pix_fmt2cif_isp20_pix_fmt(f->fmt.pix.pixelformat);
+
+	return cif_isp20_img_src_select_strm_fmt(dev);
+}
+
+int cifisp_ioc_s_parm(struct file *file, void *fh, struct v4l2_streamparm *a)
+{
+	struct xgold_isp_dev *isp = video_get_drvdata(video_devdata(file));
+	struct cif_isp20_device *dev = container_of(isp,
+					struct cif_isp20_device, isp_dev);
+
+	if (a->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
+
+	dev->img_src_fmt.frm_intrvl.numerator =
+				a->parm.capture.timeperframe.numerator;
+	dev->img_src_fmt.frm_intrvl.denominator	=
+				a->parm.capture.timeperframe.denominator;
+
+	return cif_isp20_img_src_select_strm_fmt(dev);
 }
 
 static struct of_device_id xgold_v4l2_of_match[] = {

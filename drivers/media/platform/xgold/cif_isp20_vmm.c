@@ -1,20 +1,18 @@
 /*
  ****************************************************************
  *
- *  Intel CIF ISP 2.0 driver - Virtualized platform implementation
+ * Intel CIF ISP 2.0 driver - Virtualized platform implementation
  *
- *  Copyright (C) 2014 Intel Mobile GmbH
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License Version 2
- *  as published by the Free Software Foundation.
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- *  You should have received a copy of the GNU General Public License Version 2
- *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * Note:
  *     07/07/2014: initial version.
@@ -63,6 +61,9 @@ static struct {
 } cif_isp20_reg_trace;
 #endif
 #endif
+
+#define SFLTE_CHIPID 0x5F
+#define SFLTE_ES30_REV 0x20
 
 #define cif_isp20_vmm_pr_err(dev, fmt, arg...) \
 	pr_err("CIF ISP2.0 %s(%d) ERR: " fmt, \
@@ -218,7 +219,9 @@ static int cif_isp20_pltfrm_l_g_csi_config(
 		*pps = cfg->pps;
 		*csi_config = cfg->csi_config;
 		return ret;
-	}
+	} else
+		cif_isp20_pltfrm_pr_dbg(dev,
+			"pdata csi configs list is empty, get csi config from device tree\n");
 
 	img_src_dev = cif_isp20_pltfrm_get_img_src_device(dev, inp);
 	if (IS_ERR_OR_NULL(img_src_dev)) {
@@ -1375,7 +1378,6 @@ int cif_isp20_pltfrm_dev_init(
 			ret = PTR_ERR(base_addr);
 		else
 			ret = -ENODEV;
-		goto err;
 	}
 	*reg_base_addr = base_addr;
 	pdata->base_addr = base_addr;
@@ -1533,6 +1535,84 @@ int cif_isp20_pltfrm_pm_set_state(
 	return ret;
 }
 
+/* Read CSI DPHY calibration value from SCU_HW register
+    Because this setting is optional, we return error only when
+    'intel,csi-dphy-calib' is present but in wrong format. For the
+    other failures cases, give warning message and return 0 (
+    calibration value is set to -1). */
+int cif_isp20_pltfrm_read_csi_dphy_calib(
+	struct device *dev,
+	int *dphy_calib)
+{
+	struct device_node *np_xgold, *np_scu_hw;
+	int ret = 0;
+	u32 scu_hw_base_addr;
+	u32 mask = 0;
+	u32 tmp = 0;
+	u32 reg[3];
+
+	*dphy_calib = -1;
+
+	/* Get the base address of SCU_HW registers */
+	np_xgold = of_find_node_by_path("/xgold");
+	if (IS_ERR_OR_NULL(np_xgold)) {
+		cif_isp20_pltfrm_pr_warn(dev, "no /xgold node\n");
+		return 0;
+	}
+
+	np_scu_hw = of_parse_phandle(np_xgold, "intel,scu-phys", 0);
+	if (IS_ERR_OR_NULL(np_scu_hw)) {
+		cif_isp20_pltfrm_pr_warn(dev, "no scu_hw node\n");
+		return 0;
+	}
+
+	ret = of_property_read_u32_index(np_scu_hw, "reg", 0,
+			&scu_hw_base_addr);
+	if (IS_ERR_VALUE(ret)) {
+		cif_isp20_pltfrm_pr_warn(dev, "can't find scu_hw base\n");
+		return 0;
+	}
+
+	/* Get csi-dphy-calib from Device Tree */
+	ret = of_property_read_u32_array(np_scu_hw,
+		"intel,csi-dphy-calib", reg, 3);
+	if (IS_ERR_VALUE(ret)) {
+		if (ret == -EOVERFLOW) {
+			cif_isp20_pltfrm_pr_err(dev,
+				"wrong format in 'intel,csi-dphy-calib'\n");
+			goto err;
+		} else {
+			cif_isp20_pltfrm_pr_warn(dev,
+				"can't find 'intel,csi-dphy-calib'\n");
+			return 0;
+		}
+	}
+
+	if (mv_svc_reg_read((scu_hw_base_addr + reg[0]), &tmp, -1)) {
+		cif_isp20_pltfrm_pr_warn(dev,
+			"mv_svc_reg_read fails @0x%08x",
+			(scu_hw_base_addr + reg[0]));
+		return 0;
+	}
+	if (reg[2])
+		mask = ((1 << reg[2]) - 1);
+	else
+		mask = 0;
+	*dphy_calib = ((tmp >> reg[1]) & mask);
+
+	if (*dphy_calib != 0)
+		cif_isp20_pltfrm_pr_info(dev,
+			"read csi_dphy_calib value from SCU: %d\n",
+			*dphy_calib);
+	else {
+		*dphy_calib = 4;
+		cif_isp20_pltfrm_pr_info(dev,
+			"csi_dphy_calib in SCU is 0, set to default (4)\n");
+	}
+err:
+	return ret;
+}
+
 int cif_isp20_pltfrm_write_cif_ana_bandgap_bias(
 	struct device *dev,
 	u32 val)
@@ -1549,33 +1629,32 @@ int cif_isp20_pltfrm_write_cif_ana_bandgap_bias(
 
 	np = of_find_compatible_node(NULL, NULL, "intel,scu");
 	if (IS_ERR_OR_NULL(np)) {
-		cif_isp20_pltfrm_pr_err(dev,
+		cif_isp20_pltfrm_pr_warn(dev,
 			"cannot find node 'intel,scu' (SCU) in device tree\n");
-		ret = -EEXIST;
-		goto err;
+		return 0;
 	}
 
 	ret = of_property_read_u32_index(np,
 			"reg", 0, &scu_base_addr);
 	if (IS_ERR_VALUE(ret)) {
-		cif_isp20_pltfrm_pr_err(dev,
+		cif_isp20_pltfrm_pr_warn(dev,
 			"reading property 'reg'\n");
-		goto err;
+		return 0;
 	}
 	ret = of_property_read_u32(np,
 			"intel,cif-ana-bandgap-bias-mask", &mask);
 	if (IS_ERR_VALUE(ret)) {
-		cif_isp20_pltfrm_pr_err(dev,
+		cif_isp20_pltfrm_pr_warn(dev,
 			"reading property 'intel,cif-ana-bandgap-bias-mask'\n");
-		goto err;
+		return 0;
 	}
 
 	ret = of_property_read_u32(np,
 			"intel,cif-ana-bandgap-bias-reg-offset", &offset);
 	if (IS_ERR_VALUE(ret)) {
-		cif_isp20_pltfrm_pr_err(dev,
+		cif_isp20_pltfrm_pr_warn(dev,
 			"reading property 'intel,cif-ana-bandgap-bias-reg-offset'\n");
-		goto err;
+		return 0;
 	}
 
 	for (shift = mask; !(shift & 0x1); val <<= 1, shift >>= 1)
@@ -1583,19 +1662,113 @@ int cif_isp20_pltfrm_write_cif_ana_bandgap_bias(
 
 	ret = mv_svc_reg_write(scu_base_addr + offset, val, mask);
 	if (IS_ERR_VALUE(ret)) {
-		cif_isp20_pltfrm_pr_err(dev,
+		cif_isp20_pltfrm_pr_warn(dev,
 			"register write @0x%08x := 0x%08x (mask 0x%08x) failed\n",
 			scu_base_addr + offset, val, mask);
+		return 0;
+	}
+
+	return 0;
+}
+
+
+int cif_isp20_pltfrm_check_xnrss_ism(
+	struct device *dev,
+	bool *supported)
+{
+	struct device_node *np_xgold, *np_scu_hw;
+	int ret = 0;
+	u32 scu_hw_base_addr;
+	u32 id = 0, rev = 0, id_mask = 0, rev_mask = 0;
+	u32 tmp = 0, i = 0;
+	int of_ret;
+	u32 reg[3];
+
+	/* Check whether XNR subsampling can work together with ISM */
+	np_xgold = of_find_node_by_path("/xgold");
+	if (IS_ERR_OR_NULL(np_xgold)) {
+		cif_isp20_pltfrm_pr_err(dev,
+			"cannot find node '/xgold' in device tree\n");
+		ret = -EEXIST;
 		goto err;
+	}
+
+	/* Get the base address of SCU_HW registers */
+	np_scu_hw = of_parse_phandle(np_xgold, "intel,scu-phys", 0);
+	if (IS_ERR_OR_NULL(np_scu_hw)) {
+		cif_isp20_pltfrm_pr_err(dev,
+			"cannot find node SCU_HW in device tree\n");
+		ret = -EEXIST;
+		goto err;
+	}
+
+	ret = of_property_read_u32_index(np_scu_hw, "reg", 0,
+			&scu_hw_base_addr);
+	if (IS_ERR_VALUE(ret)) {
+		cif_isp20_pltfrm_pr_err(dev,
+			"Error when reading property 'reg'\n");
+		goto err;
+	}
+
+	/* Get chip id from Device Tree */
+	of_ret = of_property_read_u32_array(np_xgold, "intel,chipid", reg, 3);
+	switch (of_ret) {
+	case 0:	/* property gives register offset/field/mask */
+		if (mv_svc_reg_read((scu_hw_base_addr + reg[0]),
+				&tmp, -1))
+			cif_isp20_pltfrm_pr_err(dev,
+				"mv_svc_reg_read fails at #0x%08x",
+				(scu_hw_base_addr + reg[0]));
+		for (i = 0; i < reg[2]; i++)
+			id_mask |= 1 << i;
+		id = ((tmp >> reg[1]) & id_mask);
+		break;
+	case -EOVERFLOW:	/* property gives directly the value */
+		of_property_read_u32(np_xgold, "intel,chipid", &id);
+		break;
+	default:
+		goto err;
+	}
+
+	/* Get revision register from Device Tree */
+	of_ret = of_property_read_u32_array(np_xgold, "intel,rev", reg, 3);
+	switch (of_ret) {
+	case 0:	/* property gives register reg[0]/field/mask */
+		if (mv_svc_reg_read((scu_hw_base_addr + reg[0]),
+				&tmp, -1))
+			cif_isp20_pltfrm_pr_err(dev,
+				"mv_svc_reg_read fails at #0x%08x\n",
+				(scu_hw_base_addr + reg[0]));
+		for (i = 0; i < reg[2]; i++)
+			rev_mask |= 1 << i;
+		rev = ((tmp >> reg[1]) & rev_mask);
+		break;
+	case -EOVERFLOW:	/* property gives directly the value */
+		of_property_read_u32(np_xgold, "intel,rev", &rev);
+		break;
+	default:
+		goto err;
+	}
+
+	if ((id == SFLTE_CHIPID) && (rev == SFLTE_ES30_REV)) {
+		cif_isp20_pltfrm_pr_dbg(dev,
+			"id=0x%x, rev=0x%x, XNRSS can be turned on with ISM cropping\n",
+			id, rev);
+		*supported = true;
+	} else {
+		cif_isp20_pltfrm_pr_dbg(dev,
+			"id=0x%x, rev=0x%x, XNRSS must be turned off by ISM cropping\n",
+			id, rev);
+		*supported = false;
 	}
 
 	return 0;
 err:
 	cif_isp20_pltfrm_pr_warn(dev, "failed with error %d\n", ret);
-	/* Failing to set the bandgap is not critial error. Just notify with
-		the error message. */
+	*supported = false;
 	return 0;
 }
+
 
 int cif_isp20_pltfrm_s_csi_config(
 	struct device *dev,

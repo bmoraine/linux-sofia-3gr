@@ -3,19 +3,16 @@
  *
  *  Intel CIF ISP 2.0 driver - Image source implementation based on
  *  V4L2-subdev.
+ * Copyright (C) 2014-2015 Intel Mobile Communications GmbH
  *
- *  Copyright (C) 2014 Intel Mobile GmbH
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License Version 2
- *  as published by the Free Software Foundation.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- *  You should have received a copy of the GNU General Public License Version 2
- *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * Note:
  *     07/07/2014: initial version.
@@ -193,16 +190,20 @@ static int cif_isp20_v4l2_cid2v4l2_cid(u32 cif_isp20_cid)
 		return V4L2_CID_SCENE_MODE;
 	case CIF_ISP20_CID_ISO_SENSITIVITY:
 		return V4L2_CID_ISO_SENSITIVITY;
+	case CIF_ISP20_CID_ISO_SENSITIVITY_MODE:
+		return V4L2_CID_ISO_SENSITIVITY_AUTO;
 	case CIF_ISP20_CID_AUTO_FPS:
 		return INTEL_V4L2_CID_AUTO_FPS;
-	case CIF_ISP20_CID_VBLANKING:
-		return INTEL_V4L2_CID_VBLANKING;
 	case CIF_ISP20_CID_HFLIP:
 		return V4L2_CID_HFLIP;
 	case CIF_ISP20_CID_VFLIP:
 		return V4L2_CID_VFLIP;
 	case CIF_ISP20_CID_3A_LOCK:
 		return V4L2_CID_3A_LOCK;
+	case CIF_ISP20_CID_VBLANK_LINES:
+		return V4L2_CID_VBLANK;
+	case CIF_ISP20_CID_POWER_LINE_FREQUENCY:
+		return V4L2_CID_POWER_LINE_FREQUENCY;
 	default:
 		cif_isp20_pltfrm_pr_err(NULL,
 			"unknown/unsupported CIF ISP20 ID %d\n",
@@ -420,20 +421,5 @@ long cif_isp20_img_src_v4l2_subdev_ioctl(
 {
 	struct v4l2_subdev *subdev = img_src;
 
-	if (cmd == INTEL_VIDIOC_SENSOR_MODE_DATA) {
-		long ret;
-		ret = v4l2_subdev_call(subdev,
-			core,
-			ioctl,
-			INTEL_VIDIOC_SENSOR_MODE_DATA,
-			arg);
-
-		if (IS_ERR_VALUE(ret))
-			pr_err("img_src.%s subdev call failed with error %ld\n",
-			__func__, ret);
-
-		return ret;
-	} else {
-		return -EINVAL;
-	}
+	return v4l2_subdev_call(subdev, core, ioctl, cmd, arg);
 }

@@ -245,6 +245,7 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_IRCL_IE_SW_RST                 (1<<8)
 #define CIF_IRCL_SI_SW_RST                 (1<<9)
 #define CIF_IRCL_MIPI_SW_RST               (1<<11)
+#define CIF_IRCL_YCFLT_SW_RST              (1<<12)
 
 /* C_PROC_CTR */
 #define CIF_C_PROC_CTR_ENABLE              (1<<0)
@@ -360,6 +361,7 @@ Enabling and Disabling CIF-ISP Feature:
 #define CIF_MIPI_DHPY_LP_CLK_DIV(a)        ((a)<<19)
 #define CIF_MIPI_DHPY_SUB_200MHZ_ENABLE    (1<<25)
 #define CIF_MIPI_DHPY_SUB_200MHZ_DISABLE   (0<<25)
+#define CIF_MIPI_DHPY_CALIB_MASK	   (0x00000380)
 
 /* MIPI_DPHY2 */
 #define CIF_MIPI_DHPY_DATA_DELAY(a)  ((a)<<0)

@@ -9,3 +9,12 @@ config VIDEO_XGOLD
 	---help---
 	Say Y here to enable selecting the
 	xgold supported camera sensors
+
+config CIF_ISP20_REG_TRACE
+	tristate "ISP register trace"
+	depends on VIDEO_XGOLD
+	default n
+
+	---help---
+	Say Y here to enable ISP function and register traces.
+	This is a debugging feature.
