@@ -491,7 +491,7 @@
 						/* QUIRK_CAP_CLOCK_BASE_BROKEN: bit 25 + QUIRKS2_HOST_PRESET_VALUE_BROKEN: bit 3 + LED_BROKEN: bit 14*/
 						/* QUIRK2_HOST_BROKEN_AUTO_CMD23: bit24 */
 						intel,quirks = < 0x2000000 0x4008 >;
-						bus-width = < 8 >;
+						bus-width = < 4 >;
 						non-removable;
 						intel,io-access-guest;
 						pm_ctrl{
