@@ -129,7 +129,7 @@ int fan54x_i2c_update_reg(struct i2c_client *client, u8 reg_addr,
 					u8 mask, int shift, u8 data)
 {
 	int ret;
-	u8 val;
+	u8 val = 0;
 
 	ret = fan54x_i2c_read_reg(client, reg_addr, &val);
 	if (ret)
