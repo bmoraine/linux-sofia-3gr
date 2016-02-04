@@ -422,6 +422,10 @@ static int silead_ts_probe(struct i2c_client *client,
 	}
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	if (!data) {
+		dev_err(&client->dev, "failed to allocate driver data.\n");
+		return -ENOMEM;
+	}
 	i2c_set_clientdata(client, data);
 	data->client = client;
 
