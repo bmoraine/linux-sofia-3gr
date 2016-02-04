@@ -307,6 +307,7 @@ int disable_charger_fan54015(bool disable)
 	down(&fan54015_chrgr_data.prop_lock);
 	fan54x_attr_write(fan54015_chrgr_data.client, CHG_EN, disable);
 	up(&fan54015_chrgr_data.prop_lock);
+	return 0;
 }
 
 static int fan54015_get_iocharge_val(int regval)
