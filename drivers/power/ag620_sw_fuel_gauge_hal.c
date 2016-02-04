@@ -560,6 +560,10 @@ static void sw_fuel_gauge_hal_process_timer_and_irq_work(long param)
 								cb_param);
 	}
 	/* Calculate and set the period for the next timeout. */
+	sw_fuel_gauge_hal_instance.
+		ibat_long_term_average_polling_atimer.type =
+			ALARM_REALTIME;
+
 	SET_ALARM_TIMER(&sw_fuel_gauge_hal_instance.
 				ibat_long_term_average_polling_atimer,
 				IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES2);
@@ -1223,6 +1227,9 @@ static int __exit sw_fuel_gauge_hal_remove(struct idi_peripheral_device *ididev)
 	/* Delete allocated resources and mark driver as uninitialised. */
 	if (NULL != sw_fuel_gauge_hal_instance.p_sw_fuel_gauge) {
 		sw_fuel_gauge_hal_instance.p_sw_fuel_gauge = NULL;
+		sw_fuel_gauge_hal_instance.
+			ibat_long_term_average_polling_atimer.type =
+					ALARM_REALTIME;
 		(void)alarm_cancel(&sw_fuel_gauge_hal_instance.
 					ibat_long_term_average_polling_atimer);
 	}
