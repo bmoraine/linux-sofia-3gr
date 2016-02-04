@@ -42,9 +42,11 @@ galaxycore,gc0310-v4l2-i2c-subdev	GC0310, VGA SOC Camera Sensor
 gmt,g751		G751: Digital Temperature Sensor and Thermal Watchdog with Two-Wire Interface
 infineon,slb9635tt	Infineon SLB9635 (Soft-) I2C TPM (old protocol, max 100khz)
 infineon,slb9645tt	Infineon SLB9645 I2C TPM (new protocol, max 400khz)
+inv,mpu3050		InvenSense mpu3050 gyroscope sensor Chip
 isl,isl12057		Intersil ISL12057 I2C RTC Chip
 kionix,kxcjk1013_acc	Kionix kxcjk-1013 accelerometer sensor Chip
 memsic,mmc3416x		Memsic mmc3416x ecompass sensor Chip
+memsic,mxc4005		Memsic mxc4005 accelerometer sensor Chip
 maxim,ds1050		5 Bit Programmable, Pulse-Width Modulator
 maxim,max1237		Low-Power, 4-/12-Channel, 2-Wire Serial, 12-Bit ADCs
 maxim,max6625		9-Bit/12-Bit Temperature Sensors with I²C-Compatible Serial Interface
@@ -70,4 +72,5 @@ taos,tsl2550		Ambient Light Sensor with SMBUS/Two Wire Serial Interface
 ti,tsc2003		I2C Touch-Screen Controller
 ti,tmp102		Low Power Digital Temperature Sensor with SMBUS/Two Wire Serial Interface
 ti,tmp275		Digital Temperature Sensor
+upi,us5182d		uPI Semiconductor us5182d Ambient Light and Proximity sensor Chip
 winbond,wpct301		i2c trusted platform module (TPM)

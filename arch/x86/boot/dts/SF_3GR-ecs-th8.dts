@@ -381,60 +381,49 @@
 	pinctrl-1 = <&i2c3_sleep_pins>;
 	pinctrl-2 = <&i2c3_inactive_pins>;
 #ifndef RECOVERY_KERNEL
-	sarsensor {
-		compatible = "semtech,sx9500";
-		reg = < 0x28 >;
-		interrupt-parent = <&eint>;
-		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_FALLING >;
-		pinctrl-names = "default", "sleep", "inactive";
-		pinctrl-0 = <&sar_default_pins>;
-		pinctrl-1 = <&sar_sleep_pins>;
-		pinctrl-2 = <&sar_inactive_pins>;
-		intel,sar-gpio-int = <&xgold_pmx_gpio 54 0>;
-		intel,sar-gpio-reset = <&xgold_pmx_gpio 57 0>;
-		interrupt-gpios = <&xgold_pmx_gpio 54 0>;
-		reset-gpios = <&xgold_pmx_gpio 57 0>;
-		pm,class-name = "sx9500_class";
-		pm,user-name = "ext_sar_sensor";
-		pm,state-D0 = "enable";
-		pm,state-D3 = "disable";
-	};
-
 	accelerometer {
-		compatible = "mxc,mxc400x";
+		compatible = "memsic,mxc4005";
 		reg = < 0x15 >;
-		intel,poll_interval = < 20 >;
-		intel,min_interval  = < 10 >;
-	};
-
-	magnetometer {
-		compatible = "memsic,mmc35240";
-		reg = < 0x30 >;
-		intel,axis-map = < 0 1 2 >;
-		intel,negate = < 0 0 0 >;
-		intel,offset = < 0 0 0 >;
-		mounting-matrix = < 0 1 0 (-1) 0 0 0 0 1 >;
+		intel,acc-direction = < 1 >;
 		intel,poll-interval = < 100 >;
-		pm,class-name = "mmc3524x_class";
-		pm,user-name = "ext_magnetometer";
+		mounting-matrix = < (-1) 0 0 0 1 0 0 0 (-1) >;
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&accel_default_pins>;
+		pinctrl-1 = <&accel_sleep_pins>;
+		pinctrl-2 = <&accel_inactive_pins>;
+		pm,class-name = "mxc4005_acc_class";
+		pm,user-name = "ext_accelerometer";
 		pm,state-D0 = "enable";
 		pm,state-D3 = "disable";
+	};
+
+	proxsensor {
+		compatible = "upi,us5182d";
+		reg = < 0x39 >;
+		interrupt-parent = <&eint>;
+		interrupts = < EINT_EXI5 XGOLD_IRQ_TYPE_EDGE_FALLING >;
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&prox_default_pins>;
+		pinctrl-1 = <&prox_sleep_pins>;
+		pinctrl-2 = <&prox_inactive_pins>;
 	};
 
 	gyroscope {
-		compatible = "st,ST200GC";
+		compatible = "inv,mpu3050";
 		reg = < 0x68 >;
-		interrupt-parent = <&eint>;
-		interrupts = < EINT_EXI1 XGOLD_IRQ_TYPE_EDGE_RISING>;
-	};
-
-        alsensor {
-		compatible = "upisemi,US5182";
-		reg = < 0x39 >;
-		intel,axis-map = < 1 0 2 >;
-		intel,negate = < 1 0 0 >;
+		pinctrl-names = "default", "sleep", "inactive";
+		pinctrl-0 = <&gyroscope_default_pins>;
+		pinctrl-1 = <&gyroscope_sleep_pins>;
+		pinctrl-2 = <&gyroscope_inactive_pins>;
+		intel,axis-map = < 0 1 2 >;
+		intel,negate = < 0 0 0 >;
 		intel,poll-interval = < 100 >;
-        };
+		intel,full-scale = < 2000 >;
+		pm,class-name = "mpu3050_class";
+		pm,user-name = "ext_gyroscope";
+		pm,state-D0 = "enable";
+		pm,state-D3 = "disable";
+	};
 #endif
 };
 &i2c_4 {

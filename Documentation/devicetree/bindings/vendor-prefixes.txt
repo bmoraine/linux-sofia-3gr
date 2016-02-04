@@ -103,6 +103,7 @@ ti	Texas Instruments
 tlm	Trusted Logic Mobility
 toshiba	Toshiba Corporation
 toumaz	Toumaz
+upi	uPI Semiconductor Corp.
 v3	V3 Semiconductor
 via	VIA Technologies, Inc.
 winbond Winbond Electronics corp.
