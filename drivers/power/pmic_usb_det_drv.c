@@ -160,7 +160,8 @@ struct pmic_usb_det_data {
  */
 static int pmic_reg_read(u32 dev, u32 reg, u8 *p_val)
 {
-	u32 vmm_addr, data;
+	u32 vmm_addr;
+	u32 data = 0;
 	int ret;
 
 	if (!p_val)
