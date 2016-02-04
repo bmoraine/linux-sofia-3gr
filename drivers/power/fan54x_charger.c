@@ -183,8 +183,8 @@ static ssize_t fake_vbus_store(
 	size_t size_to_cpy;
 	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
 
-	size_to_cpy = (count > SYSFS_INPUT_VAL_LEN) ?
-				SYSFS_INPUT_VAL_LEN : count;
+	size_to_cpy = (count > (sizeof(strvalue)-1)) ?
+				sizeof(strvalue) - 1 : count;
 
 	strncpy(strvalue, buf, size_to_cpy);
 	strvalue[size_to_cpy] = '\0';
@@ -1205,7 +1205,7 @@ static void fan54x_boost_worker(struct work_struct *work)
 
 	if ((!ret) && val && chrgr->state.boost_enabled) {
 		fan54x_trigger_wtd(chrgr);
-
+		chrgr->boost_alarm.type = ALARM_REALTIME;
 		alarm_start_relative(&chrgr->boost_alarm,
 				ktime_set(BOOST_ALARM_DELAY, 0));
 	}
@@ -1267,7 +1267,7 @@ static void fan54x_set_boost(struct work_struct *work)
 
 		/* Enable boost mode flag */
 		chrgr->state.boost_enabled = 1;
-
+		chrgr->boost_alarm.type = ALARM_REALTIME;
 		alarm_start_relative(&chrgr->boost_alarm,
 				ktime_set(BOOST_ALARM_DELAY, 0));
 	} else {
