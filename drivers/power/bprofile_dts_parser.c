@@ -60,8 +60,7 @@ static int dt_add_bprofile(struct device_node *np,
 	index = i;
 	bprofile_ptr = &bprof[index];
 
-	strncpy(bprofile_ptr->batt_id, prof_name, strlen);
-
+	strncpy(bprofile_ptr->batt_id, prof_name, strlen + 1);
 	snprintf(propname, ARRAY_SIZE(propname),
 		"prof-%s-ntemp_ranges", bprofile_ptr->batt_id);
 
