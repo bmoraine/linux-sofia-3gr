@@ -349,10 +349,12 @@ static struct battery_type *get_bat_type(struct bat_drv_data *pbat,
 					unsigned int batid_ohms)
 {
 	unsigned int ibatid_min_th, ibatid_max_th;
-	int i, len = pbat->pdata.supported_batteries_len;
+	int i, len;
 
 	if (!pbat)
 		return NULL;
+
+	len = pbat->pdata.supported_batteries_len;
 
 	if (pbat->use_tbatid) {
 		char *id_str;
