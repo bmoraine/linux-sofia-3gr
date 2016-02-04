@@ -326,6 +326,8 @@ static inline bool is_chrgr_prop_changed(struct power_supply *psy)
 
 	struct charger_props chrgr_prop_cache, chrgr_prop;
 
+	memset(&chrgr_prop_cache, 0, sizeof(chrgr_prop_cache));
+
 	get_cur_chrgr_prop(psy, &chrgr_prop);
 	/* Get cached battery property. If no cached property available
 	 *  then cache the new property and return true
@@ -424,6 +426,7 @@ static inline void get_cur_bat_prop(struct power_supply *psy,
 	struct batt_props bat_prop_cache;
 	int ret;
 
+	bat_prop_cache.algo_stat = PSY_ALGO_STAT_UNKNOWN;
 
 	bat_prop->name = psy->name;
 	bat_prop->voltage_now = VOLTAGE_NOW(psy) / 1000;
@@ -446,6 +449,8 @@ static inline bool is_batt_prop_changed(struct power_supply *psy)
 {
 
 	struct batt_props bat_prop_cache, bat_prop;
+
+	memset(&bat_prop_cache, 0, sizeof(bat_prop_cache));
 
 	/* Get cached battery property. If no cached property available
 	 *  then cache the new property and return true
@@ -583,6 +588,8 @@ static int get_battery_status(struct power_supply *psy)
 	struct power_supply *chrgr_lst[MAX_CHARGER_COUNT];
 	struct batt_props bat_prop;
 
+	bat_prop.algo_stat = PSY_ALGO_STAT_UNKNOWN;
+
 	if (!IS_BATTERY(psy))
 		return -EINVAL;
 
@@ -668,6 +675,7 @@ static int trigger_algo(struct power_supply *psy)
 	int cnt, ret = -ENODATA;
 	enum psy_algo_stat prev_algo_stat;
 
+	bat_prop.algo_stat = PSY_ALGO_STAT_UNKNOWN;
 
 	if (psy->type != POWER_SUPPLY_TYPE_BATTERY)
 		return 0;
