@@ -592,6 +592,8 @@ static int gt9xx_fw_check_and_repair(struct i2c_client *client, u16 start_addr,
 	bool check_failed = false;
 
 	buf = kmalloc(GT9XX_FW_CHK_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
 
 	while (index < len && retry < GT9XX_FW_CHK_RETRY) {
 		comp_len = ((len - index) < GT9XX_FW_CHK_SIZE) ? (len - index) :
