@@ -344,6 +344,7 @@ out_free:
 
 static struct of_device_id gc_of_match[] = {
 	{.compatible = "galaxycore," GC0310_NAME "-v4l2-i2c-subdev"},
+	{ }
 };
 
 
