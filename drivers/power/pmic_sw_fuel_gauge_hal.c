@@ -278,8 +278,11 @@ static void pmic_swfg_hal_cctick_irq_en(struct pmic_swfg_hal_data *p_fg_hal,
 static void pmic_swfg_hal_get_coulomb_counts(u32 *cc_up_counts,
 						u32 *cc_down_counts)
 {
-	u32 addr;
-	u32 data0, data1, data2, data3, dummy;
+	u32 addr, dummy;
+	u32 data0 = 0;
+	u32 data1 = 0;
+	u32 data2 = 0;
+	u32 data3 = 0;
 
 	/*
 	 * Read registers and return values to the caller.
@@ -448,8 +451,9 @@ static int pmic_swfg_hal_read_battery_current(bool longterm, bool latched)
 	int ibat_negative;
 	int ibat_count_signed;
 	int ibat_ma = INT_MAX;
-	u32 addr;
-	u32 data0, data1, dummy;
+	u32 addr, dummy;
+	u32 data0 = 0;
+	u32 data1 = 0;
 	u32 ibat_reg;
 	bool data_valid = true;
 
