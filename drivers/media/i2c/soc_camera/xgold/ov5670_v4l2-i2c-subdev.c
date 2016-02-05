@@ -1221,7 +1221,7 @@ static int ov5670_set_flip_reg(struct ov_camera_module *cam_mod)
 
 static int ov5670_set_flip(struct ov_camera_module *cam_mod)
 {
-	int i, mode;
+	int i, mode = flip_mode;
 
 	if (cam_mod->vflip)
 		mode |= 0x01;
