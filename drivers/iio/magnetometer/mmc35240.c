@@ -346,6 +346,7 @@ static int mmc35240_init(struct mmc35240_data *data)
 static int mmc35240_take_measurement(struct mmc35240_data *data)
 {
 	int ret, mti, tries = 100;
+	int id = data->chipset;
 	unsigned int reg_status;
 
 	ret = regmap_write(data->regmap, MMC35240_REG_CTRL0,
@@ -355,12 +356,14 @@ static int mmc35240_take_measurement(struct mmc35240_data *data)
 		return ret;
 	}
 
+	if (id >= MMC_MAX_CHIPS)
+		return -EINVAL;
 	/*
 	 * Minimum wait time to complete measurement varies according
 	 * to resolution (see datasheet pg.11 'Operating Timing Diagram'
 	 * for reference).
 	 */
-	mti = mmc35240_props_table[data->chipset][data->res].mti;
+	mti = mmc35240_props_table[id][data->res].mti;
 	usleep_range(mti , mti + 100);
 
 	while (tries-- > 0) {
@@ -451,6 +454,9 @@ static int memsic_raw_to_mgauss(struct mmc35240_data *data, int index,
 	raw[AXIS_X] = le16_to_cpu(buf[AXIS_X]);
 	raw[AXIS_Y] = le16_to_cpu(buf[AXIS_Y]);
 	raw[AXIS_Z] = le16_to_cpu(buf[AXIS_Z]);
+
+	if (id >= MMC_MAX_CHIPS)
+		return -EINVAL;
 
 	sens[AXIS_X] = mmc35240_props_table[id][data->res].sens[AXIS_X];
 	sens[AXIS_Y] = mmc35240_props_table[id][data->res].sens[AXIS_Y];
@@ -598,7 +604,7 @@ static int mmc35240_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		i = (reg & MMC35240_CTRL1_BW_MASK) >> MMC35240_CTRL1_BW_SHIFT;
-		if (i < 0 || i > ARRAY_SIZE(mmc35240_samp_freq))
+		if (i < 0 || i >= ARRAY_SIZE(mmc35240_samp_freq))
 			return -EINVAL;
 
 		*val = mmc35240_samp_freq[i].val;
