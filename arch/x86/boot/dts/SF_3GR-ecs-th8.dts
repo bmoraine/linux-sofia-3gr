@@ -295,8 +295,8 @@
 	pinctrl-2 = <&i2c1_inactive_pins>;
 #ifndef RECOVERY_KERNEL
 	camera0: camera-module@0 {
-		compatible = "galaxycore,gc2155-v4l2-i2c-subdev";
-		reg = < 0x3c >;
+		compatible = "omnivision,ov5670-v4l2-i2c-subdev";
+		reg = < 0x36 >;
 		device_type = "v4l2-i2c-subdev";
 
 		pinctrl-names = "default", "sleep", "inactive";
@@ -305,6 +305,7 @@
 		pinctrl-2 = <&cam1_function_B_inactive_pins>;
 
 		intel,pd-gpio = <&xgold_pmx_gpio 14 0>;
+		intel,pd-gpio-is_active_low;
 		intel,rst-gpio = <&xgold_pmx_gpio 65 0>;
 		intel,rst-gpio-is_active_low;
 		intel,flash-gpio = <&xgold_pmx_gpio 61 0>;
@@ -321,15 +322,21 @@
 		/* ["front","back"] */
 		intel,camera-module-facing = "back";
 		/* ["landscape","landscape-flipped","portrait","portrait-flipped"] */
-		intel,camera-module-mounting = "landscape";
-	//	intel,camera-module-flash-support = <1>;
-	//	intel,camera-module-flash-exp-time = <5000>;
 
 		intel,camera-module-csi-config-0 {
 			intel,csi-pixels-per-second = <0>;
 			intel,csi-vc = <0>;
-			intel,csi-lanes = <4>;
-			intel,csi-dphy1 = <0x600E241>;
+			intel,csi-lanes = <1>;
+			intel,csi-dphy1 = <0x6086241>;
+			intel,csi-dphy2 = <0x00>;
+			intel,csi-ana-bandgap-bias = <3>;
+		};
+
+		intel,camera-module-csi-config-1 {
+			intel,csi-pixels-per-second = <100000000>;
+			intel,csi-vc = <0>;
+			intel,csi-lanes = <2>;
+			intel,csi-dphy1 = <0x60A0241>;
 			intel,csi-dphy2 = <0x00>;
 			intel,csi-ana-bandgap-bias = <3>;
 		};
@@ -339,8 +346,8 @@
 
 #ifndef RECOVERY_KERNEL
 	camera1: camera-module@1 {
-		compatible = "galaxycore,gc0310-v4l2-i2c-subdev";
-		reg = < 0x21 >;
+		compatible = "omnivision,ov2680-v4l2-i2c-subdev";
+		reg = < 0x10 >;
 		device_type = "v4l2-i2c-subdev";
 
 		pinctrl-names = "default", "sleep", "inactive";
@@ -349,7 +356,9 @@
 		pinctrl-2 = <&cam2_function_B_inactive_pins>;
 
 		intel,pd-gpio = <&xgold_pmx_gpio 15 0>;
+		intel,pd-gpio-is_active_low;
 		intel,rst-gpio = <&xgold_pmx_gpio 66 0>;
+		intel,rst-gpio-is_active_low;
 
 		intel,shared-gpio = <&xgold_pmx_gpio 70 0>;
 
