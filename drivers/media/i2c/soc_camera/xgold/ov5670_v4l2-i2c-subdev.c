@@ -1356,6 +1356,11 @@ static int ov5670_start_streaming(struct ov_camera_module *cam_mod)
 	if (IS_ERR_VALUE(ret))
 		goto err;
 
+	/* Ensure correct color bayer order */
+	ret = ov5670_set_flip(cam_mod);
+	if (IS_ERR_VALUE(ret))
+		goto err;
+
 	/* Before this time in calling
 	 * the bayer order and flip_mode has been reconfigured;
 	 * So in this moment
