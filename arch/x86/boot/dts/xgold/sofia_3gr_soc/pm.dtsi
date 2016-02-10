@@ -1422,7 +1422,7 @@ ext_magnetometer_pm_user:ext_magnetometer_pm_user {
 
 ext_proximity_sensor_pm_user:ext_proximity_sensor_pm_user {
 	compatible = "intel,xgold_pm_user";
-	intel,name = "ext_proximity_sensor";
+	intel,name = "proximity";
 	intel,user-id = <PRH_USER_PROXIMITY_SENSOR>;
 	intel,per-id = <PRH_PER_EXT_PROXIMITY_SENSOR>;
 	intel,class = <&generic_pm_class>;
