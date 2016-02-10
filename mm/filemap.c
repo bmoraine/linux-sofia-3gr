@@ -921,7 +921,10 @@ struct page *pagecache_get_page(struct address_space *mapping, pgoff_t offset,
 	struct page *page;
 	unsigned long extra_flag = 0;
 
-	if (mapping && mapping->host && mapping->host->i_ino == 0)
+	if (unlikely(!mapping))
+		return NULL;
+
+	if (mapping->host && mapping->host->i_ino == 0)
 		extra_flag = GFP_PAGE_INODE0;
 repeat:
 	page = find_get_entry(mapping, offset);
