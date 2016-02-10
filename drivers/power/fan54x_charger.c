@@ -183,11 +183,12 @@ static ssize_t fake_vbus_store(
 	size_t size_to_cpy;
 	char strvalue[SYSFS_INPUT_VAL_LEN + 1];
 
-	size_to_cpy = (count > (sizeof(strvalue)-1)) ?
-				sizeof(strvalue) - 1 : count;
+	size_to_cpy = (count > SYSFS_INPUT_VAL_LEN) ?
+				SYSFS_INPUT_VAL_LEN : count;
 
-	strncpy(strvalue, buf, size_to_cpy);
-	strvalue[size_to_cpy] = '\0';
+	if (strlcpy(strvalue, buf, sizeof(size_to_cpy))
+			>= sizeof(size_to_cpy))
+			return -ENAMETOOLONG;
 
 	ret = kstrtoint(strvalue, 10, &sysfs_val);
 	if (ret != 0)
