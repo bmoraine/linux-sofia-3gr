@@ -1240,15 +1240,13 @@ static int v4l2_enum_input(struct file *file, void *priv,
 	if (IS_ERR(inp_name))
 		return -ENODEV;
 
-	strcpy(input->name, inp_name);
-
 	/* Fixme
 	 * This reserved[1] value is used for consider ispPort in HAL
 	 */
 	input->reserved[1] = (input->index) ? ATOMISP_CAMERA_PORT_SECONDARY :
 		ATOMISP_CAMERA_PORT_PRIMARY;
 
-	return 0;
+	return strlcpy(input->name, inp_name, sizeof(input->name));
 }
 
 /* ================================================================= */
