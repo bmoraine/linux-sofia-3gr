@@ -1295,7 +1295,6 @@ static int ov5670_s_ctrl(struct ov_camera_module *cam_mod, u32 ctrl_id)
 		break;
 	case V4L2_CID_HFLIP:
 	case V4L2_CID_VFLIP:
-		/* It seems unuseful */
 		ret = ov5670_set_flip(cam_mod);
 		break;
 
@@ -1353,11 +1352,6 @@ static int ov5670_start_streaming(struct ov_camera_module *cam_mod)
 		goto err;
 
 	ret = ov5670_write_aec(cam_mod);
-	if (IS_ERR_VALUE(ret))
-		goto err;
-
-	/* Ensure correct color bayer order */
-	ret = ov5670_set_flip(cam_mod);
 	if (IS_ERR_VALUE(ret))
 		goto err;
 

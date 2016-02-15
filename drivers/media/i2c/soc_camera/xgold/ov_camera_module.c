@@ -826,12 +826,18 @@ int ov_camera_module_s_ext_ctrls(
 				cam_mod->hflip = true;
 			else
 				cam_mod->hflip = false;
+
+			if (!IS_ERR_OR_NULL(cam_mod->custom.set_flip))
+				ret |= cam_mod->custom.set_flip(cam_mod);
 			break;
 		case V4L2_CID_VFLIP:
 			if (ctrl->value)
 				cam_mod->vflip = true;
 			else
 				cam_mod->vflip = false;
+
+			if (!IS_ERR_OR_NULL(cam_mod->custom.set_flip))
+				ret |= cam_mod->custom.set_flip(cam_mod);
 			break;
 		default:
 			pltfrm_camera_module_pr_warn(&cam_mod->sd,
