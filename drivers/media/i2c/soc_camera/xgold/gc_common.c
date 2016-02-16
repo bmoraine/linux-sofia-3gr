@@ -897,7 +897,7 @@ static void reset_v4l2_ctrl_value(struct v4l2_ctrl_handler *hdl)
 long gc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	/* TODO: add support for debug register read/write ioctls */
-	return 0;
+	return -EINVAL;
 }
 
 int gc_detect(struct i2c_client *client, u16 *id)
