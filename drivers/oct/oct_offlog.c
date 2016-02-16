@@ -192,6 +192,9 @@ void oct_offlog_check_mk_dirs(void)
 	char c = '/';
 	char *nextdir = NULL;
 
+	while(oct_log_start !=1) {
+		msleep(200);
+	}
 	nextdir = strchr(oct_offlog_path + 1, c);
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
@@ -310,6 +313,10 @@ void oct_write_data_to_file(void *ptr, int num_bytes)
 	int written_bytes = 0;
 	int verify_fp = 2;
 	static int total_written_bytes;
+
+	if(oct_log_start == 0) {
+		return;
+	}
 
 	if (!oct_offlog_onoff && oct_offlog_run) {
 		written_bytes = num_bytes;

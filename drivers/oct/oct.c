@@ -109,6 +109,8 @@ struct device_pm_platdata *pm_platdata;
 
 static struct file *oct_open_gadget(char *gadget_name);
 
+static int oct_log_start = 0;
+
 #define OCT_OFFLOG
 #ifdef OCT_OFFLOG
 #include "oct_offlog.c"
@@ -376,8 +378,9 @@ static struct file *oct_open_gadget(char *gadget_name)
 			msleep(2000);
 			continue;
 		} else if (IS_ERR(fp)) {
-			OCT_LOG("Gadget %s open failed.", gadget_name);
+			OCT_LOG("Gadget %s open failed with error=%ld!", gadget_name, PTR_ERR(fp));
 			msleep(2000);
+			oct_offlog_check_mk_dirs();
 			continue;
 		} else {
 			OCT_LOG("Gadget %s open succeeded.", gadget_name);
@@ -908,7 +911,7 @@ static long oct_ioctl(struct file *p_file,
 	struct s_oct_info oct_info;
 	int result;
 
-	OCT_DBG("Ioctl cmd %d, param: %ld", cmnd, param);
+	OCT_LOG("Ioctl cmd %d, param: %ld", cmnd, param);
 
 	switch (cmnd) {
 	case OCT_IOCTL_SET_PATH:
@@ -958,6 +961,9 @@ static long oct_ioctl(struct file *p_file,
 	case OCT_IOCTL_FLUSH:
 	    /*todo: - for coredump*/
 	    break;
+	case OCT_IOCTL_START:
+		oct_log_start = param;
+		break;
 	default:
 	    OCT_DBG("Ioctl command out of range");
 	}

@@ -33,7 +33,8 @@ enum e_oct_ioctl {
 	OCT_IOCTL_CONF_TRIG_L1,    /* config L1 watermark level */
 	OCT_IOCTL_ENTER_CD,        /* enter coredump mode */
 	OCT_IOCTL_FLUSH,           /* flush data into external ring buffer */
-	OCT_IOCTL_GET_INFO         /* get OCT info like rd/wr ptr */
+	OCT_IOCTL_GET_INFO,         /* get OCT info like rd/wr ptr */
+	OCT_IOCTL_START
 };
 
 enum e_oct_mode {
