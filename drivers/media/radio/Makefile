@@ -34,7 +34,6 @@ obj-$(CONFIG_RADIO_WL128X) += wl128x/
 obj-$(CONFIG_RADIO_TEA575X) += tea575x.o
 obj-$(CONFIG_USB_RAREMONO) += radio-raremono.o
 obj-$(CONFIG_XGOLD_FMRADIO) += intel/
-obj-$(CONFIG_RADIO_LNP) += intel_lnp/
 
 shark2-objs := radio-shark2.o radio-tea5777.o
 

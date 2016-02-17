@@ -243,9 +243,6 @@ config XGOLD_FMRADIO
 	   To compile this driver as a module, choose M here: the
 	   module will be called fmdrv_xgold.
 
-# Intel LNP FM radio
-source "drivers/media/radio/intel_lnp/Kconfig"
-
 #
 # ISA drivers configuration
 #
