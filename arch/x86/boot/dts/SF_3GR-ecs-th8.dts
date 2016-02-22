@@ -313,7 +313,6 @@
 
 		intel,shared-gpio = <&xgold_pmx_gpio 70 0>;
 
-		intel.flash-driver = "FP6773C";
 		pm,class-name = "generic_class";
 		pm,user-name = "primcam";
 		pm,state-D0 = "enable";
