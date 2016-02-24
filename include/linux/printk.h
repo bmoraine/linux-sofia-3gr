@@ -105,6 +105,8 @@ int no_printk(const char *fmt, ...)
 	return 0;
 }
 
+void get_log_buf(char **buffer, u32 *length);
+
 #ifdef CONFIG_EARLY_PRINTK
 extern asmlinkage __printf(1, 2)
 void early_printk(const char *fmt, ...);

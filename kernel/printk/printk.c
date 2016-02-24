@@ -2918,3 +2918,9 @@ void show_regs_print_info(const char *log_lvl)
 }
 
 #endif
+
+void get_log_buf(char **buffer, u32 *length)
+{
+	*buffer = __log_buf;
+	*length = __LOG_BUF_LEN;
+}
