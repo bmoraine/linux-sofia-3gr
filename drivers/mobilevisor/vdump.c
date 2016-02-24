@@ -30,6 +30,7 @@
 #include <linux/kmsg_dump.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>  /* for msleep*/
+#include <linux/printk.h>
 #include <asm/page.h>
 
 #include <sofia/mv_gal.h>
@@ -96,10 +97,10 @@ static struct kmsg_dumper vdumper = {
 	.dump = vdump_panic,
 };
 
-
 static void vdump_thread_create(void);
 static int vdump_thread(void *param);
 static int vdump_init_sharemem(void);
+static void vdump_add_logbuf(void);
 
 extern void schedule_vmodem_workqueue(void);
 static int vdump_control_open(struct inode *p_inode, struct file *p_file)
@@ -169,6 +170,8 @@ static int vdump_init(void)
 	/* register linux kernal space for dumping */
 	kmsg_dump_register(&vdumper);
 
+	vdump_add_logbuf();
+
 	return 0;
 }
 
@@ -176,6 +179,23 @@ static void vdump_exit(void)
 {
 	kthread_stop(task);
 	VD_LOG("exit");
+}
+
+static uint32_t vdump_min_system_ram(void)
+{
+	struct resource *p;
+	resource_size_t start = __pa(_text);
+
+	for (p = iomem_resource.child; p ; p = p->sibling) {
+		/* system ram is just marked as IORESOURCE_MEM */
+		if (p->flags == (IORESOURCE_MEM | IORESOURCE_BUSY)
+			&& !strcmp(p->name, "System RAM")) {
+			if (p->start < start)
+				start = p->start;
+		}
+	}
+
+	return start;
 }
 
 /*
@@ -189,6 +209,7 @@ static void vdump_panic(struct kmsg_dumper *dumper,
 	struct sys_trap *trap_data;
 	struct cd_ram *cd_area;
 	size_t len;
+	uint32_t start;
 
 	if (reason != KMSG_DUMP_PANIC)
 		return;
@@ -197,10 +218,11 @@ static void vdump_panic(struct kmsg_dumper *dumper,
 	vmm_shared_data = mv_gal_get_shared_data();
 
 	/* Kernel code and data region */
+	start = vdump_min_system_ram();
 	cd_area = (struct cd_ram *)vmm_shared_data->vm_log_str;
-	cd_area->logical_start = (uint32_t)_text;
-	cd_area->physical_start = (uint32_t)__pa(_text);
-	cd_area->length = (uint32_t)_end - (uint32_t)_text;
+	cd_area->logical_start = (uint32_t)__va(start);
+	cd_area->physical_start = (uint32_t)start;
+	cd_area->length = (uint32_t)_end - (uint32_t)__va(start);
 	mv_svc_cd_service(CD_ADD_REGION, (void *)__pa(cd_area));
 
 	/* Entire low memory range */
@@ -223,6 +245,27 @@ static void vdump_panic(struct kmsg_dumper *dumper,
 
 	/* Program should never return back here */
 	unreachable();
+}
+
+static void vdump_add_logbuf(void)
+{
+	struct vmm_shared_data *vmm_shared_data;
+	struct cd_ram *cd_area;
+	char *buf = NULL;
+	u32 len = 0;
+
+	/* Get log_buf info */
+	get_log_buf(&buf, &len);
+
+	/* Get share data */
+	vmm_shared_data = mv_gal_get_shared_data();
+
+	/* Kernel code and data region */
+	cd_area = (struct cd_ram *)vmm_shared_data->vm_log_str;
+	cd_area->logical_start = (uint32_t)buf;
+	cd_area->physical_start = (uint32_t)__pa(buf);
+	cd_area->length = (uint32_t)len;
+	mv_svc_cd_service(CD_ADD_REGION, (void *)__pa(cd_area));
 }
 
 static void vdump_thread_create(void)
