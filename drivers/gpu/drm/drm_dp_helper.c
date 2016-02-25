@@ -517,9 +517,11 @@ static int drm_dp_i2c_retry_count(const struct drm_dp_aux_msg *msg,
  * to require it. We should query/set the speed via DPCD if supported.
  */
 static int dp_aux_i2c_speed_khz __read_mostly = 10;
+#if 0
 module_param_unsafe(dp_aux_i2c_speed_khz, int, 0644);
 MODULE_PARM_DESC(dp_aux_i2c_speed_khz,
 		 "Assumed speed of the i2c bus in kHz, (1-400, default 10)");
+#endif
 
 /*
  * Transfer a single I2C-over-AUX message and handle various error conditions,
@@ -667,9 +669,11 @@ static int drm_dp_i2c_drain_msg(struct drm_dp_aux *aux, struct drm_dp_aux_msg *o
  * succeed. Hence the default is maximum.
  */
 static int dp_aux_i2c_transfer_size __read_mostly = DP_AUX_MAX_PAYLOAD_BYTES;
+#if 0
 module_param_unsafe(dp_aux_i2c_transfer_size, int, 0644);
 MODULE_PARM_DESC(dp_aux_i2c_transfer_size,
 		 "Number of bytes to transfer in a single I2C over DP AUX CH message, (1-16, default 16)");
+#endif
 
 static int drm_dp_i2c_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs,
 			   int num)
