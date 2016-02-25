@@ -30,6 +30,8 @@
 #include <linux/reset.h>
 #include <linux/delay.h>
 
+#include <asm/io.h>
+
 #include "rockchip_drm_drv.h"
 #include "rockchip_drm_gem.h"
 #include "rockchip_drm_fb.h"
@@ -417,7 +419,7 @@ static inline void vop_mask_write_relaxed(struct vop *vop, uint32_t offset,
 		uint32_t cached_val = vop->regsbak[offset >> 2];
 
 		cached_val = (cached_val & ~mask) | v;
-		writel_relaxed(cached_val, vop->regs + offset);
+		writel(cached_val, vop->regs + offset);
 		vop->regsbak[offset >> 2] = cached_val;
 	}
 }
