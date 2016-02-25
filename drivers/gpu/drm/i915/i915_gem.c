@@ -2275,8 +2275,9 @@ i915_gem_object_get_pages_gtt(struct drm_i915_gem_object *obj)
 	 * Fail silently without starting the shrinker
 	 */
 	mapping = file_inode(obj->base.filp)->i_mapping;
-	gfp = mapping_gfp_constraint(mapping, ~(__GFP_IO | __GFP_RECLAIM));
+	gfp = mapping_gfp_mask(mapping);
 	gfp |= __GFP_NORETRY | __GFP_NOWARN;
+	gfp &= ~(__GFP_IO | __GFP_RECLAIM);
 	sg = st->sgl;
 	st->nents = 0;
 	for (i = 0; i < page_count; i++) {
