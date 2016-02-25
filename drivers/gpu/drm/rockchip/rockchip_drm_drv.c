@@ -14,8 +14,9 @@
  * GNU General Public License for more details.
  */
 
+#if 0
 #include <asm/dma-iommu.h>
-
+#endif
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
@@ -44,6 +45,7 @@
 int rockchip_drm_dma_attach_device(struct drm_device *drm_dev,
 				   struct device *dev)
 {
+#if 0
 	struct dma_iommu_mapping *mapping = drm_dev->dev->archdata.mapping;
 	int ret;
 
@@ -54,13 +56,17 @@ int rockchip_drm_dma_attach_device(struct drm_device *drm_dev,
 	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
 
 	return arm_iommu_attach_device(dev, mapping);
+#endif
+	return 0;
 }
 EXPORT_SYMBOL_GPL(rockchip_drm_dma_attach_device);
 
 void rockchip_drm_dma_detach_device(struct drm_device *drm_dev,
 				    struct device *dev)
 {
+#if 0
 	arm_iommu_detach_device(dev);
+#endif
 }
 EXPORT_SYMBOL_GPL(rockchip_drm_dma_detach_device);
 
@@ -130,7 +136,9 @@ static void rockchip_drm_crtc_disable_vblank(struct drm_device *dev,
 static int rockchip_drm_load(struct drm_device *drm_dev, unsigned long flags)
 {
 	struct rockchip_drm_private *private;
+#if 0
 	struct dma_iommu_mapping *mapping;
+#endif
 	struct device *dev = drm_dev->dev;
 	struct drm_connector *connector;
 	int ret;
@@ -152,6 +160,7 @@ static int rockchip_drm_load(struct drm_device *drm_dev, unsigned long flags)
 		goto err_config_cleanup;
 	}
 
+#if 0
 	/* TODO(djkurtz): fetch the mapping start/size from somewhere */
 	mapping = arm_iommu_create_mapping(&platform_bus_type, 0x00000000,
 					   SZ_2G);
@@ -159,6 +168,7 @@ static int rockchip_drm_load(struct drm_device *drm_dev, unsigned long flags)
 		ret = PTR_ERR(mapping);
 		goto err_config_cleanup;
 	}
+#endif
 
 	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
 	if (ret)
@@ -166,9 +176,11 @@ static int rockchip_drm_load(struct drm_device *drm_dev, unsigned long flags)
 
 	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
 
+#if 0
 	ret = arm_iommu_attach_device(dev, mapping);
 	if (ret)
 		goto err_release_mapping;
+#endif
 
 	/* Try to bind all sub drivers. */
 	ret = component_bind_all(dev, drm_dev);
@@ -224,9 +236,13 @@ err_kms_helper_poll_fini:
 err_unbind:
 	component_unbind_all(dev, drm_dev);
 err_detach_device:
+#if 0
 	arm_iommu_detach_device(dev);
+#endif
 err_release_mapping:
+#if 0
 	arm_iommu_release_mapping(dev->archdata.mapping);
+#endif
 err_config_cleanup:
 	drm_mode_config_cleanup(drm_dev);
 	drm_dev->dev_private = NULL;
@@ -241,8 +257,10 @@ static int rockchip_drm_unload(struct drm_device *drm_dev)
 	drm_vblank_cleanup(drm_dev);
 	drm_kms_helper_poll_fini(drm_dev);
 	component_unbind_all(dev, drm_dev);
+#if 0
 	arm_iommu_detach_device(dev);
 	arm_iommu_release_mapping(dev->archdata.mapping);
+#endif
 	drm_mode_config_cleanup(drm_dev);
 	drm_dev->dev_private = NULL;
 
