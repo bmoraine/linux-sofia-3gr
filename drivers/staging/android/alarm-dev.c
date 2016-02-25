@@ -365,7 +365,7 @@ static void devalarm_triggered(struct devalarm *alarm)
 	alarm_dbg(INT, "%s: type %d\n", __func__, alarm->type);
 	spin_lock_irqsave(&alarm_slock, flags);
 	if (alarm_enabled & alarm_type_mask) {
-		__pm_wakeup_event(&alarm_wake_lock, 5000); /* 5secs */
+		__pm_wakeup_event(&alarm_wake_lock, 100); /* 100ms */
 		alarm_enabled &= ~alarm_type_mask;
 		alarm_pending |= alarm_type_mask;
 		wake_up(&alarm_wait_queue);
