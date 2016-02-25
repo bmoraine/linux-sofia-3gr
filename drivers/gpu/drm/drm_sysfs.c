@@ -230,12 +230,18 @@ static ssize_t dpms_show(struct device *device,
 			   char *buf)
 {
 	struct drm_connector *connector = to_drm_connector(device);
-	int dpms;
+	struct drm_device *dev = connector->dev;
+	uint64_t dpms_status;
+	int ret;
 
-	dpms = READ_ONCE(connector->dpms);
+	ret = drm_object_property_get_value(&connector->base,
+					    dev->mode_config.dpms_property,
+					    &dpms_status);
+	if (ret)
+		return 0;
 
 	return snprintf(buf, PAGE_SIZE, "%s\n",
-			drm_get_dpms_name(dpms));
+			drm_get_dpms_name((int)dpms_status));
 }
 
 static ssize_t enabled_show(struct device *device,
