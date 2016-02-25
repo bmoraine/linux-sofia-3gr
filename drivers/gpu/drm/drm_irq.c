@@ -712,8 +712,8 @@ int drm_calc_vbltimestamp_from_scanoutpos(struct drm_device *dev,
 					  unsigned flags,
 					  const struct drm_display_mode *mode)
 {
+	ktime_t stime, etime, mono_time_offset;
 	struct timeval tv_etime;
-	ktime_t stime, etime;
 	unsigned int vbl_status;
 	int ret = DRM_VBLANKTIME_SCANOUTPOS_METHOD;
 	int vpos, hpos, i;
@@ -755,6 +755,13 @@ int drm_calc_vbltimestamp_from_scanoutpos(struct drm_device *dev,
 							       &stime, &etime,
 							       mode);
 
+		/*
+		 * Get correction for CLOCK_MONOTONIC -> CLOCK_REALTIME if
+		 * CLOCK_REALTIME is requested.
+		 */
+		if (!drm_timestamp_monotonic)
+			mono_time_offset = ktime_get_monotonic_offset();
+
 		/* Return as no-op if scanout query unsupported or failed. */
 		if (!(vbl_status & DRM_SCANOUTPOS_VALID)) {
 			DRM_DEBUG("crtc %u : scanoutpos query failed [0x%x].\n",
@@ -795,7 +802,7 @@ int drm_calc_vbltimestamp_from_scanoutpos(struct drm_device *dev,
 			   mode->crtc_clock);
 
 	if (!drm_timestamp_monotonic)
-		etime = ktime_mono_to_real(etime);
+		etime = ktime_sub(etime, mono_time_offset);
 
 	/* save this only for debugging purposes */
 	tv_etime = ktime_to_timeval(etime);
@@ -822,7 +829,10 @@ static struct timeval get_drm_timestamp(void)
 {
 	ktime_t now;
 
-	now = drm_timestamp_monotonic ? ktime_get() : ktime_get_real();
+	now = ktime_get();
+	if (!drm_timestamp_monotonic)
+		now = ktime_sub(now, ktime_get_monotonic_offset());
+
 	return ktime_to_timeval(now);
 }
 
