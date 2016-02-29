@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/i386 3.14.55 Kernel Configuration
+# Linux/x86 3.14.55 Kernel Configuration
 #
 # CONFIG_64BIT is not set
 CONFIG_X86_32=y
@@ -3208,7 +3208,6 @@ CONFIG_RESET_CONTROLLER=y
 CONFIG_OCT=y
 CONFIG_OCT2=y
 # CONFIG_GATOR is not set
-# CONFIG_SLDRIVER is not set
 
 #
 # Firmware Drivers
