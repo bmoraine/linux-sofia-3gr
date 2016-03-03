@@ -1056,6 +1056,17 @@ config USB_G_ANDROID
 	  Each function can be configured and enabled/disabled
 	  dynamically from userspace through a sysfs interface.
 
+config U_SERIAL_CONSOLE
+        boolean "Serial Gadget Console Support"
+	depends on USB_G_ANDROID
+        help
+          Support for console on ttyGS devices.  Note this is not an
+          "early console" and since the USB system takes a while to
+          come up, this is generally not going to help debug early
+          boot oopses.  However, early messages will be dumped to
+          the console if the kernel manages to stay up long enough
+          for the console to instantiate.
+
 config USB_ANDROID_RNDIS_DWORD_ALIGNED
 	boolean "Use double word aligned"
 	depends on USB_G_ANDROID

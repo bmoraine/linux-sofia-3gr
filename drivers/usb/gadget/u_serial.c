@@ -28,7 +28,9 @@
 #include <linux/slab.h>
 #include <linux/export.h>
 #include <linux/module.h>
-
+#ifdef CONFIG_U_SERIAL_CONSOLE
+#include <linux/console.h>
+#endif
 #include "u_serial.h"
 
 
@@ -99,7 +101,9 @@ struct gs_buf {
 struct gs_port {
 	struct tty_port		port;
 	spinlock_t		port_lock;	/* guard port_* access */
-
+#ifdef CONFIG_U_SERIAL_CONSOLE
+	int			stole_lock;     /* for console oopses */
+#endif
 	struct gserial		*port_usb;
 
 	bool			openclose;	/* open/close in progress */
@@ -128,8 +132,6 @@ static struct portmaster {
 } ports[MAX_U_SERIAL_PORTS];
 
 #define GS_CLOSE_TIMEOUT		15		/* seconds */
-
-
 
 #ifdef VERBOSE_DEBUG
 #ifndef pr_vdebug
@@ -244,6 +246,39 @@ gs_buf_put(struct gs_buf *gb, const char *buf, unsigned count)
 
 	return count;
 }
+
+#ifdef CONFIG_U_SERIAL_CONSOLE
+/*
+ * gs_buf_putr
+ *
+ * As per gs_buf_put, but add '\r' to any '\n's
+ */
+static unsigned
+gs_buf_putr(struct gs_buf *gb, const char *buf, unsigned count)
+{
+	unsigned i;
+	unsigned j;
+	unsigned ret;
+
+	for (i = 0, j = 0;  i < count;  i++) {
+		if (buf[i] != '\n')
+			continue;
+		ret = gs_buf_put(gb, buf + j, i - j);
+		if (ret != i - j)
+			return j + ret;
+		j += ret;
+		/* Do not lose an \n on a buffer seam. */
+		if (gs_buf_space_avail(gb) < 2)
+			return j;
+		gs_buf_put(gb, "\r\n", 2);
+		j++;
+	}
+	if (j < count) {
+		j += gs_buf_put(gb, buf + j, count - j);
+	}
+	return j;
+}
+#endif
 
 /*
  * gs_buf_get
@@ -698,15 +733,20 @@ static int gs_start_io(struct gs_port *port)
 	started = gs_start_rx(port);
 
 	/* unblock any pending writes into our circular buffer */
-	if (started) {
-		tty_wakeup(port->port.tty);
-	} else {
-		gs_free_requests(ep, head, &port->read_allocated);
-		gs_free_requests(port->port_usb->in, &port->write_pool,
-			&port->write_allocated);
-		status = -EIO;
+#ifdef CONFIG_U_SERIAL_CONSOLE
+	if (port->port.tty) {
+#endif
+		if (started) {
+			tty_wakeup(port->port.tty);
+		} else {
+			gs_free_requests(ep, head, &port->read_allocated);
+			gs_free_requests(port->port_usb->in, &port->write_pool,
+				&port->write_allocated);
+			status = -EIO;
+		}
+#ifdef CONFIG_U_SERIAL_CONSOLE
 	}
-
+#endif
 	return status;
 }
 
@@ -911,6 +951,89 @@ static int gs_write(struct tty_struct *tty, const unsigned char *buf, int count)
 	return count;
 }
 
+#ifdef CONFIG_U_SERIAL_CONSOLE
+/* This stolen/adapted from serial/sn_console.c */
+static void gs_console_write(struct console *cons, const char *buf, unsigned count)
+{
+	unsigned long flags = 0;
+	unsigned status;
+	struct gs_port *port;
+
+	port = *(struct gs_port **)cons->data;
+
+	/* Just chuck everything if USB side is not up. */
+	if (!port || !port->port_usb)
+		return;
+
+	/* somebody really wants this output, might be an
+	 * oops, kdb, panic, etc.  make sure they get it. */
+	if (spin_is_locked(&port->port_lock)) {
+		char *get = port->port_write_buf.buf_get;
+		char *put = port->port_write_buf.buf_put;
+		int got_lock = 0;
+		int counter;
+
+		/*
+		 * We attempt to determine if someone has died with the
+		 * lock. We wait ~20 secs after the head and tail ptrs
+		 * stop moving and assume the lock holder is not functional
+		 * and plow ahead. If the lock is freed within the time out
+		 * period we re-get the lock and go ahead normally. We also
+		 * remember if we have plowed ahead so that we don't have
+		 * to wait out the time out period again - the asumption
+		 * is that we will time out again.
+		 */
+		for (counter = 0; counter < 150; mdelay(125), counter++) {
+			if (!spin_is_locked(&port->port_lock) || port->stole_lock) {
+				if (!port->stole_lock)
+					break;
+				spin_lock_irqsave(&port->port_lock, flags);
+				got_lock = 1;
+				break;
+			}
+			/* still locked */
+			if ((get != port->port_write_buf.buf_get)
+			    || (put != port->port_write_buf.buf_put)) {
+				put = port->port_write_buf.buf_put;
+				get = port->port_write_buf.buf_get;
+				counter = 0;
+			}
+		}
+		/* Make space by flushing any waiting output */
+		if (port->port_usb)
+			gs_start_tx(port);
+		while (count) {
+			count -= gs_buf_putr(&port->port_write_buf, buf, count);
+			if (port->port_usb) break;
+			/* Flush our stuff immediately */
+			if (!gs_start_tx(port))
+				mdelay(125);
+		}
+		if (got_lock) {
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			port->stole_lock = 0;
+		} else {
+			/* fell thru */
+			port->stole_lock = 1;
+		}
+		return;
+	}
+	port->stole_lock = 0;
+	spin_lock_irqsave(&port->port_lock, flags);
+	/* Flush out any waiting output so we have as much space as possible */
+	if (port->port_usb)
+		status = gs_start_tx(port);
+	while (count) {
+		count -= gs_buf_putr(&port->port_write_buf, buf, count);
+		if (port->port_usb) break;
+		/* Flush our stuff immediately */
+		if (!gs_start_tx(port))
+			mdelay(125);
+	}
+	spin_unlock_irqrestore(&port->port_lock, flags);
+}
+#endif
+
 static int gs_put_char(struct tty_struct *tty, unsigned char ch)
 {
 	struct gs_port	*port = tty->driver_data;
@@ -1025,6 +1148,20 @@ static const struct tty_operations gs_tty_ops = {
 
 static struct tty_driver *gs_tty_driver;
 
+#ifdef CONFIG_U_SERIAL_CONSOLE
+struct tty_driver *gs_console_device(struct console *cons, int *gidx)
+{
+	*gidx = cons->index;
+	return gs_tty_driver;
+}
+
+static int gs_console_setup (struct console *cons, char *options)
+{
+	cons->data = &ports[cons->index].port;
+	return 0;
+}
+#endif
+
 static int
 gs_port_alloc(unsigned port_num, struct usb_cdc_line_coding *coding)
 {
@@ -1057,6 +1194,7 @@ gs_port_alloc(unsigned port_num, struct usb_cdc_line_coding *coding)
 	port->port_line_coding = *coding;
 
 	ports[port_num].port = port;
+
 out:
 	mutex_unlock(&ports[port_num].lock);
 	return ret;
@@ -1263,6 +1401,7 @@ void gserial_disconnect(struct gserial *gser)
 		if (port->port.tty)
 			tty_hangup(port->port.tty);
 	}
+
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	/* disable endpoints, aborting down any active I/O */
@@ -1286,6 +1425,17 @@ void gserial_disconnect(struct gserial *gser)
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 EXPORT_SYMBOL_GPL(gserial_disconnect);
+
+#ifdef CONFIG_U_SERIAL_CONSOLE
+static struct console gserial_cons = {
+	.name =		PREFIX,
+	.write =	gs_console_write,
+	.device =	gs_console_device,
+	.setup =	gs_console_setup,
+	.flags =	CON_PRINTBUFFER,
+	.index =	-1,
+};
+#endif
 
 static int userial_init(void)
 {
@@ -1316,7 +1466,10 @@ static int userial_init(void)
 
 	tty_set_operations(gs_tty_driver, &gs_tty_ops);
 	for (i = 0; i < MAX_U_SERIAL_PORTS; i++)
+	{
 		mutex_init(&ports[i].lock);
+		ports[i].port = NULL;
+	}
 
 	/* export the driver ... */
 	status = tty_register_driver(gs_tty_driver);
@@ -1326,6 +1479,9 @@ static int userial_init(void)
 		goto fail;
 	}
 
+#ifdef CONFIG_U_SERIAL_CONSOLE
+	register_console(&gserial_cons);
+#endif
 	pr_debug("%s: registered %d ttyGS* device%s\n", __func__,
 			MAX_U_SERIAL_PORTS,
 			(MAX_U_SERIAL_PORTS == 1) ? "" : "s");
@@ -1340,6 +1496,9 @@ module_init(userial_init);
 
 static void userial_cleanup(void)
 {
+#ifdef CONFIG_U_SERIAL_CONSOLE
+	unregister_console(&gserial_cons);
+#endif
 	tty_unregister_driver(gs_tty_driver);
 	put_tty_driver(gs_tty_driver);
 	gs_tty_driver = NULL;

@@ -1685,6 +1685,35 @@ static int android_create_device(struct android_dev *dev)
 	return 0;
 }
 
+#ifdef CONFIG_U_SERIAL_CONSOLE
+static bool is_android_usb_enabled = false;
+
+/* This function loads the USB functions earlier during boot up.
+   NOTE: start-usb-functions.sh is no longer needed
+*/
+static void android_usb_enable(void)
+{
+	int err;
+
+	if(is_android_usb_enabled)
+		return;
+
+	device_desc.idVendor = __constant_cpu_to_le16(0x8087);
+	device_desc.idProduct = __constant_cpu_to_le16(0x930);
+
+	/* Enable ACM and RNDIS */
+	functions_store(_android_dev->dev, &dev_attr_functions,
+			       "acm,rndis", 0);
+
+	/* Load 3 ACM instances */
+	((struct acm_function_config *)acm_function.config)->instances = 3;
+
+	/* After configured the USB functions, enable them now */
+	enable_store(_android_dev->dev, &dev_attr_enable, "1", 0);
+
+	is_android_usb_enabled = true;
+}
+#endif
 
 static int __init init(void)
 {
@@ -1723,6 +1752,10 @@ static int __init init(void)
 	/* HACK: exchange composite's setup with ours */
 	composite_setup_func = android_usb_driver.gadget_driver.setup;
 	android_usb_driver.gadget_driver.setup = android_setup;
+
+#ifdef CONFIG_U_SERIAL_CONSOLE
+	android_usb_enable();
+#endif
 
 	return 0;
 
