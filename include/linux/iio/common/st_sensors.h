@@ -221,6 +221,7 @@ struct st_sensor_data {
 	struct st_sensor_fullscale_avl *current_fullscale;
 	struct regulator *vdd;
 	struct regulator *vdd_io;
+	struct mutex mutex;
 
 	bool enabled;
 	bool multiread_bit;
@@ -236,6 +237,7 @@ struct st_sensor_data {
 
 	const struct st_sensor_transfer_function *tf;
 	struct st_sensor_transfer_buffer tb;
+	struct device_pm_platdata *pm_platdata;
 };
 
 #ifdef CONFIG_IIO_BUFFER
