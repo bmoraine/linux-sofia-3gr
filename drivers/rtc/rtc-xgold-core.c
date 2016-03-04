@@ -84,8 +84,9 @@ static int xgold_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	struct rtc_driver_data *rtcd = dev_get_drvdata(dev);
 	unsigned long long time_us = 0;
 	unsigned long time_s = 0;
+	unsigned long flags;
 
-	spin_lock(&rtcd->lock);
+	spin_lock_irqsave(&rtcd->lock, flags);
 	mv_svc_rtc_get_time_us(&time_us);
 	do_div(time_us, 1000000);
 	time_s = time_us;
@@ -94,7 +95,7 @@ static int xgold_rtc_read_time(struct device *dev, struct rtc_time *tm)
 			tm->tm_year, tm->tm_mon, tm->tm_mday,
 			tm->tm_hour, tm->tm_min, tm->tm_sec
 			, time_s);
-	spin_unlock(&rtcd->lock);
+	spin_unlock_irqrestore(&rtcd->lock, flags);
 
 	return rtc_valid_tm(tm);
 }
@@ -181,13 +182,14 @@ static int xgold_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
 	unsigned long time;
 	struct rtc_driver_data *rtcd = dev_get_drvdata(dev);
+	unsigned long flags;
 
 	if (rtc_tm_to_time(tm, &time)) {
 		dev_info(dev, " RTC: conversion from time to seconds failed");
 		return -EINVAL;
 	}
 
-	spin_lock(&rtcd->lock);
+	spin_lock_irqsave(&rtcd->lock, flags);
 	rtc_dbg("%s: rtc time %4d-%02d-%02d %02d:%02d:%02d (%lds)\n", __func__,
 			tm->tm_year, tm->tm_mon, tm->tm_mday,
 			tm->tm_hour, tm->tm_min, tm->tm_sec,
@@ -210,7 +212,7 @@ static int xgold_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	} else {
 		pr_err("%s: Invalid RTC value !\n", __func__);
 	}
-	spin_unlock(&rtcd->lock);
+	spin_unlock_irqrestore(&rtcd->lock, flags);
 
 	return 0;
 }
@@ -276,8 +278,9 @@ static int xgold_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	struct rtc_time *tm;
 	struct rtc_datetime_shared_data rtc_data;
 	unsigned long time;
+	unsigned long flags;
 
-	spin_lock(&rtcd->lock);
+	spin_lock_irqsave(&rtcd->lock, flags);
 	tm = &alm->time;
 	mv_svc_rtc_get_alarm(&rtc_data);
 	rtc_dbg("%s: hum time %4d-%02d-%02d %02d:%02d:%02d\n", __func__,
@@ -292,6 +295,7 @@ static int xgold_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	tm->tm_sec = rtc_data.m_second;
 	if (rtc_tm_to_time(tm, &time)) {
 		dev_info(dev, " RTC: conversion from time to seconds failed");
+		spin_unlock_irqrestore(&rtcd->lock, flags);
 		return -EINVAL;
 	}
 	rtc_dbg("%s: rtc time %4d-%02d-%02d %02d:%02d:%02d (%lds)\n", __func__,
@@ -299,7 +303,7 @@ static int xgold_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
 			tm->tm_hour, tm->tm_min, tm->tm_sec,
 			time);
 
-	spin_unlock(&rtcd->lock);
+	spin_unlock_irqrestore(&rtcd->lock, flags);
 
 	if (!rtc_valid_tm(tm))
 		return 0;
@@ -377,13 +381,14 @@ static int xgold_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	struct rtc_time *tm;
 	unsigned long time;
 	struct rtc_datetime_shared_data rtc_data2;
+	unsigned long flags;
 
 	if (rtc_tm_to_time(&alm->time, &time)) {
 		dev_info(dev, "conversion failed");
 		return -EINVAL;
 	}
 
-	spin_lock(&rtcd->lock);
+	spin_lock_irqsave(&rtcd->lock, flags);
 	tm = &alm->time;
 	rtc_dbg("%s: rtc time %4d-%02d-%02d %02d:%02d:%02d (%lds)\n", __func__,
 			tm->tm_year, tm->tm_mon, tm->tm_mday,
@@ -413,7 +418,7 @@ static int xgold_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 			rtc_data.m_hour, rtc_data.m_minute, rtc_data.m_second);
 		mv_svc_rtc_set_alarm(&rtc_data);
 	}
-	spin_unlock(&rtcd->lock);
+	spin_unlock_irqrestore(&rtcd->lock, flags);
 
 	return 0;
 }
