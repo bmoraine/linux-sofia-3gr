@@ -1272,6 +1272,7 @@ static void fan54x_set_boost(struct work_struct *work)
 		alarm_start_relative(&chrgr->boost_alarm,
 				ktime_set(BOOST_ALARM_DELAY, 0));
 	} else {
+		chrgr->boost_alarm.type = ALARM_REALTIME;
 		alarm_cancel(&chrgr->boost_alarm);
 
 		/* Disable boost mode flag */
