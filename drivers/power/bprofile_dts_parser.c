@@ -39,7 +39,7 @@ static int dt_add_bprofile(struct device_node *np,
 	unsigned char propname[64] = {0};
 	struct ps_pse_mod_prof *bprofile_ptr;
 	struct pse_temp_bound *trange_ptr;
-	size_t strlen = strnlen(prof_name, BATTID_STR_LEN);
+	size_t strlen = strnlen(prof_name, BATTID_STR_LEN-1);
 	struct property *pocv;
 	int plen;
 	const char *mname;
