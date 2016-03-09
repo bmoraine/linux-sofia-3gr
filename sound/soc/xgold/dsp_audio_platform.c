@@ -314,6 +314,7 @@ static int dsp_audio_use_case_set(
 				ret = dsp_audio_use_case_parse_send(kcontrol);
 				dsp->p_dsp_common_data->control_priv.pcm_audio_playback =
 					control;
+				dsp->p_dsp_common_data->control_priv.i2s_audio_playback = 0;
 				}
 		}
 		else if (kcontrol->private_value == PCM_AUDIO_RECORD){
@@ -324,6 +325,29 @@ static int dsp_audio_use_case_set(
 				ret = dsp_audio_use_case_parse_send(kcontrol);
 				dsp->p_dsp_common_data->control_priv.pcm_audio_record =
 					control;
+				dsp->p_dsp_common_data->control_priv.i2s_audio_record = 0;
+			}
+		}
+		else if (kcontrol->private_value == I2S_AUDIO_PLAYBACK){
+			if (dsp->p_dsp_common_data->control_priv.i2s_audio_playback !=
+					control) {
+				xgold_debug("%s: Trying to set %d\n",
+						 __func__, control);
+				ret = dsp_audio_use_case_parse_send(kcontrol);
+				dsp->p_dsp_common_data->control_priv.i2s_audio_playback =
+					control;
+				dsp->p_dsp_common_data->control_priv.pcm_audio_playback = 0;
+			}
+		}
+		else if (kcontrol->private_value == I2S_AUDIO_RECORD){
+			if (dsp->p_dsp_common_data->control_priv.i2s_audio_record !=
+					control) {
+				xgold_debug("%s: Trying to set %d\n",
+						 __func__, control);
+				ret = dsp_audio_use_case_parse_send(kcontrol);
+				dsp->p_dsp_common_data->control_priv.i2s_audio_record =
+					control;
+				dsp->p_dsp_common_data->control_priv.pcm_audio_record = 0;
 			}
 		}
 		if (ret < 0)
@@ -352,6 +376,12 @@ static int dsp_audio_use_case_get(
 		} else if (kcontrol->private_value == PCM_AUDIO_RECORD){
 			ucontrol->value.integer.value[0] =
 				dsp->p_dsp_common_data->control_priv.pcm_audio_record;
+		} else if (kcontrol->private_value == I2S_AUDIO_PLAYBACK){
+			ucontrol->value.integer.value[0] =
+				dsp->p_dsp_common_data->control_priv.i2s_audio_playback;
+		} else if (kcontrol->private_value == I2S_AUDIO_RECORD){
+			ucontrol->value.integer.value[0] =
+				dsp->p_dsp_common_data->control_priv.i2s_audio_record;
 		}
 	} else
 		ret = -ENODEV;

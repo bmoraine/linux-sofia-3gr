@@ -122,13 +122,16 @@ struct dsp_audio_device {
 
 enum pcm_audio_usecase {
 	PCM_AUDIO_PLAYBACK = 1,
-	PCM_AUDIO_RECORD
+	PCM_AUDIO_RECORD,
+	I2S_AUDIO_PLAYBACK,
+	I2S_AUDIO_RECORD
 };
 
 struct dsp_platform_control_data {
 	bool pcm_audio_playback;
 	bool pcm_audio_record;
-	bool reserved1;
+	bool i2s_audio_playback;
+	bool i2s_audio_record;
 	bool dsp_keep_powered;
 	void *p_swm_control;
 

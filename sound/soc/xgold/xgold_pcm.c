@@ -913,9 +913,27 @@ static int xgold_pcm_open(struct snd_pcm_substream *substream)
 	char *substream_id = substream->pcm->id;
 	struct xgold_pcm *xgold_pcm =
 		snd_soc_platform_get_drvdata(rtd->platform);
+	struct dsp_audio_device *dsp = xgold_pcm->dsp;
 
 	int ret = 0;
+	int res = 0;
 	bool power_state = ON;
+
+	if (dsp->p_dsp_common_data->control_priv.i2s_audio_playback ||
+	    dsp->p_dsp_common_data->control_priv.i2s_audio_record) {
+		xgold_debug("Turn on I2S\n");
+		res = device_state_pm_set_state_by_name(
+			xgold_pcm->dev,
+			xgold_pcm->pm_platdata->pm_state_D0_name);
+		if (res < 0)
+			xgold_err("%s: failed to set PM state error %d\n",
+					__func__, res);
+		res = i2s_set_pinctrl_state(xgold_pcm->dev, xgold_pcm->pins_default);
+		if (res < 0)
+			xgold_err("%s: failed to set pinctrl error %d\n",
+					__func__, res);
+
+	}
 
 	xgold_debug("--> %s\n", __func__);
 
@@ -1033,7 +1051,10 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 {
 	struct xgold_runtime_data *xrtd = substream->runtime->private_data;
 	struct xgold_pcm *xgold_pcm;
+	struct dsp_audio_device *dsp;
+
 	int ret = 0;
+	int res = 0;
 	bool power_state = OFF;
 
 	xgold_debug("%s:XGOLD Closing pcm device for stream type %d\n",
@@ -1045,6 +1066,24 @@ static int xgold_pcm_close(struct snd_pcm_substream *substream)
 	}
 
 	xgold_pcm = xrtd->pcm;
+
+	dsp = xgold_pcm->dsp;
+
+	if (dsp->p_dsp_common_data->control_priv.i2s_audio_playback ||
+	    dsp->p_dsp_common_data->control_priv.i2s_audio_record) {
+		xgold_debug("Turn off I2S\n");
+		res = device_state_pm_set_state_by_name(
+			xgold_pcm->dev,
+			xgold_pcm->pm_platdata->pm_state_D3_name);
+		if (res < 0)
+			xgold_err("%s: failed to set PM state error %d\n",
+					__func__, res);
+		res = i2s_set_pinctrl_state(xgold_pcm->dev, xgold_pcm->pins_inactive);
+		if (res < 0)
+			xgold_err("%s: failed to set pinctrl error %d\n",
+					__func__, res);
+
+	}
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		if (!xgold_pcm->play_dma_mode) {
@@ -1411,8 +1450,8 @@ static int xgold_pcm_rec_dma_prepare(struct snd_pcm_substream *substream)
 		xgold_err("%s: Invalid sample rate = %d\n", __func__,
 			(int)runtime->rate);
 		return -EINVAL;
- 	}
- 
+	}
+
 	shm_samples = dma_shm_samples[index];
 	xrtd->dma_bytes = shm_samples * runtime->channels * 2;
 	xrtd->dma_sgl_count = runtime->period_size / shm_samples;
@@ -2393,7 +2432,7 @@ skip_pinctrl:
 	res = i2s_set_pinctrl_state(&pdev->dev, pcm->pins_inactive);
 
 	/* set I2s2 device details */
-	i2s2_set_device_data(&pdev->dev, XGOLD_I2S2);
+	i2s2_set_device_data(&pdev->dev, XGOLD_I2S1);
 
 	xgold_pcm_register_sysfs_attr(&pdev->dev);
 
