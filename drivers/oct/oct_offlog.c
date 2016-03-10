@@ -191,9 +191,11 @@ void oct_offlog_check_mk_dirs(void)
 	int offlog_path_length = strlen(oct_offlog_path);
 	char c = '/';
 	char *nextdir = NULL;
+	int i = 0;
 
-	while(oct_log_start !=1) {
+	while((oct_log_start !=1) && (i <500)) {
 		msleep(200);
+		i++;
 	}
 	nextdir = strchr(oct_offlog_path + 1, c);
 	old_fs = get_fs();
