@@ -26,7 +26,6 @@
 
 #include <linux/iio/types.h>
 #include <linux/iio/iio.h>
-#include <linux/iio/sysfs.h>
 #include <linux/iio/events.h>
 
 #include <linux/gpio/consumer.h>
@@ -35,6 +34,7 @@
 #define APDS99X0_IRQ_NAME	"apds99X0_irq"
 #define APDS99X0_GPIO_NAME	"apds99X0_gpio"
 
+#define APDS99X0_INIT_SLEEP	5 /* sleep for 5 ms before issuing commands */
 
 /* Register set (rw = read/write, r = read, w = write) */
 #define APDS99X0_ENABLE_REG	0x00	/* rw-Enable of states and interrupts */
@@ -284,8 +284,6 @@ struct apds99X0_threshold {
 struct apds99X0_data {
 	struct i2c_client	*client;
 	struct mutex		mutex;
-	u8	enabled_status;
-	struct device_pm_platdata *pm_platdata;
 
 	/* Platform specific data */
 	struct apds99X0_platform_data	platform_data;
@@ -525,39 +523,34 @@ static int apds99X0_compute_lux(struct apds99X0_data *data, u16 ch0, u16 ch1)
 	return data->agl_enabled ? (APDS9930_AGL_DIVISION_SCALE * lux) : lux;
 }
 
-static int apds99X0_power_on(struct apds99X0_data *data)
+static int apds99X0_enable_all(struct apds99X0_data *data)
 {
-	int ret = 0;
-	if (data->pm_platdata && data->pm_platdata->pm_state_D0_name) {
-		ret = device_state_pm_set_state_by_name(&data->client->dev,
-				data->pm_platdata->pm_state_D0_name);
-		if (ret)
-			dev_err(&data->client->dev,
-					"error %d to power on\n", ret);
-	}
+	int ret;
+
+	mutex_lock(&data->mutex);
+	ret = apds99X0_write_byte(data->client, APDS99X0_ENABLE_REG,
+				  APDS99X0_ENABLE_ALL);
+	if (ret < 0)
+		goto err;
+
+err:
+	mutex_unlock(&data->mutex);
+
 	return ret;
 }
 
-static int apds99X0_power_off(struct apds99X0_data *data)
-{
-	int ret = 0;
-	if (data->pm_platdata && data->pm_platdata->pm_state_D3_name) {
-		ret = device_state_pm_set_state_by_name(&data->client->dev,
-				data->pm_platdata->pm_state_D3_name);
-		if (ret)
-			dev_err(&data->client->dev,
-					"error % to power off\n", ret);
-	}
-	return ret;
-}
 static int apds99X0_disable_all(struct apds99X0_data *data)
 {
 	int ret;
 
+	mutex_lock(&data->mutex);
 	ret = apds99X0_write_byte(data->client, APDS99X0_ENABLE_REG,
 				  APDS99X0_DISABLE_ALL);
 	if (ret < 0)
-		dev_err(&data->client->dev, "error in disabling all\n");
+		goto err;
+
+err:
+	mutex_unlock(&data->mutex);
 
 	return ret;
 }
@@ -660,7 +653,6 @@ static void apds99X0_chip_data_init(struct apds99X0_data *data)
 	data->agl_enabled	= false;
 	data->als_intr_state	= false;
 	data->ps_intr_state	= false;
-	data->enabled_status = 0;
 	data->als_thresh.low	= APDS99X0_DEF_ALS_THRESH_LOW;
 	data->als_thresh.high	= APDS99X0_DEF_ALS_THRESH_HIGH;
 	data->ps_thresh.low	= APDS99X0_DEF_PS_THRESH_LOW;
@@ -672,6 +664,11 @@ static int apds99X0_chip_registers_init(struct apds99X0_data *data)
 {
 	struct i2c_client *client = data->client;
 	int ret;
+
+	/* Disable and powerdown device */
+	ret = apds99X0_disable_all(data);
+	if (ret < 0)
+		return ret;
 
 	/* Set timing registers default values (minimum) */
 	ret = apds99X0_write_byte(client, APDS99X0_ATIME_REG, (data->__atime));
@@ -725,51 +722,17 @@ static int apds99X0_chip_registers_init(struct apds99X0_data *data)
 		return ret;
 
 	/* Gain selection setting */
-	return apds99X0_write_byte(client, APDS99X0_CONTROL_REG,
+	ret = apds99X0_write_byte(client, APDS99X0_CONTROL_REG,
 				  data->__again << APDS99X0_AGAIN_SHIFT |
 				  apds99X0_def_pgain[apds99X0_dev_index] <<
 				  APDS99X0_PGAIN_SHIFT |
 				  APDS99X0_DEF_PDIODE << APDS99X0_PDIODE_SHIFT |
 				  data->__pdrive << APDS99X0_PDRIVE_SHIFT);
-}
-
-static int apds99X0_set_mode(struct apds99X0_data *data, u8 mode)
-{
-	int ret;
-	if (data->enabled_status == mode) {
-		return 0;
-	} else if (!(data->enabled_status & APDS99X0_PON) && mode) {
-		ret = apds99X0_power_on(data);
-		if (ret) {
-			dev_err(&data->client->dev,
-					"failed power on:%d\n", ret);
-			return ret;
-		}
-
-		/* Recommended wait time after power on. */
-		usleep_range(5000, 5100);
-
-		ret = apds99X0_chip_registers_init(data);
-		if (ret < 0) {
-			dev_err(&data->client->dev,
-					"failed initing reg ret:%d\n", ret);
-			apds99X0_power_off(data);
-			return ret;
-		}
-	}
-
-	ret = apds99X0_write_byte(data->client, APDS99X0_ENABLE_REG, mode);
-	if (ret < 0) {
-		dev_err(&data->client->dev, "error setting mode: 0x%x\n", mode);
-		apds99X0_power_off(data);
+	if (ret < 0)
 		return ret;
-	} else
-		data->enabled_status = mode;
 
-	if (!(data->enabled_status & APDS99X0_PON))
-		ret = apds99X0_power_off(data);
-
-	return ret;
+	/* Power the device back on */
+	return apds99X0_enable_all(data);
 }
 
 /* Raw reading implementation */
@@ -853,7 +816,8 @@ static int apds99X0_write_event_config(struct iio_dev *indio_dev,
 				       int state)
 {
 	struct apds99X0_data *data	= iio_priv(indio_dev);
-	u8  which_intr;
+	struct i2c_client *client	= data->client;
+	u8 enable_reg, which_intr;
 	int ret;
 	bool *intr_state_addr;
 
@@ -861,6 +825,10 @@ static int apds99X0_write_event_config(struct iio_dev *indio_dev,
 		return -EINVAL;
 
 	mutex_lock(&data->mutex);
+
+	ret = apds99X0_read_byte(client, APDS99X0_ENABLE_REG, &enable_reg);
+	if (ret < 0)
+		goto err;
 
 	switch (chan->type) {
 	case IIO_INTENSITY:
@@ -877,14 +845,13 @@ static int apds99X0_write_event_config(struct iio_dev *indio_dev,
 	}
 
 	if (state)
-		data->enabled_status |= which_intr;	/* enable */
+		enable_reg |= which_intr;	/* enable */
 	else
-		data->enabled_status &= ~which_intr;	/* disable */
+		enable_reg &= ~which_intr;	/* disable */
 
-	ret = apds99X0_set_mode(data, data->enabled_status);
+	ret = apds99X0_write_byte(client, APDS99X0_ENABLE_REG, enable_reg);
 	if (ret == 0)
 		*intr_state_addr = (bool)state;
-
 err:
 	mutex_unlock(&data->mutex);
 
@@ -926,103 +893,6 @@ static int apds99X0_read_event_value(struct iio_dev *indio_dev,
 	return IIO_VAL_INT;
 }
 
-static ssize_t apds99X0_ill_en_show(struct device *dev,
-				   struct device_attribute *attr,
-				   char *buf)
-{
-	struct apds99X0_data *data = iio_priv(dev_to_iio_dev(dev));
-	int ret;
-
-	ret = (data->enabled_status & APDS99X0_AEN) >> 1;
-	return sprintf(buf, "%d\n", ret);
-}
-
-static ssize_t apds99X0_ill_en_store(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t len)
-{
-	struct apds99X0_data *data = iio_priv(dev_to_iio_dev(dev));
-	u8 ret;
-	unsigned long val;
-
-	ret = kstrtoul((const char *)buf, 10, &val);
-	if(ret)
-		return 0;
-
-	mutex_lock(&data->mutex);
-	ret = data->enabled_status;
-	if (val > 0)
-		ret |= APDS99X0_AEN;
-	else
-		ret &= ~APDS99X0_AEN;
-
-	if (ret & (APDS99X0_PEN | APDS99X0_AEN))
-		ret |= APDS99X0_PON;
-	else
-		ret &= ~APDS99X0_PON;
-
-	apds99X0_set_mode(data, ret);
-	mutex_unlock(&data->mutex);
-	return len;
-}
-
-static ssize_t apds99X0_px_en_show(struct device *dev,
-				  struct device_attribute *attr,
-				  char *buf)
-{
-	struct apds99X0_data *data = iio_priv(dev_to_iio_dev(dev));
-	int ret;
-
-	ret = (data->enabled_status & APDS99X0_PEN) >> 2;
-	return sprintf(buf, "%d\n", ret);
-}
-
-static ssize_t apds99X0_px_en_store(struct device *dev,
-				   struct device_attribute *attr,
-				   const char *buf, size_t len)
-{
-	struct apds99X0_data *data = iio_priv(dev_to_iio_dev(dev));
-	int ret;
-	unsigned long val;
-
-	ret = kstrtoul((const char *)buf, 10, &val);
-	if(ret)
-		return 0;
-
-	mutex_lock(&data->mutex);
-	ret = data->enabled_status;
-	if (val > 0)
-		ret |= APDS99X0_PEN;
-	else
-		ret &= ~APDS99X0_PEN;
-
-	if (ret & (APDS99X0_PEN | APDS99X0_AEN))
-		ret |= APDS99X0_PON;
-	else
-		ret &= ~APDS99X0_PON;
-
-	apds99X0_set_mode(data, ret);
-	mutex_unlock(&data->mutex);
-	return len;
-}
-
-static IIO_DEVICE_ATTR(in_illuminance_en, S_IRUGO | S_IWUSR,
-		       apds99X0_ill_en_show,
-		       apds99X0_ill_en_store, 0);
-
-static IIO_DEVICE_ATTR(in_proximity_en, S_IRUGO | S_IWUSR,
-		       apds99X0_px_en_show,
-		       apds99X0_px_en_store, 0);
-
-static struct attribute *apds99X0_attributes[] = {
-	&iio_dev_attr_in_illuminance_en.dev_attr.attr,
-	&iio_dev_attr_in_proximity_en.dev_attr.attr,
-	NULL
-};
-static const struct attribute_group apds99X0_attribute_group = {
-		.attrs = apds99X0_attributes,
-};
-
 /* IIO device specific data structures */
 static const struct iio_info apds99X0_info = {
 	.driver_module		= THIS_MODULE,
@@ -1030,7 +900,6 @@ static const struct iio_info apds99X0_info = {
 	.read_event_config	= apds99X0_read_event_config,
 	.write_event_config	= apds99X0_write_event_config,
 	.read_event_value	= apds99X0_read_event_value,
-	.attrs = &apds99X0_attribute_group,
 };
 
 /* Event specs for ALS and PS thresholds. Both of them behave in the same
@@ -1116,8 +985,6 @@ static irqreturn_t apds99X0_irq_handler(int irq, void *private_data)
 	u16 ch0, ps_data;
 	int ret;
 
-	mutex_lock(&data->mutex);
-
 	/* Disable ADCs converters while processing data */
 	ret = apds99X0_read_byte(data->client, APDS99X0_ENABLE_REG,
 				 &enable_reg);
@@ -1125,7 +992,7 @@ static irqreturn_t apds99X0_irq_handler(int irq, void *private_data)
 		return IRQ_HANDLED;
 	ret = apds99X0_write_byte(data->client, APDS99X0_ENABLE_REG, 1);
 	if (ret < 0)
-		goto err;
+		return IRQ_HANDLED;
 
 	/* Read status register to see what caused the interrupt */
 	ret = apds99X0_read_byte(data->client, APDS99X0_STATUS_REG, &status);
@@ -1179,7 +1046,6 @@ err:
 	/* Re-enable converters */
 	apds99X0_write_byte(data->client, APDS99X0_ENABLE_REG, enable_reg);
 
-	mutex_unlock(&data->mutex);
 	return IRQ_HANDLED;
 }
 
@@ -1214,9 +1080,6 @@ static int apds99X0_probe(struct i2c_client *client,
 	struct apds99X0_data *data;
 	struct iio_dev *indio_dev;
 	int ret;
-#ifdef CONFIG_OF
-	struct device_node *of_np = client->dev.of_node;
-#endif
 
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
 	if (indio_dev == NULL)
@@ -1228,46 +1091,15 @@ static int apds99X0_probe(struct i2c_client *client,
 
 	mutex_init(&data->mutex);
 
-	mutex_lock(&data->mutex);
-
-#ifdef CONFIG_OF
-	if (of_np) {
-		data->pm_platdata = of_device_state_pm_setup(of_np);
-		if (IS_ERR(data->pm_platdata)) {
-			dev_err(&client->dev, "error during device state pm init\n");
-			ret = PTR_ERR(data->pm_platdata);
-			goto err;
-		}
-	}
-#endif
-
-	if (data->pm_platdata && data->pm_platdata->pm_user_name) {
-		ret = device_state_pm_set_class(&client->dev,
-			data->pm_platdata->pm_user_name);
-		if (ret) {
-			dev_err(&client->dev, "error while setting the pm class\n");
-			goto err;
-		}
-	}
-
-	apds99X0_chip_data_init(data);
-
-	ret = apds99X0_power_on(data);
-	if (ret < 0)
-		goto err;
-
 	/* Recommended wait time after power on. */
-	usleep_range(5000, 5100);
+	msleep(APDS99X0_INIT_SLEEP);
 
 	/* Check if the chip is the one we are expecting */
 	ret = apds99X0_chip_detect(data);
 	if (ret < 0)
 		goto err;
 
-	ret = apds99X0_disable_all(data);
-	if (ret < 0)
-		goto err;
-
+	apds99X0_chip_data_init(data);
 	ret = apds99X0_chip_registers_init(data);
 	if (ret < 0)
 		goto err;
@@ -1292,16 +1124,17 @@ static int apds99X0_probe(struct i2c_client *client,
 						APDS99X0_IRQ_NAME,
 						indio_dev);
 		if (ret < 0)
-			goto err;
+			return ret;
 	}
 
 	ret = iio_device_register(indio_dev);
+	if (ret < 0)
+		goto err;
 
+	return 0;
 err:
-	ret = apds99X0_disable_all(data);
-	data->enabled_status = APDS99X0_DISABLE_ALL;
+	apds99X0_disable_all(data);
 
-	mutex_unlock(&data->mutex);
 	return ret;
 }
 
@@ -1312,84 +1145,10 @@ static int apds99X0_remove(struct i2c_client *client)
 	int ret;
 
 	ret = apds99X0_disable_all(data);
-	if (ret < 0) {
-		dev_err(&data->client->dev, "error in disabling all");
-		return ret;
-	}
-
-	ret = apds99X0_power_off(data);
 	iio_device_unregister(indio_dev);
 
 	return ret;
 }
-
-#ifdef CONFIG_PM_SLEEP
-static int apds99X0_suspend(struct device *dev)
-{
-	int ret;
-	struct iio_dev *indio_dev;
-	struct apds99X0_data *data;
-	struct i2c_client *client = to_i2c_client(dev);
-
-	indio_dev = i2c_get_clientdata(to_i2c_client(dev));
-	data = iio_priv(indio_dev);
-
-	mutex_lock(&data->mutex);
-	if (!(data->enabled_status & APDS99X0_PON)) {
-		mutex_unlock(&data->mutex);
-		return 0;
-	}
-	if (client->irq > 0)
-		disable_irq(client->irq);
-
-	ret = apds99X0_disable_all(data);
-	if (ret < 0)
-		dev_err(&data->client->dev, "error in disabling all");
-
-	ret = apds99X0_power_off(data);
-	mutex_unlock(&data->mutex);
-
-	return ret;
-}
-
-static int apds99X0_resume(struct device *dev)
-{
-	int ret;
-	struct i2c_client *client = to_i2c_client(dev);
-	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
-	struct apds99X0_data *data = iio_priv(indio_dev);
-
-	mutex_lock(&data->mutex);
-	if (!(data->enabled_status & APDS99X0_PON)) {
-		mutex_unlock(&data->mutex);
-		return 0;
-	}
-
-	ret = apds99X0_power_on(data);
-
-	/* Recommended wait time after power on. */
-	usleep_range(5000, 5100);
-
-	ret = apds99X0_chip_registers_init(data);
-	if (ret < 0)
-		dev_err(dev, "failed to init registers error:%d\n", ret);
-
-	ret = apds99X0_write_byte(data->client, APDS99X0_ENABLE_REG,
-			data->enabled_status);
-	if (ret < 0)
-		dev_err(dev, "failed to resume error:%d\n", ret);
-
-	if (client->irq > 0)
-		enable_irq(client->irq);
-
-	mutex_unlock(&data->mutex);
-	return ret;
-}
-#endif
-
-static const struct dev_pm_ops apds99X0_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(apds99X0_suspend, apds99X0_resume)
-};
 
 static const struct acpi_device_id apds99X0_acpi_table[] = {
 	{"APDS9930", APDS9930},
@@ -1410,7 +1169,6 @@ static struct i2c_driver apds99X0_iio_driver = {
 		.name			= APDS99X0_DRIVER_NAME,
 		.acpi_match_table	= ACPI_PTR(apds99X0_acpi_table),
 		.owner			= THIS_MODULE,
-		.pm	= &apds99X0_pm_ops,
 	},
 	.probe		= apds99X0_probe,
 	.remove		= apds99X0_remove,
