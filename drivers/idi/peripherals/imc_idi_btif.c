@@ -87,6 +87,13 @@
 #define IMC_IDI_BTIF_TEMP_MEAS_KT 32
 #define IMC_IDI_BTIF_TEMP_MEAS_KT_SCALE 100
 
+/*Enable for AG6XX chip*/
+#define CONFIG_AG6XX
+
+#ifdef CONFIG_AG6XX
+#define IMC_IDI_BT_POWER_STATE_OFF_D3  5
+#define IMC_IDI_BT_POWER_STATE_ON_D0  0
+#endif
 #define IMC_IDI_BTIF_ENTER pr_debug("--> %s\n", __func__);
 #define IMC_IDI_BTIF_EXIT pr_debug("<-- %s\n", __func__);
 
@@ -187,6 +194,7 @@ static int imc_idi_btauif_audio_enable(unsigned char clk_rate,
 static int imc_idi_btauif_audio_enable_ex(struct imc_idi_btauif_config
 					*config_params, void __iomem *ctrl_io);
 static int imc_idi_btauif_audio_disable(void __iomem *ctrl_io);
+static int btif_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg);
 
 
 static unsigned _btif_set_state(struct imc_idi_btif_port *p_btif,
@@ -1879,6 +1887,14 @@ static int btif_startup(struct uart_port *port)
 
 	imc_idi_bt_sco_register(&btauif_ops);
 
+#ifdef CONFIG_AG6XX
+	pr_debug("Changing BT Controller Power State to OFF\n");
+	btif_ioctl(port, IMC_IDI_BT_SET_POWER_STATE, IMC_IDI_BT_POWER_STATE_OFF_D3);
+
+	pr_debug("Changing BT Controller Power State to ON\n");
+	btif_ioctl(port, IMC_IDI_BT_SET_POWER_STATE, IMC_IDI_BT_POWER_STATE_ON_D0);
+#endif
+
 	IMC_IDI_BTIF_EXIT;
 
 	return 0;
@@ -1961,6 +1977,11 @@ static void btif_shutdown(struct uart_port *port)
 #endif
 
 	imc_idi_bt_sco_unregister(&btauif_ops);
+
+#ifdef CONFIG_AG6XX
+	pr_debug("Changing BT Controller Power State to OFF\n");
+	btif_ioctl(port, IMC_IDI_BT_SET_POWER_STATE, IMC_IDI_BT_POWER_STATE_OFF_D3);
+#endif
 
 	IMC_IDI_BTIF_EXIT;
 
@@ -2654,15 +2675,40 @@ static const struct idi_device_id idi_ids[] = {
 	{ /* end: all zeroes */},
 };
 
+/*Called when the system is attempting to suspend. */
 static int imc_idi_btif_suspend(struct device *dev)
 {
-	pr_debug("BTIF entering suspend\n");
+#ifdef CONFIG_AG6XX
+	struct imc_idi_btif_port *p_btif = dev_get_drvdata(dev);
+	struct uart_port *port = &p_btif->port;
+#endif
+
+	pr_debug("BTIF: Platform entering suspend\n");
+
+#ifdef CONFIG_AG6XX
+	btif_ioctl(port, IMC_IDI_BT_SET_BT_WUP, false);
+#endif
 	return 0;
 }
 
+/*Called when the system is resuming from suspend. */
 static int imc_idi_btif_resume(struct device *dev)
 {
-	pr_debug("BTIF resuming\n");
+#ifdef CONFIG_AG6XX
+	struct imc_idi_btif_port *p_btif = dev_get_drvdata(dev);
+	struct uart_port *port = &p_btif->port;
+#endif
+
+	pr_debug("BTIF: Received platform resume event\n");
+
+#ifdef CONFIG_AG6XX
+	pr_debug("Changing BT Controller State to ON\n");
+	btif_ioctl(port, IMC_IDI_BT_SET_POWER_STATE, IMC_IDI_BT_POWER_STATE_ON_D0);
+
+	pr_debug("BTIF: Platform resuming from suspend\n");
+	btif_ioctl(port, IMC_IDI_BT_SET_BT_WUP, true);
+#endif
+
 	return 0;
 }
 
