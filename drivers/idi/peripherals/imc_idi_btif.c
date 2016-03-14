@@ -1887,14 +1887,6 @@ static int btif_startup(struct uart_port *port)
 
 	imc_idi_bt_sco_register(&btauif_ops);
 
-#ifdef CONFIG_AG6XX
-	pr_debug("Changing BT Controller Power State to OFF\n");
-	btif_ioctl(port, IMC_IDI_BT_SET_POWER_STATE, IMC_IDI_BT_POWER_STATE_OFF_D3);
-
-	pr_debug("Changing BT Controller Power State to ON\n");
-	btif_ioctl(port, IMC_IDI_BT_SET_POWER_STATE, IMC_IDI_BT_POWER_STATE_ON_D0);
-#endif
-
 	IMC_IDI_BTIF_EXIT;
 
 	return 0;
