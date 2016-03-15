@@ -1299,6 +1299,7 @@ static int apds99X0_probe(struct i2c_client *client,
 
 err:
 	ret = apds99X0_disable_all(data);
+	ret = apds99X0_power_off(data);
 	data->enabled_status = APDS99X0_DISABLE_ALL;
 
 	mutex_unlock(&data->mutex);
