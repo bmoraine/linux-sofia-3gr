@@ -275,7 +275,9 @@ static enum psy_algo_stat pse_get_next_cc_cv(struct batt_props bat_prop,
 
 	}
 
-	if (is_battery_full(bat_prop, pse_mod_bprof, *cv)) {
+	if (is_battery_full(bat_prop, pse_mod_bprof, *cv) &&
+		 (bat_prop.capacity >
+		 pse_mod_bprof->temp_range[tzone].charging_res_cap)) {
 		*cc = *cv = 0;
 		algo_stat = PSY_ALGO_STAT_FULL;
 	}
