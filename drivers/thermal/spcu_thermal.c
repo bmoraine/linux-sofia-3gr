@@ -127,7 +127,7 @@ static struct {
 	dev_dbg(dev, format, ##args)
 #else
 #define SPCU_THERMAL_TRACE(dev, format, args...) \
-	pr_info("%s: dev=0x%08x " format, __func__, (unsigned int)dev, ##args)
+	pr_info_ratelimited("%s: dev=0x%08x " format, __func__, (unsigned int)dev, ##args)
 #endif
 
 struct thermal_trip {
@@ -612,7 +612,7 @@ static void notify_thermal_event(struct spcu_thermal_device *dev, int trip_id)
 				 "EVENT=%d", trip_id);
 	thermal_event[3] = NULL;
 
-	pr_info("%s: type=%s, trip_id=%d, temp=%d\n",
+	pr_info_ratelimited("%s: type=%s, trip_id=%d, temp=%d\n",
 		__func__, tzd->type, trip_id, dev->cached_temp);
 
 	kobject_uevent_env(&tzd->device.kobj, KOBJ_CHANGE, thermal_event);
