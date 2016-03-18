@@ -235,6 +235,7 @@
 					ranges;
 					reg = <0xE1000000 0x1000000>;
 #ifdef SOFIA3GR_MRD6
+#if 1 /* toggle to switch usif functions */
 					usif1:usif1{
 						compatible = "intel,usif-spi";
 						#address-cells = <0>;
@@ -348,7 +349,17 @@
 						pm,user-name = "usif2";
 						pm,state-D0 = "enable_104M_hperf";
 						pm,state-D3 = "disable";
+
+						/*
+						* To enable /dev/spidev0.0 device node
+						*/
+						spidev@0{
+						compatible = "spidev";
+						spi-max-frequency = <50000000>;
+						reg = <0>;
+						};
 					};
+#endif
 #endif
 					/*
 					 * WARNING:
