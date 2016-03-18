@@ -583,10 +583,11 @@
 						intel,corecfg_reg = < 0x204 0x208 0x20c 0x210 0x214 0x218 0x21c 0x220>;
 						intel,corecfg_val = < 0xFE1ADA20 0x00074C52 0x00000000 0x00010001 0x00010000 0x00000000 0x00010000 0x7777 >;
 						intel,fixup = <0x1>;
+						/* QUIRK2_NO_1_8_V: bit2 */
 						/* QUIRK2_HOST_PRESET_VAL_BROKEN: bit3 */
 						/* QUIRK2_DISABLE_UHS: bit17 */
 						/* QUIRK2_HOST_EXEC_TUNING_WA: bit23 */
-						intel,quirks = < 0 0x804008 >;
+						intel,quirks = < 0 0x80400C >;
 						intel,io-access-guest;
 						intel,rpm_enabled = <1>;
 						pm_ctrl{
