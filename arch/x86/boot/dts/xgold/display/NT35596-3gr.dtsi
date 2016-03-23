@@ -2,7 +2,7 @@
  * definition at "include/dt-bindings/sofiafb/sofia_fb.h"
  */
 
-display-panel@nt35596 {
+display_panel: display-panel@nt35596 {
 	compatible = "intel,display";
 	intel,display-dc-clkrate = <297000000>;
 	intel,display-preinit = <0>;

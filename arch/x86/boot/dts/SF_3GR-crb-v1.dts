@@ -156,6 +156,7 @@
 	};*/
 #endif
 	fb {
+		status = "disabled";
 		compatible = "rockchip,fb";
 		rockchip,disp-mode = <NO_DUAL>;
 		rockchip,loader-logo-on = <1>;
@@ -165,6 +166,7 @@
 	#include "catalog/Sf_3G-catalog-Display.dtsi"
 #else
 	screen {
+		status = "disabled";
 		compatible = "rockchip,screen", "intel,screen";
 		pm,class-name = "generic_class";
 		pm,user-name = "lcd";
@@ -173,7 +175,7 @@
 		intel,display-gpio-reset = <&xgold_pmx_gpio 36 0>;
 #ifdef SOFIA3GR_MRD6
 		#include "xgold/display/HX8394-3gr.dtsi"
-		#include "xgold/display/NT35596-3gr.dtsi"
+		/* #include "xgold/display/NT35596-3gr.dtsi" */
 #endif
 	};
 #endif
@@ -771,7 +773,31 @@
 
 &vop {
 	status = "okay";
-	rockchip,fb-win-map = <FB_DEFAULT_ORDER>;
+};
+
+&mipi_dsi {
+	status = "okay";
+	pm,class-name = "generic_class";
+	pm,user-name = "lcd";
+	pm,state-D0 = "enable";
+	pm,state-D3 = "disable";
+
+	intel,display-dc-clkrate = <297000000>;
+
+#ifdef SOFIA3GR_MRD6
+	#include "xgold/display/NT35596-3gr.dtsi"
+#endif
+
+};
+
+&display_panel {
+	compatible = "rockchip,panel","intel,display";
+	reg = <0>;
+	intel,display-gpio-reset = <&xgold_pmx_gpio 36 0>;
+};
+
+&display_subsystem {
+	status = "okay";
 };
 
 #ifndef RECOVERY_KERNEL
