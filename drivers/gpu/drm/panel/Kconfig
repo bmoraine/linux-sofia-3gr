@@ -51,4 +51,12 @@ config DRM_PANEL_SHARP_LQ101R1SX01
 	  To compile this driver as a module, choose M here: the module
 	  will be called panel-sharp-lq101r1sx01.
 
+config DRM_PANEL_ROCKCHIP
+	tristate "Rockchip MIPI DSI panel"
+	depends on DRM_MIPI_DSI && DRM_ROCKCHIP
+	select VIDEOMODE_HELPERS
+	help
+	  Say Y here if you want to enable support for DSI panel for
+	  DRM rockchip framework.
+
 endmenu
