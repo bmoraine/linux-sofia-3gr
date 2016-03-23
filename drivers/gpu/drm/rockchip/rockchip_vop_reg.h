@@ -358,4 +358,11 @@
 #define RK3036_HWC_LUT_ADDR		0x800
 /* rk3036 register definition end */
 
+/* 3gr register definition */
+#define SOFIA3GR_WIN1_MST		0x4c
+#define SOFIA3GR_WIN1_DSP_INFO		0x50
+#define SOFIA3GR_WIN1_DSP_ST		0x54
+#define SOFIA3GR_EDPI_CTRL		0xf8
+/* 3gr register definition end */
+
 #endif /* _ROCKCHIP_VOP_REG_H */
