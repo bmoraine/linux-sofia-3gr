@@ -953,6 +953,27 @@ int rockchip_drm_crtc_mode_config(struct drm_crtc *crtc,
 }
 EXPORT_SYMBOL_GPL(rockchip_drm_crtc_mode_config);
 
+int rockchip_drm_crtc_user_commit(struct drm_crtc *crtc,
+				  int connector_type,
+				  int out_mode)
+{
+	struct vop *vop = to_vop(crtc);
+
+	if (!vop->is_enabled)
+		return -EPERM;
+
+	switch (vop->connector_type) {
+	case DRM_MODE_CONNECTOR_DSI:
+		vop_standby_disable(vop);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(rockchip_drm_crtc_user_commit);
+
 static int vop_crtc_enable_vblank(struct drm_crtc *crtc)
 {
 	struct vop *vop = to_vop(crtc);
@@ -1128,7 +1149,8 @@ out:
 	}
 #endif
 out:
-	vop_standby_disable(vop);
+	if (vop->connector_type != DRM_MODE_CONNECTOR_DSI)
+		vop_standby_disable(vop);
 
 	return ret;
 }

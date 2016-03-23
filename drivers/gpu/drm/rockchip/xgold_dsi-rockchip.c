@@ -226,6 +226,9 @@ static void xgold_dsi_enable(struct drm_encoder *encoder)
 		return;
 	}
 	drm_panel_enable(dsi->panel);
+
+	rockchip_drm_crtc_user_commit(encoder->crtc,
+				      dsi->connector.connector_type, 0);
 }
 
 static void xgold_dsi_disable(struct drm_encoder *encoder)
