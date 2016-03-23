@@ -9,3 +9,5 @@ obj-$(CONFIG_ROCKCHIP_DW_HDMI) += dw_hdmi-rockchip.o
 
 obj-$(CONFIG_DRM_ROCKCHIP) += rockchipdrm.o rockchip_drm_vop.o \
 				rockchip_vop_reg.o
+
+obj-$(CONFIG_ROCKCHIP_XGOLD_DSI) += xgold_dsi-rockchip.o xgold_dsi_hwregs.o
