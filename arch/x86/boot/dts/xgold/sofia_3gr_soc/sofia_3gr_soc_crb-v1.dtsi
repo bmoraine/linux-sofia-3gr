@@ -607,19 +607,30 @@
 					};
 
 					vop: vop@E1000000 {
-						     compatible = "rockchip,vop";
-						     reg = <0xE1000000 0x148>;
-						     interrupts = < VOP_INT IRQ_TYPE_DEFAULT >;
+						compatible = "rockchip,sofia3gr-vop";
+						reg = <0xE1000000 0x148>;
+						interrupts = < VOP_INT IRQ_TYPE_DEFAULT >;
 
-						     pm,class-name = "dcc_class";
-						     pm,user-name = "dcc";
-						     pm,state-D0 = "high_perf";
-						     pm,state-D1 = "mid_perf";
-						     pm,state-D2 = "low_perf";
-						     pm,state-D3 = "disable";
+						pm,class-name = "dcc_class";
+						pm,user-name = "dcc";
+						pm,state-D0 = "high_perf";
+						pm,state-D1 = "mid_perf";
+						pm,state-D2 = "low_perf";
+						pm,state-D3 = "disable";
 
-						     rockchip,iommu-enabled = <1>;
-					     };
+						rockchip,iommu-enabled = <1>;
+						status = "disabled";
+
+						vop_out: port {
+							#address-cells = <1>;
+							#size-cells = <0>;
+
+							vop_out_dsi: endpoint@0 {
+								reg = <0>;
+								remote-endpoint = <&dsi_in_vop>;
+							};
+						};
+					};
 
 					mipi_dsi: mipi_dsi@E1080000 {
 						compatible = "intel,xgold-mipi_dsi";
@@ -629,6 +640,28 @@
 						interrupt-names = "err";
 						resets = < &dbb_rst1 13 >;
 						reset-names = "dsi";
+						intel,display-dc-clkrate = <297000000>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+						status = "disabled";
+
+						ports {
+							dsi_in: port@0 {
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+								dsi_in_vop: endpoint@0 {
+									reg = <0>;
+									remote-endpoint = <&vop_out_dsi>;
+								};
+							};
+						};
+					};
+
+					display_subsystem: display-subsystem {
+						compatible = "rockchip,display-subsystem";
+						ports = <&vop_out>;
+						status = "disabled";
 					};
 				};
 
