@@ -1954,6 +1954,8 @@ static void vcodec_subdev_remove(struct vpu_subdev_data *data)
 #endif
 }
 
+extern struct ion_client *rockchip_ion_client_create(const char *name);
+
 static void vcodec_init_drvdata(struct vpu_service_info *pservice)
 {
 	pservice->dev_id = VCODEC_DEVICE_ID_COMBO;
