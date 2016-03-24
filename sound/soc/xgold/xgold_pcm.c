@@ -163,7 +163,7 @@ const unsigned hw_probe_valid[] = {
 static const u16 dma_shm_samples[] = {
 	40, 55, 60, 80, 110, 120, 160, 220, 240};
 
-static void xgold_pcm_dma_play_submit(struct xgold_runtime_data *, dma_addr_t);
+static int xgold_pcm_dma_play_submit(struct xgold_runtime_data *, dma_addr_t);
 static void xgold_pcm_dma_rec_submit(struct xgold_runtime_data *, dma_addr_t);
 
 static bool is_hw_probe_point_valid(
@@ -671,7 +671,7 @@ void xgold_dsp_pcm_dma_play_handler(void *dev)
 	snd_pcm_period_elapsed(xrtd->stream);
 
 	/* Reload scatter list and submit DMA request */
-	xgold_pcm_dma_play_submit(xrtd, dma_addr);
+	(void)xgold_pcm_dma_play_submit(xrtd, dma_addr);
 
 	/* Restart the DMA tx for next data transfer i.e. after 20 ms */
 	dma_async_issue_pending(xrtd->dmach);
@@ -764,7 +764,7 @@ void xgold_dsp_pcm_dma_rec_handler(void *dev)
 	xgold_debug("dma rx started\n");
 }
 
-static void xgold_pcm_dma_play_submit(struct xgold_runtime_data *xrtd,
+static int xgold_pcm_dma_play_submit(struct xgold_runtime_data *xrtd,
 		dma_addr_t dma_addr)
 {
 	struct xgold_pcm *xgold_pcm = xrtd->pcm;
@@ -804,7 +804,7 @@ static void xgold_pcm_dma_play_submit(struct xgold_runtime_data *xrtd,
 	if (!desc) {
 		xgold_err("<-- %s, dmaengine_prep_slave_sg returns NULL\n",
 			__func__);
-		return;
+		return -ENOMEM;
 	}
 
 	/* Set the DMA callback */
@@ -815,6 +815,8 @@ static void xgold_pcm_dma_play_submit(struct xgold_runtime_data *xrtd,
 	dma_cookie_tx = dmaengine_submit(desc);
 
 	xgold_debug("<-- %s\n", __func__);
+
+	return 0;
 }
 
 static void xgold_pcm_dma_rec_submit(struct xgold_runtime_data *xrtd,
@@ -1342,9 +1344,9 @@ static int xgold_pcm_play_dma_prepare(struct snd_pcm_substream *substream)
 	sg_init_table(xrtd->dma_sgl, xrtd->dma_sgl_count);
 
 	/* Load scatter list and submit DMA request */
-	xgold_pcm_dma_play_submit(xrtd, dma_addr);
+	ret = xgold_pcm_dma_play_submit(xrtd, dma_addr);
 
-	return 0;
+	return ret;
 }
 
 static int xgold_pcm_rec_dma_prepare(struct snd_pcm_substream *substream)
