@@ -345,12 +345,12 @@ static int devices_state_show(struct seq_file *s, void *unused)
 	total_sec = uptime;
 	total_msec = nanosec_rem / 1000000;
 	time = s3_total_res * 100;
-	remainder = do_div(time, uptime);
+	remainder = uptime ? do_div(time, uptime) : (time = 0);
 
 	/* for getting 3 digit precision after
 	 * decimal dot */
 	t = remainder * 1000;
-	do_div(t, uptime);
+	uptime ? do_div(t, uptime) : (t = 0);
 
 	seq_printf(s, "%5lu.%03lu\t",  (unsigned long)time,  (unsigned long)t);
 
