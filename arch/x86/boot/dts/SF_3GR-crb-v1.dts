@@ -790,6 +790,42 @@
 
 };
 
+&lvds {
+	status = "disabled";
+	pm,class-name = "generic_class";
+	pm,user-name = "lcd";
+	pm,state-D0 = "enable";
+	pm,state-D3 = "disable";
+
+	pinctrl-names = "default", "sleep", "inactive";
+	pinctrl-0 = <&lvds_default_pins>;
+	pinctrl-1 = <&lvds_sleep_pins>;
+	pinctrl-2 = <&lvds_inactive_pins>;
+
+	rockchip,output = "lvds";
+	rockchip,data-mapping = "lvds_8bit_2";
+	rockchip,data-width = <18>;
+
+	display-timings {
+		native-mode = <&lvds_timing>;
+		lvds_timing: lvds_timing {
+			clock-frequency = <67000000>;
+			hactive = <800>;
+			vactive = <1280>;
+			hback-porch = <24>;
+			hfront-porch = <24>;
+			vback-porch = <4>;
+			vfront-porch = <2>;
+			hsync-len = <16>;
+			vsync-len = <2>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <0>;
+			pixelclk-active = <0>;
+		};
+	};
+};
+
 &display_panel {
 	compatible = "rockchip,panel","intel,display";
 	reg = <0>;
