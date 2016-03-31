@@ -26,6 +26,14 @@ config ROCKCHIP_DW_HDMI
 	  enable HDMI on RK3288 based SoC, you should selet this
 	  option.
 
+config ROCKCHIP_LVDS
+	tristate "Rockchip specific extensions for Nanosilicon LVDS"
+	depends on DRM_ROCKCHIP
+	help
+	  This selects support Nanosilicon LVDS driver for DRM framework.
+	  If you want to enable LVDS on SOFIA3GR based SoC, you should
+	  select this option.
+
 config ROCKCHIP_XGOLD_DSI
         tristate "Rockchip specific extensions for XGOLD MIPI DSI"
         depends on DRM_ROCKCHIP

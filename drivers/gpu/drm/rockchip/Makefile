@@ -11,3 +11,4 @@ obj-$(CONFIG_DRM_ROCKCHIP) += rockchipdrm.o rockchip_drm_vop.o \
 				rockchip_vop_reg.o
 
 obj-$(CONFIG_ROCKCHIP_XGOLD_DSI) += xgold_dsi-rockchip.o xgold_dsi_hwregs.o
+obj-$(CONFIG_ROCKCHIP_LVDS) += rockchip_lvds.o
