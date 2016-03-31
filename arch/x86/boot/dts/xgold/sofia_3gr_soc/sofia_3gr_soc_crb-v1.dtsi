@@ -608,7 +608,7 @@
 
 					vop: vop@E1000000 {
 						compatible = "rockchip,sofia3gr-vop";
-						reg = <0xE1000000 0x148>;
+						reg = <0xE1000000 0x13C>;
 						interrupts = < VOP_INT IRQ_TYPE_DEFAULT >;
 
 						pm,class-name = "dcc_class";
@@ -628,6 +628,28 @@
 							vop_out_dsi: endpoint@0 {
 								reg = <0>;
 								remote-endpoint = <&dsi_in_vop>;
+							};
+							vop_out_lvds: endpoint@1 {
+								reg = <0>;
+								remote-endpoint = <&lvds_in_vop>;
+							};
+						};
+					};
+
+					lvds: lvds@0xE1000140 {
+						compatible = "rockchip,nanosilicon-lvds";
+						reg = <0xE1000140 0x008>;
+						status = "disabled";
+
+						ports {
+							lvds_in: port@0 {
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+								lvds_in_vop: endpoint@0 {
+									reg = <0>;
+									remote-endpoint = <&vop_out_lvds>;
+								};
 							};
 						};
 					};
