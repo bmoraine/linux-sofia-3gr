@@ -648,21 +648,6 @@ static void vop_disable(struct drm_crtc *crtc)
 /*
  * Caller must hold vsync_mutex.
  */
-static struct drm_framebuffer *vop_win_last_pending_fb(struct vop_win *vop_win)
-{
-	struct vop_win_state *last;
-	struct vop_win_state *active = vop_win->active;
-
-	if (list_empty(&vop_win->pending))
-		return active ? active->fb : NULL;
-
-	last = list_last_entry(&vop_win->pending, struct vop_win_state, head);
-	return last ? last->fb : NULL;
-}
-
-/*
- * Caller must hold vsync_mutex.
- */
 static int vop_win_queue_fb(struct vop_win *vop_win,
 			    struct drm_framebuffer *fb, dma_addr_t yrgb_mst,
 			    struct drm_pending_vblank_event *event)
@@ -814,25 +799,25 @@ static int vop_update_plane_event(struct drm_plane *plane,
 	 * unreference any previous framebuffers.
 	 */
 	mutex_lock(&vop->vsync_mutex);
-	if (fb != vop_win_last_pending_fb(vop_win)) {
-		ret = drm_vblank_get(plane->dev, vop->pipe);
-		if (ret) {
-			DRM_ERROR("failed to get vblank, %d\n", ret);
-			mutex_unlock(&vop->vsync_mutex);
-			return ret;
-		}
 
-		drm_framebuffer_reference(fb);
-
-		ret = vop_win_queue_fb(vop_win, fb, yrgb_mst, event);
-		if (ret) {
-			drm_vblank_put(plane->dev, vop->pipe);
-			mutex_unlock(&vop->vsync_mutex);
-			return ret;
-		}
-
-		vop->vsync_work_pending = true;
+	ret = drm_vblank_get(plane->dev, vop->pipe);
+	if (ret) {
+		DRM_ERROR("failed to get vblank, %d\n", ret);
+		mutex_unlock(&vop->vsync_mutex);
+		return ret;
 	}
+
+	drm_framebuffer_reference(fb);
+
+	ret = vop_win_queue_fb(vop_win, fb, yrgb_mst, event);
+	if (ret) {
+		drm_vblank_put(plane->dev, vop->pipe);
+		mutex_unlock(&vop->vsync_mutex);
+		return ret;
+	}
+
+	vop->vsync_work_pending = true;
+
 	mutex_unlock(&vop->vsync_mutex);
 
 	spin_lock(&vop->reg_lock);
