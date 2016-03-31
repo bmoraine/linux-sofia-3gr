@@ -1501,6 +1501,52 @@ lvds_function_B_sleep_pins:lvds_function_B_sleep_pins {
 		0x34c 0x1410	/* lvds_td1p */
 	>;
 };
+
+lvds_default_pins:lvds_default_pins {
+	pinctrl-single,pins = <
+		0x328 0x10	/* lvds_tclk1n */
+		0x32c 0x10	/* lvds_tclk1p */
+		0x330 0x10	/* lvds_ta1n */
+		0x334 0x10	/* lvds_ta1p */
+		0x338 0x10	/* lvds_tb1n */
+		0x33c 0x10	/* lvds_tb1p */
+		0x340 0x10	/* lvds_tc1n */
+		0x344 0x10	/* lvds_tc1p */
+		0x348 0x10	/* lvds_td1n */
+		0x34c 0x10	/* lvds_td1p */
+	>;
+};
+
+lvds_inactive_pins:lvds_inactive_pins {
+	pinctrl-single,pins = <
+		0x328 0x100	/* lvds_tclk1n */
+		0x32c 0x100	/* lvds_tclk1p */
+		0x330 0x100	/* lvds_ta1n */
+		0x334 0x100	/* lvds_ta1p */
+		0x338 0x100	/* lvds_tb1n */
+		0x33c 0x100	/* lvds_tb1p */
+		0x340 0x100	/* lvds_tc1n */
+		0x344 0x100	/* lvds_tc1p */
+		0x348 0x100	/* lvds_td1n */
+		0x34c 0x100	/* lvds_td1p */
+	>;
+};
+
+lvds_sleep_pins:lvds_sleep_pins {
+	pinctrl-single,pins = <
+		0x328 0x10	/* lvds_tclk1n */
+		0x32c 0x10	/* lvds_tclk1p */
+		0x330 0x10	/* lvds_ta1n */
+		0x334 0x10	/* lvds_ta1p */
+		0x338 0x10	/* lvds_tb1n */
+		0x33c 0x10	/* lvds_tb1p */
+		0x340 0x10	/* lvds_tc1n */
+		0x344 0x10	/* lvds_tc1p */
+		0x348 0x10	/* lvds_td1n */
+		0x34c 0x10	/* lvds_td1p */
+	>;
+};
+
 i2c1_default_pins:i2c1_default_pins {
 	pinctrl-single,pins = <
 		0x350 0x10011	/* i2c1_scl */
