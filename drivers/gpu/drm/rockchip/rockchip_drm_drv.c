@@ -14,9 +14,6 @@
  * GNU General Public License for more details.
  */
 
-#if 0
-#include <asm/dma-iommu.h>
-#endif
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
@@ -25,6 +22,8 @@
 #include <linux/module.h>
 #include <linux/of_graph.h>
 #include <linux/component.h>
+#include <linux/rockchip_ion.h>
+#include <linux/rockchip_iovmm.h>
 
 #include "rockchip_drm_drv.h"
 #include "rockchip_drm_fb.h"
@@ -45,18 +44,8 @@
 int rockchip_drm_dma_attach_device(struct drm_device *drm_dev,
 				   struct device *dev)
 {
-#if 0
-	struct dma_iommu_mapping *mapping = drm_dev->dev->archdata.mapping;
-	int ret;
+	rockchip_iovmm_activate(dev);
 
-	ret = dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
-	if (ret)
-		return ret;
-
-	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
-
-	return arm_iommu_attach_device(dev, mapping);
-#endif
 	return 0;
 }
 EXPORT_SYMBOL_GPL(rockchip_drm_dma_attach_device);
@@ -64,9 +53,7 @@ EXPORT_SYMBOL_GPL(rockchip_drm_dma_attach_device);
 void rockchip_drm_dma_detach_device(struct drm_device *drm_dev,
 				    struct device *dev)
 {
-#if 0
-	arm_iommu_detach_device(dev);
-#endif
+	rockchip_iovmm_deactivate(dev);
 }
 EXPORT_SYMBOL_GPL(rockchip_drm_dma_detach_device);
 
@@ -136,12 +123,9 @@ static void rockchip_drm_crtc_disable_vblank(struct drm_device *dev,
 static int rockchip_drm_load(struct drm_device *drm_dev, unsigned long flags)
 {
 	struct rockchip_drm_private *private;
-#if 0
-	struct dma_iommu_mapping *mapping;
-#endif
 	struct device *dev = drm_dev->dev;
 	struct drm_connector *connector;
-	int ret;
+	int ret = 0;
 
 	private = devm_kzalloc(drm_dev->dev, sizeof(*private), GFP_KERNEL);
 	if (!private)
@@ -160,32 +144,16 @@ static int rockchip_drm_load(struct drm_device *drm_dev, unsigned long flags)
 		goto err_config_cleanup;
 	}
 
-#if 0
-	/* TODO(djkurtz): fetch the mapping start/size from somewhere */
-	mapping = arm_iommu_create_mapping(&platform_bus_type, 0x00000000,
-					   SZ_2G);
-	if (IS_ERR(mapping)) {
-		ret = PTR_ERR(mapping);
+	private->ion_client = rockchip_ion_client_create("rockchip-drm");
+	if (IS_ERR(private->ion_client)) {
+		dev_err(dev, "failed to create ion client for rockchip drm");
 		goto err_config_cleanup;
 	}
-#endif
-
-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
-	if (ret)
-		goto err_release_mapping;
-
-	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
-
-#if 0
-	ret = arm_iommu_attach_device(dev, mapping);
-	if (ret)
-		goto err_release_mapping;
-#endif
 
 	/* Try to bind all sub drivers. */
 	ret = component_bind_all(dev, drm_dev);
 	if (ret)
-		goto err_detach_device;
+		goto err_ion_client_destroy;
 
 	/*
 	 * All components are now added, we can publish the connector sysfs
@@ -235,14 +203,9 @@ err_kms_helper_poll_fini:
 	drm_kms_helper_poll_fini(drm_dev);
 err_unbind:
 	component_unbind_all(dev, drm_dev);
-err_detach_device:
-#if 0
-	arm_iommu_detach_device(dev);
-#endif
-err_release_mapping:
-#if 0
-	arm_iommu_release_mapping(dev->archdata.mapping);
-#endif
+err_ion_client_destroy:
+	if (private->ion_client)
+		ion_client_destroy(private->ion_client);
 err_config_cleanup:
 	drm_mode_config_cleanup(drm_dev);
 	drm_dev->dev_private = NULL;
@@ -251,16 +214,15 @@ err_config_cleanup:
 
 static int rockchip_drm_unload(struct drm_device *drm_dev)
 {
+	struct rockchip_drm_private *priv = drm_dev->dev_private;
 	struct device *dev = drm_dev->dev;
 
 	rockchip_drm_fbdev_fini(drm_dev);
 	drm_vblank_cleanup(drm_dev);
 	drm_kms_helper_poll_fini(drm_dev);
 	component_unbind_all(dev, drm_dev);
-#if 0
-	arm_iommu_detach_device(dev);
-	arm_iommu_release_mapping(dev->archdata.mapping);
-#endif
+	if (priv->ion_client)
+		ion_client_destroy(priv->ion_client);
 	drm_mode_config_cleanup(drm_dev);
 	drm_dev->dev_private = NULL;
 

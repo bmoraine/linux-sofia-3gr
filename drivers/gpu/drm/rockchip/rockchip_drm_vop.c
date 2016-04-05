@@ -32,6 +32,7 @@
 
 #include <asm/io.h>
 
+#include <linux/rockchip_iovmm.h>
 #include "rockchip_drm_drv.h"
 #include "rockchip_drm_gem.h"
 #include "rockchip_drm_fb.h"
@@ -755,7 +756,7 @@ static int vop_update_plane_event(struct drm_plane *plane,
 	if (format < 0)
 		return format;
 
-	obj = rockchip_fb_get_gem_obj(fb, 0);
+	obj = rockchip_fb_get_gem_obj(vop->dev, fb, 0);
 	if (!obj) {
 		DRM_ERROR("fail to get rockchip gem object from framebuffer\n");
 		return -EINVAL;
@@ -790,7 +791,7 @@ static int vop_update_plane_event(struct drm_plane *plane,
 		int vsub = drm_format_vert_chroma_subsampling(fb->pixel_format);
 		int bpp = drm_format_plane_cpp(fb->pixel_format, 1);
 
-		uv_obj = rockchip_fb_get_gem_obj(fb, 1);
+		uv_obj = rockchip_fb_get_gem_obj(vop->dev, fb, 1);
 		if (!uv_obj) {
 			DRM_ERROR("fail to get uv object from framebuffer\n");
 			return -EINVAL;
@@ -1475,6 +1476,7 @@ static int vop_initial(struct vop *vop)
 {
 	const struct vop_data *vop_data = vop->data;
 	const struct vop_reg_data *init_table = vop_data->init_table;
+	struct device *mmu_dev;
 	int i, ret;
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
@@ -1538,6 +1540,13 @@ static int vop_initial(struct vop *vop)
 
 	vop_cfg_done(vop);
 
+	/*
+	 * We need make sure vop register config take effect, it need one frame
+	 * time, about 16ms, use 30ms make it safe.
+	 */
+	mdelay(30);
+	mmu_dev = rockchip_disp_get_sysmmu_device(VOP_IOMMU_COMPATIBLE_NAME);
+	rockchip_disp_platform_set_sysmmu(mmu_dev, vop->dev);
 #ifdef CONFIG_PLATFORM_DEVICE_PM
 	device_state_pm_set_state_by_name(
 			vop->dev, vop->pm_platdata->pm_state_D3_name);

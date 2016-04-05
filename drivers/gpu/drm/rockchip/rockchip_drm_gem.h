@@ -24,6 +24,7 @@ struct rockchip_gem_object {
 	void *kvaddr;
 	dma_addr_t dma_addr;
 	struct dma_attrs dma_attrs;
+	struct ion_handle *handle;
 };
 
 struct sg_table *rockchip_gem_prime_get_sg_table(struct drm_gem_object *obj);

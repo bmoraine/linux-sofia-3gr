@@ -18,23 +18,43 @@
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_crtc_helper.h>
 
+#include <linux/rockchip_ion.h>
+#include <linux/rockchip_iovmm.h>
 #include "rockchip_drm_drv.h"
 #include "rockchip_drm_gem.h"
 
 #define to_rockchip_fb(x) container_of(x, struct rockchip_drm_fb, fb)
 
 struct rockchip_drm_fb {
+	struct device *dev;
 	struct drm_framebuffer fb;
 	struct drm_gem_object *obj[ROCKCHIP_MAX_FB_BUFFER];
 };
 
-struct drm_gem_object *rockchip_fb_get_gem_obj(struct drm_framebuffer *fb,
+struct drm_gem_object *rockchip_fb_get_gem_obj(struct device *dev,
+					       struct drm_framebuffer *fb,
 					       unsigned int plane)
 {
 	struct rockchip_drm_fb *rk_fb = to_rockchip_fb(fb);
+	struct rockchip_drm_private *priv = fb->dev->dev_private;
+	struct drm_gem_object *obj;
+	struct rockchip_gem_object *rk_obj;
+	unsigned long dma_size;
 
 	if (plane >= ROCKCHIP_MAX_FB_BUFFER)
 		return NULL;
+	obj = rk_fb->obj[plane];
+	rk_obj = to_rockchip_obj(obj);
+	if (!rk_obj->dma_addr) {
+		rk_fb->dev = dev;
+		ion_map_iommu(dev, priv->ion_client, rk_obj->handle,
+			      (unsigned long *)&rk_obj->dma_addr, &dma_size);
+		if (dma_size < obj->size) {
+			dev_err(dev, "Error: dma_size[%zu] < rk_obj->size[%zu]",
+				dma_size, obj->size);
+			return NULL;
+		}
+	}
 
 	return rk_fb->obj[plane];
 }
@@ -43,13 +63,24 @@ EXPORT_SYMBOL_GPL(rockchip_fb_get_gem_obj);
 static void rockchip_drm_fb_destroy(struct drm_framebuffer *fb)
 {
 	struct rockchip_drm_fb *rockchip_fb = to_rockchip_fb(fb);
+	struct rockchip_drm_private *priv = fb->dev->dev_private;
+	struct rockchip_gem_object *rk_obj;
 	struct drm_gem_object *obj;
 	int i;
 
 	for (i = 0; i < ROCKCHIP_MAX_FB_BUFFER; i++) {
 		obj = rockchip_fb->obj[i];
-		if (obj)
+		if (obj) {
+			rk_obj = to_rockchip_obj(obj);
+			if (rk_obj->dma_addr) {
+				ion_unmap_iommu(rockchip_fb->dev,
+						priv->ion_client,
+						rk_obj->handle);
+				rk_obj->dma_addr = 0;
+			}
+
 			drm_gem_object_unreference_unlocked(obj);
+		}
 	}
 
 	drm_framebuffer_cleanup(fb);

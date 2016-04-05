@@ -321,4 +321,7 @@ static inline int scl_vop_cal_lb_mode(int width, bool is_yuv)
 }
 
 extern const struct component_ops vop_component_ops;
+struct device *rockchip_disp_get_sysmmu_device(const char *compt);
+void rockchip_disp_platform_set_sysmmu(struct device *sysmmu,
+				       struct device *dev);
 #endif /* _ROCKCHIP_DRM_VOP_H */

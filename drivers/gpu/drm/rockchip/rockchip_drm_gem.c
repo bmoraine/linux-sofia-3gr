@@ -18,6 +18,10 @@
 #include <drm/drm_vma_manager.h>
 
 #include <linux/dma-attrs.h>
+#include <linux/dma-buf.h>
+
+#include <linux/rockchip_ion.h>
+#include <linux/rockchip_iovmm.h>
 
 #include "rockchip_drm_drv.h"
 #include "rockchip_drm_gem.h"
@@ -27,20 +31,21 @@ static int rockchip_gem_alloc_buf(struct rockchip_gem_object *rk_obj,
 {
 	struct drm_gem_object *obj = &rk_obj->base;
 	struct drm_device *drm = obj->dev;
+	struct rockchip_drm_private *priv = drm->dev_private;
 
-	init_dma_attrs(&rk_obj->dma_attrs);
-	dma_set_attr(DMA_ATTR_WRITE_COMBINE, &rk_obj->dma_attrs);
+	rk_obj->handle = ion_alloc(priv->ion_client, (size_t)obj->size,
+				   0, ION_HEAP_SYSTEM_MASK, 0);
 
-	if (!alloc_kmap)
-		dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &rk_obj->dma_attrs);
-
-	rk_obj->kvaddr = dma_alloc_attrs(drm->dev, obj->size,
-					 &rk_obj->dma_addr, GFP_KERNEL,
-					 &rk_obj->dma_attrs);
-	if (!rk_obj->kvaddr) {
+	if (!rk_obj->handle) {
 		DRM_ERROR("failed to allocate %#x byte dma buffer", obj->size);
 		return -ENOMEM;
 	}
+
+	if (alloc_kmap)
+		rk_obj->kvaddr = ion_map_kernel(priv->ion_client,
+						rk_obj->handle);
+	else
+		rk_obj->kvaddr = 0;
 
 	return 0;
 }
@@ -49,9 +54,9 @@ static void rockchip_gem_free_buf(struct rockchip_gem_object *rk_obj)
 {
 	struct drm_gem_object *obj = &rk_obj->base;
 	struct drm_device *drm = obj->dev;
+	struct rockchip_drm_private *priv = drm->dev_private;
 
-	dma_free_attrs(drm->dev, obj->size, rk_obj->kvaddr, rk_obj->dma_addr,
-		       &rk_obj->dma_attrs);
+	ion_free(priv->ion_client, rk_obj->handle);
 }
 
 static int rockchip_drm_gem_object_mmap(struct drm_gem_object *obj,
@@ -61,19 +66,24 @@ static int rockchip_drm_gem_object_mmap(struct drm_gem_object *obj,
 	int ret;
 	struct rockchip_gem_object *rk_obj = to_rockchip_obj(obj);
 	struct drm_device *drm = obj->dev;
+	struct rockchip_drm_private *priv = drm->dev_private;
+	struct dma_buf *dma_buf = NULL;
 
-	/*
-	 * dma_alloc_attrs() allocated a struct page table for rk_obj, so clear
-	 * VM_PFNMAP flag that was set by drm_gem_mmap_obj()/drm_gem_mmap().
-	 */
-	vma->vm_flags &= ~VM_PFNMAP;
-	vma->vm_pgoff = 0;
+	if (IS_ERR_OR_NULL(rk_obj->handle)) {
+		DRM_ERROR("failed to get ion handle:%ld\n",
+			  PTR_ERR(rk_obj->handle));
+		return -ENOMEM;
+	}
 
-	ret = dma_mmap_attrs(drm->dev, vma, rk_obj->kvaddr, rk_obj->dma_addr,
-			     obj->size, &rk_obj->dma_attrs);
-	if (ret)
-		drm_gem_vm_close(vma);
+	dma_buf = ion_share_dma_buf(priv->ion_client, rk_obj->handle);
+	if (IS_ERR_OR_NULL(dma_buf)) {
+		DRM_ERROR("get ion share dma buf failed\n");
+		return -ENOMEM;
+	}
 
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
+	ret = dma_buf_mmap(dma_buf, vma, 0);
 	return ret;
 }
 
@@ -256,23 +266,26 @@ int rockchip_gem_dumb_create(struct drm_file *file_priv,
  */
 struct sg_table *rockchip_gem_prime_get_sg_table(struct drm_gem_object *obj)
 {
-	struct rockchip_gem_object *rk_obj = to_rockchip_obj(obj);
 	struct drm_device *drm = obj->dev;
+	struct rockchip_gem_object *rk_obj = to_rockchip_obj(obj);
+	struct rockchip_drm_private *priv = drm->dev_private;
+	struct scatterlist *sg, *ion_sg;
 	struct sg_table *sgt;
-	int ret;
+	struct sg_table *ion_sgt;
+	int i;
 
+	ion_sgt = ion_sg_table(priv->ion_client, rk_obj->handle);
+	if (!ion_sgt)
+		return ERR_PTR(-ENOMEM);
 	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
 	if (!sgt)
 		return ERR_PTR(-ENOMEM);
+	if (sg_alloc_table(sgt, ion_sgt->nents, GFP_KERNEL))
+		return ERR_PTR(-ENOMEM);
 
-	ret = dma_get_sgtable_attrs(drm->dev, sgt, rk_obj->kvaddr,
-				    rk_obj->dma_addr, obj->size,
-				    &rk_obj->dma_attrs);
-	if (ret) {
-		DRM_ERROR("failed to allocate sgt, %d\n", ret);
-		kfree(sgt);
-		return ERR_PTR(ret);
-	}
+	for (i = 0, sg = sgt->sgl, ion_sg = ion_sgt->sgl; i < ion_sgt->nents;
+		i++, sg = sg_next(sg), ion_sg = sg_next(ion_sg))
+		memcpy(sg, ion_sg, sizeof(*sg));
 
 	return sgt;
 }
@@ -280,9 +293,6 @@ struct sg_table *rockchip_gem_prime_get_sg_table(struct drm_gem_object *obj)
 void *rockchip_gem_prime_vmap(struct drm_gem_object *obj)
 {
 	struct rockchip_gem_object *rk_obj = to_rockchip_obj(obj);
-
-	if (dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING, &rk_obj->dma_attrs))
-		return NULL;
 
 	return rk_obj->kvaddr;
 }

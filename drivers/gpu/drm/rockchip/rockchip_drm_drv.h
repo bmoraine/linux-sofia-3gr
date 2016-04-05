@@ -49,6 +49,8 @@ struct rockchip_crtc_funcs {
 struct rockchip_drm_private {
 	struct drm_fb_helper fbdev_helper;
 	struct drm_gem_object *fbdev_bo;
+	struct ion_client *ion_client;
+
 	const struct rockchip_crtc_funcs *crtc_funcs[ROCKCHIP_MAX_CRTC];
 };
 
@@ -66,5 +68,6 @@ int rockchip_drm_dma_attach_device(struct drm_device *drm_dev,
 				   struct device *dev);
 void rockchip_drm_dma_detach_device(struct drm_device *drm_dev,
 				    struct device *dev);
+extern struct ion_client *rockchip_ion_client_create(const char *name);
 
 #endif /* _ROCKCHIP_DRM_DRV_H_ */
