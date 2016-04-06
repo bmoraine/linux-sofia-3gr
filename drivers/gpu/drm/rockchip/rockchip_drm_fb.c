@@ -63,24 +63,12 @@ EXPORT_SYMBOL_GPL(rockchip_fb_get_gem_obj);
 static void rockchip_drm_fb_destroy(struct drm_framebuffer *fb)
 {
 	struct rockchip_drm_fb *rockchip_fb = to_rockchip_fb(fb);
-	struct rockchip_drm_private *priv = fb->dev->dev_private;
-	struct rockchip_gem_object *rk_obj;
 	struct drm_gem_object *obj;
 	int i;
 
 	for (i = 0; i < ROCKCHIP_MAX_FB_BUFFER; i++) {
 		obj = rockchip_fb->obj[i];
-		if (obj) {
-			rk_obj = to_rockchip_obj(obj);
-			if (rk_obj->dma_addr) {
-				ion_unmap_iommu(rockchip_fb->dev,
-						priv->ion_client,
-						rk_obj->handle);
-				rk_obj->dma_addr = 0;
-			}
-
-			drm_gem_object_unreference_unlocked(obj);
-		}
+		drm_gem_object_unreference_unlocked(obj);
 	}
 
 	drm_framebuffer_cleanup(fb);
