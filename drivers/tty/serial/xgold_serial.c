@@ -3469,20 +3469,20 @@ void xgold_usif_remove_port(struct uart_usif_xgold_port *uxp)
 	device_init_wakeup(dev, false);
 
 #ifdef CONFIG_SERIAL_XGOLD_CONSOLE
-	if (platdata->runtime_pm_enabled) {
+	if (platdata->runtime_pm_enabled || uxp->is_console) {
 		if (platdata->irq_wk) {
 			if (platdata->irq_wk_enabled)
 				disable_irq_nosync(platdata->irq_wk);
 			free_irq(platdata->irq_wk, &uxp->port);
 			platdata->irq_wk_enabled = 0;
 		}
-
+	}
+	if (uxp->is_console) {
 		kfree(uxp->trace_buf_list);
 		uxp->trace_buf_list = NULL;
+		dev_err(dev, "Remove uxp->port.line %d\n", uxp->port.line);
+		xgold_usif_ports[uxp->port.line] = NULL;
 	}
-
-	dev_dbg(dev, "Remove uxp->port.line\n");
-	xgold_usif_ports[uxp->port.line] = NULL;
 #endif
 
 	if (uxp->use_dma)
