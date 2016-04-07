@@ -1,0 +1,5 @@
+config MALI_UMPLOCK
+	tristate "Mali-UMPLOCK support"
+	depends on ARM || X86_INTEL_XGOLD
+	---help---
+	  This enables support for the ARM umplock function.

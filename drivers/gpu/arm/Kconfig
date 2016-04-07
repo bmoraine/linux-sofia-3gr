@@ -13,4 +13,5 @@
 menu "ARM GPU Configuration"
 source "drivers/gpu/arm/mali/Kconfig"
 source "drivers/gpu/arm/midgard/Kconfig"
+source "drivers/gpu/arm/umplock/Kconfig"
 endmenu
