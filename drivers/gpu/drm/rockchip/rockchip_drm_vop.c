@@ -515,6 +515,9 @@ static void vop_standby_enable(struct vop *vop)
 
 	spin_lock(&vop->reg_lock);
 
+	if (vop->connector_type == DRM_MODE_CONNECTOR_DSI)
+		VOP_CTRL_SET(vop, edpi_halt, 0);
+
 	VOP_CTRL_SET(vop, standby, 1);
 
 	spin_unlock(&vop->reg_lock);
@@ -527,6 +530,9 @@ static void vop_standby_enable(struct vop *vop)
 static void vop_standby_disable(struct vop *vop)
 {
 	spin_lock(&vop->reg_lock);
+
+	if (vop->connector_type == DRM_MODE_CONNECTOR_DSI)
+		VOP_CTRL_SET(vop, edpi_halt, 1);
 
 	VOP_CTRL_SET(vop, standby, 0);
 
@@ -1086,7 +1092,8 @@ static int vop_crtc_mode_set(struct drm_crtc *crtc,
 	 * enable iommu.
 	 */
 	/* clk_disable(vop->dclk); */
-	vop_standby_enable(vop);
+	VOP_CTRL_SET(vop, standby, 1);
+	mdelay(30);
 
 	switch (vop->connector_type) {
 	case DRM_MODE_CONNECTOR_LVDS:
@@ -1100,7 +1107,6 @@ static int vop_crtc_mode_set(struct drm_crtc *crtc,
 		break;
 	case DRM_MODE_CONNECTOR_DSI:
 		VOP_CTRL_SET(vop, mipi_en, 1);
-		VOP_CTRL_SET(vop, edpi_halt, 1);
 		break;
 	default:
 		DRM_ERROR("unsupport connector_type[%d]\n",
