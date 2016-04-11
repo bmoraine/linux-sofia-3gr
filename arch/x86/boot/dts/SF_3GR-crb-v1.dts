@@ -783,6 +783,7 @@
 	pm,state-D3 = "disable";
 
 	intel,display-dc-clkrate = <297000000>;
+	intel,display-dsi-bitrate = <832000000>;
 
 #ifdef SOFIA3GR_MRD6
 	#include "xgold/display/NT35596-3gr.dtsi"
