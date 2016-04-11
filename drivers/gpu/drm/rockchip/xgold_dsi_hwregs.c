@@ -617,18 +617,16 @@ static int dsi_get_bllp(struct dsi_display *display,
 	/* maximum framerate */
 	unsigned int maxfrate = bitrate * nlanes / bitpframe;
 	/* shortest line time */
-	unsigned int slt = NSEC_PER_SEC / maxfrate / nlines;
+	unsigned int slt = NSEC_PER_SEC / (maxfrate * nlines);
 	/* target line time */
-	unsigned int tlt = NSEC_PER_SEC / (fps + 1) / nlines;
+	unsigned int tlt = NSEC_PER_SEC / (fps * nlines);
 	/* clock cycle duration in ps */
-	unsigned int clk_time = 1000000 / (clk/1000000);
-
-	if (display->dif.dsi.video_mode == DSI_BURST)
-		*bllp_time = ((tlt - slt) * 1000) / clk_time;
-	else
-		*bllp_time = 0;
+	unsigned int clk_time = 1000000000 / (clk / 1000);
 
 	*line_time = tlt * 1000 / clk_time;
+	*bllp_time = *line_time - DIV_ROUND_UP(slt * 1000, clk_time);
+	if (display->dif.dsi.video_mode != DSI_BURST || *bllp_time < 0)
+		*bllp_time = 0;
 
 	DSI_DBG2("%d bytes / %d lines\n", bytes, nlines);
 	DSI_DBG2("bits / frame = %d bits\n", bitpframe);
@@ -638,13 +636,6 @@ static int dsi_get_bllp(struct dsi_display *display,
 	DSI_DBG2("clock cycle  = %d\n", clk_time);
 	DSI_DBG2("bllp_time 0x%08x(%d)\n", *bllp_time, *bllp_time);
 	DSI_DBG2("line_time 0x%08x(%d)\n", *line_time, *line_time);
-
-	if (fps >= maxfrate) {
-		DSI_ERR("target framerate(%d) cannot be reached, max %d\n",
-				fps, maxfrate);
-		*bllp_time = 0;
-		return 0;
-	}
 
 	return 0;
 }
@@ -724,13 +715,14 @@ static void dsi_rate_calculation(struct dsi_display *display)
 {
 	int diff, diff_min = DSI_RATE_MAX, n = 0, m = 0;
 
-	display->dif.dsi.bitrate = DSI_RATE_OVERHEAD((display->xres +
-		BYTES_TO_PIXELS(display->dif.dsi.hfp, display->bpp) +
-		BYTES_TO_PIXELS(display->dif.dsi.hbp, display->bpp) +
-		BYTES_TO_PIXELS(display->dif.dsi.hsa, display->bpp)) *
-		(display->yres + display->dif.dsi.vfp +
-		display->dif.dsi.vbp + display->dif.dsi.vsa) *
-		display->fps / display->dif.dsi.nblanes * display->bpp);
+	if (!display->dif.dsi.bitrate)
+		display->dif.dsi.bitrate = DSI_RATE_OVERHEAD((display->xres +
+			BYTES_TO_PIXELS(display->dif.dsi.hfp, display->bpp) +
+			BYTES_TO_PIXELS(display->dif.dsi.hbp, display->bpp) +
+			BYTES_TO_PIXELS(display->dif.dsi.hsa, display->bpp)) *
+			(display->yres + display->dif.dsi.vfp +
+			display->dif.dsi.vbp + display->dif.dsi.vsa) *
+			display->fps / display->dif.dsi.nblanes * display->bpp);
 
 	if (display->dif.dsi.bitrate > DSI_RATE_MAX)
 		display->dif.dsi.bitrate = DSI_RATE_MAX;
@@ -764,14 +756,6 @@ static int dsi_configure_video_mode(struct xgold_mipi_dsi *dsi,
 		DSI_DBG2("%s: not video mode\n", __func__);
 		return -EINVAL;
 	}
-
-	dsi_get_bllp(display,
-		     nlines + dif->vfp + dif->vbp + dif->vsa,
-		     stride + dif->hfp + dif->hbp + dif->hsa,
-		     dif->dc_clk_rate,
-		     display->fps,
-		     dsi_get_rate(display),
-		     dif->nblanes, &dif->bllp_time, &dif->line_time);
 
 	vid0 = BITFLDS(EXR_DSI_VID0_HFP,
 		       (!!display->dif.dsi.hfp))|
@@ -917,8 +901,8 @@ int xgold_dsi_init_config(struct xgold_mipi_dsi *dsi,
 			display->dif.dsi.video_mode = DSI_PULSES;
 	}
 
-	if (!(device->mode_flags & MIPI_DSI_MODE_EOT_PACKET))
-		display->dif.dsi.eot = 0;
+	if (device->mode_flags & MIPI_DSI_MODE_EOT_PACKET)
+		display->dif.dsi.eot = 1;
 
 	/*
 	 * Use non-continuous clock mode if the periparal wants and
@@ -961,6 +945,7 @@ void xgold_dsi_set_display_mode(struct xgold_mipi_dsi *dsi,
 				struct videomode *vm, int fps)
 {
 	struct dsi_display *display = &dsi->display;
+	struct dsi_display_if_mipi_dsi *dif = &display->dif.dsi;
 
 	display->fps = fps;
 	display->xres = vm->hactive;
@@ -1016,6 +1001,14 @@ void xgold_dsi_set_display_mode(struct xgold_mipi_dsi *dsi,
 
 	dsi_rate_calculation(display);
 	dsi_dphy_calculation(display);
+	dsi_get_bllp(display,
+		     display->yres + dif->vfp + dif->vbp + dif->vsa,
+		     PIXELS_TO_BYTES(display->xres, display->bpp) +
+		     dif->hfp + dif->hbp + dif->hsa,
+		     dif->dc_clk_rate,
+		     display->fps,
+		     dsi_get_rate(display),
+		     dif->nblanes, &dif->bllp_time, &dif->line_time);
 }
 
 void xgold_dsi_send_short_packet(struct xgold_mipi_dsi *dsi,

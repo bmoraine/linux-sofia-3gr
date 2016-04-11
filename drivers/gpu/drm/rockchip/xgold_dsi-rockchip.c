@@ -40,6 +40,7 @@
 #define DSI_STATE_TRANSMIT_VIDEO	BIT(2)
 
 #define PROP_DISPLAY_DCCLK	"intel,display-dc-clkrate"
+#define PROP_DISPLAY_BITRATE	"intel,display-dsi-bitrate"
 
 #define host_to_dsi(x) container_of(x, struct xgold_mipi_dsi, dsi_host)
 #define connector_to_dsi(x) container_of(x, struct xgold_mipi_dsi, connector)
@@ -460,6 +461,12 @@ static int xgold_dsi_probe(struct platform_device *pdev)
 				 &dsi->display.dif.dsi.dc_clk_rate)) {
 		DRM_ERROR("Can't get DSI Controller clock rate\n");
 		return -EINVAL;
+	}
+
+	if (of_property_read_u32(dev->of_node, PROP_DISPLAY_BITRATE,
+				 &dsi->display.dif.dsi.bitrate)) {
+		dsi->display.dif.dsi.bitrate = 0;
+		DRM_DEBUG("Can't get DSI bit clock rate\n");
 	}
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
