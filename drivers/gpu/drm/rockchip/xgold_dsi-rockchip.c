@@ -79,7 +79,8 @@ static ssize_t xgold_dsi_host_transfer(struct mipi_dsi_host *host,
 	if (dsi->suspend)
 		return -EINVAL;
 
-	if (!(dsi->state & DSI_STATE_INITIALIZED)) {
+	if (!(dsi->state & DSI_STATE_INITIALIZED) ||
+	    (dsi->state & DSI_STATE_TRANSMIT_VIDEO)) {
 		xgold_dsi_init(dsi);
 		dsi->state |= DSI_STATE_INITIALIZED;
 	}
