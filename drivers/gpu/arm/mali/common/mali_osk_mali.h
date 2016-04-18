@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2008-2015 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 /**
@@ -53,11 +53,15 @@ _mali_osk_errcode_t _mali_osk_resource_find(u32 addr, _mali_osk_resource_t *res)
  */
 uintptr_t _mali_osk_resource_base_address(void);
 
-/** @brief Find the number of L2 cache cores.
+/** @brief Find the specific GPU resource.
  *
- * @return return the number of l2 cache cores we find in device resources.
+ * @return value
+ * 0x400 if Mali 400 specific GPU resource identified
+ * 0x450 if Mali 450 specific GPU resource identified
+ * 0x470 if Mali 470 specific GPU resource identified
+ *
  */
-u32 _mali_osk_l2_resource_count(void);
+u32 _mali_osk_identify_gpu_resource(void);
 
 /** @brief Retrieve the Mali GPU specific data
  *

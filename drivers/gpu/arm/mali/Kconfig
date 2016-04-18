@@ -1,11 +1,3 @@
-#
-# Copyright (C) 2014 Intel Mobile Communications GmbH
-#
-# Notes:
-# Nov 17 2014: IMC: Fix typo for MALI_DT feature
-# Mar 14 2014: IMC: Adjust feature dependencies for SoFIA
-#
-
 config MALI400
 	tristate "Mali-300/400/450 support"
 	depends on ARM || X86_INTEL_XGOLD
@@ -22,6 +14,12 @@ config MALI450
 	depends on MALI400
 	---help---
 	  This enables support for Mali-450 specific features.
+
+config MALI470
+	bool "Enable Mali-470 support"
+	depends on MALI400
+	---help---
+	  This enables support for Mali-470 specific features.
 
 config MALI400_DEBUG
 	bool "Enable debug in Mali driver"
@@ -47,6 +45,7 @@ config MALI400_INTERNAL_PROFILING
 config MALI400_UMP
 	bool "Enable UMP support"
 	depends on MALI400
+	select UMP
 	---help---
 	  This enables support for the UMP memory sharing API in the Mali driver.
 
@@ -106,18 +105,3 @@ config MALI_QUIET
 	  This forces the Mali driver to never print any messages.
 
 	  If unsure, say N.
-
-config MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB
-	int "Mali memory pool size in MB"
-	default 16
-	depends on MALI400
-	---help---
-	  This specifies the size of the memory pool the ARM mali driver is maintaining,
-          preventing memory starvation and unecessary kmalloc/free calls.
-
-config MALI_OS_MEMORY_POOL_TRIM_JIFFIES
-	int "Mali OS memory pool trimming period in sec"
-	default 10
-	depends on MALI400
-	---help---
-	  This specifies the period of the task doing the trimming of the memory pool

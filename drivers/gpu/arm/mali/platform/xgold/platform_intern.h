@@ -40,8 +40,6 @@
 #define MALI_PLF_PM_STATE_D3	0
 /*#define MALI_PLF_PM_STATE_D0	GPU_MAX_PM_STATE*/
 
-#include <linux/xgold_noc.h>
-
 struct mali_platform_data {
 #if !defined(CONFIG_PLATFORM_DEVICE_PM_VIRT)
 	/* Directly access regulator and clock only on non virtualized kernel */
@@ -51,7 +49,6 @@ struct mali_platform_data {
 #endif
 	struct mali_gpu_device_data *gpu_data;
 	struct device_pm_platdata *pm_platdata;
-	struct noc_qos_list *qos;
 };
 
 struct mali_platform_pm {

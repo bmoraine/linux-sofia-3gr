@@ -42,6 +42,7 @@
 #endif
 
 #include <linux/mali/mali_utgard.h>
+#include <linux/xgold_noc.h>
 
 #include "platform_intern.h"
 #include "platform_native.h"
@@ -192,6 +193,7 @@ int mali_gpu_get_clock_step(void)
 	return mali_dev_pm.req_clock_index;
 }
 
+#include <linux/fb.h>
 
 static int mali_platform_memory_layout(struct mali_gpu_device_data *gpu_data)
 {
@@ -340,16 +342,6 @@ int mali_platform_init(void)
 #endif
 }
 
-void mali_qos_set(struct noc_qos_list *qos_root)
-{
-	struct noc_qos_list *qos;
-
-	list_for_each_entry(qos, &qos_root->list, list) {
-		mali_dbg("Set QoS config %s\n", qos->name);
-		xgold_noc_qos_set((char *)qos->name);
-	}
-}
-
 int mali_platform_device_init(struct platform_device *pdev)
 {
 	int ret = -1;
@@ -380,11 +372,6 @@ int mali_platform_device_init(struct platform_device *pdev)
 		mali_err("Device state pm set class\n");
 		return ret;
 	}
-
-	/* QoS */
-	mali_err("Device qos\n");
-	of_noc_qos_populate(&(pdev->dev), np, &plf_data.qos);
-
 	ultra_high_flag = of_property_read_bool(np, "dvfs_ultra_high");
 	mali_info("ultra_high_perf is %s\n",
 		ultra_high_flag?"enabled":"disabled");
@@ -450,7 +437,7 @@ int mali_platform_device_init(struct platform_device *pdev)
 	}
 
 	/* Need to set GPU QoS on bootup */
-	mali_qos_set(plf_data.qos);
+	xgold_noc_qos_set("GPU");
 	mali_dbg("Set GPU QoS\n");
 #endif
 
@@ -577,9 +564,6 @@ int mali_platform_suspend(struct platform_device *pdev)
 	} else
 		mali_dbg("Skipped, as already runtime suspended\n");
 
-	/* Need to restore GPU QoS on system resume */
-	restore_gpu_qos = true;
-
 	return 0;
 }
 
@@ -590,6 +574,9 @@ int mali_platform_resume(struct platform_device *pdev)
 
 	mali_dbg("%s() \t\t-> Device pm set state to %d\n", __func__,
 		mali_dev_pm.resume_pm_state);
+
+	/* Need to restore GPU QoS on system resume */
+	restore_gpu_qos = true;
 
 #if defined(CONFIG_PM_RUNTIME)
 	/*
@@ -611,7 +598,7 @@ int mali_platform_resume(struct platform_device *pdev)
 
 		if (restore_gpu_qos) {
 			restore_gpu_qos = false;
-			mali_qos_set(plf_data.qos);
+			xgold_noc_qos_set("GPU");
 			mali_dbg("Restore GPU QoS\n");
 		}
 	} else
@@ -641,9 +628,6 @@ int mali_platform_runtime_suspend(struct platform_device *pdev)
 	} else
 		mali_dev_pm.curr_pm_state = 0;
 
-	/* Need to restore GPU QoS on system resume */
-	restore_gpu_qos = true;
-
 	return 0;
 }
 
@@ -669,7 +653,7 @@ int mali_platform_runtime_resume(struct platform_device *pdev)
 
 	if (restore_gpu_qos) {
 		restore_gpu_qos = false;
-		mali_qos_set(plf_data.qos);
+		xgold_noc_qos_set("GPU");
 		mali_dbg("Restore GPU QoS\n");
 	}
 

@@ -1,20 +1,11 @@
 #
-# Copyright (C) 2014 Intel Mobile Communications GmbH
-#
-# Notes:
-# Jun 02 2014: IMC: Splitup platform adaption for better readability
-# May 15 2014: IMC: Fix include path when using KBUILD_SRC
-# Mar 14 2014: IMC: Add basic DTS support for SoFIA
-#
-
-#
-# Copyright (C) 2010-2011 ARM Limited. All rights reserved.
-# 
-# This program is free software and is provided to you under the terms of the GNU General Public License version 2
-# as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
-# 
-# A copy of the licence is included with the program, and can also be obtained from Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+# This confidential and proprietary software may be used only as
+# authorised by a licensing agreement from ARM Limited
+# (C) COPYRIGHT 2007-2011 ARM Limited
+# ALL RIGHTS RESERVED
+# The entire notice above must be reproduced on all authorised
+# copies and copies may only be made to the extent permitted
+# by a licensing agreement from ARM Limited.
 #
 
 # This file is called by the Linux build system.
@@ -38,26 +29,20 @@ MALI_ENABLE_CPU_CYCLES ?= 0
 # For customer releases the Linux Device Drivers will be provided as ARM proprietary and GPL releases:
 # The ARM proprietary product will only include the license/proprietary directory
 # The GPL product will only include the license/gpl directory
-ifeq ($(KBUILD_SRC),)
-    MALI_SRC = $(src)
+ifeq ($(wildcard $(src)/linux/license/gpl/*),)
+    ccflags-y += -I$(src)/linux/license/gpl
+#    ifeq ($(CONFIG_MALI400_PROFILING),y)
+#        $(error Profiling is incompatible with non-GPL license)
+#    endif
+#    ifeq ($(CONFIG_PM_RUNTIME),y)
+#        $(error Runtime PM is incompatible with non-GPL license)
+#    endif
+#    ifeq ($(CONFIG_DMA_SHARED_BUFFER),y)
+#        $(error DMA-BUF is incompatible with non-GPL license)
+#    endif
+#    $(error Linux Device integration is incompatible with non-GPL license)
 else
-    MALI_SRC = $(KBUILD_SRC)/$(src)
-endif
-
-ifeq ($(wildcard $(MALI_SRC)/linux/license/gpl/*),)
-    ccflags-y += -I$(MALI_SRC)/linux/license/proprietary
-    ifeq ($(CONFIG_MALI400_PROFILING),y)
-        $(error Profiling is incompatible with non-GPL license)
-    endif
-    ifeq ($(CONFIG_PM_RUNTIME),y)
-        $(error Runtime PM is incompatible with non-GPL license)
-    endif
-    ifeq ($(CONFIG_DMA_SHARED_BUFFER),y)
-        $(error DMA-BUF is incompatible with non-GPL license)
-    endif
-    $(error Linux Device integration is incompatible with non-GPL license)
-else
-    ccflags-y += -I$(MALI_SRC)/linux/license/gpl
+    ccflags-y += -I$(src)/linux/license/gpl
 endif
 
 ifeq ($(USING_GPU_UTILIZATION), 1)
@@ -79,11 +64,20 @@ mali-y += \
 	linux/mali_osk_mali.o \
 	linux/mali_osk_notification.o \
 	linux/mali_osk_time.o \
-	linux/mali_osk_timers.o
+	linux/mali_osk_timers.o \
+	linux/mali_osk_bitmap.o
 
 mali-y += linux/mali_memory.o linux/mali_memory_os_alloc.o
 mali-y += linux/mali_memory_external.o
 mali-y += linux/mali_memory_block_alloc.o
+mali-y += linux/mali_memory_swap_alloc.o
+
+mali-y += \
+	linux/mali_memory_manager.o \
+	linux/mali_memory_virtual.o \
+	linux/mali_memory_util.o \
+	linux/mali_memory_cow.o \
+	linux/mali_memory_defer_bind.o
 
 mali-y += \
 	linux/mali_ukk_mem.o \
@@ -97,7 +91,6 @@ mali-y += \
 mali-y += \
 	common/mali_kernel_core.o \
 	linux/mali_kernel_linux.o \
-	common/mali_kernel_descriptor_mapping.o \
 	common/mali_session.o \
 	linux/mali_device_pause_resume.o \
 	common/mali_kernel_vsync.o \
@@ -140,7 +133,7 @@ mali-$(CONFIG_MALI400_PROFILING) += linux/mali_ukk_profiling.o
 mali-$(CONFIG_MALI400_PROFILING) += linux/mali_osk_profiling.o
 
 mali-$(CONFIG_MALI400_INTERNAL_PROFILING) += linux/mali_profiling_internal.o timestamp-$(TIMESTAMP)/mali_timestamp.o
-ccflags-$(CONFIG_MALI400_INTERNAL_PROFILING) += -I$(MALI_SRC)/timestamp-$(TIMESTAMP)
+ccflags-$(CONFIG_MALI400_INTERNAL_PROFILING) += -I$(src)/timestamp-$(TIMESTAMP)
 
 mali-$(CONFIG_DMA_SHARED_BUFFER) += linux/mali_memory_dma_buf.o
 mali-$(CONFIG_SYNC) += linux/mali_sync.o
@@ -168,16 +161,16 @@ ifeq ($(MALI_UPPER_HALF_SCHEDULING),1)
 	ccflags-y += -DMALI_UPPER_HALF_SCHEDULING
 endif
 
-ccflags-$(CONFIG_MALI400_UMP) += -I$(MALI_SRC)/../../ump/include/ump
+ccflags-$(CONFIG_MALI400_UMP) += -I$(src)/../../ump/include/ump
 ccflags-$(CONFIG_MALI400_DEBUG) += -DDEBUG
 
 # Use our defines when compiling
-ccflags-y += -I$(MALI_SRC) -I$(MALI_SRC)/include -I$(MALI_SRC)/common -I$(MALI_SRC)/linux -I$(MALI_SRC)/platform
+ccflags-y += -I$(src) -I$(src)/include -I$(src)/common -I$(src)/linux -I$(src)/platform -Wno-date-time
 
 # Get subversion revision number, fall back to only ${MALI_RELEASE_NAME} if no svn info is available
-MALI_RELEASE_NAME=$(shell cat $(MALI_SRC)/.version 2> /dev/null)
+MALI_RELEASE_NAME=$(shell cat $(src)/.version 2> /dev/null)
 
-SVN_INFO = (cd $(MALI_SRC); svn info 2>/dev/null)
+SVN_INFO = (cd $(src); svn info 2>/dev/null)
 
 ifneq ($(shell $(SVN_INFO) 2>/dev/null),)
 # SVN detected
@@ -188,13 +181,13 @@ CHANGED_REVISION := $(shell $(SVN_INFO) | grep '^Last Changed Rev: ' | cut -d: -
 REPO_URL := $(shell $(SVN_INFO) | grep '^URL: ' | cut -d: -f2- | cut -b2-)
 
 else # SVN
-GIT_REV := $(shell cd $(MALI_SRC); git describe --always 2>/dev/null)
+GIT_REV := $(shell cd $(src); git describe --always 2>/dev/null)
 ifneq ($(GIT_REV),)
 # Git detected
 DRIVER_REV := $(MALI_RELEASE_NAME)-$(GIT_REV)
-CHANGE_DATE := $(shell cd $(MALI_SRC); git log -1 --format="%ci")
+CHANGE_DATE := $(shell cd $(src); git log -1 --format="%ci")
 CHANGED_REVISION := $(GIT_REV)
-REPO_URL := $(shell cd $(MALI_SRC); git describe --all --always 2>/dev/null)
+REPO_URL := $(shell cd $(src); git describe --all --always 2>/dev/null)
 
 else # Git
 # No Git or SVN detected
@@ -207,7 +200,7 @@ endif
 ccflags-y += -DSVN_REV_STRING=\"$(DRIVER_REV)\"
 
 VERSION_STRINGS :=
-VERSION_STRINGS += API_VERSION=$(shell cd $(MALI_SRC); grep "\#define _MALI_API_VERSION" $(FILES_PREFIX)include/linux/mali/mali_utgard_uk_types.h | cut -d' ' -f 3 )
+VERSION_STRINGS += API_VERSION=$(shell cd $(src); grep "\#define _MALI_API_VERSION" $(FILES_PREFIX)include/linux/mali/mali_utgard_uk_types.h | cut -d' ' -f 3 )
 VERSION_STRINGS += REPO_URL=$(REPO_URL)
 VERSION_STRINGS += REVISION=$(DRIVER_REV)
 VERSION_STRINGS += CHANGED_REVISION=$(CHANGED_REVISION)

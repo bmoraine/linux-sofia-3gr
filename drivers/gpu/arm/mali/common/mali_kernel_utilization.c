@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2010-2015 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 #include "mali_kernel_utilization.h"
@@ -45,7 +45,7 @@ void (*mali_utilization_callback)(struct mali_gpu_utilization_data *data) = NULL
 static u32 mali_control_first_timeout = 100;
 static struct mali_gpu_utilization_data mali_util_data = {0, };
 
-struct mali_gpu_utilization_data *mali_utilization_calculate(u64 *start_time, u64 *time_period)
+struct mali_gpu_utilization_data *mali_utilization_calculate(u64 *start_time, u64 *time_period, mali_bool *need_add_timer)
 {
 	u64 time_now;
 	u32 leading_zeroes;
@@ -65,6 +65,7 @@ struct mali_gpu_utilization_data *mali_utilization_calculate(u64 *start_time, u6
 	*time_period = time_now - *start_time;
 
 	if (accumulated_work_time_gpu == 0 && work_start_time_gpu == 0) {
+		mali_control_timer_pause();
 		/*
 		 * No work done for this period
 		 * - No need to reschedule timer
@@ -80,8 +81,7 @@ struct mali_gpu_utilization_data *mali_utilization_calculate(u64 *start_time, u6
 
 		mali_utilization_data_unlock();
 
-		/* Stop add timer until the next job submited */
-		mali_control_timer_suspend(MALI_FALSE);
+		*need_add_timer = MALI_FALSE;
 
 		mali_executor_hint_disable(MALI_EXECUTOR_HINT_GP_BOUND);
 
@@ -172,6 +172,8 @@ struct mali_gpu_utilization_data *mali_utilization_calculate(u64 *start_time, u6
 
 	mali_utilization_data_unlock();
 
+	*need_add_timer = MALI_TRUE;
+
 	MALI_DEBUG_PRINT(4, ("last_utilization_gpu = %d \n", last_utilization_gpu));
 	MALI_DEBUG_PRINT(4, ("last_utilization_gp = %d \n", last_utilization_gp));
 	MALI_DEBUG_PRINT(4, ("last_utilization_pp = %d \n", last_utilization_pp));
@@ -260,7 +262,7 @@ void mali_utilization_gp_start(void)
 				 * job loading is light, finish in 10ms, the other time all keep
 				 * in high freq it will wast time.
 				 */
-				mali_control_timer_mod(mali_control_first_timeout);
+				mali_control_timer_add(mali_control_first_timeout);
 			}
 		} else {
 			mali_utilization_data_unlock();
@@ -319,7 +321,7 @@ void mali_utilization_pp_start(void)
 				 * job loading is light, finish in 10ms, the other time all keep
 				 * in high freq it will wast time.
 				 */
-				mali_control_timer_mod(mali_control_first_timeout);
+				mali_control_timer_add(mali_control_first_timeout);
 			}
 		} else {
 			mali_utilization_data_unlock();
@@ -415,6 +417,11 @@ void mali_utilization_data_lock(void)
 void mali_utilization_data_unlock(void)
 {
 	_mali_osk_spinlock_irq_unlock(utilization_data_lock);
+}
+
+void mali_utilization_data_assert_locked(void)
+{
+	MALI_DEBUG_ASSERT_LOCK_HELD(utilization_data_lock);
 }
 
 u32 _mali_ukk_utilization_gp_pp(void)
