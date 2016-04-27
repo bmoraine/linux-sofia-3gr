@@ -2672,13 +2672,13 @@ static int imc_idi_btif_suspend(struct device *dev)
 {
 #ifdef CONFIG_AG6XX
 	struct imc_idi_btif_port *p_btif = dev_get_drvdata(dev);
-	struct uart_port *port = &p_btif->port;
 #endif
 
 	pr_debug("BTIF: Platform entering suspend\n");
 
 #ifdef CONFIG_AG6XX
-	btif_ioctl(port, IMC_IDI_BT_SET_BT_WUP, false);
+	/*De-assert BT Wakeup (to allow chip to go into LPM Mode)*/
+	imc_idi_btif_wakeup_bt(p_btif, false);
 #endif
 	return 0;
 }
@@ -2694,11 +2694,11 @@ static int imc_idi_btif_resume(struct device *dev)
 	pr_debug("BTIF: Received platform resume event\n");
 
 #ifdef CONFIG_AG6XX
-	pr_debug("Changing BT Controller State to ON\n");
 	btif_ioctl(port, IMC_IDI_BT_SET_POWER_STATE, IMC_IDI_BT_POWER_STATE_ON_D0);
 
 	pr_debug("BTIF: Platform resuming from suspend\n");
-	btif_ioctl(port, IMC_IDI_BT_SET_BT_WUP, true);
+	/*Assert BT Wakeup (for normal operation)*/
+	imc_idi_btif_wakeup_bt(p_btif, true);
 #endif
 
 	return 0;
