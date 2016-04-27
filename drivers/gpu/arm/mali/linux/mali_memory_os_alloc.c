@@ -16,10 +16,7 @@
 #include <linux/version.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
-#ifdef CONFIG_X86
 #include <asm/cacheflush.h>
-#endif
-
 
 #include "mali_osk.h"
 #include "mali_memory.h"
@@ -126,6 +123,7 @@ _mali_osk_errcode_t mali_mem_os_put_page(struct page *page)
 		atomic_sub(1, &mali_mem_os_allocator.allocated_pages);
 		dma_unmap_page(&mali_platform_device->dev, page_private(page),
 			       _MALI_OSK_MALI_PAGE_SIZE, DMA_TO_DEVICE);
+		set_pages_wb(page, 1);
 		ClearPagePrivate(page);
 	}
 	put_page(page);
@@ -165,9 +163,6 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 	size_t remaining = page_count;
 	struct mali_page_node *m_page, *m_tmp;
 	u32 i;
-#ifdef CONFIG_X86
-	struct page **array_pages;
-#endif
 
 	MALI_DEBUG_ASSERT_POINTER(os_mem);
 
@@ -203,29 +198,6 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 
 		list_move_tail(&m_page->list, &os_mem->pages);
 	}
-#ifdef CONFIG_X86
-	if (remaining) {
-		/* SY: is it better to preallocate a page aligned array and
-		 * loop? will keep doing this random sized kmalloc/kfree cause
-		 * memory fragmentation?
-		 */
-		array_pages = kmalloc(sizeof(struct pages *) * remaining,
-				GFP_KERNEL);
-		if (array_pages == NULL) {
-			pr_err("%s: kmalloc array_pages fail! pagecount=0x%x\n",
-				__func__, page_count);
-			pr_err("remaining=0x%x total_alloc_pages=0x%x\n",
-				remaining, atomic_read(&mali_mem_os_allocator.allocated_pages));
-			/* SJ: return pages back to pool */
-			/* Calculate the number of pages actually allocated,
-			 * and free them. */
-                         os_mem->count = page_count - remaining;
-			 atomic_add(os_mem->count,&mali_mem_os_allocator.allocated_pages);
-                         mali_mem_os_free(&os_mem->pages, os_mem->count, MALI_FALSE);
-			return -ENOMEM;
-		}
-	}
-#endif
 
 	/* Allocate new pages, if needed. */
 	for (i = 0; i < remaining; i++) {
@@ -254,26 +226,9 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 
 		if (unlikely(NULL == new_page)) {
 			/* Calculate the number of pages actually allocated, and free them. */
-#ifdef CONFIG_X86
-                        if (array_pages != NULL) {
-                                /* prev alloc pages are added into pool in
-                                 * mali_mem_os_free until after 10s delayed
-                                 * trim runs and frees them could
-                                 * still possibly be used! set them to wc */
-                                if (i)
-                                        set_pages_array_wc(array_pages, i);
-                                kfree(array_pages);
-                        }
-#endif
 			os_mem->count = (page_count - remaining) + i;
 			atomic_add(os_mem->count, &mali_mem_os_allocator.allocated_pages);
 			mali_mem_os_free(&os_mem->pages, os_mem->count, MALI_FALSE);
-
-#ifdef CONFIG_X86
-			if (i)
-				set_pages_array_wb(array_pages, i);
-			kfree(array_pages);
-#endif
 			return -ENOMEM;
 		}
 
@@ -285,26 +240,14 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 		if (unlikely(err)) {
 			MALI_DEBUG_PRINT_ERROR(("OS Mem: Failed to DMA map page %p: %u",
 						new_page, err));
-#ifdef CONFIG_X86
-			if (array_pages != NULL) {
-				/* prev alloc pages are added into pool in
-				 * mali_mem_os_free until after 10s delayed
-				 * trim runs and frees them could still
-				 * possibly be used! set them to wc */
-				if (i)
-					set_pages_array_wc(array_pages, i);
-				kfree(array_pages);
-			}
-#endif
 			__free_page(new_page);
 			os_mem->count = (page_count - remaining) + i;
 			atomic_add(os_mem->count, &mali_mem_os_allocator.allocated_pages);
 			mali_mem_os_free(&os_mem->pages, os_mem->count, MALI_FALSE);
 			return -EFAULT;
 		}
-#ifdef CONFIG_X86
-		array_pages[i] = new_page;
-#endif
+
+		set_pages_wc(new_page, 1);
 		/* Store page phys addr */
 		SetPagePrivate(new_page);
 		set_page_private(new_page, dma_addr);
@@ -314,6 +257,7 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 			MALI_PRINT_ERROR(("OS Mem: Can't allocate mali_page node! \n"));
 			dma_unmap_page(&mali_platform_device->dev, page_private(new_page),
 				       _MALI_OSK_MALI_PAGE_SIZE, DMA_TO_DEVICE);
+			set_pages_wb(new_page, 1);
 			ClearPagePrivate(new_page);
 			__free_page(new_page);
 			os_mem->count = (page_count - remaining) + i;
@@ -325,12 +269,6 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 
 		list_add_tail(&m_page->list, &os_mem->pages);
 	}
-#ifdef CONFIG_X86
-	if (remaining) {
-		set_pages_array_wc(array_pages, remaining);
-		kfree(array_pages);
-	}
-#endif
 
 	atomic_add(page_count, &mali_mem_os_allocator.allocated_pages);
 
@@ -633,8 +571,10 @@ void mali_mem_os_free_page_node(struct mali_page_node *m_page)
 	MALI_DEBUG_ASSERT(m_page->type == MALI_PAGE_NODE_OS);
 
 	if (1  == page_count(page)) {
+
 		dma_unmap_page(&mali_platform_device->dev, page_private(page),
 			       _MALI_OSK_MALI_PAGE_SIZE, DMA_TO_DEVICE);
+		set_pages_wb(page, 1);
 		ClearPagePrivate(page);
 	}
 	__free_page(page);
