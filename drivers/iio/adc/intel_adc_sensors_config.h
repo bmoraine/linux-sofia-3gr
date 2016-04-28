@@ -263,8 +263,8 @@ static struct adc_sensors_channel intel_adc_sensors_ag620_channels[] = {
 	CAL_DEFAULT, 0},
 
 	{"agold_meas_thermal", ADC_SENSORS_CHANNEL_SYSTEMP0,
-	ADC_SENSORS_CONVERSION_LINEAR_UV_TO_DEGC,
-	&adc_sensors_agold_die_temp_data, CAL_DEFAULT, 0},
+	ADC_SENSORS_CONVERSION_TABLE_UV_TO_DEGC,
+	&adc_sensors_tbat_data, CAL_DEFAULT, 0},
 
 	{"sim_charge_pump", ADC_SENSORS_CHANNEL_VBAT,
 	ADC_SENSORS_CONVERSION_LINEAR_UV_TO_MV, &adc_sensors_vbat_data,
