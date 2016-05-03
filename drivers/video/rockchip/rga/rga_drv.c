@@ -970,7 +970,7 @@ static int rga_blit(struct rga_session *session, struct rga_req *req)
 	int num = 0;
 	/*int already_queue;*/
 	struct rga_reg *reg;
-	struct rga_req req2;
+	struct rga_req req2 = {0,};
 
 	uint32_t saw, sah, daw, dah;
 

@@ -63,7 +63,7 @@ int rockchip_register_crtc_funcs(struct drm_device *dev,
 {
 	struct rockchip_drm_private *priv = dev->dev_private;
 
-	if (pipe > ROCKCHIP_MAX_CRTC)
+	if (pipe >= ROCKCHIP_MAX_CRTC)
 		return -EINVAL;
 
 	priv->crtc_funcs[pipe] = crtc_funcs;
@@ -76,7 +76,7 @@ void rockchip_unregister_crtc_funcs(struct drm_device *dev, int pipe)
 {
 	struct rockchip_drm_private *priv = dev->dev_private;
 
-	if (pipe > ROCKCHIP_MAX_CRTC)
+	if (pipe >= ROCKCHIP_MAX_CRTC)
 		return;
 
 	priv->crtc_funcs[pipe] = NULL;

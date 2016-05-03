@@ -263,6 +263,11 @@ static int dw_hdmi_rockchip_bind(struct device *dev, struct device *master,
 		return -ENOMEM;
 
 	match = of_match_node(dw_hdmi_rockchip_dt_ids, pdev->dev.of_node);
+	if (!match) {
+		dev_err(dev, "failed to match node\n");
+		return -ENODEV;
+	}
+
 	plat_data = match->data;
 	hdmi->dev = &pdev->dev;
 	encoder = &hdmi->encoder;
