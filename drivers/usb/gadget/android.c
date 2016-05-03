@@ -1699,14 +1699,14 @@ static void android_usb_enable(void)
 		return;
 
 	device_desc.idVendor = __constant_cpu_to_le16(0x8087);
-	device_desc.idProduct = __constant_cpu_to_le16(0x930);
+	device_desc.idProduct = __constant_cpu_to_le16(0x0a62);
 
 	/* Enable ACM and RNDIS */
 	functions_store(_android_dev->dev, &dev_attr_functions,
 			       "acm,rndis", 0);
 
-	/* Load 3 ACM instances */
-	((struct acm_function_config *)acm_function.config)->instances = 3;
+	/* Load 4 ACM instances */
+	((struct acm_function_config *)acm_function.config)->instances = 4;
 
 	/* After configured the USB functions, enable them now */
 	enable_store(_android_dev->dev, &dev_attr_enable, "1", 0);
