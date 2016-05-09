@@ -576,6 +576,11 @@ static void vop_enable(struct drm_crtc *crtc)
 		goto err_disable_dclk;
 	}
 #endif
+
+	memcpy(vop->regs, vop->regsbak, vop->len);
+	VOP_CTRL_SET(vop, standby, 1);
+	mdelay(30);
+
 	/*
 	 * Slave iommu shares power, irq and clock with vop.  It was associated
 	 * automatically with this master device via common driver code.
@@ -588,13 +593,10 @@ static void vop_enable(struct drm_crtc *crtc)
 		goto err_disable_aclk;
 	}
 
-	memcpy(vop->regs, vop->regsbak, vop->len);
 	/*
 	 * At here, vop clock & iommu is enable, R/W vop regs would be safe.
 	 */
 	vop->is_enabled = true;
-
-	vop_standby_disable(vop);
 
 	enable_irq(vop->irq);
 
@@ -1078,8 +1080,6 @@ static int vop_crtc_mode_set(struct drm_crtc *crtc,
 	 * enable iommu.
 	 */
 	/* clk_disable(vop->dclk); */
-	VOP_CTRL_SET(vop, standby, 1);
-	mdelay(30);
 
 	switch (vop->connector_type) {
 	case DRM_MODE_CONNECTOR_LVDS:
