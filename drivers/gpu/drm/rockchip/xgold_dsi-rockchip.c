@@ -286,7 +286,7 @@ static void xgold_dsi_encoder_mode_set(struct drm_encoder *encoder,
 	struct drm_display_mode *m = adjusted_mode;
 
 	drm_display_mode_to_videomode(m, vm);
-	xgold_dsi_set_display_mode(dsi, vm, m->vrefresh);
+	xgold_dsi_set_display_mode(dsi, vm, drm_mode_vrefresh(m));
 }
 
 static void xgold_dsi_encoder_prepare(struct drm_encoder *encoder)
