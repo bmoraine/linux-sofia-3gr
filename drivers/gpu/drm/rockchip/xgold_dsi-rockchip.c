@@ -99,9 +99,11 @@ static ssize_t xgold_dsi_host_transfer(struct mipi_dsi_host *host,
 	case MIPI_DSI_DCS_SHORT_WRITE_PARAM:
 	case MIPI_DSI_GENERIC_SHORT_WRITE_0_PARAM:
 	case MIPI_DSI_GENERIC_SHORT_WRITE_1_PARAM:
+	case MIPI_DSI_GENERIC_SHORT_WRITE_2_PARAM:
 	case MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE:
 		xgold_dsi_send_short_packet(dsi, msg);
 		break;
+	case MIPI_DSI_GENERIC_LONG_WRITE:
 	case MIPI_DSI_DCS_LONG_WRITE:
 		xgold_dsi_send_long_packet(dsi, msg);
 		break;
