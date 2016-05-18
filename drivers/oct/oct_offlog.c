@@ -14,7 +14,7 @@ loff_t pos = 0;
 /* offline bplog definition */
 #define OFFLOG_PATH_LEN 255
 
-#define OFFLOG_CONFIG_FILE "/system/etc/oct_offlog.conf"
+#define OFFLOG_CONFIG_FILE "/etc/oct_offlog.conf"
 #define OFFLOG_CONFIG_FILE_SIZE 500
 
 #define OFFLOG_CONFIG_TAG_ONOFF "on_off"
@@ -29,10 +29,11 @@ loff_t pos = 0;
 /*#define DEFAULT_OCT_OFFLOG_SIZE 500000000*/
 #define DEFAULT_OCT_OFFLOG_SIZE 10000000
 #define DEFAULT_OCT_OFFLOG_NUMBER 5
-#define DEFAULT_OFFLOG_PATH "/data/logs/"
+#define DEFAULT_OFFLOG_PATH "/var/persist/log/modem"
 #define DEFAULT_OFFLOG_NAME "bplog"
 
-static char oct_offlog_path[OFFLOG_PATH_LEN+1] = {0}; /* /data/logs/bplog */
+/* /var/persist/log/modem/bplog */
+static char oct_offlog_path[OFFLOG_PATH_LEN+1] = {0};
 static unsigned int oct_offlog_onoff = 1;
 static unsigned int oct_offlog_size = DEFAULT_OCT_OFFLOG_SIZE;
 static unsigned int oct_offlog_number = DEFAULT_OCT_OFFLOG_NUMBER;
