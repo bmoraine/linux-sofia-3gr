@@ -52,7 +52,7 @@
 #define VD_DEBUG(format, args...)
 #endif
 
-#define VDUMP_CONFIG_FILE "/system/etc/vdump.conf"
+#define VDUMP_CONFIG_FILE "/etc/vdump.conf"
 #define VDUMP_COREDUMP_FILE "/storage/sdcard0/coredump.istp"
 #define VDUMP_CONFIG_FILE_SIZE 500
 #define VDUMP_CONFIG_MAX_VALUE_LENGTH 50
