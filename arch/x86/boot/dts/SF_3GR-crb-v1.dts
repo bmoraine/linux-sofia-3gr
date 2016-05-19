@@ -568,6 +568,7 @@
 		intel,axis-map = < 1 0 2 >;
 		intel,negate = < 0 0 1 >;
 		intel,offset = < 0 0 0 >;
+		mounting-matrix = < (-1) 0 0 0 (-1) 0 0 0 (-1) >;
 		intel,poll-interval = < 100 >;
 		pm,class-name = "mmc3524x_class";
 		pm,user-name = "ext_magnetometer";
