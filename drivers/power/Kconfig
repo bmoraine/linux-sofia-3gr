@@ -465,6 +465,11 @@ config BATTERY_RK818
 	  Support for RK818 Battery driver.
 	  This driver can give support for Rk818 Battery Charge Interface.
 
+config CHARGER_DUMMY
+    bool "Dummy charger driver"
+    help
+      This driver support chargerless platform.
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY

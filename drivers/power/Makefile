@@ -68,3 +68,4 @@ obj-$(CONFIG_POWER_RESET)	+= reset/
 obj-$(CONFIG_BATTERY_RK818)	+= rk818_battery.o
 obj-$(CONFIG_CHARGER_FAN54020)  += fan54x_charger.o bat_driver_hal.o fan54x_charger_i2c.o fan54020_charger_data.o fan54015_charger_data.o
 obj-$(CONFIG_CHARGER_FAN54015)  += fan54x_charger.o bat_driver_hal.o fan54x_charger_i2c.o fan54020_charger_data.o fan54015_charger_data.o
+obj-$(CONFIG_CHARGER_DUMMY)	 += dummy_charger.o
