@@ -18,6 +18,8 @@
 
 #include <linux/component.h>
 #include <linux/platform_device.h>
+#include <linux/backlight.h>
+#include <linux/leds.h>
 #include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
@@ -56,11 +58,29 @@
 
 #define LCD_MSG_LP 1
 
+#define PROP_DISPLAY_ENABLE_DELAY	"intel,display-enable-delay"
+#define PROP_DISPLAY_DISABLE_DELAY	"intel,display-disable-delay"
+#define PROP_DISPLAY_PREPARE_DELAY	"intel,display-prepare-delay"
+#define PROP_DISPLAY_UNPREPARE_DELAY	"intel,display-unprepare-delay"
+
 enum display_power_t {
 	DISPLAY_GPIO_VHIGH = 0,
 	DISPLAY_GPIO_VLOW = 1,
 	DISPLAY_GPIO_RESET = 2,
 	DISPLAY_GPIO_VPWR = 3,
+};
+
+enum display_backlight_t {
+	PWM_BACKLIGHT = 0,
+	LED_BACKLIGHT,
+};
+
+struct display_backlight {
+	enum display_backlight_t type;
+	union {
+		struct backlight_device *pwm_bl;
+		struct led_classdev *led_bl;
+	} u;
 };
 
 struct display_cmd {
@@ -86,9 +106,28 @@ struct rockchip_panel {
 	struct drm_panel panel;
 	struct videomode vm;
 
+	struct display_backlight *backlight;
 	struct display_power *power_on;
 	struct display_power *power_off;
 	struct display_cmd *cmds_init;
+
+	/**
+	 * @prepare: the time (in milliseconds) that it takes for the panel to
+	 *           become ready and start receiving video data
+	 * @enable: the time (in milliseconds) that it takes for the panel to
+	 *          display the first valid frame after starting to receive
+	 *          video data
+	 * @disable: the time (in milliseconds) that it takes for the panel to
+	 *           turn the display off (no content is visible)
+	 * @unprepare: the time (in milliseconds) that it takes for the panel
+	 *             to power itself down completely
+	 */
+	struct {
+		unsigned int prepare;
+		unsigned int enable;
+		unsigned int disable;
+		unsigned int unprepare;
+	} delay;
 
 	int fps;
 	int gpio_vhigh;
@@ -100,6 +139,108 @@ struct rockchip_panel {
 static inline struct rockchip_panel *to_rockchip_panel(struct drm_panel *panel)
 {
 	return container_of(panel, struct rockchip_panel, panel);
+}
+
+static struct of_device_id backlight_dt_match[] = {
+	{	.compatible = "pwm-backlight",
+		.data = (void *)PWM_BACKLIGHT,
+	},
+	{	.compatible = "intel,agold620-led",
+		.data = (void *)LED_BACKLIGHT,
+	},
+	{	.compatible = "pwm-leds",
+		.data = (void *)LED_BACKLIGHT,
+	},
+	{},
+};
+
+static struct display_backlight *
+rockchip_panel_get_backlight(struct rockchip_panel *ctx)
+{
+	struct device_node *np = ctx->dev->of_node;
+	struct device_node *backlight_np;
+	struct display_backlight *backlight = NULL;
+
+	backlight_np = of_parse_phandle(np, "backlight", 0);
+	if (backlight_np) {
+		const struct of_device_id *match;
+
+		match = of_match_node(backlight_dt_match, backlight_np);
+		if (!match) {
+			dev_info(ctx->dev, "No find match backlight dt node\n");
+			return NULL;
+		}
+
+		backlight =
+			devm_kzalloc(ctx->dev, sizeof(*backlight), GFP_KERNEL);
+		if (!backlight)
+			return NULL;
+
+		backlight->type = (unsigned long)match->data;
+
+		if (backlight->type == PWM_BACKLIGHT)
+			backlight->u.pwm_bl =
+				of_find_backlight_by_node(backlight_np);
+		else if (backlight->type == LED_BACKLIGHT)
+			backlight->u.led_bl =
+				of_find_led_classdev_by_node(backlight_np);
+
+		of_node_put(backlight_np);
+
+		if (!backlight->u.pwm_bl && !backlight->u.led_bl) {
+			devm_kfree(ctx->dev, backlight);
+			backlight = NULL;
+			dev_info(ctx->dev, "No find panel backlight device\n");
+		}
+	} else {
+		dev_info(ctx->dev, "No find panel backlight device node\n");
+	}
+
+	return backlight;
+}
+
+static int rockchip_panel_backlight_on(struct rockchip_panel *ctx)
+{
+	if (!ctx->backlight)
+		ctx->backlight = rockchip_panel_get_backlight(ctx);
+
+	if (likely(ctx->backlight)) {
+		if (ctx->backlight->type == PWM_BACKLIGHT) {
+			ctx->backlight->u.pwm_bl->props.power =
+						FB_BLANK_UNBLANK;
+			backlight_update_status(ctx->backlight->u.pwm_bl);
+		} else if (ctx->backlight->type == LED_BACKLIGHT) {
+			led_classdev_resume(ctx->backlight->u.led_bl);
+		} else {
+			pr_debug("%s: unknown backlight type!\n", __func__);
+		}
+	} else {
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static int rockchip_panel_backlight_off(struct rockchip_panel *ctx)
+{
+	if (!ctx->backlight)
+		ctx->backlight = rockchip_panel_get_backlight(ctx);
+
+	if (likely(ctx->backlight)) {
+		if (ctx->backlight->type == PWM_BACKLIGHT) {
+			ctx->backlight->u.pwm_bl->props.power =
+						FB_BLANK_POWERDOWN;
+			backlight_update_status(ctx->backlight->u.pwm_bl);
+		} else if (ctx->backlight->type == LED_BACKLIGHT) {
+			led_classdev_suspend(ctx->backlight->u.led_bl);
+		} else {
+			pr_debug("%s: unknown backlight type!\n", __func__);
+		}
+	} else {
+		return -ENODEV;
+	}
+
+	return 0;
 }
 
 static int rockchip_panel_write_dsi_cmd(struct mipi_dsi_device *dsi,
@@ -256,7 +397,15 @@ static int rockchip_panel_power_on(struct rockchip_panel *ctx)
 
 static int rockchip_panel_unprepare(struct drm_panel *panel)
 {
-	return 0;
+	struct rockchip_panel *ctx = to_rockchip_panel(panel);
+	int ret = 0;
+
+	ret = rockchip_panel_power_off(ctx);
+
+	if (ctx->delay.unprepare)
+		msleep(ctx->delay.unprepare);
+
+	return ret;
 }
 
 static int rockchip_panel_prepare(struct drm_panel *panel)
@@ -267,6 +416,9 @@ static int rockchip_panel_prepare(struct drm_panel *panel)
 	ret = rockchip_panel_power_on(ctx);
 	if (ret < 0)
 		return ret;
+
+	if (ctx->delay.prepare)
+		msleep(ctx->delay.prepare);
 
 	ret = rockchip_panel_init(ctx);
 	if (ret < 0)
@@ -279,12 +431,23 @@ static int rockchip_panel_disable(struct drm_panel *panel)
 {
 	struct rockchip_panel *ctx = to_rockchip_panel(panel);
 
-	rockchip_panel_display_off(ctx);
-	return rockchip_panel_power_off(ctx);
+	rockchip_panel_backlight_off(ctx);
+
+	if (ctx->delay.disable)
+		msleep(ctx->delay.disable);
+
+	return rockchip_panel_display_off(ctx);
 }
 
 static int rockchip_panel_enable(struct drm_panel *panel)
 {
+	struct rockchip_panel *ctx = to_rockchip_panel(panel);
+
+	if (ctx->delay.enable)
+		msleep(ctx->delay.enable);
+
+	rockchip_panel_backlight_on(ctx);
+
 	return 0;
 }
 
@@ -572,6 +735,15 @@ static int rockchip_panel_parse_dt(struct rockchip_panel *ctx)
 	struct device_node *np = ctx->dev->of_node;
 	struct device_node *child;
 	int ret = 0;
+
+	of_property_read_u32(np, PROP_DISPLAY_ENABLE_DELAY,
+			     &ctx->delay.enable);
+	of_property_read_u32(np, PROP_DISPLAY_DISABLE_DELAY,
+			     &ctx->delay.disable);
+	of_property_read_u32(np, PROP_DISPLAY_PREPARE_DELAY,
+			     &ctx->delay.prepare);
+	of_property_read_u32(np, PROP_DISPLAY_UNPREPARE_DELAY,
+			     &ctx->delay.unprepare);
 
 	ret = of_get_videomode(np, &ctx->vm, OF_USE_NATIVE_MODE);
 	if (ret < 0)
