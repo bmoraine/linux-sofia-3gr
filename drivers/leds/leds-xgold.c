@@ -47,25 +47,29 @@ static void xgold_led_work(struct work_struct *work)
 			container_of(work, struct xgold_led_data, work);
 	struct platform_device *pdev = led->pdev;
 	struct device *dev = &pdev->dev;
-	static bool power_on; /* FIXME */
+	/*
+	 * init power_on with -1, because we don't know the backlight
+	 * actual power status, maybe it's power on by loader.
+	 */
+	static int power_on = -1;
 	pr_debug("%s --> power-on:%d - brightness:%#x\n", __func__,
 					power_on, led->led_brightness);
 	if (led->led_brightness) {
-		if (!power_on) {
+		if (!power_on || power_on ==-1) {
 			if (led->set_clk && led->set_clk(dev, true))
 				dev_err(dev, " set_clk failed\n");
 		}
 		if (led->set_backlight && led->set_backlight(dev))
 			dev_err(dev, " set_backlight failed\n");
-		power_on = true;
+		power_on = 1;
 	} else {
 		if (led->set_backlight && led->set_backlight(dev))
 			dev_err(dev, " set_backlight failed\n");
-		if (power_on) {
+		if (power_on || power_on == -1) {
 			if (led->set_clk && led->set_clk(dev, false))
 				dev_err(dev, " set_clk failed\n");
 		}
-		power_on = false;
+		power_on = 0;
 	}
 }
 
