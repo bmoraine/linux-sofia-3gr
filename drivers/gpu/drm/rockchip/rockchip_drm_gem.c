@@ -84,6 +84,9 @@ static int rockchip_drm_gem_object_mmap(struct drm_gem_object *obj,
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
 	ret = dma_buf_mmap(dma_buf, vma, 0);
+
+	dma_buf_put(dma_buf);
+
 	return ret;
 }
 
