@@ -43,8 +43,10 @@
 
 #define CHARGER_CONTROL_O 0x0
 #define CHARGER_CONTROL(_base) ((_base) + CHARGER_CONTROL_O)
-#define CHARGER_CONTROL_CHGEN_O 0
-#define CHARGER_CONTROL_CHGEN_M 0x1
+#define CHARGER_CONTROL_CHGWSRC_O 7
+#define CHARGER_CONTROL_CHGWSRC_M 0x2
+#define CHARGER_CONTROL_CHGCIEN_O 23
+#define CHARGER_CONTROL_CHGCIEN_M 0x1
 
 #define CHARGER_CONTROL_WR_O 0x8
 #define CHARGER_CONTROL_WR(_base) ((_base) + CHARGER_CONTROL_WR_O)
@@ -130,8 +132,11 @@ static int dummy_charger_configure_pmu_regs(struct dummy_charger_device *dummy_c
 	ret |= idi_client_ioread(dummy_chrg_dev->idi->ididev,
 			CHARGER_CONTROL(dummy_chrg_dev->idi->ctrl_io_res->start), &regval);
 
-	/* CHGEN - Disable the charger */
-	regval &= ~(CHARGER_CONTROL_CHGEN_M << CHARGER_CONTROL_CHGEN_O);
+	/* CHGWSRC - Turn of CHGINT for ChargerDetecSource */
+	regval &= ~(CHARGER_CONTROL_CHGWSRC_M << CHARGER_CONTROL_CHGWSRC_O);
+
+	/* CIEN - Turn off chargerirq enable */
+	regval &= ~(CHARGER_CONTROL_CHGCIEN_M << CHARGER_CONTROL_CHGCIEN_O);
 
 	ret |= idi_client_iowrite(dummy_chrg_dev->idi->ididev,
 			CHARGER_CONTROL(dummy_chrg_dev->idi->ctrl_io_res->start), regval);
