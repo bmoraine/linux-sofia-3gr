@@ -95,7 +95,7 @@
 		};
 	};
 #ifdef SOFIA3GR_MRD6
-	pwmleds {
+	pwmleds: pwmleds {
 		compatible = "pwm-leds";
 		pwm_lcd {
 		        label = "lcd-backlight";
@@ -830,6 +830,7 @@
 &display_panel {
 	compatible = "rockchip,panel","intel,display";
 	reg = <0>;
+	backlight = <&backlight>/*, <&pwmleds> */;
 	intel,display-gpio-reset = <&xgold_pmx_gpio 36 0>;
 };
 
