@@ -659,6 +659,11 @@ static struct mbox_ops mveth_mbox_ops = {
 	.on_event = mveth_on_event
 };
 
+static struct device_type wwan_type = {
+	.name	= "wwan",
+};
+
+
 void on_mveth_instance(char *instance_name, uint32_t instance_index,
 		       uint32_t instance_count)
 {
@@ -699,6 +704,7 @@ void on_mveth_instance(char *instance_name, uint32_t instance_index,
 	netdev->watchdog_timeo = 3 * HZ;
 	netdev->irq = 0;
 	netdev->dma = 0;
+	SET_NETDEV_DEVTYPE(netdev, &wwan_type);
 
 	/* register new Ethernet interface */
 	res = register_netdev(netdev);
