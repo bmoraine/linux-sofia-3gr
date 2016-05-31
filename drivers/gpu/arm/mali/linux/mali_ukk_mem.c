@@ -81,6 +81,11 @@ int mem_bind_wrapper(struct mali_session_data *session_data, _mali_uk_bind_mem_s
 	}
 	kargs.ctx = (uintptr_t)session_data;
 
+        if(kargs.size <= 0)
+        {
+            return -EFAULT;
+        }
+
 	err = _mali_ukk_mem_bind(&kargs);
 
 	if (_MALI_OSK_ERR_OK != err) {

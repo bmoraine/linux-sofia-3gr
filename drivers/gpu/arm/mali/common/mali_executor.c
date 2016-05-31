@@ -229,7 +229,7 @@ void mali_executor_populate(void)
 	for (i = 0; i < num_groups; i++) {
 		struct mali_group *group = mali_group_get_glob_group(i);
 
-		if (mali_group_is_virtual(group)) {
+		if (NULL != group && mali_group_is_virtual(group)) {
 			virtual_group = group;
 			virtual_group_state = EXEC_STATE_INACTIVE;
 			break;

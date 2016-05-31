@@ -55,7 +55,7 @@ static void mali_control_timer_callback(void *arg)
 /* Init a timer (for now it is used for GPU utilization and dvfs) */
 _mali_osk_errcode_t mali_control_timer_init(void)
 {
-	_mali_osk_device_data data;
+	_mali_osk_device_data data={0,};
 
 	if (_MALI_OSK_ERR_OK == _mali_osk_device_data_get(&data)) {
 		/* Use device specific settings (if defined) */

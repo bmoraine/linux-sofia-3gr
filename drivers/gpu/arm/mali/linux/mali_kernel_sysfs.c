@@ -1223,18 +1223,19 @@ int mali_sysfs_register(const char *mali_dev_name)
 				num_groups = mali_group_get_glob_num_groups();
 				for (i = 0; i < num_groups; i++) {
 					struct mali_group *group = mali_group_get_glob_group(i);
+					if(NULL != group) {
 
-					struct mali_gp_core *gp_core = mali_group_get_gp_core(group);
-					if (NULL != gp_core) {
-						struct dentry *mali_gp_gpx_dir;
-						mali_gp_gpx_dir = debugfs_create_dir("gp0", mali_gp_dir);
-						if (NULL != mali_gp_gpx_dir) {
-							debugfs_create_file("base_addr", 0400, mali_gp_gpx_dir, &gp_core->hw_core, &hw_core_base_addr_fops);
-							debugfs_create_file("enabled", 0600, mali_gp_gpx_dir, group, &group_enabled_fops);
-						}
-						break; /* no need to look for any other GP cores */
-					}
-
+					    struct mali_gp_core *gp_core = mali_group_get_gp_core(group);
+					    if (NULL != gp_core) {
+						    struct dentry *mali_gp_gpx_dir;
+						    mali_gp_gpx_dir = debugfs_create_dir("gp0", mali_gp_dir);
+						    if (NULL != mali_gp_gpx_dir) {
+							    debugfs_create_file("base_addr", 0400, mali_gp_gpx_dir, &gp_core->hw_core, &hw_core_base_addr_fops);
+							    debugfs_create_file("enabled", 0600, mali_gp_gpx_dir, group, &group_enabled_fops);
+						    }
+						    break; /* no need to look for any other GP cores */
+					    }
+                                    }
 				}
 			}
 

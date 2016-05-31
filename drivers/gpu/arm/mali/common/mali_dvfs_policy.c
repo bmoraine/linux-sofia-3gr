@@ -214,7 +214,7 @@ real_setting:
 
 _mali_osk_errcode_t mali_dvfs_policy_init(void)
 {
-	_mali_osk_device_data data;
+	_mali_osk_device_data data = {0,};
 	_mali_osk_errcode_t err = _MALI_OSK_ERR_OK;
 
 	if (_MALI_OSK_ERR_OK == _mali_osk_device_data_get(&data)) {
