@@ -48,6 +48,8 @@
 #define PROP_DISPLAY_GPIOVALUE	"intel,gpio-value-delay"
 
 #define CMD_LIST_INIT		"cmd-init"
+#define CMD_LIST_SLEEP_OUT	"cmd-sleep-out"
+#define CMD_LIST_SLEEP_IN	"cmd-sleep-in"
 
 #define PROP_DISPLAY_CMDTYPE	"intel,cmd-type"
 #define PROP_DISPLAY_CMDDATA	"intel,cmd-data"
@@ -110,6 +112,8 @@ struct rockchip_panel {
 	struct display_power *power_on;
 	struct display_power *power_off;
 	struct display_cmd *cmds_init;
+	struct display_cmd *cmds_sleep_out;
+	struct display_cmd *cmds_sleep_in;
 
 	/**
 	 * @prepare: the time (in milliseconds) that it takes for the panel to
@@ -263,32 +267,37 @@ static int rockchip_panel_write_dsi_cmd(struct mipi_dsi_device *dsi,
 	}
 }
 
-static int rockchip_panel_display_on(struct rockchip_panel *ctx)
+static void rockchip_panel_send_cmdlist(struct rockchip_panel *ctx,
+					struct display_cmd *cmds)
 {
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
-	int ret;
+	struct display_cmd *cmd;
 
-	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
-	if (ret)
-		return ret;
+	list_for_each_entry(cmd, &cmds->list, list) {
+		pr_debug("Sending command 0x%02x of length %d\n",
+			 cmd->type, cmd->length);
+		rockchip_panel_write_dsi_cmd(dsi, cmd);
+	}
+}
 
-	msleep(120);
+static int rockchip_panel_display_on(struct rockchip_panel *ctx)
+{
+	if (ctx->cmds_sleep_out)
+		rockchip_panel_send_cmdlist(ctx, ctx->cmds_sleep_out);
+	else
+		DRM_DEBUG("No command of panel sleep out in dtsi!\n");
 
-	return mipi_dsi_dcs_set_display_on(dsi);
+	return 0;
 }
 
 static int rockchip_panel_display_off(struct rockchip_panel *ctx)
 {
-	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
-	int ret;
+	if (ctx->cmds_sleep_in)
+		rockchip_panel_send_cmdlist(ctx, ctx->cmds_sleep_in);
+	else
+		DRM_DEBUG("No command of panel sleep in in dtsi!\n");
 
-	ret = mipi_dsi_dcs_enter_sleep_mode(dsi);
-	if (ret)
-		return ret;
-
-	msleep(20);
-
-	return mipi_dsi_dcs_set_display_off(dsi);
+	return 0;
 }
 
 static int rockchip_panel_display_mode_settings(struct rockchip_panel *ctx)
@@ -306,18 +315,6 @@ static int rockchip_panel_gamma_settings(struct rockchip_panel *ctx)
 	return 0;
 }
 
-static void rockchip_panel_send_cmdlist(struct rockchip_panel *ctx,
-					struct display_cmd *cmds)
-{
-	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
-	struct display_cmd *cmd;
-
-	list_for_each_entry(cmd, &cmds->list, list) {
-		pr_debug("Sending command 0x%02x of length %d\n",
-			 cmd->type, cmd->length);
-		rockchip_panel_write_dsi_cmd(dsi, cmd);
-	}
-}
 
 static int rockchip_panel_init(struct rockchip_panel *ctx)
 {
@@ -760,6 +757,12 @@ static int rockchip_panel_parse_dt(struct rockchip_panel *ctx)
 		if (!strcmp(child->name, CMD_LIST_INIT))
 			ret = panel_parse_display_cmdlist(
 					ctx, child, &ctx->cmds_init);
+		else if (!strcmp(child->name, CMD_LIST_SLEEP_OUT))
+			ret = panel_parse_display_cmdlist(
+					ctx, child, &ctx->cmds_sleep_out);
+		else if (!strcmp(child->name, CMD_LIST_SLEEP_IN))
+			ret = panel_parse_display_cmdlist(
+					ctx, child, &ctx->cmds_sleep_in);
 		else if (!strcmp(child->name, GPIO_LIST_POWER_ON))
 			ret = panel_parse_display_powerlist(
 					ctx, child, &ctx->power_on);
