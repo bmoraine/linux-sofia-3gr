@@ -1,6 +1,6 @@
 
 /*
- * rockchip vpu/hevc driver.
+ * Rockchip vpu/hevc driver.
  *
  * Copyright (C) 2014-2015 Fuzhou Rockchip Electronics Co., Ltd
  *
@@ -35,6 +35,19 @@
 #define VPU_IOC_SECVM_PP_CMD            _IOWR(VPU_IOC_MAGIC, 7, \
 						struct vvpu_secvm_cmd)
 
+#ifdef CONFIG_COMPAT
+#define COMPAT_VPU_IOC_SET_CLIENT_TYPE		_IOW(VPU_IOC_MAGIC, 1, u32)
+#define COMPAT_VPU_IOC_GET_HW_FUSE_STATUS	_IOW(VPU_IOC_MAGIC, 2, u32)
+#define COMPAT_VPU_IOC_SET_REG			_IOW(VPU_IOC_MAGIC, 3, u32)
+#define COMPAT_VPU_IOC_GET_REG			_IOW(VPU_IOC_MAGIC, 4, u32)
+#define COMPAT_VPU_IOC_PROBE_IOMMU_STATUS	_IOR(VPU_IOC_MAGIC, 5, u32)
+#define COMPAT_VPU_IOC_SECVM_CMD		_IOWR(VPU_IOC_MAGIC, 6, \
+							struct vvpu_secvm_cmd)
+#define COMPAT_VPU_IOC_SECVM_PP_CMD		_IOWR(VPU_IOC_MAGIC, 7, \
+							struct vvpu_secvm_cmd)
+
+#endif
+
 enum VPU_CLIENT_TYPE {
 	VPU_ENC				= 0x0,
 	VPU_DEC				= 0x1,
@@ -47,67 +60,67 @@ enum VPU_CLIENT_TYPE {
 /* Hardware decoder configuration description */
 struct vpuhwdecconfig_t {
 	/* Maximum video decoding width supported  */
-	unsigned long   maxdecpicwidth;
+	u32   maxdecpicwidth;
 	/* Maximum output width of Post-Processor */
-	unsigned long   maxppoutpicwidth;
+	u32   maxppoutpicwidth;
 	/* HW supports h.264 */
-	unsigned long   h264support;
+	u32   h264support;
 	/* HW supports JPEG */
-	unsigned long   jpegsupport;
+	u32   jpegsupport;
 	/* HW supports MPEG-4 */
-	unsigned long   mpeg4support;
+	u32   mpeg4support;
 	/* HW supports custom MPEG-4 features */
-	unsigned long   custommpeg4support;
+	u32   custommpeg4support;
 	/* HW supports VC-1 Simple */
-	unsigned long   vc1support;
+	u32   vc1support;
 	/* HW supports MPEG-2 */
-	unsigned long   mpeg2support;
+	u32   mpeg2support;
 	/* HW supports post-processor */
-	unsigned long   ppsupport;
+	u32   ppsupport;
 	/* HW post-processor functions bitmask */
-	unsigned long   ppconfig;
+	u32   ppconfig;
 	/* HW supports Sorenson Spark */
-	unsigned long   sorensonsparksupport;
+	u32   sorensonsparksupport;
 	/* HW supports reference picture buffering */
-	unsigned long   refbufsupport;
+	u32   refbufsupport;
 	/* HW supports VP6 */
-	unsigned long   vp6support;
+	u32   vp6support;
 	/* HW supports VP7 */
-	unsigned long   vp7support;
+	u32   vp7support;
 	/* HW supports VP8 */
-	unsigned long   vp8support;
+	u32   vp8support;
 	/* HW supports AVS */
-	unsigned long   avssupport;
+	u32   avssupport;
 	/* HW supports JPEG extensions */
-	unsigned long   jpegesupport;
+	u32   jpegesupport;
 	/* HW supports REAL */
-	unsigned long   rvsupport;
+	u32   rvsupport;
 	/* HW supports H264 MVC extension */
-	unsigned long   mvcsupport;
+	u32   mvcsupport;
 };
 
 /* Hardware encoder configuration description */
 struct vpuhwencconfig_t {
 	/* Maximum supported width for video encoding (not JPEG) */
-	unsigned long   maxencodedwidth;
+	u32   maxencodedwidth;
 	/* HW supports H.264 */
-	unsigned long   h264enabled;
+	u32   h264enabled;
 	/* HW supports JPEG */
-	unsigned long   jpegenabled;
+	u32   jpegenabled;
 	/* HW supports MPEG-4 */
-	unsigned long   mpeg4enabled;
+	u32   mpeg4enabled;
 	/* HW supports video stabilization */
-	unsigned long   vsenabled;
+	u32   vsenabled;
 	/* HW supports RGB input */
-	unsigned long   rgbenabled;
-	unsigned long   reg_size;
+	u32   rgbenabled;
+	u32   reg_size;
 	/* reverved */
-	unsigned long   reserv[2];
+	u32   reserv[2];
 };
 
 struct vpuhwcfgreq_t {
-	unsigned long  *cfg;
-	unsigned long   size;
+	u32   *cfg;
+	u32   size;
 };
 
 #define DWL_MPEG2_E         31  /* 1 bit */
@@ -292,8 +305,5 @@ struct vpuhwfusestatus_t {
 	/* Fuse for custom MPEG-4 */
 	u32 custommpeg4supportfuse;
 };
-
-extern struct ion_client *rockchip_ion_client_create(const char *name);
-
 #endif
 

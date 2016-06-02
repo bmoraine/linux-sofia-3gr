@@ -82,11 +82,11 @@ static int vvpu_pp_vbpipe_init_int(struct device *dev, int locked)
 		set_fs(old_fs);
 
 		if (IS_ERR(fp)) {
-			ret = (int)fp;
+			ret = PTR_ERR(fp);
 
 			/* only log error if called from internal this module */
 			if (locked != 0)
-				dev_err(dev, "open pp vbpipe: error %d", ret);
+				dev_err(dev, "open pp vbpipe: error %p", fp);
 
 			vvpu_vbpipe_filep = NULL;
 		} else {

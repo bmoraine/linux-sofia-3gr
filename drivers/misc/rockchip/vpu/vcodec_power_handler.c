@@ -88,8 +88,8 @@ int vpu_power_req_vbpipe_init(void)
 		set_fs(old_fs);
 
 		if (IS_ERR(fp)) {
-			pr_debug("vpu_power open vbpipe error %d\n",
-				(int)fp);
+			pr_debug("vpu_power open vbpipe error %p\n",
+				fp);
 			vpu_power_req_vbpipe_filep = NULL;
 			return -1;
 		} else {
