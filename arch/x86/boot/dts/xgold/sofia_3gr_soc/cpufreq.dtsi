@@ -19,7 +19,7 @@ cpufreq:cpufreq {
                 #endif
 		#endif
 		intel,table-from-vmm;
-		intel,start-freq-limits = <416000 900000>;
+		intel,start-freq-limits = <416000 1160000>;
 		intel,clock_latency = <CPUFREQ_CLOCK_LATENCY_US>;
 		#address-cells = < 0 >;
 		interrupts = < 0 >;
