@@ -174,7 +174,7 @@
 		pm,state-D3 = "disable";
 		intel,display-gpio-reset = <&xgold_pmx_gpio 36 0>;
 #ifdef SOFIA3GR_MRD6
-		#include "xgold/display/HX8394-3gr.dtsi"
+		#include "xgold/display/RA63417-3gr-non-os.dtsi"
 		/* #include "xgold/display/NT35596-3gr.dtsi" */
 #endif
 	};
