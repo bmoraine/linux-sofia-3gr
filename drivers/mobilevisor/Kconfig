@@ -104,6 +104,12 @@ config TEE_RPC
           The driver's name is tee_rpc.
 
           If unsure, select N.
+
+config TRUSTY
+        tristate "Trusty driver"
+        default y
+        help
+          Trusty driver
 endmenu
 
 endif
