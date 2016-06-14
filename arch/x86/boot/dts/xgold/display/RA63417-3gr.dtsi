@@ -371,17 +371,17 @@ display_panel: display-panel@RA63417 {
 			Display-on {
 				intel,cmd-type = <0x05>;
 				intel,cmd-data = <0x29>;
-                intel,cmd-delay = <20>;
+				intel,cmd-delay = <20>;
 				intel,cmd-lp = <1>;
 			};
 			Sleep-out {
 				intel,cmd-type = <0x05>;
 				intel,cmd-data = <0x11>;
-                intel,cmd-delay = <200>;
+				intel,cmd-delay = <200>;
 				intel,cmd-lp = <1>;
 			};
-
 		};
+
 		gpio-power-on {
 			/*power_en {
 				intel,gpio-type = "vhigh";
@@ -411,35 +411,4 @@ display_panel: display-panel@RA63417 {
 				intel,gpio-value-delay = <0 0>;
 			};*/
 		};
-
-		cmd-sleep-in {
-			display-off {
-				intel,cmd-type = <0x05>;
-				intel,cmd-data = <0x28>;
-				intel,cmd-delay = <200>;
-				intel,cmd-lp = <1>;
-			};
-			sleep-in {
-				intel,cmd-type = <0x05>;
-				intel,cmd-data = <0x10>;
-				intel,cmd-delay = <200>;
-				intel,cmd-lp = <1>;
-			};
-		};
-
-		cmd-sleep-out {
-			sleep-out {
-				intel,cmd-type = <0x05>;
-				intel,cmd-data = <0x11>;
-				intel,cmd-delay = <200>;
-				intel,cmd-lp = <1>;
-			};
-			display-on {
-				intel,cmd-type = <0x05>;
-				intel,cmd-data = <0x29>;
-				intel,cmd-delay = <20>;
-				intel,cmd-lp = <1>;
-			};
-		};
-
 	};
