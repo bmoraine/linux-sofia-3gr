@@ -116,6 +116,7 @@ struct kxcjk1013_data {
 	enum kx_chipset chipset;
 	s32 (*read_block_data)(const struct i2c_client *client, u8 command,
 			       u8 length, u8 *values);
+	struct iio_mount_matrix orientation;
 };
 
 enum kxcjk1013_axis {
@@ -926,6 +927,18 @@ static const struct iio_event_spec kxcjk1013_event = {
 				 BIT(IIO_EV_INFO_PERIOD)
 };
 
+static const struct iio_mount_matrix *
+kxcjk1013_get_mount_matrix(const struct iio_dev *indio_dev,
+			const struct iio_chan_spec *chan)
+{
+	return &((struct kxcjk1013_data *)iio_priv(indio_dev))->orientation;
+}
+
+static const struct iio_chan_spec_ext_info kxcjk1013_ext_info[] = {
+	IIO_MOUNT_MATRIX(IIO_SHARED_BY_DIR, kxcjk1013_get_mount_matrix),
+	{ },
+};
+
 #define KXCJK1013_CHANNEL(_axis) {					\
 	.type = IIO_ACCEL,						\
 	.modified = 1,							\
@@ -942,7 +955,8 @@ static const struct iio_event_spec kxcjk1013_event = {
 		.endianness = IIO_CPU,					\
 	},								\
 	.event_spec = &kxcjk1013_event,				\
-	.num_event_specs = 1						\
+	.num_event_specs = 1,						\
+	.ext_info = kxcjk1013_ext_info,					\
 }
 
 static const struct iio_chan_spec kxcjk1013_channels[] = {
@@ -1206,6 +1220,7 @@ static int kxcjk1013_probe(struct i2c_client *client,
 	struct kxcjk_1013_platform_data *pdata;
 	const char *name;
 	int ret;
+	int result;
 
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_BYTE_DATA |
@@ -1229,8 +1244,16 @@ static int kxcjk1013_probe(struct i2c_client *client,
 	pdata = dev_get_platdata(&client->dev);
 	if (pdata)
 		data->active_high_intr = pdata->active_high_intr;
-	else
+	else {
+		result = of_iio_read_mount_matrix(&client->dev, "mount-matrix",
+						  &data->orientation);
+		if (result) {
+			dev_err(&client->dev, "Failed to retrieve mounting matrix %d\n",
+				result);
+			return result;
+		}
 		data->active_high_intr = true; /* default polarity */
+	}
 
 	if (id) {
 		data->chipset = (enum kx_chipset)(id->driver_data);
