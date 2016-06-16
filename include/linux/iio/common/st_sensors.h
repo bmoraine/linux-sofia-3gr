@@ -42,7 +42,7 @@
 #define ST_SENSORS_MAX_4WAI			7
 
 #define ST_SENSORS_LSM_CHANNELS(device_type, mask, index, mod, \
-					ch2, s, endian, rbits, sbits, addr) \
+				ch2, s, endian, rbits, sbits, addr, ext) \
 { \
 	.type = device_type, \
 	.modified = mod, \
@@ -57,6 +57,7 @@
 		.storagebits = sbits, \
 		.endianness = endian, \
 	}, \
+	.ext_info = ext, \
 }
 
 #define ST_SENSOR_DEV_ATTR_SAMP_FREQ() \
@@ -238,6 +239,7 @@ struct st_sensor_data {
 	const struct st_sensor_transfer_function *tf;
 	struct st_sensor_transfer_buffer tb;
 	struct device_pm_platdata *pm_platdata;
+	struct iio_mount_matrix orientation;
 };
 
 #ifdef CONFIG_IIO_BUFFER

@@ -87,19 +87,31 @@
 #define ST_GYRO_2_DRDY_IRQ_INT2_MASK		0x08
 #define ST_GYRO_2_MULTIREAD_BIT			true
 
+static const struct iio_mount_matrix *
+st_gyro_get_mount_matrix(const struct iio_dev *indio_dev,
+			const struct iio_chan_spec *chan)
+{
+	return &((struct st_sensor_data *)iio_priv(indio_dev))->orientation;
+}
+
+static const struct iio_chan_spec_ext_info st_gyro_ext_info[] = {
+	IIO_MOUNT_MATRIX(IIO_SHARED_BY_DIR, st_gyro_get_mount_matrix),
+	{ },
+};
+
 static const struct iio_chan_spec st_gyro_16bit_channels[] = {
 	ST_SENSORS_LSM_CHANNELS(IIO_ANGL_VEL,
 			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),
 			ST_SENSORS_SCAN_X, 1, IIO_MOD_X, 's', IIO_LE, 16, 16,
-			ST_GYRO_DEFAULT_OUT_X_L_ADDR),
+			ST_GYRO_DEFAULT_OUT_X_L_ADDR, st_gyro_ext_info),
 	ST_SENSORS_LSM_CHANNELS(IIO_ANGL_VEL,
 			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),
 			ST_SENSORS_SCAN_Y, 1, IIO_MOD_Y, 's', IIO_LE, 16, 16,
-			ST_GYRO_DEFAULT_OUT_Y_L_ADDR),
+			ST_GYRO_DEFAULT_OUT_Y_L_ADDR, st_gyro_ext_info),
 	ST_SENSORS_LSM_CHANNELS(IIO_ANGL_VEL,
 			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),
 			ST_SENSORS_SCAN_Z, 1, IIO_MOD_Z, 's', IIO_LE, 16, 16,
-			ST_GYRO_DEFAULT_OUT_Z_L_ADDR),
+			ST_GYRO_DEFAULT_OUT_Z_L_ADDR, st_gyro_ext_info),
 	IIO_CHAN_SOFT_TIMESTAMP(3)
 };
 
@@ -307,6 +319,7 @@ int st_gyro_common_probe(struct iio_dev *indio_dev,
 	struct st_sensor_data *gdata = iio_priv(indio_dev);
 	int irq = gdata->get_irq_data_ready(indio_dev);
 	int err;
+	int result;
 
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &gyro_info;
@@ -324,6 +337,14 @@ int st_gyro_common_probe(struct iio_dev *indio_dev,
 	gdata->current_fullscale = (struct st_sensor_fullscale_avl *)
 						&gdata->sensor->fs.fs_avl[0];
 	gdata->odr = gdata->sensor->odr.odr_avl[0].hz;
+
+	result = of_iio_read_mount_matrix(gdata->dev, "mount-matrix",
+					  &gdata->orientation);
+	if (result) {
+		dev_err(gdata->dev, "Failed to retrieve mounting matrix %d\n",
+			result);
+		return result;
+	}
 
 	err = st_sensors_init_sensor(indio_dev, pdata);
 	if (err < 0)
