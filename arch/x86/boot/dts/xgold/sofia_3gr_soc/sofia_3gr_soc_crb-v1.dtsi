@@ -769,7 +769,7 @@
 
 					hevc:hevc {
 						compatible = "rockchip,hevc_service";
-						iommu_enabled = <1>;
+						rockchip,iommu_enabled = <1>;
 						interrupt-names = "irq_dec";
 						interrupts = < HEVC_DEC_INT IRQ_TYPE_DEFAULT >;
 						devname = "hevc_service";
