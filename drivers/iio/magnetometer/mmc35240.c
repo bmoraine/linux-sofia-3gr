@@ -178,6 +178,7 @@ struct mmc35240_data {
 	int axis_coef[3];
 	int axis_scale[3];
 	enum mmc35240_chipset chipset;
+	struct iio_mount_matrix orientation;
 };
 
 static const struct {
@@ -189,6 +190,18 @@ static const struct {
 			   {50, 0} };
 
 static IIO_CONST_ATTR_SAMP_FREQ_AVAIL("1.5 13 25 50");
+
+static const struct iio_mount_matrix *
+mmc35240_get_mount_matrix(const struct iio_dev *indio_dev,
+			const struct iio_chan_spec *chan)
+{
+	return &((struct mmc35240_data *)iio_priv(indio_dev))->orientation;
+}
+
+static const struct iio_chan_spec_ext_info mmc35240_ext_info[] = {
+	IIO_MOUNT_MATRIX(IIO_SHARED_BY_DIR, mmc35240_get_mount_matrix),
+	{ },
+};
 
 #define MMC35240_CHANNEL(_axis) {				\
 	.type = IIO_MAGN,					\
@@ -205,6 +218,7 @@ static IIO_CONST_ATTR_SAMP_FREQ_AVAIL("1.5 13 25 50");
 		.shift = 0,					\
 		.endianness = IIO_CPU,				\
 	},							\
+	.ext_info = mmc35240_ext_info,				\
 }
 
 static const struct iio_chan_spec mmc35240_channels[] = {
@@ -791,6 +805,7 @@ static int mmc35240_probe(struct i2c_client *client,
 #ifdef CONFIG_OF
 	struct device_node *of_np = client->dev.of_node;
 #endif
+	int result;
 
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
 	if (!indio_dev)
@@ -836,6 +851,13 @@ static int mmc35240_probe(struct i2c_client *client,
 		}
 	}
 #endif
+	result = of_iio_read_mount_matrix(&client->dev, "mount-matrix",
+					  &data->orientation);
+	if (result) {
+		dev_err(&client->dev, "Failed to retrieve mounting matrix %d\n",
+			result);
+		return result;
+	}
 
 	ret = mmc35240_power_on(data);
 	if (ret < 0) {
