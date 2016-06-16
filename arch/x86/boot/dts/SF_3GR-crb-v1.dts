@@ -40,7 +40,7 @@
 
 		/* global autoconfigured region for contiguous allocations */
 		cma_default_region: region@0 {
-			size = <0x03000000>;
+			size = <0x08000000>;
 			limit = <0x0000000>;
 			linux,cma-default;
 		};
