@@ -285,13 +285,15 @@ i2s1_function_B_sleep_pins:i2s1_function_B_sleep_pins {
 #ifdef SOFIA3GR_MRD6
 	touch_control:touch_control {
 		pinctrl-single,pins = <
-			0x248 0x1500	/* GPIO, default output low */
-		>;
+        //0x248 0x1500  /* GPIO, default output low */
+        0x2ec 0x2700
+        >;
 	};
 	touch_interrupt:touch_interrupt {
 		pinctrl-single,pins = <
-			0x248 0x2003	/* Interrupt, EINT_EXI12 */
-		>;
+        //0x248 0x2003  /* Interrupt, EINT_EXI12 */
+        0x2ec 0x0007
+        >;
 	};
 #else
 	touch_default_pins:touch_default_pins {
