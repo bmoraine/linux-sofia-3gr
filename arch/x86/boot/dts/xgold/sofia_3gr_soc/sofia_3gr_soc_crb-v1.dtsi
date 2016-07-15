@@ -748,7 +748,7 @@
                                                 interrupts = <HEVC_DEC_INT IRQ_TYPE_DEFAULT>;
                                                 interrupt-names = "hevc_mmu";
                                         };
-
+#endif
 					vop_mmu@0xE1000300 {
 						dbgname = "vop";
 						compatible = "rockchip,vop_mmu";
@@ -756,7 +756,6 @@
 						interrupts = <VOP_INT IRQ_TYPE_DEFAULT>;
 						interrupt-names = "vop_mmu";
 					};
-#endif
 #ifndef RECOVERY_KERNEL
 					vpu:vpu {
 						compatible = "rockchip,vpu_service";
