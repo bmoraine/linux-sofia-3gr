@@ -61,15 +61,20 @@ struct idi_device {
 static struct idi_device idi_dummy_chrg;
 
 struct dummy_charger_device {
-	int irq;
-	int irq_flags;
+	int detect_charger_irq;
+	int detect_charger_irq_flags;
 	int active_low;
 	int det_gpio;
-	bool irq_wakeup;
+	bool detect_charger_irq_wakeup;
 	int fake_vbus;
 	int pwr_en_pin;
 	int vbus_err_pin;
 	int enable_boost;
+
+	/* for usb fault interrupt */
+	int usb_fault_irq;
+	int usb_fault_gpio;
+	int usb_fault_irq_flags;
 
 	struct idi_device *idi;
 	struct semaphore prop_lock;
@@ -274,7 +279,7 @@ int dummy_chrg_notification_handler(struct notifier_block *nb,
 	case INTEL_USB_DRV_VBUS:
 		{
 			dummy_chrg_dev->enable_boost = *((bool *)data);
-			pr_debug("%s: pwren-gpio: %d, enable_bootst: %d\n", __func__,
+			pr_info("%s: pwren-gpio: %d, enable_bootst: %d\n", __func__,
 					dummy_chrg_dev->pwr_en_pin,dummy_chrg_dev->enable_boost);
 
 			if (dummy_chrg_dev->enable_boost) {
@@ -292,12 +297,31 @@ int dummy_chrg_notification_handler(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-static irqreturn_t dummy_chrg_irq_handler(int irq, void *dev_id)
+static irqreturn_t detect_charger_irq_handler(int irq, void *dev_id)
 {
 	struct dummy_charger_device *data = dev_id;
 
 	queue_delayed_work(system_power_efficient_wq, &data->work, 0);
 
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t usb_fault_irq_handler(int irq, void *dev_id)
+{
+	struct dummy_charger_device *data = dev_id;
+	int state;
+
+	state = gpio_get_value(data->usb_fault_gpio);
+
+	if (!state) {
+		atomic_notifier_call_chain(&data->otg_handle->notifier,
+			INTEL_USB_DRV_VBUS_ERR, 0);
+		pr_info("usb_fault irq \n");
+		if (data->enable_boost)
+			gpio_direction_output(data->pwr_en_pin, 0);
+	} else {
+		pr_info("usb_fault irq ignore\n");
+	}
 	return IRQ_HANDLED;
 }
 
@@ -328,14 +352,28 @@ static int dummy_charger_probe(struct platform_device *pdev)
 	dummy_chrg_dev->det_gpio = of_get_named_gpio(np, "detect-gpio", 0);
 	pr_info("%s: detect-gpio: %d\n", __func__, dummy_chrg_dev->det_gpio);
 
-	dummy_chrg_dev->irq_wakeup = 1; // device_property_read_bool(dev, "wakeup-source");
-	dummy_chrg_dev->irq_flags = (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND);
+	dummy_chrg_dev->usb_fault_gpio = of_get_named_gpio(np, "usbfault-gpio", 0);
+	pr_info("%s: usb_fault_gpio: %d\n", __func__, dummy_chrg_dev->usb_fault_gpio);
 
-	dummy_chrg_dev->irq = irq_of_parse_and_map(np, 0);
-	pr_info("%s: data->irq:%d\n", __func__, dummy_chrg_dev->irq);
+	dummy_chrg_dev->detect_charger_irq_wakeup = 1; // device_property_read_bool(dev, "wakeup-source");
+	dummy_chrg_dev->detect_charger_irq_flags = (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND);
 
-	if (!dummy_chrg_dev->irq) {
-		pr_err("%s: can't get detach irq\n", __func__);
+	/* Register charger_det pin interrupt used to detect usb plug/unplug */
+	dummy_chrg_dev->detect_charger_irq = platform_get_irq_byname(pdev, "charger_det");
+	pr_info("%s: data->detect_charger_irq:%d\n", __func__, dummy_chrg_dev->detect_charger_irq);
+
+	if (!dummy_chrg_dev->detect_charger_irq) {
+		pr_err("%s: can't get detach detect_charger_irq\n", __func__);
+	}
+
+	dummy_chrg_dev->usb_fault_irq_flags = (IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND);
+
+	/* Register usb fault pin interrupt used to detect overcurrent */
+	dummy_chrg_dev->usb_fault_irq = platform_get_irq_byname(pdev, "usb_fault");
+
+	pr_info("%s: usb fault irq:%d\n", __func__, dummy_chrg_dev->usb_fault_irq);
+	if (!dummy_chrg_dev->usb_fault_irq) {
+		pr_err("%s: can't get usb_fault_irq\n", __func__);
 	}
 
 	sema_init(&dummy_chrg_dev->prop_lock, 1);
@@ -371,11 +409,20 @@ static int dummy_charger_probe(struct platform_device *pdev)
 
 	usb_register_notifier(dummy_chrg_dev->otg_handle, &dummy_chrg_dev->otg_nb);
 
-	if (dummy_chrg_dev->irq) {
-		ret = request_irq(dummy_chrg_dev->irq, dummy_chrg_irq_handler,
-				dummy_chrg_dev->irq_flags, pdev->name, dummy_chrg_dev);
+	if (dummy_chrg_dev->detect_charger_irq) {
+		ret = request_irq(dummy_chrg_dev->detect_charger_irq, detect_charger_irq_handler,
+				dummy_chrg_dev->detect_charger_irq_flags, pdev->name, dummy_chrg_dev);
 		if (ret != 0) {
 			pr_err("%s: Failed to register irq, ret=%d\n", __func__, ret);
+			return ret;
+		}
+	}
+
+	if (dummy_chrg_dev->usb_fault_irq) {
+		ret = request_irq(dummy_chrg_dev->usb_fault_irq, usb_fault_irq_handler,
+				dummy_chrg_dev->usb_fault_irq_flags, "usb_fault", dummy_chrg_dev);
+		if (ret != 0) {
+			pr_err("%s: Failed to register usbfault irq, ret=%d\n", __func__, ret);
 			return ret;
 		}
 	}
@@ -393,7 +440,7 @@ static int dummy_charger_remove(struct platform_device *pdev)
 	struct dummy_charger_device *dummy_chrg_device = platform_get_drvdata(pdev);
 
 	cancel_delayed_work_sync(&dummy_chrg_device->work);
-	free_irq(dummy_chrg_device->irq, dummy_chrg_device);
+	free_irq(dummy_chrg_device->detect_charger_irq, dummy_chrg_device);
 
 	platform_set_drvdata(pdev, NULL);
 	kfree(dummy_chrg_device);
@@ -405,8 +452,8 @@ static int dummy_charger_suspend(struct device *dev)
 {
 	struct dummy_charger_device *data = dev_get_drvdata(dev);
 
-	if (data->irq_wakeup)
-		enable_irq_wake(data->irq);
+	if (data->detect_charger_irq_wakeup)
+		enable_irq_wake(data->detect_charger_irq);
 
 	return 0;
 }
@@ -415,8 +462,8 @@ static int dummy_charger_resume(struct device *dev)
 {
 	struct dummy_charger_device *data = dev_get_drvdata(dev);
 
-	if (data->irq_wakeup)
-		disable_irq_wake(data->irq);
+	if (data->detect_charger_irq_wakeup)
+		disable_irq_wake(data->detect_charger_irq);
 
 	return 0;
 }
