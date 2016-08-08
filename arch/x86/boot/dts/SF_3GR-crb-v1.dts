@@ -25,7 +25,7 @@
 	};
 
 	coho_board_type {
-		compatible = "SOFIA3GR_MRD6_720";  
+		compatible = "SOFIA3GR_MRD6_720";
 	};
 
 	memory {
@@ -126,14 +126,21 @@
 		pinctrl-2 = <&led_agold_inactive_pins>;
         };
 
-     dummy_charger:dummy_charger {
+	dummy_charger:dummy_charger {
 		compatible = "dummy-charger";
 		#address-cells = < 0 >;
 		detect-gpio = <&xgold_pmx_gpio 2 0>;
 		pwren-gpio = <&abb_pmx_gpio 26 0>;
-		interrupt-parent = < &eint>;
-		interrupts = < EINT_EXI4 XGOLD_IRQ_TYPE_EDGE_BOTH >;
+		usbfault-gpio = <&xgold_pmx_gpio 5 0>;
+		interrupt-parent = <&dummy_charger>;
 		wakeup-source;
+		#interrupt-cells = < 1 >;
+		interrupts = < 0 1 >;
+		interrupt-map = <
+			/* Charger  */ 0 &eint EINT_EXI4 XGOLD_IRQ_TYPE_EDGE_BOTH
+			/* USB FAULT*/ 1 &eint EINT_EXI7 XGOLD_IRQ_TYPE_EDGE_FALLING
+			>;
+		interrupt-names = "charger_det","usb_fault";
 	};
 #endif
 
@@ -229,7 +236,7 @@
 	intel,virq,4 = <0>; /* EINT_EXI4: USB_PRESENT */
 	intel,virq,5 = <0>; /* EINT_EXI5: ALS&Prox sensor*/
 	intel,virq,6 = <1>; /* EINT_EXI6: */
-	intel,virq,7 = <1>; /* EINT_EXI7: USB FAULT */
+	intel,virq,7 = <0>; /* EINT_EXI7: USB FAULT */
 	intel,virq,8 = <0>; /* EINT_EXI8: SDcard */
 	intel,virq,9 = <1>; /* EINT_EXI9 */
 	intel,virq,10 = <1>; /* EINT_EXI10 */
