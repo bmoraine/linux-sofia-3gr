@@ -1,0 +1,2 @@
+#define RECOVERY_KERNEL
+#include "SF_3GR-telit-he922.dts"
