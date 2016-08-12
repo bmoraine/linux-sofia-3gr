@@ -140,7 +140,7 @@ static void tipc_on_event(uint32_t token, uint32_t event_id, void *cookie)
 	complete(&p_tipc_data->comp);
 }
 
-static void tipc_handle_event(void *cookie)
+static int tipc_handle_event(void *cookie)
 {
 	struct tipc_data *p_tipc_data = (struct tipc_data *)cookie;
 	uint32_t io_data_len;
@@ -163,6 +163,8 @@ static void tipc_handle_event(void *cookie)
 			mv_ipc_mbox_post(p_tipc_data->token, 0);
 		}
 	}
+
+	return 0;
 }
 
 static struct mbox_ops tipc_ops = {
@@ -384,7 +386,7 @@ static long tipc_ioctl_connect(struct trusty_chan *chan, char __user *usr_name)
 		return -ENOMEM;
 	}
 
-	msg->peer_id = (uint64_t)chan;
+	msg->peer_id = (uint64_t)(uint32_t)chan;
 
 	mutex_lock(&chan->lock);
 	if (chan->state == TRUSTY_STATE_NOT_CONNECTED)
@@ -405,7 +407,7 @@ static long tipc_ioctl_connect(struct trusty_chan *chan, char __user *usr_name)
 
 	ret = strncpy_from_user(msg->buf, usr_name, PORT_PATH_MAX);
 	if (ret < 0) {
-		pr_err("%s(): copy_from_user (%p) failed (%d)\n",
+		pr_err("%s(): copy_from_user (%p) failed (%ld)\n",
 		       __func__, usr_name, ret);
 		goto cleanup;
 	}
@@ -419,16 +421,17 @@ static long tipc_ioctl_connect(struct trusty_chan *chan, char __user *usr_name)
 	tipc_send_data(TRUSTY_CMD_CONN, (uint8_t *)msg,
 		       sizeof(struct tipc_msg) + msg->size);
 
+	mutex_lock(&chan->lock);
 	ret = wait_for_completion_interruptible_timeout(
 		&chan->reply_comp,
 		msecs_to_jiffies(REPLY_TIMEOUT));
 	if (ret < 0) {
-		pr_err("%s(): wait for response failed, err=%d\n",
-		       __func__, ret);
+		pr_err("%s(): wait for response failed, err=%ld\n",
+				__func__, ret);
+		mutex_unlock(&chan->lock);
 		goto cleanup;
 	}
 	if (ret == 0) { /* timeout */
-		mutex_lock(&chan->lock);
 		chan->state |= TRUSTY_STATE_REMOTE_CLOSED;
 		chan->peer_id = -1;
 		chan->buf_size = 0;
@@ -442,6 +445,7 @@ static long tipc_ioctl_connect(struct trusty_chan *chan, char __user *usr_name)
 	else
 		ret = -ENOTCONN;
 
+	mutex_unlock(&chan->lock);
 cleanup:
 	kfree(msg);
 	return ret;
@@ -451,7 +455,6 @@ static void tipc_on_connect_rsp(struct trusty_chan *chan,
 				int status,
 				uint32_t buf_size)
 {
-	mutex_lock(&chan->lock);
 	if (chan->state == TRUSTY_STATE_CONNECTING) {
 		if (status >= 0) {
 			chan->state = TRUSTY_STATE_WORKING;
@@ -466,7 +469,6 @@ static void tipc_on_connect_rsp(struct trusty_chan *chan,
 	} else
 		pr_err("%s(): called with state is 0x%x\n",
 		       __func__, chan->state);
-	mutex_unlock(&chan->lock);
 }
 
 static long tipc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -628,7 +630,7 @@ static ssize_t tipc_write(struct file *filp, const char __user *buf,
 			     (uint8_t *)msg,
 			     sizeof(struct tipc_msg) + msg->size);
 	if (ret != 0) {
-		pr_err("%s(): ret from rpc = 0x%x\n", __func__, ret);
+		pr_err("%s(): ret from rpc = 0x%lx\n", __func__, ret);
 		ret = -EIO;
 		goto cleanup;
 	}
@@ -686,7 +688,7 @@ uint32_t trusty_process_cmd(uint32_t opcode, uint8_t *input_buffer,
 			return RPC_FAILURE;
 		}
 		conn_rsp = (struct tipc_conn_rsp *)input_buffer;
-		chan = (struct trusty_chan *)conn_rsp->peer_id;
+		chan = (struct trusty_chan *)(uint32_t)conn_rsp->peer_id;
 		locked_inc(&chan->ref_count);
 		tipc_on_connect_rsp(chan, conn_rsp->rc, conn_rsp->buf_size);
 		tipc_put_chan(chan);
@@ -699,7 +701,7 @@ uint32_t trusty_process_cmd(uint32_t opcode, uint8_t *input_buffer,
 			       __func__, tmsg->size, input_size);
 			return RPC_FAILURE;
 		}
-		chan = (struct trusty_chan *)tmsg->peer_id;
+		chan = (struct trusty_chan *)(uint32_t)tmsg->peer_id;
 		locked_inc(&chan->ref_count);
 		*(int *)output_buffer = tipc_on_msg(chan,
 						    (char *)tmsg->buf,
