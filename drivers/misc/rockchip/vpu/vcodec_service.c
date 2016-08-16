@@ -936,9 +936,15 @@ static int vcodec_fd_to_iova(struct vpu_subdev_data *data,
 	}
 
 	mem_region->hdl = hdl;
-	ret = ion_map_iommu(data->dev, pservice->ion_client,
-			    mem_region->hdl, &mem_region->iova,
-			    &mem_region->len);
+	if (data->mmu_dev)
+		ret = ion_map_iommu(data->dev, pservice->ion_client,
+				    mem_region->hdl, &mem_region->iova,
+				    &mem_region->len);
+	else
+		ret = ion_phys(pservice->ion_client,
+			       mem_region->hdl,
+			       (ion_phys_addr_t *)&mem_region->iova,
+			       (size_t *)&mem_region->len);
 
 	if (ret < 0) {
 		dev_err(data->dev, "ion map iommu failed\n");
@@ -1033,11 +1039,17 @@ static int vcodec_bufid_to_iova(struct vpu_subdev_data *data, u8 *tbl,
 			mem_region->hdl = hdl;
 			mem_region->reg_idx = tbl[i];
 
-			ret = ion_map_iommu(data->dev,
-					    ion_cli,
-					    mem_region->hdl,
-					    &mem_region->iova,
-					    &mem_region->len);
+			if (data->mmu_dev)
+				ret = ion_map_iommu(data->dev,
+						    pservice->ion_client,
+						    mem_region->hdl,
+						    &mem_region->iova,
+						    &mem_region->len);
+			else
+				ret = ion_phys(pservice->ion_client,
+					       mem_region->hdl,
+					       (ion_phys_addr_t *)&mem_region->iova,
+					       (size_t *)&mem_region->len);
 
 			if (ret < 0) {
 				dev_err(pservice->dev, "ion map iommu failed\n");
@@ -1157,11 +1169,7 @@ static struct vpu_reg *reg_init(struct vpu_subdev_data *data,
 	reg->reg = (u32 *)&reg[1];
 	INIT_LIST_HEAD(&reg->session_link);
 	INIT_LIST_HEAD(&reg->status_link);
-
-#if defined(CONFIG_VCODEC_MMU)
-	if (data->mmu_dev)
-		INIT_LIST_HEAD(&reg->mem_region_list);
-#endif
+	INIT_LIST_HEAD(&reg->mem_region_list);
 
 	if (copy_from_user(&reg->reg[0], (void __user *)src, size)) {
 		pr_err("error: copy_from_user failed in reg_init\n");
@@ -1175,14 +1183,12 @@ static struct vpu_reg *reg_init(struct vpu_subdev_data *data,
 		return NULL;
 	}
 
-#if defined(CONFIG_VCODEC_MMU)
-	if (data->mmu_dev &&
-	    0 > vcodec_reg_address_translate(data, reg, &extra_info)) {
+	if (0 > vcodec_reg_address_translate(data, reg, &extra_info)) {
 		pr_err("error: translate reg address failed\n");
 		kfree(reg);
 		return NULL;
 	}
-#endif
+
 	mutex_lock(&pservice->lock);
 	list_add_tail(&reg->status_link, &pservice->waiting);
 	list_add_tail(&reg->session_link, &session->waiting);
@@ -1205,17 +1211,13 @@ static void reg_deinit(struct vpu_subdev_data *data, struct vpu_reg *reg)
 	if (reg == pservice->reg_pproc)
 		pservice->reg_pproc = NULL;
 
-#if defined(CONFIG_VCODEC_MMU)
 	/* release memory region attach to this registers table. */
-	if (data->mmu_dev) {
-		list_for_each_entry_safe(mem_region, n,
-					 &reg->mem_region_list, reg_lnk) {
-			ion_free(pservice->ion_client, mem_region->hdl);
-			list_del_init(&mem_region->reg_lnk);
-			kfree(mem_region);
-		}
+	list_for_each_entry_safe(mem_region, n,
+				 &reg->mem_region_list, reg_lnk) {
+		ion_free(pservice->ion_client, mem_region->hdl);
+		list_del_init(&mem_region->reg_lnk);
+		kfree(mem_region);
 	}
-#endif
 
 	kfree(reg);
 }
@@ -1374,8 +1376,11 @@ static void reg_copy_to_hw(struct vpu_subdev_data *data,
 			VDPU_CLEAR_CACHE(dst);
 		} else {
 			src[HEVC_CABAC_ERR_EN] = HEVC_CABAC_ERR_EN_BIT;
-			for (i = REG_NUM_HEVC_DEC - 1; i > HEVC_REG_EN_DEC; i--)
+			for (i = REG_NUM_HEVC_DEC - 1;
+			     i > HEVC_REG_EN_DEC;
+			     i--) {
 				dst[i] = src[i];
+			}
 			HEVC_CLEAR_CACHE(dst);
 		}
 
@@ -2250,7 +2255,6 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 	}
 #endif
 #endif
-
 	/* create device */
 	ret = alloc_chrdev_region(&data->dev_t, 0, 1, prop);
 	if (ret) {
@@ -2556,8 +2560,8 @@ static irqreturn_t vdpu_irq(int irq, void *dev_id)
 	if (HEVC_ID == data->hw_info->hw_id) {
 		irq_status = readl(dev->hwregs + DEC_INTERRUPT_REGISTER);
 		raw_status = irq_status;
+		pr_debug("dec_isr dec %x\n", irq_status);
 		if (irq_status & DEC_INTERRUPT_BIT) {
-			pr_debug("dec_isr dec %x\n", irq_status);
 
 			val = HEVC_DEC_STR_ERROR_BIT |
 			      HEVC_DEC_BUS_ERROR_BIT |
@@ -2574,9 +2578,9 @@ static irqreturn_t vdpu_irq(int irq, void *dev_id)
 	} else {
 		irq_status = readl(dev->hwregs + DEC_VPU_INTERRUPT_REGISTER);
 		raw_status = irq_status;
+		pr_debug("dec_isr dec %x\n", irq_status);
 
 		if (irq_status & DEC_VPU_INTERRUPT_BIT) {
-			pr_debug("dec_isr dec %x\n", irq_status);
 			vpu_status = readl(dev->hwregs + VPU_REG_EN_DEC);
 
 			if (vpu_status & VPU_REG_DEC_WORK_BIT)
