@@ -198,7 +198,7 @@ static void trusty_log_dump_logs(struct trusty_log_state *s)
 		 * have been corrupted by the producer.
 		 */
 		if (alloc - get > log->sz) {
-			pr_err("trusty: log overflow.");
+			pr_info("trusty: log overflow.");
 			get = alloc - log->sz;
 			continue;
 		}
@@ -215,9 +215,9 @@ static int trusty_log_handle_event(void *cookie)
 	struct log_rb *log = s->log;
 	long ret;
 
-	get = s->get;
 	while (1) {
 		mutex_lock(&read_lock);
+		get = s->get;
 		if (wait_event_interruptible(s->event_queue, get != log->put)) {
 			ret = -ERESTARTSYS;
 			pr_err("trusty: %s wait event failed\n", __func__);
