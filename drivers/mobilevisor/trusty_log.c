@@ -260,8 +260,6 @@ static int trusty_log_init_mbox(struct trusty_log_state *s,
 	s->rb_sz = lower_pow2(s->buf_sz - offsetof(struct log_rb, data));
 	pr_info("Log ring buffer size = %d\n", s->rb_sz);
 	s->log->sz = s->rb_sz;
-	s->log->alloc = 0;
-	s->log->put = 0;
 
 	kthread_run(trusty_log_handle_event, (void *)s, instance);
 	mv_ipc_mbox_set_online(s->token);
