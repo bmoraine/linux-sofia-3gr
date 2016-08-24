@@ -100,7 +100,7 @@ static void tee_rpc_cleanup(void)
 		kfree(client_contexts);
 		client_contexts = NULL;
 	}
-
+	vsec_exit();
 	unregister_chrdev_region(MKDEV(tee_major, 0), TEE_RPC_MAX_DEVS);
 }
 

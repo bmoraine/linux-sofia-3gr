@@ -199,7 +199,7 @@ int tee_rpc_map_user_pages(struct tee_message __user *user_msg, int *num_v,
 	}
 
 	/* next verify the contained iovec array and copy it */
-	if (*num_v > UIO_MAXIOV)
+	if (*num_v > UIO_MAXIOV || *num_v < 0)
 		return -EINVAL;
 
 	iov_size = *num_v * sizeof(struct iovec);

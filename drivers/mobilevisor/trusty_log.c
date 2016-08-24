@@ -49,6 +49,7 @@ struct trusty_log_state {
 };
 
 dev_t dev_log = 0;
+static int trusty_log_exit_flag;
 struct cdev chdev_log;
 static struct class *drv_class;
 static struct trusty_log_state state;
@@ -215,7 +216,7 @@ static int trusty_log_handle_event(void *cookie)
 	struct log_rb *log = s->log;
 	long ret;
 
-	while (1) {
+	while (!trusty_log_exit_flag) {
 		mutex_lock(&read_lock);
 		get = s->get;
 		if (wait_event_interruptible(s->event_queue, get != log->put)) {
@@ -336,6 +337,8 @@ static int __init trusty_log_init(void)
 		goto error_exit;
 	}
 
+	trusty_log_exit_flag = 0;
+
 	ret = trusty_log_state_init();
 	if (ret < 0) {
 		pr_err("Failed to init mbox\n");
@@ -355,6 +358,7 @@ error_exit:
 
 static void __exit trusty_log_exit(void)
 {
+	trusty_log_exit_flag = 1;
 	cdev_del(&chdev_log);
 	device_destroy(drv_class, dev_log);
 	class_destroy(drv_class);

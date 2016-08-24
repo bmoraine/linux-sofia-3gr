@@ -70,6 +70,7 @@ struct tipc_data {
 };
 
 static struct tipc_data tipc_data[2]; /* tx and rx */
+static int tipc_exit_flag;
 
 #define EVENT_MBOX_AVAIL 0x1
 #define EVENT_RET_AVAIL 0x2
@@ -145,7 +146,7 @@ static int tipc_handle_event(void *cookie)
 	struct tipc_data *p_tipc_data = (struct tipc_data *)cookie;
 	uint32_t io_data_len;
 
-	while (1) {
+	while (!tipc_exit_flag) {
 		wait_for_completion_interruptible(&p_tipc_data->comp);
 		if (p_tipc_data->tx) { /* tx, get response from Android */
 			locked_or(&p_tipc_data->event, EVENT_RET_AVAIL);
@@ -774,6 +775,8 @@ static int __init tipc_init(void)
 		goto error_exit;
 	}
 
+	tipc_exit_flag = 0;
+
 	tipc_ipc_init();
 
 	return 0;
@@ -790,6 +793,7 @@ error_exit:
 static void __exit tipc_exit(void)
 {
 	/* TODO: clean up for tipc_init() */
+	tipc_exit_flag = 1;
 	cdev_del(&chdev);
 	device_destroy(drv_class, dev);
 	class_destroy(drv_class);

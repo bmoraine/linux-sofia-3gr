@@ -31,5 +31,6 @@ void *vsec_get_shared_mem(u8 entry_id);
 u32 vsec_get_shared_mem_size(u8 entry_id);
 u32 vsec_call(u8 entry_id);
 u32 vsec_init(void);
+void vsec_exit(void);
 
 #endif /* VSEC_H */

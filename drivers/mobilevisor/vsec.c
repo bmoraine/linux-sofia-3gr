@@ -26,6 +26,9 @@
 #define RPC_INDIRECT_CALL 0
 #define RPC_DIRECT_CALL 1
 
+static uint32_t vsec_initialised;
+static uint32_t vsec_exit_flag;
+
 enum vsec_status {
 	VSEC_STATUS_CONNECT = 0,
 	VSEC_STATUS_DISCONNECT
@@ -42,7 +45,7 @@ struct vsec_rpc {
 };
 
 struct vsec_share_ctx {
-	uint32_t handshake;	
+	uint32_t handshake;
 	uint8_t share_data[0];
 };
 
@@ -62,11 +65,11 @@ struct t_vsec_ctx {
 	struct semaphore server_sem;
 
 	struct vsec_rpc vsec_rpc_ctx[2];
-	
+
 	/* point to share memory */
 	struct vsec_share_ctx *vsec_share;
 };
- 
+
 static struct t_vsec_ctx vsec_ctx;
 
 u8 vsec_get_context_entry_id(char *vlink_name, enum t_vsec_vm_id peer_id)
@@ -79,7 +82,7 @@ void *vsec_get_shared_mem(u8 entry_id)
 	if(entry_id == vsec_ctx.server_index) {
 		panic("invalid entry id for vsec\n");
 	}
-	
+
 	return vsec_ctx.vsec_rpc_ctx[!vsec_ctx.server_index].data;
 }
 
@@ -88,7 +91,7 @@ u32 vsec_get_shared_mem_size(u8 entry_id)
 	if(entry_id == vsec_ctx.server_index) {
 		panic("invalid entry id for vsec\n");
 	}
-	
+
 	return vsec_ctx.vsec_rpc_ctx[!vsec_ctx.server_index].max_size;
 
 }
@@ -99,15 +102,15 @@ u32 vsec_call(u8 entry_id)
 
 	while (p_vsec_ctx->status != VSEC_STATUS_CONNECT) {
 		if(wait_event_interruptible(p_vsec_ctx->open_wq,
-                            		p_vsec_ctx->status == VSEC_STATUS_CONNECT))
-        	return VSEC_FAILURE;
+			p_vsec_ctx->status == VSEC_STATUS_CONNECT))
+			return VSEC_FAILURE;
 	}
 
 	if (entry_id != p_vsec_ctx->server_index) {
 
 		/* Only one thread can perform RPC call */
 		if (mutex_lock_interruptible(&p_vsec_ctx->client_mutex))
-        	return 0;
+			return 0;
 
 		//p_vsec_ctx->server_responded = 0;
 
@@ -121,24 +124,16 @@ u32 vsec_call(u8 entry_id)
 
 		/* Race condition protection */
 		if (p_vsec_ctx->status != VSEC_STATUS_CONNECT) {
-        	mutex_unlock(&p_vsec_ctx->client_mutex);
-        	return VSEC_FAILURE;
-		}
-
-    /*
-		if (wait_event_interruptible(p_vsec_ctx->client_wq,
-			p_vsec_ctx->server_responded == 1)) {
 			mutex_unlock(&p_vsec_ctx->client_mutex);
 			return VSEC_FAILURE;
 		}
-      */
-      
+
 		p_vsec_ctx->is_client_wait = 0;
 
-		 /* Disconnect exit */
+		/* Disconnect exit */
 		if (p_vsec_ctx->status != VSEC_STATUS_CONNECT) {
-		    mutex_unlock(&p_vsec_ctx->client_mutex);
-		    return VSEC_FAILURE;
+			mutex_unlock(&p_vsec_ctx->client_mutex);
+			return VSEC_FAILURE;
 		}
 
 		mutex_unlock(&p_vsec_ctx->client_mutex);
@@ -154,7 +149,7 @@ static int vsec_server_thread(void *cookie)
 {
 	struct t_vsec_ctx *p_vsec_ctx = (struct t_vsec_ctx *)cookie;
 
-	while(1) {
+	while (!vsec_exit_flag) {
 		/* wait for server event */
 		down_interruptible(&p_vsec_ctx->server_sem);
 
@@ -164,13 +159,12 @@ static int vsec_server_thread(void *cookie)
 		/* Dispatch */
 		rpc_handle_cmd(p_vsec_ctx->vsec_rpc_ctx[p_vsec_ctx->server_index].data);
 		pr_debug("vsec server stopped\n");
-		
+
 		mv_ipc_mbox_post(p_vsec_ctx->token, VSEC_RPC_EVENT_SERVER);
 	}
-	
+
 	return 0;
 }
-
 
 static void vsec_on_connect(uint32_t token, void *cookie)
 {
@@ -184,7 +178,7 @@ static void vsec_on_connect(uint32_t token, void *cookie)
 		pr_debug("vsec_on_connect server_idex 0\n");
 		p_vsec_ctx->server_index = 0;
 	}
-	
+
 	/* Set connect */
 	p_vsec_ctx->status = VSEC_STATUS_CONNECT;
 
@@ -194,7 +188,7 @@ static void vsec_on_connect(uint32_t token, void *cookie)
 static void vsec_on_disconnect(uint32_t token, void *cookie)
 {
 	struct t_vsec_ctx *p_vsec_ctx = (struct t_vsec_ctx *)cookie;
-	
+
 	p_vsec_ctx->status = VSEC_STATUS_DISCONNECT;
 
 	/* wake up client if still waiting*/
@@ -211,7 +205,6 @@ static void vsec_on_event(uint32_t token, uint32_t event_id, void *cookie)
 		up(&p_vsec_ctx->server_sem);
 		break;
 	case VSEC_RPC_EVENT_SERVER:
-	  //p_vsec_ctx->server_responded = 1;
 		pr_debug("vsec server event\n");
 		up(&p_vsec_ctx->client_wq);
 		break;
@@ -226,39 +219,37 @@ static struct mbox_ops vsec_ops = {
 	.on_event      = vsec_on_event
 };
 
-uint32_t vsec_initialised = 0;
-
 u32 vsec_init(void)
 {
 	uint8_t *pshare_mem;
 	struct t_vsec_ctx *p_vsec_ctx = &vsec_ctx;
 
 	pr_debug("vsec_init\n");
-	
+
 	if(vsec_initialised)
 		return true;
-	
-	
-	p_vsec_ctx->token = mv_ipc_mbox_get_info("security", 
-						"vsec_tee", 
-						&vsec_ops,
-						&pshare_mem,
-						&(p_vsec_ctx->share_mem_size), 
-						&(p_vsec_ctx->cmdline),
-						(void *)p_vsec_ctx);
+
+	vsec_exit_flag = 0;
+
+	p_vsec_ctx->token = mv_ipc_mbox_get_info("security",
+			"vsec_tee",
+			&vsec_ops,
+			&pshare_mem,
+			&(p_vsec_ctx->share_mem_size),
+			&(p_vsec_ctx->cmdline),
+			(void *)p_vsec_ctx);
 
 	p_vsec_ctx->status = VSEC_STATUS_DISCONNECT;
 	p_vsec_ctx->vsec_share = (struct vsec_share_ctx *)pshare_mem;
 
 	p_vsec_ctx->vsec_share->handshake = mv_gal_os_id();
-	
+
 	p_vsec_ctx->vsec_rpc_ctx[0].data = p_vsec_ctx->vsec_share->share_data;
 	p_vsec_ctx->vsec_rpc_ctx[0].max_size = (p_vsec_ctx->share_mem_size - sizeof(struct vsec_share_ctx))/2;
 
 	p_vsec_ctx->vsec_rpc_ctx[1].data = p_vsec_ctx->vsec_rpc_ctx[0].data + p_vsec_ctx->vsec_rpc_ctx[0].max_size;
 	p_vsec_ctx->vsec_rpc_ctx[1].max_size = p_vsec_ctx->vsec_rpc_ctx[0].max_size;
 
-	
 	init_waitqueue_head(&p_vsec_ctx->open_wq);
 	mutex_init(&p_vsec_ctx->client_mutex);
 	sema_init(&p_vsec_ctx->server_sem, 0);
@@ -269,13 +260,17 @@ u32 vsec_init(void)
 
 	/* Create server thread */
 	kthread_run(vsec_server_thread, (void *)p_vsec_ctx, "vsec");
-	
+
 	/* Set on line */
 	mv_mbox_set_online(p_vsec_ctx->token);
-	
+
 	vsec_initialised = 1;
-	
+
 	return true;
 
 }
 
+void vsec_exit(void)
+{
+	vsec_exit_flag = 1;
+}
