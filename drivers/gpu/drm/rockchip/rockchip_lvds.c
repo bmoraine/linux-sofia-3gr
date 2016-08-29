@@ -260,6 +260,8 @@ static void rockchip_lvds_encoder_dpms(struct drm_encoder *encoder, int mode)
 			return;
 		}
 		drm_panel_enable(lvds->panel);
+		rockchip_drm_crtc_user_commit(encoder->crtc,
+					      DRM_MODE_CONNECTOR_LVDS, 0);
 
 		lvds->suspend = false;
 		break;

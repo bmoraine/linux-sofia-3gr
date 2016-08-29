@@ -956,13 +956,7 @@ int rockchip_drm_crtc_user_commit(struct drm_crtc *crtc,
 	if (!vop->is_enabled)
 		return -EPERM;
 
-	switch (vop->connector_type) {
-	case DRM_MODE_CONNECTOR_DSI:
-		vop_standby_disable(vop);
-		break;
-	default:
-		break;
-	}
+	vop_standby_disable(vop);
 
 	return 0;
 }
@@ -1141,9 +1135,6 @@ out:
 	}
 #endif
 out:
-	if (vop->connector_type != DRM_MODE_CONNECTOR_DSI)
-		vop_standby_disable(vop);
-
 	return ret;
 }
 
