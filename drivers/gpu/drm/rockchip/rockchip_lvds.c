@@ -56,6 +56,7 @@ struct rockchip_lvds {
 	struct drm_panel *panel;
 	struct drm_connector connector;
 	struct drm_encoder encoder;
+	struct device_pm_platdata *pm_platdata;
 
 	struct mutex suspend_lock;
 	int suspend;
@@ -127,22 +128,9 @@ static int rockchip_lvds_poweron(struct rockchip_lvds *lvds)
 	int ret;
 
 #ifdef CONFIG_PLATFORM_DEVICE_PM
-	struct device_pm_platdata *pm_platdata;
-
-	pm_platdata = of_device_state_pm_setup(lvds->dev->of_node);
-	if (pm_platdata) {
-		ret = device_state_pm_set_class(lvds->dev,
-						pm_platdata->pm_user_name);
-		if (ret < 0) {
-			kfree(pm_platdata);
-			pm_platdata = NULL;
-			return -EINVAL;
-		}
-	}
-
-	if (pm_platdata)
+	if (lvds->pm_platdata)
 		ret = device_state_pm_set_state_by_name(
-				lvds->dev, pm_platdata->pm_state_D0_name);
+				lvds->dev, lvds->pm_platdata->pm_state_D0_name);
 #endif
 
 	/* iomux set to default state */
@@ -181,6 +169,12 @@ static void rockchip_lvds_poweroff(struct rockchip_lvds *lvds)
 		if (ret < 0)
 			dev_err(lvds->dev, "Error setting PIN sleep state\n");
 	}
+
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+	if (lvds->pm_platdata)
+		ret = device_state_pm_set_state_by_name(
+				lvds->dev, lvds->pm_platdata->pm_state_D3_name);
+#endif
 }
 
 static enum drm_connector_status
@@ -517,6 +511,19 @@ static int rockchip_lvds_probe(struct platform_device *pdev)
 		DRM_ERROR("failed: of_get_videomode() : %d\n", ret);
 		return ret;
 	}
+
+#ifdef CONFIG_PLATFORM_DEVICE_PM
+	lvds->pm_platdata = of_device_state_pm_setup(dev->of_node);
+	if (lvds->pm_platdata) {
+		ret = device_state_pm_set_class(dev,
+					lvds->pm_platdata->pm_user_name);
+		if (ret < 0) {
+			kfree(lvds->pm_platdata);
+			lvds->pm_platdata = NULL;
+			return -EINVAL;
+		}
+	}
+#endif
 
 	return component_add(&pdev->dev, &rockchip_lvds_component_ops);
 }
