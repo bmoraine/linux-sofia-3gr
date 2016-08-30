@@ -43,6 +43,7 @@ struct trusty_log_state {
 	size_t rb_sz;
 	size_t buf_sz;
 	uint32_t get;
+	uint32_t get_4_user;
 	uint32_t token;
 	uint8_t connected;
 	wait_queue_head_t event_queue;
@@ -53,17 +54,15 @@ static int trusty_log_exit_flag;
 struct cdev chdev_log;
 static struct class *drv_class;
 static struct trusty_log_state state;
-static char line_buffer[TRUSTY_LINE_BUFFER_SIZE];
-DEFINE_MUTEX(open_lock);
-DEFINE_MUTEX(read_lock);
 
-static int trusty_log_read_line(struct trusty_log_state *s, int put, int get)
+static int trusty_log_read_line(struct trusty_log_state *s, int put, int get,
+				char *line_buffer)
 {
 	struct log_rb *log = s->log;
 	int i;
 	char c = '\0';
 	size_t max_to_read = min((size_t)(put - get),
-				sizeof(line_buffer) - 1);
+				(size_t)(TRUSTY_LINE_BUFFER_SIZE - 1));
 	size_t mask = log->sz - 1;
 
 	for (i = 0; i < max_to_read && c != '\n'; )
@@ -89,7 +88,7 @@ static unsigned int trusty_log_poll(struct file *filp,
 	/* Writes always succeed for now */
 	mask |= POLLOUT | POLLWRNORM;
 
-	if (s->get != s->log->put)
+	if (s->get_4_user != s->log->put)
 		mask |= POLLIN | POLLRDNORM;
 
 	return mask;
@@ -101,14 +100,13 @@ static ssize_t trusty_log_read(struct file *filp, char __user *buf,
 	struct trusty_log_state *s = &state;
 	uint32_t get, put, alloc;
 	int read_chars = 0;
-	long ret;
 	struct log_rb *log = s->log;
+	char line_buffer[TRUSTY_LINE_BUFFER_SIZE];
 
-	get = s->get;
+	get = s->get_4_user;
 
 	if (wait_event_interruptible(s->event_queue, get != log->put)) {
-		ret = -ERESTARTSYS;
-		return ret;
+		return -ERESTARTSYS;
 	}
 
 	while ((put = log->put) != get) {
@@ -118,7 +116,7 @@ static ssize_t trusty_log_read(struct file *filp, char __user *buf,
 		rmb();
 
 		/* Read a line from the log */
-		read_chars = trusty_log_read_line(s, put, get);
+		read_chars = trusty_log_read_line(s, put, get, line_buffer);
 
 		/* Force the loads from trusty_log_read_line to complete. */
 		rmb();
@@ -129,17 +127,15 @@ static ssize_t trusty_log_read(struct file *filp, char __user *buf,
 		 * have been corrupted by the producer.
 		 */
 		if (alloc - get > log->sz) {
-			pr_info("trusty: log overflow.");
 			get = alloc - log->sz;
 			continue;
 		} else {
-			pr_info("trusty: %s", line_buffer);
 			copy_to_user(buf, line_buffer, read_chars);
 			get += read_chars;
 			break;
 		}
 	}
-	s->get = get;
+	s->get_4_user = get;
 
 	return read_chars;
 }
@@ -165,13 +161,20 @@ static void trusty_log_on_event(uint32_t token, uint32_t event_id, void *cookie)
 	wake_up_interruptible(&s->event_queue);
 }
 
-static void trusty_log_dump_logs(struct trusty_log_state *s)
+static int trusty_log_dump_logs(struct trusty_log_state *s)
 {
 	struct log_rb *log = s->log;
 	uint32_t get, put, alloc;
 	int read_chars;
+	char line_buffer[TRUSTY_LINE_BUFFER_SIZE];
 
 	BUG_ON(!is_power_of_2(log->sz));
+
+	get = s->get;
+	if (wait_event_interruptible(s->event_queue, get != log->put)) {
+		pr_err("trusty: %s wait event failed\n", __func__);
+		return -ERESTARTSYS;
+	}
 
 	/*
 	 * For this ring buffer, at any given point, alloc >= put >= get.
@@ -180,7 +183,6 @@ static void trusty_log_dump_logs(struct trusty_log_state *s)
 	 * that the above condition is maintained. A read barrier is needed
 	 * to make sure the hardware and compiler keep the reads ordered.
 	 */
-	get = s->get;
 	while ((put = log->put) != get) {
 		/* Make sure that the read of put occurs before
 		 * the read of log data
@@ -188,7 +190,7 @@ static void trusty_log_dump_logs(struct trusty_log_state *s)
 		rmb();
 
 		/* Read a line from the log */
-		read_chars = trusty_log_read_line(s, put, get);
+		read_chars = trusty_log_read_line(s, put, get, line_buffer);
 
 		/* Force the loads from trusty_log_read_line to complete. */
 		rmb();
@@ -207,25 +209,19 @@ static void trusty_log_dump_logs(struct trusty_log_state *s)
 		get += read_chars;
 	}
 	s->get = get;
+
+	return 0;
 }
 
 static int trusty_log_handle_event(void *cookie)
 {
 	struct trusty_log_state *s = (struct trusty_log_state *)cookie;
-	uint32_t get;
-	struct log_rb *log = s->log;
-	long ret;
+	int ret;
 
 	while (!trusty_log_exit_flag) {
-		mutex_lock(&read_lock);
-		get = s->get;
-		if (wait_event_interruptible(s->event_queue, get != log->put)) {
-			ret = -ERESTARTSYS;
-			pr_err("trusty: %s wait event failed\n", __func__);
+		ret = trusty_log_dump_logs(s);
+		if (ret < 0)
 			return ret;
-		}
-		trusty_log_dump_logs(s);
-		mutex_unlock(&read_lock);
 	}
 
 	return 0;
@@ -253,7 +249,7 @@ static int trusty_log_init_mbox(struct trusty_log_state *s,
 					(void *)s);
 	if (s->token == (uint32_t)-1) {
 		pr_err("ERROR in %s(): failed to init mbox for %s\n",
-		    __func__, instance);
+			__func__, instance);
 		return -1;
 	}
 	s->buf_sz -= sizeof(struct log_rb);
@@ -283,19 +279,11 @@ static int trusty_log_state_init(void)
 
 static int trusty_log_open(struct inode *inode, struct file *filp)
 {
-	if (mutex_trylock(&open_lock) == 0)
-		return -EBUSY;
-
-	mutex_lock(&read_lock);
-
 	return 0;
 }
 
 static int trusty_log_release(struct inode *inode, struct file *filp)
 {
-	mutex_unlock(&open_lock);
-	mutex_unlock(&read_lock);
-
 	return 0;
 }
 
