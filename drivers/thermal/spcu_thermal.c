@@ -708,12 +708,9 @@ static void spcu_thermal_device_isr_work(struct work_struct *work)
 	}
 
 	calculate_temp_and_set_threshold(dev);
+
 	check_trips(dev);
-	if (dev->cached_temp >= 90000) {
-		/* set the max thermal freq to lowest one */
-		extern void set_thermal_scaling_max_freq_to_lowest(void);
-		set_thermal_scaling_max_freq_to_lowest();
-	}
+
 out:
 	/* re-enable interrupt and HW measurement timer */
 	set_hw_meas_start(dev, 1);

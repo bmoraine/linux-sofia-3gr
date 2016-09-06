@@ -368,22 +368,6 @@ static ssize_t thermal_scaling_max_freq_show(struct cpufreq_policy *policy,
 	return sprintf(buf, "%u\n", policy->user_policy.max);
 }
 
-void set_thermal_scaling_max_freq_to_lowest(void)
-{
-	struct cpufreq_policy policy;
-	unsigned int max;
-
-	cpufreq_get_policy(&policy, 0);
-	max = xgold_cpu_info->freq_table[0].frequency;
-	pr_err("%s: set the max freq to lowest freq %d\n", __func__, max);
-
-	if (policy.user_policy.max != max) {
-		mutex_lock(&cpufreq_lock);
-		sofia_thermal_set_cpu_policy(policy.user_policy.min / 1000,
-				 max / 1000);
-		mutex_unlock(&cpufreq_lock);
-	}
-}
 static struct freq_attr cpufreq_freq_attr_thermal_scaling_max_freq =
 	__ATTR_RW(thermal_scaling_max_freq);
 
