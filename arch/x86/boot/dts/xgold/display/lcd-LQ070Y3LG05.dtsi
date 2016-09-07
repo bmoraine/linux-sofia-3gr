@@ -1,0 +1,46 @@
+/*
+ * sofia. lcd-LQ070Y3LG05
+ * definition at "include/dt-bindings/sofiafb/sofia_fb.h"
+ */
+
+display-panel@LQ070Y3LG05 {
+    compatible = "intel,display";
+    intel,display-dc-clkrate = <30000000>;
+    intel,display-preinit = <0>;
+    intel,display-ramless = <1>;
+    intel,display-fps = <60>;
+    intel,display-vid-mode = "pulses";
+    intel,display-vid-id = <0>;
+    intel,display-eot = <1>;
+    intel,display-gate = <1>;
+    intel,display-if-dts = <1>;
+
+    display-timings {
+        native-mode = <&LQ070Y3LG05_timing>;
+        LQ070Y3LG05_timing: LQ070Y3LG05_timing {
+            screen-type = <SCREEN_LVDS>;
+            lvds-format = <LVDS_8BIT_1>;
+            lcd-face = <OUT_P666>;
+            color-mode = <COLOR_RGB>;
+            clock-frequency = <30000000>;
+            hactive = <800>;
+            vactive = <480>;
+            hback-porch = <80>;
+            hfront-porch = <26>;
+            vback-porch = <19>;
+            vfront-porch = <6>;
+            hsync-len = <54>;
+            vsync-len = <13>;
+            hsync-active = <0>;
+            vsync-active = <0>;
+            de-active = <0>;
+            pixelclk-active = <0>;
+            swap-rb = <0>;
+            swap-rg = <0>;
+            swap-gb = <0>;
+        };
+    };
+};
+
+
+
