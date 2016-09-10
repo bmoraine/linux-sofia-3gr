@@ -226,6 +226,7 @@ static uint32_t tipc_send_data(uint32_t cmd, uint8_t *data, uint32_t data_len)
 
 	wait_event_interruptible(p_tipc_data->event_queue,
 				 _has_event(p_tipc_data, EVENT_MBOX_AVAIL));
+	p_tipc_data->event &= ~EVENT_RET_AVAIL;
 	/* copy cmd and data to shared memory */
 	p_tipc_data->mbox->cmd = cmd;
 	memcpy(&p_tipc_data->mbox->data[0], data, data_len);
