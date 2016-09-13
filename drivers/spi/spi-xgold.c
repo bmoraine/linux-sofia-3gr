@@ -1393,9 +1393,6 @@ static void xgold_spi_hwinit(struct xgold_spi_ctl_drv *ctl_drv,
 			     struct device *dev)
 {
 	unsigned reg;
-	/* Set the USIF in configuration mode */
-	xgold_spi_set_configuration_mode(ctl_drv);
-
 	/* Fix the kernel divider to 1 */
 	reg = ioread32(USIF_CLC_CNT(ctl_drv->base)) & (~USIF_CLC_CNT_RMC_MASK);
 	reg |= (0x01 << USIF_CLC_CNT_RMC_OFFSET);
@@ -1417,7 +1414,8 @@ static void xgold_spi_hwinit(struct xgold_spi_ctl_drv *ctl_drv,
 	dev_info(dev, "Module ID : %x,TOPSIN ID : %x, Revision : %x\n",
 		 ctl_drv->hwinfo.mod_id, ctl_drv->hwinfo.ts_rev,
 		 ctl_drv->hwinfo.rev);
-
+	/* Set the USIF in configuration mode */
+	xgold_spi_set_configuration_mode(ctl_drv);
 	reg = ioread32(USIF_MODE_CFG(ctl_drv->base));
 	reg &= ~(USIF_MODE_CFG_SYNC_MASK | USIF_MODE_CFG_MA_MASK);
 	reg |= (USIF_MODE_CFG_SYNC_SYN | USIF_MODE_CFG_MA_MASTER);
