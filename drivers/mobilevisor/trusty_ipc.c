@@ -330,7 +330,6 @@ static void tipc_destroy_chan(struct trusty_chan *chan)
 				&(chan->rx_msg_queue), struct trusty_msg, node);
 		}
 		kfree(chan);
-		pr_err("%s() called\n", __func__);
 	}
 }
 
