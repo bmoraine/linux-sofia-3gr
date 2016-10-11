@@ -434,7 +434,7 @@ static irqreturn_t spi_irq_handler(int irq, void *dev_id)
 		/* RX SINGLE REQUEST */
 		if (mis & USIF_SPI_RXFIFO_MASK) {
 			unsigned rxffs = 0;
-
+			unsigned i = 0;
 			if (!ctl_drv->current_rxbuf) {
 				dev_err(ctl_drv->dev, "Unexpected RX interrupt\n");
 				goto skip_rx_memcpy;
@@ -447,31 +447,26 @@ static irqreturn_t spi_irq_handler(int irq, void *dev_id)
 			 */
 			reg = ioread32(USIF_FIFO_STAT(ctl_drv->base));
 			rxffs = USIF_FIFO_STAT_RXFFS(reg);
-			if (ctl_drv->packet_size == 4) {
-				payload_rx = rxffs * 4;
-				memcpy(ctl_drv->current_rxbuf, fifo_rx,
-				       payload_rx);
-				ctl_drv->current_rxbuf += payload_rx;
-				ctl_drv->current_rxlen += payload_rx;
-			} else {
-				unsigned i = 0;
-				for (i = 0; i < rxffs; i++) {
-					unsigned data =
-					    ioread32(USIF_RXD(ctl_drv->base));
-					if (ctl_drv->packet_size == 2) {
-						*((unsigned short *)ctl_drv->
-						  current_rxbuf) =
-			 (unsigned short)data;
-					} else {
-						*((unsigned char *)ctl_drv->
-						  current_rxbuf) =
-			  (unsigned char)data;
-					}
-					ctl_drv->current_rxbuf +=
-					    ctl_drv->packet_size;
-					ctl_drv->current_rxlen +=
-					    ctl_drv->packet_size;
+			for (i = 0; i < rxffs; i++) {
+				unsigned data =
+					ioread32(USIF_RXD(ctl_drv->base));
+				if (ctl_drv->packet_size == 4) {
+					*((unsigned int *)ctl_drv->
+					current_rxbuf) =
+					(unsigned int)data;
+				else if (ctl_drv->packet_size == 2) {
+					*((unsigned short *)ctl_drv->
+					current_rxbuf) =
+					(unsigned short)data;
+				} else {
+					*((unsigned char *)ctl_drv->
+					current_rxbuf) =
+					(unsigned char)data;
 				}
+				ctl_drv->current_rxbuf +=
+					ctl_drv->packet_size;
+				ctl_drv->current_rxlen +=
+					ctl_drv->packet_size;
 			}
 			/* Trig end of transfer in RX only mode */
 			if (!ctl_drv->current_txbuf &&
