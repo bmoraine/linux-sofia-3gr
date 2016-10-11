@@ -420,10 +420,10 @@ static long tipc_ioctl_connect(struct trusty_chan *chan, char __user *usr_name)
 	}
 	msg->size = ret + 1;
 	io_data_len = sizeof(struct tipc_msg) + msg->size;
+	mutex_lock(&chan->lock);
 	tipc_send_data(TRUSTY_CMD_CONN, (uint8_t *)msg,
 		       sizeof(struct tipc_msg) + msg->size);
 
-	mutex_lock(&chan->lock);
 	ret = wait_for_completion_interruptible_timeout(
 		&chan->reply_comp,
 		msecs_to_jiffies(REPLY_TIMEOUT));
