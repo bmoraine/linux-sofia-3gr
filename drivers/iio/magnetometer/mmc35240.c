@@ -924,14 +924,30 @@ static int mmc35240_suspend(struct device *dev)
 
 	mutex_lock(&data->mutex);
 	if (DISABLED != data->store_status) {
+		/*
+		 * mmc35240_trigger_handler(), an IRQ servicing thread,
+		 * depends on data->mutex before it can further process.
+		 * At same time, predisable() would eventually execute
+		 * synchronize_irq() which waits for any IRQ service to
+		 * complete, in this case mmc35240_trigger_handler().
+		 * So, we need to make sure that the data->mutex is freed
+		 * here before we call predisable(). If not, we have a
+		 * deadlock scenario where mmc35240_trigger_handler() waits
+		 * for a locked mutex and synchronize_irq() would never
+		 * complete.
+		 */
+		mutex_unlock(&data->mutex);
 		indio_dev->setup_ops->predisable(indio_dev);
-		regcache_cache_only(data->regmap, true);
-
-		ret = mmc35240_power_off(data);
-		if (ret < 0)
-			dev_err(&data->client->dev,
-				"%s Power Off failed: %d\n", __func__, ret);
+		mutex_lock(&data->mutex);
 	}
+
+	regcache_cache_only(data->regmap, true);
+
+	ret = mmc35240_power_off(data);
+	if (ret < 0)
+		dev_err(&data->client->dev,
+			"%s Power Off failed: %d\n", __func__, ret);
+
 	mutex_unlock(&data->mutex);
 	return 0;
 }
@@ -950,16 +966,19 @@ static int mmc35240_resume(struct device *dev)
 			mutex_unlock(&data->mutex);
 			return ret;
 		}
+	}
 
-		regcache_mark_dirty(data->regmap);
-		ret = regcache_sync_region(data->regmap, MMC35240_REG_CTRL0,
-					   MMC35240_REG_CTRL1);
-		if (ret < 0)
-			dev_err(dev,
-				"%s Failed to restore control registers: %d\n",
-				__func__, ret);
+	regcache_mark_dirty(data->regmap);
+	ret = regcache_sync_region(data->regmap, MMC35240_REG_CTRL0,
+				   MMC35240_REG_CTRL1);
+	if (ret < 0)
+		dev_err(dev,
+			"%s Failed to restore control registers: %d\n",
+			__func__, ret);
 
-		regcache_cache_only(data->regmap, false);
+	regcache_cache_only(data->regmap, false);
+
+	if (DISABLED != data->store_status) {
 		indio_dev->setup_ops->postenable(indio_dev);
 	}
 	mutex_unlock(&data->mutex);
