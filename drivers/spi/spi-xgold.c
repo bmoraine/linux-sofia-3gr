@@ -454,6 +454,7 @@ static irqreturn_t spi_irq_handler(int irq, void *dev_id)
 					*((unsigned int *)ctl_drv->
 					current_rxbuf) =
 					(unsigned int)data;
+				}
 				else if (ctl_drv->packet_size == 2) {
 					*((unsigned short *)ctl_drv->
 					current_rxbuf) =
