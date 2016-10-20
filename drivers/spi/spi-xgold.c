@@ -405,8 +405,7 @@ static irqreturn_t spi_irq_handler(int irq, void *dev_id)
 {
 	struct xgold_spi_ctl_drv *ctl_drv = (struct xgold_spi_ctl_drv *)dev_id;
 	struct spi_transfer *xfer = ctl_drv->current_xfer;
-	void *fifo_rx = (void *)(((unsigned)ctl_drv->base) + USIF_RXD_OFFSET);
-	unsigned payload_tx, payload_rx, remaining;
+	unsigned payload_tx, remaining;
 	unsigned int reg;
 #define MAX(a , b) (a > b ? a : b)
 #define MIN(a , b) (a > b ? b : a)
