@@ -30,6 +30,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/smp.h>
+#include <linux/sysrq.h>
 #include <linux/timer.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
@@ -395,7 +396,7 @@ static void fiq_debugger_work(struct work_struct *work)
 		cmd += 6;
 		while (*cmd == ' ')
 			cmd++;
-		if (cmd != '\0')
+		if ((cmd != '\0') && sysrq_on())
 			kernel_restart(cmd);
 		else
 			kernel_restart(NULL);
@@ -479,18 +480,23 @@ static bool fiq_debugger_fiq_exec(struct fiq_debugger_state *state,
 	if (!strcmp(cmd, "help") || !strcmp(cmd, "?")) {
 		fiq_debugger_help(state);
 	} else if (!strcmp(cmd, "pc")) {
-		fiq_debugger_dump_pc(&state->output, regs);
+		if (sysrq_on())
+			fiq_debugger_dump_pc(&state->output, regs);
 	} else if (!strcmp(cmd, "regs")) {
-		fiq_debugger_dump_regs(&state->output, regs);
+		if (sysrq_on())
+			fiq_debugger_dump_regs(&state->output, regs);
 	} else if (!strcmp(cmd, "allregs")) {
-		fiq_debugger_dump_allregs(&state->output, regs);
+		if (sysrq_on())
+			fiq_debugger_dump_allregs(&state->output, regs);
 	} else if (!strcmp(cmd, "bt")) {
-		fiq_debugger_dump_stacktrace(&state->output, regs, 100, svc_sp);
+		if (sysrq_on())
+			fiq_debugger_dump_stacktrace(&state->output, regs,
+						     100, svc_sp);
 	} else if (!strncmp(cmd, "reset", 5)) {
 		cmd += 5;
 		while (*cmd == ' ')
 			cmd++;
-		if (*cmd) {
+		if (*cmd && sysrq_on()) {
 			char tmp_cmd[32];
 			strlcpy(tmp_cmd, cmd, sizeof(tmp_cmd));
 			machine_restart(tmp_cmd);
@@ -500,9 +506,12 @@ static bool fiq_debugger_fiq_exec(struct fiq_debugger_state *state,
 	} else if (!strcmp(cmd, "irqs")) {
 		fiq_debugger_dump_irqs(state);
 	} else if (!strcmp(cmd, "kmsg")) {
-		fiq_debugger_dump_kernel_log(state);
+		if (sysrq_on())
+			fiq_debugger_dump_kernel_log(state);
 	} else if (!strcmp(cmd, "version")) {
-		fiq_debugger_printf(&state->output, "%s\n", linux_banner);
+		if (sysrq_on())
+			fiq_debugger_printf(&state->output, "%s\n",
+					    linux_banner);
 	} else if (!strcmp(cmd, "sleep")) {
 		state->no_sleep = false;
 		fiq_debugger_printf(&state->output, "enabling sleep\n");
@@ -514,14 +523,17 @@ static bool fiq_debugger_fiq_exec(struct fiq_debugger_state *state,
 		fiq_debugger_uart_flush(state);
 		state->console_enable = true;
 	} else if (!strcmp(cmd, "cpu")) {
-		fiq_debugger_printf(&state->output, "cpu %d\n", state->current_cpu);
-	} else if (!strncmp(cmd, "cpu ", 4)) {
+		if (sysrq_on())
+			fiq_debugger_printf(&state->output, "cpu %d\n",
+					    state->current_cpu);
+	} else if (!strncmp(cmd, "cpu ", 4) && sysrq_on()) {
 		unsigned long cpu = 0;
 		if (strict_strtoul(cmd + 4, 10, &cpu) == 0)
 			fiq_debugger_switch_cpu(state, cpu);
 		else
 			fiq_debugger_printf(&state->output, "invalid cpu\n");
-		fiq_debugger_printf(&state->output, "cpu %d\n", state->current_cpu);
+		fiq_debugger_printf(&state->output, "cpu %d\n",
+				    state->current_cpu);
 	} else {
 		if (state->debug_busy) {
 			fiq_debugger_printf(&state->output,
