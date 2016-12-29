@@ -762,10 +762,12 @@
 };
 
 &keypad {
+/*
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&kp_default_pins>;
 	pinctrl-1 = <&kp_sleep_pins>;
 	pinctrl-2 = <&kp_inactive_pins>;
+*/
 	keypad,num-rows = <4>;
 	keypad,num-columns = <8>;
 	keypad,rows = <3>;
