@@ -307,20 +307,20 @@ static int __init trusty_log_init(void)
 	}
 
 	drv_class = class_create(THIS_MODULE, "trusty-log-class");
-	if (drv_class == NULL) {
+	if (IS_ERR(drv_class)) {
 		pr_err("Failed class_create\n");
 		goto error_exit;
 	}
 
-	if (device_create(drv_class, NULL, dev_log,
-				NULL, DEVICE_NAME) == NULL) {
+	if (IS_ERR(device_create(drv_class, NULL, dev_log,
+				NULL, DEVICE_NAME))) {
 		pr_err("Failed device_create\n");
 		goto error_exit;
 	}
 	dev_created = 1;
 
 	cdev_init(&chdev_log, &trusty_log_fops);
-	if (cdev_add(&chdev_log, dev_log, 1) == -1) {
+	if (cdev_add(&chdev_log, dev_log, 1) < 0) {
 		pr_err("Failed cdev_add\n");
 		goto error_exit;
 	}
@@ -337,7 +337,7 @@ static int __init trusty_log_init(void)
 error_exit:
 	if (dev_created)
 		device_destroy(drv_class, dev_log);
-	if (drv_class)
+	if (drv_class && !IS_ERR(drv_class))
 		class_destroy(drv_class);
 	if (dev_log)
 		unregister_chrdev_region(dev_log, 1);
