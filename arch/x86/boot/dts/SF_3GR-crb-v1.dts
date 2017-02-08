@@ -142,6 +142,24 @@
 			>;
 		interrupt-names = "charger_det","usb_fault";
 	};
+
+	cable_detect:cable_detect {
+		compatible = "cable-detection";
+		#address-cells = < 0 >;
+		detect-gpio = <&xgold_pmx_gpio 2 0>;
+		pwren-gpio = <&abb_pmx_gpio 26 0>;
+		usbfault-gpio = <&xgold_pmx_gpio 5 0>;
+		interrupt-parent = < &cable_detect>;
+		wakeup-source;
+		#interrupt-cells = < 1 >;
+		interrupts = < 0 1 >;
+		interrupt-map = <
+			/* Cable Det  */ 0 &eint EINT_EXI4 XGOLD_IRQ_TYPE_EDGE_BOTH
+			/* USB FAULT*/ 1 &eint EINT_EXI7 XGOLD_IRQ_TYPE_EDGE_FALLING
+			>;
+		interrupt-names = "cable_det","usb_fault";
+		active_low = < 0 >;
+	};
 #endif
 
 #ifndef RECOVERY_KERNEL
@@ -266,11 +284,10 @@
 };
 
 &idi_per {
-	#define SOFIA_3GR_GARNET_EVB
+	#define SOFIA_3GR_CRB
 	#include "xgold/agold620/agold620.dtsi"
 };
 
-#ifdef SOFIA3GR_MRD6
 &bat_hal {
 	#define BAT_TYPE_LC 0
 	#define POWER_SUPPLY_TECHNOLOGY_LION 2
@@ -284,11 +301,11 @@
 				  4350 /*voltage_max*/
 				  82 /*chrg_term_ma*/
 				  2900 /*low_batt_mv*/
-				  55 /*disch_tmp_ul*/
+				  62 /*disch_tmp_ul*/
 				  0 /*disch_tmp_ll (0)*/
 				  0 /*min_temp*/
-				  3 /*min_temp_restart*/
-				  52 /*max_temp_restart*/ >;
+				  4 /*min_temp_restart*/
+				  58 /*max_temp_restart*/ >;
 
 	prof-standrd-cap_to_vbat_ocv = <
 		3003 3313 3452 3538 3598 3641 3662 3671 3677 3681
@@ -301,67 +318,21 @@
 		4013 4023 4034 4045 4055 4066 4076 4086 4096 4107
 		4118 4129 4140 4152 4163 4175 4186 4198 4210 4222
 		4234 4246 4258 4270 4283 4295 4307 4316 4327 4337
-		4346 >;
+		4346>;
 
 	prof-standrd-ntemp_ranges = <1>;
 
-	prof-standrd-temp_range0 = < 55 /*max_temp*/
-					     4350 /*full_chrg_vol*/
-					     1450 /*full_chrg_cur*/
-					     98 /*charging_res_cap*/
-					     4350 /*maint_chrg_vol_ul*/
-					     1450 /*maint_chrg_cur*/ >;
+	prof-standrd-temp_range0 = < 45 /*max_temp*/
+		4208 /*full_chrg_vol*/
+		1450 /*full_chrg_cur*/
+		98 /*charging_res_cap*/
+		4208 /*maint_chrg_vol_ul*/
+		1450 /*maint_chrg_cur*/ >;
 
 	prof-standrd-model_name = "Sof60A";
 
 	nprofiles = <1>;
 };
-#else
-&bat_hal {
-	#define BAT_TYPE_LC 0
-	#define POWER_SUPPLY_TECHNOLOGY_LION 2
-
-	supp_batids =  < 0 BAT_TYPE_LC >;
-
-	supp_batids-map = "standrd";
-
-	prof-standrd = < POWER_SUPPLY_TECHNOLOGY_LION /*battery_type*/
-				  2885 /*capacity*/
-				  4350 /*voltage_max*/
-				  144 /*chrg_term_ma*/
-				  3200 /*low_batt_mv*/
-				  60 /*disch_tmp_ul*/
-				  0xffffffec /*disch_tmp_ll (-20)*/
-				  0 /*min_temp*/
-				  3 /*min_temp_restart*/
-				  42 /*max_temp_restart*/ >;
-
-	prof-standrd-cap_to_vbat_ocv = <
-		3202 3378 3493 3569 3624 3661 3674 3680 3685 3689
-		3692 3696 3700 3705 3713 3721 3728 3735 3742 3747
-		3752 3758 3763 3767 3770 3773 3776 3778 3780 3782
-		3784 3787 3789 3791 3794 3796 3799 3802 3805 3808
-		3811 3815 3818 3822 3826 3830 3834 3839 3844 3848
-		3854 3859 3865 3871 3877 3884 3891 3899 3907 3915
-		3922 3930 3938 3946 3954 3963 3971 3979 3988 3996
-		4005 4014 4023 4033 4043 4053 4062 4072 4082 4091
-		4102 4112 4122 4133 4143 4154 4165 4176 4187 4198
-		4209 4220 4232 4243 4255 4266 4277 4286 4297 4307
-		4314 >;
-
-
-	prof-standrd-ntemp_ranges = <1>;
-
-	prof-standrd-temp_range0 = < 45 /*max_temp*/
-					     4320 /*full_chrg_vol*/
-					     1500 /*full_chrg_cur*/
-					     98 /*charging_res_cap*/
-					     4320 /*maint_chrg_vol_ul*/
-					     1500 /*maint_chrg_cur*/ >;
-
-	nprofiles = <1>;
-};
-#endif
 
 &fuel_gauge_hal {
 	sense_resistor_mohm = <20>;
@@ -697,13 +668,25 @@
 #else
 
 	bat:battery {
-		compatible = "intel,fan54015_charger";
-		reg = < 0x6a >;
-		interrupts = < 0 1 >;
+		compatible = "intel,bq24296_charger";
+		reg = < 0x6b >;
+		interrupts = < 0 >;
 		interrupt-parent = < &bat>;
 		#interrupt-cells = < 1 >;
-		interrupt-map = < 0 &ag620_pmu ABB_PMU_CI XGOLD_IRQ_TYPE_NONE
-			      1  &ag620_pmu ABB_PMU_CSTAT XGOLD_IRQ_TYPE_NONE >;
+		interrupt-map = < 0 &ag620_pmu ABB_PMU_CI XGOLD_IRQ_TYPE_NONE >; /* CI */
+		prof-standrd = <
+			  1536 /*chg_current_ma*/
+		 	  256  /*term_current_ma*/
+			  256  /*pre_chg_current_ma*/
+			  0    /*force_ichg_decrease*/
+			  4350 /*vbat_full_mv*/
+			  2900 /*vbat_min_mv*/
+			  4200 /*vbat_max_mv*/
+			  3000 /*max_vbus_ilimit*/
+			  100  /*min_vbus_ilimit*/
+			  3500 /*sys_vmin_mv*/
+			  4100 /*vbus_in_limit_mv*/ >;
+
 		pinctrl-names = "default", "sleep", "inactive", "active";
 		pinctrl-0 = < &chgreset_agold_default_pins >;
 		pinctrl-1 = < &chgreset_agold_sleep_pins >;

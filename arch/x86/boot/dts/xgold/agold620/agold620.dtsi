@@ -68,7 +68,7 @@ agold {
 		intel,gpio-direction-out = < 1>;
 		intel,gpio-output = < 0x20C 9 1>;
 		intel,gpio-input = < 0x40C 9 1>;
-#if defined(SOFIA_3GR_GARNET_EVB)
+#if defined(SOFIA_3GR_GARNET_EVB) || defined(SOFIA_3GR_CRB)
 		intel,gpiochip-base = <107>;
 #else
 		intel,gpiochip-base = <94>;
@@ -408,9 +408,10 @@ agold {
 			pm,state-D0 = "enable";
 			pm,state-D3 = "disable";
 		};
-#ifdef SF_3G_TAB
-		bq2429x_idi:bq2429x_idi{
-			compatible = "intel,bq2429x_idi", "intel,idi,peripheral";
+
+#if defined(SF_3G_TAB) || defined(SOFIA_3GR_CRB)
+		bq24296_idi:bq24296_idi{
+			compatible = "intel,bq24296_idi", "intel,idi,peripheral";
 #elif defined(SOFIA_3GR_GARNET_EVB)
 		smb345_idi:smb345_idi{
 			compatible = "intel,smb345_idi", "intel,idi,peripheral";
@@ -421,8 +422,8 @@ agold {
 			#address-cells = < 0 >;
 			reg = < 0xE6500A00 0x10 >;
 			reg-names = "registers";
-#ifdef SF_3G_TAB
-			idi-peripheral-type = "intel,idi,bq2429x";
+#if defined(SF_3G_TAB) || defined(SOFIA_3GR_CRB)
+			idi-peripheral-type = "intel,idi,bq24296";
 #elif defined(SOFIA_3GR_GARNET_EVB)
 			idi-peripheral-type = "intel,idi,smb345";
 #else
