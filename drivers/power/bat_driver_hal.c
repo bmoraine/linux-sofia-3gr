@@ -684,6 +684,11 @@ static void bat_drv_hal_check_battery_status_update(bool new_presence_state)
 				new_presence_state);
 	if(bat_status == 1)
 		return;
+
+#ifdef CONFIG_FAKE_DUMMY_BATTID
+	new_presence_state = true;
+#endif
+
 	if (new_presence_state) {
 		/* Send an update even if the last detected presence state was
 		fitted.

@@ -34,12 +34,19 @@
 #include <linux/slab.h>
 #include <linux/time.h>
 #include <linux/hrtimer.h>
+#include <linux/delay.h>
 
 #include <linux/power_supply.h>
 #include <linux/power/battery_id.h>
 #include <linux/power/sw_fuel_gauge_debug.h>
 #include <linux/power/sw_fuel_gauge_hal.h>
 #include <linux/power/sw_fuel_gauge_nvs.h>
+
+#ifdef CONFIG_CHARGER_BQ24296
+#include "bq24296_charger.h"
+#else
+#include "fan54x_charger.h"
+#endif
 
 #include <linux/iio/iio.h>
 #include <linux/iio/consumer.h>
@@ -802,7 +809,6 @@ static void sw_fuel_gauge_set_capacity(int capacity_permil)
 		/* Update the property and mark it as valid. */
 		p_properties->internal_capacity = capacity_percent;
 
-
 		if (p_properties->status == POWER_SUPPLY_STATUS_CHARGING ||
 			p_properties->status == POWER_SUPPLY_STATUS_FULL ||
 			!p_properties->capacity_valid) {
@@ -983,8 +989,13 @@ static void sw_fuel_gauge_tbat_monitor(void)
 
 	tbat_error = iio_read_channel_processed(p_tbat->p_iio_tbat,
 						 &tbat_value);
-	tbat_value = 25;
-	tbat_error = IIO_VAL_INT;
+
+	/* This is for 3GR MRD6s P1.0 & P1.1 HW */
+	if (-ERANGE == tbat_error) {
+		tbat_value = 25;
+		tbat_error = IIO_VAL_INT;
+	}
+
 	/* Check for saturation. This is allowed when the phone is powered
 	by a PSU. */
 	if ((-EOVERFLOW == tbat_error) && (BAT_ID_PSU ==
@@ -1130,8 +1141,9 @@ static int sw_fuel_gauge_cc_convert_to_bat_capacity_permil(int cc_balanced_mc)
 	int battery_capacity_permil =
 		sw_fuel_gauge_instance.last_soc_cal.soc_permil
 		 + scale_and_divide_with_rounding_s32(SCALE_PERMIL,
-		  sw_fuel_gauge_instance.last_soc_cal.cc_balanced_mc -
-		   cc_balanced_mc, sw_fuel_gauge_instance.nom_bat_capacity_mc);
+		sw_fuel_gauge_instance.last_soc_cal.cc_balanced_mc -
+			cc_balanced_mc,
+		sw_fuel_gauge_instance.nom_bat_capacity_mc);
 
 	/* Trace the raw calculated battery capacity, as this could be outside
 	the valid permil range. */
@@ -1323,6 +1335,26 @@ static void sw_fuel_gauge_init_swfg(void)
 			sw_fuel_gauge_instance.hal_set.delta_threshold_mc);
 }
 
+#ifdef CONFIG_CHARGER_BQ24296
+static int vbat_compensation(struct bq24296_charger *chrgr, bool enable)
+#else
+static int vbat_compensation(struct fan54x_charger *chrgr, bool enable)
+#endif
+{
+	int ret;
+
+#ifdef CONFIG_CHARGER_BQ24296
+	ret = bq24296_enable_charging(chrgr, !enable);
+#else
+	ret = fan54x_attr_write(chrgr->client, HZ_MODE, enable);
+#endif
+
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 /**
  * sw_fuel_gauge_estimate_initial_capacity_and_error - Estimate the initial
  *					battery capacity and error based on
@@ -1335,15 +1367,42 @@ static void sw_fuel_gauge_init_swfg(void)
  */
 static void sw_fuel_gauge_estimate_initial_capacity_and_error(void)
 {
+	int ret, error = 0;
 	struct soc_cal_point cc_data_now;
 	struct soc_cal_point *p_last_soc_cal =
 					&sw_fuel_gauge_instance.last_soc_cal;
+
+#ifdef CONFIG_CHARGER_BQ24296
+	struct bq24296_charger *chrgr = &bq24296_chrgr_data;
+#else
+	struct fan54x_charger *chrgr = &fan54015_chrgr_data;
+#endif
 
 	SW_FUEL_GAUGE_DEBUG_NO_PARAM(
 		SW_FUEL_GAUGE_DEBUG_NVM_INVALID_ESTIMATE_CAPACITY_AND_ERROR);
 
 	/* Get timestamped coulomb counter values. */
 	sw_fuel_gauge_cc_read_current_data(&cc_data_now);
+
+	ret = vbat_compensation(chrgr, true);  /* disable charging */
+	if (!ret)
+		pr_info("[FG] %s:vbat compensation successfully prepared !\n",
+			__func__);
+
+	msleep(20);	/* Wait for 20ms */
+
+	error = iio_read_channel_processed(
+		sw_fuel_gauge_instance.vbat.p_iio_vbat_ocv,
+			 &sw_fuel_gauge_instance.vbat.vbat_typ_mv);
+	if (error)
+			pr_info("[FG] %s:new vbat compensation value !\n",
+				__func__);
+
+	ret = vbat_compensation(chrgr, false); /* enable charging */
+	if (!ret)
+		pr_info("[FG] %s:vbat compensation successfully done!\n",
+			__func__);
+
 
 	/* Calculate capacity based on the initial VBAT_TYP
 	measurement. */
@@ -3206,6 +3265,30 @@ static struct platform_driver sw_fuel_gauge_driver = {
 	.probe	= sw_fuel_gauge_probe,
 	.remove	= sw_fuel_gauge_remove,
 };
+
+#ifdef CONFIG_SW_FUEL_GAUGE_WAKEUP_ALARM
+int get_bat_capacity(void)
+{
+	int capacity = -ENODATA;
+	struct power_supply_properties *p_properties =
+					&sw_fuel_gauge_instance.properties;
+	if (p_properties->capacity_valid)
+		capacity = p_properties->charge_now;
+
+	return capacity;
+}
+
+int get_bat_voltage(void)
+{
+	int vol = -ENODATA;
+	struct power_supply_properties *p_properties =
+					&sw_fuel_gauge_instance.properties;
+	if (p_properties->capacity_valid)
+		vol = p_properties->voltage_ocv / 1000;
+
+	return vol;
+}
+#endif
 
 static int __init sw_fuel_gauge_init(void)
 {

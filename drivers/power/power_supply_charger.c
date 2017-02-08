@@ -155,13 +155,17 @@ static int otg_handle_notification(struct notifier_block *nb,
 
 	cap = (struct power_supply_cable_props *)data;
 
+	if (!cap) {
+		pr_debug("%s, ignore event without cable info.\n", __func__);
+		return NOTIFY_DONE;
+	}
+
 	if (event != USB_EVENT_CHARGER && event != USB_EVENT_ENUMERATED
 	&& event != USB_EVENT_NONE)
 		return NOTIFY_DONE;
 
 	cable = get_cable(cap->chrg_type);
 	if (!cable) {
-
 		pr_err("%s:%d Error in getting charger cable from get_cable\n",
 				__FILE__, __LINE__);
 		return -EINVAL;
@@ -792,6 +796,8 @@ static inline void enable_supplied_by_charging
 	cnt = get_supplied_by_list(psy, chrgr_lst);
 	if (cnt == 0)
 		return;
+
+#ifndef CONFIG_POWER_SUPPLY_CHARGER_WITHOUT_USB
 	while (cnt--) {
 		if (!IS_PRESENT(chrgr_lst[cnt]))
 			continue;
@@ -801,6 +807,7 @@ static inline void enable_supplied_by_charging
 		else
 			disable_charging(chrgr_lst[cnt]);
 	}
+#endif
 }
 
 static void __power_supply_trigger_charging_handler(struct power_supply *psy)
@@ -826,6 +833,7 @@ static void __power_supply_trigger_charging_handler(struct power_supply *psy)
 				    power_supply_get_by_name(psy->
 							     supplied_to[i]);
 
+#ifndef CONFIG_POWER_SUPPLY_CHARGER_WITHOUT_USB
 				if (psb && IS_BATTERY(psb) && IS_PRESENT(psb)) {
 					if (trigger_algo(psb) ||
 							!IS_HEALTH_GOOD(psy)) {
@@ -836,6 +844,7 @@ static void __power_supply_trigger_charging_handler(struct power_supply *psy)
 						enable_charging(psy);
 					}
 				}
+#endif
 			}
 		}
 		psy_chrgr.algo_timestamp = jiffies;
@@ -958,6 +967,7 @@ static int select_chrgr_cable(struct device *dev, void *data)
 	/* no cable connected. disable charging */
 	if (!max_ma_cable) {
 
+#ifndef CONFIG_POWER_SUPPLY_CHARGER_WITHOUT_USB
 		if ((IS_CHARGER_ENABLED(psy) || IS_CHARGING_ENABLED(psy))) {
 			disable_charging(psy);
 			disable_charger(psy);
@@ -965,6 +975,8 @@ static int select_chrgr_cable(struct device *dev, void *data)
 		set_cc(psy, 0);
 		set_cv(psy, 0);
 		set_inlmt(psy, 0);
+#endif
+
 		switch_cable(psy, POWER_SUPPLY_CHARGER_TYPE_NONE);
 
 		mutex_unlock(&psy_chrgr.evt_lock);
@@ -984,6 +996,7 @@ static int select_chrgr_cable(struct device *dev, void *data)
 	if (CABLE_TYPE(psy) != max_ma_cable->psy_cable_type)
 		switch_cable(psy, max_ma_cable->psy_cable_type);
 
+#ifndef CONFIG_POWER_SUPPLY_CHARGER_WITHOUT_USB
 	if (IS_CHARGER_CAN_BE_ENABLED(psy)) {
 		struct psy_batt_thresholds bat_thresh;
 		memset(&bat_thresh, 0, sizeof(bat_thresh));
@@ -999,7 +1012,7 @@ static int select_chrgr_cable(struct device *dev, void *data)
 
 		disable_charger(psy);
 	}
-
+#endif
 
 	mutex_unlock(&psy_chrgr.evt_lock);
 

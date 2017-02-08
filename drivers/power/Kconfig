@@ -37,12 +37,31 @@ config POWER_SUPPLY_BATTID
 	 drivers to interface with power supply subsystem. Also it allows consumer
 	 drivers to register for notification from the power_supply subsystem.
 
+config FAKE_DUMMY_BATTID
+	bool "Fake Battery Presence"
+	help
+	 Say Y here to fake the battery presence without BATID validation.
+	 Enabling to fake battery ID instead of real battery themistor.
+
+	 The framework would allow this fake battery identification
+         drivers to interface with power supply subsystem. Also it allows consumer
+         drivers to register for notification from the power_supply subsystem.
+
 config SW_FUEL_GAUGE
 	bool "SW Fuel Gauge"
 	depends on POWER_SUPPLY_BATTID
 	depends on INTEL_ADC_SENSORS
 	help
 	 Say Y here to enable the software fuel gauge.
+
+config SW_FUEL_GAUGE_WAKEUP_ALARM
+	bool "SW Fuel Gauge Wakeup Alarm"
+	help
+	 Say Y here to enable the software fuel gauge with wakeup alarm.
+         Enabling to wakeup device by algorithm.
+
+         This enabling to calculate the battery voltage and capacity to decide
+         when to wake up device and run CC.
 
 config AG6X0_BROWN_OUT
 	bool "Ag6x0 Brown Out"
@@ -388,6 +407,44 @@ config CHARGER_BQ2415X
 
 	  You'll need this driver to charge batteries on e.g. Nokia
 	  RX-51/N900.
+
+config CHARGER_BQ24296
+        tristate "BQ24296 battery charger driver"
+        depends on I2C
+        help
+          Say Y here to enable support for bq24296 Charger.
+
+config CHARGER_BQ24296_BPROFILE_FROM_DTS
+        tristate "BQ24296 battery charger driver with battery profile"
+        depends on I2C
+        help
+          Say Y here to enable support for bq24296 Charger with battery profile.
+
+config POWER_SUPPLY_CHARGER_WITHOUT_USB
+        tristate "USB cable is wihtout charging feature"
+        help
+          Say Y here to enable the power supply charger framework, but USB doesn't
+          act charger.
+
+config CHARGER_BQ24296_WITHOUT_WAKEUP_BY_CHGINT
+        tristate "BQ24296 battery charger driver without charging wakeup"
+        depends on I2C
+        help
+          Say Y here to enable support for bq24296 Charger without charging wakeup.
+          Enabling to disable wakeup source from charging interrupt.
+
+          If we would like to ignore this wakeup, you could choice it and
+          PMU interrupt isn't one of wakeup source.
+
+config CHARGER_BQ24296_SUSPEND_WITH_CHARGING
+        tristate "Device still goes suspend with charging feature"
+        depends on I2C
+        help
+          Say Y here to disable the wakelock to suspend with charging.
+          Default once device is in charging, we will hold wake lock for safety concern.
+
+          Thus if need to keep charging in suspend, chocie this feature
+          to keep charging in suspend.
 
 config CHARGER_BQ24190
 	tristate "TI BQ24190 battery charger driver"

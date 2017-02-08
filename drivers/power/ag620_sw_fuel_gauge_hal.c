@@ -37,6 +37,10 @@
 #include <linux/power_supply.h>
 #include <linux/wakelock.h>
 
+#ifdef CONFIG_SW_FUEL_GAUGE_WAKEUP_ALARM
+#include <linux/sched.h>
+#endif
+
 #include <linux/power/sw_fuel_gauge_debug.h>
 #include <linux/power/sw_fuel_gauge_hal.h>
 #include <linux/power/sw_fuel_gauge_platform.h>
@@ -110,6 +114,15 @@ threshold comparator */
 			(IBAT_LONG_TERM_AVERAGE_PERIOD_SECS +\
 			((IBAT_LONG_TERM_AVERAGE_PERIOD_SECS\
 			* IBAT_LONG_TERM_AVERAGE_ERROR_MARGIN_PERCENT) / 100))
+
+#ifdef CONFIG_SW_FUEL_GAUGE_WAKEUP_ALARM
+#define SUSPEND_POLLING_PERIOD_SECS1				(3600 * 4)
+#define SUSPEND_POLLING_PERIOD_SECS2				(3600)
+/* target power is ~12.75mW, that's ~3.35mA */
+/* #define TARGET_POWER						(3350) */
+/* l=4 v=3424 */
+#define TARGET_POWER						(3500)
+#endif
 
 /* Macro to trace and log debug event and data. */
 #define SW_FUEL_GAUGE_HAL_DEBUG_PARAM(_event, _param) \
@@ -262,6 +275,10 @@ static struct sw_fuel_gauge_hal_data sw_fuel_gauge_hal_instance;
 
 /* Array to collect debug data */
 static struct sw_fuel_gauge_debug_data sw_fuel_gauge_hal_debug_data;
+
+#ifdef CONFIG_SW_FUEL_GAUGE_WAKEUP_ALARM
+int alarm_changed = 0;
+#endif
 
 /**
  * sw_fuel_gauge_hal_get_coulomb_counts - Read the raw couloumb counter values.
@@ -585,6 +602,13 @@ static enum alarmtimer_restart sw_fuel_gauge_hal_polling_atimer_expired_cb(
 		(SW_FUEL_GAUGE_DEBUG_HAL_TIMER_EXPIRED);
 
 	(void)alrm;
+
+#ifdef CONFIG_SW_FUEL_GAUGE_WAKEUP_ALARM
+	/* if wakeup source is this alarm,
+	 * then no need touch it again while resuming
+	 */
+	alarm_changed = 0;
+#endif
 
 	/* Schedule the SW Fuel Gauge work thread to execute the polling
 	function. */
@@ -1104,7 +1128,7 @@ static int __init sw_fuel_gauge_hal_probe(struct idi_peripheral_device *ididev,
 		return -EINVAL;
 	}
 
-	pr_info("%s: Getting PM state handlers: OK\n", __func__);
+	pr_debug("%s: Getting PM state handlers: OK\n", __func__);
 
 	pmu_cc_res =
 		idi_get_resource_byname(&ididev->resources, IORESOURCE_MEM,
@@ -1245,10 +1269,70 @@ static int __exit sw_fuel_gauge_hal_remove(struct idi_peripheral_device *ididev)
  */
 static int sw_fuel_gauge_hal_suspend(struct device *dev)
 {
+#ifdef CONFIG_SW_FUEL_GAUGE_WAKEUP_ALARM
+	int cap, vol;
+	unsigned long long now;
+	int alarm = SUSPEND_POLLING_PERIOD_SECS2;
+#endif
+
+	pr_debug("[FG] %s\n", __func__);
+
 	/* Unused parameter */
 	(void)dev;
 
 	disable_irq(sw_fuel_gauge_hal_instance.irq);
+
+#ifdef CONFIG_SW_FUEL_GAUGE_WAKEUP_ALARM
+	now = sched_clock();
+	do_div(now, 1000000000);
+	/* FG need time to get accurate value */
+	if (now < 10 * 60) {
+		pr_debug("[FG] %s: now %d secs is lower then go out\n",
+			__func__, now);
+		goto out;
+	}
+
+	cap = get_bat_capacity();
+	if (cap > 0)
+		alarm = (cap / TARGET_POWER) * 3600;
+
+	vol = get_bat_voltage();
+	if (vol >= 3800) {
+		if (alarm > SUSPEND_POLLING_PERIOD_SECS1)
+			alarm = SUSPEND_POLLING_PERIOD_SECS1;
+		else if (alarm <= SUSPEND_POLLING_PERIOD_SECS2)
+			alarm = IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES2;
+	} else {
+		if (alarm > SUSPEND_POLLING_PERIOD_SECS1)
+			alarm = SUSPEND_POLLING_PERIOD_SECS1 * 70 / 100;
+		else if (alarm <= SUSPEND_POLLING_PERIOD_SECS2)
+			alarm = IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES2;
+		else
+			alarm = alarm * 50 / 100;
+	}
+
+	if (alarm < IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES2)
+		alarm = IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES2;
+
+	pr_debug("%s: battery capacity: %dmAh, voltage: %dmV, alarm: %d secs\n",
+					__func__, cap / 1000, vol, alarm);
+
+	if (alarm != IBAT_LONG_TERM_AVERAGE_POLLING_PERIOD_SECS_ES2) {
+		/* update wake up alarm while suspending */
+		alarm_cancel(&sw_fuel_gauge_hal_instance.
+				ibat_long_term_average_polling_atimer);
+		SET_ALARM_TIMER(&sw_fuel_gauge_hal_instance.
+				ibat_long_term_average_polling_atimer,
+				alarm);
+		alarm_changed = 1;
+	}
+
+out:
+#endif
+
+	alarm_cancel(&sw_fuel_gauge_hal_instance.
+		ibat_long_term_average_polling_atimer);
+
 	/* Nothing to do here except logging */
 	SW_FUEL_GAUGE_HAL_DEBUG_NO_PARAM(SW_FUEL_GAUGE_DEBUG_HAL_SUSPEND);
 	return 0;
@@ -1261,8 +1345,20 @@ static int sw_fuel_gauge_hal_suspend(struct device *dev)
  */
 static int sw_fuel_gauge_hal_resume(struct device *dev)
 {
+	pr_debug("[FG] %s\n", __func__);
+
 	/* Unused parameter */
 	(void)dev;
+
+#ifdef CONFIG_SW_FUEL_GAUGE_WAKEUP_ALARM
+	if (alarm_changed) {
+		/* restore alarm polling period */
+		alarm_cancel(&sw_fuel_gauge_hal_instance.
+				ibat_long_term_average_polling_atimer);
+		sw_fuel_gauge_hal_process_timer_and_irq_work(0);
+		alarm_changed = 0;
+	}
+#endif
 
 	enable_irq(sw_fuel_gauge_hal_instance.irq);
 	/* Nothing to do here */
