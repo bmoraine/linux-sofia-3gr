@@ -173,6 +173,8 @@ static struct idi_peripheral_type_lut type_lut[] = {
 	{.type = IDI_BAT, .property_value = "intel,idi,bat_hal"},
 	{.type = IDI_CHG, .property_value = "intel,idi,fan54x"},
 	{.type = IDI_CHG, .property_value = "intel,idi,smb345"},
+	{.type = IDI_CHG, .property_value = "intel,idi,bq24296"},
+	{.type = IDI_CHG, .property_value = "intel,idi,chgr"},
 	{.type = IDI_CCD, .property_value = "intel,idi,fg_hal"},
 	{.type = IDI_BNT, .property_value = "intel,idi,brownout"},
 	{.type = IDI_ERROR, .property_value = "intel,idi,error"},
