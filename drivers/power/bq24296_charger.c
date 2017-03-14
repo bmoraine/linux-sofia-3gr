@@ -1648,7 +1648,6 @@ static void bq24296_set_boost(struct work_struct *work)
 			 boost_op_bh.work);
 	int on = chrgr->state.to_enable_boost;
 	int ret = 0;
-	u8 chr_reg;
 
 	down(&chrgr->prop_lock);
 
@@ -1666,17 +1665,6 @@ static void bq24296_set_boost(struct work_struct *work)
 		ret = bq24296_is_otg_mode(chrgr);
 		if (!ret)
 			goto exit_boost;
-
-		if (!chr_reg) {
-			/*
-			 * In case of BOOST fault, BOOST_EN bit is automatically
-			 * cleared
-			 */
-			pr_err("%s: boost mode didn't go in regulation\n",
-			       __func__);
-			ret = -EINVAL;
-			goto exit_boost;
-		}
 
 		/* Enable boost mode flag */
 		chrgr->state.boost_enabled = 1;
