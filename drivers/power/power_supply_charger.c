@@ -166,7 +166,7 @@ static int otg_handle_notification(struct notifier_block *nb,
 
 	cable = get_cable(cap->chrg_type);
 	if (!cable) {
-		pr_err("%s:%d Error in getting charger cable from get_cable\n",
+		pr_debug("%s:%d Error in getting charger cable from get_cable\n",
 				__FILE__, __LINE__);
 		return -EINVAL;
 	}
