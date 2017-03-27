@@ -81,7 +81,7 @@ static u16 dwc2_max_desc_num(struct dwc2_qh *qh)
 static u16 dwc2_frame_incr_val(struct dwc2_qh *qh)
 {
 	return qh->dev_speed == USB_SPEED_HIGH ?
-	       (qh->interval + 8 - 1) / 8 : qh->interval;
+	       (qh->host_interval + 8 - 1) / 8 : qh->host_interval;
 }
 
 static int dwc2_desc_list_alloc(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
@@ -119,6 +119,7 @@ static int dwc2_desc_list_alloc(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 		dma_unmap_single(hsotg->dev, qh->desc_list_dma,
 				qh->desc_list_sz,
 				DMA_FROM_DEVICE);
+		/* kmem_cache_free(desc_cache, qh->desc_list); */
 		kfree(qh->desc_list);
 		qh->desc_list = NULL;
 		qh->desc_list_dma = (dma_addr_t)NULL;
@@ -261,7 +262,7 @@ static void dwc2_update_frame_list(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 	chan = qh->channel;
 	inc = dwc2_frame_incr_val(qh);
 	if (qh->ep_type == USB_ENDPOINT_XFER_ISOC)
-		i = dwc2_frame_list_idx(qh->sched_frame);
+		i = dwc2_frame_list_idx(qh->next_active_frame);
 	else
 		i = 0;
 
@@ -287,13 +288,13 @@ static void dwc2_update_frame_list(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 		return;
 
 	chan->schinfo = 0;
-	if (chan->speed == USB_SPEED_HIGH && qh->interval) {
+	if (chan->speed == USB_SPEED_HIGH && qh->host_interval) {
 		j = 1;
 		/* TODO - check this */
-		inc = (8 + qh->interval - 1) / qh->interval;
+		inc = (8 + qh->host_interval - 1) / qh->host_interval;
 		for (i = 0; i < inc; i++) {
 			chan->schinfo |= j;
-			j = j << qh->interval;
+			j = j << qh->host_interval;
 		}
 	} else {
 		chan->schinfo = 0xff;
@@ -439,7 +440,10 @@ static u16 dwc2_calc_starting_frame(struct dwc2_hsotg *hsotg,
 
 	hsotg->frame_number = dwc2_hcd_get_frame_number(hsotg);
 
-	/* sched_frame is always frame number (not uFrame) both in FS and HS! */
+	/*
+	 * next_active_frame is always frame number (not uFrame) both in FS
+	 * and HS!
+	 */
 
 	/*
 	 * skip_frames is used to limit activated descriptors number
@@ -522,13 +526,13 @@ static u16 dwc2_recalc_initial_desc_idx(struct dwc2_hsotg *hsotg,
 		 */
 		fr_idx_tmp = dwc2_frame_list_idx(frame);
 		fr_idx = (FRLISTEN_64_SIZE +
-			  dwc2_frame_list_idx(qh->sched_frame) - fr_idx_tmp)
-			 % dwc2_frame_incr_val(qh);
+			dwc2_frame_list_idx(qh->next_active_frame) -
+			  fr_idx_tmp) % dwc2_frame_incr_val(qh);
 		fr_idx = (fr_idx + fr_idx_tmp) % FRLISTEN_64_SIZE;
 	} else {
-		qh->sched_frame = dwc2_calc_starting_frame(hsotg, qh,
+		qh->next_active_frame = dwc2_calc_starting_frame(hsotg, qh,
 							   &skip_frames);
-		fr_idx = dwc2_frame_list_idx(qh->sched_frame);
+		fr_idx = dwc2_frame_list_idx(qh->next_active_frame);
 	}
 
 	qh->td_first = qh->td_last = dwc2_frame_to_desc_idx(qh, fr_idx);
@@ -591,7 +595,7 @@ static void dwc2_init_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 	u16 next_idx;
 
 	idx = qh->td_last;
-	inc = qh->interval;
+	inc = qh->host_interval;
 	hsotg->frame_number = dwc2_hcd_get_frame_number(hsotg);
 	cur_idx = dwc2_frame_list_idx(hsotg->frame_number);
 	next_idx = dwc2_desclist_idx_inc(qh->td_last, inc, qh->dev_speed);
@@ -614,11 +618,11 @@ static void dwc2_init_isoc_dma_desc(struct dwc2_hsotg *hsotg,
 		}
 	}
 
-	if (qh->interval) {
-		ntd_max = (dwc2_max_desc_num(qh) + qh->interval - 1) /
-				qh->interval;
+	if (qh->host_interval) {
+		ntd_max = (dwc2_max_desc_num(qh) + qh->host_interval - 1) /
+				qh->host_interval;
 		if (skip_frames && !qh->channel)
-			ntd_max -= skip_frames / qh->interval;
+			ntd_max -= skip_frames / qh->host_interval;
 	}
 
 	max_xfer_size = qh->dev_speed == USB_SPEED_HIGH ?
@@ -1040,12 +1044,12 @@ static void dwc2_complete_isoc_xfer_ddma(struct dwc2_hsotg *hsotg,
 			if (rc < 0)
 				return;
 
-			idx = dwc2_desclist_idx_inc(idx, qh->interval,
+			idx = dwc2_desclist_idx_inc(idx, qh->host_interval,
 						    chan->speed);
 			if (rc == DWC2_CMPL_STOP) {
 				struct dwc2_qtd *qtd_next;
 				u16 cur_idx;
-				if (qh->interval >= 32)
+				if (qh->host_interval >= 32)
 					goto stop_scan;
 				qh->td_first = idx;
 				cur_idx =
@@ -1265,7 +1269,7 @@ static void dwc2_complete_non_isoc_xfer_ddma(struct dwc2_hsotg *hsotg,
 		if (halt_status == DWC2_HC_XFER_STALL)
 			qh->data_toggle = DWC2_HC_PID_DATA0;
 		else
-			dwc2_hcd_save_data_toggle(hsotg, chan, chnum, qtd);
+			dwc2_hcd_save_data_toggle(hsotg, chan, chnum, NULL);
 	}
 
 	if (halt_status == DWC2_HC_XFER_COMPLETE) {
@@ -1334,8 +1338,8 @@ void dwc2_hcd_complete_xfer_ddma(struct dwc2_hsotg *hsotg,
 			dwc2_hcd_qh_unlink(hsotg, qh);
 		} else {
 			/* Keep in assigned schedule to continue transfer */
-			list_move(&qh->qh_list_entry,
-				  &hsotg->periodic_sched_assigned);
+			list_move_tail(&qh->qh_list_entry,
+				&hsotg->periodic_sched_assigned);
 			/*
 			 * If channel has been halted during giveback of urb
 			 * then prevent any new scheduling.
