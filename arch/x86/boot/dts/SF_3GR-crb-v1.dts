@@ -322,12 +322,12 @@
 
 	prof-standrd-ntemp_ranges = <1>;
 
-	prof-standrd-temp_range0 = < 45 /*max_temp*/
-		4208 /*full_chrg_vol*/
-		1450 /*full_chrg_cur*/
-		98 /*charging_res_cap*/
-		4208 /*maint_chrg_vol_ul*/
-		1450 /*maint_chrg_cur*/ >;
+	prof-standrd-temp_range0 = < 62 /*max_temp*/
+					     4208 /*full_chrg_vol*/
+					     1536 /*full_chrg_cur*/
+					     98 /*charging_res_cap*/
+					     4208 /*maint_chrg_vol_ul*/
+					     1536 /*maint_chrg_cur*/ >;
 
 	prof-standrd-model_name = "Sof60A";
 
@@ -681,7 +681,7 @@
 			  0    /*force_ichg_decrease*/
 			  4350 /*vbat_full_mv*/
 			  2900 /*vbat_min_mv*/
-			  4200 /*vbat_max_mv*/
+			  4208 /*vbat_max_mv*/
 			  3000 /*max_vbus_ilimit*/
 			  100  /*min_vbus_ilimit*/
 			  3500 /*sys_vmin_mv*/
@@ -693,7 +693,7 @@
 		pinctrl-2 = < &chgreset_agold_inactive_pins >;
 		pinctrl-3 = < &chgreset_agold_active_pins >;
 		throttle-levels = < 3 >;
-		throttle-values = < 1450 550 0 >;
+		throttle-values = < 1536 550 0 >;
 	};
 #endif
 };
