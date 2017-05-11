@@ -1777,9 +1777,7 @@ static void bq24296_chgint_cb_work_func(struct work_struct *work)
 		 chrgr->state.vbus, vbus_state_prev, chrgr->state.health,
 		 health_prev);
 
-	if (health_prev != chrgr->state.health &&
-	    chrgr->state.health != POWER_SUPPLY_HEALTH_GOOD &&
-	    chrgr->state.health != POWER_SUPPLY_HEALTH_UNKNOWN)
+	if (health_prev != chrgr->state.health)
 		power_supply_changed(chrgr->current_psy);
 
 /* #ifndef CONFIG_POWER_SUPPLY_CHARGER_WITHOUT_USB */
