@@ -24,6 +24,11 @@
 #include <linux/of_graph.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
+#include <asm/uaccess.h>
+#include <linux/syscalls.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/fcntl.h>
 
 #include <video/videomode.h>
 #include <video/of_videomode.h>
@@ -41,6 +46,12 @@
 
 #define encoder_to_lvds(c) \
 		container_of(c, struct rockchip_lvds, encoder)
+
+#define BR_READ  0
+#define BR_WRITE 1
+#define BR_OFF  "0"
+
+static char brightness[4] = "127";
 
 struct rockchip_lvds {
 	void *base;
@@ -61,6 +72,27 @@ struct rockchip_lvds {
 	struct mutex suspend_lock;
 	int suspend;
 };
+
+static void lvds_brightness(char* br_value, bool action)
+{
+        int fd;
+        mm_segment_t old_fs = get_fs();
+        set_fs(KERNEL_DS);
+
+        fd = sys_open("/sys/class/leds/lcd-backlight/brightness", O_RDWR, 0644);
+        if (fd >= 0) {
+                if(action == BR_WRITE)
+                        sys_write(fd, br_value, strlen(br_value));
+                else
+                        sys_read(fd, br_value, strlen(br_value));
+                sys_close(fd);
+        }
+        else
+        {
+                DRM_ERROR("Error opening sysfs file /sys/class/leds/lcd-backlight/brightness\n");
+        }
+        set_fs(old_fs);
+}
 
 static inline u32 lvds_readl(struct rockchip_lvds *lvds, u32 offset)
 {
@@ -153,6 +185,7 @@ static int rockchip_lvds_poweron(struct rockchip_lvds *lvds)
 		usleep_range(100, 101);
 	}
 
+        lvds_brightness(brightness, BR_WRITE);
 	return 0;
 }
 
@@ -175,6 +208,9 @@ static void rockchip_lvds_poweroff(struct rockchip_lvds *lvds)
 		ret = device_state_pm_set_state_by_name(
 				lvds->dev, lvds->pm_platdata->pm_state_D3_name);
 #endif
+
+        lvds_brightness(brightness, BR_READ);
+        lvds_brightness(BR_OFF, BR_WRITE);
 }
 
 static enum drm_connector_status

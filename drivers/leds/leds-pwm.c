@@ -122,7 +122,7 @@ static int led_pwm_create_of(struct platform_device *pdev,
 				     &led_dat->cdev.max_brightness);
 
 		led_dat->cdev.brightness_set = led_pwm_set;
-		led_dat->cdev.brightness = LED_OFF;
+		led_dat->cdev.brightness = LED_HALF;
 		led_dat->cdev.flags |= LED_CORE_SUSPENDRESUME;
 
 		led_dat->can_sleep = pwm_can_sleep(led_dat->pwm);
@@ -154,7 +154,7 @@ static int led_pwm_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct device *dev = &pdev->dev;
 
-	if (!leds_backlight_config("P2.0"))
+	if (!leds_backlight_config("P2.0") || !leds_backlight_config("P1.1"))
 		dev_info(dev, "led pwm backlight driver probed\n");
 	else
 		return -ENODEV;
@@ -191,7 +191,7 @@ static int led_pwm_probe(struct platform_device *pdev)
 			led_dat->active_low = cur_led->active_low;
 			led_dat->period = cur_led->pwm_period_ns;
 			led_dat->cdev.brightness_set = led_pwm_set;
-			led_dat->cdev.brightness = LED_OFF;
+			led_dat->cdev.brightness = LED_HALF;
 			led_dat->cdev.max_brightness = cur_led->max_brightness;
 			led_dat->cdev.flags |= LED_CORE_SUSPENDRESUME;
 
