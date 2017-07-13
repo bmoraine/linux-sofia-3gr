@@ -154,7 +154,11 @@ static int led_pwm_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct device *dev = &pdev->dev;
 
+#ifdef CONFIG_ROCKCHIP_LVDS
 	if (!leds_backlight_config("P2.0") || !leds_backlight_config("P1.1"))
+#else
+	if (!leds_backlight_config("P2.0"))
+#endif
 		dev_info(dev, "led pwm backlight driver probed\n");
 	else
 		return -ENODEV;
