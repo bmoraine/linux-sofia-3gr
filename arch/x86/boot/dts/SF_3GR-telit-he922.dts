@@ -1,6 +1,6 @@
 /dts-v1/;
 #define SOFIA3GR_MRD6
-#undef HAVE_CAM
+
 #include "xgold/sofia_3gr_soc/irq.h"
 #include <dt-bindings/sofiafb/sofia_fb.h>
 / {
@@ -408,7 +408,7 @@
 	pinctrl-1 = <&i2c1_sleep_pins>;
 	pinctrl-2 = <&i2c1_inactive_pins>;
 #ifndef RECOVERY_KERNEL
-#ifdef HAVE_CAM
+
 	afc0: af-controller@0 {
 		compatible = "whitus vision,wv511-v4l2-i2c-subdev";
 		reg = < 0x0C >;
@@ -423,9 +423,9 @@
 		pinctrl-1 = <&cam1_function_B_sleep_pins>;
 		pinctrl-2 = <&cam1_function_B_inactive_pins>;
 
-		intel,pd-gpio = <&xgold_pmx_gpio 14 0>;
+		intel,pd-gpio = <&xgold_pmx_gpio 70 0>;
 		intel,pd-gpio-is_active_low;
-		intel,rst-gpio = <&xgold_pmx_gpio 65 0>;
+		intel,rst-gpio = <&xgold_pmx_gpio 68 0>;
 		intel,rst-gpio-is_active_low;
 		intel,flash-gpio = <&xgold_pmx_gpio 61 0>;
 		intel,torch-gpio = <&xgold_pmx_gpio 62 0>;
@@ -473,9 +473,9 @@
 		pinctrl-1 = <&cam2_function_B_sleep_pins>;
 		pinctrl-2 = <&cam2_function_B_inactive_pins>;
 
-		intel,pd-gpio = <&xgold_pmx_gpio 15 0>;
+		intel,pd-gpio = <&xgold_pmx_gpio 71 0>;
 		intel,pd-gpio-is_active_low;
-		intel,rst-gpio = <&xgold_pmx_gpio 66 0>;
+		intel,rst-gpio = <&xgold_pmx_gpio 69 0>;
 		intel,rst-gpio-is_active_low;
 
 		pm,class-name = "generic_class";
@@ -501,15 +501,17 @@
 		};
 
 	};
-#endif // HAVE_CAM
+
 #endif
 };
+
 
 &i2c_3 {
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&i2c3_default_pins>;
 	pinctrl-1 = <&i2c3_sleep_pins>;
 	pinctrl-2 = <&i2c3_inactive_pins>;
+	/*
 #ifndef RECOVERY_KERNEL
 #ifdef SOFIA3GR_CATALOG_MRD6_SENSOR
 #include "catalog/Sf_3G-catalog-Sensor.dtsi"
@@ -631,7 +633,10 @@
 	};
 #endif
 #endif
+*/
 };
+
+
 &i2c_4 {
 	pinctrl-names = "default", "sleep", "inactive";
 	pinctrl-0 = <&i2c4_default_pins>;
@@ -714,7 +719,18 @@
 	};
 #endif
 };
-
+/*
+&i2c_6 {
+	status = "okay";
+	pn547: pn547@28 {
+		compatible = "nxp,pn547";
+    reg = <0x28>;
+		clock-frequency = <400000>;
+    interrupt-gpios = <&gpio2 17 0>;
+    enable-gpios = <&gpio4 21 0>;
+  };
+};
+*/
 &gnss {
 	pinctrl-names = "default", "sleep", "inactive", "default_lna", "inactive_lna", "default_fta", "inactive_fta", "gnss_default", "gnss_inactive";
 	pinctrl-0 = <&tcxo_agold_default_pins>;
@@ -848,11 +864,11 @@
 };
 
 #ifndef RECOVERY_KERNEL
-#ifdef HAVE_CAM
+
 &cif {
 	intel,camera-modules-attached = <&camera0 &camera1>;
 };
-#endif // HAVE_CAM
+
 #endif
 
 

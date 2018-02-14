@@ -60,7 +60,12 @@
 	<&range 65 1 0x1500>,/*gpio65, SOFIA_GPIO65, output, low, PP*/
 	<&range 66 1 0x1500>,/*gpio66, SOFIA_GPIO66, output, low, PP*/
 	<&range 67 1 0x1500>,/*gpio67, SOFIA_GPIO67, output, low, PP*/
-	<&range 68 4  0x100>,
+	/* camera related changes */
+  <&range 68 1 0x1500>,/*gpio68, cam1_rst, output, low, PP*/
+  <&range 69 1 0x1500>,/*gpio69, cam1_rst, output, low, PP*/
+  <&range 70 1 0x1500>,/*gpio70, cam1_pd, output, low, PP*/
+  <&range 71 3 0x1500>,/*gpio71, cam2_pd, output, low, PP*/
+ /* camera related changes end */
 	<&range 72 1 0x1500>,/*gpio72, SOFIA_GPIO72, output, low, PP*/
 	<&range 73 1 0x1500>,/*gpio73, SOFIA_GPIO73, output, low, PP*/
 	<&range 74 31 0x100>;
@@ -736,48 +741,48 @@ lcm_sleep_pins:lcm_sleep_pins {
 #ifdef SOFIA3GR_MRD6
 cam1_function_B_active_pins:cam1_function_B_active_pins {
         pinctrl-single,pins = <
-                0x238 0x1500    /* cam1_pd */
+               0x318 0x1500    /* cam1_pd */
                 0x2f4 0x1500    /* cam_flash */
                 0x2f8 0x1500    /* cam_torch */
-                0x304 0x1500    /* cam1_rst */
+               0x310 0x1500    /* cam1_rst */
         >;
 };
 cam1_function_B_inactive_pins:cam1_function_B_inactive_pins {
         pinctrl-single,pins = <
-                0x238 0x4100    /* cam1_pd */
+                0x318 0x4100    /* cam1_pd */
                 0x2f4 0x4100    /* cam_flash */
                 0x2f8 0x4100    /* cam_torch */
-                0x304 0x4100    /* cam1_rst */
+                0x310 0x4100    /* cam1_rst */
         >;
 };
 cam1_function_B_sleep_pins:cam1_function_B_sleep_pins {
         pinctrl-single,pins = <
-                0x238 0x4100    /* cam1_pd */
+                0x318 0x4100    /* cam1_pd */
                 0x2f4 0x4100    /* cam_flash */
                 0x2f8 0x4100    /* cam_torch */
-                0x304 0x4100    /* cam1_rst */
-        >;
+                0x310 0x4100    /* cam1_rst */
+		>;
 };
 cam2_function_B_active_pins:cam2_function_B_active_pins {
-        pinctrl-single,pins = <
-                0x23c 0x1500    /* cam2_pd */
-                0x308 0x1500    /* cam2_rst */
-                0x3a4 0x1010    /* clkout2 */
-        >;
+      pinctrl-single,pins = <
+				0x31c 0x1500    /* cam2_pd */
+				0x314 0x1500    /* cam2_rst */
+				0x3a4 0x1010    /* clkout2 */
+		>;
 };
 cam2_function_B_inactive_pins:cam2_function_B_inactive_pins {
         pinctrl-single,pins = <
-                0x23c 0x4100    /* cam2_pd */
-                0x308 0x4100    /* cam2_rst */
-                0x3a4 0x1010    /* clkout2 */
-        >;
+				0x31c 0x4100    /* cam2_pd */
+				0x314 0x4100    /* cam2_rst */
+				0x3a4 0x1010    /* clkout2 */
+		>;
 };
 cam2_function_B_sleep_pins:cam2_function_B_sleep_pins {
         pinctrl-single,pins = <
-                0x23c 0x4100    /* cam2_pd */
-                0x308 0x4100    /* cam2_rst */
-                0x3a4 0x1010    /* clkout2 */
-        >;
+				0x31c 0x4100    /* cam2_pd */
+				0x314 0x4100    /* cam2_rst */
+				0x3a4 0x1010    /* clkout2 */
+		>;
 };
 #else
 cam_default_pins:cam_default_pins {
